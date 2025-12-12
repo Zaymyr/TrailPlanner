@@ -13,44 +13,24 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
+import { useI18n } from "../../i18n-provider";
 import React, { useMemo, useRef, useState } from "react";
+import type { RacePlannerTranslations } from "../../../locales/types";
 
-const aidStationSchema = z.object({
-  name: z.string().min(1, "Required"),
-  distanceKm: z.coerce.number().nonnegative({ message: "Distance must be positive" }),
-});
+type AidStation = { name: string; distanceKm: number };
 
-const formSchema = z
-  .object({
-    raceDistanceKm: z.coerce.number().positive("Enter a distance in km"),
-    elevationGain: z.coerce.number().nonnegative(),
-    paceType: z.enum(["pace", "speed"]),
-    paceMinutes: z.coerce.number().nonnegative(),
-    paceSeconds: z.coerce.number().min(0).max(59),
-    speedKph: z.coerce.number().positive(),
-    targetIntakePerHour: z.coerce.number().positive("Enter grams per hour"),
-    waterIntakePerHour: z.coerce.number().nonnegative(),
-    sodiumIntakePerHour: z.coerce.number().nonnegative(),
-    aidStations: z.array(aidStationSchema).min(1, "Add at least one aid station"),
-  })
-  .superRefine((values, ctx) => {
-    if (values.paceType === "pace" && values.paceMinutes === 0 && values.paceSeconds === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Pace cannot be 0",
-        path: ["paceMinutes"],
-      });
-    }
-    if (values.paceType === "speed" && values.speedKph <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Speed must be positive",
-        path: ["speedKph"],
-      });
-    }
-  });
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = {
+  raceDistanceKm: number;
+  elevationGain: number;
+  paceType: "pace" | "speed";
+  paceMinutes: number;
+  paceSeconds: number;
+  speedKph: number;
+  targetIntakePerHour: number;
+  waterIntakePerHour: number;
+  sodiumIntakePerHour: number;
+  aidStations: AidStation[];
+};
 
 type Segment = {
   checkpoint: string;
@@ -64,7 +44,6 @@ type Segment = {
 };
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
-type AidStation = { name: string; distanceKm: number };
 
 type ParsedGpx = {
   distanceKm: number;
@@ -72,7 +51,10 @@ type ParsedGpx = {
   elevationProfile: ElevationPoint[];
 };
 
-const DEFAULT_VALUES: FormValues = {
+const formatAidStationName = (template: string, index: number) =>
+  template.replace("{index}", String(index));
+
+const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   raceDistanceKm: 50,
   elevationGain: 2200,
   paceType: "pace",
@@ -83,13 +65,53 @@ const DEFAULT_VALUES: FormValues = {
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 600,
   aidStations: [
-    { name: "Aid 1", distanceKm: 10 },
-    { name: "Aid 2", distanceKm: 20 },
-    { name: "Aid 3", distanceKm: 30 },
-    { name: "Aid 4", distanceKm: 40 },
-    { name: "Final Bottles", distanceKm: 45 },
+    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10 },
+    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20 },
+    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30 },
+    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40 },
+    { name: copy.defaults.finalBottles, distanceKm: 45 },
   ],
-};
+});
+
+const createAidStationSchema = (validation: RacePlannerTranslations["validation"]) =>
+  z.object({
+    name: z.string().min(1, validation.required),
+    distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
+  });
+
+const createFormSchema = (copy: RacePlannerTranslations) =>
+  z
+    .object({
+      raceDistanceKm: z.coerce.number().positive(copy.validation.raceDistance),
+      elevationGain: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      paceType: z.enum(["pace", "speed"]),
+      paceMinutes: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      paceSeconds: z.coerce
+        .number()
+        .min(0, { message: copy.validation.paceSecondsRange })
+        .max(59, { message: copy.validation.paceSecondsRange }),
+      speedKph: z.coerce.number().positive(copy.validation.speedPositive),
+      targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
+      waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
+    })
+    .superRefine((values, ctx) => {
+      if (values.paceType === "pace" && values.paceMinutes === 0 && values.paceSeconds === 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: copy.validation.paceZero,
+          path: ["paceMinutes"],
+        });
+      }
+      if (values.paceType === "speed" && values.speedKph <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: copy.validation.speedPositive,
+          path: ["speedKph"],
+        });
+      }
+    });
 
 function minutesPerKm(values: FormValues) {
   if (values.paceType === "speed") {
@@ -98,11 +120,11 @@ function minutesPerKm(values: FormValues) {
   return values.paceMinutes + values.paceSeconds / 60;
 }
 
-function buildSegments(values: FormValues): Segment[] {
+function buildSegments(values: FormValues, finishLabel: string): Segment[] {
   const minPerKm = minutesPerKm(values);
   const stations = [...values.aidStations].sort((a, b) => a.distanceKm - b.distanceKm);
   const checkpoints = [...stations.filter((s) => s.distanceKm < values.raceDistanceKm)];
-  checkpoints.push({ name: "Finish", distanceKm: values.raceDistanceKm });
+  checkpoints.push({ name: finishLabel, distanceKm: values.raceDistanceKm });
 
   let elapsedMinutes = 0;
   let previousDistance = 0;
@@ -137,10 +159,10 @@ function sanitizeAidStations(stations?: { name?: string; distanceKm?: number }[]
   });
 }
 
-function formatMinutes(totalMinutes: number) {
+function formatMinutes(totalMinutes: number, units: RacePlannerTranslations["units"]) {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = Math.round(totalMinutes % 60);
-  return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
+  return `${hours}${units.hourShort} ${minutes.toString().padStart(2, "0")}${units.minuteShort}`;
 }
 
 function toRadians(degrees: number) {
@@ -159,13 +181,13 @@ function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
   return R * c;
 }
 
-function parseGpx(content: string): ParsedGpx {
+function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
   const parser = new DOMParser();
   const xml = parser.parseFromString(content, "text/xml");
   const trkpts = Array.from(xml.getElementsByTagName("trkpt"));
 
   if (trkpts.length === 0) {
-    throw new Error("No track points found in the GPX file.");
+    throw new Error(copy.gpx.errors.noTrackPoints);
   }
 
   const cumulativeTrack: { lat: number; lon: number; distance: number; elevation: number }[] = [];
@@ -174,7 +196,7 @@ function parseGpx(content: string): ParsedGpx {
     const lon = parseFloat(pt.getAttribute("lon") ?? "");
     const elevation = parseFloat(pt.getElementsByTagName("ele")[0]?.textContent ?? "0");
     if (Number.isNaN(lat) || Number.isNaN(lon)) {
-      throw new Error("Invalid coordinates in track points.");
+      throw new Error(copy.gpx.errors.invalidCoordinates);
     }
 
     if (index === 0) {
@@ -217,13 +239,13 @@ function parseGpx(content: string): ParsedGpx {
       const name =
         wpt.getElementsByTagName("name")[0]?.textContent?.trim() ||
         wpt.getElementsByTagName("desc")[0]?.textContent?.trim() ||
-        "Aid station";
+        copy.gpx.fallbackAidStation;
 
       return { name, distanceKm: Number(((closest?.distance ?? 0) / 1000).toFixed(1)) };
     })
     .filter(Boolean) as ParsedGpx["aidStations"];
 
-  aidStations.push({ name: "Finish", distanceKm: Number((totalMeters / 1000).toFixed(1)) });
+  aidStations.push({ name: copy.defaults.finish, distanceKm: Number((totalMeters / 1000).toFixed(1)) });
 
   const uniqueStations = aidStations
     .filter((station, index, self) =>
@@ -244,25 +266,35 @@ function parseGpx(content: string): ParsedGpx {
 }
 
 export default function RacePlannerPage() {
+  const { t } = useI18n();
+  const racePlannerCopy = t.racePlanner;
+
+  const formSchema = useMemo(() => createFormSchema(racePlannerCopy), [racePlannerCopy]);
+  const defaultValues = useMemo(() => buildDefaultValues(racePlannerCopy), [racePlannerCopy]);
+  const resolver = useMemo(() => zodResolver(formSchema), [formSchema]);
+
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: DEFAULT_VALUES,
+    resolver,
+    defaultValues,
     mode: "onChange",
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
-  const watchedValues = useWatch({ control: form.control, defaultValue: DEFAULT_VALUES });
+  const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const paceType = form.watch("paceType");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
-  const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [watchedValues]);
-  const segments = useMemo(() => (parsedValues.success ? buildSegments(parsedValues.data) : []), [parsedValues]);
+  const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
+  const segments = useMemo(
+    () => (parsedValues.success ? buildSegments(parsedValues.data, racePlannerCopy.defaults.finish) : []),
+    [parsedValues, racePlannerCopy.defaults.finish]
+  );
   const raceDistanceForProgress =
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-    DEFAULT_VALUES.raceDistanceKm;
+    defaultValues.raceDistanceKm;
 
   const raceTotals = useMemo(() => {
     if (!parsedValues.success || segments.length === 0) return null;
@@ -278,24 +310,39 @@ export default function RacePlannerPage() {
     );
   }, [parsedValues.success, segments]);
 
+  const formatDistanceWithUnit = (value: number) =>
+    `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
+
+  const formatSegmentDistance = (value: number) =>
+    racePlannerCopy.sections.timeline.segmentLabel.replace("{distance}", value.toFixed(1));
+
+  const formatFuelAmount = (value: number) =>
+    racePlannerCopy.sections.timeline.fuelLabel.replace("{amount}", value.toFixed(0));
+
+  const formatWaterAmount = (value: number) =>
+    racePlannerCopy.sections.timeline.waterLabel.replace("{amount}", value.toFixed(0));
+
+  const formatSodiumAmount = (value: number) =>
+    racePlannerCopy.sections.timeline.sodiumLabel.replace("{amount}", value.toFixed(0));
+
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     try {
       const content = await file.text();
-      const parsedGpx = parseGpx(content);
+      const parsedGpx = parseGpx(content, racePlannerCopy);
       form.setValue("raceDistanceKm", Number(parsedGpx.distanceKm.toFixed(1)));
       form.setValue(
         "aidStations",
         parsedGpx.aidStations.length > 0
           ? parsedGpx.aidStations
-          : [{ name: "Finish", distanceKm: Number(parsedGpx.distanceKm.toFixed(1)) }]
+          : [{ name: racePlannerCopy.defaults.finish, distanceKm: Number(parsedGpx.distanceKm.toFixed(1)) }]
       );
       setElevationProfile(parsedGpx.elevationProfile);
       setImportError(null);
     } catch (error) {
-      setImportError(error instanceof Error ? error.message : "Unable to import GPX file.");
+      setImportError(error instanceof Error ? error.message : racePlannerCopy.gpx.errors.unableToImport);
     } finally {
       event.target.value = "";
     }
@@ -307,10 +354,8 @@ export default function RacePlannerPage() {
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <CardTitle>Course profile</CardTitle>
-              <CardDescription>
-                Elevation by distance with aid stations highlighted. Import a GPX file to populate the profile.
-              </CardDescription>
+              <CardTitle>{racePlannerCopy.sections.courseProfile.title}</CardTitle>
+              <CardDescription>{racePlannerCopy.sections.courseProfile.description}</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -320,8 +365,9 @@ export default function RacePlannerPage() {
             aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
             totalDistanceKm={
               (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-              DEFAULT_VALUES.raceDistanceKm
+              defaultValues.raceDistanceKm
             }
+            copy={racePlannerCopy}
           />
         </CardContent>
       </Card>
@@ -330,8 +376,8 @@ export default function RacePlannerPage() {
         <CardHeader>
           <div className="flex items-center justify-between gap-3">
             <div>
-              <CardTitle>Race inputs</CardTitle>
-              <CardDescription>Adjust distance, pacing, fueling and import GPX data.</CardDescription>
+              <CardTitle>{racePlannerCopy.sections.raceInputs.title}</CardTitle>
+              <CardDescription>{racePlannerCopy.sections.raceInputs.description}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <input
@@ -342,7 +388,7 @@ export default function RacePlannerPage() {
                 onChange={handleImportGpx}
               />
               <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
-                Import GPX
+                {racePlannerCopy.buttons.importGpx}
               </Button>
             </div>
           </div>
@@ -351,10 +397,10 @@ export default function RacePlannerPage() {
         <CardContent className="space-y-6">
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-sm font-semibold text-slate-100">Course</p>
+              <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="raceDistanceKm">Race distance (km)</Label>
+                  <Label htmlFor="raceDistanceKm">{racePlannerCopy.sections.raceInputs.fields.raceDistance}</Label>
                   <Input
                     id="raceDistanceKm"
                     type="number"
@@ -363,7 +409,7 @@ export default function RacePlannerPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="elevationGain">D+ (m)</Label>
+                  <Label htmlFor="elevationGain">{racePlannerCopy.sections.raceInputs.fields.elevationGain}</Label>
                   <Input
                     id="elevationGain"
                     type="number"
@@ -376,16 +422,16 @@ export default function RacePlannerPage() {
             </div>
 
             <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-sm font-semibold text-slate-100">Pacing & fueling</p>
+              <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
               <div className="grid gap-4 lg:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="paceType">Pacing input</Label>
+                  <Label htmlFor="paceType">{racePlannerCopy.sections.raceInputs.fields.paceType}</Label>
                   <input id="paceType" type="hidden" {...form.register("paceType")} />
                   <div className="grid grid-cols-2 gap-2">
                     {(
                       [
-                        { value: "pace", label: "Pace (min/km)" },
-                        { value: "speed", label: "Speed (km/h)" },
+                        { value: "pace", label: racePlannerCopy.sections.raceInputs.paceOptions.pace },
+                        { value: "speed", label: racePlannerCopy.sections.raceInputs.paceOptions.speed },
                       ] satisfies { value: FormValues["paceType"]; label: string }[]
                     ).map((option) => (
                         <Button
@@ -409,7 +455,7 @@ export default function RacePlannerPage() {
                 {paceType === "pace" ? (
                   <div className="grid grid-cols-[1fr_auto] items-end gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="paceMinutes">Minutes</Label>
+                      <Label htmlFor="paceMinutes">{racePlannerCopy.sections.raceInputs.fields.paceMinutes}</Label>
                       <Input
                         id="paceMinutes"
                         type="number"
@@ -418,7 +464,7 @@ export default function RacePlannerPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="paceSeconds">Seconds</Label>
+                      <Label htmlFor="paceSeconds">{racePlannerCopy.sections.raceInputs.fields.paceSeconds}</Label>
                       <Input
                         id="paceSeconds"
                         type="number"
@@ -430,7 +476,7 @@ export default function RacePlannerPage() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label htmlFor="speedKph">Speed (km/h)</Label>
+                    <Label htmlFor="speedKph">{racePlannerCopy.sections.raceInputs.fields.speedKph}</Label>
                     <Input
                       id="speedKph"
                       type="number"
@@ -444,7 +490,7 @@ export default function RacePlannerPage() {
 
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-2">
-                  <Label htmlFor="targetIntakePerHour">Glucides (g/hr)</Label>
+                  <Label htmlFor="targetIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.targetIntakePerHour}</Label>
                   <Input
                     id="targetIntakePerHour"
                     type="number"
@@ -453,7 +499,7 @@ export default function RacePlannerPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="waterIntakePerHour">Water (ml/hr)</Label>
+                  <Label htmlFor="waterIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.waterIntakePerHour}</Label>
                   <Input
                     id="waterIntakePerHour"
                     type="number"
@@ -463,7 +509,7 @@ export default function RacePlannerPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sodiumIntakePerHour">Sodium (mg/hr)</Label>
+                  <Label htmlFor="sodiumIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.sodiumIntakePerHour}</Label>
                   <Input
                     id="sodiumIntakePerHour"
                     type="number"
@@ -480,33 +526,39 @@ export default function RacePlannerPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Race needs summary</CardTitle>
-          <CardDescription>Totals based on your pacing, fueling and course distance.</CardDescription>
+          <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
+          <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
         </CardHeader>
         <CardContent>
           {raceTotals ? (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">Race duration</p>
-                <p className="text-2xl font-semibold text-slate-50">{formatMinutes(raceTotals.durationMinutes)}</p>
+                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.duration}</p>
+                <p className="text-2xl font-semibold text-slate-50">
+                  {formatMinutes(raceTotals.durationMinutes, racePlannerCopy.units)}
+                </p>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">Total glucides</p>
-                <p className="text-2xl font-semibold text-slate-50">{raceTotals.fuelGrams.toFixed(0)} g</p>
+                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.carbs}</p>
+                <p className="text-2xl font-semibold text-slate-50">
+                  {raceTotals.fuelGrams.toFixed(0)} {racePlannerCopy.units.grams}
+                </p>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">Total water</p>
-                <p className="text-2xl font-semibold text-slate-50">{raceTotals.waterMl.toFixed(0)} ml</p>
+                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.water}</p>
+                <p className="text-2xl font-semibold text-slate-50">
+                  {raceTotals.waterMl.toFixed(0)} {racePlannerCopy.units.milliliters}
+                </p>
               </div>
               <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">Total sodium</p>
-                <p className="text-2xl font-semibold text-slate-50">{raceTotals.sodiumMg.toFixed(0)} mg</p>
+                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.sodium}</p>
+                <p className="text-2xl font-semibold text-slate-50">
+                  {raceTotals.sodiumMg.toFixed(0)} {racePlannerCopy.units.milligrams}
+                </p>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-slate-400">
-              Add your race distance, pacing and fueling to see the totals you need for the event.
-            </p>
+            <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
           )}
         </CardContent>
       </Card>
@@ -515,11 +567,20 @@ export default function RacePlannerPage() {
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
-              <CardTitle>Aid stations</CardTitle>
-              <CardDescription>Edit the checkpoints where you plan to refuel.</CardDescription>
+              <CardTitle>{racePlannerCopy.sections.aidStations.title}</CardTitle>
+              <CardDescription>{racePlannerCopy.sections.aidStations.description}</CardDescription>
             </div>
-            <Button type="button" variant="outline" onClick={() => append({ name: `Aid ${fields.length + 1}`, distanceKm: 0 })}>
-              Add station
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                append({
+                  name: formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
+                  distanceKm: 0,
+                })
+              }
+            >
+              {racePlannerCopy.sections.aidStations.add}
             </Button>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -529,7 +590,9 @@ export default function RacePlannerPage() {
                 className="grid grid-cols-[1.2fr,0.8fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
               >
                 <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.name`}>Name</Label>
+                  <Label htmlFor={`aidStations.${index}.name`}>
+                    {racePlannerCopy.sections.aidStations.labels.name}
+                  </Label>
                   <Input
                     id={`aidStations.${index}.name`}
                     type="text"
@@ -537,7 +600,9 @@ export default function RacePlannerPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.distanceKm`}>Distance (km)</Label>
+                  <Label htmlFor={`aidStations.${index}.distanceKm`}>
+                    {racePlannerCopy.sections.aidStations.labels.distance}
+                  </Label>
                   <Input
                     id={`aidStations.${index}.distanceKm`}
                     type="number"
@@ -547,7 +612,7 @@ export default function RacePlannerPage() {
                   />
                 </div>
                 <Button type="button" variant="ghost" onClick={() => remove(index)}>
-                  Remove
+                  {racePlannerCopy.sections.aidStations.remove}
                 </Button>
               </div>
             ))}
@@ -556,12 +621,12 @@ export default function RacePlannerPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Timeline</CardTitle>
-            <CardDescription>A compact view of where you expect to be on course.</CardDescription>
+            <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
+            <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
           </CardHeader>
           <CardContent>
             {segments.length === 0 ? (
-              <p className="text-sm text-slate-400">Add your pacing details to preview the course timeline.</p>
+              <p className="text-sm text-slate-400">{racePlannerCopy.sections.timeline.empty}</p>
             ) : (
               <div className="space-y-4">
                 {segments.map((segment, index) => (
@@ -574,15 +639,16 @@ export default function RacePlannerPage() {
                         <div>
                           <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
                           <p className="text-xs text-slate-400">
-                            {segment.distanceKm.toFixed(1)} km · ETA {formatMinutes(segment.etaMinutes)}
+                            {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}{" "}
+                            {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
                           </p>
                         </div>
                       </div>
                       <div className="text-right text-xs text-slate-300">
-                        <p>{segment.segmentKm.toFixed(1)} km segment</p>
-                        <p>{segment.fuelGrams.toFixed(0)} g fuel</p>
-                        <p>{segment.waterMl.toFixed(0)} ml water</p>
-                        <p>{segment.sodiumMg.toFixed(0)} mg sodium</p>
+                        <p>{formatSegmentDistance(segment.segmentKm)}</p>
+                        <p>{formatFuelAmount(segment.fuelGrams)}</p>
+                        <p>{formatWaterAmount(segment.waterMl)}</p>
+                        <p>{formatSodiumAmount(segment.sodiumMg)}</p>
                       </div>
                     </div>
                     <div className="h-2 rounded-full bg-slate-800">
@@ -608,13 +674,15 @@ function ElevationProfileChart({
   profile,
   aidStations,
   totalDistanceKm,
+  copy,
 }: {
   profile: ElevationPoint[];
   aidStations: AidStation[];
   totalDistanceKm: number;
+  copy: RacePlannerTranslations;
 }) {
   if (!profile.length || totalDistanceKm <= 0) {
-    return <p className="text-sm text-slate-400">Import a GPX file to see the elevation profile.</p>;
+    return <p className="text-sm text-slate-400">{copy.sections.courseProfile.empty}</p>;
   }
 
   const width = 900;
@@ -656,7 +724,12 @@ function ElevationProfileChart({
 
   return (
     <div className="w-full">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-64 w-full" role="img" aria-label="Course elevation profile">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="h-64 w-full"
+        role="img"
+        aria-label={copy.sections.courseProfile.ariaLabel}
+      >
         <defs>
           <linearGradient id="elevationGradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#34d399" stopOpacity="0.4" />
@@ -676,7 +749,7 @@ function ElevationProfileChart({
               strokeDasharray="4 4"
             />
             <text x={paddingX - 8} y={yScale(tick) + 4} className="fill-slate-400 text-[10px]" textAnchor="end">
-              {tick.toFixed(0)} m
+              {tick.toFixed(0)} {copy.units.meter}
             </text>
           </g>
         ))}
@@ -705,7 +778,7 @@ function ElevationProfileChart({
           className="fill-slate-400 text-[10px]"
           textAnchor="middle"
         >
-          Distance (km)
+          {copy.sections.courseProfile.axisLabel}
         </text>
       </svg>
     </div>
