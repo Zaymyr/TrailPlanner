@@ -2,11 +2,13 @@
 
 import React from "react";
 
-type Locale = "en" | "fr";
+import { translations } from "../locales";
+import type { Locale, Translations } from "../locales/types";
 
 type I18nContextValue = {
   locale: Locale;
   toggleLocale: () => void;
+  t: Translations;
 };
 
 const I18nContext = React.createContext<I18nContextValue | undefined>(undefined);
@@ -45,12 +47,15 @@ export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
     window.localStorage.setItem("locale", locale);
   }, [locale]);
 
+  const t = React.useMemo(() => translations[locale], [locale]);
+
   const value = React.useMemo(
     () => ({
       locale,
       toggleLocale,
+      t,
     }),
-    [locale, toggleLocale],
+    [locale, toggleLocale, t],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
