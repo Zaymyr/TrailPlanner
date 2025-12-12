@@ -27,6 +27,7 @@ type FormValues = {
   paceSeconds: number;
   speedKph: number;
   uphillEffort: number;
+  downhillEffort: number;
   targetIntakePerHour: number;
   waterIntakePerHour: number;
   sodiumIntakePerHour: number;
@@ -63,6 +64,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   paceSeconds: 30,
   speedKph: 9.2,
   uphillEffort: 50,
+  downhillEffort: 50,
   targetIntakePerHour: 70,
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 600,
@@ -94,6 +96,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
         .max(59, { message: copy.validation.paceSecondsRange }),
       speedKph: z.coerce.number().positive(copy.validation.speedPositive),
       uphillEffort: z.coerce.number().min(0).max(100),
+      downhillEffort: z.coerce.number().min(0).max(100),
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
@@ -186,17 +189,33 @@ function adjustedSegmentMinutes(
   baseMinutesPerKm: number,
   segmentKm: number,
   elevation: { ascent: number; descent: number },
-  uphillEffort: number
+  uphillEffort: number,
+  downhillEffort: number
 ) {
   if (segmentKm === 0) return 0;
 
   const ascentPerKm = elevation.ascent / (segmentKm * 1000);
   const descentPerKm = elevation.descent / (segmentKm * 1000);
-  const effortIntensity = 0.5 + uphillEffort / 100; // 0.5x to 1.5x sensitivity
-  const adjustmentFactor = 1 + ascentPerKm * effortIntensity - descentPerKm * 0.35;
-  const safeAdjustment = Math.max(0.65, adjustmentFactor);
+  const normalizedUphillSteepness = Math.min(ascentPerKm / 0.12, 1); // taper effect on very steep climbs
+  const normalizedDownhillSteepness = Math.min(descentPerKm / 0.12, 1);
+  const uphillIntensity = 0.6 + (uphillEffort / 100) * 0.9; // 0.6x to 1.5x
+  const downhillIntensity = 0.4 + (downhillEffort / 100) * 0.9; // 0.4x to 1.3x
+  const uphillPenalty = ascentPerKm * 10 * uphillIntensity * (1 - 0.4 * normalizedUphillSteepness);
+  const downhillBenefit = descentPerKm * 6 * downhillIntensity * (1 - 0.35 * normalizedDownhillSteepness);
+  const adjustmentFactor = 1 + uphillPenalty - downhillBenefit;
+  const safeAdjustment = Math.min(Math.max(0.65, adjustmentFactor), 1.6);
 
   return segmentKm * baseMinutesPerKm * safeAdjustment;
+}
+
+function slopeToColor(grade: number) {
+  const clamped = Math.max(-0.25, Math.min(0.25, grade));
+  const t = (clamped + 0.25) / 0.5;
+  const start = { r: 59, g: 130, b: 246 }; // blue
+  const end = { r: 239, g: 68, b: 68 }; // red
+  const channel = (from: number, to: number) => Math.round(from + (to - from) * t);
+
+  return `rgb(${channel(start.r, end.r)}, ${channel(start.g, end.g)}, ${channel(start.b, end.b)})`;
 }
 
 function buildSegments(values: FormValues, finishLabel: string, elevationProfile: ElevationPoint[]): Segment[] {
@@ -217,7 +236,13 @@ function buildSegments(values: FormValues, finishLabel: string, elevationProfile
       values.elevationGain,
       values.raceDistanceKm
     );
-    const segmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm, elevation, values.uphillEffort);
+    const segmentMinutes = adjustedSegmentMinutes(
+      minPerKm,
+      segmentKm,
+      elevation,
+      values.uphillEffort,
+      values.downhillEffort
+    );
     elapsedMinutes += segmentMinutes;
     const fuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
     const waterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
@@ -369,6 +394,7 @@ export default function RacePlannerPage() {
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const paceType = form.watch("paceType");
   const uphillEffort = form.watch("uphillEffort") ?? defaultValues.uphillEffort;
+  const downhillEffort = form.watch("downhillEffort") ?? defaultValues.downhillEffort;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -578,23 +604,44 @@ export default function RacePlannerPage() {
                 )}
               </div>
 
-              <div className="space-y-2 lg:col-span-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
-                  <span className="text-sm text-slate-300">{uphillEffort}%</span>
+              <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
+                    <span className="text-sm text-slate-300">{uphillEffort}%</span>
+                  </div>
+                  <input
+                    id="uphillEffort"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    className="w-full accent-slate-100"
+                    {...form.register("uphillEffort", { valueAsNumber: true })}
+                  />
+                  <p className="text-xs text-slate-400">
+                    {racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}
+                  </p>
                 </div>
-                <input
-                  id="uphillEffort"
-                  type="range"
-                  min="0"
-                  max="100"
-                  step="5"
-                  className="w-full accent-slate-100"
-                  {...form.register("uphillEffort", { valueAsNumber: true })}
-                />
-                <p className="text-xs text-slate-400">
-                  {racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}
-                </p>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
+                    <span className="text-sm text-slate-300">{downhillEffort}%</span>
+                  </div>
+                  <input
+                    id="downhillEffort"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="5"
+                    className="w-full accent-slate-100"
+                    {...form.register("downhillEffort", { valueAsNumber: true })}
+                  />
+                  <p className="text-xs text-slate-400">
+                    {racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}
+                  </p>
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -831,6 +878,20 @@ function ElevationProfileChart({
     profile[0].distanceKm
   )},${height - paddingY} Z`;
 
+  const slopeSegments = profile.slice(1).map((point, index) => {
+    const prev = profile[index];
+    const deltaDistanceKm = Math.max(point.distanceKm - prev.distanceKm, 0.0001);
+    const grade = (point.elevationM - prev.elevationM) / (deltaDistanceKm * 1000);
+
+    return {
+      x1: xScale(prev.distanceKm),
+      y1: yScale(prev.elevationM),
+      x2: xScale(point.distanceKm),
+      y2: yScale(point.elevationM),
+      color: slopeToColor(grade),
+    };
+  });
+
   return (
     <div className="w-full">
       <svg
@@ -864,7 +925,18 @@ function ElevationProfileChart({
         ))}
 
         <path d={areaPath} fill="url(#elevationGradient)" stroke="none" />
-        <path d={path} fill="none" stroke="#34d399" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+        {slopeSegments.map((segment, index) => (
+          <line
+            key={`${segment.x1}-${segment.x2}-${index}`}
+            x1={segment.x1}
+            y1={segment.y1}
+            x2={segment.x2}
+            y2={segment.y2}
+            stroke={segment.color}
+            strokeWidth={3}
+            strokeLinecap="round"
+          />
+        ))}
 
         {aidStations.map((station) => {
           const x = xScale(station.distanceKm);

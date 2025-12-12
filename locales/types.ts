@@ -62,6 +62,8 @@ export type RacePlannerTranslations = {
         speedKph: string;
         uphillEffort: string;
         uphillEffortHelp: string;
+        downhillEffort: string;
+        downhillEffortHelp: string;
         targetIntakePerHour: string;
         waterIntakePerHour: string;
         sodiumIntakePerHour: string;
