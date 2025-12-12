@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import {
   Card,
@@ -197,11 +197,11 @@ function parseGpx(content: string): ParsedGpx {
         wpt.getElementsByTagName("desc")[0]?.textContent?.trim() ||
         "Aid station";
 
-      return { name, distanceKm: +(closest?.distance ?? 0) / 1000 };
+      return { name, distanceKm: Number(((closest?.distance ?? 0) / 1000).toFixed(1)) };
     })
     .filter(Boolean) as ParsedGpx["aidStations"];
 
-  aidStations.push({ name: "Finish", distanceKm: totalMeters / 1000 });
+  aidStations.push({ name: "Finish", distanceKm: Number((totalMeters / 1000).toFixed(1)) });
 
   const uniqueStations = aidStations
     .filter((station, index, self) =>
@@ -209,7 +209,7 @@ function parseGpx(content: string): ParsedGpx {
     )
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
-  return { distanceKm: totalMeters / 1000, aidStations: uniqueStations };
+  return { distanceKm: Number((totalMeters / 1000).toFixed(1)), aidStations: uniqueStations };
 }
 
 export default function RacePlannerPage() {
@@ -220,7 +220,7 @@ export default function RacePlannerPage() {
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
-  const watchedValues = form.watch();
+  const watchedValues = useWatch({ control: form.control });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
