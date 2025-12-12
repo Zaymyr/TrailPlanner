@@ -67,10 +67,11 @@ type Segment = {
 };
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
+type AidStation = { name: string; distanceKm: number };
 
 type ParsedGpx = {
   distanceKm: number;
-  aidStations: { name: string; distanceKm: number }[];
+  aidStations: AidStation[];
   elevationProfile: ElevationPoint[];
 };
 
@@ -121,6 +122,14 @@ function buildSegments(values: FormValues): Segment[] {
     };
     previousDistance = station.distanceKm;
     return segment;
+  });
+}
+
+function sanitizeAidStations(stations?: { name?: string; distanceKm?: number }[]): AidStation[] {
+  if (!stations?.length) return [];
+
+  return stations.filter((station): station is AidStation => {
+    return typeof station?.name === "string" && typeof station?.distanceKm === "number";
   });
 }
 
@@ -242,6 +251,7 @@ export default function RacePlannerPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
+  const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsed = formSchema.safeParse(watchedValues);
   const segments = parsed.success ? buildSegments(parsed.data) : [];
@@ -287,7 +297,7 @@ export default function RacePlannerPage() {
         <CardContent>
           <ElevationProfileChart
             profile={elevationProfile}
-            aidStations={parsed.success ? parsed.data.aidStations : watchedValues?.aidStations ?? []}
+            aidStations={parsed.success ? parsed.data.aidStations : sanitizedWatchedAidStations}
             totalDistanceKm={
               (parsed.success ? parsed.data.raceDistanceKm : watchedValues?.raceDistanceKm) ?? DEFAULT_VALUES.raceDistanceKm
             }
@@ -543,7 +553,7 @@ function ElevationProfileChart({
   totalDistanceKm,
 }: {
   profile: ElevationPoint[];
-  aidStations: { name: string; distanceKm: number }[];
+  aidStations: AidStation[];
   totalDistanceKm: number;
 }) {
   if (!profile.length || totalDistanceKm <= 0) {
