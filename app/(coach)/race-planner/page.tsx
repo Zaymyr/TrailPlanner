@@ -46,6 +46,7 @@ type Segment = {
 };
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
+type SpeedSample = { distanceKm: number; speedKph: number };
 
 type ParsedGpx = {
   distanceKm: number;
@@ -216,6 +217,34 @@ function slopeToColor(grade: number) {
   const channel = (from: number, to: number) => Math.round(from + (to - from) * t);
 
   return `rgb(${channel(start.r, end.r)}, ${channel(start.g, end.g)}, ${channel(start.b, end.b)})`;
+}
+
+function smoothSpeedSamples(samples: SpeedSample[], windowKm = 0.75): SpeedSample[] {
+  if (samples.length <= 2) return samples;
+
+  const halfWindow = windowKm / 2;
+  let left = 0;
+  let right = 0;
+  let runningSum = 0;
+
+  return samples.map((sample) => {
+    const center = sample.distanceKm;
+
+    while (left < samples.length && center - samples[left].distanceKm > halfWindow) {
+      runningSum -= samples[left].speedKph;
+      left += 1;
+    }
+
+    while (right < samples.length && samples[right].distanceKm - center <= halfWindow) {
+      runningSum += samples[right].speedKph;
+      right += 1;
+    }
+
+    const count = Math.max(right - left, 1);
+    const average = runningSum / count;
+
+    return { distanceKm: sample.distanceKm, speedKph: average };
+  });
 }
 
 function buildSegments(values: FormValues, finishLabel: string, elevationProfile: ElevationPoint[]): Segment[] {
@@ -855,9 +884,15 @@ function ElevationProfileChart({
   }
 
   const width = 900;
-  const height = 260;
   const paddingX = 32;
   const paddingY = 20;
+  const elevationAreaHeight = 200;
+  const speedAreaHeight = 120;
+  const verticalGap = 28;
+  const height = paddingY + elevationAreaHeight + verticalGap + speedAreaHeight + paddingY;
+  const elevationBottom = paddingY + elevationAreaHeight;
+  const speedTop = elevationBottom + verticalGap;
+  const speedBottom = speedTop + speedAreaHeight;
   const maxElevation = Math.max(...profile.map((p) => p.elevationM));
   const minElevation = Math.min(...profile.map((p) => p.elevationM));
   const elevationRange = Math.max(maxElevation - minElevation, 1);
@@ -867,7 +902,7 @@ function ElevationProfileChart({
   const xScale = (distanceKm: number) =>
     paddingX + Math.min(Math.max(distanceKm, 0), totalDistanceKm) * ((width - paddingX * 2) / totalDistanceKm);
   const yScale = (elevation: number) =>
-    height - paddingY - ((elevation - minElevation) / elevationRange) * (height - paddingY * 2);
+    elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight;
 
   const getElevationAtDistance = (distanceKm: number) => {
     if (profile.length === 0) return minElevation;
@@ -887,9 +922,9 @@ function ElevationProfileChart({
     .map((point, index) => `${index === 0 ? "M" : "L"}${xScale(point.distanceKm)},${yScale(point.elevationM)}`)
     .join(" ");
 
-  const areaPath = `${path} L${xScale(profile.at(-1)?.distanceKm ?? 0)},${height - paddingY} L${xScale(
+  const areaPath = `${path} L${xScale(profile.at(-1)?.distanceKm ?? 0)},${elevationBottom} L${xScale(
     profile[0].distanceKm
-  )},${height - paddingY} Z`;
+  )},${elevationBottom} Z`;
 
   const slopeSegments = profile.slice(1).map((point, index) => {
     const prev = profile[index];
@@ -928,15 +963,13 @@ function ElevationProfileChart({
           const midpoint = prev.distanceKm + segmentKm / 2;
           return [{ distanceKm: midpoint, speedKph }];
         });
-
-  const maxSpeedKph = speedSamples.length > 0 ? Math.max(...speedSamples.map((s) => s.speedKph)) : 0;
-  const minSpeedKph = speedSamples.length > 0 ? Math.min(...speedSamples.map((s) => s.speedKph)) : 0;
+  const smoothedSpeedSamples = smoothSpeedSamples(speedSamples, 0.8);
+  const maxSpeedKph = smoothedSpeedSamples.length > 0 ? Math.max(...smoothedSpeedSamples.map((s) => s.speedKph)) : 0;
+  const minSpeedKph = smoothedSpeedSamples.length > 0 ? Math.min(...smoothedSpeedSamples.map((s) => s.speedKph)) : 0;
   const speedRange = Math.max(maxSpeedKph - minSpeedKph, 1);
-  const speedBandHeight = (height - paddingY * 2) * 0.35;
-  const speedBaseY = paddingY + speedBandHeight;
   const speedYScale = (speedKph: number) =>
-    speedBaseY - ((speedKph - minSpeedKph) / speedRange) * speedBandHeight;
-  const speedPath = speedSamples
+    speedBottom - ((speedKph - minSpeedKph) / speedRange) * speedAreaHeight;
+  const speedPath = smoothedSpeedSamples
     .map((sample, index) => `${index === 0 ? "M" : "L"}${xScale(sample.distanceKm)},${speedYScale(sample.speedKph)}`)
     .join(" ");
 
@@ -944,7 +977,7 @@ function ElevationProfileChart({
     <div className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-64 w-full"
+        className="h-80 w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
       >
@@ -986,8 +1019,24 @@ function ElevationProfileChart({
           />
         ))}
 
-        {speedSamples.length > 1 && speedPath && (
+        {smoothedSpeedSamples.length > 1 && speedPath && (
           <>
+            <rect
+              x={paddingX}
+              y={speedTop - 10}
+              width={width - paddingX * 2}
+              height={speedAreaHeight + 20}
+              rx={10}
+              className="fill-slate-900/40"
+            />
+            <line
+              x1={paddingX}
+              x2={width - paddingX}
+              y1={speedBottom}
+              y2={speedBottom}
+              stroke="#0f172a"
+              strokeWidth={1}
+            />
             <path
               d={speedPath}
               fill="none"
@@ -999,16 +1048,16 @@ function ElevationProfileChart({
             />
             <g>
               <rect
-                x={width - paddingX - 120}
-                y={speedBaseY - speedBandHeight - 6}
+                x={width - paddingX - 140}
+                y={speedTop}
                 width={120}
-                height={18}
+                height={20}
                 rx={4}
                 className="fill-slate-900/70"
               />
               <text
-                x={width - paddingX - 60}
-                y={speedBaseY - speedBandHeight + 7}
+                x={width - paddingX - 80}
+                y={speedTop + 14}
                 className="fill-cyan-200 text-[10px]"
                 textAnchor="middle"
               >
@@ -1025,7 +1074,7 @@ function ElevationProfileChart({
             </text>
             <text
               x={width - paddingX}
-              y={speedYScale(minSpeedKph) + 10}
+              y={speedYScale(minSpeedKph) + 12}
               className="fill-cyan-100 text-[10px]"
               textAnchor="end"
             >
@@ -1040,9 +1089,9 @@ function ElevationProfileChart({
           const y = yScale(elevationAtPoint);
           return (
             <g key={`${station.name}-${station.distanceKm}`}>
-              <line x1={x} x2={x} y1={y} y2={height - paddingY} stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="2 3" />
+              <line x1={x} x2={x} y1={y} y2={elevationBottom} stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="2 3" />
               <circle cx={x} cy={y} r={4} fill="#fbbf24" />
-              <text x={x} y={height - 6} className="fill-slate-300 text-[10px]" textAnchor="middle">
+              <text x={x} y={elevationBottom + 12} className="fill-slate-300 text-[10px]" textAnchor="middle">
                 {station.name}
               </text>
             </g>
