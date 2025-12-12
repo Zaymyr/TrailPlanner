@@ -26,6 +26,7 @@ type FormValues = {
   paceMinutes: number;
   paceSeconds: number;
   speedKph: number;
+  uphillEffort: number;
   targetIntakePerHour: number;
   waterIntakePerHour: number;
   sodiumIntakePerHour: number;
@@ -61,6 +62,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   paceMinutes: 6,
   paceSeconds: 30,
   speedKph: 9.2,
+  uphillEffort: 50,
   targetIntakePerHour: 70,
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 600,
@@ -91,6 +93,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
         .min(0, { message: copy.validation.paceSecondsRange })
         .max(59, { message: copy.validation.paceSecondsRange }),
       speedKph: z.coerce.number().positive(copy.validation.speedPositive),
+      uphillEffort: z.coerce.number().min(0).max(100),
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
@@ -120,7 +123,83 @@ function minutesPerKm(values: FormValues) {
   return values.paceMinutes + values.paceSeconds / 60;
 }
 
-function buildSegments(values: FormValues, finishLabel: string): Segment[] {
+function getElevationAtDistance(profile: ElevationPoint[], distanceKm: number) {
+  if (profile.length === 0) return 0;
+  if (distanceKm <= profile[0].distanceKm) return profile[0].elevationM;
+
+  for (let i = 1; i < profile.length; i += 1) {
+    const prev = profile[i - 1];
+    const next = profile[i];
+
+    if (distanceKm <= next.distanceKm) {
+      const ratio = (distanceKm - prev.distanceKm) / Math.max(next.distanceKm - prev.distanceKm, 1);
+      return prev.elevationM + (next.elevationM - prev.elevationM) * ratio;
+    }
+  }
+
+  return profile[profile.length - 1].elevationM;
+}
+
+function calculateSegmentElevation(
+  profile: ElevationPoint[],
+  startKm: number,
+  endKm: number,
+  totalElevationGain: number,
+  raceDistanceKm: number
+) {
+  const segmentKm = Math.max(0, endKm - startKm);
+  if (segmentKm === 0) return { ascent: 0, descent: 0 };
+
+  if (profile.length < 2) {
+    const distanceShare = raceDistanceKm > 0 ? segmentKm / raceDistanceKm : 0;
+    return { ascent: Math.max(0, totalElevationGain * distanceShare), descent: 0 };
+  }
+
+  const distances = profile
+    .filter((point) => point.distanceKm > startKm && point.distanceKm < endKm)
+    .map((point) => point.distanceKm);
+
+  distances.unshift(startKm);
+  distances.push(endKm);
+
+  let ascent = 0;
+  let descent = 0;
+
+  for (let i = 1; i < distances.length; i += 1) {
+    const fromDistance = distances[i - 1];
+    const toDistance = distances[i];
+    const fromElevation = getElevationAtDistance(profile, fromDistance);
+    const toElevation = getElevationAtDistance(profile, toDistance);
+    const delta = toElevation - fromElevation;
+
+    if (delta > 0) {
+      ascent += delta;
+    } else if (delta < 0) {
+      descent += Math.abs(delta);
+    }
+  }
+
+  return { ascent, descent };
+}
+
+function adjustedSegmentMinutes(
+  baseMinutesPerKm: number,
+  segmentKm: number,
+  elevation: { ascent: number; descent: number },
+  uphillEffort: number
+) {
+  if (segmentKm === 0) return 0;
+
+  const ascentPerKm = elevation.ascent / (segmentKm * 1000);
+  const descentPerKm = elevation.descent / (segmentKm * 1000);
+  const effortIntensity = 0.5 + uphillEffort / 100; // 0.5x to 1.5x sensitivity
+  const adjustmentFactor = 1 + ascentPerKm * effortIntensity - descentPerKm * 0.35;
+  const safeAdjustment = Math.max(0.65, adjustmentFactor);
+
+  return segmentKm * baseMinutesPerKm * safeAdjustment;
+}
+
+function buildSegments(values: FormValues, finishLabel: string, elevationProfile: ElevationPoint[]): Segment[] {
   const minPerKm = minutesPerKm(values);
   const stations = [...values.aidStations].sort((a, b) => a.distanceKm - b.distanceKm);
   const checkpoints = [...stations.filter((s) => s.distanceKm < values.raceDistanceKm)];
@@ -131,7 +210,14 @@ function buildSegments(values: FormValues, finishLabel: string): Segment[] {
 
   return checkpoints.map((station) => {
     const segmentKm = Math.max(0, station.distanceKm - previousDistance);
-    const segmentMinutes = segmentKm * minPerKm;
+    const elevation = calculateSegmentElevation(
+      elevationProfile,
+      previousDistance,
+      station.distanceKm,
+      values.elevationGain,
+      values.raceDistanceKm
+    );
+    const segmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm, elevation, values.uphillEffort);
     elapsedMinutes += segmentMinutes;
     const fuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
     const waterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
@@ -282,6 +368,7 @@ export default function RacePlannerPage() {
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const paceType = form.watch("paceType");
+  const uphillEffort = form.watch("uphillEffort") ?? defaultValues.uphillEffort;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -289,8 +376,11 @@ export default function RacePlannerPage() {
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
   const segments = useMemo(
-    () => (parsedValues.success ? buildSegments(parsedValues.data, racePlannerCopy.defaults.finish) : []),
-    [parsedValues, racePlannerCopy.defaults.finish]
+    () =>
+      parsedValues.success
+        ? buildSegments(parsedValues.data, racePlannerCopy.defaults.finish, elevationProfile)
+        : [],
+    [elevationProfile, parsedValues, racePlannerCopy.defaults.finish]
   );
   const raceDistanceForProgress =
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
@@ -486,6 +576,25 @@ export default function RacePlannerPage() {
                     />
                   </div>
                 )}
+              </div>
+
+              <div className="space-y-2 lg:col-span-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
+                  <span className="text-sm text-slate-300">{uphillEffort}%</span>
+                </div>
+                <input
+                  id="uphillEffort"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  className="w-full accent-slate-100"
+                  {...form.register("uphillEffort", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-slate-400">
+                  {racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}
+                </p>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">

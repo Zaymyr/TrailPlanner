@@ -62,6 +62,8 @@ export const fr: Translations = {
           paceMinutes: "Minutes",
           paceSeconds: "Secondes",
           speedKph: "Vitesse (km/h)",
+          uphillEffort: "Effort en montée",
+          uphillEffortHelp: "Plus haut = davantage de ralentissement en montée et plus de relance en descente.",
           targetIntakePerHour: "Glucides (g/h)",
           waterIntakePerHour: "Eau (ml/h)",
           sodiumIntakePerHour: "Sodium (mg/h)",
