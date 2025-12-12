@@ -23,11 +23,14 @@ const aidStationSchema = z.object({
 const formSchema = z
   .object({
     raceDistanceKm: z.coerce.number().positive("Enter a distance in km"),
+    elevationGain: z.coerce.number().nonnegative(),
     paceType: z.enum(["pace", "speed"]),
     paceMinutes: z.coerce.number().nonnegative(),
     paceSeconds: z.coerce.number().min(0).max(59),
     speedKph: z.coerce.number().positive(),
     targetIntakePerHour: z.coerce.number().positive("Enter grams per hour"),
+    waterIntakePerHour: z.coerce.number().nonnegative(),
+    sodiumIntakePerHour: z.coerce.number().nonnegative(),
     aidStations: z.array(aidStationSchema).min(1, "Add at least one aid station"),
   })
   .superRefine((values, ctx) => {
@@ -56,6 +59,8 @@ type Segment = {
   etaMinutes: number;
   segmentMinutes: number;
   fuelGrams: number;
+  waterMl: number;
+  sodiumMg: number;
 };
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
@@ -69,11 +74,14 @@ type ParsedGpx = {
 
 const DEFAULT_VALUES: FormValues = {
   raceDistanceKm: 50,
+  elevationGain: 2200,
   paceType: "pace",
   paceMinutes: 6,
   paceSeconds: 30,
   speedKph: 9.2,
   targetIntakePerHour: 70,
+  waterIntakePerHour: 500,
+  sodiumIntakePerHour: 600,
   aidStations: [
     { name: "Aid 1", distanceKm: 10 },
     { name: "Aid 2", distanceKm: 20 },
@@ -104,6 +112,8 @@ function buildSegments(values: FormValues): Segment[] {
     const segmentMinutes = segmentKm * minPerKm;
     elapsedMinutes += segmentMinutes;
     const fuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
+    const waterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
+    const sodiumMg = (segmentMinutes / 60) * values.sodiumIntakePerHour;
     const segment: Segment = {
       checkpoint: station.name,
       distanceKm: station.distanceKm,
@@ -111,6 +121,8 @@ function buildSegments(values: FormValues): Segment[] {
       etaMinutes: elapsedMinutes,
       segmentMinutes,
       fuelGrams,
+      waterMl,
+      sodiumMg,
     };
     previousDistance = station.distanceKm;
     return segment;
@@ -240,6 +252,7 @@ export default function RacePlannerPage() {
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: DEFAULT_VALUES });
+  const paceType = form.watch("paceType");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -299,194 +312,246 @@ export default function RacePlannerPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <CardTitle>Race inputs</CardTitle>
-                <CardDescription>Adjust distance, pacing, fueling and aid-station layout.</CardDescription>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".gpx,application/gpx+xml"
-                  className="hidden"
-                  onChange={handleImportGpx}
-                />
-                <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
-                  Import GPX
-                </Button>
-              </div>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle>Race inputs</CardTitle>
+              <CardDescription>Adjust distance, pacing, fueling and import GPX data.</CardDescription>
             </div>
-            {importError && <p className="text-xs text-red-400">{importError}</p>}
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="raceDistanceKm">Race distance (km)</Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  {...form.register("raceDistanceKm", { valueAsNumber: true })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="targetIntakePerHour">Target intake (g/hr)</Label>
-                <Input
-                  id="targetIntakePerHour"
-                  type="number"
-                  step="1"
-                  {...form.register("targetIntakePerHour", { valueAsNumber: true })}
-                />
-              </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".gpx,application/gpx+xml"
+                className="hidden"
+                onChange={handleImportGpx}
+              />
+              <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
+                Import GPX
+              </Button>
             </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="paceType">Pacing input</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    id="paceType"
-                    className="h-10 rounded-md border border-slate-800 bg-slate-900/80 px-3 text-sm text-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
-                    {...form.register("paceType")}
-                  >
-                    <option value="pace">Pace (min/km)</option>
-                    <option value="speed">Speed (km/h)</option>
-                  </select>
-                </div>
-              </div>
-              {form.watch("paceType") === "pace" ? (
-                <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="paceMinutes">Minutes / km</Label>
-                    <Input
-                      id="paceMinutes"
-                      type="number"
-                      min="0"
-                      {...form.register("paceMinutes", { valueAsNumber: true })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="paceSeconds">Seconds</Label>
-                    <Input
-                      id="paceSeconds"
-                      type="number"
-                      min="0"
-                      max="59"
-                      {...form.register("paceSeconds", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-              ) : (
+          </div>
+          {importError && <p className="text-xs text-red-400">{importError}</p>}
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+              <p className="text-sm font-semibold text-slate-100">Course</p>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="speedKph">Speed (km/h)</Label>
+                  <Label htmlFor="raceDistanceKm">Race distance (km)</Label>
                   <Input
-                    id="speedKph"
+                    id="raceDistanceKm"
                     type="number"
-                    step="0.1"
-                    min="0"
-                    {...form.register("speedKph", { valueAsNumber: true })}
+                    step="0.5"
+                    {...form.register("raceDistanceKm", { valueAsNumber: true })}
                   />
                 </div>
-              )}
+                <div className="space-y-2">
+                  <Label htmlFor="elevationGain">D+ (m)</Label>
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    {...form.register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-100">Aid stations</p>
-                  <p className="text-xs text-slate-400">Edit the checkpoints where you plan to refuel.</p>
+            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+              <p className="text-sm font-semibold text-slate-100">Pacing & fueling</p>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="paceType">Pacing input</Label>
+                  <input id="paceType" type="hidden" {...form.register("paceType")} />
+                  <div className="grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { value: "pace", label: "Pace (min/km)" },
+                        { value: "speed", label: "Speed (km/h)" },
+                      ] satisfies { value: FormValues["paceType"]; label: string }[]
+                    ).map((option) => (
+                        <Button
+                          key={option.value}
+                          type="button"
+                          variant={paceType === option.value ? "default" : "outline"}
+                          className="w-full justify-center"
+                          aria-pressed={paceType === option.value}
+                          onClick={() =>
+                            form.setValue("paceType", option.value, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            })
+                          }
+                        >
+                          {option.label}
+                        </Button>
+                      ))}
+                  </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => append({ name: `Aid ${fields.length + 1}`, distanceKm: 0 })}
-                >
-                  Add station
+                {paceType === "pace" ? (
+                  <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="paceMinutes">Minutes</Label>
+                      <Input
+                        id="paceMinutes"
+                        type="number"
+                        min="0"
+                        {...form.register("paceMinutes", { valueAsNumber: true })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="paceSeconds">Seconds</Label>
+                      <Input
+                        id="paceSeconds"
+                        type="number"
+                        min="0"
+                        max="59"
+                        {...form.register("paceSeconds", { valueAsNumber: true })}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="speedKph">Speed (km/h)</Label>
+                    <Input
+                      id="speedKph"
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      {...form.register("speedKph", { valueAsNumber: true })}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="targetIntakePerHour">Glucides (g/hr)</Label>
+                  <Input
+                    id="targetIntakePerHour"
+                    type="number"
+                    step="1"
+                    {...form.register("targetIntakePerHour", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="waterIntakePerHour">Water (ml/hr)</Label>
+                  <Input
+                    id="waterIntakePerHour"
+                    type="number"
+                    step="50"
+                    min="0"
+                    {...form.register("waterIntakePerHour", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sodiumIntakePerHour">Sodium (mg/hr)</Label>
+                  <Input
+                    id="sodiumIntakePerHour"
+                    type="number"
+                    step="50"
+                    min="0"
+                    {...form.register("sodiumIntakePerHour", { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
+            <div>
+              <CardTitle>Aid stations</CardTitle>
+              <CardDescription>Edit the checkpoints where you plan to refuel.</CardDescription>
+            </div>
+            <Button type="button" variant="outline" onClick={() => append({ name: `Aid ${fields.length + 1}`, distanceKm: 0 })}>
+              Add station
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="grid grid-cols-[1.2fr,0.8fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
+              >
+                <div className="space-y-1.5">
+                  <Label htmlFor={`aidStations.${index}.name`}>Name</Label>
+                  <Input
+                    id={`aidStations.${index}.name`}
+                    type="text"
+                    {...form.register(`aidStations.${index}.name` as const)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor={`aidStations.${index}.distanceKm`}>Distance (km)</Label>
+                  <Input
+                    id={`aidStations.${index}.distanceKm`}
+                    type="number"
+                    step="0.5"
+                    className="max-w-[140px]"
+                    {...form.register(`aidStations.${index}.distanceKm` as const, { valueAsNumber: true })}
+                  />
+                </div>
+                <Button type="button" variant="ghost" onClick={() => remove(index)}>
+                  Remove
                 </Button>
               </div>
-
-              <div className="space-y-3">
-                {fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="grid grid-cols-[1fr,1fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
-                  >
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`aidStations.${index}.name`}>Name</Label>
-                      <Input
-                        id={`aidStations.${index}.name`}
-                        type="text"
-                        {...form.register(`aidStations.${index}.name` as const)}
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor={`aidStations.${index}.distanceKm`}>Distance (km)</Label>
-                      <Input
-                        id={`aidStations.${index}.distanceKm`}
-                        type="number"
-                        step="0.5"
-                        {...form.register(`aidStations.${index}.distanceKm` as const, { valueAsNumber: true })}
-                      />
-                    </div>
-                    <Button type="button" variant="ghost" onClick={() => remove(index)}>
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
+            ))}
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Timeline</CardTitle>
-              <CardDescription>A compact view of where you expect to be on course.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {segments.length === 0 ? (
-                <p className="text-sm text-slate-400">Add your pacing details to preview the course timeline.</p>
-              ) : (
-                  <div className="space-y-4">
-                    {segments.map((segment, index) => (
-                      <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
-                              {index + 1}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
-                              <p className="text-xs text-slate-400">
-                                {segment.distanceKm.toFixed(1)} km · ETA {formatMinutes(segment.etaMinutes)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right text-xs text-slate-300">
-                            <p>{segment.segmentKm.toFixed(1)} km segment</p>
-                            <p>{segment.fuelGrams.toFixed(0)} g fuel</p>
-                          </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Timeline</CardTitle>
+            <CardDescription>A compact view of where you expect to be on course.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {segments.length === 0 ? (
+              <p className="text-sm text-slate-400">Add your pacing details to preview the course timeline.</p>
+            ) : (
+              <div className="space-y-4">
+                {segments.map((segment, index) => (
+                  <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
+                          {index + 1}
+                        </span>
+                        <div>
+                          <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
+                          <p className="text-xs text-slate-400">
+                            {segment.distanceKm.toFixed(1)} km · ETA {formatMinutes(segment.etaMinutes)}
+                          </p>
                         </div>
-                        <div className="h-2 rounded-full bg-slate-800">
-                          <div
-                          className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                          style={{
-                            width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
-                          }}
-                        />
+                      </div>
+                      <div className="text-right text-xs text-slate-300">
+                        <p>{segment.segmentKm.toFixed(1)} km segment</p>
+                        <p>{segment.fuelGrams.toFixed(0)} g fuel</p>
+                        <p>{segment.waterMl.toFixed(0)} ml water</p>
+                        <p>{segment.sodiumMg.toFixed(0)} mg sodium</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    <div className="h-2 rounded-full bg-slate-800">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+                        style={{
+                          width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
