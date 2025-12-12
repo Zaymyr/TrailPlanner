@@ -246,6 +246,7 @@ export default function RacePlannerPage() {
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: DEFAULT_VALUES });
+  const paceType = form.watch("paceType");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -305,8 +306,8 @@ export default function RacePlannerPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -360,18 +361,30 @@ export default function RacePlannerPage() {
                 <div className="grid gap-4 lg:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="paceType">Pacing input</Label>
+                    <input id="paceType" type="hidden" {...form.register("paceType")} />
                     <div className="grid grid-cols-2 gap-2">
-                      <select
-                        id="paceType"
-                        className="h-10 rounded-md border border-slate-800 bg-slate-900/80 px-3 text-sm text-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
-                        {...form.register("paceType")}
-                      >
-                        <option value="pace">Pace (min/km)</option>
-                        <option value="speed">Speed (km/h)</option>
-                      </select>
+                      {[{ value: "pace", label: "Pace (min/km)" }, { value: "speed", label: "Speed (km/h)" }].map(
+                        (option) => (
+                          <Button
+                            key={option.value}
+                            type="button"
+                            variant={paceType === option.value ? "default" : "outline"}
+                            className="w-full justify-center"
+                            aria-pressed={paceType === option.value}
+                            onClick={() =>
+                              form.setValue("paceType", option.value, {
+                                shouldValidate: true,
+                                shouldDirty: true,
+                              })
+                            }
+                          >
+                            {option.label}
+                          </Button>
+                        )
+                      )}
                     </div>
                   </div>
-                  {form.watch("paceType") === "pace" ? (
+                  {paceType === "pace" ? (
                     <div className="grid grid-cols-[1fr_auto] items-end gap-3">
                       <div className="space-y-2">
                         <Label htmlFor="paceMinutes">Minutes / km</Label>
@@ -490,51 +503,49 @@ export default function RacePlannerPage() {
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Timeline</CardTitle>
-              <CardDescription>A compact view of where you expect to be on course.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {segments.length === 0 ? (
-                <p className="text-sm text-slate-400">Add your pacing details to preview the course timeline.</p>
-              ) : (
-                  <div className="space-y-4">
-                    {segments.map((segment, index) => (
-                      <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
-                              {index + 1}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
-                              <p className="text-xs text-slate-400">
-                                {segment.distanceKm.toFixed(1)} km · ETA {formatMinutes(segment.etaMinutes)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="text-right text-xs text-slate-300">
-                            <p>{segment.segmentKm.toFixed(1)} km segment</p>
-                            <p>{segment.fuelGrams.toFixed(0)} g fuel</p>
-                          </div>
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Timeline</CardTitle>
+            <CardDescription>A compact view of where you expect to be on course.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {segments.length === 0 ? (
+              <p className="text-sm text-slate-400">Add your pacing details to preview the course timeline.</p>
+            ) : (
+              <div className="space-y-4">
+                {segments.map((segment, index) => (
+                  <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
+                          {index + 1}
+                        </span>
+                        <div>
+                          <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
+                          <p className="text-xs text-slate-400">
+                            {segment.distanceKm.toFixed(1)} km · ETA {formatMinutes(segment.etaMinutes)}
+                          </p>
                         </div>
-                        <div className="h-2 rounded-full bg-slate-800">
-                          <div
-                          className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                          style={{
-                            width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
-                          }}
-                        />
+                      </div>
+                      <div className="text-right text-xs text-slate-300">
+                        <p>{segment.segmentKm.toFixed(1)} km segment</p>
+                        <p>{segment.fuelGrams.toFixed(0)} g fuel</p>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                    <div className="h-2 rounded-full bg-slate-800">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+                        style={{
+                          width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
