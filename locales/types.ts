@@ -47,6 +47,8 @@ export type RacePlannerTranslations = {
       empty: string;
       axisLabel: string;
       ariaLabel: string;
+      speedLabel: string;
+      speedUnit: string;
     };
     raceInputs: {
       title: string;
@@ -60,6 +62,10 @@ export type RacePlannerTranslations = {
         paceMinutes: string;
         paceSeconds: string;
         speedKph: string;
+        uphillEffort: string;
+        uphillEffortHelp: string;
+        downhillEffort: string;
+        downhillEffortHelp: string;
         targetIntakePerHour: string;
         waterIntakePerHour: string;
         sodiumIntakePerHour: string;
