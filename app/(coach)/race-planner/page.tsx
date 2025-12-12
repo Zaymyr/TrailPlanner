@@ -454,7 +454,7 @@ export default function RacePlannerPage() {
               ) : (
                   <div className="space-y-4">
                     {segments.map((segment, index) => (
-                      <div key={segment.checkpoint} className="space-y-2">
+                      <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
                         <div className="flex items-center justify-between text-sm">
                           <div className="flex items-center gap-2">
                             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
