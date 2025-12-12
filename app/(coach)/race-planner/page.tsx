@@ -226,6 +226,8 @@ export default function RacePlannerPage() {
 
   const parsed = formSchema.safeParse(watchedValues);
   const segments = parsed.success ? buildSegments(parsed.data) : [];
+  const raceDistanceForProgress =
+    (parsed.success ? parsed.data.raceDistanceKm : watchedValues?.raceDistanceKm) ?? DEFAULT_VALUES.raceDistanceKm;
 
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -476,7 +478,7 @@ export default function RacePlannerPage() {
                       <div
                         className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
                         style={{
-                          width: `${Math.min((segment.distanceKm / watchedValues.raceDistanceKm) * 100, 100)}%`,
+                          width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
                         }}
                       />
                     </div>
