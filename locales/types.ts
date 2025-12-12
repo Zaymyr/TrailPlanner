@@ -47,6 +47,8 @@ export type RacePlannerTranslations = {
       empty: string;
       axisLabel: string;
       ariaLabel: string;
+      speedLabel: string;
+      speedUnit: string;
     };
     raceInputs: {
       title: string;

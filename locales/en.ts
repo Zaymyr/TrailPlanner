@@ -48,6 +48,8 @@ export const en: Translations = {
         empty: "Import a GPX file to see the elevation profile.",
         axisLabel: "Distance (km)",
         ariaLabel: "Course elevation profile",
+        speedLabel: "Adjusted speed",
+        speedUnit: "km/h",
       },
       raceInputs: {
         title: "Race inputs",

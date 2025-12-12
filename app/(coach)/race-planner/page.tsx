@@ -411,6 +411,10 @@ export default function RacePlannerPage() {
   const raceDistanceForProgress =
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
     defaultValues.raceDistanceKm;
+  const baseMinutesPerKm = useMemo(
+    () => (parsedValues.success ? minutesPerKm(parsedValues.data) : null),
+    [parsedValues]
+  );
 
   const raceTotals = useMemo(() => {
     if (!parsedValues.success || segments.length === 0) return null;
@@ -484,6 +488,9 @@ export default function RacePlannerPage() {
               defaultValues.raceDistanceKm
             }
             copy={racePlannerCopy}
+            baseMinutesPerKm={baseMinutesPerKm}
+            uphillEffort={uphillEffort}
+            downhillEffort={downhillEffort}
           />
         </CardContent>
       </Card>
@@ -831,11 +838,17 @@ function ElevationProfileChart({
   aidStations,
   totalDistanceKm,
   copy,
+  baseMinutesPerKm,
+  uphillEffort,
+  downhillEffort,
 }: {
   profile: ElevationPoint[];
   aidStations: AidStation[];
   totalDistanceKm: number;
   copy: RacePlannerTranslations;
+  baseMinutesPerKm: number | null;
+  uphillEffort: number;
+  downhillEffort: number;
 }) {
   if (!profile.length || totalDistanceKm <= 0) {
     return <p className="text-sm text-slate-400">{copy.sections.courseProfile.empty}</p>;
@@ -892,6 +905,41 @@ function ElevationProfileChart({
     };
   });
 
+  const speedSamples =
+    !baseMinutesPerKm || baseMinutesPerKm <= 0
+      ? []
+      : profile.slice(1).flatMap((point, index) => {
+          const prev = profile[index];
+          const segmentKm = Math.max(point.distanceKm - prev.distanceKm, 0);
+          if (segmentKm === 0) return [];
+
+          const ascent = Math.max(point.elevationM - prev.elevationM, 0);
+          const descent = Math.max(prev.elevationM - point.elevationM, 0);
+          const minutes = adjustedSegmentMinutes(
+            baseMinutesPerKm,
+            segmentKm,
+            { ascent, descent },
+            uphillEffort,
+            downhillEffort
+          );
+          if (minutes <= 0) return [];
+
+          const speedKph = segmentKm / (minutes / 60);
+          const midpoint = prev.distanceKm + segmentKm / 2;
+          return [{ distanceKm: midpoint, speedKph }];
+        });
+
+  const maxSpeedKph = speedSamples.length > 0 ? Math.max(...speedSamples.map((s) => s.speedKph)) : 0;
+  const minSpeedKph = speedSamples.length > 0 ? Math.min(...speedSamples.map((s) => s.speedKph)) : 0;
+  const speedRange = Math.max(maxSpeedKph - minSpeedKph, 1);
+  const speedBandHeight = (height - paddingY * 2) * 0.35;
+  const speedBaseY = paddingY + speedBandHeight;
+  const speedYScale = (speedKph: number) =>
+    speedBaseY - ((speedKph - minSpeedKph) / speedRange) * speedBandHeight;
+  const speedPath = speedSamples
+    .map((sample, index) => `${index === 0 ? "M" : "L"}${xScale(sample.distanceKm)},${speedYScale(sample.speedKph)}`)
+    .join(" ");
+
   return (
     <div className="w-full">
       <svg
@@ -937,6 +985,54 @@ function ElevationProfileChart({
             strokeLinecap="round"
           />
         ))}
+
+        {speedSamples.length > 1 && speedPath && (
+          <>
+            <path
+              d={speedPath}
+              fill="none"
+              stroke="#22d3ee"
+              strokeWidth={2.25}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="drop-shadow-[0_1px_4px_rgba(34,211,238,0.3)]"
+            />
+            <g>
+              <rect
+                x={width - paddingX - 120}
+                y={speedBaseY - speedBandHeight - 6}
+                width={120}
+                height={18}
+                rx={4}
+                className="fill-slate-900/70"
+              />
+              <text
+                x={width - paddingX - 60}
+                y={speedBaseY - speedBandHeight + 7}
+                className="fill-cyan-200 text-[10px]"
+                textAnchor="middle"
+              >
+                {`${copy.sections.courseProfile.speedLabel} (${copy.sections.courseProfile.speedUnit})`}
+              </text>
+            </g>
+            <text
+              x={width - paddingX}
+              y={speedYScale(maxSpeedKph) - 4}
+              className="fill-cyan-100 text-[10px]"
+              textAnchor="end"
+            >
+              {`${maxSpeedKph.toFixed(1)} ${copy.sections.courseProfile.speedUnit}`}
+            </text>
+            <text
+              x={width - paddingX}
+              y={speedYScale(minSpeedKph) + 10}
+              className="fill-cyan-100 text-[10px]"
+              textAnchor="end"
+            >
+              {`${minSpeedKph.toFixed(1)} ${copy.sections.courseProfile.speedUnit}`}
+            </text>
+          </>
+        )}
 
         {aidStations.map((station) => {
           const x = xScale(station.distanceKm);
