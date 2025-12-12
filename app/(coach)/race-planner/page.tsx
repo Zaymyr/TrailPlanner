@@ -59,6 +59,8 @@ type Segment = {
   etaMinutes: number;
   segmentMinutes: number;
   fuelGrams: number;
+  waterMl: number;
+  sodiumMg: number;
 };
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
@@ -110,6 +112,8 @@ function buildSegments(values: FormValues): Segment[] {
     const segmentMinutes = segmentKm * minPerKm;
     elapsedMinutes += segmentMinutes;
     const fuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
+    const waterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
+    const sodiumMg = (segmentMinutes / 60) * values.sodiumIntakePerHour;
     const segment: Segment = {
       checkpoint: station.name,
       distanceKm: station.distanceKm,
@@ -117,6 +121,8 @@ function buildSegments(values: FormValues): Segment[] {
       etaMinutes: elapsedMinutes,
       segmentMinutes,
       fuelGrams,
+      waterMl,
+      sodiumMg,
     };
     previousDistance = station.distanceKm;
     return segment;
@@ -528,6 +534,8 @@ export default function RacePlannerPage() {
                       <div className="text-right text-xs text-slate-300">
                         <p>{segment.segmentKm.toFixed(1)} km segment</p>
                         <p>{segment.fuelGrams.toFixed(0)} g fuel</p>
+                        <p>{segment.waterMl.toFixed(0)} ml water</p>
+                        <p>{segment.sodiumMg.toFixed(0)} mg sodium</p>
                       </div>
                     </div>
                     <div className="h-2 rounded-full bg-slate-800">
