@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import React from "react";
+import React, { useRef, useState } from "react";
 
 const aidStationSchema = z.object({
   name: z.string().min(1, "Required"),
@@ -64,6 +64,11 @@ type Segment = {
   etaMinutes: number;
   segmentMinutes: number;
   fuelGrams: number;
+};
+
+type ParsedGpx = {
+  distanceKm: number;
+  aidStations: { name: string; distanceKm: number }[];
 };
 
 const DEFAULT_VALUES: FormValues = {
@@ -122,6 +127,91 @@ function formatMinutes(totalMinutes: number) {
   return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
 }
 
+function toRadians(degrees: number) {
+  return (degrees * Math.PI) / 180;
+}
+
+function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3; // metres
+  const φ1 = toRadians(lat1);
+  const φ2 = toRadians(lat2);
+  const Δφ = toRadians(lat2 - lat1);
+  const Δλ = toRadians(lon2 - lon1);
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function parseGpx(content: string): ParsedGpx {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(content, "text/xml");
+  const trkpts = Array.from(xml.getElementsByTagName("trkpt"));
+
+  if (trkpts.length === 0) {
+    throw new Error("No track points found in the GPX file.");
+  }
+
+  const cumulativeTrack: { lat: number; lon: number; distance: number }[] = [];
+  trkpts.forEach((pt, index) => {
+    const lat = parseFloat(pt.getAttribute("lat") ?? "");
+    const lon = parseFloat(pt.getAttribute("lon") ?? "");
+    if (Number.isNaN(lat) || Number.isNaN(lon)) {
+      throw new Error("Invalid coordinates in track points.");
+    }
+
+    if (index === 0) {
+      cumulativeTrack.push({ lat, lon, distance: 0 });
+      return;
+    }
+
+    const prev = cumulativeTrack[index - 1];
+    const distance = haversineDistanceMeters(prev.lat, prev.lon, lat, lon);
+    cumulativeTrack.push({ lat, lon, distance: prev.distance + distance });
+  });
+
+  const totalMeters = cumulativeTrack.at(-1)?.distance ?? 0;
+  const wpts = Array.from(xml.getElementsByTagName("wpt"));
+
+  const aidStations = wpts
+    .map((wpt) => {
+      const lat = parseFloat(wpt.getAttribute("lat") ?? "");
+      const lon = parseFloat(wpt.getAttribute("lon") ?? "");
+      if (Number.isNaN(lat) || Number.isNaN(lon)) {
+        return null;
+      }
+
+      let closest = cumulativeTrack[0];
+      let minDistance = Infinity;
+
+      cumulativeTrack.forEach((point) => {
+        const d = haversineDistanceMeters(lat, lon, point.lat, point.lon);
+        if (d < minDistance) {
+          minDistance = d;
+          closest = point;
+        }
+      });
+
+      const name =
+        wpt.getElementsByTagName("name")[0]?.textContent?.trim() ||
+        wpt.getElementsByTagName("desc")[0]?.textContent?.trim() ||
+        "Aid station";
+
+      return { name, distanceKm: +(closest?.distance ?? 0) / 1000 };
+    })
+    .filter(Boolean) as ParsedGpx["aidStations"];
+
+  aidStations.push({ name: "Finish", distanceKm: totalMeters / 1000 });
+
+  const uniqueStations = aidStations
+    .filter((station, index, self) =>
+      index === self.findIndex((s) => s.name === station.name && Math.abs(s.distanceKm - station.distanceKm) < 0.01)
+    )
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+
+  return { distanceKm: totalMeters / 1000, aidStations: uniqueStations };
+}
+
 export default function RacePlannerPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -131,16 +221,57 @@ export default function RacePlannerPage() {
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = form.watch();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const parsed = formSchema.safeParse(watchedValues);
   const segments = parsed.success ? buildSegments(parsed.data) : [];
+
+  const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const content = await file.text();
+      const parsedGpx = parseGpx(content);
+      form.setValue("raceDistanceKm", Number(parsedGpx.distanceKm.toFixed(1)));
+      form.setValue(
+        "aidStations",
+        parsedGpx.aidStations.length > 0
+          ? parsedGpx.aidStations
+          : [{ name: "Finish", distanceKm: Number(parsedGpx.distanceKm.toFixed(1)) }]
+      );
+      setImportError(null);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Unable to import GPX file.");
+    } finally {
+      event.target.value = "";
+    }
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       <Card>
         <CardHeader>
-          <CardTitle>Race inputs</CardTitle>
-          <CardDescription>Adjust distance, pacing, fueling and aid-station layout.</CardDescription>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle>Race inputs</CardTitle>
+              <CardDescription>Adjust distance, pacing, fueling and aid-station layout.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".gpx,application/gpx+xml"
+                className="hidden"
+                onChange={handleImportGpx}
+              />
+              <Button variant="secondary" type="button" onClick={() => fileInputRef.current?.click()}>
+                Import GPX
+              </Button>
+            </div>
+          </div>
+          {importError && <p className="text-xs text-red-400">{importError}</p>}
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">
