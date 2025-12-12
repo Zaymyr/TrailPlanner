@@ -264,6 +264,20 @@ export default function RacePlannerPage() {
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
     DEFAULT_VALUES.raceDistanceKm;
 
+  const raceTotals = useMemo(() => {
+    if (!parsedValues.success || segments.length === 0) return null;
+
+    return segments.reduce(
+      (totals, segment) => ({
+        fuelGrams: totals.fuelGrams + segment.fuelGrams,
+        waterMl: totals.waterMl + segment.waterMl,
+        sodiumMg: totals.sodiumMg + segment.sodiumMg,
+        durationMinutes: totals.durationMinutes + segment.segmentMinutes,
+      }),
+      { fuelGrams: 0, waterMl: 0, sodiumMg: 0, durationMinutes: 0 }
+    );
+  }, [parsedValues.success, segments]);
+
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -461,6 +475,39 @@ export default function RacePlannerPage() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Race needs summary</CardTitle>
+          <CardDescription>Totals based on your pacing, fueling and course distance.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {raceTotals ? (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-sm text-slate-400">Race duration</p>
+                <p className="text-2xl font-semibold text-slate-50">{formatMinutes(raceTotals.durationMinutes)}</p>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-sm text-slate-400">Total glucides</p>
+                <p className="text-2xl font-semibold text-slate-50">{raceTotals.fuelGrams.toFixed(0)} g</p>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-sm text-slate-400">Total water</p>
+                <p className="text-2xl font-semibold text-slate-50">{raceTotals.waterMl.toFixed(0)} ml</p>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-sm text-slate-400">Total sodium</p>
+                <p className="text-2xl font-semibold text-slate-50">{raceTotals.sodiumMg.toFixed(0)} mg</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">
+              Add your race distance, pacing and fueling to see the totals you need for the event.
+            </p>
+          )}
         </CardContent>
       </Card>
 
