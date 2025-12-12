@@ -266,7 +266,7 @@ export default function RacePlannerPage() {
                 className="hidden"
                 onChange={handleImportGpx}
               />
-              <Button variant="secondary" type="button" onClick={() => fileInputRef.current?.click()}>
+              <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
                 Import GPX
               </Button>
             </div>
