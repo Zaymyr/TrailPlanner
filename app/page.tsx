@@ -9,7 +9,7 @@ export default function HomePage() {
       </p>
       <Link
         className="inline-flex h-10 items-center justify-center rounded-md bg-emerald-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400"
-        href="/(coach)/race-planner"
+        href="/race-planner"
       >
         Open race planner
       </Link>
