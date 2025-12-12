@@ -363,8 +363,12 @@ export default function RacePlannerPage() {
                     <Label htmlFor="paceType">Pacing input</Label>
                     <input id="paceType" type="hidden" {...form.register("paceType")} />
                     <div className="grid grid-cols-2 gap-2">
-                      {[{ value: "pace", label: "Pace (min/km)" }, { value: "speed", label: "Speed (km/h)" }].map(
-                        (option) => (
+                      {(
+                        [
+                          { value: "pace", label: "Pace (min/km)" },
+                          { value: "speed", label: "Speed (km/h)" },
+                        ] satisfies { value: FormValues["paceType"]; label: string }[]
+                      ).map((option) => (
                           <Button
                             key={option.value}
                             type="button"
