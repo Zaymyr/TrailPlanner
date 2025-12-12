@@ -25,5 +25,4 @@
     "vitest.config.ts"
   ],
   "exclude": ["node_modules"]
-  "include": ["packages/**/*", "app/**/*", "components/**/*", "vitest.config.ts", "next-env.d.ts"]
 }
