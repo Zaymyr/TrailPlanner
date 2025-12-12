@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["packages/**/*", "apps/**/*", "vitest.config.ts"]
+  "include": ["packages/**/*", "app/**/*", "components/**/*", "vitest.config.ts", "next-env.d.ts"]
 }
