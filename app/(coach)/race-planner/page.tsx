@@ -23,11 +23,14 @@ const aidStationSchema = z.object({
 const formSchema = z
   .object({
     raceDistanceKm: z.coerce.number().positive("Enter a distance in km"),
+    elevationGain: z.coerce.number().nonnegative(),
     paceType: z.enum(["pace", "speed"]),
     paceMinutes: z.coerce.number().nonnegative(),
     paceSeconds: z.coerce.number().min(0).max(59),
     speedKph: z.coerce.number().positive(),
     targetIntakePerHour: z.coerce.number().positive("Enter grams per hour"),
+    waterIntakePerHour: z.coerce.number().nonnegative(),
+    sodiumIntakePerHour: z.coerce.number().nonnegative(),
     aidStations: z.array(aidStationSchema).min(1, "Add at least one aid station"),
   })
   .superRefine((values, ctx) => {
@@ -69,11 +72,14 @@ type ParsedGpx = {
 
 const DEFAULT_VALUES: FormValues = {
   raceDistanceKm: 50,
+  elevationGain: 2200,
   paceType: "pace",
   paceMinutes: 6,
   paceSeconds: 30,
   speedKph: 9.2,
   targetIntakePerHour: 70,
+  waterIntakePerHour: 500,
+  sodiumIntakePerHour: 600,
   aidStations: [
     { name: "Aid 1", distanceKm: 10 },
     { name: "Aid 2", distanceKm: 20 },
@@ -323,75 +329,116 @@ export default function RacePlannerPage() {
             {importError && <p className="text-xs text-red-400">{importError}</p>}
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="raceDistanceKm">Race distance (km)</Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  {...form.register("raceDistanceKm", { valueAsNumber: true })}
-                />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-sm font-semibold text-slate-100">Course</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="raceDistanceKm">Race distance (km)</Label>
+                    <Input
+                      id="raceDistanceKm"
+                      type="number"
+                      step="0.5"
+                      {...form.register("raceDistanceKm", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="elevationGain">D+ (m)</Label>
+                    <Input
+                      id="elevationGain"
+                      type="number"
+                      min="0"
+                      step="50"
+                      {...form.register("elevationGain", { valueAsNumber: true })}
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="targetIntakePerHour">Target intake (g/hr)</Label>
-                <Input
-                  id="targetIntakePerHour"
-                  type="number"
-                  step="1"
-                  {...form.register("targetIntakePerHour", { valueAsNumber: true })}
-                />
-              </div>
-            </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="paceType">Pacing input</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <select
-                    id="paceType"
-                    className="h-10 rounded-md border border-slate-800 bg-slate-900/80 px-3 text-sm text-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
-                    {...form.register("paceType")}
-                  >
-                    <option value="pace">Pace (min/km)</option>
-                    <option value="speed">Speed (km/h)</option>
-                  </select>
+              <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <p className="text-sm font-semibold text-slate-100">Pacing & fueling</p>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="paceType">Pacing input</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        id="paceType"
+                        className="h-10 rounded-md border border-slate-800 bg-slate-900/80 px-3 text-sm text-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                        {...form.register("paceType")}
+                      >
+                        <option value="pace">Pace (min/km)</option>
+                        <option value="speed">Speed (km/h)</option>
+                      </select>
+                    </div>
+                  </div>
+                  {form.watch("paceType") === "pace" ? (
+                    <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="paceMinutes">Minutes / km</Label>
+                        <Input
+                          id="paceMinutes"
+                          type="number"
+                          min="0"
+                          {...form.register("paceMinutes", { valueAsNumber: true })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="paceSeconds">Seconds</Label>
+                        <Input
+                          id="paceSeconds"
+                          type="number"
+                          min="0"
+                          max="59"
+                          {...form.register("paceSeconds", { valueAsNumber: true })}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label htmlFor="speedKph">Speed (km/h)</Label>
+                      <Input
+                        id="speedKph"
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        {...form.register("speedKph", { valueAsNumber: true })}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="targetIntakePerHour">Glucides (g/hr)</Label>
+                    <Input
+                      id="targetIntakePerHour"
+                      type="number"
+                      step="1"
+                      {...form.register("targetIntakePerHour", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="waterIntakePerHour">Water (ml/hr)</Label>
+                    <Input
+                      id="waterIntakePerHour"
+                      type="number"
+                      step="50"
+                      min="0"
+                      {...form.register("waterIntakePerHour", { valueAsNumber: true })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sodiumIntakePerHour">Sodium (mg/hr)</Label>
+                    <Input
+                      id="sodiumIntakePerHour"
+                      type="number"
+                      step="50"
+                      min="0"
+                      {...form.register("sodiumIntakePerHour", { valueAsNumber: true })}
+                    />
+                  </div>
                 </div>
               </div>
-              {form.watch("paceType") === "pace" ? (
-                <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="paceMinutes">Minutes / km</Label>
-                    <Input
-                      id="paceMinutes"
-                      type="number"
-                      min="0"
-                      {...form.register("paceMinutes", { valueAsNumber: true })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="paceSeconds">Seconds</Label>
-                    <Input
-                      id="paceSeconds"
-                      type="number"
-                      min="0"
-                      max="59"
-                      {...form.register("paceSeconds", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="speedKph">Speed (km/h)</Label>
-                  <Input
-                    id="speedKph"
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    {...form.register("speedKph", { valueAsNumber: true })}
-                  />
-                </div>
-              )}
             </div>
 
             <div className="space-y-3">
@@ -413,7 +460,7 @@ export default function RacePlannerPage() {
                 {fields.map((field, index) => (
                   <div
                     key={field.id}
-                    className="grid grid-cols-[1fr,1fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
+                    className="grid grid-cols-[1.2fr,0.8fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
                   >
                     <div className="space-y-1.5">
                       <Label htmlFor={`aidStations.${index}.name`}>Name</Label>
@@ -429,6 +476,7 @@ export default function RacePlannerPage() {
                         id={`aidStations.${index}.distanceKm`}
                         type="number"
                         step="0.5"
+                        className="max-w-[140px]"
                         {...form.register(`aidStations.${index}.distanceKm` as const, { valueAsNumber: true })}
                       />
                     </div>
