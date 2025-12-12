@@ -1,0 +1,179 @@
+name: Supabase Schema Snapshot
+on:
+  workflow_run:
+    workflows: [ "Supabase DB Migrate" ]   # must match the 'name:' of your migrate workflow
+    types:
+      - completed
+permissions:
+  contents: write
+jobs:
+  run-if-success:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      # ... same snapshot steps as before ...
+
+
+      - name: Create docs folder
+        run: mkdir -p docs/db
+
+      - name: Dump schema with pg_dump 17 (Docker)
+        env:
+          SUPABASE_DB_URL_SESSION: ${{ secrets.SUPABASE_DB_URL_SESSION }}
+        run: |
+          docker run --rm \
+            -e SUPABASE_DB_URL_SESSION="$SUPABASE_DB_URL_SESSION" \
+            -v "$PWD:/work" -w /work \
+            postgres:17-alpine \
+            sh -lc 'pg_dump "$SUPABASE_DB_URL_SESSION" --schema-only --no-owner --no-privileges -f docs/db/schema.sql'
+
+      - name: Generate Markdown docs from schema.sql
+        run: |
+          python3 - << 'PY'
+          import re, os, pathlib, json
+
+          schema_path = pathlib.Path("docs/db/schema.sql")
+          out_path = pathlib.Path("docs/db/README.md")
+          sql = schema_path.read_text(encoding="utf-8")
+
+          # --- Simple parsers (robust enough for most pg_dump outputs) ---
+          # Capture CREATE TABLE blocks
+          table_blocks = re.findall(
+              r"CREATE TABLE\s+(?:IF NOT EXISTS\s+)?(?P<schema>\w+)\.(?P<table>\w+)\s*\((?P<body>.*?)\);\s",
+              sql, flags=re.S|re.M)
+
+          # Capture indexes
+          index_defs = re.findall(
+              r"CREATE\s+INDEX\s+(?P<name>\w+)\s+ON\s+(?P<schema>\w+)\.(?P<table>\w+)\s*\((?P<cols>[^)]+)\);",
+              sql, flags=re.S|re.M)
+
+          # Capture foreign keys
+          fk_defs = re.findall(
+              r"ALTER TABLE ONLY\s+(?P<schema>\w+)\.(?P<table>\w+)\s+ADD CONSTRAINT\s+(?P<name>\w+)\s+FOREIGN KEY \((?P<cols>[^)]+)\)\s+REFERENCES\s+(?P<refschema>\w+)\.(?P<reftable>\w+)\s*\((?P<refcols>[^)]+)\)",
+              sql, flags=re.S|re.M)
+
+          # Capture primary keys
+          pk_defs = re.findall(
+              r"ALTER TABLE ONLY\s+(?P<schema>\w+)\.(?P<table>\w+)\s+ADD CONSTRAINT\s+(?P<name>\w+)\s+PRIMARY KEY \((?P<cols>[^)]+)\)",
+              sql, flags=re.S|re.M)
+
+          # Policies
+          policy_defs = re.findall(
+              r"CREATE POLICY\s+(?P<policy>\w+)\s+ON\s+(?P<schema>\w+)\.(?P<table>\w+)\s+FOR\s+(?P<cmd>ALL|SELECT|INSERT|UPDATE|DELETE)"
+              r"(?:\s+TO\s+(?P<roles>[^ ]+))?\s+USING\s+\((?P<using>.*?)\)"
+              r"(?:\s+WITH CHECK\s+\((?P<check>.*?)\))?;", sql, flags=re.S|re.M)
+
+          # Parse columns per table from CREATE TABLE body
+          def parse_columns(body):
+              cols = []
+              parts, depth, current = [], 0, []
+              for ch in body:
+                  if ch == '(':
+                      depth += 1
+                  elif ch == ')':
+                      depth -= 1
+                  if ch == ',' and depth == 0:
+                      parts.append(''.join(current).strip()); current = []
+                  else:
+                      current.append(ch)
+              if current:
+                  parts.append(''.join(current).strip())
+
+              for p in parts:
+                  up = p.upper()
+                  if up.startswith("CONSTRAINT ") or up.startswith("PRIMARY KEY") or up.startswith("FOREIGN KEY"):
+                      continue
+                  m = re.match(r'"?(?P<name>[\w]+)"?\s+(?P<type>[^,]+?)(?:\s+DEFAULT\s+(?P<default>[^,]+))?(?:\s+NOT NULL)?', p, flags=re.I)
+                  if m:
+                      cols.append({
+                          "name": m.group('name'),
+                          "type": m.group('type').strip(),
+                          "not_null": 'NOT NULL' in up,
+                          "default": (m.group('default') or '').strip()
+                      })
+              return cols
+
+          # Build structure
+          tables = {}
+          for sch, tbl, body in table_blocks:
+              tables[(sch, tbl)] = {
+                  "columns": parse_columns(body),
+                  "indexes": [],
+                  "pks": [],
+                  "fks": [],
+                  "rls_enabled": bool(re.search(rf"ALTER TABLE ONLY\s+{sch}\.{tbl}\s+ENABLE ROW LEVEL SECURITY;", sql)),
+                  "policies": []
+              }
+
+          for name, sch, tbl, cols in index_defs:
+              if (sch, tbl) in tables:
+                  tables[(sch, tbl)]["indexes"].append({"name": name, "columns": cols.strip()})
+
+          for sch, tbl, name, cols, rsch, rtbl, rcols in fk_defs:
+              if (sch, tbl) in tables:
+                  tables[(sch, tbl)]["fks"].append({"name": name, "columns": cols.strip(), "ref": f"{rsch}.{rtbl}({rcols.strip()})"})
+
+          for sch, tbl, name, cols in pk_defs:
+              if (sch, tbl) in tables:
+                  tables[(sch, tbl)]["pks"].append({"name": name, "columns": cols.strip()})
+
+          for policy, sch, tbl, cmd, roles, using, check in policy_defs:
+              if (sch, tbl) in tables:
+                  tables[(sch, tbl)]["policies"].append({
+                      "name": policy,
+                      "command": cmd,
+                      "roles": (roles or "public").strip(),
+                      "using": re.sub(r"\s+", " ", using.strip()),
+                      "check": re.sub(r"\s+", " ", (check or "").strip())
+                  })
+
+          # Write Markdown
+          lines = ["# Database Overview\n"]
+          by_schema = {}
+          for (sch, tbl), meta in tables.items():
+              by_schema.setdefault(sch, []).append((tbl, meta))
+
+          for sch in sorted(by_schema):
+              lines.append(f"## Schema `{sch}`\n")
+              for tbl, meta in sorted(by_schema[sch]):
+                  lines.append(f"### Table `{sch}.{tbl}`")
+                  lines.append("\n**Columns**")
+                  lines.append("\n| name | type | not null | default |")
+                  lines.append("|---|---|:---:|---|")
+                  for c in meta["columns"]:
+                      lines.append(f"| `{c['name']}` | `{c['type']}` | {'✅' if c['not_null'] else '❌'} | `{c['default']}` |")
+                  if meta["pks"]:
+                      lines.append("\n**Primary keys**")
+                      for pk in meta["pks"]:
+                          lines.append(f"- `{pk['name']}` on ({pk['columns']})")
+                  if meta["fks"]:
+                      lines.append("\n**Foreign keys**")
+                      for fk in meta["fks"]:
+                          lines.append(f"- `{fk['name']}`: ({fk['columns']}) → {fk['ref']}")
+                  if meta["indexes"]:
+                      lines.append("\n**Indexes**")
+                      for ix in meta["indexes"]:
+                          lines.append(f"- `{ix['name']}` on ({ix['columns']})")
+                  lines.append(f"\n**RLS**: {'✅ enabled' if meta['rls_enabled'] else '❌ disabled'}")
+                  if meta["policies"]:
+                      lines.append("\n**Policies**")
+                      for p in meta["policies"]:
+                          check_txt = f" | CHECK: `{p['check']}`" if p["check"] else ""
+                          lines.append(f"- `{p['name']}` — **{p['command']}** — roles: `{p['roles']}` — USING: `{p['using']}`{check_txt}")
+                  lines.append("\n---\n")
+
+          out_path.write_text("\n".join(lines), encoding="utf-8")
+          print(f"Wrote {out_path} ({out_path.stat().st_size} bytes)")
+          PY
+
+      - name: Commit schema snapshot if changed
+        run: |
+          if [[ -n "$(git status --porcelain docs/db)" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add docs/db
+            git commit -m "chore(db): update schema snapshot"
+            git push
+          else
+            echo "No schema changes."
+          fi
