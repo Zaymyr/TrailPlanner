@@ -13,15 +13,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../../../components/ui/table";
-import React, { useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 
 const aidStationSchema = z.object({
   name: z.string().min(1, "Required"),
@@ -247,16 +239,17 @@ export default function RacePlannerPage() {
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
-  const watchedValues = useWatch({ control: form.control });
+  const watchedValues = useWatch({ control: form.control, defaultValue: DEFAULT_VALUES });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
-  const parsed = formSchema.safeParse(watchedValues);
-  const segments = parsed.success ? buildSegments(parsed.data) : [];
+  const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [watchedValues]);
+  const segments = useMemo(() => (parsedValues.success ? buildSegments(parsedValues.data) : []), [parsedValues]);
   const raceDistanceForProgress =
-    (parsed.success ? parsed.data.raceDistanceKm : watchedValues?.raceDistanceKm) ?? DEFAULT_VALUES.raceDistanceKm;
+    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+    DEFAULT_VALUES.raceDistanceKm;
 
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -297,9 +290,10 @@ export default function RacePlannerPage() {
         <CardContent>
           <ElevationProfileChart
             profile={elevationProfile}
-            aidStations={parsed.success ? parsed.data.aidStations : sanitizedWatchedAidStations}
+            aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
             totalDistanceKm={
-              (parsed.success ? parsed.data.raceDistanceKm : watchedValues?.raceDistanceKm) ?? DEFAULT_VALUES.raceDistanceKm
+              (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+              DEFAULT_VALUES.raceDistanceKm
             }
           />
         </CardContent>
@@ -449,55 +443,6 @@ export default function RacePlannerPage() {
         </Card>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Segment breakdown</CardTitle>
-              <CardDescription>
-                Fuel required per segment and ETA based on your current pacing and intake target.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {segments.length === 0 ? (
-                <p className="text-sm text-slate-400">Complete the form to see your plan.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Checkpoint</TableHead>
-                      <TableHead className="text-right">Dist. (km)</TableHead>
-                      <TableHead className="text-right">Segment (km)</TableHead>
-                      <TableHead className="text-right">Segment time</TableHead>
-                      <TableHead className="text-right">ETA</TableHead>
-                      <TableHead className="text-right">Fuel (g)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {segments.map((segment) => (
-                      <TableRow key={segment.checkpoint}>
-                        <TableCell className="font-medium text-slate-50">{segment.checkpoint}</TableCell>
-                        <TableCell className="text-right text-slate-300">
-                          {segment.distanceKm.toFixed(1)}
-                        </TableCell>
-                        <TableCell className="text-right text-slate-300">
-                          {segment.segmentKm.toFixed(1)}
-                        </TableCell>
-                        <TableCell className="text-right text-slate-300">
-                          {formatMinutes(segment.segmentMinutes)}
-                        </TableCell>
-                        <TableCell className="text-right text-slate-300">
-                          {formatMinutes(segment.etaMinutes)}
-                        </TableCell>
-                        <TableCell className="text-right text-emerald-200">
-                          {segment.fuelGrams.toFixed(0)} g
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Timeline</CardTitle>
