@@ -55,6 +55,7 @@ export type RacePlannerTranslations = {
       description: string;
       courseTitle: string;
       pacingTitle: string;
+      nutritionTitle: string;
       fields: {
         raceDistance: string;
         elevationGain: string;
@@ -85,6 +86,14 @@ export type RacePlannerTranslations = {
         sodium: string;
       };
       empty: string;
+    };
+    gels: {
+      title: string;
+      description: string;
+      empty: string;
+      linkLabel: string;
+      nutrition: string;
+      countLabel: string;
     };
     aidStations: {
       title: string;
