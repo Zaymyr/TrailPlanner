@@ -530,419 +530,412 @@ export default function RacePlannerPage() {
     }
   };
 
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <CardTitle>{racePlannerCopy.sections.courseProfile.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.sections.courseProfile.description}</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ElevationProfileChart
-            profile={elevationProfile}
-            aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
-            totalDistanceKm={
-              (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-              defaultValues.raceDistanceKm
-            }
-            copy={racePlannerCopy}
-            baseMinutesPerKm={baseMinutesPerKm}
-            uphillEffort={uphillEffort}
-            downhillEffort={downhillEffort}
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <CardTitle>{racePlannerCopy.sections.raceInputs.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.sections.raceInputs.description}</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".gpx,application/gpx+xml"
-                className="hidden"
-                onChange={handleImportGpx}
-              />
-              <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
-                {racePlannerCopy.buttons.importGpx}
-              </Button>
-            </div>
-          </div>
-          {importError && <p className="text-xs text-red-400">{importError}</p>}
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-4 lg:grid-cols-2">
-            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="raceDistanceKm">{racePlannerCopy.sections.raceInputs.fields.raceDistance}</Label>
-                  <Input
-                    id="raceDistanceKm"
-                    type="number"
-                    step="0.5"
-                    {...form.register("raceDistanceKm", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="elevationGain">{racePlannerCopy.sections.raceInputs.fields.elevationGain}</Label>
-                  <Input
-                    id="elevationGain"
-                    type="number"
-                    min="0"
-                    step="50"
-                    {...form.register("elevationGain", { valueAsNumber: true })}
-                  />
-                </div>
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>{racePlannerCopy.sections.courseProfile.title}</CardTitle>
+                <CardDescription>{racePlannerCopy.sections.courseProfile.description}</CardDescription>
               </div>
             </div>
+          </CardHeader>
+          <CardContent>
+            <ElevationProfileChart
+              profile={elevationProfile}
+              aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
+              totalDistanceKm={
+                (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+                defaultValues.raceDistanceKm
+              }
+              copy={racePlannerCopy}
+              baseMinutesPerKm={baseMinutesPerKm}
+              uphillEffort={uphillEffort}
+              downhillEffort={downhillEffort}
+            />
+          </CardContent>
+        </Card>
 
-            <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="paceType">{racePlannerCopy.sections.raceInputs.fields.paceType}</Label>
-                  <input id="paceType" type="hidden" {...form.register("paceType")} />
-                  <div className="grid grid-cols-2 gap-2">
-                    {(
-                      [
-                        { value: "pace", label: racePlannerCopy.sections.raceInputs.paceOptions.pace },
-                        { value: "speed", label: racePlannerCopy.sections.raceInputs.paceOptions.speed },
-                      ] satisfies { value: FormValues["paceType"]; label: string }[]
-                    ).map((option) => (
-                        <Button
-                          key={option.value}
-                          type="button"
-                          variant={paceType === option.value ? "default" : "outline"}
-                          className="w-full justify-center"
-                          aria-pressed={paceType === option.value}
-                          onClick={() =>
-                            form.setValue("paceType", option.value, {
-                              shouldValidate: true,
-                              shouldDirty: true,
-                            })
-                          }
-                        >
-                          {option.label}
-                        </Button>
-                      ))}
+        <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr] xl:grid-cols-[1.8fr_1fr]">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>{racePlannerCopy.sections.raceInputs.title}</CardTitle>
+                    <CardDescription>{racePlannerCopy.sections.raceInputs.description}</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".gpx,application/gpx+xml"
+                      className="hidden"
+                      onChange={handleImportGpx}
+                    />
+                    <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
+                      {racePlannerCopy.buttons.importGpx}
+                    </Button>
                   </div>
                 </div>
-                {paceType === "pace" ? (
-                  <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="paceMinutes">{racePlannerCopy.sections.raceInputs.fields.paceMinutes}</Label>
-                      <Input
-                        id="paceMinutes"
-                        type="number"
-                        min="0"
-                        {...form.register("paceMinutes", { valueAsNumber: true })}
-                      />
+                {importError && <p className="text-xs text-red-400">{importError}</p>}
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="raceDistanceKm">{racePlannerCopy.sections.raceInputs.fields.raceDistance}</Label>
+                        <Input
+                          id="raceDistanceKm"
+                          type="number"
+                          step="0.5"
+                          {...form.register("raceDistanceKm", { valueAsNumber: true })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="elevationGain">{racePlannerCopy.sections.raceInputs.fields.elevationGain}</Label>
+                        <Input
+                          id="elevationGain"
+                          type="number"
+                          min="0"
+                          step="50"
+                          {...form.register("elevationGain", { valueAsNumber: true })}
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="paceSeconds">{racePlannerCopy.sections.raceInputs.fields.paceSeconds}</Label>
-                      <Input
-                        id="paceSeconds"
-                        type="number"
-                        min="0"
-                        max="59"
-                        {...form.register("paceSeconds", { valueAsNumber: true })}
-                      />
+                  </div>
+
+                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="paceType">{racePlannerCopy.sections.raceInputs.fields.paceType}</Label>
+                        <input id="paceType" type="hidden" {...form.register("paceType")} />
+                        <div className="grid grid-cols-2 gap-2">
+                          {(
+                            [
+                              { value: "pace", label: racePlannerCopy.sections.raceInputs.paceOptions.pace },
+                              { value: "speed", label: racePlannerCopy.sections.raceInputs.paceOptions.speed },
+                            ] satisfies { value: FormValues["paceType"]; label: string }[]
+                          ).map((option) => (
+                              <Button
+                                key={option.value}
+                                type="button"
+                                variant={paceType === option.value ? "default" : "outline"}
+                                className="w-full justify-center"
+                                aria-pressed={paceType === option.value}
+                                onClick={() =>
+                                  form.setValue("paceType", option.value, {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  })
+                                }
+                              >
+                                {option.label}
+                              </Button>
+                            ))}
+                        </div>
+                      </div>
+                      {paceType === "pace" ? (
+                        <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+                          <div className="space-y-2">
+                            <Label htmlFor="paceMinutes">{racePlannerCopy.sections.raceInputs.fields.paceMinutes}</Label>
+                            <Input
+                              id="paceMinutes"
+                              type="number"
+                              min="0"
+                              {...form.register("paceMinutes", { valueAsNumber: true })}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="paceSeconds">{racePlannerCopy.sections.raceInputs.fields.paceSeconds}</Label>
+                            <Input
+                              id="paceSeconds"
+                              type="number"
+                              min="0"
+                              max="59"
+                              {...form.register("paceSeconds", { valueAsNumber: true })}
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label htmlFor="speedKph">{racePlannerCopy.sections.raceInputs.fields.speedKph}</Label>
+                          <Input
+                            id="speedKph"
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            {...form.register("speedKph", { valueAsNumber: true })}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
+                        <Input
+                          id="uphillEffort"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          {...form.register("uphillEffort", { valueAsNumber: true })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
+                        <Input
+                          id="downhillEffort"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          {...form.register("downhillEffort", { valueAsNumber: true })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.nutritionTitle}</p>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="targetIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.targetIntakePerHour}</Label>
+                        <Input
+                          id="targetIntakePerHour"
+                          type="number"
+                          step="1"
+                          {...form.register("targetIntakePerHour", { valueAsNumber: true })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="waterIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.waterIntakePerHour}</Label>
+                        <Input
+                          id="waterIntakePerHour"
+                          type="number"
+                          step="50"
+                          min="0"
+                          {...form.register("waterIntakePerHour", { valueAsNumber: true })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="sodiumIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.sodiumIntakePerHour}</Label>
+                        <Input
+                          id="sodiumIntakePerHour"
+                          type="number"
+                          step="50"
+                          min="0"
+                          {...form.register("sodiumIntakePerHour", { valueAsNumber: true })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <Card>
+                <CardHeader className="flex flex-row items-start justify-between gap-3">
+                  <div>
+                    <CardTitle>{racePlannerCopy.sections.aidStations.title}</CardTitle>
+                    <CardDescription>{racePlannerCopy.sections.aidStations.description}</CardDescription>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      append({
+                        name: formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
+                        distanceKm: 0,
+                      })
+                    }
+                  >
+                    {racePlannerCopy.sections.aidStations.add}
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {fields.map((field, index) => (
+                    <div
+                      key={field.id}
+                      className="grid grid-cols-[1.2fr,0.8fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
+                    >
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`aidStations.${index}.name`}>
+                          {racePlannerCopy.sections.aidStations.labels.name}
+                        </Label>
+                        <Input
+                          id={`aidStations.${index}.name`}
+                          type="text"
+                          {...form.register(`aidStations.${index}.name` as const)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor={`aidStations.${index}.distanceKm`}>
+                          {racePlannerCopy.sections.aidStations.labels.distance}
+                        </Label>
+                        <Input
+                          id={`aidStations.${index}.distanceKm`}
+                          type="number"
+                          step="0.5"
+                          className="max-w-[140px]"
+                          {...form.register(`aidStations.${index}.distanceKm` as const, { valueAsNumber: true })}
+                        />
+                      </div>
+                      <Button type="button" variant="ghost" onClick={() => remove(index)}>
+                        {racePlannerCopy.sections.aidStations.remove}
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
+                  <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {segments.length === 0 ? (
+                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.timeline.empty}</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {segments.map((segment, index) => (
+                        <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
+                                {index + 1}
+                              </span>
+                              <div>
+                                <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
+                                <p className="text-xs text-slate-400">
+                                  {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}{" "}
+                                  {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right text-xs text-slate-300">
+                              <p>{formatSegmentDistance(segment.segmentKm)}</p>
+                              <p>{formatFuelAmount(segment.fuelGrams)}</p>
+                              <p>{formatWaterAmount(segment.waterMl)}</p>
+                              <p>{formatSodiumAmount(segment.sodiumMg)}</p>
+                            </div>
+                          </div>
+                          <div className="h-2 rounded-full bg-slate-800">
+                            <div
+                              className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+                              style={{
+                                width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          <div className="space-y-6 lg:sticky lg:top-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
+                <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {raceTotals ? (
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.duration}</p>
+                      <p className="text-2xl font-semibold text-slate-50">
+                        {formatMinutes(raceTotals.durationMinutes, racePlannerCopy.units)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.carbs}</p>
+                      <p className="text-2xl font-semibold text-slate-50">
+                        {raceTotals.fuelGrams.toFixed(0)} {racePlannerCopy.units.grams}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.water}</p>
+                      <p className="text-2xl font-semibold text-slate-50">
+                        {raceTotals.waterMl.toFixed(0)} {racePlannerCopy.units.milliliters}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.sodium}</p>
+                      <p className="text-2xl font-semibold text-slate-50">
+                        {raceTotals.sodiumMg.toFixed(0)} {racePlannerCopy.units.milligrams}
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="speedKph">{racePlannerCopy.sections.raceInputs.fields.speedKph}</Label>
-                    <Input
-                      id="speedKph"
-                      type="number"
-                      step="0.1"
-                      min="0"
-                      {...form.register("speedKph", { valueAsNumber: true })}
-                    />
-                  </div>
+                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
                 )}
-              </div>
+              </CardContent>
+            </Card>
 
-              <div className="grid gap-4 lg:col-span-2 lg:grid-cols-2">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
-                    <span className="text-sm text-slate-300">{uphillEffort}%</span>
-                  </div>
-                  <input
-                    id="uphillEffort"
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    className="w-full accent-slate-100"
-                    {...form.register("uphillEffort", { valueAsNumber: true })}
-                  />
-                  <p className="text-xs text-slate-400">
-                    {racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
-                    <span className="text-sm text-slate-300">{downhillEffort}%</span>
-                  </div>
-                  <input
-                    id="downhillEffort"
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    className="w-full accent-slate-100"
-                    {...form.register("downhillEffort", { valueAsNumber: true })}
-                  />
-                  <p className="text-xs text-slate-400">
-                    {racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="targetIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.targetIntakePerHour}</Label>
-                  <Input
-                    id="targetIntakePerHour"
-                    type="number"
-                    step="1"
-                    {...form.register("targetIntakePerHour", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="waterIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.waterIntakePerHour}</Label>
-                  <Input
-                    id="waterIntakePerHour"
-                    type="number"
-                    step="50"
-                    min="0"
-                    {...form.register("waterIntakePerHour", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sodiumIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.sodiumIntakePerHour}</Label>
-                  <Input
-                    id="sodiumIntakePerHour"
-                    type="number"
-                    step="50"
-                    min="0"
-                    {...form.register("sodiumIntakePerHour", { valueAsNumber: true })}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
-          <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {raceTotals ? (
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.duration}</p>
-                <p className="text-2xl font-semibold text-slate-50">
-                  {formatMinutes(raceTotals.durationMinutes, racePlannerCopy.units)}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.carbs}</p>
-                <p className="text-2xl font-semibold text-slate-50">
-                  {raceTotals.fuelGrams.toFixed(0)} {racePlannerCopy.units.grams}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.water}</p>
-                <p className="text-2xl font-semibold text-slate-50">
-                  {raceTotals.waterMl.toFixed(0)} {racePlannerCopy.units.milliliters}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.sodium}</p>
-                <p className="text-2xl font-semibold text-slate-50">
-                  {raceTotals.sodiumMg.toFixed(0)} {racePlannerCopy.units.milligrams}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{racePlannerCopy.sections.gels.title}</CardTitle>
-          <CardDescription>{racePlannerCopy.sections.gels.description}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {!raceTotals ? (
-            <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {gelEstimates.map((gel) => (
-                <div
-                  key={gel.name}
-                  className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-50">{gel.name}</p>
-                      <p className="text-sm text-slate-400">
-                        {racePlannerCopy.sections.gels.nutrition
-                          .replace("{carbs}", gel.carbs.toString())
-                          .replace("{sodium}", gel.sodium.toString())}
-                      </p>
-                    </div>
-                    <a
-                      href={gel.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
-                    >
-                      {racePlannerCopy.sections.gels.linkLabel}
-                    </a>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-slate-200">
-                    <p>
-                      {racePlannerCopy.sections.gels.countLabel.replace(
-                        "{count}",
-                        Math.max(gel.count, 0).toString()
-                      )}
-                    </p>
-                    <p className="text-xs text-slate-500">{gel.carbs} g</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <div>
-              <CardTitle>{racePlannerCopy.sections.aidStations.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.sections.aidStations.description}</CardDescription>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                append({
-                  name: formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
-                  distanceKm: 0,
-                })
-              }
-            >
-              {racePlannerCopy.sections.aidStations.add}
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {fields.map((field, index) => (
-              <div
-                key={field.id}
-                className="grid grid-cols-[1.2fr,0.8fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
-              >
-                <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.name`}>
-                    {racePlannerCopy.sections.aidStations.labels.name}
-                  </Label>
-                  <Input
-                    id={`aidStations.${index}.name`}
-                    type="text"
-                    {...form.register(`aidStations.${index}.name` as const)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.distanceKm`}>
-                    {racePlannerCopy.sections.aidStations.labels.distance}
-                  </Label>
-                  <Input
-                    id={`aidStations.${index}.distanceKm`}
-                    type="number"
-                    step="0.5"
-                    className="max-w-[140px]"
-                    {...form.register(`aidStations.${index}.distanceKm` as const, { valueAsNumber: true })}
-                  />
-                </div>
-                <Button type="button" variant="ghost" onClick={() => remove(index)}>
-                  {racePlannerCopy.sections.aidStations.remove}
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
-            <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {segments.length === 0 ? (
-              <p className="text-sm text-slate-400">{racePlannerCopy.sections.timeline.empty}</p>
-            ) : (
-              <div className="space-y-4">
-                {segments.map((segment, index) => (
-                  <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
-                          <p className="text-xs text-slate-400">
-                            {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}{" "}
-                            {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
+            <Card>
+              <CardHeader>
+                <CardTitle>{racePlannerCopy.sections.gels.title}</CardTitle>
+                <CardDescription>{racePlannerCopy.sections.gels.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!raceTotals ? (
+                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {gelEstimates.map((gel) => (
+                      <div
+                        key={gel.name}
+                        className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-50">{gel.name}</p>
+                            <p className="text-sm text-slate-400">
+                              {racePlannerCopy.sections.gels.nutrition
+                                .replace("{carbs}", gel.carbs.toString())
+                                .replace("{sodium}", gel.sodium.toString())}
+                            </p>
+                          </div>
+                          <a
+                            href={gel.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
+                          >
+                            {racePlannerCopy.sections.gels.linkLabel}
+                          </a>
+                        </div>
+                        <div className="flex items-center justify-between text-sm text-slate-200">
+                          <p>
+                            {racePlannerCopy.sections.gels.countLabel.replace(
+                              "{count}",
+                              Math.max(gel.count, 0).toString()
+                            )}
                           </p>
+                          <p className="text-xs text-slate-500">{gel.carbs} g</p>
                         </div>
                       </div>
-                      <div className="text-right text-xs text-slate-300">
-                        <p>{formatSegmentDistance(segment.segmentKm)}</p>
-                        <p>{formatFuelAmount(segment.fuelGrams)}</p>
-                        <p>{formatWaterAmount(segment.waterMl)}</p>
-                        <p>{formatSodiumAmount(segment.sodiumMg)}</p>
-                      </div>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-800">
-                      <div
-                        className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                        style={{
-                          width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
-                        }}
-                      />
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
 function ElevationProfileChart({
   profile,
