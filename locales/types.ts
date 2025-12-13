@@ -55,6 +55,7 @@ export type RacePlannerTranslations = {
       description: string;
       courseTitle: string;
       pacingTitle: string;
+      nutritionTitle: string;
       fields: {
         raceDistance: string;
         elevationGain: string;

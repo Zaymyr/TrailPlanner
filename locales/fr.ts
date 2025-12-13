@@ -57,6 +57,7 @@ export const fr: Translations = {
         description: "Ajustez la distance, l'allure, la nutrition et importez des données GPX.",
         courseTitle: "Parcours",
         pacingTitle: "Allure & nutrition",
+        nutritionTitle: "Cibles nutritionnelles",
         fields: {
           raceDistance: "Distance de course (km)",
           elevationGain: "D+ (m)",
