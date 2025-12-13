@@ -845,7 +845,7 @@ export default function RacePlannerPage() {
                           step="5"
                           {...form.register("uphillEffort", { valueAsNumber: true })}
                         />
-                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.uphillHelper}</p>
+                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
@@ -857,7 +857,7 @@ export default function RacePlannerPage() {
                           step="5"
                           {...form.register("downhillEffort", { valueAsNumber: true })}
                         />
-                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.downhillHelper}</p>
+                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}</p>
                       </div>
                     </div>
                   </div>
