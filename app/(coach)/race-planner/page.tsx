@@ -459,9 +459,6 @@ export default function RacePlannerPage() {
         : [],
     [elevationProfile, parsedValues, racePlannerCopy.defaults.finish]
   );
-  const raceDistanceForProgress =
-    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-    defaultValues.raceDistanceKm;
   const baseMinutesPerKm = useMemo(
     () => (parsedValues.success ? minutesPerKm(parsedValues.data) : null),
     [parsedValues]
@@ -495,9 +492,6 @@ export default function RacePlannerPage() {
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
-  const formatSegmentDistance = (value: number) =>
-    racePlannerCopy.sections.timeline.segmentLabel.replace("{distance}", value.toFixed(1));
-
   const formatFuelAmount = (value: number) =>
     racePlannerCopy.sections.timeline.fuelLabel.replace("{amount}", value.toFixed(0));
 
@@ -506,6 +500,11 @@ export default function RacePlannerPage() {
 
   const formatSodiumAmount = (value: number) =>
     racePlannerCopy.sections.timeline.sodiumLabel.replace("{amount}", value.toFixed(0));
+
+  const calculatePercentage = (value: number, total?: number) => {
+    if (!total || total <= 0) return 0;
+    return Math.min((value / total) * 100, 100);
+  };
 
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -730,20 +729,47 @@ export default function RacePlannerPage() {
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right text-xs text-slate-300">
-                              <p>{formatSegmentDistance(segment.segmentKm)}</p>
-                              <p>{formatFuelAmount(segment.fuelGrams)}</p>
-                              <p>{formatWaterAmount(segment.waterMl)}</p>
-                              <p>{formatSodiumAmount(segment.sodiumMg)}</p>
-                            </div>
                           </div>
-                          <div className="h-2 rounded-full bg-slate-800">
-                            <div
-                              className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                              style={{
-                                width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
-                              }}
-                            />
+                          <div className="space-y-2">
+                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 to-purple-600"
+                                style={{ width: `${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams)}%` }}
+                              />
+                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                <span className="truncate">{racePlannerCopy.sections.summary.items.carbs}</span>
+                                <span className="shrink-0">
+                                  {formatFuelAmount(segment.fuelGrams)} ·
+                                  {` ${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams).toFixed(0)}%`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-sky-500"
+                                style={{ width: `${calculatePercentage(segment.waterMl, raceTotals?.waterMl)}%` }}
+                              />
+                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                <span className="truncate">{racePlannerCopy.sections.summary.items.water}</span>
+                                <span className="shrink-0">
+                                  {formatWaterAmount(segment.waterMl)} ·
+                                  {` ${calculatePercentage(segment.waterMl, raceTotals?.waterMl).toFixed(0)}%`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-slate-500"
+                                style={{ width: `${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg)}%` }}
+                              />
+                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                <span className="truncate">{racePlannerCopy.sections.summary.items.sodium}</span>
+                                <span className="shrink-0">
+                                  {formatSodiumAmount(segment.sodiumMg)} ·
+                                  {` ${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg).toFixed(0)}%`}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
