@@ -80,13 +80,21 @@ export const fr: Translations = {
       summary: {
         title: "Synthèse des besoins de course",
         description: "Totaux calculés selon votre allure, votre nutrition et la distance du parcours.",
-        items: {
-          duration: "Durée de course",
-          carbs: "Glucides totaux",
-          water: "Eau totale",
-          sodium: "Sodium total",
-        },
-        empty: "Ajoutez la distance, l'allure et la nutrition pour voir les totaux nécessaires pour l'événement.",
+      items: {
+        duration: "Durée de course",
+        carbs: "Glucides totaux",
+        water: "Eau totale",
+        sodium: "Sodium total",
+      },
+      empty: "Ajoutez la distance, l'allure et la nutrition pour voir les totaux nécessaires pour l'événement.",
+    },
+      gels: {
+        title: "Gels énergétiques",
+        description: "Comparez quelques gels populaires et estimez le nombre de portions pour couvrir vos glucides.",
+        empty: "Renseignez votre allure et vos objectifs nutritionnels pour calculer les gels nécessaires.",
+        linkLabel: "Voir le produit",
+        nutrition: "{carbs} g de glucides · {sodium} mg de sodium par gel",
+        countLabel: "{count} gels nécessaires",
       },
       aidStations: {
         title: "Ravitaillements",

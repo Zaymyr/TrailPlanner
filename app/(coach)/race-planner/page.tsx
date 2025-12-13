@@ -47,6 +47,34 @@ type Segment = {
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
 type SpeedSample = { distanceKm: number; speedKph: number };
+type GelOption = { name: string; carbs: number; sodium: number; url: string };
+
+const gelOptions: GelOption[] = [
+  {
+    name: "Maurten Gel 100",
+    carbs: 25,
+    sodium: 85,
+    url: "https://www.maurten.com/products/gel-100",
+  },
+  {
+    name: "GU Energy Gel",
+    carbs: 22,
+    sodium: 60,
+    url: "https://guenergy.com/products/energy-gel",
+  },
+  {
+    name: "SIS GO Isotonic Gel",
+    carbs: 22,
+    sodium: 10,
+    url: "https://www.scienceinsport.com/products/go-isotonic-energy-gel",
+  },
+  {
+    name: "Spring Energy Awesome Sauce",
+    carbs: 45,
+    sodium: 60,
+    url: "https://myspringenergy.com/product/awesome-sauce/",
+  },
+];
 
 type ParsedGpx = {
   distanceKm: number;
@@ -459,6 +487,17 @@ export default function RacePlannerPage() {
     );
   }, [parsedValues.success, segments]);
 
+  const gelEstimates = useMemo(
+    () =>
+      raceTotals
+        ? gelOptions.map((gel) => ({
+            ...gel,
+            count: raceTotals.fuelGrams > 0 ? Math.ceil(raceTotals.fuelGrams / gel.carbs) : 0,
+          }))
+        : [],
+    [raceTotals]
+  );
+
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
@@ -751,6 +790,55 @@ export default function RacePlannerPage() {
             </div>
           ) : (
             <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{racePlannerCopy.sections.gels.title}</CardTitle>
+          <CardDescription>{racePlannerCopy.sections.gels.description}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!raceTotals ? (
+            <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {gelEstimates.map((gel) => (
+                <div
+                  key={gel.name}
+                  className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-slate-50">{gel.name}</p>
+                      <p className="text-sm text-slate-400">
+                        {racePlannerCopy.sections.gels.nutrition
+                          .replace("{carbs}", gel.carbs.toString())
+                          .replace("{sodium}", gel.sodium.toString())}
+                      </p>
+                    </div>
+                    <a
+                      href={gel.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
+                    >
+                      {racePlannerCopy.sections.gels.linkLabel}
+                    </a>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-slate-200">
+                    <p>
+                      {racePlannerCopy.sections.gels.countLabel.replace(
+                        "{count}",
+                        Math.max(gel.count, 0).toString()
+                      )}
+                    </p>
+                    <p className="text-xs text-slate-500">{gel.carbs} g</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

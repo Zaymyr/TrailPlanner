@@ -86,6 +86,14 @@ export type RacePlannerTranslations = {
       };
       empty: string;
     };
+    gels: {
+      title: string;
+      description: string;
+      empty: string;
+      linkLabel: string;
+      nutrition: string;
+      countLabel: string;
+    };
     aidStations: {
       title: string;
       description: string;

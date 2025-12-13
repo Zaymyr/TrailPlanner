@@ -79,13 +79,21 @@ export const en: Translations = {
       summary: {
         title: "Race needs summary",
         description: "Totals based on your pacing, fueling and course distance.",
-        items: {
-          duration: "Race duration",
-          carbs: "Total carbs",
-          water: "Total water",
-          sodium: "Total sodium",
-        },
-        empty: "Add your race distance, pacing and fueling to see the totals you need for the event.",
+      items: {
+        duration: "Race duration",
+        carbs: "Total carbs",
+        water: "Total water",
+        sodium: "Total sodium",
+      },
+      empty: "Add your race distance, pacing and fueling to see the totals you need for the event.",
+    },
+      gels: {
+        title: "Gel suggestions",
+        description: "Choose from popular gels and estimate how many servings cover your carb target.",
+        empty: "Add your pacing and fueling targets to calculate how many gels you need.",
+        linkLabel: "View product",
+        nutrition: "{carbs} g carbs · {sodium} mg sodium per gel",
+        countLabel: "{count} gels needed",
       },
       aidStations: {
         title: "Aid stations",
