@@ -18,7 +18,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-slate-950 text-slate-50">
         <I18nProvider>
-          <div className="mx-auto flex max-w-5xl flex-col gap-8 px-6 py-10">
+          <div className="flex w-full flex-col gap-8 px-6 py-10">
             <header className="flex items-center justify-between">
               <div className="space-y-1">
                 <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">TrailPlanner</p>
