@@ -68,12 +68,6 @@ const gelOptions: GelOption[] = [
     sodium: 10,
     url: "https://www.scienceinsport.com/products/go-isotonic-energy-gel",
   },
-  {
-    name: "Spring Energy Awesome Sauce",
-    carbs: 45,
-    sodium: 60,
-    url: "https://myspringenergy.com/product/awesome-sauce/",
-  },
 ];
 
 type ParsedGpx = {
