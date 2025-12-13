@@ -940,13 +940,14 @@ function ElevationProfileChart({
     };
   });
 
+  let cumulativeMinutes = 0;
   const speedSamples =
     !baseMinutesPerKm || baseMinutesPerKm <= 0
       ? []
-      : profile.slice(1).flatMap((point, index) => {
+      : profile.slice(1).reduce<SpeedSample[]>((samples, point, index) => {
           const prev = profile[index];
           const segmentKm = Math.max(point.distanceKm - prev.distanceKm, 0);
-          if (segmentKm === 0) return [];
+          if (segmentKm === 0) return samples;
 
           const ascent = Math.max(point.elevationM - prev.elevationM, 0);
           const descent = Math.max(prev.elevationM - point.elevationM, 0);
@@ -957,13 +958,15 @@ function ElevationProfileChart({
             uphillEffort,
             downhillEffort
           );
-          if (minutes <= 0) return [];
+          if (minutes <= 0) return samples;
 
-          const speedKph = segmentKm / (minutes / 60);
-          const midpoint = prev.distanceKm + segmentKm / 2;
-          return [{ distanceKm: midpoint, speedKph }];
-        });
-  const smoothedSpeedSamples = smoothSpeedSamples(speedSamples, 0.8);
+          cumulativeMinutes += minutes;
+          const cumulativeDistanceKm = point.distanceKm;
+          const averageSpeedKph = cumulativeDistanceKm / (cumulativeMinutes / 60);
+
+          return [...samples, { distanceKm: cumulativeDistanceKm, speedKph: averageSpeedKph }];
+        }, []);
+  const smoothedSpeedSamples = smoothSpeedSamples(speedSamples, 1.6);
   const maxSpeedKph = smoothedSpeedSamples.length > 0 ? Math.max(...smoothedSpeedSamples.map((s) => s.speedKph)) : 0;
   const minSpeedKph = smoothedSpeedSamples.length > 0 ? Math.min(...smoothedSpeedSamples.map((s) => s.speedKph)) : 0;
   const speedRange = Math.max(maxSpeedKph - minSpeedKph, 1);
