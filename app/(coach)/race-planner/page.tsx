@@ -149,6 +149,23 @@ function minutesPerKm(values: FormValues) {
   return values.paceMinutes + values.paceSeconds / 60;
 }
 
+function paceToSpeedKph(paceMinutes: number, paceSeconds: number) {
+  const totalMinutes = paceMinutes + paceSeconds / 60;
+  if (totalMinutes <= 0) return null;
+  return 60 / totalMinutes;
+}
+
+function speedToPace(speedKph: number) {
+  if (speedKph <= 0) return null;
+  const totalMinutes = 60 / speedKph;
+  const minutes = Math.floor(totalMinutes);
+  let seconds = Math.round((totalMinutes - minutes) * 60);
+  if (seconds === 60) {
+    return { minutes: minutes + 1, seconds: 0 };
+  }
+  return { minutes, seconds };
+}
+
 function getElevationAtDistance(profile: ElevationPoint[], distanceKm: number) {
   if (profile.length === 0) return 0;
   if (distanceKm <= profile[0].distanceKm) return profile[0].elevationM;
@@ -178,7 +195,9 @@ function calculateSegmentElevation(
 
   if (profile.length < 2) {
     const distanceShare = raceDistanceKm > 0 ? segmentKm / raceDistanceKm : 0;
-    return { ascent: Math.max(0, totalElevationGain * distanceShare), descent: 0 };
+    const ascent = Math.max(0, totalElevationGain * distanceShare);
+    const descent = ascent; // assume roughly equal climbing and descending when no profile is provided
+    return { ascent, descent };
   }
 
   const distances = profile
@@ -504,6 +523,32 @@ export default function RacePlannerPage() {
   const calculatePercentage = (value: number, total?: number) => {
     if (!total || total <= 0) return 0;
     return Math.min((value / total) * 100, 100);
+  };
+
+  const handlePaceTypeChange = (nextType: FormValues["paceType"]) => {
+    const currentType = form.getValues("paceType");
+    if (currentType === nextType) return;
+
+    if (nextType === "speed") {
+      const currentMinutes = form.getValues("paceMinutes") ?? 0;
+      const currentSeconds = form.getValues("paceSeconds") ?? 0;
+      const convertedSpeed = paceToSpeedKph(currentMinutes, currentSeconds);
+      const fallbackSpeed = form.getValues("speedKph") ?? defaultValues.speedKph;
+      const nextSpeed = convertedSpeed ?? fallbackSpeed;
+      form.setValue("speedKph", Number(nextSpeed.toFixed(2)), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    } else {
+      const currentSpeed = form.getValues("speedKph") ?? 0;
+      const convertedPace = speedToPace(currentSpeed);
+      if (convertedPace) {
+        form.setValue("paceMinutes", convertedPace.minutes, { shouldDirty: true, shouldValidate: true });
+        form.setValue("paceSeconds", convertedPace.seconds, { shouldDirty: true, shouldValidate: true });
+      }
+    }
+
+    form.setValue("paceType", nextType, { shouldDirty: true, shouldValidate: true });
   };
 
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -833,7 +878,7 @@ export default function RacePlannerPage() {
                   <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
                     <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
                     <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                      <div className="space-y-2">
+                      <div className="space-y-4">
                         <Label htmlFor="paceType">{racePlannerCopy.sections.raceInputs.fields.paceType}</Label>
                         <input id="paceType" type="hidden" {...form.register("paceType")} />
                         <div className="grid grid-cols-2 gap-2">
@@ -843,23 +888,55 @@ export default function RacePlannerPage() {
                               { value: "speed", label: racePlannerCopy.sections.raceInputs.paceOptions.speed },
                             ] satisfies { value: FormValues["paceType"]; label: string }[]
                           ).map((option) => (
-                              <Button
-                                key={option.value}
-                                type="button"
-                                variant={paceType === option.value ? "default" : "outline"}
-                                className="w-full justify-center"
-                                aria-pressed={paceType === option.value}
-                                onClick={() =>
-                                  form.setValue("paceType", option.value, {
-                                    shouldValidate: true,
-                                    shouldDirty: true,
-                                  })
-                                }
-                              >
-                                {option.label}
-                              </Button>
-                            ))}
+                            <Button
+                              key={option.value}
+                              type="button"
+                              variant={paceType === option.value ? "default" : "outline"}
+                              className="w-full justify-center"
+                              aria-pressed={paceType === option.value}
+                              onClick={() => handlePaceTypeChange(option.value)}
+                            >
+                              {option.label}
+                            </Button>
+                          ))}
                         </div>
+
+                        {paceType === "pace" ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="paceMinutes">{racePlannerCopy.sections.raceInputs.fields.paceMinutes}</Label>
+                              <Input
+                                id="paceMinutes"
+                                type="number"
+                                min="0"
+                                step="1"
+                                {...form.register("paceMinutes", { valueAsNumber: true })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="paceSeconds">{racePlannerCopy.sections.raceInputs.fields.paceSeconds}</Label>
+                              <Input
+                                id="paceSeconds"
+                                type="number"
+                                min="0"
+                                max="59"
+                                step="1"
+                                {...form.register("paceSeconds", { valueAsNumber: true })}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label htmlFor="speedKph">{racePlannerCopy.sections.raceInputs.fields.speedKph}</Label>
+                            <Input
+                              id="speedKph"
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              {...form.register("speedKph", { valueAsNumber: true })}
+                            />
+                          </div>
+                        )}
                       </div>
                       <div className="space-y-4">
                         <div className="space-y-2">
