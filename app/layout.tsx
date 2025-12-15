@@ -5,11 +5,43 @@ import Script from "next/script";
 import { I18nProvider } from "./i18n-provider";
 import { LanguageToggle } from "./language-toggle";
 import { Analytics } from "./analytics";
+import { LocalizedMetadata } from "./localized-metadata";
+import { buildLocaleMetaCopy, CANONICAL_PATH, CANONICAL_URL, localeToOgLocale, SITE_URL } from "./seo";
+import type { Locale } from "../locales/types";
 
-export const metadata: Metadata = {
-  title: "Race Fuel Planner",
-  description: "Estimate aid-station timing and fueling needs for your next race.",
+const createMetadata = (locale: Locale): Metadata => {
+  const { title, description } = buildLocaleMetaCopy(locale);
+  const ogLocale = localeToOgLocale(locale);
+
+  return {
+    metadataBase: new URL(SITE_URL),
+    title,
+    description,
+    alternates: {
+      canonical: CANONICAL_PATH,
+      languages: {
+        en: CANONICAL_PATH,
+        fr: CANONICAL_PATH,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url: CANONICAL_URL,
+      siteName: "TrailPlanner",
+      locale: ogLocale,
+      alternateLocale: [localeToOgLocale(locale === "en" ? "fr" : "en")],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+    },
+  };
 };
+
+export const metadata: Metadata = createMetadata("en");
 
 export default function RootLayout({
   children,
@@ -36,6 +68,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-slate-950 text-slate-50">
         <Analytics />
         <I18nProvider>
+          <LocalizedMetadata />
           <div className="flex w-full flex-col gap-8 px-6 py-10">
             <header className="flex items-center justify-between">
               <div className="space-y-1">
