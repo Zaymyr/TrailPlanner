@@ -122,7 +122,7 @@ export type RacePlannerTranslations = {
   };
   mobileNav: {
     importGpx: string;
-    courseProfile: string;
+    timeline: string;
     pacing: string;
     intake: string;
   };

@@ -124,7 +124,7 @@ export const fr: Translations = {
     },
     mobileNav: {
       importGpx: "Importer",
-      courseProfile: "Profil",
+      timeline: "Chronologie",
       pacing: "Allure & effort",
       intake: "Apports",
     },

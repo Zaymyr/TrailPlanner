@@ -446,7 +446,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
   };
 }
 
-export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobileNav?: boolean }) {
+export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
   const { t } = useI18n();
   const racePlannerCopy = t.racePlanner;
 
@@ -462,6 +462,7 @@ export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobi
 
   const sectionIds = {
     inputs: "race-inputs",
+    timeline: "race-timeline",
     courseProfile: "course-profile",
     pacing: "pacing-section",
     intake: "intake-section",
@@ -535,13 +536,20 @@ export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobi
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
     const target = document.getElementById(sectionId);
     if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.scrollIntoView({ block: "start" });
     }
   };
 
   const handleMobileImport = () => {
     scrollToSection(sectionIds.inputs);
-    fileInputRef.current?.click();
+    const input = fileInputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+    } else {
+      input.click();
+    }
   };
 
   const mobileNavActions = [
@@ -551,9 +559,9 @@ export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobi
       onClick: handleMobileImport,
     },
     {
-      key: "profile",
-      label: racePlannerCopy.mobileNav.courseProfile,
-      onClick: () => scrollToSection(sectionIds.courseProfile),
+      key: "timeline",
+      label: racePlannerCopy.mobileNav.timeline,
+      onClick: () => scrollToSection(sectionIds.timeline),
     },
     {
       key: "pacing",
@@ -793,7 +801,7 @@ export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobi
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card id={sectionIds.timeline}>
                 <CardHeader>
                   <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
                   <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
