@@ -37,6 +37,7 @@ export type RacePlannerTranslations = {
       noTrackPoints: string;
       invalidCoordinates: string;
       unableToImport: string;
+      invalidPlannerState: string;
     };
     fallbackAidStation: string;
   };
@@ -129,6 +130,7 @@ export type RacePlannerTranslations = {
   };
   buttons: {
     importGpx: string;
+    exportGpx: string;
   };
   mobileNav: {
     importGpx: string;

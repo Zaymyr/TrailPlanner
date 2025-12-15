@@ -38,6 +38,7 @@ export const fr: Translations = {
         noTrackPoints: "Aucun point de trace trouvé dans le fichier GPX.",
         invalidCoordinates: "Coordonnées invalides dans les points de trace.",
         unableToImport: "Import du fichier GPX impossible.",
+        invalidPlannerState: "Impossible de lire les données enregistrées depuis ce GPX.",
       },
       fallbackAidStation: "Point de ravitaillement",
     },
@@ -131,6 +132,7 @@ export const fr: Translations = {
     },
     buttons: {
       importGpx: "Importer un GPX",
+      exportGpx: "Exporter le GPX",
     },
     mobileNav: {
       importGpx: "Importer",
