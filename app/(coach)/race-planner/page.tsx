@@ -1,5 +1,5 @@
 "use client";
-
+import { Analytics } from "@vercel/analytics/next"
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
