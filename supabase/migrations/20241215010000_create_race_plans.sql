@@ -15,16 +15,21 @@ create index if not exists race_plans_user_id_idx on public.race_plans(user_id);
 
 alter table public.race_plans enable row level security;
 
-create policy if not exists "Users can view their race plans" on public.race_plans
+drop policy if exists "Users can view their race plans" on public.race_plans;
+create policy "Users can view their race plans" on public.race_plans
   for select using (auth.uid() = user_id);
 
-create policy if not exists "Users can insert their race plans" on public.race_plans
+drop policy if exists "Users can insert their race plans" on public.race_plans;
+create policy "Users can insert their race plans" on public.race_plans
   for insert with check (auth.uid() = user_id);
 
-create policy if not exists "Users can update their race plans" on public.race_plans
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users can update their race plans" on public.race_plans;
+create policy "Users can update their race plans" on public.race_plans
+  for update using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
-create policy if not exists "Users can delete their race plans" on public.race_plans
+drop policy if exists "Users can delete their race plans" on public.race_plans;
+create policy "Users can delete their race plans" on public.race_plans
   for delete using (auth.uid() = user_id);
 
 create or replace function public.set_race_plans_updated_at()
