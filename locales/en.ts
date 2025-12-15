@@ -40,6 +40,11 @@ export const en: Translations = {
     ],
   },
   racePlanner: {
+    hero: {
+      eyebrow: "TrailPlanner",
+      title: "Race Fuel Planner",
+      subtitle: "Plan your aid-station timing, fueling targets, and pacing for race day.",
+    },
     defaults: {
       aidStationName: "Aid {index}",
       finalBottles: "Final Bottles",
