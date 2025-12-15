@@ -862,6 +862,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     URL.revokeObjectURL(url);
   };
 
+  const handlePrint = () => {
+    if (typeof window === "undefined") return;
+    window.print();
+  };
+
   const handleSubmitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -1148,74 +1153,171 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </Card>
 
               <Card id={sectionIds.timeline}>
-                <CardHeader>
-                  <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
-                  <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
+                    <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
+                  </div>
+                  {segments.length > 0 ? (
+                    <Button type="button" variant="outline" className="print:hidden" onClick={handlePrint}>
+                      {racePlannerCopy.buttons.printPlan}
+                    </Button>
+                  ) : null}
                 </CardHeader>
                 <CardContent>
                   {segments.length === 0 ? (
                     <p className="text-sm text-slate-400">{racePlannerCopy.sections.timeline.empty}</p>
                   ) : (
-                    <div className="space-y-4">
-                      {segments.map((segment, index) => (
-                        <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
-                                {index + 1}
-                              </span>
-                              <div>
-                                <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
-                                <p className="text-xs text-slate-400">
-                                  {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}{" "}
-                                  {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
-                                </p>
+                    <div className="space-y-6">
+                      <div className="space-y-4 print:hidden">
+                        {segments.map((segment, index) => (
+                          <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
+                                  {index + 1}
+                                </span>
+                                <div>
+                                  <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
+                                  <p className="text-xs text-slate-400">
+                                    {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}
+                                    {" "}
+                                    {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                                <div
+                                  className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 to-purple-600"
+                                  style={{ width: `${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams)}%` }}
+                                />
+                                <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                  <span className="truncate">{racePlannerCopy.sections.summary.items.carbs}</span>
+                                  <span className="shrink-0">
+                                    {formatFuelAmount(segment.fuelGrams)} ·
+                                    {` ${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams).toFixed(0)}%`}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                                <div
+                                  className="absolute left-0 top-0 h-full bg-sky-500"
+                                  style={{ width: `${calculatePercentage(segment.waterMl, raceTotals?.waterMl)}%` }}
+                                />
+                                <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                  <span className="truncate">{racePlannerCopy.sections.summary.items.water}</span>
+                                  <span className="shrink-0">
+                                    {formatWaterAmount(segment.waterMl)} ·
+                                    {` ${calculatePercentage(segment.waterMl, raceTotals?.waterMl).toFixed(0)}%`}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                                <div
+                                  className="absolute left-0 top-0 h-full bg-slate-500"
+                                  style={{ width: `${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg)}%` }}
+                                />
+                                <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                  <span className="truncate">{racePlannerCopy.sections.summary.items.sodium}</span>
+                                  <span className="shrink-0">
+                                    {formatSodiumAmount(segment.sodiumMg)} ·
+                                    {` ${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg).toFixed(0)}%`}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </div>
-                          <div className="space-y-2">
-                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                              <div
-                                className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 to-purple-600"
-                                style={{ width: `${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams)}%` }}
-                              />
-                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                                <span className="truncate">{racePlannerCopy.sections.summary.items.carbs}</span>
-                                <span className="shrink-0">
-                                  {formatFuelAmount(segment.fuelGrams)} ·
-                                  {` ${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams).toFixed(0)}%`}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                              <div
-                                className="absolute left-0 top-0 h-full bg-sky-500"
-                                style={{ width: `${calculatePercentage(segment.waterMl, raceTotals?.waterMl)}%` }}
-                              />
-                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                                <span className="truncate">{racePlannerCopy.sections.summary.items.water}</span>
-                                <span className="shrink-0">
-                                  {formatWaterAmount(segment.waterMl)} ·
-                                  {` ${calculatePercentage(segment.waterMl, raceTotals?.waterMl).toFixed(0)}%`}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                              <div
-                                className="absolute left-0 top-0 h-full bg-slate-500"
-                                style={{ width: `${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg)}%` }}
-                              />
-                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                                <span className="truncate">{racePlannerCopy.sections.summary.items.sodium}</span>
-                                <span className="shrink-0">
-                                  {formatSodiumAmount(segment.sodiumMg)} ·
-                                  {` ${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg).toFixed(0)}%`}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                        ))}
+                      </div>
+
+                      <div className="hidden rounded-lg border border-slate-300 bg-white p-4 text-slate-900 shadow-sm print:block">
+                        <div className="mb-3">
+                          <p className="text-sm font-semibold">
+                            {racePlannerCopy.sections.timeline.printView.title}
+                          </p>
+                          <p className="text-xs text-slate-600">
+                            {racePlannerCopy.sections.timeline.printView.description}
+                          </p>
                         </div>
-                      ))}
+                        <div className="overflow-hidden rounded-md border border-slate-200">
+                          <table className="min-w-full border-collapse text-xs leading-6">
+                            <thead className="bg-slate-50 text-slate-900">
+                              <tr>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">#</th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.checkpoint}
+                                </th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.distance}
+                                </th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.segment}
+                                </th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.eta}
+                                </th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.segmentTime}
+                                </th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.fuel}
+                                </th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.water}
+                                </th>
+                                <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                                  {racePlannerCopy.sections.timeline.printView.columns.sodium}
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {segments.map((segment, index) => {
+                                const rowBorder = index === segments.length - 1 ? "" : "border-b border-slate-200";
+                                return (
+                                  <tr key={`${segment.checkpoint}-print-${segment.distanceKm}`} className="align-top">
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>{index + 1}</td>
+                                    <td className={`${rowBorder} px-3 py-2`}>
+                                      <div className="font-semibold">{segment.checkpoint}</div>
+                                      <div className="text-[10px] text-slate-600">
+                                        {racePlannerCopy.sections.timeline.segmentLabel.replace(
+                                          "{distance}",
+                                          segment.segmentKm.toFixed(1)
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                                      {formatDistanceWithUnit(segment.distanceKm)}
+                                    </td>
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                                      {racePlannerCopy.sections.timeline.segmentLabel.replace(
+                                        "{distance}",
+                                        segment.segmentKm.toFixed(1)
+                                      )}
+                                    </td>
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                                      {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
+                                    </td>
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                                      {formatMinutes(segment.segmentMinutes, racePlannerCopy.units)}
+                                    </td>
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                                      {formatFuelAmount(segment.fuelGrams)}
+                                    </td>
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                                      {formatWaterAmount(segment.waterMl)}
+                                    </td>
+                                    <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                                      {formatSodiumAmount(segment.sodiumMg)}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </CardContent>

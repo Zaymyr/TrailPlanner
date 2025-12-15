@@ -127,13 +127,28 @@ export const fr: Translations = {
         segmentLabel: "Segment de {distance} km",
         fuelLabel: "{amount} g de glucides",
         waterLabel: "{amount} ml d'eau",
-        sodiumLabel: "{amount} mg de sodium",
+      sodiumLabel: "{amount} mg de sodium",
+      printView: {
+        title: "Plan imprimable des ravitos",
+        description: "Utilisez ce tableau pour imprimer les infos clés pour chaque ravitaillement.",
+        columns: {
+          checkpoint: "Point de ravitaillement",
+          distance: "Distance",
+          segment: "Segment",
+          eta: "Horaire",
+          segmentTime: "Temps du tronçon",
+          fuel: "Glucides",
+          water: "Eau",
+          sodium: "Sodium",
+        },
       },
     },
-    buttons: {
-      importGpx: "Importer un GPX",
-      exportGpx: "Exporter le GPX",
-    },
+  },
+  buttons: {
+    importGpx: "Importer un GPX",
+    exportGpx: "Exporter le GPX",
+    printPlan: "Imprimer le plan",
+  },
     mobileNav: {
       importGpx: "Importer",
       timeline: "Chronologie",
