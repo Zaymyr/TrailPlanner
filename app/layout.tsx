@@ -3,6 +3,7 @@ import "./globals.css";
 import React from "react";
 import { I18nProvider } from "./i18n-provider";
 import { LanguageToggle } from "./language-toggle";
+import { Analytics } from "./analytics";
 
 export const metadata: Metadata = {
   title: "Race Fuel Planner",
@@ -17,6 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-slate-950 text-slate-50">
+        <Analytics />
         <I18nProvider>
           <div className="flex w-full flex-col gap-8 px-6 py-10">
             <header className="flex items-center justify-between">
