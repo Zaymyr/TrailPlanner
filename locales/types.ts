@@ -86,6 +86,13 @@ export type RacePlannerTranslations = {
         sodium: string;
       };
       empty: string;
+      feedback: {
+        title: string;
+        subject: string;
+        detail: string;
+        submit: string;
+        open: string;
+      };
     };
     gels: {
       title: string;
