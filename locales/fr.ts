@@ -122,5 +122,11 @@ export const fr: Translations = {
     buttons: {
       importGpx: "Importer un GPX",
     },
+    mobileNav: {
+      importGpx: "Importer",
+      courseProfile: "Profil",
+      pacing: "Allure & effort",
+      intake: "Apports",
+    },
   },
 };

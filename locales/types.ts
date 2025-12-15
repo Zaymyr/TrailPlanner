@@ -120,6 +120,12 @@ export type RacePlannerTranslations = {
   buttons: {
     importGpx: string;
   };
+  mobileNav: {
+    importGpx: string;
+    courseProfile: string;
+    pacing: string;
+    intake: string;
+  };
 };
 
 export type Translations = {
