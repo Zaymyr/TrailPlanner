@@ -446,7 +446,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
   };
 }
 
-export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobileNav?: boolean }) {
+export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
   const { t } = useI18n();
   const racePlannerCopy = t.racePlanner;
 
@@ -535,7 +535,7 @@ export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobi
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
     const target = document.getElementById(sectionId);
     if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      target.scrollIntoView({ block: "start" });
     }
   };
 
