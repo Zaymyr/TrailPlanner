@@ -93,7 +93,7 @@ export const fr: Translations = {
           subject: "Titre",
           detail: "Détail",
           submit: "Envoyer le retour",
-          open: "Retour",
+          open: "Suggestion",
           success: "Merci pour votre retour !",
           error: "Impossible d'enregistrer le retour. Réessayez plus tard.",
           required: "Ajoutez un titre et un détail pour enregistrer le retour.",
