@@ -14,7 +14,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -498,6 +498,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [feedbackDetail, setFeedbackDetail] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [isDesktopApp, setIsDesktopApp] = useState(false);
+
+  useEffect(() => {
+    const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
+    const isElectron = userAgent.includes("electron");
+    const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
+
+    setIsDesktopApp(isElectron || Boolean(isStandalone));
+  }, []);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
@@ -1205,19 +1214,21 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </div>
         ) : null}
 
-        <Button
-          type="button"
-          className="fixed bottom-6 right-6 z-20 hidden h-12 w-12 rounded-full shadow-lg sm:inline-flex"
-          aria-label={racePlannerCopy.sections.summary.feedback.open}
-          onClick={() => {
-            setFeedbackOpen(true);
-            document
-              .getElementById("feedback-form")
-              ?.scrollIntoView({ behavior: "smooth", block: "center" });
-          }}
-        >
-          <MessageCircleIcon className="h-5 w-5" />
-        </Button>
+        {!isDesktopApp && (
+          <Button
+            type="button"
+            className="fixed bottom-6 right-6 z-20 hidden h-12 w-12 rounded-full shadow-lg sm:inline-flex"
+            aria-label={racePlannerCopy.sections.summary.feedback.open}
+            onClick={() => {
+              setFeedbackOpen(true);
+              document
+                .getElementById("feedback-form")
+                ?.scrollIntoView({ behavior: "smooth", block: "center" });
+            }}
+          >
+            <MessageCircleIcon className="h-5 w-5" />
+          </Button>
+        )}
       </div>
     );
 
