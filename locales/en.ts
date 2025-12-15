@@ -7,6 +7,38 @@ export const en: Translations = {
       "Head to the race planner to estimate aid-station timing, fueling targets, and pace for your next race.",
     cta: "Open race planner",
   },
+  landing: {
+    heading: "Trail race fueling & hydration guides",
+    subheading:
+      "Pick a guide to learn how to plan trail nutrition, hydration, and aid-station strategy—or jump straight into the planner.",
+    plannerCta: "Start the race planner",
+    plannerDescription:
+      "Estimate carb, water, and sodium needs by hour, map aid-station stops, and export a printable race plan.",
+    cardsHeading: "Explore focused guides",
+    cardCta: "Open guide",
+    cards: [
+      {
+        slug: "trail-nutrition-planner",
+        title: "Trail nutrition planner",
+        description: "Set up a trail nutrition plan with carbs, water, and sodium targets for each aid station.",
+      },
+      {
+        slug: "ultra-trail-fueling",
+        title: "Ultra-trail fueling tips",
+        description: "Build an ultra-distance fueling checklist with gels, real food, and bottle swaps.",
+      },
+      {
+        slug: "ravitaillement-trail",
+        title: "Ravitaillement trail",
+        description: "Optimise vos ravitos trail avec des cibles en glucides, eau et sodium prêtes à imprimer.",
+      },
+      {
+        slug: "hydration-trail-running",
+        title: "Hydration for trail running",
+        description: "Balance bottles, flasks, and sodium intake for long trail races and hot conditions.",
+      },
+    ],
+  },
   racePlanner: {
     defaults: {
       aidStationName: "Aid {index}",
@@ -126,33 +158,99 @@ export const en: Translations = {
         segmentLabel: "{distance} km segment",
         fuelLabel: "{amount} g fuel",
         waterLabel: "{amount} ml water",
-      sodiumLabel: "{amount} mg sodium",
-      printView: {
-        title: "Printable aid plan",
-        description: "Use this table to print the key details you need at each aid station.",
-        columns: {
-          checkpoint: "Aid point",
-          distance: "Distance",
-          segment: "Segment",
-          eta: "ETA",
-          segmentTime: "Leg time",
-          fuel: "Carbs",
-          water: "Water",
-          sodium: "Sodium",
+        sodiumLabel: "{amount} mg sodium",
+        printView: {
+          title: "Printable aid plan",
+          description: "Use this table to print the key details you need at each aid station.",
+          columns: {
+            checkpoint: "Aid point",
+            distance: "Distance",
+            segment: "Segment",
+            eta: "ETA",
+            segmentTime: "Leg time",
+            fuel: "Carbs",
+            water: "Water",
+            sodium: "Sodium",
+          },
         },
       },
     },
-  },
-  buttons: {
-    importGpx: "Import GPX",
-    exportGpx: "Export GPX",
-    printPlan: "Print plan",
-  },
+    buttons: {
+      importGpx: "Import GPX",
+      exportGpx: "Export GPX",
+      printPlan: "Print plan",
+    },
     mobileNav: {
       importGpx: "Import",
       timeline: "Timeline",
       pacing: "Pace & effort",
       intake: "Intake",
+    },
+  },
+  resourcePages: {
+    "trail-nutrition-planner": {
+      title: "Trail nutrition planner",
+      intro:
+        "Use this trail nutrition planner to map carbs, water, and sodium for every aid station on your route.",
+      benefitsHeading: "How the planner helps",
+      benefits: [
+        "Set carb-per-hour targets and translate them into gels, chews, or real food servings.",
+        "Balance bottle volume, flask swaps, and electrolytes for each leg between aid stations.",
+        "Import GPX to align fueling with climbs, descents, and expected pacing.",
+        "Export a printable aid-station checklist to keep your trail nutrition organized.",
+      ],
+      ctaLabel: "Plan trail nutrition with the app",
+      ctaNote: "Open the race planner to set targets and download your aid-station sheet.",
+      relatedHeading: "Explore more trail fueling guides",
+      plannerLabel: "Back to race planner",
+    },
+    "ultra-trail-fueling": {
+      title: "Ultra-trail fueling",
+      intro:
+        "Dial in ultra-trail fueling so you stay steady on climbs, runnable flats, and overnight sections.",
+      benefitsHeading: "Why use this ultra guide",
+      benefits: [
+        "Set hourly carbs and sodium so long efforts stay fueled without gut bombs.",
+        "Estimate real-food servings between aid stations and note what to grab from crew.",
+        "Match hydration to hotter segments with bottle swaps and electrolyte mixes.",
+        "Print or export a fueling checklist to keep the ultra-trail plan simple on race day.",
+      ],
+      ctaLabel: "Build my ultra-trail fueling plan",
+      ctaNote: "Use the race planner to turn hourly targets into an ultra-distance aid plan.",
+      relatedHeading: "More trail nutrition resources",
+      plannerLabel: "Back to race planner",
+    },
+    "ravitaillement-trail": {
+      title: "Ravitaillement trail",
+      intro:
+        "Planifiez votre ravitaillement trail avec des cibles en glucides, eau et sodium pour chaque section.",
+      benefitsHeading: "Ce que le planificateur apporte",
+      benefits: [
+        "Calculez vos glucides par heure et transformez-les en gels ou portions salées.",
+        "Prévoyez le volume d'eau et d'électrolytes entre chaque ravito en fonction du profil.",
+        "Importez un GPX pour aligner allure, dénivelé et quantité de nutrition.",
+        "Exportez une feuille de route imprimable pour garder vos ravitos organisés.",
+      ],
+      ctaLabel: "Préparer mon ravitaillement trail",
+      ctaNote: "Ouvrez le planificateur de course pour saisir vos cibles et générer la fiche ravito.",
+      relatedHeading: "Autres pages sur la nutrition trail",
+      plannerLabel: "Retour au planificateur",
+    },
+    "hydration-trail-running": {
+      title: "Hydration for trail running",
+      intro:
+        "Create a hydration plan for trail running that balances bottles, soft flasks, and sodium in changing weather.",
+      benefitsHeading: "Hydration checklist",
+      benefits: [
+        "Set hourly water intake and sodium ranges based on distance, temperature, and vert.",
+        "Track bottle sizes and refill strategy for remote aid stations or water sources.",
+        "Plan caffeine and gel timing alongside hydration so energy stays steady.",
+        "Export a hydration-first aid plan you can stick on your vest or drop bag.",
+      ],
+      ctaLabel: "Plan trail hydration",
+      ctaNote: "Head to the race planner to combine hydration, fueling, and pacing in one place.",
+      relatedHeading: "Keep refining your trail plan",
+      plannerLabel: "Back to race planner",
     },
   },
 };

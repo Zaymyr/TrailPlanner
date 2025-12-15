@@ -1,5 +1,14 @@
 export type Locale = "en" | "fr";
 
+export const resourcePageSlugs = [
+  "trail-nutrition-planner",
+  "ultra-trail-fueling",
+  "ravitaillement-trail",
+  "hydration-trail-running",
+] as const;
+
+export type ResourcePageSlug = (typeof resourcePageSlugs)[number];
+
 export type HomeHeroTranslations = {
   heading: string;
   description: string;
@@ -155,7 +164,34 @@ export type RacePlannerTranslations = {
   };
 };
 
+export type LandingPageTranslations = {
+  heading: string;
+  subheading: string;
+  plannerCta: string;
+  plannerDescription: string;
+  cardsHeading: string;
+  cardCta: string;
+  cards: Array<{
+    slug: ResourcePageSlug;
+    title: string;
+    description: string;
+  }>;
+};
+
+export type ResourcePageCopy = {
+  title: string;
+  intro: string;
+  benefitsHeading: string;
+  benefits: string[];
+  ctaLabel: string;
+  ctaNote: string;
+  relatedHeading: string;
+  plannerLabel: string;
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
+  landing: LandingPageTranslations;
+  resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
 };
