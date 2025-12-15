@@ -1,6 +1,4 @@
-"use client";
-
-import { RacePlannerPageContent } from "../page";
+import { RacePlannerPageContent } from "../RacePlannerPageContent";
 
 export default function RacePlannerMobilePage() {
   return <RacePlannerPageContent enableMobileNav />;
