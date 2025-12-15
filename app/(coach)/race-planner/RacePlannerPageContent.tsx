@@ -476,6 +476,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackSubject, setFeedbackSubject] = useState("");
+  const [feedbackDetail, setFeedbackDetail] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
@@ -624,125 +629,224 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   };
 
-    const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
+  const handleSubmitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
 
-    return (
-      <div className={`space-y-6 ${pagePaddingClass}`}>
-        <div className="grid gap-6 xl:grid-cols-4">
-          <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
-            <Card>
-              <CardHeader>
-                <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
-                <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {raceTotals ? (
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.duration}</p>
-                      <p className="text-2xl font-semibold text-slate-50">
-                        {formatMinutes(raceTotals.durationMinutes, racePlannerCopy.units)}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.carbs}</p>
-                      <p className="text-2xl font-semibold text-slate-50">
-                        {raceTotals.fuelGrams.toFixed(0)} {racePlannerCopy.units.grams}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.water}</p>
-                      <p className="text-2xl font-semibold text-slate-50">
-                        {raceTotals.waterMl.toFixed(0)} {racePlannerCopy.units.milliliters}
-                      </p>
-                    </div>
-                    <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                      <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.sodium}</p>
-                      <p className="text-2xl font-semibold text-slate-50">
-                        {raceTotals.sodiumMg.toFixed(0)} {racePlannerCopy.units.milligrams}
-                      </p>
-                    </div>
+    const subject = feedbackSubject.trim();
+    const detail = feedbackDetail.trim();
+
+    if (!subject || !detail) {
+      setFeedbackStatus("error");
+      setFeedbackError(racePlannerCopy.sections.summary.feedback.required);
+      return;
+    }
+
+    try {
+      setFeedbackStatus("submitting");
+      setFeedbackError(null);
+
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ subject, detail }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        setFeedbackStatus("error");
+        setFeedbackError(payload?.message ?? racePlannerCopy.sections.summary.feedback.error);
+        return;
+      }
+
+      setFeedbackStatus("success");
+      setFeedbackSubject("");
+      setFeedbackDetail("");
+    } catch (error) {
+      console.error("Unable to send feedback", error);
+      setFeedbackStatus("error");
+      setFeedbackError(racePlannerCopy.sections.summary.feedback.error);
+    }
+  };
+
+  const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
+
+  return (
+    <div className={`space-y-6 ${pagePaddingClass}`}>
+      <div className="grid gap-6 xl:grid-cols-4">
+        <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
+          <Card>
+            <CardHeader>
+              <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
+              <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {raceTotals ? (
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.duration}</p>
+                    <p className="text-2xl font-semibold text-slate-50">
+                      {formatMinutes(raceTotals.durationMinutes, racePlannerCopy.units)}
+                    </p>
                   </div>
-                ) : (
-                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-6 xl:col-span-2">
-            <Card id={sectionIds.courseProfile}>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>{racePlannerCopy.sections.courseProfile.title}</CardTitle>
-                    <CardDescription>{racePlannerCopy.sections.courseProfile.description}</CardDescription>
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.carbs}</p>
+                    <p className="text-2xl font-semibold text-slate-50">
+                      {raceTotals.fuelGrams.toFixed(0)} {racePlannerCopy.units.grams}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.water}</p>
+                    <p className="text-2xl font-semibold text-slate-50">
+                      {raceTotals.waterMl.toFixed(0)} {racePlannerCopy.units.milliliters}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.sodium}</p>
+                    <p className="text-2xl font-semibold text-slate-50">
+                      {raceTotals.sodiumMg.toFixed(0)} {racePlannerCopy.units.milligrams}
+                    </p>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <ElevationProfileChart
-                  profile={elevationProfile}
-                  aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
-                  totalDistanceKm={
-                    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-                    defaultValues.raceDistanceKm
-                  }
-                  copy={racePlannerCopy}
-                  baseMinutesPerKm={baseMinutesPerKm}
-                  uphillEffort={uphillEffort}
-                  downhillEffort={downhillEffort}
-                />
-              </CardContent>
-            </Card>
+              ) : (
+                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
+              )}
 
-            <Card>
-              <CardHeader>
-                <CardTitle>{racePlannerCopy.sections.gels.title}</CardTitle>
-                <CardDescription>{racePlannerCopy.sections.gels.description}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!raceTotals ? (
-                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {gelEstimates.map((gel) => (
-                      <div
-                        key={gel.name}
-                        className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-slate-50">{gel.name}</p>
-                            <p className="text-sm text-slate-400">
-                              {racePlannerCopy.sections.gels.nutrition
-                                .replace("{carbs}", gel.carbs.toString())
-                                .replace("{sodium}", gel.sodium.toString())}
-                            </p>
-                          </div>
-                          <a
-                            href={gel.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
-                          >
-                            {racePlannerCopy.sections.gels.linkLabel}
-                          </a>
-                        </div>
-                        <div className="flex items-center justify-between text-sm text-slate-200">
-                          <p>
-                            {racePlannerCopy.sections.gels.countLabel.replace(
-                              "{count}",
-                              Math.max(gel.count, 0).toString()
-                            )}
-                          </p>
-                          <p className="text-xs text-slate-500">{gel.carbs} g</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-semibold text-slate-50">
+                    {racePlannerCopy.sections.summary.feedback.title}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 px-3 text-sm"
+                    onClick={() => setFeedbackOpen((previous) => !previous)}
+                  >
+                    {racePlannerCopy.sections.summary.feedback.open}
+                  </Button>
+                </div>
+
+                {feedbackOpen && (
+                  <form className="mt-4 space-y-3" onSubmit={handleSubmitFeedback}>
+                    <div className="space-y-1">
+                      <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
+                      <Input
+                        id="feedback-subject"
+                        value={feedbackSubject}
+                        onChange={(event) => {
+                          setFeedbackSubject(event.target.value);
+                          setFeedbackStatus("idle");
+                          setFeedbackError(null);
+                        }}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="feedback-detail">{racePlannerCopy.sections.summary.feedback.detail}</Label>
+                      <textarea
+                        id="feedback-detail"
+                        value={feedbackDetail}
+                        onChange={(event) => {
+                          setFeedbackDetail(event.target.value);
+                          setFeedbackStatus("idle");
+                          setFeedbackError(null);
+                        }}
+                        required
+                        className="min-h-[120px] w-full rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm text-slate-50 shadow-sm transition placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                      />
+                    </div>
+                    {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
+                    {feedbackStatus === "success" && !feedbackError && (
+                      <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
+                    )}
+                    <div className="flex justify-end">
+                      <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
+                        {racePlannerCopy.sections.summary.feedback.submit}
+                      </Button>
+                    </div>
+                  </form>
                 )}
-              </CardContent>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6 xl:col-span-2">
+          <Card id={sectionIds.courseProfile}>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <CardTitle>{racePlannerCopy.sections.courseProfile.title}</CardTitle>
+                  <CardDescription>{racePlannerCopy.sections.courseProfile.description}</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <ElevationProfileChart
+                profile={elevationProfile}
+                aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
+                totalDistanceKm={
+                  (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+                  defaultValues.raceDistanceKm
+                }
+                copy={racePlannerCopy}
+                baseMinutesPerKm={baseMinutesPerKm}
+                uphillEffort={uphillEffort}
+                downhillEffort={downhillEffort}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{racePlannerCopy.sections.gels.title}</CardTitle>
+              <CardDescription>{racePlannerCopy.sections.gels.description}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!raceTotals ? (
+                <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {gelEstimates.map((gel) => (
+                    <div
+                      key={gel.name}
+                      className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-50">{gel.name}</p>
+                          <p className="text-sm text-slate-400">
+                            {racePlannerCopy.sections.gels.nutrition
+                              .replace("{carbs}", gel.carbs.toString())
+                              .replace("{sodium}", gel.sodium.toString())}
+                          </p>
+                        </div>
+                        <a
+                          href={gel.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
+                        >
+                          {racePlannerCopy.sections.gels.linkLabel}
+                        </a>
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-slate-200">
+                        <p>
+                          {racePlannerCopy.sections.gels.countLabel.replace(
+                            "{count}",
+                            Math.max(gel.count, 0).toString()
+                          )}
+                        </p>
+                        <p className="text-xs text-slate-500">{gel.carbs} g</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
             </Card>
 
             <div className="grid gap-6 md:grid-cols-2">
