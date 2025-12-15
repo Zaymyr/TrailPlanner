@@ -221,12 +221,12 @@ function adjustedSegmentMinutes(
   const descentPerKm = elevation.descent / (segmentKm * 1000);
   const normalizedUphillSteepness = Math.min(ascentPerKm / 0.12, 1); // taper effect on very steep climbs
   const normalizedDownhillSteepness = Math.min(descentPerKm / 0.12, 1);
-  const uphillIntensity = 0.6 + (uphillEffort / 100) * 0.9; // 0.6x to 1.5x
-  const downhillIntensity = 0.4 + (downhillEffort / 100) * 0.9; // 0.4x to 1.3x
-  const uphillPenalty = ascentPerKm * 10 * uphillIntensity * (1 - 0.4 * normalizedUphillSteepness);
-  const downhillBenefit = descentPerKm * 6 * downhillIntensity * (1 - 0.35 * normalizedDownhillSteepness);
+  const uphillIntensity = 1.35 - (uphillEffort / 100) * 0.7; // higher effort shrinks penalty
+  const downhillIntensity = 0.5 + (downhillEffort / 100) * 0.9; // higher effort boosts benefit
+  const uphillPenalty = ascentPerKm * 10 * uphillIntensity * (1 - 0.35 * normalizedUphillSteepness);
+  const downhillBenefit = descentPerKm * 6 * downhillIntensity * (1 - 0.3 * normalizedDownhillSteepness);
   const adjustmentFactor = 1 + uphillPenalty - downhillBenefit;
-  const safeAdjustment = Math.min(Math.max(0.65, adjustmentFactor), 1.6);
+  const safeAdjustment = Math.min(Math.max(0.6, adjustmentFactor), 1.6);
 
   return segmentKm * baseMinutesPerKm * safeAdjustment;
 }
@@ -832,7 +832,7 @@ export default function RacePlannerPage() {
 
                   <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
                     <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
-                    <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
                       <div className="space-y-2">
                         <Label htmlFor="paceType">{racePlannerCopy.sections.raceInputs.fields.paceType}</Label>
                         <input id="paceType" type="hidden" {...form.register("paceType")} />
@@ -861,29 +861,31 @@ export default function RacePlannerPage() {
                             ))}
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
-                        <Input
-                          id="uphillEffort"
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          {...form.register("uphillEffort", { valueAsNumber: true })}
-                        />
-                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
-                        <Input
-                          id="downhillEffort"
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          {...form.register("downhillEffort", { valueAsNumber: true })}
-                        />
-                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}</p>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
+                          <Input
+                            id="uphillEffort"
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            {...form.register("uphillEffort", { valueAsNumber: true })}
+                          />
+                          <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
+                          <Input
+                            id="downhillEffort"
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            {...form.register("downhillEffort", { valueAsNumber: true })}
+                          />
+                          <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}</p>
+                        </div>
                       </div>
                     </div>
                   </div>

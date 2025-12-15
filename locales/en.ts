@@ -66,7 +66,7 @@ export const en: Translations = {
           speedKph: "Speed (km/h)",
           uphillEffort: "Uphill effort",
           downhillEffort: "Downhill effort",
-          uphillEffortHelp: "Higher effort slows steep climbs more while rewarding smoother grades.",
+          uphillEffortHelp: "Higher effort means faster uphill pacing; lower effort keeps climbs conservative.",
           downhillEffortHelp: "Higher effort lets you push descents harder while easing off on very steep drops.",
           targetIntakePerHour: "Carbs (g/hr)",
           waterIntakePerHour: "Water (ml/hr)",
