@@ -446,7 +446,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
   };
 }
 
-export default function RacePlannerPage() {
+export function RacePlannerPageContent({ enableMobileNav = false }: { enableMobileNav?: boolean }) {
   const { t } = useI18n();
   const racePlannerCopy = t.racePlanner;
 
@@ -616,8 +616,10 @@ export default function RacePlannerPage() {
     }
   };
 
+    const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
+
     return (
-      <div className="space-y-6 pb-28 xl:pb-6">
+      <div className={`space-y-6 ${pagePaddingClass}`}>
         <div className="grid gap-6 xl:grid-cols-4">
           <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
             <Card>
@@ -1055,26 +1057,32 @@ export default function RacePlannerPage() {
           </div>
         </div>
 
-        <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">
-          <div className="rounded-full border border-slate-800 bg-slate-950/90 px-2 py-2 shadow-lg shadow-emerald-500/20 backdrop-blur">
-            <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-slate-100">
-              {mobileNavActions.map((action) => (
-                <button
-                  key={action.key}
-                  type="button"
-                  className="flex items-center justify-center rounded-full px-3 py-2 text-center transition hover:bg-slate-800/80 active:translate-y-[1px]"
-                  onClick={action.onClick}
-                >
-                  {action.label}
-                </button>
-              ))}
+        {enableMobileNav ? (
+          <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">
+            <div className="rounded-full border border-slate-800 bg-slate-950/90 px-2 py-2 shadow-lg shadow-emerald-500/20 backdrop-blur">
+              <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-slate-100">
+                {mobileNavActions.map((action) => (
+                  <button
+                    key={action.key}
+                    type="button"
+                    className="flex items-center justify-center rounded-full px-3 py-2 text-center transition hover:bg-slate-800/80 active:translate-y-[1px]"
+                    onClick={action.onClick}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
       </div>
     );
 
   }
+
+export default function RacePlannerPage() {
+  return <RacePlannerPageContent />;
+}
 function ElevationProfileChart({
   profile,
   aidStations,
