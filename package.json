@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "name": "trailplanner",
   "version": "0.1.0",
   "private": true,
@@ -38,4 +39,9 @@
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
 }
+=======
+  "dependencies": {
+    "@vercel/analytics": "^1.6.1"
+  }
+>>>>>>> 6eea483 (installing analytics)
 }
