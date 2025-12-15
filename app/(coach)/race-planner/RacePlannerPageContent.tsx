@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
+import { MessageCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -730,7 +731,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 </div>
 
                 {feedbackOpen && (
-                  <form className="mt-4 space-y-3" onSubmit={handleSubmitFeedback}>
+                  <form id="feedback-form" className="mt-4 space-y-3" onSubmit={handleSubmitFeedback}>
                     <div className="space-y-1">
                       <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
                       <Input
@@ -1187,6 +1188,21 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             </div>
           </div>
         ) : null}
+
+        <Button
+          type="button"
+          size="icon"
+          className="fixed bottom-6 right-6 z-20 hidden h-12 w-12 rounded-full shadow-lg sm:inline-flex"
+          aria-label={racePlannerCopy.sections.summary.feedback.open}
+          onClick={() => {
+            setFeedbackOpen(true);
+            document
+              .getElementById("feedback-form")
+              ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        >
+          <MessageCircle className="h-5 w-5" />
+        </Button>
       </div>
     );
 
