@@ -38,6 +38,7 @@ export const en: Translations = {
         noTrackPoints: "No track points found in the GPX file.",
         invalidCoordinates: "Invalid coordinates in track points.",
         unableToImport: "Unable to import GPX file.",
+        invalidPlannerState: "We couldn't read the saved plan data from this GPX.",
       },
       fallbackAidStation: "Aid station",
     },
@@ -130,6 +131,7 @@ export const en: Translations = {
     },
     buttons: {
       importGpx: "Import GPX",
+      exportGpx: "Export GPX",
     },
     mobileNav: {
       importGpx: "Import",
