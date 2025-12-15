@@ -149,6 +149,23 @@ function minutesPerKm(values: FormValues) {
   return values.paceMinutes + values.paceSeconds / 60;
 }
 
+function paceToSpeedKph(paceMinutes: number, paceSeconds: number) {
+  const totalMinutes = paceMinutes + paceSeconds / 60;
+  if (totalMinutes <= 0) return null;
+  return 60 / totalMinutes;
+}
+
+function speedToPace(speedKph: number) {
+  if (speedKph <= 0) return null;
+  const totalMinutes = 60 / speedKph;
+  const minutes = Math.floor(totalMinutes);
+  let seconds = Math.round((totalMinutes - minutes) * 60);
+  if (seconds === 60) {
+    return { minutes: minutes + 1, seconds: 0 };
+  }
+  return { minutes, seconds };
+}
+
 function getElevationAtDistance(profile: ElevationPoint[], distanceKm: number) {
   if (profile.length === 0) return 0;
   if (distanceKm <= profile[0].distanceKm) return profile[0].elevationM;
@@ -178,7 +195,9 @@ function calculateSegmentElevation(
 
   if (profile.length < 2) {
     const distanceShare = raceDistanceKm > 0 ? segmentKm / raceDistanceKm : 0;
-    return { ascent: Math.max(0, totalElevationGain * distanceShare), descent: 0 };
+    const ascent = Math.max(0, totalElevationGain * distanceShare);
+    const descent = ascent; // assume roughly equal climbing and descending when no profile is provided
+    return { ascent, descent };
   }
 
   const distances = profile
@@ -221,12 +240,12 @@ function adjustedSegmentMinutes(
   const descentPerKm = elevation.descent / (segmentKm * 1000);
   const normalizedUphillSteepness = Math.min(ascentPerKm / 0.12, 1); // taper effect on very steep climbs
   const normalizedDownhillSteepness = Math.min(descentPerKm / 0.12, 1);
-  const uphillIntensity = 0.6 + (uphillEffort / 100) * 0.9; // 0.6x to 1.5x
-  const downhillIntensity = 0.4 + (downhillEffort / 100) * 0.9; // 0.4x to 1.3x
-  const uphillPenalty = ascentPerKm * 10 * uphillIntensity * (1 - 0.4 * normalizedUphillSteepness);
-  const downhillBenefit = descentPerKm * 6 * downhillIntensity * (1 - 0.35 * normalizedDownhillSteepness);
+  const uphillIntensity = 1.35 - (uphillEffort / 100) * 0.7; // higher effort shrinks penalty
+  const downhillIntensity = 0.5 + (downhillEffort / 100) * 0.9; // higher effort boosts benefit
+  const uphillPenalty = ascentPerKm * 10 * uphillIntensity * (1 - 0.35 * normalizedUphillSteepness);
+  const downhillBenefit = descentPerKm * 6 * downhillIntensity * (1 - 0.3 * normalizedDownhillSteepness);
   const adjustmentFactor = 1 + uphillPenalty - downhillBenefit;
-  const safeAdjustment = Math.min(Math.max(0.65, adjustmentFactor), 1.6);
+  const safeAdjustment = Math.min(Math.max(0.6, adjustmentFactor), 1.6);
 
   return segmentKm * baseMinutesPerKm * safeAdjustment;
 }
@@ -459,9 +478,6 @@ export default function RacePlannerPage() {
         : [],
     [elevationProfile, parsedValues, racePlannerCopy.defaults.finish]
   );
-  const raceDistanceForProgress =
-    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-    defaultValues.raceDistanceKm;
   const baseMinutesPerKm = useMemo(
     () => (parsedValues.success ? minutesPerKm(parsedValues.data) : null),
     [parsedValues]
@@ -495,9 +511,6 @@ export default function RacePlannerPage() {
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
-  const formatSegmentDistance = (value: number) =>
-    racePlannerCopy.sections.timeline.segmentLabel.replace("{distance}", value.toFixed(1));
-
   const formatFuelAmount = (value: number) =>
     racePlannerCopy.sections.timeline.fuelLabel.replace("{amount}", value.toFixed(0));
 
@@ -506,6 +519,37 @@ export default function RacePlannerPage() {
 
   const formatSodiumAmount = (value: number) =>
     racePlannerCopy.sections.timeline.sodiumLabel.replace("{amount}", value.toFixed(0));
+
+  const calculatePercentage = (value: number, total?: number) => {
+    if (!total || total <= 0) return 0;
+    return Math.min((value / total) * 100, 100);
+  };
+
+  const handlePaceTypeChange = (nextType: FormValues["paceType"]) => {
+    const currentType = form.getValues("paceType");
+    if (currentType === nextType) return;
+
+    if (nextType === "speed") {
+      const currentMinutes = form.getValues("paceMinutes") ?? 0;
+      const currentSeconds = form.getValues("paceSeconds") ?? 0;
+      const convertedSpeed = paceToSpeedKph(currentMinutes, currentSeconds);
+      const fallbackSpeed = form.getValues("speedKph") ?? defaultValues.speedKph;
+      const nextSpeed = convertedSpeed ?? fallbackSpeed;
+      form.setValue("speedKph", Number(nextSpeed.toFixed(2)), {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    } else {
+      const currentSpeed = form.getValues("speedKph") ?? 0;
+      const convertedPace = speedToPace(currentSpeed);
+      if (convertedPace) {
+        form.setValue("paceMinutes", convertedPace.minutes, { shouldDirty: true, shouldValidate: true });
+        form.setValue("paceSeconds", convertedPace.seconds, { shouldDirty: true, shouldValidate: true });
+      }
+    }
+
+    form.setValue("paceType", nextType, { shouldDirty: true, shouldValidate: true });
+  };
 
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -730,20 +774,47 @@ export default function RacePlannerPage() {
                                 </p>
                               </div>
                             </div>
-                            <div className="text-right text-xs text-slate-300">
-                              <p>{formatSegmentDistance(segment.segmentKm)}</p>
-                              <p>{formatFuelAmount(segment.fuelGrams)}</p>
-                              <p>{formatWaterAmount(segment.waterMl)}</p>
-                              <p>{formatSodiumAmount(segment.sodiumMg)}</p>
-                            </div>
                           </div>
-                          <div className="h-2 rounded-full bg-slate-800">
-                            <div
-                              className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                              style={{
-                                width: `${Math.min((segment.distanceKm / raceDistanceForProgress) * 100, 100)}%`,
-                              }}
-                            />
+                          <div className="space-y-2">
+                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 to-purple-600"
+                                style={{ width: `${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams)}%` }}
+                              />
+                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                <span className="truncate">{racePlannerCopy.sections.summary.items.carbs}</span>
+                                <span className="shrink-0">
+                                  {formatFuelAmount(segment.fuelGrams)} ·
+                                  {` ${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams).toFixed(0)}%`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-sky-500"
+                                style={{ width: `${calculatePercentage(segment.waterMl, raceTotals?.waterMl)}%` }}
+                              />
+                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                <span className="truncate">{racePlannerCopy.sections.summary.items.water}</span>
+                                <span className="shrink-0">
+                                  {formatWaterAmount(segment.waterMl)} ·
+                                  {` ${calculatePercentage(segment.waterMl, raceTotals?.waterMl).toFixed(0)}%`}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
+                              <div
+                                className="absolute left-0 top-0 h-full bg-slate-500"
+                                style={{ width: `${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg)}%` }}
+                              />
+                              <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
+                                <span className="truncate">{racePlannerCopy.sections.summary.items.sodium}</span>
+                                <span className="shrink-0">
+                                  {formatSodiumAmount(segment.sodiumMg)} ·
+                                  {` ${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg).toFixed(0)}%`}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -806,8 +877,8 @@ export default function RacePlannerPage() {
 
                   <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
                     <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
-                    <div className="grid gap-4 lg:grid-cols-2">
-                      <div className="space-y-2">
+                    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                      <div className="space-y-4">
                         <Label htmlFor="paceType">{racePlannerCopy.sections.raceInputs.fields.paceType}</Label>
                         <input id="paceType" type="hidden" {...form.register("paceType")} />
                         <div className="grid grid-cols-2 gap-2">
@@ -817,47 +888,81 @@ export default function RacePlannerPage() {
                               { value: "speed", label: racePlannerCopy.sections.raceInputs.paceOptions.speed },
                             ] satisfies { value: FormValues["paceType"]; label: string }[]
                           ).map((option) => (
-                              <Button
-                                key={option.value}
-                                type="button"
-                                variant={paceType === option.value ? "default" : "outline"}
-                                className="w-full justify-center"
-                                aria-pressed={paceType === option.value}
-                                onClick={() =>
-                                  form.setValue("paceType", option.value, {
-                                    shouldValidate: true,
-                                    shouldDirty: true,
-                                  })
-                                }
-                              >
-                                {option.label}
-                              </Button>
-                            ))}
+                            <Button
+                              key={option.value}
+                              type="button"
+                              variant={paceType === option.value ? "default" : "outline"}
+                              className="w-full justify-center"
+                              aria-pressed={paceType === option.value}
+                              onClick={() => handlePaceTypeChange(option.value)}
+                            >
+                              {option.label}
+                            </Button>
+                          ))}
                         </div>
+
+                        {paceType === "pace" ? (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="space-y-2">
+                              <Label htmlFor="paceMinutes">{racePlannerCopy.sections.raceInputs.fields.paceMinutes}</Label>
+                              <Input
+                                id="paceMinutes"
+                                type="number"
+                                min="0"
+                                step="1"
+                                {...form.register("paceMinutes", { valueAsNumber: true })}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="paceSeconds">{racePlannerCopy.sections.raceInputs.fields.paceSeconds}</Label>
+                              <Input
+                                id="paceSeconds"
+                                type="number"
+                                min="0"
+                                max="59"
+                                step="1"
+                                {...form.register("paceSeconds", { valueAsNumber: true })}
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label htmlFor="speedKph">{racePlannerCopy.sections.raceInputs.fields.speedKph}</Label>
+                            <Input
+                              id="speedKph"
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              {...form.register("speedKph", { valueAsNumber: true })}
+                            />
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
-                        <Input
-                          id="uphillEffort"
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          {...form.register("uphillEffort", { valueAsNumber: true })}
-                        />
-                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
-                        <Input
-                          id="downhillEffort"
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          {...form.register("downhillEffort", { valueAsNumber: true })}
-                        />
-                        <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}</p>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
+                          <Input
+                            id="uphillEffort"
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            {...form.register("uphillEffort", { valueAsNumber: true })}
+                          />
+                          <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
+                          <Input
+                            id="downhillEffort"
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            {...form.register("downhillEffort", { valueAsNumber: true })}
+                          />
+                          <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}</p>
+                        </div>
                       </div>
                     </div>
                   </div>

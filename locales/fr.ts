@@ -67,7 +67,7 @@ export const fr: Translations = {
           speedKph: "Vitesse (km/h)",
           uphillEffort: "Effort en montée",
           downhillEffort: "Effort en descente",
-          uphillEffortHelp: "Plus haut = davantage de ralentissement en montée tout en récompensant les pentes douces.",
+          uphillEffortHelp: "Plus haut = vitesse accrue en montée ; plus bas = montée plus prudente.",
           downhillEffortHelp: "Plus haut = plus d'engagement en descente tout en levant le pied sur les sections très raides.",
           targetIntakePerHour: "Glucides (g/h)",
           waterIntakePerHour: "Eau (ml/h)",
