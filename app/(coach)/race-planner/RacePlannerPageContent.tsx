@@ -15,7 +15,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
 import { RACE_PLANNER_URL } from "../../seo";
 
@@ -95,6 +95,18 @@ type ParsedGpx = {
   elevationProfile: ElevationPoint[];
   plannerValues?: Partial<FormValues>;
 };
+
+type SavedPlan = {
+  id: string;
+  name: string;
+  updatedAt: string;
+  plannerValues: Partial<FormValues>;
+  elevationProfile: ElevationPoint[];
+};
+
+const ACCESS_TOKEN_KEY = "trailplanner.accessToken";
+const REFRESH_TOKEN_KEY = "trailplanner.refreshToken";
+const SESSION_EMAIL_KEY = "trailplanner.sessionEmail";
 
 const formatAidStationName = (template: string, index: number) =>
   template.replace("{index}", String(index));
@@ -421,6 +433,25 @@ function sanitizeElevationProfile(profile?: ElevationPoint[]): ElevationPoint[] 
     .filter((point): point is ElevationPoint => Boolean(point));
 }
 
+function mapSavedPlan(row: Record<string, unknown>): SavedPlan | null {
+  const id = typeof row.id === "string" ? row.id : undefined;
+  const name = typeof row.name === "string" ? row.name : undefined;
+  const updatedAt = typeof row.updated_at === "string" ? row.updated_at : new Date().toISOString();
+
+  if (!id || !name) return null;
+
+  const plannerValues = sanitizePlannerValues(row.planner_values as Partial<FormValues>) ?? {};
+  const elevationProfile = sanitizeElevationProfile(row.elevation_profile as ElevationPoint[]);
+
+  return {
+    id,
+    name,
+    updatedAt,
+    plannerValues,
+    elevationProfile,
+  };
+}
+
 function encodePlannerState(values: FormValues, elevationProfile: ElevationPoint[]): string {
   const payload: PlannerStatePayload = {
     version: 1,
@@ -684,6 +715,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [planName, setPlanName] = useState("");
+  const [session, setSession] = useState<{ accessToken: string; refreshToken?: string; email?: string } | null>(null);
+  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
+  const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -692,6 +732,113 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     setIsDesktopApp(isElectron || Boolean(isStandalone));
   }, []);
+
+  const persistSession = useCallback(
+    (accessToken: string, refreshToken?: string, email?: string) => {
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+        if (refreshToken) {
+          window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+        } else {
+          window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+        }
+
+        if (email) {
+          window.localStorage.setItem(SESSION_EMAIL_KEY, email);
+        } else {
+          window.localStorage.removeItem(SESSION_EMAIL_KEY);
+        }
+      }
+
+      setSession({ accessToken, refreshToken, email });
+    },
+    []
+  );
+
+  const clearSession = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+      window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+      window.localStorage.removeItem(SESSION_EMAIL_KEY);
+    }
+
+    setSession(null);
+    setSavedPlans([]);
+  }, []);
+
+  const refreshSavedPlans = useCallback(
+    async (accessToken: string) => {
+      try {
+        const response = await fetch("/api/plans", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          setAccountError(racePlannerCopy.account.errors.fetchFailed);
+          return;
+        }
+
+        const data = (await response.json()) as { plans?: Record<string, unknown>[] };
+        const parsedPlans = (data.plans ?? [])
+          .map((plan) => mapSavedPlan(plan))
+          .filter((plan): plan is SavedPlan => Boolean(plan));
+        setSavedPlans(parsedPlans);
+      } catch (error) {
+        console.error("Unable to fetch saved plans", error);
+        setAccountError(racePlannerCopy.account.errors.fetchFailed);
+      }
+    },
+    [racePlannerCopy.account.errors.fetchFailed]
+  );
+
+  const verifySession = useCallback(
+    async (accessToken: string, emailHint?: string, refreshToken?: string) => {
+      setAuthStatus("checking");
+      setAccountError(null);
+
+      try {
+        const response = await fetch("/api/auth/session", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          clearSession();
+          setAuthStatus("idle");
+          return;
+        }
+
+        const data = (await response.json()) as { user?: { email?: string } };
+        const email = data.user?.email ?? emailHint;
+        persistSession(accessToken, refreshToken, email ?? undefined);
+        setAccountMessage(racePlannerCopy.account.messages.signedIn);
+        await refreshSavedPlans(accessToken);
+      } catch (error) {
+        console.error("Unable to verify session", error);
+        clearSession();
+      } finally {
+        setAuthStatus("idle");
+      }
+    },
+    [clearSession, persistSession, racePlannerCopy.account.messages.signedIn, refreshSavedPlans]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const storedToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
+    const storedRefresh = window.localStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
+    const storedEmail = window.localStorage.getItem(SESSION_EMAIL_KEY) ?? undefined;
+
+    if (storedToken) {
+      verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
+    }
+  }, [verifySession]);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
@@ -753,6 +900,133 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const target = document.getElementById(sectionId);
     if (target) {
       target.scrollIntoView({ block: "start" });
+    }
+  };
+
+  const handleAuthRequest = async (mode: "signup" | "signin") => {
+    setAccountError(null);
+    setAccountMessage(null);
+    setAuthStatus(mode === "signup" ? "signingUp" : "signingIn");
+
+    try {
+      const response = await fetch(`/api/auth/${mode === "signup" ? "signup" : "signin"}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: authEmail, password: authPassword }),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        access_token?: string;
+        refresh_token?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !data?.access_token) {
+        setAccountError(data?.message ?? racePlannerCopy.account.errors.authFailed);
+        return;
+      }
+
+      persistSession(data.access_token, data.refresh_token, authEmail);
+      setAccountMessage(
+        mode === "signup"
+          ? racePlannerCopy.account.messages.accountCreated
+          : racePlannerCopy.account.messages.signedIn
+      );
+      await refreshSavedPlans(data.access_token);
+    } catch (error) {
+      console.error("Unable to authenticate", error);
+      setAccountError(racePlannerCopy.account.errors.authFailed);
+    } finally {
+      setAuthStatus("idle");
+    }
+  };
+
+  const handleSignOut = () => {
+    setAccountMessage(null);
+    setAccountError(null);
+    clearSession();
+    setPlanName("");
+  };
+
+  const handleSavePlan = async () => {
+    setAccountError(null);
+    setAccountMessage(null);
+
+    if (!session?.accessToken) {
+      setAccountError(racePlannerCopy.account.errors.missingSession);
+      return;
+    }
+
+    if (!parsedValues.success) {
+      setAccountError(racePlannerCopy.account.errors.saveFailed);
+      return;
+    }
+
+    setPlanStatus("saving");
+
+    try {
+      const payload = {
+        name: planName.trim() || racePlannerCopy.account.plans.defaultName,
+        plannerValues: parsedValues.data,
+        elevationProfile: sanitizeElevationProfile(elevationProfile),
+      };
+
+      const response = await fetch("/api/plans", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        plan?: Record<string, unknown> | null;
+        message?: string;
+      };
+
+      if (!response.ok || !data?.plan) {
+        setAccountError(data?.message ?? racePlannerCopy.account.errors.saveFailed);
+        return;
+      }
+
+      const parsedPlan = mapSavedPlan(data.plan);
+
+      if (parsedPlan) {
+        setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
+        setPlanName(parsedPlan.name);
+      }
+
+      setAccountMessage(racePlannerCopy.account.messages.savedPlan);
+    } catch (error) {
+      console.error("Unable to save plan", error);
+      setAccountError(racePlannerCopy.account.errors.saveFailed);
+    } finally {
+      setPlanStatus("idle");
+    }
+  };
+
+  const handleLoadPlan = (plan: SavedPlan) => {
+    const sanitizedAidStations = sanitizeAidStations(plan.plannerValues.aidStations) ?? [];
+    const aidStations = sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
+
+    const mergedValues: FormValues = {
+      ...defaultValues,
+      ...plan.plannerValues,
+      aidStations,
+    };
+
+    form.reset(mergedValues, { keepDefaultValues: true });
+    setElevationProfile(plan.elevationProfile);
+    setPlanName(plan.name);
+    setAccountMessage(racePlannerCopy.account.messages.loadedPlan);
+  };
+
+  const handleRefreshPlans = () => {
+    if (session?.accessToken) {
+      refreshSavedPlans(session.accessToken);
     }
   };
 
@@ -1033,6 +1307,155 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   </form>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{racePlannerCopy.account.title}</CardTitle>
+              <CardDescription>{racePlannerCopy.account.description}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {session ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-50">
+                        {racePlannerCopy.account.auth.signedInAs.replace(
+                          "{email}",
+                          session.email ?? authEmail || "—"
+                        )}
+                      </p>
+                      {accountMessage && (
+                        <p className="text-xs text-emerald-300" role="status">
+                          {accountMessage}
+                        </p>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm" onClick={handleSignOut}>
+                      {racePlannerCopy.account.auth.signOut}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="plan-name">{racePlannerCopy.account.plans.nameLabel}</Label>
+                    <Input
+                      id="plan-name"
+                      value={planName}
+                      placeholder={racePlannerCopy.account.plans.defaultName}
+                      onChange={(event) => setPlanName(event.target.value)}
+                    />
+                    <Button type="button" className="w-full" onClick={handleSavePlan} disabled={planStatus === "saving"}>
+                      {planStatus === "saving"
+                        ? racePlannerCopy.account.plans.saving
+                        : racePlannerCopy.account.plans.save}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-slate-50">{racePlannerCopy.account.plans.title}</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleRefreshPlans}
+                        disabled={authStatus !== "idle" || planStatus === "saving"}
+                      >
+                        {racePlannerCopy.account.plans.refresh}
+                      </Button>
+                    </div>
+                    {savedPlans.length === 0 ? (
+                      <p className="text-sm text-slate-400">{racePlannerCopy.account.plans.empty}</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {savedPlans.map((plan) => (
+                          <div
+                            key={plan.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                          >
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-slate-50">{plan.name}</p>
+                              <p className="text-xs text-slate-400">
+                                {racePlannerCopy.account.plans.updatedAt.replace(
+                                  "{date}",
+                                  new Date(plan.updatedAt).toLocaleString()
+                                )}
+                              </p>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => handleLoadPlan(plan)}>
+                              {racePlannerCopy.account.plans.load}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <form
+                  className="space-y-3"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    handleAuthRequest("signin");
+                  }}
+                >
+                  <div className="space-y-1">
+                    <Label htmlFor="auth-email">{racePlannerCopy.account.auth.email}</Label>
+                    <Input
+                      id="auth-email"
+                      value={authEmail}
+                      type="email"
+                      autoComplete="email"
+                      onChange={(event) => setAuthEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="auth-password">{racePlannerCopy.account.auth.password}</Label>
+                    <Input
+                      id="auth-password"
+                      value={authPassword}
+                      type="password"
+                      autoComplete="current-password"
+                      onChange={(event) => setAuthPassword(event.target.value)}
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400">{racePlannerCopy.account.auth.status}</p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      className="w-full"
+                      onClick={() => handleAuthRequest("signin")}
+                      disabled={authStatus !== "idle"}
+                    >
+                      {authStatus === "signingIn"
+                        ? racePlannerCopy.account.auth.signIn
+                        : racePlannerCopy.account.auth.signIn}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => handleAuthRequest("signup")}
+                      disabled={authStatus !== "idle"}
+                    >
+                      {authStatus === "signingUp"
+                        ? racePlannerCopy.account.auth.create
+                        : racePlannerCopy.account.auth.create}
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {accountMessage && !session && (
+                <p className="text-xs text-emerald-300" role="status">
+                  {accountMessage}
+                </p>
+              )}
+              {accountError && <p className="text-xs text-red-400">{accountError}</p>}
             </CardContent>
           </Card>
         </div>
