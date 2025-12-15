@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import React from "react";
+import Script from "next/script";
 import { I18nProvider } from "./i18n-provider";
 import { LanguageToggle } from "./language-toggle";
 import { Analytics } from "./analytics";
@@ -17,6 +18,21 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <Script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-XP1FWYW1W6"
+          strategy="afterInteractive"
+        />
+        <Script id="ga-gtag" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-XP1FWYW1W6');
+          `}
+        </Script>
+      </head>
       <body className="min-h-screen bg-slate-950 text-slate-50">
         <Analytics />
         <I18nProvider>
