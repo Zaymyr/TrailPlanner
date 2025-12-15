@@ -1323,7 +1323,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                       <p className="text-sm font-semibold text-slate-50">
                         {racePlannerCopy.account.auth.signedInAs.replace(
                           "{email}",
-                          session.email ?? authEmail || "—"
+                          session.email ?? authEmail ?? "—"
                         )}
                       </p>
                       {accountMessage && (
@@ -1332,7 +1332,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                         </p>
                       )}
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleSignOut}>
+                    <Button variant="outline" onClick={handleSignOut}>
                       {racePlannerCopy.account.auth.signOut}
                     </Button>
                   </div>
@@ -1358,7 +1358,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                       <Button
                         type="button"
                         variant="ghost"
-                        size="sm"
+                        className="h-9 px-3 text-sm"
                         onClick={handleRefreshPlans}
                         disabled={authStatus !== "idle" || planStatus === "saving"}
                       >
@@ -1383,7 +1383,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                                 )}
                               </p>
                             </div>
-                            <Button variant="outline" size="sm" onClick={() => handleLoadPlan(plan)}>
+                            <Button
+                              variant="outline"
+                              className="h-9 px-3 text-sm"
+                              onClick={() => handleLoadPlan(plan)}
+                            >
                               {racePlannerCopy.account.plans.load}
                             </Button>
                           </div>
