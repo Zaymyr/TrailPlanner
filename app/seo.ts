@@ -4,8 +4,11 @@ import { translations } from "../locales";
 const DEFAULT_SITE_URL = "https://trailplanner.app";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL;
-export const CANONICAL_PATH = "/race-planner";
+export const HOME_PATH = "/";
+export const RACE_PLANNER_PATH = "/race-planner";
+export const CANONICAL_PATH = HOME_PATH;
 export const CANONICAL_URL = new URL(CANONICAL_PATH, SITE_URL).toString();
+export const RACE_PLANNER_URL = new URL(RACE_PLANNER_PATH, SITE_URL).toString();
 
 export const localeToOgLocale = (locale: Locale): string =>
   locale === "fr" ? "fr_FR" : "en_US";

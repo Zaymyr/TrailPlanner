@@ -7,6 +7,38 @@ export const fr: Translations = {
       "Rendez-vous dans le planificateur de course pour estimer vos passages aux ravitos, vos objectifs énergétiques et votre allure.",
     cta: "Ouvrir le planificateur de course",
   },
+  landing: {
+    heading: "Guides nutrition et hydratation trail",
+    subheading:
+      "Choisissez un guide pour affiner votre plan nutrition trail, hydratation et stratégie de ravitos, ou ouvrez directement l'outil.",
+    plannerCta: "Lancer le planificateur",
+    plannerDescription:
+      "Estimez vos besoins en glucides, eau et sodium par heure, positionnez les ravitaillements et exportez un plan imprimable.",
+    cardsHeading: "Explorer les guides détaillés",
+    cardCta: "Ouvrir le guide",
+    cards: [
+      {
+        slug: "trail-nutrition-planner",
+        title: "Plan nutrition trail",
+        description: "Construisez un plan nutrition trail avec des cibles en glucides, eau et sodium par ravito.",
+      },
+      {
+        slug: "ultra-trail-fueling",
+        title: "Nutrition ultra-trail",
+        description: "Préparez votre checklist ultra avec gels, vrais aliments et changements de flasques.",
+      },
+      {
+        slug: "ravitaillement-trail",
+        title: "Ravitaillement trail",
+        description: "Optimisez chaque ravito avec des volumes d'eau et d'électrolytes adaptés au profil.",
+      },
+      {
+        slug: "hydration-trail-running",
+        title: "Hydratation trail",
+        description: "Équilibrez flasques, poches et sodium pour les longues sorties et la chaleur.",
+      },
+    ],
+  },
   racePlanner: {
     defaults: {
       aidStationName: "Ravito {index}",
@@ -69,7 +101,8 @@ export const fr: Translations = {
           uphillEffort: "Effort en montée",
           downhillEffort: "Effort en descente",
           uphillEffortHelp: "Plus haut = vitesse accrue en montée ; plus bas = montée plus prudente.",
-          downhillEffortHelp: "Plus haut = plus d'engagement en descente tout en levant le pied sur les sections très raides.",
+          downhillEffortHelp:
+            "Plus haut = plus d'engagement en descente tout en levant le pied sur les sections très raides.",
           targetIntakePerHour: "Glucides (g/h)",
           waterIntakePerHour: "Eau (ml/h)",
           sodiumIntakePerHour: "Sodium (mg/h)",
@@ -119,41 +152,107 @@ export const fr: Translations = {
         remove: "Supprimer",
       },
       timeline: {
-        title: "Chronologie",
-        description: "Une vue compacte de votre progression prévue sur le parcours.",
-        empty: "Ajoutez vos données d'allure pour prévisualiser la chronologie du parcours.",
+        title: "Timeline",
+        description: "Une vue compacte de vos positions prévues sur le parcours.",
+        empty: "Ajoutez vos données d'allure pour prévisualiser la timeline du parcours.",
         etaLabel: "ETA",
         distanceWithUnit: "km",
         segmentLabel: "Segment de {distance} km",
         fuelLabel: "{amount} g de glucides",
         waterLabel: "{amount} ml d'eau",
-      sodiumLabel: "{amount} mg de sodium",
-      printView: {
-        title: "Plan imprimable des ravitos",
-        description: "Utilisez ce tableau pour imprimer les infos clés pour chaque ravitaillement.",
-        columns: {
-          checkpoint: "Point de ravitaillement",
-          distance: "Distance",
-          segment: "Segment",
-          eta: "Horaire",
-          segmentTime: "Temps du tronçon",
-          fuel: "Glucides",
-          water: "Eau",
-          sodium: "Sodium",
+        sodiumLabel: "{amount} mg de sodium",
+        printView: {
+          title: "Plan ravito imprimable",
+          description: "Utilisez ce tableau pour imprimer les infos clés de chaque ravito.",
+          columns: {
+            checkpoint: "Point de ravito",
+            distance: "Distance",
+            segment: "Segment",
+            eta: "ETA",
+            segmentTime: "Temps de section",
+            fuel: "Glucides",
+            water: "Eau",
+            sodium: "Sodium",
+          },
         },
       },
     },
-  },
-  buttons: {
-    importGpx: "Importer un GPX",
-    exportGpx: "Exporter le GPX",
-    printPlan: "Imprimer le plan",
-  },
+    buttons: {
+      importGpx: "Importer un GPX",
+      exportGpx: "Exporter le GPX",
+      printPlan: "Imprimer le plan",
+    },
     mobileNav: {
       importGpx: "Importer",
-      timeline: "Chronologie",
+      timeline: "Timeline",
       pacing: "Allure & effort",
       intake: "Apports",
+    },
+  },
+  resourcePages: {
+    "trail-nutrition-planner": {
+      title: "Plan nutrition trail",
+      intro:
+        "Planifiez votre nutrition trail avec des cibles en glucides, eau et sodium pour chaque ravitaillement.",
+      benefitsHeading: "Ce que le plan vous apporte",
+      benefits: [
+        "Définissez vos glucides par heure et traduisez-les en gels, barres ou portions salées.",
+        "Équilibrez volume des flasques, mélanges électrolytes et besoins entre chaque section.",
+        "Importez un GPX pour adapter l'apport à la montée, la descente et votre allure prévue.",
+        "Exportez une checklist ravito imprimable pour garder votre nutrition organisée.",
+      ],
+      ctaLabel: "Préparer mon plan nutrition trail",
+      ctaNote: "Passez sur le planificateur pour saisir vos cibles et télécharger la fiche ravito.",
+      relatedHeading: "Autres guides trail",
+      plannerLabel: "Retour au planificateur",
+    },
+    "ultra-trail-fueling": {
+      title: "Nutrition ultra-trail",
+      intro:
+        "Construisez une stratégie de nutrition ultra-trail pour rester constant sur les longues montées, les relances et la nuit.",
+      benefitsHeading: "Pourquoi utiliser ce guide",
+      benefits: [
+        "Fixez glucides et sodium par heure pour éviter les coups de mou et l'inconfort digestif.",
+        "Prévoyez les portions solides entre deux ravitos et ce que votre assistance doit passer.",
+        "Ajustez l'hydratation sur les sections chaudes avec changements de flasques et électrolytes.",
+        "Exportez une checklist ultra simple à suivre le jour J.",
+      ],
+      ctaLabel: "Construire mon plan ultra-trail",
+      ctaNote: "Utilisez le planificateur pour transformer vos cibles horaires en plan de ravitaillement ultra.",
+      relatedHeading: "Ressources nutrition trail",
+      plannerLabel: "Retour au planificateur",
+    },
+    "ravitaillement-trail": {
+      title: "Ravitaillement trail",
+      intro:
+        "Optimisez votre ravitaillement trail en listant volumes d'eau, sodium et apports pour chaque section du parcours.",
+      benefitsHeading: "Pourquoi ce plan aide",
+      benefits: [
+        "Repérez combien d'eau et de glucides vous emportez entre deux points de ravito.",
+        "Notez les mélanges d'électrolytes et les changements de bidons ou de poches.",
+        "Alignez les besoins nutritionnels sur le dénivelé et la durée estimée grâce au profil.",
+        "Générez une fiche ravito claire pour vous et votre équipe assistance.",
+      ],
+      ctaLabel: "Préparer mes ravitos",
+      ctaNote: "Ouvrez le planificateur de course pour poser vos volumes et apports par section.",
+      relatedHeading: "Guides nutrition trail liés",
+      plannerLabel: "Retour au planificateur",
+    },
+    "hydration-trail-running": {
+      title: "Hydratation trail",
+      intro:
+        "Établissez un plan d'hydratation trail qui équilibre eau, électrolytes et poches/flasques selon la météo.",
+      benefitsHeading: "Checklist hydratation",
+      benefits: [
+        "Fixez vos besoins horaires en eau et sodium selon la distance, la température et le dénivelé.",
+        "Planifiez les volumes de flasques et les points de remplissage sur le parcours.",
+        "Coordonnez hydratation, caféine et gels pour garder un niveau d'énergie stable.",
+        "Exportez une fiche axée hydratation à coller sur votre gilet ou dans vos sacs.",
+      ],
+      ctaLabel: "Planifier mon hydratation trail",
+      ctaNote: "Rendez-vous sur le planificateur pour combiner hydratation, nutrition et allure au même endroit.",
+      relatedHeading: "Continuer à affiner le plan",
+      plannerLabel: "Retour au planificateur",
     },
   },
 };

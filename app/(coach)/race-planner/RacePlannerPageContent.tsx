@@ -17,7 +17,7 @@ import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
-import { CANONICAL_URL } from "../../seo";
+import { RACE_PLANNER_URL } from "../../seo";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -640,7 +640,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       "@type": "SoftwareApplication",
       name: t.homeHero.heading,
       description: t.homeHero.description,
-      url: CANONICAL_URL,
+      url: RACE_PLANNER_URL,
       applicationCategory: "SportsApplication",
       operatingSystem: "Web",
       offers: {

@@ -1,4 +1,4 @@
-import { SITE_URL } from "../seo";
+import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "../seo";
 import type { Locale } from "../../locales/types";
 
 type SitemapEntry = {
@@ -9,9 +9,13 @@ type SitemapEntry = {
 const locales: Locale[] = ["en", "fr"];
 
 const sitemapEntries: SitemapEntry[] = [
-  { path: "/" },
-  { path: "/race-planner" },
-  { path: "/race-planner/mobile" },
+  { path: HOME_PATH },
+  { path: RACE_PLANNER_PATH },
+  { path: `${RACE_PLANNER_PATH}/mobile` },
+  { path: "/trail-nutrition-planner" },
+  { path: "/ultra-trail-fueling" },
+  { path: "/ravitaillement-trail" },
+  { path: "/hydration-trail-running" },
 ];
 
 const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
