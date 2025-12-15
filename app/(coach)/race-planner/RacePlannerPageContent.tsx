@@ -912,15 +912,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
 
   return (
-    <!-- Google tag (gtag.js) -->
-      <script async src="https://www.googletagmanager.com/gtag/js?id=G-XP1FWYW1W6"></script>
-      <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-
-        gtag('config', 'G-XP1FWYW1W6');
-      </script>
     <div className={`space-y-6 ${pagePaddingClass}`}>
       <div className="grid gap-6 xl:grid-cols-4">
         <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
