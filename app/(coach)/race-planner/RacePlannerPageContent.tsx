@@ -690,7 +690,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    className="h-9 px-3 text-sm"
                     onClick={() => setFeedbackOpen((previous) => !previous)}
                   >
                     {racePlannerCopy.sections.summary.feedback.open}
