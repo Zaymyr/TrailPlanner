@@ -166,6 +166,7 @@ export type RacePlannerTranslations = {
       signIn: string;
       signOut: string;
       status: string;
+      headerHint: string;
       signedInAs: string;
     };
     plans: {
