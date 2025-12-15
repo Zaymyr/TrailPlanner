@@ -92,6 +92,9 @@ export type RacePlannerTranslations = {
         detail: string;
         submit: string;
         open: string;
+        success: string;
+        error: string;
+        required: string;
       };
     };
     gels: {

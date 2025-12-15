@@ -89,10 +89,13 @@ export const en: Translations = {
         empty: "Add your race distance, pacing and fueling to see the totals you need for the event.",
         feedback: {
           title: "Share feedback about the app",
-          subject: "Title (email subject)",
-          detail: "Detail (email body)",
-          submit: "Send feedback email",
+          subject: "Title",
+          detail: "Detail",
+          submit: "Send feedback",
           open: "Feedback",
+          success: "Thanks for your feedback!",
+          error: "We couldn't send your feedback. Please try again.",
+          required: "Add a title and detail so we can log your feedback.",
         },
       },
       gels: {

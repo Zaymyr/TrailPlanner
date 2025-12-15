@@ -90,10 +90,13 @@ export const fr: Translations = {
         empty: "Ajoutez la distance, l'allure et la nutrition pour voir les totaux nécessaires pour l'événement.",
         feedback: {
           title: "Envoyer un retour sur l'app",
-          subject: "Titre (objet de l'email)",
-          detail: "Détail (corps de l'email)",
-          submit: "Envoyer le retour par email",
+          subject: "Titre",
+          detail: "Détail",
+          submit: "Envoyer le retour",
           open: "Retour",
+          success: "Merci pour votre retour !",
+          error: "Impossible d'enregistrer le retour. Réessayez plus tard.",
+          required: "Ajoutez un titre et un détail pour enregistrer le retour.",
         },
       },
       gels: {

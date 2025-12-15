@@ -70,8 +70,6 @@ const gelOptions: GelOption[] = [
   },
 ];
 
-const FEEDBACK_EMAIL = "faustinbertrand1990+Raceplanner@gmail.com";
-
 type ParsedGpx = {
   distanceKm: number;
   aidStations: AidStation[];
@@ -481,6 +479,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackSubject, setFeedbackSubject] = useState("");
   const [feedbackDetail, setFeedbackDetail] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
@@ -629,14 +629,46 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   };
 
-  const handleSubmitFeedback = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const encodedSubject = encodeURIComponent(feedbackSubject.trim());
-    const encodedBody = encodeURIComponent(feedbackDetail.trim());
-    const mailtoLink = `mailto:${FEEDBACK_EMAIL}?subject=${encodedSubject}&body=${encodedBody}`;
+    const subject = feedbackSubject.trim();
+    const detail = feedbackDetail.trim();
 
-    window.open(mailtoLink);
+    if (!subject || !detail) {
+      setFeedbackStatus("error");
+      setFeedbackError(racePlannerCopy.sections.summary.feedback.required);
+      return;
+    }
+
+    try {
+      setFeedbackStatus("submitting");
+      setFeedbackError(null);
+
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ subject, detail }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        setFeedbackStatus("error");
+        setFeedbackError(payload?.message ?? racePlannerCopy.sections.summary.feedback.error);
+        return;
+      }
+
+      setFeedbackStatus("success");
+      setFeedbackSubject("");
+      setFeedbackDetail("");
+    } catch (error) {
+      console.error("Unable to send feedback", error);
+      setFeedbackStatus("error");
+      setFeedbackError(racePlannerCopy.sections.summary.feedback.error);
+    }
   };
 
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
@@ -704,7 +736,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                       <Input
                         id="feedback-subject"
                         value={feedbackSubject}
-                        onChange={(event) => setFeedbackSubject(event.target.value)}
+                        onChange={(event) => {
+                          setFeedbackSubject(event.target.value);
+                          setFeedbackStatus("idle");
+                          setFeedbackError(null);
+                        }}
                         required
                       />
                     </div>
@@ -713,13 +749,21 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                       <textarea
                         id="feedback-detail"
                         value={feedbackDetail}
-                        onChange={(event) => setFeedbackDetail(event.target.value)}
+                        onChange={(event) => {
+                          setFeedbackDetail(event.target.value);
+                          setFeedbackStatus("idle");
+                          setFeedbackError(null);
+                        }}
                         required
                         className="min-h-[120px] w-full rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm text-slate-50 shadow-sm transition placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
                       />
                     </div>
+                    {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
+                    {feedbackStatus === "success" && !feedbackError && (
+                      <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
+                    )}
                     <div className="flex justify-end">
-                      <Button type="submit" className="w-full sm:w-auto">
+                      <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
                         {racePlannerCopy.sections.summary.feedback.submit}
                       </Button>
                     </div>
