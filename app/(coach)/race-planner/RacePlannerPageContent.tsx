@@ -462,6 +462,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const sectionIds = {
     inputs: "race-inputs",
+    timeline: "race-timeline",
     courseProfile: "course-profile",
     pacing: "pacing-section",
     intake: "intake-section",
@@ -541,7 +542,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const handleMobileImport = () => {
     scrollToSection(sectionIds.inputs);
-    fileInputRef.current?.click();
+    const input = fileInputRef.current;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+    } else {
+      input.click();
+    }
   };
 
   const mobileNavActions = [
@@ -551,9 +559,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       onClick: handleMobileImport,
     },
     {
-      key: "profile",
-      label: racePlannerCopy.mobileNav.courseProfile,
-      onClick: () => scrollToSection(sectionIds.courseProfile),
+      key: "timeline",
+      label: racePlannerCopy.mobileNav.timeline,
+      onClick: () => scrollToSection(sectionIds.timeline),
     },
     {
       key: "pacing",
@@ -793,7 +801,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card id={sectionIds.timeline}>
                 <CardHeader>
                   <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
                   <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>

@@ -123,7 +123,7 @@ export const en: Translations = {
     },
     mobileNav: {
       importGpx: "Import",
-      courseProfile: "Profile",
+      timeline: "Timeline",
       pacing: "Pace & effort",
       intake: "Intake",
     },
