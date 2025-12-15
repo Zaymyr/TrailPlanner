@@ -192,6 +192,7 @@ export const fr: Translations = {
         signIn: "Se connecter",
         signOut: "Se déconnecter",
         status: "Non connecté",
+        headerHint: "Utilisez l'en-tête pour vous connecter ou créer un compte.",
         signedInAs: "Connecté en tant que {email}",
       },
       plans: {
