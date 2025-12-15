@@ -3,7 +3,6 @@ import { Analytics } from "@vercel/analytics/next"
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
-import { MessageCircle } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -17,6 +16,23 @@ import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import React, { useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
+
+const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={24}
+    height={24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.4 8.5 8.5 0 0 1-6.6 3.1 8.38 8.38 0 0 1-5.4-1.9L3 21l1.9-4.1a8.38 8.38 0 0 1-1.9-5.4 8.5 8.5 0 0 1 3.1-6.6 8.38 8.38 0 0 1 5.4-1.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
+  </svg>
+);
 
 type AidStation = { name: string; distanceKm: number };
 
@@ -1191,7 +1207,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
         <Button
           type="button"
-          size="icon"
           className="fixed bottom-6 right-6 z-20 hidden h-12 w-12 rounded-full shadow-lg sm:inline-flex"
           aria-label={racePlannerCopy.sections.summary.feedback.open}
           onClick={() => {
@@ -1201,7 +1216,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               ?.scrollIntoView({ behavior: "smooth", block: "center" });
           }}
         >
-          <MessageCircle className="h-5 w-5" />
+          <MessageCircleIcon className="h-5 w-5" />
         </Button>
       </div>
     );
