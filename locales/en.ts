@@ -126,13 +126,28 @@ export const en: Translations = {
         segmentLabel: "{distance} km segment",
         fuelLabel: "{amount} g fuel",
         waterLabel: "{amount} ml water",
-        sodiumLabel: "{amount} mg sodium",
+      sodiumLabel: "{amount} mg sodium",
+      printView: {
+        title: "Printable aid plan",
+        description: "Use this table to print the key details you need at each aid station.",
+        columns: {
+          checkpoint: "Aid point",
+          distance: "Distance",
+          segment: "Segment",
+          eta: "ETA",
+          segmentTime: "Leg time",
+          fuel: "Carbs",
+          water: "Water",
+          sodium: "Sodium",
+        },
       },
     },
-    buttons: {
-      importGpx: "Import GPX",
-      exportGpx: "Export GPX",
-    },
+  },
+  buttons: {
+    importGpx: "Import GPX",
+    exportGpx: "Export GPX",
+    printPlan: "Print plan",
+  },
     mobileNav: {
       importGpx: "Import",
       timeline: "Timeline",

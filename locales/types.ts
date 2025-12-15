@@ -126,11 +126,26 @@ export type RacePlannerTranslations = {
       fuelLabel: string;
       waterLabel: string;
       sodiumLabel: string;
+      printView: {
+        title: string;
+        description: string;
+        columns: {
+          checkpoint: string;
+          distance: string;
+          segment: string;
+          eta: string;
+          segmentTime: string;
+          fuel: string;
+          water: string;
+          sodium: string;
+        };
+      };
     };
   };
   buttons: {
     importGpx: string;
     exportGpx: string;
+    printPlan: string;
   };
   mobileNav: {
     importGpx: string;

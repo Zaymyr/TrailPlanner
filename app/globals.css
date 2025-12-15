@@ -16,3 +16,14 @@ select,
 button {
   font: inherit;
 }
+
+@media print {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background: white;
+    color: #0f172a;
+  }
+}
