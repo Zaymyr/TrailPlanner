@@ -460,6 +460,13 @@ export default function RacePlannerPage() {
     mode: "onChange",
   });
 
+  const sectionIds = {
+    inputs: "race-inputs",
+    courseProfile: "course-profile",
+    pacing: "pacing-section",
+    intake: "intake-section",
+  } as const;
+
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const paceType = form.watch("paceType");
@@ -525,6 +532,41 @@ export default function RacePlannerPage() {
     return Math.min((value / total) * 100, 100);
   };
 
+  const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
+    const target = document.getElementById(sectionId);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  const handleMobileImport = () => {
+    scrollToSection(sectionIds.inputs);
+    fileInputRef.current?.click();
+  };
+
+  const mobileNavActions = [
+    {
+      key: "import",
+      label: racePlannerCopy.mobileNav.importGpx,
+      onClick: handleMobileImport,
+    },
+    {
+      key: "profile",
+      label: racePlannerCopy.mobileNav.courseProfile,
+      onClick: () => scrollToSection(sectionIds.courseProfile),
+    },
+    {
+      key: "pacing",
+      label: racePlannerCopy.mobileNav.pacing,
+      onClick: () => scrollToSection(sectionIds.pacing),
+    },
+    {
+      key: "intake",
+      label: racePlannerCopy.mobileNav.intake,
+      onClick: () => scrollToSection(sectionIds.intake),
+    },
+  ];
+
   const handlePaceTypeChange = (nextType: FormValues["paceType"]) => {
     const currentType = form.getValues("paceType");
     if (currentType === nextType) return;
@@ -575,7 +617,7 @@ export default function RacePlannerPage() {
   };
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 pb-28 xl:pb-6">
         <div className="grid gap-6 xl:grid-cols-4">
           <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
             <Card>
@@ -619,7 +661,7 @@ export default function RacePlannerPage() {
           </div>
 
           <div className="space-y-6 xl:col-span-2">
-            <Card>
+            <Card id={sectionIds.courseProfile}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -826,7 +868,7 @@ export default function RacePlannerPage() {
           </div>
 
           <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
-            <Card>
+            <Card id={sectionIds.inputs}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -875,7 +917,10 @@ export default function RacePlannerPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                  <div
+                    id={sectionIds.pacing}
+                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
+                  >
                     <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
                     <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
                       <div className="space-y-4">
@@ -967,7 +1012,10 @@ export default function RacePlannerPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
+                  <div
+                    id={sectionIds.intake}
+                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
+                  >
                     <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.nutritionTitle}</p>
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="space-y-2">
@@ -1004,6 +1052,23 @@ export default function RacePlannerPage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </div>
+
+        <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">
+          <div className="rounded-full border border-slate-800 bg-slate-950/90 px-2 py-2 shadow-lg shadow-emerald-500/20 backdrop-blur">
+            <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-slate-100">
+              {mobileNavActions.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  className="flex items-center justify-center rounded-full px-3 py-2 text-center transition hover:bg-slate-800/80 active:translate-y-[1px]"
+                  onClick={action.onClick}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
