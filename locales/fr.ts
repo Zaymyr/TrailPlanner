@@ -40,11 +40,6 @@ export const fr: Translations = {
     ],
   },
   racePlanner: {
-    hero: {
-      eyebrow: "TrailPlanner",
-      title: "Plan carburant course",
-      subtitle: "Planifiez vos passages ravito, vos objectifs énergétiques et votre allure pour le jour J.",
-    },
     defaults: {
       aidStationName: "Ravito {index}",
       finalBottles: "Dernières bouteilles",

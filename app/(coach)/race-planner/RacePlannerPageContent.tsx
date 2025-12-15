@@ -15,7 +15,6 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
-import { LanguageToggle } from "../../language-toggle";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
 import { RACE_PLANNER_URL } from "../../seo";
@@ -1214,99 +1213,82 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg">
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">
-                  {racePlannerCopy.hero.eyebrow}
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.account.title}</p>
+              <p className="text-sm text-slate-400">{racePlannerCopy.account.auth.headerHint}</p>
+              {accountMessage && !session && (
+                <p className="text-xs text-emerald-300" role="status">
+                  {accountMessage}
                 </p>
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-2xl font-semibold leading-tight text-slate-50">
-                    {racePlannerCopy.hero.title}
-                  </h1>
-                  <LanguageToggle />
-                </div>
-                <p className="text-sm text-slate-300">{racePlannerCopy.hero.subtitle}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.account.title}</p>
-                <p className="text-sm text-slate-400">{racePlannerCopy.account.auth.headerHint}</p>
-                {accountMessage && !session && (
-                  <p className="text-xs text-emerald-300" role="status">
-                    {accountMessage}
-                  </p>
-                )}
-              </div>
-
-              {session ? (
-                <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-3">
-                  <p className="text-sm text-slate-200">
-                    {racePlannerCopy.account.auth.signedInAs.replace(
-                      "{email}",
-                      session.email ?? authEmail ?? "—"
-                    )}
-                  </p>
-                  <Button variant="outline" onClick={handleSignOut} className="whitespace-nowrap">
-                    {racePlannerCopy.account.auth.signOut}
-                  </Button>
-                </div>
-              ) : (
-                <form
-                  className="grid w-full gap-2 md:w-auto md:grid-cols-[1fr,1fr,auto,auto] md:items-center"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    handleAuthRequest("signin");
-                  }}
-                >
-                  <div className="space-y-1">
-                    <Label className="sr-only" htmlFor="header-auth-email">
-                      {racePlannerCopy.account.auth.email}
-                    </Label>
-                    <Input
-                      id="header-auth-email"
-                      value={authEmail}
-                      type="email"
-                      autoComplete="email"
-                      onChange={(event) => setAuthEmail(event.target.value)}
-                      placeholder="you@example.com"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="sr-only" htmlFor="header-auth-password">
-                      {racePlannerCopy.account.auth.password}
-                    </Label>
-                    <Input
-                      id="header-auth-password"
-                      value={authPassword}
-                      type="password"
-                      autoComplete="current-password"
-                      onChange={(event) => setAuthPassword(event.target.value)}
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={authStatus !== "idle"}>
-                    {racePlannerCopy.account.auth.signIn}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => handleAuthRequest("signup")}
-                    disabled={authStatus !== "idle"}
-                  >
-                    {racePlannerCopy.account.auth.create}
-                  </Button>
-                  <p className="text-xs text-slate-400 md:col-span-4">{racePlannerCopy.account.auth.status}</p>
-                  {accountError && !session && (
-                    <p className="text-xs text-red-400 md:col-span-4">{accountError}</p>
-                  )}
-                </form>
               )}
             </div>
+
+            {session ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-800 bg-slate-900/70 px-4 py-3">
+                <p className="text-sm text-slate-200">
+                  {racePlannerCopy.account.auth.signedInAs.replace(
+                    "{email}",
+                    session.email ?? authEmail ?? "—"
+                  )}
+                </p>
+                <Button variant="outline" onClick={handleSignOut} className="whitespace-nowrap">
+                  {racePlannerCopy.account.auth.signOut}
+                </Button>
+              </div>
+            ) : (
+              <form
+                className="grid w-full gap-2 md:w-auto md:grid-cols-[1fr,1fr,auto,auto] md:items-center"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  handleAuthRequest("signin");
+                }}
+              >
+                <div className="space-y-1">
+                  <Label className="sr-only" htmlFor="header-auth-email">
+                    {racePlannerCopy.account.auth.email}
+                  </Label>
+                  <Input
+                    id="header-auth-email"
+                    value={authEmail}
+                    type="email"
+                    autoComplete="email"
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="sr-only" htmlFor="header-auth-password">
+                    {racePlannerCopy.account.auth.password}
+                  </Label>
+                  <Input
+                    id="header-auth-password"
+                    value={authPassword}
+                    type="password"
+                    autoComplete="current-password"
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={authStatus !== "idle"}>
+                  {racePlannerCopy.account.auth.signIn}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => handleAuthRequest("signup")}
+                  disabled={authStatus !== "idle"}
+                >
+                  {racePlannerCopy.account.auth.create}
+                </Button>
+                <p className="text-xs text-slate-400 md:col-span-4">{racePlannerCopy.account.auth.status}</p>
+                {accountError && !session && (
+                  <p className="text-xs text-red-400 md:col-span-4">{accountError}</p>
+                )}
+              </form>
+            )}
           </div>
         </div>
 

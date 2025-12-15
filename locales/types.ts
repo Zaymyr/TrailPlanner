@@ -16,11 +16,6 @@ export type HomeHeroTranslations = {
 };
 
 export type RacePlannerTranslations = {
-  hero: {
-    eyebrow: string;
-    title: string;
-    subtitle: string;
-  };
   defaults: {
     aidStationName: string;
     finalBottles: string;
