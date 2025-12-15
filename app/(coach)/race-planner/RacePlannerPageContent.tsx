@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
+import Script from "next/script";
 import {
   Card,
   CardContent,
@@ -16,6 +17,7 @@ import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
+import { CANONICAL_URL } from "../../seo";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -632,6 +634,24 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { t } = useI18n();
   const racePlannerCopy = t.racePlanner;
 
+  const structuredData = useMemo(
+    () => ({
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: t.homeHero.heading,
+      description: t.homeHero.description,
+      url: CANONICAL_URL,
+      applicationCategory: "SportsApplication",
+      operatingSystem: "Web",
+      offers: {
+        "@type": "Offer",
+        price: 0,
+        priceCurrency: "USD",
+      },
+    }),
+    [t.homeHero.description, t.homeHero.heading]
+  );
+
   const formSchema = useMemo(() => createFormSchema(racePlannerCopy), [racePlannerCopy]);
   const defaultValues = useMemo(() => buildDefaultValues(racePlannerCopy), [racePlannerCopy]);
   const resolver = useMemo(() => zodResolver(formSchema), [formSchema]);
@@ -912,10 +932,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
 
   return (
-    <div className={`space-y-6 ${pagePaddingClass}`}>
-      <div className="grid gap-6 xl:grid-cols-4">
-        <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
-          <Card>
+    <>
+      <Script id="software-application-ld" type="application/ld+json" strategy="afterInteractive">
+        {JSON.stringify(structuredData)}
+      </Script>
+
+      <div className={`space-y-6 ${pagePaddingClass}`}>
+        <div className="grid gap-6 xl:grid-cols-4">
+          <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
+            <Card>
             <CardHeader>
               <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
               <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
@@ -1542,7 +1567,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </Button>
         )}
       </div>
-    );
+    </>
+  );
 
   }
 

@@ -1,0 +1,20 @@
+import type { Locale } from "../locales/types";
+import { translations } from "../locales";
+
+const DEFAULT_SITE_URL = "https://trailplanner.app";
+
+export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL;
+export const CANONICAL_PATH = "/race-planner";
+export const CANONICAL_URL = new URL(CANONICAL_PATH, SITE_URL).toString();
+
+export const localeToOgLocale = (locale: Locale): string =>
+  locale === "fr" ? "fr_FR" : "en_US";
+
+export const buildLocaleMetaCopy = (locale: Locale) => {
+  const copy = translations[locale];
+
+  return {
+    title: copy.homeHero.heading,
+    description: copy.homeHero.description,
+  };
+};
