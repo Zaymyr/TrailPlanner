@@ -156,6 +156,43 @@ export type RacePlannerTranslations = {
     exportGpx: string;
     printPlan: string;
   };
+  account: {
+    title: string;
+    description: string;
+    auth: {
+      email: string;
+      password: string;
+      create: string;
+      signIn: string;
+      signOut: string;
+      status: string;
+      signedInAs: string;
+    };
+    plans: {
+      title: string;
+      nameLabel: string;
+      defaultName: string;
+      save: string;
+      saving: string;
+      refresh: string;
+      load: string;
+      empty: string;
+      updatedAt: string;
+    };
+    messages: {
+      accountCreated: string;
+      signedIn: string;
+      savedPlan: string;
+      loadedPlan: string;
+    };
+    errors: {
+      missingSession: string;
+      saveFailed: string;
+      loadFailed: string;
+      authFailed: string;
+      fetchFailed: string;
+    };
+  };
   mobileNav: {
     importGpx: string;
     timeline: string;
@@ -195,3 +232,4 @@ export type Translations = {
   landing: LandingPageTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
 };
+
