@@ -41,6 +41,10 @@ export async function POST(request: Request) {
 
     const result = await response.json().catch(() => null);
 
+    const accessToken = result?.access_token ?? result?.session?.access_token;
+    const refreshToken = result?.refresh_token ?? result?.session?.refresh_token;
+    const requiresEmailConfirmation = response.ok && !accessToken;
+
     if (!response.ok || !result) {
       const message = typeof result?.msg === "string" ? result.msg : "Unable to create account.";
       return NextResponse.json({ message }, { status: response.status || 400 });
@@ -49,10 +53,11 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         user: result.user,
-        access_token: result.access_token,
-        refresh_token: result.refresh_token,
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        requiresEmailConfirmation,
       },
-      { status: 201 }
+      { status: response.status || (requiresEmailConfirmation ? 202 : 201) }
     );
   } catch (error) {
     console.error("Unexpected Supabase error during sign up", error);

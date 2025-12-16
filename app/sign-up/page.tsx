@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -25,12 +25,36 @@ const signUpSchema = z
   });
 
 type SignUpForm = z.infer<typeof signUpSchema>;
+import { useI18n } from "../i18n-provider";
+import type { Translations } from "../../locales/types";
+
+const createSignUpSchema = (authCopy: Translations["auth"]) =>
+  z
+    .object({
+      fullName: z
+        .string()
+        .trim()
+        .min(2, authCopy.signUp.fullNameRequirement)
+        .max(120),
+      email: z.string().trim().email({ message: authCopy.shared.emailInvalid }),
+      password: z.string().min(8, authCopy.shared.passwordRequirement),
+      confirmPassword: z.string().min(8, authCopy.shared.passwordRequirement),
+    })
+    .refine((values) => values.password === values.confirmPassword, {
+      message: authCopy.signUp.mismatchError,
+      path: ["confirmPassword"],
+    });
+
+type SignUpForm = z.infer<ReturnType<typeof createSignUpSchema>>;
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+
+  const signUpSchema = useMemo(() => createSignUpSchema(t.auth), [t]);
 
   const {
     register,
@@ -65,25 +89,36 @@ export default function SignUpPage() {
         access_token?: string;
         refresh_token?: string;
         message?: string;
+        requiresEmailConfirmation?: boolean;
       } | null;
 
-      if (!response.ok || !data?.access_token) {
-        setFormError(data?.message ?? "Unable to create account. Please try again.");
+      if (!response.ok) {
+        setFormError(data?.message ?? t.auth.signUp.error);
         return;
       }
 
-      persistSessionToStorage({
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        email: values.email,
-      });
+      if (data?.access_token) {
+        persistSessionToStorage({
+          accessToken: data.access_token,
+          refreshToken: data.refresh_token,
+          email: values.email,
+        });
 
-      setFormMessage("Account created! Redirecting…");
-      router.push("/race-planner");
-      router.refresh();
+        setFormMessage(t.auth.signUp.success);
+        router.push("/race-planner");
+        router.refresh();
+        return;
+      }
+
+      if (data?.requiresEmailConfirmation) {
+        setFormMessage(t.auth.signUp.pendingEmail);
+        return;
+      }
+
+      setFormMessage(t.auth.signUp.success);
     } catch (error) {
       console.error("Unable to sign up", error);
-      setFormError("Something went wrong. Please try again.");
+      setFormError(t.auth.shared.genericError);
     }
   });
 
@@ -101,10 +136,8 @@ export default function SignUpPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/60 p-6 shadow-lg">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-slate-50">Sign up</h1>
-        <p className="text-slate-300">
-          Create your Trailplanner account to start organizing your race day fueling.
-        </p>
+        <h1 className="text-2xl font-semibold text-slate-50">{t.auth.signUp.title}</h1>
+        <p className="text-slate-300">{t.auth.signUp.description}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -127,50 +160,50 @@ export default function SignUpPage() {
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="fullName">Full name</Label>
+          <Label htmlFor="fullName">{t.auth.signUp.fullNameLabel}</Label>
           <Input
             id="fullName"
             type="text"
             autoComplete="name"
-            placeholder="Alex Runner"
+            placeholder={t.auth.signUp.fullNamePlaceholder}
             {...register("fullName")}
           />
           {errors.fullName && <p className="text-sm text-amber-400">{errors.fullName.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t.auth.shared.emailLabel}</Label>
           <Input
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={t.auth.shared.emailPlaceholder}
             {...register("email")}
           />
           {errors.email && <p className="text-sm text-amber-400">{errors.email.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t.auth.shared.passwordLabel}</Label>
           <Input
             id="password"
             type="password"
             autoComplete="new-password"
             minLength={8}
-            placeholder="••••••••"
+            placeholder={t.auth.shared.passwordPlaceholder}
             {...register("password")}
           />
           {errors.password && <p className="text-sm text-amber-400">{errors.password.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="confirmPassword">Confirm password</Label>
+          <Label htmlFor="confirmPassword">{t.auth.signUp.confirmPasswordLabel}</Label>
           <Input
             id="confirmPassword"
             type="password"
             autoComplete="new-password"
             minLength={8}
-            placeholder="••••••••"
+            placeholder={t.auth.signUp.confirmPasswordPlaceholder}
             {...register("confirmPassword")}
           />
           {errors.confirmPassword && <p className="text-sm text-amber-400">{errors.confirmPassword.message}</p>}
@@ -180,7 +213,7 @@ export default function SignUpPage() {
         {formMessage && <p className="text-sm text-emerald-300">{formMessage}</p>}
 
         <Button type="submit" disabled={isSubmitting} className="justify-center">
-          {isSubmitting ? "Creating account..." : "Create account"}
+          {isSubmitting ? t.auth.signUp.submitting : t.auth.signUp.submit}
         </Button>
       </form>
     </div>

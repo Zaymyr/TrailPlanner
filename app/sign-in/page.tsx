@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -11,19 +11,25 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { redirectToGoogleOAuth } from "../../lib/oauth";
+import { useI18n } from "../i18n-provider";
+import type { Translations } from "../../locales/types";
 
-const signInSchema = z.object({
-  email: z.string().trim().email({ message: "Enter a valid email" }),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+const createSignInSchema = (authCopy: Translations["auth"]) =>
+  z.object({
+    email: z.string().trim().email({ message: authCopy.shared.emailInvalid }),
+    password: z.string().min(8, authCopy.shared.passwordRequirement),
+  });
 
-type SignInForm = z.infer<typeof signInSchema>;
+type SignInForm = z.infer<ReturnType<typeof createSignInSchema>>;
 
 export default function SignInPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [oauthError, setOauthError] = useState<string | null>(null);
+
+  const signInSchema = useMemo(() => createSignInSchema(t.auth), [t]);
 
   const {
     register,
@@ -52,7 +58,7 @@ export default function SignInPage() {
       } | null;
 
       if (!response.ok || !data?.access_token) {
-        setFormError(data?.message ?? "Unable to sign in. Please try again.");
+        setFormError(data?.message ?? t.auth.signIn.error);
         return;
       }
 
@@ -62,12 +68,12 @@ export default function SignInPage() {
         email: values.email,
       });
 
-      setFormMessage("Signed in successfully. Redirecting…");
+      setFormMessage(t.auth.signIn.success);
       router.push("/race-planner");
       router.refresh();
     } catch (error) {
       console.error("Unable to sign in", error);
-      setFormError("Something went wrong. Please try again.");
+      setFormError(t.auth.shared.genericError);
     }
   });
 
@@ -87,8 +93,8 @@ export default function SignInPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/60 p-6 shadow-lg">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-slate-50">Sign in</h1>
-        <p className="text-slate-300">Access your Trailplanner account.</p>
+        <h1 className="text-2xl font-semibold text-slate-50">{t.auth.signIn.title}</h1>
+        <p className="text-slate-300">{t.auth.signIn.description}</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -111,24 +117,24 @@ export default function SignInPage() {
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="email">Email</Label>
+          <Label htmlFor="email">{t.auth.shared.emailLabel}</Label>
           <Input
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="you@example.com"
+            placeholder={t.auth.shared.emailPlaceholder}
             {...register("email")}
           />
           {errors.email && <p className="text-sm text-amber-400">{errors.email.message}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
-          <Label htmlFor="password">Password</Label>
+          <Label htmlFor="password">{t.auth.shared.passwordLabel}</Label>
           <Input
             id="password"
             type="password"
             autoComplete="current-password"
-            placeholder="••••••••"
+            placeholder={t.auth.shared.passwordPlaceholder}
             {...register("password")}
           />
           {errors.password && <p className="text-sm text-amber-400">{errors.password.message}</p>}
@@ -138,7 +144,7 @@ export default function SignInPage() {
         {formMessage && <p className="text-sm text-emerald-300">{formMessage}</p>}
 
         <Button type="submit" disabled={isSubmitting} className="justify-center">
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {isSubmitting ? t.auth.signIn.submitting : t.auth.signIn.submit}
         </Button>
       </form>
     </div>
