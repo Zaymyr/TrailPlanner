@@ -1175,7 +1175,20 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   };
 
+  const openFeedbackForm = () => {
+    setFeedbackOpen(true);
+    setFeedbackStatus("idle");
+    setFeedbackError(null);
+  };
+
+  const closeFeedbackForm = () => {
+    setFeedbackOpen(false);
+    setFeedbackError(null);
+    setFeedbackStatus("idle");
+  };
+
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
+  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
 
   return (
     <>
@@ -1224,63 +1237,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               ) : (
                 <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
               )}
-
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-slate-50">
-                    {racePlannerCopy.sections.summary.feedback.title}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-9 px-3 text-sm"
-                    onClick={() => setFeedbackOpen((previous) => !previous)}
-                  >
-                    {racePlannerCopy.sections.summary.feedback.open}
-                  </Button>
-                </div>
-
-                {feedbackOpen && (
-                  <form id="feedback-form" className="mt-4 space-y-3" onSubmit={handleSubmitFeedback}>
-                    <div className="space-y-1">
-                      <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
-                      <Input
-                        id="feedback-subject"
-                        value={feedbackSubject}
-                        onChange={(event) => {
-                          setFeedbackSubject(event.target.value);
-                          setFeedbackStatus("idle");
-                          setFeedbackError(null);
-                        }}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="feedback-detail">{racePlannerCopy.sections.summary.feedback.detail}</Label>
-                      <textarea
-                        id="feedback-detail"
-                        value={feedbackDetail}
-                        onChange={(event) => {
-                          setFeedbackDetail(event.target.value);
-                          setFeedbackStatus("idle");
-                          setFeedbackError(null);
-                        }}
-                        required
-                        className="min-h-[120px] w-full rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm text-slate-50 shadow-sm transition placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
-                      />
-                    </div>
-                    {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
-                    {feedbackStatus === "success" && !feedbackError && (
-                      <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
-                    )}
-                    <div className="flex justify-end">
-                      <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
-                        {racePlannerCopy.sections.summary.feedback.submit}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </div>
             </CardContent>
           </Card>
 
@@ -1794,17 +1750,72 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         {!isDesktopApp && (
           <Button
             type="button"
-            className="fixed bottom-6 right-6 z-20 hidden h-12 w-12 rounded-full shadow-lg sm:inline-flex"
+            className={`fixed ${feedbackButtonOffsetClass} left-6 z-20 inline-flex h-12 w-12 rounded-full shadow-lg`}
             aria-label={racePlannerCopy.sections.summary.feedback.open}
-            onClick={() => {
-              setFeedbackOpen(true);
-              document
-                .getElementById("feedback-form")
-                ?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
+            onClick={openFeedbackForm}
           >
             <MessageCircleIcon className="h-5 w-5" />
           </Button>
+        )}
+
+        {feedbackOpen && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-4">
+            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
+              <Button
+                type="button"
+                variant="ghost"
+                className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-slate-200"
+                aria-label="Close feedback form"
+                onClick={closeFeedbackForm}
+              >
+                ×
+              </Button>
+              <div className="mb-4 pr-8">
+                <p className="text-lg font-semibold text-slate-50">
+                  {racePlannerCopy.sections.summary.feedback.title}
+                </p>
+              </div>
+
+              <form id="feedback-form" className="space-y-3" onSubmit={handleSubmitFeedback}>
+                <div className="space-y-1">
+                  <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
+                  <Input
+                    id="feedback-subject"
+                    value={feedbackSubject}
+                    onChange={(event) => {
+                      setFeedbackSubject(event.target.value);
+                      setFeedbackStatus("idle");
+                      setFeedbackError(null);
+                    }}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="feedback-detail">{racePlannerCopy.sections.summary.feedback.detail}</Label>
+                  <textarea
+                    id="feedback-detail"
+                    value={feedbackDetail}
+                    onChange={(event) => {
+                      setFeedbackDetail(event.target.value);
+                      setFeedbackStatus("idle");
+                      setFeedbackError(null);
+                    }}
+                    required
+                    className="min-h-[120px] w-full rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm text-slate-50 shadow-sm transition placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                  />
+                </div>
+                {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
+                {feedbackStatus === "success" && !feedbackError && (
+                  <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
+                )}
+                <div className="flex justify-end">
+                  <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
+                    {racePlannerCopy.sections.summary.feedback.submit}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
 
