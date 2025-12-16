@@ -218,6 +218,7 @@ export type RacePlannerTranslations = {
       saving: string;
       refresh: string;
       load: string;
+      delete: string;
       empty: string;
       updatedAt: string;
     };
@@ -226,11 +227,13 @@ export type RacePlannerTranslations = {
       signedIn: string;
       savedPlan: string;
       loadedPlan: string;
+      deletedPlan: string;
     };
     errors: {
       missingSession: string;
       saveFailed: string;
       loadFailed: string;
+      deleteFailed: string;
       authFailed: string;
       fetchFailed: string;
     };

@@ -736,6 +736,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [accountError, setAccountError] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -994,6 +995,44 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setElevationProfile(plan.elevationProfile);
     setPlanName(plan.name);
     setAccountMessage(racePlannerCopy.account.messages.loadedPlan);
+  };
+
+  const handleDeletePlan = async (planId: string) => {
+    setAccountError(null);
+    setAccountMessage(null);
+
+    if (!session?.accessToken) {
+      setAccountError(racePlannerCopy.account.errors.missingSession);
+      return;
+    }
+
+    setDeletingPlanId(planId);
+
+    try {
+      const response = await fetch("/api/plans", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify({ id: planId }),
+      });
+
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        setAccountError(data?.message ?? racePlannerCopy.account.errors.deleteFailed);
+        return;
+      }
+
+      setSavedPlans((previous) => previous.filter((plan) => plan.id !== planId));
+      setAccountMessage(racePlannerCopy.account.messages.deletedPlan);
+    } catch (error) {
+      console.error("Unable to delete plan", error);
+      setAccountError(racePlannerCopy.account.errors.deleteFailed);
+    } finally {
+      setDeletingPlanId(null);
+    }
   };
 
   const handleRefreshPlans = () => {
@@ -1295,13 +1334,26 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                                 )}
                               </p>
                             </div>
-                            <Button
-                              variant="outline"
-                              className="h-9 px-3 text-sm"
-                              onClick={() => handleLoadPlan(plan)}
-                            >
-                              {racePlannerCopy.account.plans.load}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                className="h-9 px-3 text-sm"
+                                onClick={() => handleLoadPlan(plan)}
+                                disabled={deletingPlanId === plan.id}
+                              >
+                                {racePlannerCopy.account.plans.load}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                className="h-9 px-3 text-sm text-red-300 hover:text-red-200"
+                                onClick={() => handleDeletePlan(plan.id)}
+                                disabled={deletingPlanId === plan.id || planStatus === "saving"}
+                              >
+                                {deletingPlanId === plan.id
+                                  ? racePlannerCopy.account.plans.saving
+                                  : racePlannerCopy.account.plans.delete}
+                              </Button>
+                            </div>
                           </div>
                         ))}
                       </div>
