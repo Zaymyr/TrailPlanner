@@ -12,19 +12,6 @@ import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { redirectToGoogleOAuth } from "../../lib/oauth";
 
-const signUpSchema = z
-  .object({
-    fullName: z.string().trim().min(2, "Please enter your full name").max(120),
-    email: z.string().trim().email({ message: "Enter a valid email" }),
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
-  })
-  .refine((values) => values.password === values.confirmPassword, {
-    message: "Passwords must match",
-    path: ["confirmPassword"],
-  });
-
-type SignUpForm = z.infer<typeof signUpSchema>;
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
 
