@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 
 import { Button } from "../components/ui/button";
 import { clearStoredSession, readStoredSession } from "../lib/auth-storage";
+import { useI18n } from "./i18n-provider";
 
 type HeaderSession = { email?: string } | null;
 
 export function HeaderAuth() {
+  const { t } = useI18n();
   const [session, setSession] = useState<HeaderSession>(null);
 
   useEffect(() => {
@@ -58,17 +60,22 @@ export function HeaderAuth() {
   };
 
   if (session) {
+    const signedInLabel = t.racePlanner.account.auth.signedInAs.replace(
+      "{email}",
+      session.email ?? t.racePlanner.account.auth.status,
+    );
+
     return (
       <div className="flex items-center gap-3">
         <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-sm font-medium text-emerald-100">
-          {session.email ?? "Signed in"}
+          {signedInLabel}
         </span>
         <Button
           variant="outline"
           className="border-emerald-300/60 text-emerald-50 hover:border-emerald-200"
           onClick={handleSignOut}
         >
-          Sign out
+          {t.racePlanner.account.auth.signOut}
         </Button>
       </div>
     );
@@ -80,13 +87,13 @@ export function HeaderAuth() {
         href="/sign-in"
         className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
       >
-        Sign in
+        {t.racePlanner.account.auth.signIn}
       </Link>
       <Link
         href="/sign-up"
         className="rounded-lg bg-emerald-400 px-3 py-1.5 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-300"
       >
-        Sign up
+        {t.racePlanner.account.auth.create}
       </Link>
     </div>
   );
