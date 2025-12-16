@@ -1266,27 +1266,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>{racePlannerCopy.account.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.account.description}</CardDescription>
-            </CardHeader>
             <CardContent className="space-y-4">
               {session ? (
                 <div className="space-y-4">
-                  <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-                    <p className="text-sm font-semibold text-slate-50">
-                      {racePlannerCopy.account.auth.signedInAs.replace(
-                        "{email}",
-                        session.email ?? "—"
-                      )}
-                    </p>
-                    {accountMessage && (
-                      <p className="text-xs text-emerald-300" role="status">
-                        {accountMessage}
-                      </p>
-                    )}
-                  </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="plan-name">{racePlannerCopy.account.plans.nameLabel}</Label>
                     <Input
@@ -1300,6 +1282,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                         ? racePlannerCopy.account.plans.saving
                         : racePlannerCopy.account.plans.save}
                     </Button>
+                    {accountMessage && (
+                      <p className="text-xs text-emerald-300" role="status">
+                        {accountMessage}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-3">
