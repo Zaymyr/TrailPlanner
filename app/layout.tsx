@@ -9,6 +9,7 @@ import { LocalizedMetadata } from "./localized-metadata";
 import { buildLocaleMetaCopy, CANONICAL_PATH, CANONICAL_URL, localeToOgLocale, SITE_URL } from "./seo";
 import type { Locale } from "../locales/types";
 import { HeaderAuth } from "./header-auth";
+import { AuthCallbackHandler } from "./auth-callback-handler";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -70,6 +71,7 @@ export default function RootLayout({
         <Analytics />
         <I18nProvider>
           <LocalizedMetadata />
+          <AuthCallbackHandler />
           <div className="flex w-full flex-col gap-8 px-6 py-10">
             <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">

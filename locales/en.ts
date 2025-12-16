@@ -39,6 +39,41 @@ export const en: Translations = {
       },
     ],
   },
+  auth: {
+    shared: {
+      emailLabel: "Email",
+      emailPlaceholder: "you@example.com",
+      passwordLabel: "Password",
+      passwordPlaceholder: "••••••••",
+      passwordRequirement: "Password must be at least 8 characters",
+      emailInvalid: "Enter a valid email",
+      genericError: "Something went wrong. Please try again.",
+    },
+    signUp: {
+      title: "Sign up",
+      description:
+        "Create your Trailplanner account to start organizing your race day fueling.",
+      fullNameLabel: "Full name",
+      fullNamePlaceholder: "Alex Runner",
+      confirmPasswordLabel: "Confirm password",
+      confirmPasswordPlaceholder: "••••••••",
+      submit: "Create account",
+      submitting: "Creating account...",
+      success: "Account created! Redirecting…",
+      pendingEmail: "Check your inbox to confirm your email and finish creating your account.",
+      error: "Unable to create account. Please try again.",
+      mismatchError: "Passwords must match",
+      fullNameRequirement: "Please enter your full name",
+    },
+    signIn: {
+      title: "Sign in",
+      description: "Access your Trailplanner account.",
+      submit: "Sign in",
+      submitting: "Signing in...",
+      success: "Signed in successfully. Redirecting…",
+      error: "Unable to sign in. Please try again.",
+    },
+  },
   racePlanner: {
     defaults: {
       aidStationName: "Aid {index}",

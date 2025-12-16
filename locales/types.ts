@@ -9,6 +9,47 @@ export const resourcePageSlugs = [
 
 export type ResourcePageSlug = (typeof resourcePageSlugs)[number];
 
+export type AuthSharedTranslations = {
+  emailLabel: string;
+  emailPlaceholder: string;
+  passwordLabel: string;
+  passwordPlaceholder: string;
+  passwordRequirement: string;
+  emailInvalid: string;
+  genericError: string;
+};
+
+export type SignUpTranslations = {
+  title: string;
+  description: string;
+  fullNameLabel: string;
+  fullNamePlaceholder: string;
+  confirmPasswordLabel: string;
+  confirmPasswordPlaceholder: string;
+  submit: string;
+  submitting: string;
+  success: string;
+  pendingEmail: string;
+  error: string;
+  mismatchError: string;
+  fullNameRequirement: string;
+};
+
+export type SignInTranslations = {
+  title: string;
+  description: string;
+  submit: string;
+  submitting: string;
+  success: string;
+  error: string;
+};
+
+export type AuthTranslations = {
+  shared: AuthSharedTranslations;
+  signUp: SignUpTranslations;
+  signIn: SignInTranslations;
+};
+
 export type HomeHeroTranslations = {
   heading: string;
   description: string;
@@ -231,6 +272,7 @@ export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
   landing: LandingPageTranslations;
+  auth: AuthTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
 };
 
