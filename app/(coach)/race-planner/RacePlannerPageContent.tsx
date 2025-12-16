@@ -7,7 +7,6 @@ import Script from "next/script";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "../../../components/ui/card";
@@ -68,6 +67,24 @@ type Segment = {
 type ElevationPoint = { distanceKm: number; elevationM: number };
 type SpeedSample = { distanceKm: number; speedKph: number };
 type GelOption = { name: string; carbs: number; sodium: number; url: string };
+
+type CardTitleWithTooltipProps = {
+  title: string;
+  description: string;
+};
+
+const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps) => (
+  <CardTitle className="flex items-center gap-2">
+    <span>{title}</span>
+    <span
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-200"
+      title={description}
+      aria-label={description}
+    >
+      ?
+    </span>
+  </CardTitle>
+);
 
 const gelOptions: GelOption[] = [
   {
@@ -1170,10 +1187,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         <div className="grid gap-6 xl:grid-cols-4">
           <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
             <Card>
-            <CardHeader>
-              <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
-            </CardHeader>
+              <CardHeader className="space-y-0">
+                <CardTitleWithTooltip
+                  title={racePlannerCopy.sections.summary.title}
+                  description={racePlannerCopy.sections.summary.description}
+                />
+              </CardHeader>
             <CardContent className="space-y-4">
               {raceTotals ? (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
@@ -1344,12 +1363,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
         <div className="space-y-6 xl:col-span-2">
           <Card id={sectionIds.courseProfile}>
-            <CardHeader>
+            <CardHeader className="space-y-0">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <CardTitle>{racePlannerCopy.sections.courseProfile.title}</CardTitle>
-                  <CardDescription>{racePlannerCopy.sections.courseProfile.description}</CardDescription>
-                </div>
+                <CardTitleWithTooltip
+                  title={racePlannerCopy.sections.courseProfile.title}
+                  description={racePlannerCopy.sections.courseProfile.description}
+                />
               </div>
             </CardHeader>
             <CardContent>
@@ -1369,9 +1388,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>{racePlannerCopy.sections.gels.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.sections.gels.description}</CardDescription>
+            <CardHeader className="space-y-0">
+              <CardTitleWithTooltip
+                title={racePlannerCopy.sections.gels.title}
+                description={racePlannerCopy.sections.gels.description}
+              />
             </CardHeader>
             <CardContent>
               {!raceTotals ? (
@@ -1420,10 +1441,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-3">
-                  <div>
-                    <CardTitle>{racePlannerCopy.sections.aidStations.title}</CardTitle>
-                    <CardDescription>{racePlannerCopy.sections.aidStations.description}</CardDescription>
-                  </div>
+                  <CardTitleWithTooltip
+                    title={racePlannerCopy.sections.aidStations.title}
+                    description={racePlannerCopy.sections.aidStations.description}
+                  />
                   <Button
                     type="button"
                     variant="outline"
@@ -1475,10 +1496,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
               <Card id={sectionIds.timeline}>
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
-                    <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
-                  </div>
+                  <CardTitleWithTooltip
+                    title={racePlannerCopy.sections.timeline.title}
+                    description={racePlannerCopy.sections.timeline.description}
+                  />
                   {segments.length > 0 ? (
                     <Button type="button" variant="outline" className="print:hidden" onClick={handlePrint}>
                       {racePlannerCopy.buttons.printPlan}
@@ -1564,10 +1585,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             <Card id={sectionIds.inputs}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>{racePlannerCopy.sections.raceInputs.title}</CardTitle>
-                    <CardDescription>{racePlannerCopy.sections.raceInputs.description}</CardDescription>
-                  </div>
+                  <CardTitleWithTooltip
+                    title={racePlannerCopy.sections.raceInputs.title}
+                    description={racePlannerCopy.sections.raceInputs.description}
+                  />
                   <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}
