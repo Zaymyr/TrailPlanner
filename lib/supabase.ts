@@ -54,6 +54,30 @@ export type SupabaseUser = {
   email?: string;
 };
 
+export type SupabaseServiceConfig = {
+  supabaseUrl: string;
+  supabaseServiceRoleKey: string;
+};
+
+const supabaseServiceSchema = z.object({
+  supabaseUrl: z.string().trim().url(),
+  supabaseServiceRoleKey: z.string().trim().min(1),
+});
+
+export const getSupabaseServiceConfig = (): SupabaseServiceConfig | null => {
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE;
+
+  const parsed = supabaseServiceSchema.safeParse({ supabaseUrl, supabaseServiceRoleKey });
+
+  if (!parsed.success) {
+    console.error("Missing Supabase service role configuration", parsed.error.flatten().fieldErrors);
+    return null;
+  }
+
+  return parsed.data;
+};
+
 export const fetchSupabaseUser = async (
   accessToken: string,
   config: SupabaseAnonConfig

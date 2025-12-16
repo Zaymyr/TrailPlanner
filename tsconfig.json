@@ -14,7 +14,10 @@
     "skipLibCheck": true,
     "incremental": true,
     "jsx": "preserve",
-    "plugins": [{ "name": "next" }]
+    "plugins": [{ "name": "next" }],
+    "paths": {
+      "@tanstack/react-query": ["packages/tanstack-react-query"]
+    }
   },
   "include": [
     "app/**/*",
