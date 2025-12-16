@@ -10,6 +10,23 @@ const supabaseEnvSchema = z.object({
   supabaseAnonKey: z.string().trim().min(1),
 });
 
+const supabaseUrlSchema = z.object({
+  supabaseUrl: z.string().trim().url(),
+});
+
+export const getSupabaseUrl = (): string | null => {
+  const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const parsed = supabaseUrlSchema.safeParse({ supabaseUrl });
+
+  if (!parsed.success) {
+    console.error("Missing Supabase URL", parsed.error.flatten().fieldErrors);
+    return null;
+  }
+
+  return parsed.data.supabaseUrl;
+};
+
 export const getSupabaseAnonConfig = (): SupabaseAnonConfig | null => {
   const supabaseUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

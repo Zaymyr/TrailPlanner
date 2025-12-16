@@ -10,6 +10,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
+import { redirectToGoogleOAuth } from "../../lib/oauth";
 
 const signUpSchema = z
   .object({
@@ -29,6 +30,7 @@ export default function SignUpPage() {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   const {
     register,
@@ -85,6 +87,17 @@ export default function SignUpPage() {
     }
   });
 
+  const handleGoogleSignUp = () => {
+    setOauthError(null);
+
+    try {
+      redirectToGoogleOAuth();
+    } catch (error) {
+      console.error("Unable to start Google sign up", error);
+      setOauthError(error instanceof Error ? error.message : "Unable to start Google sign up.");
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/60 p-6 shadow-lg">
       <div className="flex flex-col gap-2">
@@ -92,6 +105,24 @@ export default function SignUpPage() {
         <p className="text-slate-300">
           Create your Trailplanner account to start organizing your race day fueling.
         </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          className="justify-center border-slate-700 bg-slate-900/60 text-slate-50 hover:bg-slate-800"
+          onClick={handleGoogleSignUp}
+        >
+          Continue with Google
+        </Button>
+        {oauthError && <p className="text-sm text-amber-400">{oauthError}</p>}
+      </div>
+
+      <div className="flex items-center gap-3 text-sm text-slate-400">
+        <div className="h-px flex-1 bg-slate-800" />
+        <span>Or continue with email</span>
+        <div className="h-px flex-1 bg-slate-800" />
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
