@@ -18,6 +18,7 @@ const basePlanSchema = z.object({
 
 const createPlanSchema = basePlanSchema;
 const updatePlanSchema = basePlanSchema.extend({ id: z.string().uuid() });
+const deletePlanSchema = z.object({ id: z.string().uuid() });
 
 type SupabasePlanRow = {
   id: string;
@@ -163,5 +164,46 @@ export async function PUT(request: Request) {
   } catch (error) {
     console.error("Unexpected Supabase error while updating plan", error);
     return NextResponse.json({ message: "Unable to update plan." }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: Request) {
+  const supabaseConfig = getSupabaseAnonConfig();
+
+  if (!supabaseConfig) {
+    return NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 });
+  }
+
+  const token = extractBearerToken(request.headers.get("authorization"));
+
+  if (!token) {
+    return NextResponse.json({ message: "Missing access token." }, { status: 401 });
+  }
+
+  const parsedBody = deletePlanSchema.safeParse(await request.json().catch(() => null));
+
+  if (!parsedBody.success) {
+    return NextResponse.json({ message: "Invalid plan payload." }, { status: 400 });
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${parsedBody.data.id}`,
+      {
+        method: "DELETE",
+        headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token),
+      }
+    );
+
+    if (!response.ok) {
+      const message = await response.text();
+      console.error("Unable to delete plan", message);
+      return NextResponse.json({ message: "Unable to delete plan." }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    console.error("Unexpected Supabase error while deleting plan", error);
+    return NextResponse.json({ message: "Unable to delete plan." }, { status: 500 });
   }
 }
