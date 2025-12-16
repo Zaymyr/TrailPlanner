@@ -41,6 +41,7 @@ create table public.products (
   name text not null,
   calories_kcal numeric not null default 0,
   carbs_g numeric not null default 0,
+  sodium_mg numeric not null default 0,
   protein_g numeric not null default 0,
   fat_g numeric not null default 0,
   is_live boolean not null default false,
@@ -101,6 +102,7 @@ alter table public.race_plans enable row level security;
 alter table public.products enable row level security;
 alter table public.affiliate_offers enable row level security;
 alter table public.affiliate_click_events enable row level security;
+alter table public.affiliate_events enable row level security;
 
 -- Race plan policies
 create policy "Users can view their race plans" on public.race_plans
@@ -153,6 +155,18 @@ create policy "Service role can manage affiliate click events" on public.affilia
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');
 
+create policy "Service role can manage affiliate events" on public.affiliate_events
+  for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create policy "Authenticated users can insert affiliate events" on public.affiliate_events
+  for insert
+  with check (
+    auth.role() = 'authenticated'
+    and (user_id is null or user_id = auth.uid())
+  );
+
 create table public.affiliate_click_events (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default timezone('utc', now()),
@@ -165,3 +179,23 @@ create table public.affiliate_click_events (
 );
 
 create index affiliate_click_events_offer_id_idx on public.affiliate_click_events(offer_id);
+
+create type public.affiliate_event_type as enum ('popup_open', 'click');
+
+create table public.affiliate_events (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default timezone('utc', now()),
+  user_id uuid,
+  session_id text not null,
+  event_type public.affiliate_event_type not null,
+  product_id uuid not null references public.products(id) on delete cascade,
+  offer_id uuid references public.affiliate_offers(id) on delete set null,
+  country_code char(2),
+  merchant text,
+  user_agent text,
+  ip_address text
+);
+
+create index affiliate_events_product_id_idx on public.affiliate_events(product_id);
+create index affiliate_events_offer_id_idx on public.affiliate_events(offer_id);
+create index affiliate_events_session_id_idx on public.affiliate_events(session_id);

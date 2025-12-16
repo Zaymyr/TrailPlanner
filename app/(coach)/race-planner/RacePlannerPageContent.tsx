@@ -18,6 +18,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { RacePlannerTranslations } from "../../../locales/types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
+import { AffiliateProductModal } from "./components/AffiliateProductModal";
+import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -66,7 +68,7 @@ type Segment = {
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
 type SpeedSample = { distanceKm: number; speedKph: number };
-type GelOption = { name: string; carbs: number; sodium: number; url: string };
+type GelOption = { slug: string; name: string; carbs: number; sodium: number };
 
 type CardTitleWithTooltipProps = {
   title: string;
@@ -88,22 +90,22 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
 
 const gelOptions: GelOption[] = [
   {
+    slug: "maurten-gel-100",
     name: "Maurten Gel 100",
     carbs: 25,
     sodium: 85,
-    url: "https://www.maurten.com/products/gel-100",
   },
   {
+    slug: "gu-energy-gel",
     name: "GU Energy Gel",
     carbs: 22,
     sodium: 60,
-    url: "https://guenergy.com/products/energy-gel",
   },
   {
+    slug: "sis-go-isotonic-gel",
     name: "SIS GO Isotonic Gel",
     carbs: 22,
     sodium: 10,
-    url: "https://www.scienceinsport.com/products/go-isotonic-energy-gel",
   },
 ];
 
@@ -737,6 +739,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [activeAffiliateProduct, setActiveAffiliateProduct] = useState<{ slug: string; name: string } | null>(null);
+  const [countryCode, setCountryCode] = useState<string | null>(null);
+  const affiliateSessionId = useAffiliateSessionId();
+  const affiliateLogger = useAffiliateEventLogger({ accessToken: session?.accessToken });
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -744,6 +750,16 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
 
     setIsDesktopApp(isElectron || Boolean(isStandalone));
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    const locale = navigator.language ?? "";
+    const parts = locale.split("-");
+    const inferredCountry = parts.length > 1 ? parts[1]?.toUpperCase() : null;
+    if (inferredCountry) {
+      setCountryCode(inferredCountry);
+    }
   }, []);
 
   const persistSession = useCallback(
@@ -1421,14 +1437,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                               .replace("{sodium}", gel.sodium.toString())}
                           </p>
                         </div>
-                        <a
-                          href={gel.url}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => setActiveAffiliateProduct({ slug: gel.slug, name: gel.name })}
                           className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
                         >
                           {racePlannerCopy.sections.gels.linkLabel}
-                        </a>
+                        </button>
                       </div>
                       <div className="flex items-center justify-between text-sm text-slate-200">
                         <p>
@@ -1955,6 +1970,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </div>
         </div>
       ) : null}
+
+      <AffiliateProductModal
+        open={Boolean(activeAffiliateProduct)}
+        onClose={() => setActiveAffiliateProduct(null)}
+        slug={activeAffiliateProduct?.slug ?? ""}
+        displayName={activeAffiliateProduct?.name ?? ""}
+        countryCode={countryCode}
+        sessionId={affiliateSessionId}
+        logger={affiliateLogger}
+        totals={raceTotals}
+      />
     </>
   );
 

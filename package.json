@@ -12,6 +12,7 @@
     "test:watch": "vitest watch"
   },
   "dependencies": {
+    "@tanstack/react-query": "file:packages/tanstack-react-query",
     "@hookform/resolvers": "^3.3.4",
     "@vercel/analytics": "^1.6.1",
     "@vercel/speed-insights": "^1.3.1",
