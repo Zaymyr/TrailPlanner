@@ -7,7 +7,6 @@ import Script from "next/script";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "../../../components/ui/card";
@@ -68,6 +67,24 @@ type Segment = {
 type ElevationPoint = { distanceKm: number; elevationM: number };
 type SpeedSample = { distanceKm: number; speedKph: number };
 type GelOption = { name: string; carbs: number; sodium: number; url: string };
+
+type CardTitleWithTooltipProps = {
+  title: string;
+  description: string;
+};
+
+const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps) => (
+  <CardTitle className="flex items-center gap-2">
+    <span>{title}</span>
+    <span
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-200"
+      title={description}
+      aria-label={description}
+    >
+      ?
+    </span>
+  </CardTitle>
+);
 
 const gelOptions: GelOption[] = [
   {
@@ -1158,7 +1175,20 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   };
 
+  const openFeedbackForm = () => {
+    setFeedbackOpen(true);
+    setFeedbackStatus("idle");
+    setFeedbackError(null);
+  };
+
+  const closeFeedbackForm = () => {
+    setFeedbackOpen(false);
+    setFeedbackError(null);
+    setFeedbackStatus("idle");
+  };
+
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
+  const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
 
   return (
     <>
@@ -1170,10 +1200,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         <div className="grid gap-6 xl:grid-cols-4">
           <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
             <Card>
-            <CardHeader>
-              <CardTitle>{racePlannerCopy.sections.summary.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.sections.summary.description}</CardDescription>
-            </CardHeader>
+              <CardHeader className="space-y-0">
+                <CardTitleWithTooltip
+                  title={racePlannerCopy.sections.summary.title}
+                  description={racePlannerCopy.sections.summary.description}
+                />
+              </CardHeader>
             <CardContent className="space-y-4">
               {raceTotals ? (
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
@@ -1205,88 +1237,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               ) : (
                 <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
               )}
-
-              <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-semibold text-slate-50">
-                    {racePlannerCopy.sections.summary.feedback.title}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-9 px-3 text-sm"
-                    onClick={() => setFeedbackOpen((previous) => !previous)}
-                  >
-                    {racePlannerCopy.sections.summary.feedback.open}
-                  </Button>
-                </div>
-
-                {feedbackOpen && (
-                  <form id="feedback-form" className="mt-4 space-y-3" onSubmit={handleSubmitFeedback}>
-                    <div className="space-y-1">
-                      <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
-                      <Input
-                        id="feedback-subject"
-                        value={feedbackSubject}
-                        onChange={(event) => {
-                          setFeedbackSubject(event.target.value);
-                          setFeedbackStatus("idle");
-                          setFeedbackError(null);
-                        }}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="feedback-detail">{racePlannerCopy.sections.summary.feedback.detail}</Label>
-                      <textarea
-                        id="feedback-detail"
-                        value={feedbackDetail}
-                        onChange={(event) => {
-                          setFeedbackDetail(event.target.value);
-                          setFeedbackStatus("idle");
-                          setFeedbackError(null);
-                        }}
-                        required
-                        className="min-h-[120px] w-full rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm text-slate-50 shadow-sm transition placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
-                      />
-                    </div>
-                    {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
-                    {feedbackStatus === "success" && !feedbackError && (
-                      <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
-                    )}
-                    <div className="flex justify-end">
-                      <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
-                        {racePlannerCopy.sections.summary.feedback.submit}
-                      </Button>
-                    </div>
-                  </form>
-                )}
-              </div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>{racePlannerCopy.account.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.account.description}</CardDescription>
-            </CardHeader>
             <CardContent className="space-y-4">
               {session ? (
                 <div className="space-y-4">
-                  <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
-                    <p className="text-sm font-semibold text-slate-50">
-                      {racePlannerCopy.account.auth.signedInAs.replace(
-                        "{email}",
-                        session.email ?? "—"
-                      )}
-                    </p>
-                    {accountMessage && (
-                      <p className="text-xs text-emerald-300" role="status">
-                        {accountMessage}
-                      </p>
-                    )}
-                  </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="plan-name">{racePlannerCopy.account.plans.nameLabel}</Label>
                     <Input
@@ -1300,6 +1257,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                         ? racePlannerCopy.account.plans.saving
                         : racePlannerCopy.account.plans.save}
                     </Button>
+                    {accountMessage && (
+                      <p className="text-xs text-emerald-300" role="status">
+                        {accountMessage}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-3">
@@ -1357,12 +1319,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
         <div className="space-y-6 xl:col-span-2">
           <Card id={sectionIds.courseProfile}>
-            <CardHeader>
+            <CardHeader className="space-y-0">
               <div className="flex items-center justify-between gap-3">
-                <div>
-                  <CardTitle>{racePlannerCopy.sections.courseProfile.title}</CardTitle>
-                  <CardDescription>{racePlannerCopy.sections.courseProfile.description}</CardDescription>
-                </div>
+                <CardTitleWithTooltip
+                  title={racePlannerCopy.sections.courseProfile.title}
+                  description={racePlannerCopy.sections.courseProfile.description}
+                />
               </div>
             </CardHeader>
             <CardContent>
@@ -1382,9 +1344,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>{racePlannerCopy.sections.gels.title}</CardTitle>
-              <CardDescription>{racePlannerCopy.sections.gels.description}</CardDescription>
+            <CardHeader className="space-y-0">
+              <CardTitleWithTooltip
+                title={racePlannerCopy.sections.gels.title}
+                description={racePlannerCopy.sections.gels.description}
+              />
             </CardHeader>
             <CardContent>
               {!raceTotals ? (
@@ -1433,10 +1397,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             <div className="grid gap-6 md:grid-cols-2">
               <Card>
                 <CardHeader className="flex flex-row items-start justify-between gap-3">
-                  <div>
-                    <CardTitle>{racePlannerCopy.sections.aidStations.title}</CardTitle>
-                    <CardDescription>{racePlannerCopy.sections.aidStations.description}</CardDescription>
-                  </div>
+                  <CardTitleWithTooltip
+                    title={racePlannerCopy.sections.aidStations.title}
+                    description={racePlannerCopy.sections.aidStations.description}
+                  />
                   <Button
                     type="button"
                     variant="outline"
@@ -1488,10 +1452,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
               <Card id={sectionIds.timeline}>
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <CardTitle>{racePlannerCopy.sections.timeline.title}</CardTitle>
-                    <CardDescription>{racePlannerCopy.sections.timeline.description}</CardDescription>
-                  </div>
+                  <CardTitleWithTooltip
+                    title={racePlannerCopy.sections.timeline.title}
+                    description={racePlannerCopy.sections.timeline.description}
+                  />
                   {segments.length > 0 ? (
                     <Button type="button" variant="outline" className="print:hidden" onClick={handlePrint}>
                       {racePlannerCopy.buttons.printPlan}
@@ -1577,10 +1541,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             <Card id={sectionIds.inputs}>
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <CardTitle>{racePlannerCopy.sections.raceInputs.title}</CardTitle>
-                    <CardDescription>{racePlannerCopy.sections.raceInputs.description}</CardDescription>
-                  </div>
+                  <CardTitleWithTooltip
+                    title={racePlannerCopy.sections.raceInputs.title}
+                    description={racePlannerCopy.sections.raceInputs.description}
+                  />
                   <div className="flex items-center gap-2">
                     <input
                       ref={fileInputRef}
@@ -1786,17 +1750,72 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         {!isDesktopApp && (
           <Button
             type="button"
-            className="fixed bottom-6 right-6 z-20 hidden h-12 w-12 rounded-full shadow-lg sm:inline-flex"
+            className={`fixed ${feedbackButtonOffsetClass} left-6 z-20 inline-flex h-12 w-12 rounded-full shadow-lg`}
             aria-label={racePlannerCopy.sections.summary.feedback.open}
-            onClick={() => {
-              setFeedbackOpen(true);
-              document
-                .getElementById("feedback-form")
-                ?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
+            onClick={openFeedbackForm}
           >
             <MessageCircleIcon className="h-5 w-5" />
           </Button>
+        )}
+
+        {feedbackOpen && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-4">
+            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
+              <Button
+                type="button"
+                variant="ghost"
+                className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-slate-200"
+                aria-label="Close feedback form"
+                onClick={closeFeedbackForm}
+              >
+                ×
+              </Button>
+              <div className="mb-4 pr-8">
+                <p className="text-lg font-semibold text-slate-50">
+                  {racePlannerCopy.sections.summary.feedback.title}
+                </p>
+              </div>
+
+              <form id="feedback-form" className="space-y-3" onSubmit={handleSubmitFeedback}>
+                <div className="space-y-1">
+                  <Label htmlFor="feedback-subject">{racePlannerCopy.sections.summary.feedback.subject}</Label>
+                  <Input
+                    id="feedback-subject"
+                    value={feedbackSubject}
+                    onChange={(event) => {
+                      setFeedbackSubject(event.target.value);
+                      setFeedbackStatus("idle");
+                      setFeedbackError(null);
+                    }}
+                    required
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="feedback-detail">{racePlannerCopy.sections.summary.feedback.detail}</Label>
+                  <textarea
+                    id="feedback-detail"
+                    value={feedbackDetail}
+                    onChange={(event) => {
+                      setFeedbackDetail(event.target.value);
+                      setFeedbackStatus("idle");
+                      setFeedbackError(null);
+                    }}
+                    required
+                    className="min-h-[120px] w-full rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm text-slate-50 shadow-sm transition placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                  />
+                </div>
+                {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
+                {feedbackStatus === "success" && !feedbackError && (
+                  <p className="text-sm text-emerald-400">{racePlannerCopy.sections.summary.feedback.success}</p>
+                )}
+                <div className="flex justify-end">
+                  <Button type="submit" className="w-full sm:w-auto" disabled={feedbackStatus === "submitting"}>
+                    {racePlannerCopy.sections.summary.feedback.submit}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </div>
 
