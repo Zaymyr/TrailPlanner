@@ -8,6 +8,7 @@ import { Analytics } from "./analytics";
 import { LocalizedMetadata } from "./localized-metadata";
 import { buildLocaleMetaCopy, CANONICAL_PATH, CANONICAL_URL, localeToOgLocale, SITE_URL } from "./seo";
 import type { Locale } from "../locales/types";
+import { HeaderAuth } from "./header-auth";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -70,16 +71,17 @@ export default function RootLayout({
         <I18nProvider>
           <LocalizedMetadata />
           <div className="flex w-full flex-col gap-8 px-6 py-10">
-            <header className="flex items-center justify-between">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="space-y-1">
-                <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">TrailPlanner</p>
-                <div className="flex items-center gap-4">
-                  <h1 className="text-2xl font-semibold leading-tight text-slate-50">Race Fuel Planner</h1>
-                  <LanguageToggle />
-                </div>
+                <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Trailplanner</p>
+                <h1 className="text-2xl font-semibold leading-tight text-slate-50">Race Fuel Planner</h1>
                 <p className="text-sm text-slate-300">
                   Plan your aid-station timing, fueling targets, and pacing for race day.
                 </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <LanguageToggle />
+                <HeaderAuth />
               </div>
             </header>
             <main className="pb-10">{children}</main>
