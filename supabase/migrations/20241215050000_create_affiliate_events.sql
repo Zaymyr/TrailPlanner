@@ -1,6 +1,18 @@
 create extension if not exists "pgcrypto";
 
-create type if not exists public.affiliate_event_type as enum ('popup_open', 'click');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_type t
+    JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE t.typname = 'affiliate_event_type'
+      AND n.nspname = 'public'
+  ) THEN
+    CREATE TYPE public.affiliate_event_type AS ENUM ('popup_open', 'click');
+  END IF;
+END
+$$;
 
 alter table if exists public.products add column if not exists sodium_mg numeric not null default 0;
 
@@ -25,7 +37,6 @@ create index if not exists affiliate_events_session_id_idx on public.affiliate_e
 alter table public.affiliate_events enable row level security;
 
 -- Policies
-
 drop policy if exists "Service role can manage affiliate events" on public.affiliate_events;
 create policy "Service role can manage affiliate events" on public.affiliate_events
   for all
