@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 import React from "react";
 import Script from "next/script";
@@ -8,6 +9,7 @@ import { Analytics } from "./analytics";
 import { LocalizedMetadata } from "./localized-metadata";
 import { buildLocaleMetaCopy, CANONICAL_PATH, CANONICAL_URL, localeToOgLocale, SITE_URL } from "./seo";
 import type { Locale } from "../locales/types";
+import Link from "next/link";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -78,7 +80,23 @@ export default function RootLayout({
                   Plan your aid-station timing, fueling targets, and pacing for race day.
                 </p>
               </div>
-              <LanguageToggle />
+              <div className="flex items-center gap-4">
+                <LanguageToggle />
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/sign-in"
+                    className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
+                  >
+                    Sign in
+                  </Link>
+                  <Link
+                    href="/sign-up"
+                    className="rounded-lg bg-emerald-400 px-3 py-1.5 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-300"
+                  >
+                    Sign up
+                  </Link>
+                </div>
+              </div>
             </header>
             <main className="pb-10">{children}</main>
           </div>
