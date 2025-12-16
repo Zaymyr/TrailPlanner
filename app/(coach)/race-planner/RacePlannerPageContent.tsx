@@ -18,6 +18,7 @@ import { useI18n } from "../../i18n-provider";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
 import { RACE_PLANNER_URL } from "../../seo";
+import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -103,10 +104,6 @@ type SavedPlan = {
   plannerValues: Partial<FormValues>;
   elevationProfile: ElevationPoint[];
 };
-
-const ACCESS_TOKEN_KEY = "trailplanner.accessToken";
-const REFRESH_TOKEN_KEY = "trailplanner.refreshToken";
-const SESSION_EMAIL_KEY = "trailplanner.sessionEmail";
 
 const formatAidStationName = (template: string, index: number) =>
   template.replace("{index}", String(index));

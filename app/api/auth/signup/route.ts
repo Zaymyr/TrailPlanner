@@ -6,6 +6,7 @@ import { getSupabaseAnonConfig } from "../../../../lib/supabase";
 const signUpSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  fullName: z.string().trim().min(2).max(120).optional(),
 });
 
 export async function POST(request: Request) {
@@ -22,13 +23,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    const { email, password, fullName } = parsedBody.data;
+
     const response = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/signup`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: supabaseConfig.supabaseAnonKey,
       },
-      body: JSON.stringify(parsedBody.data),
+      body: JSON.stringify({
+        email,
+        password,
+        data: fullName ? { full_name: fullName } : undefined,
+      }),
       cache: "no-store",
     });
 
