@@ -8,7 +8,7 @@ import { Analytics } from "./analytics";
 import { LocalizedMetadata } from "./localized-metadata";
 import { buildLocaleMetaCopy, CANONICAL_PATH, CANONICAL_URL, localeToOgLocale, SITE_URL } from "./seo";
 import type { Locale } from "../locales/types";
-import Link from "next/link";
+import { HeaderAuth } from "./header-auth";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -81,20 +81,7 @@ export default function RootLayout({
               </div>
               <div className="flex items-center gap-4">
                 <LanguageToggle />
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/sign-in"
-                    className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
-                  >
-                    Sign in
-                  </Link>
-                  <Link
-                    href="/sign-up"
-                    className="rounded-lg bg-emerald-400 px-3 py-1.5 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-300"
-                  >
-                    Sign up
-                  </Link>
-                </div>
+                <HeaderAuth />
               </div>
             </header>
             <main className="pb-10">{children}</main>
