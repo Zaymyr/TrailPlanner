@@ -100,6 +100,7 @@ alter table public.app_feedback enable row level security;
 alter table public.race_plans enable row level security;
 alter table public.products enable row level security;
 alter table public.affiliate_offers enable row level security;
+alter table public.affiliate_click_events enable row level security;
 
 -- Race plan policies
 create policy "Users can view their race plans" on public.race_plans
@@ -146,3 +147,21 @@ create policy "Authenticated can read active affiliate offers" on public.affilia
     )
     or auth.role() = 'service_role'
   );
+
+create policy "Service role can manage affiliate click events" on public.affiliate_click_events
+  for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create table public.affiliate_click_events (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default timezone('utc', now()),
+  offer_id uuid not null references public.affiliate_offers(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete cascade,
+  country_code char(2),
+  ip_address text,
+  user_agent text,
+  referrer text
+);
+
+create index affiliate_click_events_offer_id_idx on public.affiliate_click_events(offer_id);
