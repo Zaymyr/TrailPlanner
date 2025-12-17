@@ -13,6 +13,8 @@ type AffiliateEventPayload = {
   merchant?: string | null;
 };
 
+type AffiliateEventDetails = Omit<AffiliateEventPayload, "eventType">;
+
 type LoggerOptions = {
   accessToken?: string;
 };
@@ -36,30 +38,32 @@ export const useAffiliateSessionId = () => {
 };
 
 export const useAffiliateEventLogger = (options: LoggerOptions) => {
-  const mutation = useMutation(async (payload: AffiliateEventPayload & { sessionId: string }) => {
-    const response = await fetch("/api/affiliate/events", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}),
-      },
-      body: JSON.stringify({
-        ...payload,
-        country: payload.country ?? undefined,
-        merchant: payload.merchant ?? undefined,
-      }),
-    });
+  const mutation = useMutation<void, AffiliateEventPayload & { sessionId: string }>({
+    mutationFn: async (payload) => {
+      const response = await fetch("/api/affiliate/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}),
+        },
+        body: JSON.stringify({
+          ...payload,
+          country: payload.country ?? undefined,
+          merchant: payload.merchant ?? undefined,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error("Unable to record affiliate event");
-    }
+      if (!response.ok) {
+        throw new Error("Unable to record affiliate event");
+      }
+    },
   });
 
   return useMemo(
     () => ({
-      logPopupOpen: (sessionId: string, details: AffiliateEventPayload) =>
+      logPopupOpen: (sessionId: string, details: AffiliateEventDetails) =>
         mutation.mutateAsync({ ...details, sessionId, eventType: "popup_open" }),
-      logClick: (sessionId: string, details: AffiliateEventPayload) =>
+      logClick: (sessionId: string, details: AffiliateEventDetails) =>
         mutation.mutateAsync({ ...details, sessionId, eventType: "click" }),
       status: mutation.status,
     }),
