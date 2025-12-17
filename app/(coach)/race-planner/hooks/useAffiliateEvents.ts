@@ -13,6 +13,8 @@ type AffiliateEventPayload = {
   merchant?: string | null;
 };
 
+type AffiliateEventDetails = Omit<AffiliateEventPayload, "eventType">;
+
 type LoggerOptions = {
   accessToken?: string;
 };
@@ -57,9 +59,9 @@ export const useAffiliateEventLogger = (options: LoggerOptions) => {
 
   return useMemo(
     () => ({
-      logPopupOpen: (sessionId: string, details: AffiliateEventPayload) =>
+      logPopupOpen: (sessionId: string, details: AffiliateEventDetails) =>
         mutation.mutateAsync({ ...details, sessionId, eventType: "popup_open" }),
-      logClick: (sessionId: string, details: AffiliateEventPayload) =>
+      logClick: (sessionId: string, details: AffiliateEventDetails) =>
         mutation.mutateAsync({ ...details, sessionId, eventType: "click" }),
       status: mutation.status,
     }),
