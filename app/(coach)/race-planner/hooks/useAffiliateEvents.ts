@@ -38,7 +38,7 @@ export const useAffiliateSessionId = () => {
 };
 
 export const useAffiliateEventLogger = (options: LoggerOptions) => {
-  const mutation = useMutation<void, Error, AffiliateEventPayload & { sessionId: string }>({
+  const mutation = useMutation<void, AffiliateEventPayload & { sessionId: string }>({
     mutationFn: async (payload) => {
       const response = await fetch("/api/affiliate/events", {
         method: "POST",
