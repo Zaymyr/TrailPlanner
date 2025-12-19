@@ -11,6 +11,7 @@ import type { Locale } from "../locales/types";
 import { HeaderAuth } from "./header-auth";
 import { AuthCallbackHandler } from "./auth-callback-handler";
 import { QueryProvider } from "./query-client-provider";
+import { HeaderMenu } from "./header-menu";
 import { HeaderNav } from "./header-nav";
 
 const createMetadata = (locale: Locale): Metadata => {
@@ -77,12 +78,15 @@ export default function RootLayout({
             <AuthCallbackHandler />
             <div className="flex w-full flex-col gap-8 px-6 py-10">
               <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Trailplanner</p>
-                  <h1 className="text-2xl font-semibold leading-tight text-slate-50">Race Fuel Planner</h1>
-                  <p className="text-sm text-slate-300">
-                    Plan your aid-station timing, fueling targets, and pacing for race day.
-                  </p>
+                <div className="flex items-start gap-3">
+                  <HeaderMenu />
+                  <div className="space-y-1">
+                    <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Trailplanner</p>
+                    <h1 className="text-2xl font-semibold leading-tight text-slate-50">Race Fuel Planner</h1>
+                    <p className="text-sm text-slate-300">
+                      Plan your aid-station timing, fueling targets, and pacing for race day.
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <HeaderNav />

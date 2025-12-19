@@ -40,8 +40,10 @@ export const en: Translations = {
     ],
   },
   navigation: {
+    racePlanner: "Race planner",
     settings: "Settings",
     admin: "Admin",
+    menuLabel: "Open navigation menu",
   },
   auth: {
     shared: {
