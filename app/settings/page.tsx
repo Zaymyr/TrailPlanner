@@ -107,6 +107,13 @@ export default function SettingsPage() {
     },
   });
 
+  const productLoadError =
+    productsQuery.error instanceof Error
+      ? productsQuery.error.message
+      : productsQuery.error
+        ? t.productSettings.errors.loadFailed
+        : null;
+
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
 
@@ -222,13 +229,7 @@ export default function SettingsPage() {
               <p className="text-sm text-slate-400">{t.productSettings.loading}</p>
             )}
 
-            {productsQuery.error && (
-              <p className="text-sm text-red-300">
-                {productsQuery.error instanceof Error
-                  ? productsQuery.error.message
-                  : t.productSettings.errors.loadFailed}
-              </p>
-            )}
+            {productLoadError && <p className="text-sm text-red-300">{productLoadError}</p>}
 
             {!productsQuery.isLoading && productList.length === 0 && (
               <p className="text-sm text-slate-400">{t.productSettings.empty}</p>
@@ -249,8 +250,7 @@ export default function SettingsPage() {
                       </div>
                       <Button
                         variant={isSelected ? "ghost" : "outline"}
-                        size="sm"
-                        className={isSelected ? "text-emerald-200" : undefined}
+                        className={`${isSelected ? "text-emerald-200" : ""} h-9 px-3 text-sm`}
                         onClick={() => handleToggle(product)}
                         disabled={authMissing}
                       >
