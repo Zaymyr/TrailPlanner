@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../../lib/http";
 import { getSupabaseUserFromRequest } from "../../../../../lib/supabase-server";
-import { traceDetailSchema } from "../../../../../lib/trace/traceSchemas";
+import { traceDetailSchema, type TracePoint } from "../../../../../lib/trace/traceSchemas";
 
 const idSchema = z.object({ id: z.string().uuid() });
 const projection = "id,owner_id,name,is_public,created_at,updated_at";
@@ -73,7 +73,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const newTraceId = insertResult.data.id;
 
     if ((pointsResult.data?.length ?? 0) > 0) {
-      const insertPoints = pointsResult.data!.map((point) => ({
+      const insertPoints = pointsResult.data!.map((point: TracePoint) => ({
         trace_id: newTraceId,
         idx: point.idx,
         lat: point.lat,
