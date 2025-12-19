@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/token?grant_type=password`, {
+    const fetchResponse = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -33,11 +33,11 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
 
-    const result = await response.json().catch(() => null);
+    const result = await fetchResponse.json().catch(() => null);
 
-    if (!response.ok || !result) {
+    if (!fetchResponse.ok || !result) {
       const message = typeof result?.msg === "string" ? result.msg : "Unable to sign in.";
-      return NextResponse.json({ message }, { status: response.status || 400 });
+      return NextResponse.json({ message }, { status: fetchResponse.status || 400 });
     }
 
     const response = NextResponse.json(
