@@ -113,7 +113,7 @@ export async function POST(request: NextRequest, { params }: { params: { product
       product: {
         id: product.id,
         slug: product.slug,
-        sku: product.sku,
+        sku: product.sku ?? undefined,
         name: product.name,
         productUrl: product.product_url ?? undefined,
         caloriesKcal: Number(product.calories_kcal),

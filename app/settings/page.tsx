@@ -257,14 +257,14 @@ export default function SettingsPage() {
                       <div>
                         <p className="font-semibold text-slate-50">{product.name}</p>
                         {product.productUrl && (
-                          <Link
+                          <a
                             href={product.productUrl}
                             target="_blank"
                             rel="noreferrer noopener"
                             className="text-xs text-emerald-200 underline-offset-4 hover:underline"
                           >
                             {product.productUrl}
-                          </Link>
+                          </a>
                         )}
                       </div>
                       <Button

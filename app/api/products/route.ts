@@ -63,7 +63,7 @@ const createProductSchema = z.object({
 const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => ({
   id: row.id,
   slug: row.slug,
-  sku: row.sku,
+  sku: row.sku ?? undefined,
   name: row.name,
   productUrl: row.product_url ?? undefined,
   caloriesKcal: Number(row.calories_kcal) || 0,

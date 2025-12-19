@@ -307,6 +307,9 @@ export type ProductSettingsTranslations = {
     deselect: string;
     openPlanner: string;
   };
+  validation: {
+    invalidUrl: string;
+  };
   fields: {
     name: string;
     carbs: string;
@@ -314,7 +317,7 @@ export type ProductSettingsTranslations = {
     calories: string;
     protein: string;
     fat: string;
-    sku: string;
+    productUrl: string;
   };
   formTitle: string;
   formDescription: string;
