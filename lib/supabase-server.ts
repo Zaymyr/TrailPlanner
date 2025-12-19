@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions, type SupabaseClient, type User } from "@supabase/ssr";
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "./auth-cookies";
 import { extractBearerToken, getSupabaseAnonConfig } from "./supabase";
