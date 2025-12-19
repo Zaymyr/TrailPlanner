@@ -1,6 +1,5 @@
 import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
 
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "./auth-cookies";
 import { extractBearerToken, getSupabaseAnonConfig } from "./supabase";
@@ -19,23 +18,20 @@ export const createSupabaseServerClient = (request: Request): ServerClientResult
 
   const cookieStore = cookies();
 
-  const supabase = createServerClient(supabaseConfig.supabaseUrl, supabaseConfig.supabaseAnonKey, {
-    cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options });
-      },
-      remove(name: string, options: CookieOptions) {
-        cookieStore.set({ name, value: "", ...options, maxAge: 0 });
-      },
-    },
-  });
-
   const accessToken =
     extractBearerToken(request.headers.get("authorization")) ?? cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
   const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
+
+  const supabase = createClient(supabaseConfig.supabaseUrl, supabaseConfig.supabaseAnonKey, {
+    global: {
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
 
   if (accessToken) {
     void supabase.auth.setSession({
