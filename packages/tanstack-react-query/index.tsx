@@ -19,6 +19,7 @@ type QueryState<TData> = {
   status: QueryStatus;
   updatedAt?: number;
   promise?: Promise<TData> | null;
+  queryFn?: QueryFunction<TData>;
 };
 
 type QueryListener<TData> = (state: QueryState<TData>) => void;
@@ -83,15 +84,17 @@ class QueryClient {
       return record.state.promise as Promise<TData>;
     }
 
+    record.state = { ...record.state, queryFn: options.queryFn };
+
     const promise = options
       .queryFn()
       .then((data) => {
-        record.state = { ...record.state, data, status: "success", updatedAt: Date.now(), promise: null };
+        record.state = { ...record.state, data, status: "success", updatedAt: Date.now(), promise: null, queryFn: options.queryFn };
         this.notify(options.queryKey);
         return data;
       })
       .catch((error) => {
-        record.state = { ...record.state, error, status: "error", promise: null };
+        record.state = { ...record.state, error, status: "error", promise: null, queryFn: options.queryFn };
         this.notify(options.queryKey);
         throw error;
       });
@@ -108,6 +111,17 @@ class QueryClient {
     record.state = { ...record.state, data: nextData, status: "success", updatedAt: Date.now() };
     this.notify(key);
     return nextData;
+  }
+
+  invalidateQueries({ queryKey }: { queryKey: QueryKey }) {
+    const { record } = this.getRecord(queryKey);
+    if (record.state.queryFn) {
+      void this.fetchQuery({ queryKey, queryFn: record.state.queryFn });
+      return;
+    }
+
+    record.state = { status: "idle" };
+    this.notify(queryKey);
   }
 }
 
