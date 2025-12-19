@@ -17,15 +17,11 @@ export function HeaderNav() {
   const { session } = useVerifiedSession();
 
   const isSettingsActive = pathname === "/settings";
-  const isTraceActive = pathname === "/trace";
   const isAdminActive = pathname === "/admin";
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
 
   return (
     <div className="flex items-center gap-3">
-      <Link href="/trace" className={`${baseButtonClass} ${isTraceActive ? activeClass : outlineClass}`}>
-        {t.navigation.trace}
-      </Link>
       <Link
         href="/settings"
         className={`${baseButtonClass} ${isSettingsActive ? activeClass : outlineClass}`}

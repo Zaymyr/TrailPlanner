@@ -34,11 +34,6 @@ export function HeaderMenu() {
         active: pathname === "/race-planner",
       },
       {
-        label: t.navigation.trace,
-        href: "/trace",
-        active: pathname === "/trace",
-      },
-      {
         label: t.navigation.settings,
         href: "/settings",
         active: pathname === "/settings",
@@ -49,7 +44,7 @@ export function HeaderMenu() {
         active: pathname === "/admin",
       },
     ],
-    [pathname, t.navigation.admin, t.navigation.racePlanner, t.navigation.settings, t.navigation.trace]
+    [pathname, t.navigation.admin, t.navigation.racePlanner, t.navigation.settings]
   );
 
   useEffect(() => {
