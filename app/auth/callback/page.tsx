@@ -65,6 +65,7 @@ export default function AuthCallbackPage() {
         const response = await fetch("/api/auth/session", {
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            ...(refreshToken ? { "x-refresh-token": `Bearer ${refreshToken}` } : {}),
           },
           cache: "no-store",
         });

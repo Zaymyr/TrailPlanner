@@ -1,5 +1,7 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../../lib/supabase";
 
 export async function GET(request: Request) {
@@ -9,7 +11,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 });
   }
 
-  const token = extractBearerToken(request.headers.get("authorization"));
+  const cookieStore = cookies();
+
+  const token =
+    extractBearerToken(request.headers.get("authorization")) ?? cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
+  const refreshToken =
+    extractBearerToken(request.headers.get("x-refresh-token")) ?? cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
 
   if (!token) {
     return NextResponse.json({ message: "Missing access token." }, { status: 401 });
@@ -21,7 +28,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Unable to validate session." }, { status: 401 });
   }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
@@ -29,4 +36,26 @@ export async function GET(request: Request) {
       roles: user.roles,
     },
   });
+
+  const isSecure = process.env.NODE_ENV === "production";
+
+  response.cookies.set(ACCESS_TOKEN_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: isSecure,
+    path: "/",
+    maxAge: 60 * 60,
+  });
+
+  if (refreshToken) {
+    response.cookies.set(REFRESH_TOKEN_COOKIE, refreshToken, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isSecure,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
+
+  return response;
 }
