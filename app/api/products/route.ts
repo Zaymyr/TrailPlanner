@@ -13,8 +13,9 @@ import type { FuelProduct } from "../../../lib/product-types";
 const supabaseProductSchema = z.object({
   id: z.string().uuid(),
   slug: z.string(),
-  sku: z.string(),
+  sku: z.string().optional().nullable(),
   name: z.string(),
+  product_url: z.string().url().optional().nullable(),
   calories_kcal: z.union([z.number(), z.string()]).transform((value) => Number(value)),
   carbs_g: z.union([z.number(), z.string()]).transform((value) => Number(value)),
   sodium_mg: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
@@ -27,8 +28,9 @@ const productResponseSchema = z.object({
     z.object({
       id: z.string(),
       slug: z.string(),
-      sku: z.string(),
+      sku: z.string().optional(),
       name: z.string(),
+      productUrl: z.string().url().optional().nullable(),
       caloriesKcal: z.number(),
       carbsGrams: z.number(),
       sodiumMg: z.number(),
@@ -45,6 +47,12 @@ const singleProductResponseSchema = z.object({
 const createProductSchema = z.object({
   name: z.string().trim().min(1),
   sku: z.string().trim().min(1).optional(),
+  productUrl: z
+    .string()
+    .trim()
+    .transform((value) => value || undefined)
+    .optional()
+    .pipe(z.string().url().optional()),
   caloriesKcal: z.coerce.number().nonnegative().default(0),
   carbsGrams: z.coerce.number().positive(),
   sodiumMg: z.coerce.number().nonnegative().default(0),
@@ -57,6 +65,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   slug: row.slug,
   sku: row.sku,
   name: row.name,
+  productUrl: row.product_url ?? undefined,
   caloriesKcal: Number(row.calories_kcal) || 0,
   carbsGrams: Number(row.carbs_g) || 0,
   sodiumMg: Number(row.sodium_mg) || 0,
@@ -92,7 +101,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
@@ -147,6 +156,7 @@ export async function POST(request: NextRequest) {
 
   const slug = buildSlug(parsedBody.data.name);
   const sku = parsedBody.data.sku ?? `SKU-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  const productUrl = parsedBody.data.productUrl;
 
   try {
     const response = await fetch(`${supabaseService.supabaseUrl}/rest/v1/products`, {
@@ -162,6 +172,7 @@ export async function POST(request: NextRequest) {
         slug,
         sku,
         name: parsedBody.data.name,
+        product_url: productUrl,
         calories_kcal: parsedBody.data.caloriesKcal,
         carbs_g: parsedBody.data.carbsGrams,
         sodium_mg: parsedBody.data.sodiumMg,
