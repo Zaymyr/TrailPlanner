@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { z } from "zod";
 
@@ -71,7 +71,6 @@ const formatDate = (value?: string) => {
 
 export default function AdminPage() {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
   const { session, isLoading: sessionLoading } = useVerifiedSession();
   const [productMessage, setProductMessage] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
@@ -138,7 +137,7 @@ export default function AdminPage() {
     onSuccess: () => {
       setProductError(null);
       setProductMessage(t.admin.products.messages.updated);
-      void queryClient.invalidateQueries({ queryKey: ["admin", "products"] });
+      void productsQuery.refetch();
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.admin.products.messages.error;
@@ -318,7 +317,7 @@ export default function AdminPage() {
                       <TableCell>{formatDate(product.updatedAt)}</TableCell>
                       <TableCell className="flex justify-end gap-2">
                         <Button
-                          size="sm"
+                          className="h-9 px-3 text-sm"
                           variant="outline"
                           disabled={updateProductMutation.isPending}
                           onClick={() =>
@@ -332,7 +331,7 @@ export default function AdminPage() {
                           {t.admin.products.actions.setLive}
                         </Button>
                         <Button
-                          size="sm"
+                          className="h-9 px-3 text-sm"
                           variant="outline"
                           disabled={updateProductMutation.isPending}
                           onClick={() =>
@@ -346,7 +345,7 @@ export default function AdminPage() {
                           {t.admin.products.actions.setDraft}
                         </Button>
                         <Button
-                          size="sm"
+                          className="h-9 px-3 text-sm"
                           variant="outline"
                           disabled={updateProductMutation.isPending}
                           onClick={() =>
