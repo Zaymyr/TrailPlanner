@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import { useMemo, useState } from "react";
 
 import { useI18n } from "../../app/i18n-provider";
@@ -19,16 +20,21 @@ type TraceMapProps = {
 
 type ViewPoint = { x: number; y: number };
 
+const clampUnit = (value: number) => Math.max(0, Math.min(1, value));
+
 const toViewPoint = (lat: number, lng: number): ViewPoint => {
-  const x = (lng + 180) / 360;
-  const y = 1 - (lat + 90) / 180;
-  return { x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)) };
+  const x = clampUnit((lng + 180) / 360);
+  const sinLat = Math.sin((lat * Math.PI) / 180);
+  const y = clampUnit(0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI));
+  return { x, y };
 };
 
-const toLatLng = (x: number, y: number) => ({
-  lat: 90 - y * 180,
-  lng: x * 360 - 180,
-});
+const toLatLng = (x: number, y: number) => {
+  const lng = x * 360 - 180;
+  const mercY = (0.5 - y) * 2 * Math.PI;
+  const lat = (180 / Math.PI) * Math.atan(Math.sinh(mercY));
+  return { lat, lng };
+};
 
 export function TraceMap({
   points,
@@ -50,7 +56,7 @@ export function TraceMap({
     [aidStations]
   );
 
-  const handleClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
     const x = (event.clientX - rect.left) / rect.width;
@@ -69,46 +75,52 @@ export function TraceMap({
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
-        onClick={() => setMode("route")}
-        className={`rounded-md px-3 py-1 text-sm font-medium transition ${
-          mode === "route" ? "bg-emerald-500 text-slate-950" : "bg-slate-800 text-emerald-100 hover:bg-slate-700"
-        }`}
-      >
-        {t.trace.map.addPoints}
-      </button>
-      <button
-        type="button"
-        onClick={() => setMode("aid")}
-        className={`rounded-md px-3 py-1 text-sm font-medium transition ${
-          mode === "aid" ? "bg-emerald-500 text-slate-950" : "bg-slate-800 text-emerald-100 hover:bg-slate-700"
-        }`}
-      >
-        {t.trace.map.addAidStations}
-      </button>
-      <button
-        type="button"
-        onClick={onUndo}
-        className="rounded-md bg-slate-800 px-3 py-1 text-sm font-medium text-emerald-100 transition hover:bg-slate-700"
-        disabled={points.length === 0}
-      >
-        {t.trace.map.undo}
-      </button>
-      <button
-        type="button"
-        onClick={onClear}
-        className="rounded-md bg-slate-800 px-3 py-1 text-sm font-medium text-emerald-100 transition hover:bg-slate-700 disabled:opacity-50"
-        disabled={points.length === 0 && aidStations.length === 0}
-      >
-        {t.trace.map.clear}
-      </button>
-      {isRouting ? <span className="text-sm text-emerald-200">{t.trace.map.routing}</span> : null}
-      {routingError ? <span className="text-sm text-amber-400">{routingError}</span> : null}
-    </div>
+          onClick={() => setMode("route")}
+          className={`rounded-md px-3 py-1 text-sm font-medium transition ${
+            mode === "route" ? "bg-emerald-500 text-slate-950" : "bg-slate-800 text-emerald-100 hover:bg-slate-700"
+          }`}
+        >
+          {t.trace.map.addPoints}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("aid")}
+          className={`rounded-md px-3 py-1 text-sm font-medium transition ${
+            mode === "aid" ? "bg-emerald-500 text-slate-950" : "bg-slate-800 text-emerald-100 hover:bg-slate-700"
+          }`}
+        >
+          {t.trace.map.addAidStations}
+        </button>
+        <button
+          type="button"
+          onClick={onUndo}
+          className="rounded-md bg-slate-800 px-3 py-1 text-sm font-medium text-emerald-100 transition hover:bg-slate-700"
+          disabled={points.length === 0}
+        >
+          {t.trace.map.undo}
+        </button>
+        <button
+          type="button"
+          onClick={onClear}
+          className="rounded-md bg-slate-800 px-3 py-1 text-sm font-medium text-emerald-100 transition hover:bg-slate-700 disabled:opacity-50"
+          disabled={points.length === 0 && aidStations.length === 0}
+        >
+          {t.trace.map.clear}
+        </button>
+        {isRouting ? <span className="text-sm text-emerald-200">{t.trace.map.routing}</span> : null}
+        {routingError ? <span className="text-sm text-amber-400">{routingError}</span> : null}
+      </div>
       <div
-        className="relative h-[420px] w-full cursor-crosshair rounded-lg bg-gradient-to-br from-slate-900 to-slate-950"
+        className="relative h-[420px] w-full cursor-crosshair overflow-hidden rounded-lg border border-emerald-900/50"
         onClick={handleClick}
         role="presentation"
       >
+        <div
+          className="absolute inset-0 bg-slate-900/50 bg-cover bg-center"
+          style={{ backgroundImage: "url('https://tile.openstreetmap.org/0/0/0.png')" }}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(52,211,153,0.08),transparent_40%)]" />
+        </div>
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
           {viewPoints.length > 0 ? (
             <polyline
