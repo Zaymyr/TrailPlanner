@@ -11,6 +11,7 @@ import type { Locale } from "../locales/types";
 import { HeaderAuth } from "./header-auth";
 import { AuthCallbackHandler } from "./auth-callback-handler";
 import { QueryProvider } from "./query-client-provider";
+import { HeaderNav } from "./header-nav";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -84,6 +85,7 @@ export default function RootLayout({
                   </p>
                 </div>
                 <div className="flex items-center gap-4">
+                  <HeaderNav />
                   <LanguageToggle />
                   <HeaderAuth />
                 </div>

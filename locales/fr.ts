@@ -39,6 +39,9 @@ export const fr: Translations = {
       },
     ],
   },
+  navigation: {
+    settings: "Paramètres",
+  },
   auth: {
     shared: {
       emailLabel: "Email",
@@ -168,12 +171,16 @@ export const fr: Translations = {
         },
       },
       gels: {
-        title: "Gels énergétiques",
-        description: "Comparez quelques gels populaires et estimez le nombre de portions pour couvrir vos glucides.",
-        empty: "Renseignez votre allure et vos objectifs nutritionnels pour calculer les gels nécessaires.",
+        title: "Produits énergétiques",
+        description:
+          "Sélectionnez jusqu'à trois produits dans Paramètres pour personnaliser ces estimations d'apport.",
+        empty:
+          "Renseignez votre allure et vos objectifs nutritionnels pour calculer les portions nécessaires.",
         linkLabel: "Voir le produit",
-        nutrition: "{carbs} g de glucides · {sodium} mg de sodium par gel",
-        countLabel: "{count} gels nécessaires",
+        nutrition: "{carbs} g de glucides · {sodium} mg de sodium par portion",
+        countLabel: "{count} portions nécessaires",
+        settingsHint: "Gérez vos produits d'alimentation dans Paramètres pour adapter ces calculs.",
+        usingCustom: "Vos produits enregistrés depuis Paramètres sont utilisés.",
       },
       aidStations: {
         title: "Ravitaillements",
@@ -263,6 +270,44 @@ export const fr: Translations = {
       pacing: "Allure & effort",
       intake: "Apports",
     },
+  },
+  productSettings: {
+    title: "Paramètres des produits",
+    description:
+      "Choisissez jusqu'à trois produits d'alimentation à utiliser dans les estimations du plan de course. Ajoutez un produit pour le partager avec tous les coureurs.",
+    authRequired: "Connectez-vous pour gérer les produits partagés.",
+    signInCta: "Aller à la connexion",
+    listTitle: "Produits disponibles",
+    selectionHelp: "Choisissez jusqu'à {count} produits pour les estimations du plan de course.",
+    selectionCount: "{count} sélectionné(s)",
+    empty: "Aucun produit trouvé. Ajoutez-en un ci-dessous pour commencer.",
+    loading: "Chargement des produits...",
+    errors: {
+      loadFailed: "Impossible de charger les produits. Réessayez.",
+      createFailed: "Impossible de créer le produit. Réessayez.",
+      selectionLimit: "Vous pouvez sélectionner jusqu'à 3 produits pour le planner.",
+      missingSession: "Vous devez être connecté pour ajouter ou sélectionner des produits.",
+    },
+    actions: {
+      refresh: "Rafraîchir",
+      select: "Choisir pour le planner",
+      deselect: "Retirer du planner",
+      openPlanner: "Retour au plan de course",
+    },
+    fields: {
+      name: "Nom",
+      carbs: "Glucides (g par portion)",
+      sodium: "Sodium (mg par portion)",
+      calories: "Calories (kcal par portion)",
+      protein: "Protéines (g par portion)",
+      fat: "Matières grasses (g par portion)",
+      sku: "SKU / code (optionnel)",
+    },
+    formTitle: "Ajouter un nouveau produit",
+    formDescription: "Publiez un produit utilisable par tous. Valeurs par portion.",
+    submit: "Créer le produit",
+    submitting: "Création du produit...",
+    success: "Produit créé et ajouté au catalogue.",
   },
   resourcePages: {
     "trail-nutrition-planner": {
