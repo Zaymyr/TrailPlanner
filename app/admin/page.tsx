@@ -274,8 +274,8 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="lg:col-span-1">
+      <div className="flex flex-col gap-6">
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg text-slate-50">{t.admin.products.title}</CardTitle>
             <p className="text-sm text-slate-400">{t.admin.products.description}</p>
@@ -367,7 +367,7 @@ export default function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-1">
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg text-slate-50">{t.admin.users.title}</CardTitle>
             <p className="text-sm text-slate-400">{t.admin.users.description}</p>
