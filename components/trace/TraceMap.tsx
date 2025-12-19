@@ -1,7 +1,12 @@
 "use client";
 
-import type { MouseEvent } from "react";
-import { useMemo, useState } from "react";
+import L from "leaflet";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import type { LatLngExpression, LeafletMouseEvent } from "leaflet";
+import { useEffect, useMemo, useState } from "react";
+import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip, useMapEvent } from "react-leaflet";
 
 import { useI18n } from "../../app/i18n-provider";
 import type { AidStationView, TracePointView } from "../../lib/trace/traceRepo";
@@ -18,23 +23,29 @@ type TraceMapProps = {
   routingError?: string | null;
 };
 
-type ViewPoint = { x: number; y: number };
+const DEFAULT_CENTER = { lat: 48.8566, lng: 2.3522 };
+const DEFAULT_ZOOM = 12;
 
-const clampUnit = (value: number) => Math.max(0, Math.min(1, value));
+function MapClickHandler({
+  mode,
+  onAddAidStation,
+  onAddPoint,
+}: {
+  mode: "route" | "aid";
+  onAddPoint: TraceMapProps["onAddPoint"];
+  onAddAidStation: TraceMapProps["onAddAidStation"];
+}) {
+  useMapEvent("click", (event: LeafletMouseEvent) => {
+    const { lat, lng } = event.latlng;
+    if (mode === "aid") {
+      onAddAidStation({ lat, lng });
+    } else {
+      onAddPoint({ lat, lng, elevation: null });
+    }
+  });
 
-const toViewPoint = (lat: number, lng: number): ViewPoint => {
-  const x = clampUnit((lng + 180) / 360);
-  const sinLat = Math.sin((lat * Math.PI) / 180);
-  const y = clampUnit(0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI));
-  return { x, y };
-};
-
-const toLatLng = (x: number, y: number) => {
-  const lng = x * 360 - 180;
-  const mercY = (0.5 - y) * 2 * Math.PI;
-  const lat = (180 / Math.PI) * Math.atan(Math.sinh(mercY));
-  return { lat, lng };
-};
+  return null;
+}
 
 export function TraceMap({
   points,
@@ -48,27 +59,32 @@ export function TraceMap({
   routingError,
 }: TraceMapProps) {
   const [mode, setMode] = useState<"route" | "aid">("route");
+  const [isClient, setIsClient] = useState(false);
   const { t } = useI18n();
 
-  const viewPoints = useMemo(() => points.map((point) => toViewPoint(point.lat, point.lng)), [points]);
-  const viewStations = useMemo(
-    () => aidStations.map((station) => ({ ...station, view: toViewPoint(station.lat, station.lng) })),
-    [aidStations]
-  );
+  useEffect(() => {
+    setIsClient(true);
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: markerIcon2x.src,
+      iconUrl: markerIcon.src,
+      shadowUrl: markerShadow.src,
+    });
+  }, []);
 
-  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-    const { lat, lng } = toLatLng(x, y);
-
-    if (mode === "aid") {
-      onAddAidStation({ lat, lng });
-    } else {
-      onAddPoint({ lat, lng, elevation: null });
+  const mapCenter = useMemo(() => {
+    if (points.length > 0) {
+      return { lat: points[0].lat, lng: points[0].lng };
     }
-  };
+    if (aidStations.length > 0) {
+      return { lat: aidStations[0].lat, lng: aidStations[0].lng };
+    }
+    return DEFAULT_CENTER;
+  }, [aidStations, points]);
+
+  const routePositions = useMemo<LatLngExpression[]>(
+    () => points.map((point) => [point.lat, point.lng]),
+    [points]
+  );
 
   return (
     <div className="flex w-full flex-col gap-3 rounded-xl border border-emerald-300/40 bg-slate-900/70 p-3">
@@ -110,53 +126,54 @@ export function TraceMap({
         {isRouting ? <span className="text-sm text-emerald-200">{t.trace.map.routing}</span> : null}
         {routingError ? <span className="text-sm text-amber-400">{routingError}</span> : null}
       </div>
-      <div
-        className="relative h-[420px] w-full cursor-crosshair overflow-hidden rounded-lg border border-emerald-900/50"
-        onClick={handleClick}
-        role="presentation"
-      >
-        <div
-          className="absolute inset-0 bg-slate-900/50 bg-cover bg-center"
-          style={{ backgroundImage: "url('https://tile.openstreetmap.org/0/0/0.png')" }}
-        >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(52,211,153,0.08),transparent_40%)]" />
-        </div>
-        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {viewPoints.length > 0 ? (
-            <polyline
-              points={viewPoints.map((point) => `${point.x * 100},${point.y * 100}`).join(" ")}
-              fill="none"
-              stroke="#34d399"
-              strokeWidth="0.8"
+      <div className="relative h-[420px] w-full overflow-hidden rounded-lg border border-emerald-900/50">
+        {isClient ? (
+          <MapContainer
+            center={mapCenter}
+            zoom={DEFAULT_ZOOM}
+            scrollWheelZoom
+            className="absolute inset-0 h-full w-full cursor-crosshair"
+            preferCanvas
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap contributors"
             />
-          ) : null}
+            <MapClickHandler mode={mode} onAddAidStation={onAddAidStation} onAddPoint={onAddPoint} />
 
-          {viewPoints.map((point, index) => (
-            <circle key={`point-${index}`} cx={point.x * 100} cy={point.y * 100} r="1.2" fill="#22d3ee" />
-          ))}
+            {routePositions.length > 0 ? (
+              <Polyline positions={routePositions} pathOptions={{ color: "#34d399", weight: 3 }} />
+            ) : null}
 
-          {viewStations.map((station) => (
-            <g key={station.id ?? `${station.lat}-${station.lng}`}>
-              <circle
-                cx={station.view.x * 100}
-                cy={station.view.y * 100}
-                r="1.6"
-                fill="#f97316"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onSelectAidStation?.(station.id);
-                }}
+            {points.map((point, index) => (
+              <CircleMarker
+                key={`point-${index}`}
+                center={[point.lat, point.lng]}
+                radius={5}
+                pathOptions={{ color: "#22d3ee", fillColor: "#22d3ee", fillOpacity: 1 }}
               />
-              <text
-                x={station.view.x * 100 + 1.8}
-                y={station.view.y * 100}
-                className="fill-amber-200 text-[3px]"
+            ))}
+
+            {aidStations.map((station) => (
+              <CircleMarker
+                key={station.id ?? `${station.lat}-${station.lng}`}
+                center={[station.lat, station.lng]}
+                radius={7}
+                pathOptions={{ color: "#f97316", fillColor: "#f97316", fillOpacity: 0.9 }}
+                eventHandlers={{
+                  click: (event) => {
+                    event.originalEvent?.stopPropagation();
+                    onSelectAidStation?.(station.id);
+                  },
+                }}
               >
-                {station.name}
-              </text>
-            </g>
-          ))}
-        </svg>
+                {station.name ? <Tooltip direction="top">{station.name}</Tooltip> : null}
+              </CircleMarker>
+            ))}
+          </MapContainer>
+        ) : (
+          <div className="absolute inset-0 h-full w-full bg-slate-900/50" />
+        )}
         <div className="pointer-events-none absolute inset-0 flex items-end justify-end p-3 text-xs text-slate-400">
           <p>{t.trace.map.hint}</p>
         </div>
