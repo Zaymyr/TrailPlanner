@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest",
-    "test:watch": "vitest watch"
+    "test:watch": "vitest watch",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
