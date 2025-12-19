@@ -349,8 +349,10 @@ export type Translations = {
   auth: AuthTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
+    racePlanner: string;
     settings: string;
     admin: string;
+    menuLabel: string;
   };
   admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;
