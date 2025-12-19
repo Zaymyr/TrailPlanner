@@ -21,5 +21,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: "Unable to validate session." }, { status: 401 });
   }
 
-  return NextResponse.json({ user });
+  return NextResponse.json({
+    user: {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      roles: user.roles,
+    },
+  });
 }

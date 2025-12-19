@@ -49,9 +49,18 @@ export const extractBearerToken = (authorizationHeader: string | null): string |
   return token.trim();
 };
 
+export type SupabaseMetadata = {
+  role?: string;
+  roles?: string[];
+} & Record<string, unknown>;
+
 export type SupabaseUser = {
   id: string;
   email?: string;
+  role?: string;
+  roles?: string[];
+  appMetadata?: SupabaseMetadata;
+  userMetadata?: Record<string, unknown>;
 };
 
 export type SupabaseServiceConfig = {
@@ -78,6 +87,33 @@ export const getSupabaseServiceConfig = (): SupabaseServiceConfig | null => {
   return parsed.data;
 };
 
+const supabaseUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email().optional(),
+  app_metadata: z
+    .object({
+      role: z.string().optional(),
+      roles: z.array(z.string()).optional(),
+    })
+    .partial()
+    .optional(),
+  user_metadata: z.record(z.unknown()).optional(),
+});
+
+const normalizeRoles = (roles: unknown): string[] | undefined => {
+  if (!Array.isArray(roles)) return undefined;
+  const normalized = roles.filter((value): value is string => typeof value === "string");
+  return normalized.length > 0 ? normalized : undefined;
+};
+
+export const isAdminUser = (user: SupabaseUser | null): boolean => {
+  if (!user) return false;
+  const roleFromApp = typeof user.appMetadata?.role === "string" ? user.appMetadata.role : undefined;
+  const normalizedRoles = normalizeRoles(user.roles ?? user.appMetadata?.roles);
+  const effectiveRole = user.role ?? roleFromApp ?? normalizedRoles?.[0];
+  return effectiveRole === "admin" || Boolean(normalizedRoles?.includes("admin"));
+};
+
 export const fetchSupabaseUser = async (
   accessToken: string,
   config: SupabaseAnonConfig
@@ -96,12 +132,27 @@ export const fetchSupabaseUser = async (
       return null;
     }
 
-    const data = (await response.json()) as { id?: string; email?: string };
-    if (!data?.id) {
+    const parsed = supabaseUserSchema.safeParse(await response.json());
+
+    if (!parsed.success) {
+      console.error("Unable to parse Supabase user", parsed.error.flatten().fieldErrors);
       return null;
     }
 
-    return { id: data.id, email: data.email };
+    const roles = normalizeRoles(parsed.data.app_metadata?.roles);
+    const role =
+      parsed.data.app_metadata?.role ??
+      roles?.[0] ??
+      (typeof parsed.data.user_metadata?.role === "string" ? parsed.data.user_metadata.role : undefined);
+
+    return {
+      id: parsed.data.id,
+      email: parsed.data.email,
+      role,
+      roles,
+      appMetadata: parsed.data.app_metadata,
+      userMetadata: parsed.data.user_metadata,
+    };
   } catch (error) {
     console.error("Unexpected error while verifying Supabase token", error);
     return null;
