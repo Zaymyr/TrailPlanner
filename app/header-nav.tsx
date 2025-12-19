@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { useVerifiedSession } from "./hooks/useVerifiedSession";
 import { useI18n } from "./i18n-provider";
 
 const baseButtonClass =
@@ -13,8 +14,11 @@ const activeClass = "bg-emerald-500 text-slate-950 hover:bg-emerald-400";
 export function HeaderNav() {
   const { t } = useI18n();
   const pathname = usePathname();
+  const { session } = useVerifiedSession();
 
   const isSettingsActive = pathname === "/settings";
+  const isAdminActive = pathname === "/admin";
+  const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
 
   return (
     <div className="flex items-center gap-3">
@@ -24,6 +28,14 @@ export function HeaderNav() {
       >
         {t.navigation.settings}
       </Link>
+      {isAdmin ? (
+        <Link
+          href="/admin"
+          className={`${baseButtonClass} ${isAdminActive ? activeClass : outlineClass}`}
+        >
+          {t.navigation.admin}
+        </Link>
+      ) : null}
     </div>
   );
 }

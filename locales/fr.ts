@@ -41,6 +41,7 @@ export const fr: Translations = {
   },
   navigation: {
     settings: "Paramètres",
+    admin: "Admin",
   },
   auth: {
     shared: {
@@ -269,6 +270,74 @@ export const fr: Translations = {
       timeline: "Timeline",
       pacing: "Allure & effort",
       intake: "Apports",
+    },
+  },
+  admin: {
+    title: "Admin",
+    description: "Gérez le catalogue produit, les utilisateurs et le tableau de bord.",
+    access: {
+      checking: "Vérification de tes droits…",
+      signIn: "Connecte-toi pour accéder à l'admin.",
+      signInCta: "Se connecter",
+      forbidden: "Le rôle admin est requis pour voir cette page.",
+    },
+    products: {
+      title: "Catalogue produits",
+      description: "Consulte l'état des produits et bascule live ou archivé.",
+      loadError: "Impossible de charger les produits.",
+      empty: "Aucun produit.",
+      messages: {
+        updated: "Produit mis à jour.",
+        error: "Impossible de mettre à jour le produit.",
+      },
+      status: {
+        live: "En ligne",
+        archived: "Archivé",
+        draft: "Brouillon",
+      },
+      table: {
+        name: "Nom",
+        status: "Statut",
+        updated: "Mis à jour",
+        actions: "Actions",
+      },
+      actions: {
+        setLive: "Mettre en ligne",
+        setDraft: "Mettre en brouillon",
+        archive: "Archiver",
+        restore: "Restaurer",
+      },
+    },
+    users: {
+      title: "Utilisateurs",
+      description: "Aperçu des derniers utilisateurs connectés.",
+      loadError: "Impossible de charger les utilisateurs.",
+      empty: "Aucun utilisateur.",
+      table: {
+        email: "Email",
+        role: "Rôle",
+        createdAt: "Créé le",
+        lastSignInAt: "Dernière activité",
+      },
+    },
+    analytics: {
+      title: "Tableau de bord d'engagement",
+      description: "Suis les produits sélectionnés, l’ouverture des popups et les clics.",
+      loadError: "Impossible de charger les statistiques.",
+      empty: "Aucun évènement pour l’instant.",
+      totals: {
+        popupOpens: "Ouvertures de popup",
+        clicks: "Clics",
+      },
+      statsTitle: "Intérêt produits",
+      eventsTitle: "Évènements récents",
+      table: {
+        product: "Produit",
+        eventType: "Évènement",
+        country: "Pays",
+        merchant: "Marchand",
+        timestamp: "Quand",
+      },
     },
   },
   productSettings: {

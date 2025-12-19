@@ -41,6 +41,7 @@ export const en: Translations = {
   },
   navigation: {
     settings: "Settings",
+    admin: "Admin",
   },
   auth: {
     shared: {
@@ -267,6 +268,74 @@ export const en: Translations = {
       timeline: "Timeline",
       pacing: "Pace & effort",
       intake: "Intake",
+    },
+  },
+  admin: {
+    title: "Admin",
+    description: "Manage the product catalogue, users, and engagement insights.",
+    access: {
+      checking: "Checking your access…",
+      signIn: "Sign in to access the admin area.",
+      signInCta: "Sign in",
+      forbidden: "You need the admin role to view this page.",
+    },
+    products: {
+      title: "Product catalogue",
+      description: "Review product status and toggle live or archived entries.",
+      loadError: "Unable to load products.",
+      empty: "No products found.",
+      messages: {
+        updated: "Product updated.",
+        error: "Unable to update product.",
+      },
+      status: {
+        live: "Live",
+        archived: "Archived",
+        draft: "Draft",
+      },
+      table: {
+        name: "Name",
+        status: "Status",
+        updated: "Updated",
+        actions: "Actions",
+      },
+      actions: {
+        setLive: "Mark live",
+        setDraft: "Mark draft",
+        archive: "Archive",
+        restore: "Restore",
+      },
+    },
+    users: {
+      title: "Users",
+      description: "See who has signed in recently.",
+      loadError: "Unable to load users.",
+      empty: "No users found.",
+      table: {
+        email: "Email",
+        role: "Role",
+        createdAt: "Created",
+        lastSignInAt: "Last active",
+      },
+    },
+    analytics: {
+      title: "Engagement dashboard",
+      description: "Track which products people select, when they open popups, and when they click.",
+      loadError: "Unable to load analytics.",
+      empty: "No events yet.",
+      totals: {
+        popupOpens: "Popup opens",
+        clicks: "Clicks",
+      },
+      statsTitle: "Product interest",
+      eventsTitle: "Recent events",
+      table: {
+        product: "Product",
+        eventType: "Event",
+        country: "Country",
+        merchant: "Merchant",
+        timestamp: "When",
+      },
     },
   },
   productSettings: {

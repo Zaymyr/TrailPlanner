@@ -273,6 +273,75 @@ export type ResourcePageCopy = {
   plannerLabel: string;
 };
 
+export type AdminTranslations = {
+  title: string;
+  description: string;
+  access: {
+    checking: string;
+    signIn: string;
+    signInCta: string;
+    forbidden: string;
+  };
+  products: {
+    title: string;
+    description: string;
+    loadError: string;
+    empty: string;
+    messages: {
+      updated: string;
+      error: string;
+    };
+    status: {
+      live: string;
+      archived: string;
+      draft: string;
+    };
+    table: {
+      name: string;
+      status: string;
+      updated: string;
+      actions: string;
+    };
+    actions: {
+      setLive: string;
+      setDraft: string;
+      archive: string;
+      restore: string;
+    };
+  };
+  users: {
+    title: string;
+    description: string;
+    loadError: string;
+    empty: string;
+    table: {
+      email: string;
+      role: string;
+      createdAt: string;
+      lastSignInAt: string;
+    };
+  };
+  analytics: {
+    title: string;
+    description: string;
+    loadError: string;
+    empty: string;
+    totals: {
+      popupOpens: string;
+      clicks: string;
+    };
+    statsTitle: string;
+    eventsTitle: string;
+    table: {
+      product: string;
+      eventType: string;
+      country: string;
+      merchant: string;
+      timestamp: string;
+    };
+  };
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
@@ -281,7 +350,9 @@ export type Translations = {
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
     settings: string;
+    admin: string;
   };
+  admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;
 };
 
