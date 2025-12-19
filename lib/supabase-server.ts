@@ -33,10 +33,10 @@ export const createSupabaseServerClient = (request: Request): ServerClientResult
     },
   });
 
-  if (accessToken) {
+  if (accessToken && refreshToken) {
     void supabase.auth.setSession({
       access_token: accessToken,
-      refresh_token: refreshToken ?? undefined,
+      refresh_token: refreshToken,
     });
   }
 
