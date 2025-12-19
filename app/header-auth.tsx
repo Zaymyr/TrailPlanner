@@ -2,17 +2,12 @@
 
 import Link from "next/link";
 
-import { Button } from "../components/ui/button";
 import { useI18n } from "./i18n-provider";
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 
 export function HeaderAuth() {
   const { t } = useI18n();
-  const { session, isLoading, clearSession } = useVerifiedSession();
-
-  const handleSignOut = () => {
-    clearSession();
-  };
+  const { session, isLoading } = useVerifiedSession();
 
   if (isLoading) {
     return <div className="h-10 min-w-[200px]" aria-busy="true" />;
@@ -29,13 +24,6 @@ export function HeaderAuth() {
         <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-sm font-medium text-emerald-100">
           {signedInLabel}
         </span>
-        <Button
-          variant="outline"
-          className="border-emerald-300/60 text-emerald-50 hover:border-emerald-200"
-          onClick={handleSignOut}
-        >
-          {t.racePlanner.account.auth.signOut}
-        </Button>
       </div>
     );
   }
