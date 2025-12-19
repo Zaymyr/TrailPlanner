@@ -54,5 +54,5 @@ export const getSupabaseUserFromRequest = async (
     return { supabase, user: null, accessToken };
   }
 
-  return { supabase, user: data.user ?? null, accessToken: data.session?.access_token ?? accessToken };
+  return { supabase, user: data.user ?? null, accessToken };
 };
