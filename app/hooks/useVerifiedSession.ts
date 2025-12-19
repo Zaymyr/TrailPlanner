@@ -46,6 +46,7 @@ export const useVerifiedSession = () => {
       const response = await fetch("/api/auth/session", {
         headers: {
           Authorization: `Bearer ${stored.accessToken}`,
+          ...(stored.refreshToken ? { "x-refresh-token": `Bearer ${stored.refreshToken}` } : {}),
         },
         cache: "no-store",
       });
