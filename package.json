@@ -10,6 +10,7 @@
     "lint": "next lint",
     "test": "vitest",
     "test:watch": "vitest watch"
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@tanstack/react-query": "file:packages/tanstack-react-query",
@@ -36,10 +37,5 @@
     "tailwindcss": "^3.4.7",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
-  }
 }
-{
-  "scripts": {
-    "typecheck": "tsc -p tsconfig.json --noEmit"
-  }
 }
