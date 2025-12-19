@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { Route } from "next";
 
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 import { useI18n } from "./i18n-provider";
 
 type MenuItem = {
   label: string;
-  href: string;
+  href: Route;
   active: boolean;
 };
 
