@@ -1,9 +1,10 @@
 "use client";
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Script from "next/script";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -18,8 +19,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { RacePlannerTranslations } from "../../../locales/types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
+import { MAX_SELECTED_PRODUCTS } from "../../../lib/product-preferences";
+import type { FuelProduct } from "../../../lib/product-types";
 import { AffiliateProductModal } from "./components/AffiliateProductModal";
 import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
+import { useProductSelection } from "../../hooks/useProductSelection";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -68,7 +72,7 @@ type Segment = {
 
 type ElevationPoint = { distanceKm: number; elevationM: number };
 type SpeedSample = { distanceKm: number; speedKph: number };
-type GelOption = { slug: string; name: string; carbs: number; sodium: number };
+type ProductEstimate = FuelProduct & { count: number };
 
 type CardTitleWithTooltipProps = {
   title: string;
@@ -88,24 +92,39 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
   </CardTitle>
 );
 
-const gelOptions: GelOption[] = [
+const defaultFuelProducts: FuelProduct[] = [
   {
+    id: "00000000-0000-0000-0000-000000000001",
     slug: "maurten-gel-100",
+    sku: "MAURTEN-GEL-100",
     name: "Maurten Gel 100",
-    carbs: 25,
-    sodium: 85,
+    caloriesKcal: 100,
+    carbsGrams: 25,
+    sodiumMg: 85,
+    proteinGrams: 0,
+    fatGrams: 0,
   },
   {
+    id: "00000000-0000-0000-0000-000000000002",
     slug: "gu-energy-gel",
+    sku: "GU-ENERGY-GEL",
     name: "GU Energy Gel",
-    carbs: 22,
-    sodium: 60,
+    caloriesKcal: 100,
+    carbsGrams: 22,
+    sodiumMg: 60,
+    proteinGrams: 0,
+    fatGrams: 0,
   },
   {
+    id: "00000000-0000-0000-0000-000000000003",
     slug: "sis-go-isotonic-gel",
+    sku: "SIS-GO-ISOTONIC",
     name: "SIS GO Isotonic Gel",
-    carbs: 22,
-    sodium: 10,
+    caloriesKcal: 87,
+    carbsGrams: 22,
+    sodiumMg: 10,
+    proteinGrams: 0,
+    fatGrams: 0,
   },
 ];
 
@@ -741,6 +760,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [activeAffiliateProduct, setActiveAffiliateProduct] = useState<{ slug: string; name: string } | null>(null);
   const [countryCode, setCountryCode] = useState<string | null>(null);
+  const { selectedProducts } = useProductSelection();
   const affiliateSessionId = useAffiliateSessionId();
   const affiliateLogger = useAffiliateEventLogger({ accessToken: session?.accessToken });
 
@@ -897,16 +917,39 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     );
   }, [parsedValues.success, segments]);
 
-  const gelEstimates = useMemo(
+  const customFuelProducts = useMemo<FuelProduct[]>(
+    () =>
+      selectedProducts.map((product) => ({
+        id: product.id,
+        slug: product.slug,
+        sku: product.sku ?? product.slug,
+        name: product.name,
+        caloriesKcal: product.caloriesKcal ?? 0,
+        carbsGrams: product.carbsGrams,
+        sodiumMg: product.sodiumMg ?? 0,
+        proteinGrams: 0,
+        fatGrams: 0,
+      })),
+    [selectedProducts]
+  );
+
+  const fuelProducts = useMemo<FuelProduct[]>(
+    () => (customFuelProducts.length > 0 ? customFuelProducts.slice(0, MAX_SELECTED_PRODUCTS) : defaultFuelProducts),
+    [customFuelProducts]
+  );
+
+  const productEstimates = useMemo<ProductEstimate[]>(
     () =>
       raceTotals
-        ? gelOptions.map((gel) => ({
-            ...gel,
-            count: raceTotals.fuelGrams > 0 ? Math.ceil(raceTotals.fuelGrams / gel.carbs) : 0,
+        ? fuelProducts.map((product) => ({
+            ...product,
+            count: product.carbsGrams > 0 ? Math.ceil(raceTotals.fuelGrams / product.carbsGrams) : 0,
           }))
         : [],
-    [raceTotals]
+    [fuelProducts, raceTotals]
   );
+
+  const isUsingCustomProducts = customFuelProducts.length > 0;
 
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
@@ -1419,27 +1462,42 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               />
             </CardHeader>
             <CardContent>
+              <div className="mb-4 text-sm text-slate-400">
+                {isUsingCustomProducts ? (
+                  <p>{racePlannerCopy.sections.gels.usingCustom}</p>
+                ) : (
+                  <p className="flex flex-wrap items-center gap-1">
+                    <span>{racePlannerCopy.sections.gels.settingsHint}</span>
+                    <Link
+                      href="/settings"
+                      className="font-semibold text-emerald-300 transition hover:text-emerald-200"
+                    >
+                      {t.navigation.settings}
+                    </Link>
+                  </p>
+                )}
+              </div>
               {!raceTotals ? (
                 <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {gelEstimates.map((gel) => (
+                  {productEstimates.map((product) => (
                     <div
-                      key={gel.name}
+                      key={product.id}
                       className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="font-semibold text-slate-50">{gel.name}</p>
+                          <p className="font-semibold text-slate-50">{product.name}</p>
                           <p className="text-sm text-slate-400">
                             {racePlannerCopy.sections.gels.nutrition
-                              .replace("{carbs}", gel.carbs.toString())
-                              .replace("{sodium}", gel.sodium.toString())}
+                              .replace("{carbs}", product.carbsGrams.toString())
+                              .replace("{sodium}", product.sodiumMg.toString())}
                           </p>
                         </div>
                         <button
                           type="button"
-                          onClick={() => setActiveAffiliateProduct({ slug: gel.slug, name: gel.name })}
+                          onClick={() => setActiveAffiliateProduct({ slug: product.slug, name: product.name })}
                           className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
                         >
                           {racePlannerCopy.sections.gels.linkLabel}
@@ -1449,10 +1507,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                         <p>
                           {racePlannerCopy.sections.gels.countLabel.replace(
                             "{count}",
-                            Math.max(gel.count, 0).toString()
+                            Math.max(product.count, 0).toString()
                           )}
                         </p>
-                        <p className="text-xs text-slate-500">{gel.carbs} g</p>
+                        <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
                       </div>
                     </div>
                   ))}

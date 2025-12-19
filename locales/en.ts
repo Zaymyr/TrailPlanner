@@ -39,6 +39,9 @@ export const en: Translations = {
       },
     ],
   },
+  navigation: {
+    settings: "Settings",
+  },
   auth: {
     shared: {
       emailLabel: "Email",
@@ -167,12 +170,15 @@ export const en: Translations = {
         },
       },
       gels: {
-        title: "Gel suggestions",
-        description: "Choose from popular gels and estimate how many servings cover your carb target.",
-        empty: "Add your pacing and fueling targets to calculate how many gels you need.",
+        title: "Fuel products",
+        description:
+          "Pick up to three products in Settings to personalize these estimates for your fueling targets.",
+        empty: "Add your pacing and fueling targets to calculate how many servings you need.",
         linkLabel: "View product",
-        nutrition: "{carbs} g carbs · {sodium} mg sodium per gel",
-        countLabel: "{count} gels needed",
+        nutrition: "{carbs} g carbs · {sodium} mg sodium per serving",
+        countLabel: "{count} servings needed",
+        settingsHint: "Manage your fueling products in Settings to tailor these counts.",
+        usingCustom: "Using your saved fueling products from Settings.",
       },
       aidStations: {
         title: "Aid stations",
@@ -262,6 +268,44 @@ export const en: Translations = {
       pacing: "Pace & effort",
       intake: "Intake",
     },
+  },
+  productSettings: {
+    title: "Fuel product settings",
+    description:
+      "Choose up to three fueling products to use in the race planner estimates. Add new products to share them with other runners.",
+    authRequired: "Sign in to manage shared fueling products.",
+    signInCta: "Go to sign in",
+    listTitle: "Live products",
+    selectionHelp: "Pick up to {count} products to use in your race planner fuel estimates.",
+    selectionCount: "{count} selected",
+    empty: "No products found. Add one below to get started.",
+    loading: "Loading products...",
+    errors: {
+      loadFailed: "Unable to load products. Please try again.",
+      createFailed: "Unable to create product. Please try again.",
+      selectionLimit: "You can select up to 3 products for the planner.",
+      missingSession: "You need to be signed in to add or select products.",
+    },
+    actions: {
+      refresh: "Refresh",
+      select: "Select for planner",
+      deselect: "Remove from planner",
+      openPlanner: "Back to race planner",
+    },
+    fields: {
+      name: "Name",
+      carbs: "Carbs (g per serving)",
+      sodium: "Sodium (mg per serving)",
+      calories: "Calories (kcal per serving)",
+      protein: "Protein (g per serving)",
+      fat: "Fat (g per serving)",
+      sku: "SKU / code (optional)",
+    },
+    formTitle: "Add a new fueling product",
+    formDescription: "Publish a fueling product for everyone. Values are per serving.",
+    submit: "Create product",
+    submitting: "Creating product...",
+    success: "Product created and added to the catalog.",
   },
   resourcePages: {
     "trail-nutrition-planner": {

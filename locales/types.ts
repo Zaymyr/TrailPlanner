@@ -155,6 +155,8 @@ export type RacePlannerTranslations = {
       linkLabel: string;
       nutrition: string;
       countLabel: string;
+      settingsHint: string;
+      usingCustom: string;
     };
     aidStations: {
       title: string;
@@ -277,5 +279,46 @@ export type Translations = {
   landing: LandingPageTranslations;
   auth: AuthTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
+  navigation: {
+    settings: string;
+  };
+  productSettings: ProductSettingsTranslations;
 };
 
+export type ProductSettingsTranslations = {
+  title: string;
+  description: string;
+  authRequired: string;
+  signInCta: string;
+  listTitle: string;
+  selectionHelp: string;
+  selectionCount: string;
+  empty: string;
+  loading: string;
+  errors: {
+    loadFailed: string;
+    createFailed: string;
+    selectionLimit: string;
+    missingSession: string;
+  };
+  actions: {
+    refresh: string;
+    select: string;
+    deselect: string;
+    openPlanner: string;
+  };
+  fields: {
+    name: string;
+    carbs: string;
+    sodium: string;
+    calories: string;
+    protein: string;
+    fat: string;
+    sku: string;
+  };
+  formTitle: string;
+  formDescription: string;
+  submit: string;
+  submitting: string;
+  success: string;
+};
