@@ -350,68 +350,12 @@ export type Translations = {
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
     racePlanner: string;
-    trace: string;
     settings: string;
     admin: string;
     menuLabel: string;
   };
-  trace: TraceTranslations;
   admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;
-};
-
-export type TraceTranslations = {
-  title: string;
-  newTrace: string;
-  searchPlaceholder: string;
-  loading: string;
-  error: string;
-  myTraces: string;
-  publicTraces: string;
-  noMyTraces: string;
-  noPublicTraces: string;
-  ownerYou: string;
-  ownerLabel: string;
-  publicBadge: string;
-  privateBadge: string;
-  load: string;
-  duplicate: string;
-  delete: string;
-  lastSaved: string;
-  drawerOpen: string;
-  drawerClose: string;
-  map: {
-    addPoints: string;
-    addAidStations: string;
-    undo: string;
-    clear: string;
-    routing: string;
-    hint: string;
-  };
-  form: {
-    nameLabel: string;
-    namePlaceholder: string;
-    publicToggle: string;
-    statsLabel: string;
-    save: string;
-    saving: string;
-    downloadGpx: string;
-    copyGpx: string;
-    validationMissing: string;
-  };
-  statuses: {
-    saved: string;
-    duplicated: string;
-    deleted: string;
-    copied: string;
-    downloaded: string;
-    missingSession: string;
-    loadFailed: string;
-    duplicateFailed: string;
-    deleteFailed: string;
-    gpxError: string;
-    routingError: string;
-  };
 };
 
 export type ProductSettingsTranslations = {
