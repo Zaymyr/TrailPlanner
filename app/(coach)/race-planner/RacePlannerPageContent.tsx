@@ -924,6 +924,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         slug: product.slug,
         sku: product.sku ?? product.slug,
         name: product.name,
+        productUrl: product.productUrl ?? undefined,
         caloriesKcal: product.caloriesKcal ?? 0,
         carbsGrams: product.carbsGrams,
         sodiumMg: product.sodiumMg ?? 0,

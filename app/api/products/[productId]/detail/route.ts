@@ -20,8 +20,9 @@ const requestSchema = z.object({ totals: totalsSchema.optional() });
 const productSchema = z.object({
   id: z.string().uuid(),
   slug: z.string(),
-  sku: z.string(),
+  sku: z.string().optional().nullable(),
   name: z.string(),
+  product_url: z.string().url().optional().nullable(),
   calories_kcal: z.number(),
   carbs_g: z.number(),
   protein_g: z.number(),
@@ -32,8 +33,9 @@ const responseSchema = z.object({
   product: z.object({
     id: z.string().uuid(),
     slug: z.string(),
-    sku: z.string(),
+    sku: z.string().optional(),
     name: z.string(),
+    productUrl: z.string().url().optional().nullable(),
     caloriesKcal: z.number(),
     carbsGrams: z.number(),
     proteinGrams: z.number(),
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest, { params }: { params: { product
 
   try {
     const productResponse = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/products?id=eq.${parsedParams.data.productId}&select=id,slug,sku,name,calories_kcal,carbs_g,protein_g,fat_g`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/products?id=eq.${parsedParams.data.productId}&select=id,slug,sku,name,product_url,calories_kcal,carbs_g,protein_g,fat_g`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
@@ -111,8 +113,9 @@ export async function POST(request: NextRequest, { params }: { params: { product
       product: {
         id: product.id,
         slug: product.slug,
-        sku: product.sku,
+        sku: product.sku ?? undefined,
         name: product.name,
+        productUrl: product.product_url ?? undefined,
         caloriesKcal: Number(product.calories_kcal),
         carbsGrams: Number(product.carbs_g),
         proteinGrams: Number(product.protein_g),

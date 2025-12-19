@@ -39,6 +39,7 @@ create table public.products (
   slug text not null,
   sku text not null,
   name text not null,
+  product_url text,
   calories_kcal numeric not null default 0,
   carbs_g numeric not null default 0,
   sodium_mg numeric not null default 0,

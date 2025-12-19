@@ -52,9 +52,19 @@ export default function SettingsPage() {
         caloriesKcal: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
         proteinGrams: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
         fatGrams: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
-        sku: z.string().trim().optional(),
+        productUrl: z
+          .string()
+          .trim()
+          .optional()
+          .transform((value) => (value ? value : undefined))
+          .pipe(z.string().url({ message: t.productSettings.validation.invalidUrl }).optional()),
       }),
-    [t.racePlanner.validation.nonNegative, t.racePlanner.validation.required, t.racePlanner.validation.targetIntake]
+    [
+      t.productSettings.validation.invalidUrl,
+      t.racePlanner.validation.nonNegative,
+      t.racePlanner.validation.required,
+      t.racePlanner.validation.targetIntake,
+    ]
   );
 
   type ProductFormValues = z.infer<typeof productFormSchema>;
@@ -73,7 +83,7 @@ export default function SettingsPage() {
       caloriesKcal: 100,
       proteinGrams: 0,
       fatGrams: 0,
-      sku: "",
+      productUrl: "",
     },
   });
 
@@ -246,7 +256,16 @@ export default function SettingsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <p className="font-semibold text-slate-50">{product.name}</p>
-                        <p className="text-xs uppercase tracking-wide text-emerald-200/70">{product.sku}</p>
+                        {product.productUrl && (
+                          <a
+                            href={product.productUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="text-xs text-emerald-200 underline-offset-4 hover:underline"
+                          >
+                            {product.productUrl}
+                          </a>
+                        )}
                       </div>
                       <Button
                         variant={isSelected ? "ghost" : "outline"}
@@ -357,11 +376,18 @@ export default function SettingsPage() {
                   />
                   {errors.fatGrams && <p className="text-sm text-red-300">{errors.fatGrams.message}</p>}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sku">{t.productSettings.fields.sku}</Label>
-                  <Input id="sku" placeholder="SKU123" {...register("sku")} disabled={authMissing} />
-                  {errors.sku && <p className="text-sm text-red-300">{errors.sku.message}</p>}
-                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="productUrl">{t.productSettings.fields.productUrl}</Label>
+                <Input
+                  id="productUrl"
+                  placeholder="https://example.com/produit"
+                  {...register("productUrl")}
+                  disabled={authMissing}
+                  inputMode="url"
+                />
+                {errors.productUrl && <p className="text-sm text-red-300">{errors.productUrl.message}</p>}
               </div>
 
               {formError && <p className="text-sm text-red-300">{formError}</p>}
