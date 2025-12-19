@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSupabaseAnonConfig } from "../../../../lib/supabase";
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
 
 const signInSchema = z.object({
   email: z.string().trim().email(),
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message }, { status: response.status || 400 });
     }
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         user: result.user,
         access_token: result.access_token,
@@ -47,6 +48,29 @@ export async function POST(request: Request) {
       },
       { status: 200 }
     );
+
+    const cookieTtl = typeof result.expires_in === "number" ? result.expires_in : 60 * 60;
+    const isSecure = process.env.NODE_ENV === "production";
+
+    response.cookies.set(ACCESS_TOKEN_COOKIE, result.access_token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: isSecure,
+      path: "/",
+      maxAge: cookieTtl,
+    });
+
+    if (result.refresh_token) {
+      response.cookies.set(REFRESH_TOKEN_COOKIE, result.refresh_token, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isSecure,
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+
+    return response;
   } catch (error) {
     console.error("Unexpected Supabase error during sign in", error);
     return NextResponse.json({ message: "Unable to sign in." }, { status: 500 });

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
 
 export type VerifiedSession = {
+  id?: string;
   accessToken: string;
   refreshToken?: string;
   email?: string;
@@ -14,6 +15,7 @@ export type VerifiedSession = {
 
 type SessionResponse = {
   user?: {
+    id: string;
     email?: string;
     role?: string;
     roles?: string[];
@@ -25,6 +27,7 @@ export const useVerifiedSession = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   const clearSession = useCallback(() => {
+    void fetch("/api/auth/signout", { method: "POST" }).catch(() => null);
     clearStoredSession();
     setSession(null);
     setIsLoading(false);
@@ -56,6 +59,7 @@ export const useVerifiedSession = () => {
       const user = data?.user;
 
       setSession({
+        id: user?.id,
         accessToken: stored.accessToken,
         refreshToken: stored.refreshToken,
         email: user?.email ?? stored.email,
