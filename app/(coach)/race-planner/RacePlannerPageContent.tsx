@@ -1,5 +1,5 @@
 "use client";
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -16,11 +16,13 @@ import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
+import type { AidStation, ElevationPoint, FormValues, GelOption, Segment, SpeedSample } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
 import { AffiliateProductModal } from "./components/AffiliateProductModal";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
+import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -39,38 +41,6 @@ const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.4 8.5 8.5 0 0 1-6.6 3.1 8.38 8.38 0 0 1-5.4-1.9L3 21l1.9-4.1a8.38 8.38 0 0 1-1.9-5.4 8.5 8.5 0 0 1 3.1-6.6 8.38 8.38 0 0 1 5.4-1.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
   </svg>
 );
-
-type AidStation = { name: string; distanceKm: number };
-
-type FormValues = {
-  raceDistanceKm: number;
-  elevationGain: number;
-  paceType: "pace" | "speed";
-  paceMinutes: number;
-  paceSeconds: number;
-  speedKph: number;
-  uphillEffort: number;
-  downhillEffort: number;
-  targetIntakePerHour: number;
-  waterIntakePerHour: number;
-  sodiumIntakePerHour: number;
-  aidStations: AidStation[];
-};
-
-type Segment = {
-  checkpoint: string;
-  distanceKm: number;
-  segmentKm: number;
-  etaMinutes: number;
-  segmentMinutes: number;
-  fuelGrams: number;
-  waterMl: number;
-  sodiumMg: number;
-};
-
-type ElevationPoint = { distanceKm: number; elevationM: number };
-type SpeedSample = { distanceKm: number; speedKph: number };
-type GelOption = { slug: string; name: string; carbs: number; sodium: number };
 
 type CardTitleWithTooltipProps = {
   title: string;
@@ -1264,6 +1234,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
   const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
+  const handleAddAidStation = useCallback(() => {
+    append({
+      name: formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
+      distanceKm: 0,
+    });
+  }, [append, fields.length, racePlannerCopy.defaults.aidStationName]);
   const planContent = (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
@@ -1364,6 +1340,24 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         </Card>
       </div>
 
+      <ActionPlan
+        copy={racePlannerCopy}
+        segments={segments}
+        raceTotals={raceTotals}
+        sectionId={sectionIds.timeline}
+        onPrint={handlePrint}
+        onAddAidStation={handleAddAidStation}
+        onRemoveAidStation={remove}
+        aidStationFields={fields}
+        register={form.register}
+        formatDistanceWithUnit={formatDistanceWithUnit}
+        formatMinutes={(minutes) => formatMinutes(minutes, racePlannerCopy.units)}
+        formatFuelAmount={formatFuelAmount}
+        formatWaterAmount={formatWaterAmount}
+        formatSodiumAmount={formatSodiumAmount}
+        calculatePercentage={calculatePercentage}
+      />
+
       <Card id={sectionIds.courseProfile}>
         <CardHeader className="space-y-0">
           <div className="flex items-center justify-between gap-3">
@@ -1432,144 +1426,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           )}
         </CardContent>
       </Card>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <CardTitleWithTooltip
-              title={racePlannerCopy.sections.aidStations.title}
-              description={racePlannerCopy.sections.aidStations.description}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                append({
-                  name: formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
-                  distanceKm: 0,
-                })
-              }
-            >
-              {racePlannerCopy.sections.aidStations.add}
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {fields.map((field, index) => (
-              <div
-                key={field.id}
-                className="grid grid-cols-[1.2fr,0.8fr,auto] items-end gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3"
-              >
-                <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.name`}>{racePlannerCopy.sections.aidStations.labels.name}</Label>
-                  <Input
-                    id={`aidStations.${index}.name`}
-                    type="text"
-                    {...form.register(`aidStations.${index}.name` as const)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.distanceKm`}>
-                    {racePlannerCopy.sections.aidStations.labels.distance}
-                  </Label>
-                  <Input
-                    id={`aidStations.${index}.distanceKm`}
-                    type="number"
-                    step="0.5"
-                    className="max-w-[140px]"
-                    {...form.register(`aidStations.${index}.distanceKm` as const, { valueAsNumber: true })}
-                  />
-                </div>
-                <Button type="button" variant="ghost" onClick={() => remove(index)}>
-                  {racePlannerCopy.sections.aidStations.remove}
-                </Button>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card id={sectionIds.timeline}>
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <CardTitleWithTooltip
-              title={racePlannerCopy.sections.timeline.title}
-              description={racePlannerCopy.sections.timeline.description}
-            />
-            {segments.length > 0 ? (
-              <Button type="button" variant="outline" className="print:hidden" onClick={handlePrint}>
-                {racePlannerCopy.buttons.printPlan}
-              </Button>
-            ) : null}
-          </CardHeader>
-          <CardContent>
-            {segments.length === 0 ? (
-              <p className="text-sm text-slate-400">{racePlannerCopy.sections.timeline.empty}</p>
-            ) : (
-              <div className="space-y-6">
-                <div className="space-y-4 print:hidden">
-                  {segments.map((segment, index) => (
-                    <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
-                            {index + 1}
-                          </span>
-                          <div>
-                            <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
-                            <p className="text-xs text-slate-400">
-                              {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}{" "}
-                              {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                          <div
-                            className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 to-purple-600"
-                            style={{ width: `${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams)}%` }}
-                          />
-                          <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                            <span className="truncate">{racePlannerCopy.sections.summary.items.carbs}</span>
-                            <span className="shrink-0">
-                              {formatFuelAmount(segment.fuelGrams)} ·
-                              {` ${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams).toFixed(0)}%`}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                          <div
-                            className="absolute left-0 top-0 h-full bg-sky-500"
-                            style={{ width: `${calculatePercentage(segment.waterMl, raceTotals?.waterMl)}%` }}
-                          />
-                          <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                            <span className="truncate">{racePlannerCopy.sections.summary.items.water}</span>
-                            <span className="shrink-0">
-                              {formatWaterAmount(segment.waterMl)} ·
-                              {` ${calculatePercentage(segment.waterMl, raceTotals?.waterMl).toFixed(0)}%`}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                          <div
-                            className="absolute left-0 top-0 h-full bg-slate-500"
-                            style={{ width: `${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg)}%` }}
-                          />
-                          <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                            <span className="truncate">{racePlannerCopy.sections.summary.items.sodium}</span>
-                            <span className="shrink-0">
-                              {formatSodiumAmount(segment.sodiumMg)} ·
-                              {` ${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg).toFixed(0)}%`}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 
