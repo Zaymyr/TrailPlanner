@@ -1689,16 +1689,32 @@ function ElevationProfileChart({
   uphillEffort: number;
   downhillEffort: number;
 }) {
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const [chartWidth, setChartWidth] = useState(900);
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setChartWidth(entry.contentRect.width);
+    });
+
+    observer.observe(chartContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   if (!profile.length || totalDistanceKm <= 0) {
     return <p className="text-sm text-slate-400">{copy.sections.courseProfile.empty}</p>;
   }
 
-  const width = 900;
+  const width = Math.max(Math.round(chartWidth), 720);
   const paddingX = 32;
-  const paddingY = 20;
-  const elevationAreaHeight = 200;
-  const speedAreaHeight = 120;
-  const verticalGap = 28;
+  const paddingY = 16;
+  const elevationAreaHeight = 170;
+  const speedAreaHeight = 90;
+  const verticalGap = 24;
   const height = paddingY + elevationAreaHeight + verticalGap + speedAreaHeight + paddingY;
   const elevationBottom = paddingY + elevationAreaHeight;
   const speedTop = elevationBottom + verticalGap;
@@ -1787,10 +1803,10 @@ function ElevationProfileChart({
     .join(" ");
 
   return (
-    <div className="w-full">
+    <div ref={chartContainerRef} className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-64 w-full"
+        className="h-[240px] w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
       >
