@@ -155,6 +155,17 @@ export const fr: Translations = {
           water: "Eau totale",
           sodium: "Sodium total",
         },
+        alerts: {
+          label: "Alertes",
+          carbsLowTitle: "Glucides/heure sous l'objectif",
+          carbsLowBody: "Moyenne de {actual} pour une cible de {target}.",
+          waterLowTitle: "Eau/heure sous l'objectif",
+          waterLowBody: "Moyenne de {actual} pour une cible de {target}.",
+          sodiumHighTitle: "Sodium/heure au-dessus du seuil",
+          sodiumHighBody: "Moyenne de {actual} pour une cible de {target}.",
+          resolvedTitle: "Cibles respectées",
+          resolvedBody: "Vos objectifs horaires sont équilibrés.",
+        },
         empty: "Ajoutez la distance, l'allure et la nutrition pour voir les totaux nécessaires pour l'événement.",
         feedback: {
           title: "Envoyer un retour sur l'app",
