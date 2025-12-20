@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, ReactNode, RefObject } from "react";
+import type { ReactNode } from "react";
 import type { UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues } from "../../app/(coach)/race-planner/types";
@@ -13,10 +13,6 @@ import { Label } from "../ui/label";
 type SettingsPanelProps = {
   copy: RacePlannerTranslations;
   sectionIds: { inputs: string; pacing: string; intake: string };
-  importError: string | null;
-  fileInputRef: RefObject<HTMLInputElement>;
-  onImportGpx: (event: ChangeEvent<HTMLInputElement>) => void;
-  onExportGpx: () => void;
   register: UseFormRegister<FormValues>;
   paceType: FormValues["paceType"];
   onPaceTypeChange: (nextType: FormValues["paceType"]) => void;
@@ -57,10 +53,6 @@ function AccordionSection({ id, title, description, defaultOpen = true, children
 export function SettingsPanel({
   copy,
   sectionIds,
-  importError,
-  fileInputRef,
-  onImportGpx,
-  onExportGpx,
   register,
   paceType,
   onPaceTypeChange,
@@ -108,62 +100,10 @@ export function SettingsPanel({
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".gpx,application/gpx+xml"
-            className="hidden"
-            onChange={onImportGpx}
-          />
-          <Button
-            variant="outline"
-            type="button"
-            className="h-9 px-3 text-xs"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            {copy.buttons.importGpx}
-          </Button>
-          <Button type="button" className="h-9 px-3 text-xs" onClick={onExportGpx}>
-            {copy.buttons.exportGpx}
-          </Button>
-        </div>
-
-        {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
       </CardHeader>
 
       {isVisible ? (
-        <CardContent className="space-y-3">
-          <AccordionSection id={`${sectionIds.inputs}-course`} title={copy.sections.raceInputs.courseTitle}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="raceDistanceKm" className="text-xs text-slate-200">
-                  {copy.sections.raceInputs.fields.raceDistance}
-                </Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("raceDistanceKm", { valueAsNumber: true })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="elevationGain" className="text-xs text-slate-200">
-                  {copy.sections.raceInputs.fields.elevationGain}
-                </Label>
-                <Input
-                  id="elevationGain"
-                  type="number"
-                  min="0"
-                  step="50"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("elevationGain", { valueAsNumber: true })}
-                />
-              </div>
-            </div>
-          </AccordionSection>
-
+      <CardContent className="space-y-3">
           <AccordionSection
             id={sectionIds.pacing}
             title={copy.sections.raceInputs.pacingTitle}
