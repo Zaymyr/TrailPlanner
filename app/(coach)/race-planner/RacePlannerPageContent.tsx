@@ -1337,7 +1337,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 type="file"
                 accept=".gpx,application/gpx+xml"
                 className="hidden"
-                onChange={onImportGpx}
+                onChange={handleImportGpx}
               />
               <Button
                 variant="outline"
@@ -1347,7 +1347,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               >
                 {racePlannerCopy.buttons.importGpx}
               </Button>
-              <Button type="button" className="h-9 px-3 text-xs" onClick={onExportGpx}>
+              <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
                 {racePlannerCopy.buttons.exportGpx}
               </Button>
             </div>
