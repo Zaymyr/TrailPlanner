@@ -1308,7 +1308,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           />
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="-mx-4 -mb-2 px-4 pb-2 sm:-mx-6 sm:px-6">
         <ElevationProfileChart
           profile={elevationProfile}
           aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
@@ -1709,12 +1709,12 @@ function ElevationProfileChart({
     return <p className="text-sm text-slate-400">{copy.sections.courseProfile.empty}</p>;
   }
 
-  const width = Math.max(Math.round(chartWidth), 720);
-  const paddingX = 32;
-  const paddingY = 16;
-  const elevationAreaHeight = 170;
-  const speedAreaHeight = 90;
-  const verticalGap = 24;
+  const width = Math.max(Math.round(chartWidth), 480);
+  const paddingX = 20;
+  const paddingY = 14;
+  const elevationAreaHeight = 150;
+  const speedAreaHeight = 80;
+  const verticalGap = 20;
   const height = paddingY + elevationAreaHeight + verticalGap + speedAreaHeight + paddingY;
   const elevationBottom = paddingY + elevationAreaHeight;
   const speedTop = elevationBottom + verticalGap;
@@ -1724,9 +1724,11 @@ function ElevationProfileChart({
   const elevationRange = Math.max(maxElevation - minElevation, 1);
   const scaledMax = Math.ceil(maxElevation / 10) * 10;
   const scaledMin = Math.floor(minElevation / 10) * 10;
+  const trackDistanceKm = Math.max(totalDistanceKm, profile.at(-1)?.distanceKm ?? 0, 1);
 
   const xScale = (distanceKm: number) =>
-    paddingX + Math.min(Math.max(distanceKm, 0), totalDistanceKm) * ((width - paddingX * 2) / totalDistanceKm);
+    paddingX +
+    Math.min(Math.max(distanceKm, 0), trackDistanceKm) * ((width - paddingX * 2) / trackDistanceKm);
   const yScale = (elevation: number) =>
     elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight;
 
@@ -1806,7 +1808,7 @@ function ElevationProfileChart({
     <div ref={chartContainerRef} className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-[240px] w-full"
+        className="h-[220px] w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
       >
