@@ -81,6 +81,14 @@ export const en: Translations = {
     },
   },
   racePlanner: {
+    hero: {
+      title: "Race planner command center",
+      subtitle: "Preview the elevation strip, import or export GPX, and manage your plan side by side.",
+      actions: {
+        languageToggle: "Switch to {language}",
+        statusLabel: "Account",
+      },
+    },
     defaults: {
       aidStationName: "Aid {index}",
       finalBottles: "Final Bottles",
@@ -131,6 +139,8 @@ export const en: Translations = {
         courseTitle: "Course",
         pacingTitle: "Pacing & fueling",
         nutritionTitle: "Nutrition targets",
+        hide: "Hide controls",
+        show: "Show controls",
         fields: {
           raceDistance: "Race distance (km)",
           elevationGain: "D+ (m)",
@@ -187,13 +197,17 @@ export const en: Translations = {
         title: "Fuel products",
         description:
           "Pick up to three products in Settings to personalize these estimates for your fueling targets.",
-        empty: "Add your pacing and fueling targets to calculate how many servings you need.",
-        linkLabel: "View product",
-        nutrition: "{carbs} g carbs · {sodium} mg sodium per serving",
-        countLabel: "{count} servings needed",
-        settingsHint: "Manage your fueling products in Settings to tailor these counts.",
-        usingCustom: "Using your saved fueling products from Settings.",
-      },
+      empty: "Add your pacing and fueling targets to calculate how many servings you need.",
+      linkLabel: "View product",
+      nutrition: "{carbs} g carbs · {sodium} mg sodium per serving",
+      countLabel: "{count} servings needed",
+      settingsHint: "Manage your fueling products in Settings to tailor these counts.",
+      usingCustom: "Using your saved fueling products from Settings.",
+      usedBadge: "In plan",
+      servingsNeeded: "{count} servings needed",
+      removeFromPlan: "Remove from plan",
+      addToPlan: "Add to plan",
+    },
       aidStations: {
         title: "Aid stations",
         description: "Edit the checkpoints where you plan to refuel.",

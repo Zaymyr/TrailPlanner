@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { ChangeEvent, ReactNode, RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues } from "../../app/(coach)/race-planner/types";
@@ -15,7 +15,6 @@ type SettingsPanelProps = {
   sectionIds: { inputs: string; pacing: string; intake: string };
   importError: string | null;
   fileInputRef: RefObject<HTMLInputElement>;
-  onImportGpx: (event: ChangeEvent<HTMLInputElement>) => void;
   onExportGpx: () => void;
   register: UseFormRegister<FormValues>;
   paceType: FormValues["paceType"];
@@ -59,7 +58,6 @@ export function SettingsPanel({
   sectionIds,
   importError,
   fileInputRef,
-  onImportGpx,
   onExportGpx,
   register,
   paceType,
@@ -90,12 +88,14 @@ export function SettingsPanel({
   );
 
   return (
-    <Card id={sectionIds.inputs} className="border-slate-800/80 bg-slate-950/70">
-      <CardHeader className="space-y-3 pb-3">
+    <Card id={sectionIds.inputs} className="border-slate-800/80 bg-slate-950/70 shadow-lg">
+      <CardHeader className="space-y-4 pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-[13px] font-semibold text-slate-100">{copy.sections.raceInputs.title}</p>
-            <p className="text-xs text-slate-500">{copy.sections.raceInputs.description}</p>
+            <p className="text-[13px] font-semibold uppercase tracking-[0.14em] text-emerald-200">
+              {copy.sections.raceInputs.title}
+            </p>
+            <p className="text-xs text-slate-400">{copy.sections.raceInputs.description}</p>
           </div>
           <Button
             type="button"
@@ -104,27 +104,20 @@ export function SettingsPanel({
             aria-pressed={isVisible}
             onClick={() => setIsVisible((prev) => !prev)}
           >
-            {isVisible ? "Hide settings" : "Show settings"}
+            {isVisible ? copy.sections.raceInputs.hide : copy.sections.raceInputs.show}
           </Button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".gpx,application/gpx+xml"
-            className="hidden"
-            onChange={onImportGpx}
-          />
+        <div className="grid gap-2 sm:grid-cols-2">
           <Button
             variant="outline"
             type="button"
-            className="h-9 px-3 text-xs"
+            className="h-10 px-3 text-xs font-semibold"
             onClick={() => fileInputRef.current?.click()}
           >
             {copy.buttons.importGpx}
           </Button>
-          <Button type="button" className="h-9 px-3 text-xs" onClick={onExportGpx}>
+          <Button type="button" className="h-10 px-3 text-xs font-semibold" onClick={onExportGpx}>
             {copy.buttons.exportGpx}
           </Button>
         </div>
@@ -133,7 +126,7 @@ export function SettingsPanel({
       </CardHeader>
 
       {isVisible ? (
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
           <AccordionSection id={`${sectionIds.inputs}-course`} title={copy.sections.raceInputs.courseTitle}>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -171,71 +164,71 @@ export function SettingsPanel({
           >
             <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="space-y-3 rounded-md border border-slate-800/60 bg-slate-900/60 p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {paceOptions.map((option) => {
-                    const isActive = paceType === option.key;
-                    return (
-                      <Button
-                        key={option.key}
-                        type="button"
-                        variant={isActive ? "default" : "outline"}
-                        className="w-full justify-center text-xs"
-                        aria-pressed={isActive}
-                        onClick={() => onPaceTypeChange(option.key)}
-                      >
-                        {option.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <input id="paceType" type="hidden" {...register("paceType")} />
+                  <div className="grid grid-cols-2 gap-2">
+                    {paceOptions.map((option) => {
+                      const isActive = paceType === option.key;
+                      return (
+                        <Button
+                          key={option.key}
+                          type="button"
+                          variant={isActive ? "default" : "outline"}
+                          className="w-full justify-center text-xs"
+                          aria-pressed={isActive}
+                          onClick={() => onPaceTypeChange(option.key)}
+                        >
+                          {option.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <input id="paceType" type="hidden" {...register("paceType")} />
 
-                {paceType === "pace" ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  {paceType === "pace" ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="paceMinutes" className="text-xs text-slate-200">
+                          {copy.sections.raceInputs.fields.paceMinutes}
+                        </Label>
+                        <Input
+                          id="paceMinutes"
+                          type="number"
+                          min="0"
+                          step="1"
+                          className="border-slate-800/70 bg-slate-950/80 text-sm"
+                          {...register("paceMinutes", { valueAsNumber: true })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="paceSeconds" className="text-xs text-slate-200">
+                          {copy.sections.raceInputs.fields.paceSeconds}
+                        </Label>
+                        <Input
+                          id="paceSeconds"
+                          type="number"
+                          min="0"
+                          max="59"
+                          step="1"
+                          className="border-slate-800/70 bg-slate-950/80 text-sm"
+                          {...register("paceSeconds", { valueAsNumber: true })}
+                        />
+                      </div>
+                    </div>
+                  ) : (
                     <div className="space-y-2">
-                      <Label htmlFor="paceMinutes" className="text-xs text-slate-200">
-                        {copy.sections.raceInputs.fields.paceMinutes}
+                      <Label htmlFor="speedKph" className="text-xs text-slate-200">
+                        {copy.sections.raceInputs.fields.speedKph}
                       </Label>
                       <Input
-                        id="paceMinutes"
+                        id="speedKph"
                         type="number"
                         min="0"
-                        step="1"
+                        step="0.1"
                         className="border-slate-800/70 bg-slate-950/80 text-sm"
-                        {...register("paceMinutes", { valueAsNumber: true })}
+                        {...register("speedKph", { valueAsNumber: true })}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="paceSeconds" className="text-xs text-slate-200">
-                        {copy.sections.raceInputs.fields.paceSeconds}
-                      </Label>
-                      <Input
-                        id="paceSeconds"
-                        type="number"
-                        min="0"
-                        max="59"
-                        step="1"
-                        className="border-slate-800/70 bg-slate-950/80 text-sm"
-                        {...register("paceSeconds", { valueAsNumber: true })}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="speedKph" className="text-xs text-slate-200">
-                      {copy.sections.raceInputs.fields.speedKph}
-                    </Label>
-                    <Input
-                      id="speedKph"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      className="border-slate-800/70 bg-slate-950/80 text-sm"
-                      {...register("speedKph", { valueAsNumber: true })}
-                    />
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
               <div className="space-y-3 rounded-md border border-slate-800/60 bg-slate-900/60 p-3">
                 <div className="space-y-2">
                   <Label htmlFor="uphillEffort" className="text-xs text-slate-200">
