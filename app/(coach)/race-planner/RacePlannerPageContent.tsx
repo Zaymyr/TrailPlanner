@@ -1297,6 +1297,33 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       distanceKm: 0,
     });
   }, [append, fields.length, racePlannerCopy.defaults.aidStationName]);
+
+  const courseProfileSection = (
+    <Card id={sectionIds.courseProfile}>
+      <CardHeader className="space-y-0">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitleWithTooltip
+            title={racePlannerCopy.sections.courseProfile.title}
+            description={racePlannerCopy.sections.courseProfile.description}
+          />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ElevationProfileChart
+          profile={elevationProfile}
+          aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
+          totalDistanceKm={
+            (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+            defaultValues.raceDistanceKm
+          }
+          copy={racePlannerCopy}
+          baseMinutesPerKm={baseMinutesPerKm}
+          uphillEffort={uphillEffort}
+          downhillEffort={downhillEffort}
+        />
+      </CardContent>
+    </Card>
+  );
   const planPrimaryContent = (
     <div className="space-y-6">
       <CommandCenter
@@ -1323,31 +1350,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatSodiumAmount={formatSodiumAmount}
         calculatePercentage={calculatePercentage}
       />
-
-      <Card id={sectionIds.courseProfile}>
-        <CardHeader className="space-y-0">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitleWithTooltip
-              title={racePlannerCopy.sections.courseProfile.title}
-              description={racePlannerCopy.sections.courseProfile.description}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ElevationProfileChart
-            profile={elevationProfile}
-            aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
-            totalDistanceKm={
-              (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-              defaultValues.raceDistanceKm
-            }
-            copy={racePlannerCopy}
-            baseMinutesPerKm={baseMinutesPerKm}
-            uphillEffort={uphillEffort}
-            downhillEffort={downhillEffort}
-          />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="space-y-0">
@@ -1466,6 +1468,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       </Script>
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+        {courseProfileSection}
+
         <RacePlannerLayout
           className="space-y-6"
           planContent={planPrimaryContent}
@@ -1786,7 +1790,7 @@ function ElevationProfileChart({
     <div className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-80 w-full"
+        className="h-64 w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
       >
