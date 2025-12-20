@@ -1,14 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import type { FieldArrayWithId, UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../locales/types";
-import type { FormValues, Segment } from "../../app/(coach)/race-planner/types";
+import type { Segment } from "../../app/(coach)/race-planner/types";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
-import { Input } from "../ui/input";
-import { Label } from "../ui/label";
 
 type RaceTotals = {
   fuelGrams: number;
@@ -23,10 +19,7 @@ type ActionPlanProps = {
   raceTotals: RaceTotals | null;
   sectionId: string;
   onPrint: () => void;
-  onAddAidStation: () => void;
-  onRemoveAidStation: (index: number) => void;
-  aidStationFields: FieldArrayWithId<FormValues, "aidStations", "id">[];
-  register: UseFormRegister<FormValues>;
+  onAddAidStation?: () => void;
   formatDistanceWithUnit: (value: number) => string;
   formatMinutes: (totalMinutes: number) => string;
   formatFuelAmount: (value: number) => string;
@@ -77,9 +70,6 @@ export function ActionPlan({
   sectionId,
   onPrint,
   onAddAidStation,
-  onRemoveAidStation,
-  aidStationFields,
-  register,
   formatDistanceWithUnit,
   formatMinutes,
   formatFuelAmount,
@@ -87,9 +77,7 @@ export function ActionPlan({
   formatSodiumAmount,
   calculatePercentage,
 }: ActionPlanProps) {
-  const [showAidStations, setShowAidStations] = useState(false);
   const timelineCopy = copy.sections.timeline;
-  const aidStationsCopy = copy.sections.aidStations;
 
   const renderSegmentLabel = (segment: Segment) =>
     timelineCopy.segmentLabel.replace("{distance}", segment.segmentKm.toFixed(1));
@@ -101,16 +89,11 @@ export function ActionPlan({
           title={timelineCopy.title}
           description={timelineCopy.description}
           action={
-            <div className="flex items-center gap-2">
-              <Button type="button" onClick={onAddAidStation}>
-                {aidStationsCopy.add}
+            segments.length > 0 ? (
+              <Button type="button" variant="outline" className="hidden sm:inline-flex" onClick={onPrint}>
+                {copy.buttons.printPlan}
               </Button>
-              {segments.length > 0 ? (
-                <Button type="button" variant="outline" className="hidden sm:inline-flex" onClick={onPrint}>
-                  {copy.buttons.printPlan}
-                </Button>
-              ) : null}
-            </div>
+            ) : null
           }
         />
         {segments.length === 0 ? (
@@ -195,50 +178,17 @@ export function ActionPlan({
           </div>
         ) : null}
 
-        <details
-          className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950/70"
-          open={showAidStations}
-          onToggle={(event) => setShowAidStations(event.currentTarget.open)}
-        >
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-100">{aidStationsCopy.title}</p>
-              <p className="text-xs text-slate-400">{aidStationsCopy.description}</p>
+        {onAddAidStation ? (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-4 sm:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-100">{copy.sections.aidStations.title}</p>
+              <Button type="button" size="sm" onClick={onAddAidStation}>
+                {copy.sections.aidStations.add}
+              </Button>
             </div>
-            <span className="text-xs font-semibold text-slate-300">
-              {showAidStations ? "–" : "+"}
-            </span>
-          </summary>
-          <div className="space-y-3 border-t border-slate-800 bg-slate-950/60 p-4">
-            {aidStationFields.map((field, index) => (
-              <div
-                key={field.id}
-                className="grid grid-cols-[1.1fr,0.9fr,auto] items-end gap-3 rounded-md border border-slate-800 bg-slate-900/50 p-3"
-              >
-                <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.name`}>{aidStationsCopy.labels.name}</Label>
-                  <Input id={`aidStations.${index}.name`} type="text" {...register(`aidStations.${index}.name`)} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor={`aidStations.${index}.distanceKm`}>{aidStationsCopy.labels.distance}</Label>
-                  <Input
-                    id={`aidStations.${index}.distanceKm`}
-                    type="number"
-                    step="0.5"
-                    className="max-w-[140px]"
-                    {...register(`aidStations.${index}.distanceKm`, { valueAsNumber: true })}
-                  />
-                </div>
-                <Button type="button" variant="ghost" onClick={() => onRemoveAidStation(index)}>
-                  {aidStationsCopy.remove}
-                </Button>
-              </div>
-            ))}
-            <Button type="button" className="w-full" onClick={onAddAidStation}>
-              {aidStationsCopy.add}
-            </Button>
+            <p className="mt-1 text-xs text-slate-400">{copy.sections.aidStations.description}</p>
           </div>
-        </details>
+        ) : null}
       </CardContent>
     </Card>
   );
