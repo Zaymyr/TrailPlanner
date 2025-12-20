@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
+import type { AffiliateEventDetails, AffiliateLogger } from "../hooks/useAffiliateEvents";
 
 export type AffiliateProduct = {
   id: string;
@@ -25,17 +26,6 @@ type RaceTotals = {
   sodiumMg: number;
 };
 
-type Logger = {
-  logPopupOpen: (
-    sessionId: string,
-    payload: { productId: string; offerId?: string; country?: string | null; merchant?: string | null }
-  ) => Promise<unknown>;
-  logClick: (
-    sessionId: string,
-    payload: { productId: string; offerId?: string; country?: string | null; merchant?: string | null }
-  ) => Promise<unknown>;
-};
-
 type Props = {
   open: boolean;
   onClose: () => void;
@@ -43,7 +33,7 @@ type Props = {
   displayName: string;
   countryCode?: string | null;
   sessionId?: string | null;
-  logger?: Logger;
+  logger?: AffiliateLogger;
   totals?: RaceTotals | null;
 };
 
@@ -88,16 +78,16 @@ export function AffiliateProductModal({
     if (lastLoggedKey.current === uniqueKey) return;
     lastLoggedKey.current = uniqueKey;
 
-    logger
-      .logPopupOpen(sessionId, {
-        productId: query.data.product.id,
-        offerId: query.data.offer.id,
-        country: query.data.offer.countryCode,
-        merchant: query.data.offer.merchant,
-      })
-      .catch(() => {
-        lastLoggedKey.current = null;
-      });
+    const payload: AffiliateEventDetails = {
+      productId: query.data.product.id,
+      offerId: query.data.offer.id,
+      country: query.data.offer.countryCode,
+      merchant: query.data.offer.merchant,
+    };
+
+    logger.logPopupOpen(sessionId, payload).catch(() => {
+      lastLoggedKey.current = null;
+    });
   }, [logger, open, query.data, sessionId]);
 
   const recommendation = useMemo(() => {
@@ -116,12 +106,14 @@ export function AffiliateProductModal({
   const handleCta = async () => {
     if (!query.data?.offer) return;
     if (sessionId && logger) {
-      await logger.logClick(sessionId, {
+      const payload: AffiliateEventDetails = {
         productId: query.data.product.id,
         offerId: query.data.offer.id,
         country: query.data.offer.countryCode,
         merchant: query.data.offer.merchant,
-      });
+      };
+
+      await logger.logClick(sessionId, payload);
     }
 
     window.open(`/api/affiliate/${query.data.offer.id}`, "_blank", "noreferrer");

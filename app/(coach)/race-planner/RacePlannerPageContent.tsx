@@ -17,11 +17,17 @@ import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
+import type { AidStation, ElevationPoint, FormValues, GelOption, Segment, SpeedSample } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
 import { MAX_SELECTED_PRODUCTS } from "../../../lib/product-preferences";
 import type { FuelProduct } from "../../../lib/product-types";
 import { AffiliateProductModal } from "./components/AffiliateProductModal";
+import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
+import { CommandCenter } from "../../../components/race-planner/CommandCenter";
+import { ActionPlan } from "../../../components/race-planner/ActionPlan";
+import { SettingsPanel } from "../../../components/race-planner/SettingsPanel";
+import { ProductsPicker } from "../../../components/race-planner/ProductsPicker";
 import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
 import { useProductSelection } from "../../hooks/useProductSelection";
 
@@ -970,10 +976,31 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     return Math.min((value / total) * 100, 100);
   };
 
+  const toggleProductSelection = (product: { slug: string }) => {
+    setSelectedProducts((previous) =>
+      previous.includes(product.slug)
+        ? previous.filter((slug) => slug !== product.slug)
+        : [...previous, product.slug]
+    );
+  };
+
+  const handleViewProduct = (product: { slug: string; name: string }) => {
+    setActiveAffiliateProduct({ slug: product.slug, name: product.name });
+  };
+
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
     const target = document.getElementById(sectionId);
     if (target) {
       target.scrollIntoView({ block: "start" });
+    }
+  };
+
+  const focusSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds], view: "plan" | "settings") => {
+    setMobileView(view);
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => scrollToSection(sectionId));
+    } else {
+      scrollToSection(sectionId);
     }
   };
 
@@ -1103,7 +1130,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   };
 
   const handleMobileImport = () => {
-    scrollToSection(sectionIds.inputs);
+    focusSection(sectionIds.inputs, "settings");
     const input = fileInputRef.current;
     if (!input) return;
 
@@ -1123,17 +1150,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     {
       key: "timeline",
       label: racePlannerCopy.mobileNav.timeline,
-      onClick: () => scrollToSection(sectionIds.timeline),
+      onClick: () => focusSection(sectionIds.timeline, "plan"),
     },
     {
       key: "pacing",
       label: racePlannerCopy.mobileNav.pacing,
-      onClick: () => scrollToSection(sectionIds.pacing),
+      onClick: () => focusSection(sectionIds.pacing, "settings"),
     },
     {
       key: "intake",
       label: racePlannerCopy.mobileNav.intake,
-      onClick: () => scrollToSection(sectionIds.intake),
+      onClick: () => focusSection(sectionIds.intake, "settings"),
     },
   ];
 
@@ -1289,141 +1316,45 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
   const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
+  const handleAddAidStation = useCallback(() => {
+    append({
+      name: formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
+      distanceKm: 0,
+    });
+  }, [append, fields.length, racePlannerCopy.defaults.aidStationName]);
+  const planPrimaryContent = (
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <CommandCenter
+          totals={raceTotals}
+          targets={intakeTargets}
+          copy={racePlannerCopy}
+          formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
+        />
 
-  return (
-    <>
-      <Script id="software-application-ld" type="application/ld+json" strategy="afterInteractive">
-        {JSON.stringify(structuredData)}
-      </Script>
-
-      <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
-        <div className="grid gap-6 xl:grid-cols-4">
-          <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
-            <Card>
-              <CardHeader className="space-y-0">
-                <CardTitleWithTooltip
-                  title={racePlannerCopy.sections.summary.title}
-                  description={racePlannerCopy.sections.summary.description}
-                />
-              </CardHeader>
-            <CardContent className="space-y-4">
-              {raceTotals ? (
-                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.duration}</p>
-                    <p className="text-2xl font-semibold text-slate-50">
-                      {formatMinutes(raceTotals.durationMinutes, racePlannerCopy.units)}
+        <Card>
+          <CardContent className="space-y-4">
+            {session ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="plan-name">{racePlannerCopy.account.plans.nameLabel}</Label>
+                  <Input
+                    id="plan-name"
+                    value={planName}
+                    placeholder={racePlannerCopy.account.plans.defaultName}
+                    onChange={(event) => setPlanName(event.target.value)}
+                  />
+                  <Button type="button" className="w-full" onClick={handleSavePlan} disabled={planStatus === "saving"}>
+                    {planStatus === "saving"
+                      ? racePlannerCopy.account.plans.saving
+                      : racePlannerCopy.account.plans.save}
+                  </Button>
+                  {accountMessage && (
+                    <p className="text-xs text-emerald-300" role="status">
+                      {accountMessage}
                     </p>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.carbs}</p>
-                    <p className="text-2xl font-semibold text-slate-50">
-                      {raceTotals.fuelGrams.toFixed(0)} {racePlannerCopy.units.grams}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.water}</p>
-                    <p className="text-2xl font-semibold text-slate-50">
-                      {raceTotals.waterMl.toFixed(0)} {racePlannerCopy.units.milliliters}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.sodium}</p>
-                    <p className="text-2xl font-semibold text-slate-50">
-                      {raceTotals.sodiumMg.toFixed(0)} {racePlannerCopy.units.milligrams}
-                    </p>
-                  </div>
+                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="space-y-4">
-              {session ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="plan-name">{racePlannerCopy.account.plans.nameLabel}</Label>
-                    <Input
-                      id="plan-name"
-                      value={planName}
-                      placeholder={racePlannerCopy.account.plans.defaultName}
-                      onChange={(event) => setPlanName(event.target.value)}
-                    />
-                    <Button type="button" className="w-full" onClick={handleSavePlan} disabled={planStatus === "saving"}>
-                      {planStatus === "saving"
-                        ? racePlannerCopy.account.plans.saving
-                        : racePlannerCopy.account.plans.save}
-                    </Button>
-                    {accountMessage && (
-                      <p className="text-xs text-emerald-300" role="status">
-                        {accountMessage}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-50">{racePlannerCopy.account.plans.title}</p>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-9 px-3 text-sm"
-                        onClick={handleRefreshPlans}
-                        disabled={authStatus !== "idle" || planStatus === "saving"}
-                      >
-                        {racePlannerCopy.account.plans.refresh}
-                      </Button>
-                    </div>
-                    {savedPlans.length === 0 ? (
-                      <p className="text-sm text-slate-400">{racePlannerCopy.account.plans.empty}</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {savedPlans.map((plan) => (
-                          <div
-                            key={plan.id}
-                            className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
-                          >
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold text-slate-50">{plan.name}</p>
-                              <p className="text-xs text-slate-400">
-                                {racePlannerCopy.account.plans.updatedAt.replace(
-                                  "{date}",
-                                  new Date(plan.updatedAt).toLocaleString()
-                                )}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                className="h-9 px-3 text-sm"
-                                onClick={() => handleLoadPlan(plan)}
-                                disabled={deletingPlanId === plan.id}
-                              >
-                                {racePlannerCopy.account.plans.load}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                className="h-9 px-3 text-sm text-red-300 hover:text-red-200"
-                                onClick={() => handleDeletePlan(plan.id)}
-                                disabled={deletingPlanId === plan.id || planStatus === "saving"}
-                              >
-                                {deletingPlanId === plan.id
-                                  ? racePlannerCopy.account.plans.saving
-                                  : racePlannerCopy.account.plans.delete}
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-slate-400">{racePlannerCopy.account.auth.headerHint}</p>
-              )}
 
               {accountError && session && <p className="text-xs text-red-400">{accountError}</p>}
             </CardContent>
@@ -1587,273 +1518,146 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                     <Button type="button" variant="outline" className="print:hidden" onClick={handlePrint}>
                       {racePlannerCopy.buttons.printPlan}
                     </Button>
-                  ) : null}
-                </CardHeader>
-                <CardContent>
-                  {segments.length === 0 ? (
-                    <p className="text-sm text-slate-400">{racePlannerCopy.sections.timeline.empty}</p>
+                  </div>
+                  {savedPlans.length === 0 ? (
+                    <p className="text-sm text-slate-400">{racePlannerCopy.account.plans.empty}</p>
                   ) : (
-                    <div className="space-y-6">
-                      <div className="space-y-4 print:hidden">
-                        {segments.map((segment, index) => (
-                          <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="space-y-2">
-                            <div className="flex items-center justify-between text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
-                                  {index + 1}
-                                </span>
-                                <div>
-                                  <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
-                                  <p className="text-xs text-slate-400">
-                                    {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}
-                                    {" "}
-                                    {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="space-y-2">
-                              <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                                <div
-                                  className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 to-purple-600"
-                                  style={{ width: `${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams)}%` }}
-                                />
-                                <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                                  <span className="truncate">{racePlannerCopy.sections.summary.items.carbs}</span>
-                                  <span className="shrink-0">
-                                    {formatFuelAmount(segment.fuelGrams)} ·
-                                    {` ${calculatePercentage(segment.fuelGrams, raceTotals?.fuelGrams).toFixed(0)}%`}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                                <div
-                                  className="absolute left-0 top-0 h-full bg-sky-500"
-                                  style={{ width: `${calculatePercentage(segment.waterMl, raceTotals?.waterMl)}%` }}
-                                />
-                                <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                                  <span className="truncate">{racePlannerCopy.sections.summary.items.water}</span>
-                                  <span className="shrink-0">
-                                    {formatWaterAmount(segment.waterMl)} ·
-                                    {` ${calculatePercentage(segment.waterMl, raceTotals?.waterMl).toFixed(0)}%`}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="relative h-10 overflow-hidden rounded-full bg-slate-800">
-                                <div
-                                  className="absolute left-0 top-0 h-full bg-slate-500"
-                                  style={{ width: `${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg)}%` }}
-                                />
-                                <div className="relative z-10 flex h-full items-center justify-between px-3 text-xs font-semibold text-slate-50">
-                                  <span className="truncate">{racePlannerCopy.sections.summary.items.sodium}</span>
-                                  <span className="shrink-0">
-                                    {formatSodiumAmount(segment.sodiumMg)} ·
-                                    {` ${calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg).toFixed(0)}%`}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
+                    <div className="space-y-3">
+                      {savedPlans.map((plan) => (
+                        <div
+                          key={plan.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-slate-50">{plan.name}</p>
+                            <p className="text-xs text-slate-400">
+                              {racePlannerCopy.account.plans.updatedAt.replace(
+                                "{date}",
+                                new Date(plan.updatedAt).toLocaleString()
+                              )}
+                            </p>
                           </div>
-                        ))}
-                      </div>
-
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              className="h-9 px-3 text-sm"
+                              onClick={() => handleLoadPlan(plan)}
+                              disabled={deletingPlanId === plan.id}
+                            >
+                              {racePlannerCopy.account.plans.load}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              className="h-9 px-3 text-sm text-red-300 hover:text-red-200"
+                              onClick={() => handleDeletePlan(plan.id)}
+                              disabled={deletingPlanId === plan.id || planStatus === "saving"}
+                            >
+                              {deletingPlanId === plan.id
+                                ? racePlannerCopy.account.plans.saving
+                                : racePlannerCopy.account.plans.delete}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          <div className="space-y-6 xl:sticky xl:top-4 xl:self-start">
-            <Card id={sectionIds.inputs}>
-              <CardHeader>
-                <div className="flex items-center justify-between gap-3">
-                  <CardTitleWithTooltip
-                    title={racePlannerCopy.sections.raceInputs.title}
-                    description={racePlannerCopy.sections.raceInputs.description}
-                  />
-                  <div className="flex items-center gap-2">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".gpx,application/gpx+xml"
-                      className="hidden"
-                      onChange={handleImportGpx}
-                    />
-                    <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
-                      {racePlannerCopy.buttons.importGpx}
-                    </Button>
-                    <Button type="button" onClick={handleExportGpx}>
-                      {racePlannerCopy.buttons.exportGpx}
-                    </Button>
-                  </div>
                 </div>
-                {importError && <p className="text-xs text-red-400">{importError}</p>}
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid gap-4 xl:grid-cols-1">
-                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                    <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="raceDistanceKm">{racePlannerCopy.sections.raceInputs.fields.raceDistance}</Label>
-                        <Input
-                          id="raceDistanceKm"
-                          type="number"
-                          step="0.5"
-                          {...form.register("raceDistanceKm", { valueAsNumber: true })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="elevationGain">{racePlannerCopy.sections.raceInputs.fields.elevationGain}</Label>
-                        <Input
-                          id="elevationGain"
-                          type="number"
-                          min="0"
-                          step="50"
-                          {...form.register("elevationGain", { valueAsNumber: true })}
-                        />
-                      </div>
-                    </div>
-                  </div>
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">{racePlannerCopy.account.auth.headerHint}</p>
+            )}
 
-                  <div
-                    id={sectionIds.pacing}
-                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
-                  >
-                    <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.pacingTitle}</p>
-                    <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                      <div className="space-y-4">
-                        <Label htmlFor="paceType">{racePlannerCopy.sections.raceInputs.fields.paceType}</Label>
-                        <input id="paceType" type="hidden" {...form.register("paceType")} />
-                        <div className="grid grid-cols-2 gap-2">
-                          {(
-                            [
-                              { value: "pace", label: racePlannerCopy.sections.raceInputs.paceOptions.pace },
-                              { value: "speed", label: racePlannerCopy.sections.raceInputs.paceOptions.speed },
-                            ] satisfies { value: FormValues["paceType"]; label: string }[]
-                          ).map((option) => (
-                            <Button
-                              key={option.value}
-                              type="button"
-                              variant={paceType === option.value ? "default" : "outline"}
-                              className="w-full justify-center"
-                              aria-pressed={paceType === option.value}
-                              onClick={() => handlePaceTypeChange(option.value)}
-                            >
-                              {option.label}
-                            </Button>
-                          ))}
-                        </div>
+            {accountError && session && <p className="text-xs text-red-400">{accountError}</p>}
+          </CardContent>
+        </Card>
+      </div>
 
-                        {paceType === "pace" ? (
-                          <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="space-y-2">
-                              <Label htmlFor="paceMinutes">{racePlannerCopy.sections.raceInputs.fields.paceMinutes}</Label>
-                              <Input
-                                id="paceMinutes"
-                                type="number"
-                                min="0"
-                                step="1"
-                                {...form.register("paceMinutes", { valueAsNumber: true })}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="paceSeconds">{racePlannerCopy.sections.raceInputs.fields.paceSeconds}</Label>
-                              <Input
-                                id="paceSeconds"
-                                type="number"
-                                min="0"
-                                max="59"
-                                step="1"
-                                {...form.register("paceSeconds", { valueAsNumber: true })}
-                              />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <Label htmlFor="speedKph">{racePlannerCopy.sections.raceInputs.fields.speedKph}</Label>
-                            <Input
-                              id="speedKph"
-                              type="number"
-                              min="0"
-                              step="0.1"
-                              {...form.register("speedKph", { valueAsNumber: true })}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="uphillEffort">{racePlannerCopy.sections.raceInputs.fields.uphillEffort}</Label>
-                          <Input
-                            id="uphillEffort"
-                            type="range"
-                            min="0"
-                            max="100"
-                            step="5"
-                            {...form.register("uphillEffort", { valueAsNumber: true })}
-                          />
-                          <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.uphillEffortHelp}</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="downhillEffort">{racePlannerCopy.sections.raceInputs.fields.downhillEffort}</Label>
-                          <Input
-                            id="downhillEffort"
-                            type="range"
-                            min="0"
-                            max="100"
-                            step="5"
-                            {...form.register("downhillEffort", { valueAsNumber: true })}
-                          />
-                          <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.fields.downhillEffortHelp}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+      <ActionPlan
+        copy={racePlannerCopy}
+        segments={segments}
+        raceTotals={raceTotals}
+        sectionId={sectionIds.timeline}
+        onPrint={handlePrint}
+        onAddAidStation={handleAddAidStation}
+        onRemoveAidStation={remove}
+        aidStationFields={fields}
+        register={form.register}
+        formatDistanceWithUnit={formatDistanceWithUnit}
+        formatMinutes={(minutes) => formatMinutes(minutes, racePlannerCopy.units)}
+        formatFuelAmount={formatFuelAmount}
+        formatWaterAmount={formatWaterAmount}
+        formatSodiumAmount={formatSodiumAmount}
+        calculatePercentage={calculatePercentage}
+      />
 
-                  <div
-                    id={sectionIds.intake}
-                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
-                  >
-                    <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.raceInputs.nutritionTitle}</p>
-                    <div className="grid gap-3 sm:grid-cols-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="targetIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.targetIntakePerHour}</Label>
-                        <Input
-                          id="targetIntakePerHour"
-                          type="number"
-                          step="1"
-                          {...form.register("targetIntakePerHour", { valueAsNumber: true })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="waterIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.waterIntakePerHour}</Label>
-                        <Input
-                          id="waterIntakePerHour"
-                          type="number"
-                          step="50"
-                          min="0"
-                          {...form.register("waterIntakePerHour", { valueAsNumber: true })}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="sodiumIntakePerHour">{racePlannerCopy.sections.raceInputs.fields.sodiumIntakePerHour}</Label>
-                        <Input
-                          id="sodiumIntakePerHour"
-                          type="number"
-                          step="50"
-                          min="0"
-                          {...form.register("sodiumIntakePerHour", { valueAsNumber: true })}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+      <Card id={sectionIds.courseProfile}>
+        <CardHeader className="space-y-0">
+          <div className="flex items-center justify-between gap-3">
+            <CardTitleWithTooltip
+              title={racePlannerCopy.sections.courseProfile.title}
+              description={racePlannerCopy.sections.courseProfile.description}
+            />
           </div>
-        </div>
+        </CardHeader>
+        <CardContent>
+          <ElevationProfileChart
+            profile={elevationProfile}
+            aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
+            totalDistanceKm={
+              (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+              defaultValues.raceDistanceKm
+            }
+            copy={racePlannerCopy}
+            baseMinutesPerKm={baseMinutesPerKm}
+            uphillEffort={uphillEffort}
+            downhillEffort={downhillEffort}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  const planSecondaryContent = (
+    <ProductsPicker
+      copy={racePlannerCopy.sections.gels}
+      products={gelEstimates.map(({ count, ...gel }) => ({ ...gel, servings: count }))}
+      selectedProducts={selectedProducts}
+      onToggleProduct={toggleProductSelection}
+      onViewProduct={handleViewProduct}
+    />
+  );
+
+  const settingsContent = (
+    <SettingsPanel
+      copy={racePlannerCopy}
+      sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
+      importError={importError}
+      fileInputRef={fileInputRef}
+      onImportGpx={handleImportGpx}
+      onExportGpx={handleExportGpx}
+      register={form.register}
+      paceType={paceType}
+      onPaceTypeChange={handlePaceTypeChange}
+    />
+  );
+
+  return (
+    <>
+      <Script id="software-application-ld" type="application/ld+json" strategy="afterInteractive">
+        {JSON.stringify(structuredData)}
+      </Script>
+
+      <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+        <RacePlannerLayout
+          className="space-y-6"
+          planContent={planPrimaryContent}
+          planSecondaryContent={planSecondaryContent}
+          settingsContent={settingsContent}
+          mobileView={mobileView}
+          onMobileViewChange={setMobileView}
+          planLabel={racePlannerCopy.sections.summary.title}
+          settingsLabel={racePlannerCopy.sections.raceInputs.title}
+        />
 
         {enableMobileNav ? (
           <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">

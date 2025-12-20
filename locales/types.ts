@@ -130,17 +130,28 @@ export type RacePlannerTranslations = {
     summary: {
       title: string;
       description: string;
-      items: {
-        duration: string;
-        carbs: string;
-        water: string;
-        sodium: string;
-      };
-      empty: string;
-      feedback: {
-        title: string;
-        subject: string;
-        detail: string;
+    items: {
+      duration: string;
+      carbs: string;
+      water: string;
+      sodium: string;
+    };
+    alerts: {
+      label: string;
+      carbsLowTitle: string;
+      carbsLowBody: string;
+      waterLowTitle: string;
+      waterLowBody: string;
+      sodiumHighTitle: string;
+      sodiumHighBody: string;
+      resolvedTitle: string;
+      resolvedBody: string;
+    };
+    empty: string;
+    feedback: {
+      title: string;
+      subject: string;
+      detail: string;
         submit: string;
         open: string;
         success: string;
