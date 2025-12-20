@@ -38,7 +38,7 @@ const isAboveTarget = (actual?: number | null, target?: number | null) =>
 export function CommandCenter({ totals, targets, copy, formatDuration }: CommandCenterProps) {
   if (!totals) {
     return (
-      <Card>
+      <Card className="border-slate-800/80 bg-slate-950/70 shadow-lg">
         <CardHeader className="pb-0">
           <SectionHeader title={copy.sections.summary.title} description={copy.sections.summary.description} />
         </CardHeader>
@@ -74,7 +74,7 @@ export function CommandCenter({ totals, targets, copy, formatDuration }: Command
       : sodiumPerHourLabel ?? undefined;
 
   return (
-    <Card>
+    <Card className="border-slate-800/80 bg-slate-950/70 shadow-lg">
       <CardHeader className="space-y-3 pb-0">
         <SectionHeader title={copy.sections.summary.title} description={copy.sections.summary.description} />
         <AlertsRow

@@ -4,6 +4,10 @@ import type { ReactNode } from "react";
 import { Button } from "../ui/button";
 
 type RacePlannerLayoutProps = {
+  heroTitle?: string;
+  heroDescription?: string;
+  heroActions?: ReactNode;
+  heroBackground?: ReactNode;
   planContent: ReactNode;
   planSecondaryContent?: ReactNode;
   settingsContent: ReactNode;
@@ -23,9 +27,37 @@ export function RacePlannerLayout({
   planLabel,
   settingsLabel,
   className,
+  heroTitle,
+  heroDescription,
+  heroActions,
+  heroBackground,
 }: RacePlannerLayoutProps) {
   return (
     <div className={className}>
+      {heroTitle ? (
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/80 px-4 py-5 shadow-lg">
+          {heroBackground ? (
+            <div className="pointer-events-none absolute inset-0 opacity-70">
+              {heroBackground}
+            </div>
+          ) : null}
+          <div className="relative grid gap-4 lg:grid-cols-[1.4fr,1fr] lg:items-center">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-200/80">
+                TrailPlanner
+              </p>
+              <h1 className="text-2xl font-bold text-slate-50 sm:text-3xl">{heroTitle}</h1>
+              {heroDescription ? <p className="text-sm text-slate-300">{heroDescription}</p> : null}
+            </div>
+            {heroActions ? (
+              <div className="flex flex-col gap-3 rounded-xl border border-slate-800/60 bg-slate-950/80 p-4 shadow-inner">
+                {heroActions}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="space-y-4 xl:hidden">
         <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2">
           <div className="grid grid-cols-2 gap-2">
