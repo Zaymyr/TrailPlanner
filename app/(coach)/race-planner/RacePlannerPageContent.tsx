@@ -24,6 +24,7 @@ import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerL
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { SettingsPanel } from "../../../components/race-planner/SettingsPanel";
+import { ProductsPicker } from "../../../components/race-planner/ProductsPicker";
 import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -715,6 +716,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [activeAffiliateProduct, setActiveAffiliateProduct] = useState<{ slug: string; name: string } | null>(null);
   const [countryCode, setCountryCode] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const affiliateSessionId = useAffiliateSessionId();
   const affiliateLogger = useAffiliateEventLogger({ accessToken: session?.accessToken });
 
@@ -890,6 +892,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [raceTotals]
   );
 
+  useEffect(() => {
+    setSelectedProducts((previous) => previous.filter((slug) => gelEstimates.some((gel) => gel.slug === slug)));
+  }, [gelEstimates]);
+
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
@@ -905,6 +911,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const calculatePercentage = (value: number, total?: number) => {
     if (!total || total <= 0) return 0;
     return Math.min((value / total) * 100, 100);
+  };
+
+  const toggleProductSelection = (product: { slug: string }) => {
+    setSelectedProducts((previous) =>
+      previous.includes(product.slug)
+        ? previous.filter((slug) => slug !== product.slug)
+        : [...previous, product.slug]
+    );
+  };
+
+  const handleViewProduct = (product: { slug: string; name: string }) => {
+    setActiveAffiliateProduct({ slug: product.slug, name: product.name });
   };
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
@@ -1241,7 +1259,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       distanceKm: 0,
     });
   }, [append, fields.length, racePlannerCopy.defaults.aidStationName]);
-  const planContent = (
+  const planPrimaryContent = (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         <CommandCenter
@@ -1383,51 +1401,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           />
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader className="space-y-0">
-          <CardTitleWithTooltip
-            title={racePlannerCopy.sections.gels.title}
-            description={racePlannerCopy.sections.gels.description}
-          />
-        </CardHeader>
-        <CardContent>
-          {!raceTotals ? (
-            <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {gelEstimates.map((gel) => (
-                <div key={gel.name} className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-50">{gel.name}</p>
-                      <p className="text-sm text-slate-400">
-                        {racePlannerCopy.sections.gels.nutrition
-                          .replace("{carbs}", gel.carbs.toString())
-                          .replace("{sodium}", gel.sodium.toString())}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveAffiliateProduct({ slug: gel.slug, name: gel.name })}
-                      className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
-                    >
-                      {racePlannerCopy.sections.gels.linkLabel}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-slate-200">
-                    <p>
-                      {racePlannerCopy.sections.gels.countLabel.replace("{count}", Math.max(gel.count, 0).toString())}
-                    </p>
-                    <p className="text-xs text-slate-500">{gel.carbs} g</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
+  );
+
+  const planSecondaryContent = (
+    <ProductsPicker
+      copy={racePlannerCopy.sections.gels}
+      products={gelEstimates.map(({ count, ...gel }) => ({ ...gel, servings: count }))}
+      selectedProducts={selectedProducts}
+      onToggleProduct={toggleProductSelection}
+      onViewProduct={handleViewProduct}
+    />
   );
 
   const settingsContent = (
@@ -1453,7 +1437,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
         <RacePlannerLayout
           className="space-y-6"
-          planContent={planContent}
+          planContent={planPrimaryContent}
+          planSecondaryContent={planSecondaryContent}
           settingsContent={settingsContent}
           mobileView={mobileView}
           onMobileViewChange={setMobileView}

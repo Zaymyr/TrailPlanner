@@ -185,6 +185,10 @@ export const fr: Translations = {
         linkLabel: "Voir le produit",
         nutrition: "{carbs} g de glucides · {sodium} mg de sodium par gel",
         countLabel: "{count} gels nécessaires",
+        addToPlan: "Ajouter au plan",
+        removeFromPlan: "Retirer du plan",
+        usedBadge: "Utilisé dans le plan",
+        servingsNeeded: "{count} portions nécessaires",
       },
       aidStations: {
         title: "Ravitaillements",

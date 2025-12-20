@@ -184,6 +184,10 @@ export const en: Translations = {
         linkLabel: "View product",
         nutrition: "{carbs} g carbs · {sodium} mg sodium per gel",
         countLabel: "{count} gels needed",
+        addToPlan: "Use in plan",
+        removeFromPlan: "Remove from plan",
+        usedBadge: "Used in plan",
+        servingsNeeded: "{count} servings needed",
       },
       aidStations: {
         title: "Aid stations",
