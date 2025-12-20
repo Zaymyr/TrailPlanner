@@ -29,3 +29,11 @@ export type Segment = {
 export type ElevationPoint = { distanceKm: number; elevationM: number };
 export type SpeedSample = { distanceKm: number; speedKph: number };
 export type GelOption = { slug: string; name: string; carbs: number; sodium: number };
+
+export type SavedPlan = {
+  id: string;
+  name: string;
+  updatedAt: string;
+  plannerValues: Partial<FormValues>;
+  elevationProfile: ElevationPoint[];
+};
