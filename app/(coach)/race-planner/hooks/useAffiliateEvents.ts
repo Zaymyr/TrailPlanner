@@ -13,8 +13,6 @@ type AffiliateEventPayload = {
   eventType: "popup_open" | "click";
 };
 
-type AffiliateEventDetails = Omit<AffiliateEventPayload, "eventType">;
-
 type LoggerOptions = {
   accessToken?: string;
 };

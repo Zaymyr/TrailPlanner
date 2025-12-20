@@ -39,18 +39,13 @@ export function ProductsPicker({
           <p className="text-sm text-slate-400">{copy.empty}</p>
         ) : (
           <div className="space-y-3">
-            {products.map((product) => {
-              const servingsNeeded = Math.max(product.servings, 0);
-              const isSelected = selectedProducts.includes(product.slug);
-              const badge = isSelected ? (
-                <span className="rounded-full border border-emerald-500/60 bg-emerald-500/10 px-2 py-1 text-[11px] font-semibold text-emerald-100">
-                  {copy.usedBadge}
-                </span>
-              ) : null;
-              const nutritionCopy = copy.nutrition
-                .replace("{carbs}", product.carbs.toString())
-                .replace("{sodium}", product.sodium.toString());
-              const servingsCopy = copy.servingsNeeded.replace("{count}", servingsNeeded.toString());
+          {products.map((product) => {
+            const servingsNeeded = Math.max(product.servings, 0);
+            const isSelected = selectedProducts.includes(product.slug);
+            const nutritionCopy = copy.nutrition
+              .replace("{carbs}", product.carbs.toString())
+              .replace("{sodium}", product.sodium.toString());
+            const servingsCopy = copy.countLabel.replace("{count}", servingsNeeded.toString());
 
               return (
                 <div
@@ -61,7 +56,6 @@ export function ProductsPicker({
                     label={product.name}
                     value={servingsCopy}
                     helper={nutritionCopy}
-                    icon={badge}
                     className="border-0 bg-transparent p-0"
                   />
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -71,7 +65,7 @@ export function ProductsPicker({
                       className="h-9 px-3 text-sm"
                       onClick={() => onToggleProduct(product)}
                     >
-                      {isSelected ? copy.removeFromPlan : copy.addToPlan}
+                      {isSelected ? "Remove from plan" : "Add to plan"}
                     </Button>
                     <button
                       type="button"

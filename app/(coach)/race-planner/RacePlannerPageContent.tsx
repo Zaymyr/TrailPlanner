@@ -112,14 +112,6 @@ type ParsedGpx = {
   plannerValues?: Partial<FormValues>;
 };
 
-type SavedPlan = {
-  id: string;
-  name: string;
-  updatedAt: string;
-  plannerValues: Partial<FormValues>;
-  elevationProfile: ElevationPoint[];
-};
-
 const formatAidStationName = (template: string, index: number) =>
   template.replace("{index}", String(index));
 
@@ -729,6 +721,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [planName, setPlanName] = useState("");
   const [session, setSession] = useState<{ accessToken: string; refreshToken?: string; email?: string } | null>(null);
+  const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -737,7 +730,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [activeAffiliateProduct, setActiveAffiliateProduct] = useState<{ slug: string; name: string } | null>(null);
   const [countryCode, setCountryCode] = useState<string | null>(null);
-  const { selectedProducts } = useProductSelection();
+  const { selectedProducts, toggleProduct } = useProductSelection();
   const affiliateSessionId = useAffiliateSessionId();
   const affiliateLogger = useAffiliateEventLogger({ accessToken: session?.accessToken });
 
@@ -880,6 +873,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     () => (parsedValues.success ? minutesPerKm(parsedValues.data) : null),
     [parsedValues]
   );
+  const intakeTargets = useMemo(
+    () =>
+      parsedValues.success
+        ? {
+            carbsPerHour: parsedValues.data.targetIntakePerHour,
+            waterPerHour: parsedValues.data.waterIntakePerHour,
+            sodiumPerHour: parsedValues.data.sodiumIntakePerHour,
+          }
+        : null,
+    [parsedValues]
+  );
 
   const raceTotals = useMemo(() => {
     if (!parsedValues.success || segments.length === 0) return null;
@@ -947,12 +951,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     return Math.min((value / total) * 100, 100);
   };
 
+  const selectedProductSlugs = useMemo(() => selectedProducts.map((product) => product.slug), [selectedProducts]);
+
   const toggleProductSelection = (product: { slug: string }) => {
-    setSelectedProducts((previous) =>
-      previous.includes(product.slug)
-        ? previous.filter((slug) => slug !== product.slug)
-        : [...previous, product.slug]
-    );
+    const matchingProduct = fuelProducts.find((item) => item.slug === product.slug);
+    if (!matchingProduct) return;
+    toggleProduct(matchingProduct);
   };
 
   const handleViewProduct = (product: { slug: string; name: string }) => {
@@ -1427,8 +1431,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       <ProductsPicker
         copy={racePlannerCopy.sections.gels}
-        products={productEstimates.map(({ count, ...gel }) => ({ ...gel, servings: count }))}
-        selectedProducts={selectedProducts}
+        products={productEstimates.map(({ count, ...gel }) => ({
+          slug: gel.slug,
+          name: gel.name,
+          carbs: gel.carbsGrams,
+          sodium: gel.sodiumMg,
+          servings: count,
+        }))}
+        selectedProducts={selectedProductSlugs}
         onToggleProduct={toggleProductSelection}
         onViewProduct={handleViewProduct}
       />
