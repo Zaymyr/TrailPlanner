@@ -6,16 +6,18 @@ import { useMutation } from "@tanstack/react-query";
 const SESSION_STORAGE_KEY = "affiliate_session_id";
 
 type AffiliateEventPayload = {
-  eventType: "popup_open" | "click";
   productId: string;
   offerId?: string;
   country?: string | null;
   merchant?: string | null;
+  eventType: "popup_open" | "click";
 };
 
 type LoggerOptions = {
   accessToken?: string;
 };
+
+export type AffiliateEventDetails = Omit<AffiliateEventPayload, "eventType">;
 
 export const useAffiliateSessionId = () => {
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -57,12 +59,14 @@ export const useAffiliateEventLogger = (options: LoggerOptions) => {
 
   return useMemo(
     () => ({
-      logPopupOpen: (sessionId: string, details: AffiliateEventPayload) =>
+      logPopupOpen: (sessionId: string, details: AffiliateEventDetails) =>
         mutation.mutateAsync({ ...details, sessionId, eventType: "popup_open" }),
-      logClick: (sessionId: string, details: AffiliateEventPayload) =>
+      logClick: (sessionId: string, details: AffiliateEventDetails) =>
         mutation.mutateAsync({ ...details, sessionId, eventType: "click" }),
       status: mutation.status,
     }),
     [mutation]
   );
 };
+
+export type AffiliateLogger = ReturnType<typeof useAffiliateEventLogger>;
