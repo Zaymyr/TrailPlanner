@@ -696,6 +696,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     defaultValues,
     mode: "onChange",
   });
+  const { register } = form;
 
   const sectionIds = {
     inputs: "race-inputs",
