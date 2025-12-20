@@ -5,6 +5,7 @@ import { Button } from "../ui/button";
 
 type RacePlannerLayoutProps = {
   planContent: ReactNode;
+  planSecondaryContent?: ReactNode;
   settingsContent: ReactNode;
   mobileView: "plan" | "settings";
   onMobileViewChange: (view: "plan" | "settings") => void;
@@ -15,6 +16,7 @@ type RacePlannerLayoutProps = {
 
 export function RacePlannerLayout({
   planContent,
+  planSecondaryContent,
   settingsContent,
   mobileView,
   onMobileViewChange,
@@ -51,13 +53,25 @@ export function RacePlannerLayout({
         </div>
 
         <div className="space-y-6">
-          <div className={mobileView === "plan" ? "space-y-6" : "hidden"}>{planContent}</div>
+          <div className={mobileView === "plan" ? "space-y-6" : "hidden"}>
+            <div className="space-y-6">{planContent}</div>
+            {planSecondaryContent ? <div className="space-y-6">{planSecondaryContent}</div> : null}
+          </div>
           <div className={mobileView === "settings" ? "space-y-6" : "hidden"}>{settingsContent}</div>
         </div>
       </div>
 
       <div className="hidden xl:grid xl:grid-cols-12 xl:gap-6">
-        <div className="space-y-6 xl:col-span-8 2xl:col-span-9">{planContent}</div>
+        <div className="space-y-6 xl:col-span-8 2xl:col-span-9">
+          {planSecondaryContent ? (
+            <div className="space-y-6 2xl:grid 2xl:grid-cols-[1.6fr,1fr] 2xl:items-start 2xl:gap-6 2xl:space-y-0">
+              <div className="space-y-6">{planContent}</div>
+              <div className="space-y-6">{planSecondaryContent}</div>
+            </div>
+          ) : (
+            <div className="space-y-6">{planContent}</div>
+          )}
+        </div>
         <div className="space-y-6 xl:col-span-4 2xl:col-span-3 xl:sticky xl:top-4 xl:self-start">
           {settingsContent}
         </div>

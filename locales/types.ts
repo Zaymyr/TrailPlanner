@@ -166,6 +166,10 @@ export type RacePlannerTranslations = {
       linkLabel: string;
       nutrition: string;
       countLabel: string;
+      addToPlan: string;
+      removeFromPlan: string;
+      usedBadge: string;
+      servingsNeeded: string;
     };
     aidStations: {
       title: string;
