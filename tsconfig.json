@@ -4,6 +4,7 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "baseUrl": ".",
     "allowJs": true,
     "resolveJsonModule": true,
     "noEmit": true,
@@ -16,7 +17,9 @@
     "jsx": "preserve",
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@tanstack/react-query": ["packages/tanstack-react-query"]
+      "@tanstack/react-query": ["packages/tanstack-react-query"],
+      "@vercel/analytics": ["lib/vercel-analytics"],
+      "@vercel/analytics/next": ["lib/vercel-analytics"]
     }
   },
   "include": [
