@@ -20,6 +20,7 @@ import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
 import { AffiliateProductModal } from "./components/AffiliateProductModal";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
+import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -899,6 +900,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     );
   }, [parsedValues.success, segments]);
 
+  const intakeTargets = parsedValues.success
+    ? {
+        carbsPerHour: parsedValues.data.targetIntakePerHour,
+        waterPerHour: parsedValues.data.waterIntakePerHour,
+        sodiumPerHour: parsedValues.data.sodiumIntakePerHour,
+      }
+    : null;
+
   const gelEstimates = useMemo(
     () =>
       raceTotals
@@ -1258,46 +1267,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const planContent = (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="space-y-0">
-            <CardTitleWithTooltip
-              title={racePlannerCopy.sections.summary.title}
-              description={racePlannerCopy.sections.summary.description}
-            />
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {raceTotals ? (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.duration}</p>
-                  <p className="text-2xl font-semibold text-slate-50">
-                    {formatMinutes(raceTotals.durationMinutes, racePlannerCopy.units)}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.carbs}</p>
-                  <p className="text-2xl font-semibold text-slate-50">
-                    {raceTotals.fuelGrams.toFixed(0)} {racePlannerCopy.units.grams}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.water}</p>
-                  <p className="text-2xl font-semibold text-slate-50">
-                    {raceTotals.waterMl.toFixed(0)} {racePlannerCopy.units.milliliters}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.items.sodium}</p>
-                  <p className="text-2xl font-semibold text-slate-50">
-                    {raceTotals.sodiumMg.toFixed(0)} {racePlannerCopy.units.milligrams}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">{racePlannerCopy.sections.summary.empty}</p>
-            )}
-          </CardContent>
-        </Card>
+        <CommandCenter
+          totals={raceTotals}
+          targets={intakeTargets}
+          copy={racePlannerCopy}
+          formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
+        />
 
         <Card>
           <CardContent className="space-y-4">
