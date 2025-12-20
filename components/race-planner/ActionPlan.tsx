@@ -56,7 +56,7 @@ function NutrientChip({ label, value, percent, tone }: NutrientChipProps) {
         <span className="truncate">{label}</span>
       </div>
       <div className="flex items-center gap-2 text-slate-50">
-        <span>{value}</span>
+        <span className="rounded-full bg-black/20 px-2 py-0.5 text-[11px] font-semibold">{value}</span>
         <span className="text-[11px] text-slate-200">{percent.toFixed(0)}%</span>
       </div>
     </div>
@@ -92,6 +92,9 @@ export function ActionPlan({
             segments.length > 0 ? (
               <Button type="button" variant="outline" className="hidden sm:inline-flex" onClick={onPrint}>
                 {copy.buttons.printPlan}
+            <div className="flex items-center gap-2">
+              <Button type="button" onClick={onAddAidStation} className="bg-emerald-500 text-slate-950 hover:bg-emerald-400">
+                {aidStationsCopy.add}
               </Button>
             ) : null
           }
@@ -106,30 +109,34 @@ export function ActionPlan({
       </CardHeader>
       <CardContent className="space-y-4">
         {segments.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {segments.map((segment, index) => (
               <div key={`${segment.checkpoint}-${segment.distanceKm}`} className="relative">
                 {index < segments.length - 1 ? (
-                  <span className="absolute left-5 top-[calc(100%+4px)] h-4 w-px bg-slate-800" aria-hidden />
+                  <span className="absolute left-5 top-[calc(100%+6px)] h-5 w-px bg-slate-800" aria-hidden />
                 ) : null}
-                <div className="relative space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="relative space-y-4 rounded-xl border border-slate-800/70 bg-slate-900/70 p-4 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-200">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/15 text-sm font-semibold text-emerald-200 ring-1 ring-emerald-500/30">
                         {index + 1}
                       </span>
-                      <div>
+                      <div className="space-y-1">
                         <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
                         <p className="text-xs text-slate-400">
-                          {formatDistanceWithUnit(segment.distanceKm)} · {timelineCopy.etaLabel}{" "}
-                          {formatMinutes(segment.etaMinutes)}
+                          {timelineCopy.etaLabel} {formatMinutes(segment.etaMinutes)} ·{" "}
+                          {formatDistanceWithUnit(segment.distanceKm)}
                         </p>
                       </div>
                     </div>
-                    <p className="text-xs font-medium text-slate-300">
-                      {renderSegmentLabel(segment)} · {formatMinutes(segment.segmentMinutes)}
-                    </p>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-800/60 bg-slate-950/60 px-3 py-1 text-xs font-semibold text-slate-100">
+                      <span>{renderSegmentLabel(segment)}</span>
+                      <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-100">
+                        {formatMinutes(segment.segmentMinutes)}
+                      </span>
+                    </div>
                   </div>
+
                   <div className="grid gap-2 sm:grid-cols-3">
                     <NutrientChip
                       tone="carbs"
@@ -150,22 +157,23 @@ export function ActionPlan({
                       percent={calculatePercentage(segment.sodiumMg, raceTotals?.sodiumMg)}
                     />
                   </div>
+
                   <div className="grid gap-2 sm:grid-cols-3">
-                    <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+                    <div className="rounded-lg border border-slate-800/70 bg-slate-950/70 px-3 py-2">
                       <p className="text-[11px] uppercase tracking-wide text-slate-400">
                         {copy.sections.timeline.printView.columns.distance}
                       </p>
-                      <p className="text-sm font-semibold text-slate-100">{formatDistanceWithUnit(segment.distanceKm)}</p>
-                    </div>
-                    <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-950/60 p-2">
-                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
-                        {copy.sections.timeline.printView.columns.segment}
-                      </p>
                       <p className="text-sm font-semibold text-slate-100">
-                        {renderSegmentLabel(segment)}
+                        {formatDistanceWithUnit(segment.distanceKm)}
                       </p>
                     </div>
-                    <div className="space-y-1 rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+                    <div className="rounded-lg border border-slate-800/70 bg-slate-950/70 px-3 py-2">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">
+                        {copy.sections.timeline.printView.columns.eta}
+                      </p>
+                      <p className="text-sm font-semibold text-slate-100">{formatMinutes(segment.etaMinutes)}</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-800/70 bg-slate-950/70 px-3 py-2">
                       <p className="text-[11px] uppercase tracking-wide text-slate-400">
                         {copy.sections.timeline.printView.columns.segmentTime}
                       </p>

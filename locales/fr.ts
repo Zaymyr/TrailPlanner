@@ -80,6 +80,14 @@ export const fr: Translations = {
     },
   },
   racePlanner: {
+    hero: {
+      title: "Centre de contrôle course",
+      subtitle: "Visualisez le profil, importez/exportez un GPX et gérez votre plan au même endroit.",
+      actions: {
+        languageToggle: "Passer en {language}",
+        statusLabel: "Compte",
+      },
+    },
     defaults: {
       aidStationName: "Ravito {index}",
       finalBottles: "Dernières bouteilles",
@@ -131,6 +139,8 @@ export const fr: Translations = {
         courseTitle: "Parcours",
         pacingTitle: "Allure & nutrition",
         nutritionTitle: "Cibles nutritionnelles",
+        hide: "Masquer les réglages",
+        show: "Afficher les réglages",
         fields: {
           raceDistance: "Distance de course (km)",
           elevationGain: "D+ (m)",
@@ -195,6 +205,10 @@ export const fr: Translations = {
         countLabel: "{count} portions nécessaires",
         settingsHint: "Gérez vos produits d'alimentation dans Paramètres pour adapter ces calculs.",
         usingCustom: "Vos produits enregistrés depuis Paramètres sont utilisés.",
+        usedBadge: "Dans le plan",
+        servingsNeeded: "{count} portions nécessaires",
+        removeFromPlan: "Retirer du plan",
+        addToPlan: "Ajouter au plan",
       },
       aidStations: {
         title: "Ravitaillements",

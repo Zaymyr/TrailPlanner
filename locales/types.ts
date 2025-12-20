@@ -57,6 +57,14 @@ export type HomeHeroTranslations = {
 };
 
 export type RacePlannerTranslations = {
+  hero: {
+    title: string;
+    subtitle: string;
+    actions: {
+      languageToggle: string;
+      statusLabel: string;
+    };
+  };
   defaults: {
     aidStationName: string;
     finalBottles: string;
@@ -107,6 +115,8 @@ export type RacePlannerTranslations = {
       courseTitle: string;
       pacingTitle: string;
       nutritionTitle: string;
+      hide: string;
+      show: string;
       fields: {
         raceDistance: string;
         elevationGain: string;
@@ -168,6 +178,10 @@ export type RacePlannerTranslations = {
       countLabel: string;
       settingsHint: string;
       usingCustom: string;
+      usedBadge: string;
+      servingsNeeded: string;
+      removeFromPlan: string;
+      addToPlan: string;
     };
     aidStations: {
       title: string;
