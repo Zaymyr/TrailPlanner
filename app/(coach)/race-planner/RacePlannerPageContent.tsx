@@ -281,7 +281,7 @@ function smoothSpeedSamples(samples: SpeedSample[], windowKm = 0.75): SpeedSampl
 
 function buildSegments(values: FormValues, finishLabel: string, elevationProfile: ElevationPoint[]): Segment[] {
   const minPerKm = minutesPerKm(values);
-  const stationsWithIndex = values.aidStations
+  const stationsWithIndex: (AidStation & { originalIndex?: number })[] = values.aidStations
     .map((station, index) => ({ ...station, originalIndex: index }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
   const checkpoints = [...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm)];
