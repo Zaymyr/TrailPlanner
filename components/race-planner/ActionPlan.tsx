@@ -173,7 +173,11 @@ export function ActionPlan({
                             type="button"
                             variant="ghost"
                             className="h-7 px-2 text-[11px] font-semibold text-red-200 hover:text-red-100"
-                            onClick={() => onRemoveAidStation(segment.aidStationIndex)}
+                            onClick={() =>
+                              typeof segment.aidStationIndex === "number"
+                                ? onRemoveAidStation(segment.aidStationIndex)
+                                : undefined
+                            }
                           >
                             {aidStationsCopy.remove}
                           </Button>
