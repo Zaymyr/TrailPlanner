@@ -60,6 +60,7 @@ export type RacePlannerTranslations = {
   defaults: {
     aidStationName: string;
     finalBottles: string;
+    start: string;
     finish: string;
   };
   units: {
@@ -186,6 +187,22 @@ export type RacePlannerTranslations = {
       etaLabel: string;
       distanceWithUnit: string;
       segmentLabel: string;
+      segmentDistanceBetween: string;
+      segmentTimeLabel: string;
+      segmentTimeHelp: string;
+      rangeLabel: string;
+      betweenStationsTitle: string;
+      betweenStationsHelper: string;
+      plannedLabel: string;
+      targetLabel: string;
+      pickupTitle: string;
+      pickupHelper: string;
+      pickupGelsLabel: string;
+      status: {
+        belowTarget: string;
+        atTarget: string;
+        aboveTarget: string;
+      };
       fuelLabel: string;
       waterLabel: string;
       sodiumLabel: string;
@@ -193,6 +210,7 @@ export type RacePlannerTranslations = {
         title: string;
         description: string;
         columns: {
+          from: string;
           checkpoint: string;
           distance: string;
           segment: string;
@@ -201,6 +219,7 @@ export type RacePlannerTranslations = {
           fuel: string;
           water: string;
           sodium: string;
+          pickup: string;
         };
       };
     };

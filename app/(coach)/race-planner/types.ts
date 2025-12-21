@@ -1,4 +1,12 @@
-export type AidStation = { name: string; distanceKm: number };
+export type SegmentPlan = {
+  segmentMinutesOverride?: number;
+  plannedFuelGrams?: number;
+  plannedWaterMl?: number;
+  plannedSodiumMg?: number;
+  pickupGels?: number;
+};
+
+export type AidStation = { name: string; distanceKm: number } & SegmentPlan;
 
 export type FormValues = {
   raceDistanceKm: number;
@@ -13,18 +21,31 @@ export type FormValues = {
   waterIntakePerHour: number;
   sodiumIntakePerHour: number;
   aidStations: AidStation[];
+  finishPlan?: SegmentPlan;
 };
 
 export type Segment = {
   checkpoint: string;
+  from: string;
+  startDistanceKm: number;
   distanceKm: number;
   segmentKm: number;
   etaMinutes: number;
   segmentMinutes: number;
+  estimatedSegmentMinutes: number;
   fuelGrams: number;
   waterMl: number;
   sodiumMg: number;
+  plannedFuelGrams: number;
+  plannedWaterMl: number;
+  plannedSodiumMg: number;
+  targetFuelGrams: number;
+  targetWaterMl: number;
+  targetSodiumMg: number;
+  plannedMinutesOverride?: number;
+  pickupGels?: number;
   aidStationIndex?: number;
+  isFinish?: boolean;
 };
 
 export type ElevationPoint = { distanceKm: number; elevationM: number };
