@@ -16,7 +16,15 @@ import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
-import type { AidStation, ElevationPoint, FormValues, SavedPlan, Segment, SpeedSample } from "./types";
+import type {
+  AidStation,
+  ElevationPoint,
+  FormValues,
+  SavedPlan,
+  Segment,
+  SegmentPlan,
+  SpeedSample,
+} from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
 import type { FuelProduct } from "../../../lib/product-types";
@@ -126,10 +134,18 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
     { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40 },
     { name: copy.defaults.finalBottles, distanceKm: 45 },
   ],
+  finishPlan: {},
 });
 
-const createAidStationSchema = (validation: RacePlannerTranslations["validation"]) =>
+const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation"]) =>
   z.object({
+    segmentMinutesOverride: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+    gelsPlanned: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+    pickupGels: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+  });
+
+const createAidStationSchema = (validation: RacePlannerTranslations["validation"]) =>
+  createSegmentPlanSchema(validation).extend({
     name: z.string().min(1, validation.required),
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
   });
@@ -152,6 +168,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
+      finishPlan: createSegmentPlanSchema(copy.validation).optional(),
     })
     .superRefine((values, ctx) => {
       if (values.paceType === "pace" && values.paceMinutes === 0 && values.paceSeconds === 0) {
@@ -316,59 +333,124 @@ function smoothSpeedSamples(samples: SpeedSample[], windowKm = 0.75): SpeedSampl
   });
 }
 
-function buildSegments(values: FormValues, finishLabel: string, elevationProfile: ElevationPoint[]): Segment[] {
+function buildSegments(
+  values: FormValues,
+  startLabel: string,
+  finishLabel: string,
+  elevationProfile: ElevationPoint[]
+): Segment[] {
+  const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
   const minPerKm = minutesPerKm(values);
-  const stationsWithIndex: (AidStation & { originalIndex?: number })[] = values.aidStations
-    .map((station, index) => ({ ...station, originalIndex: index }))
+  const stationsWithIndex: (AidStation & { originalIndex?: number; kind: "aid" | "finish" })[] = values.aidStations
+    .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
-  const checkpoints = [...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm)];
-  checkpoints.push({ name: finishLabel, distanceKm: values.raceDistanceKm, originalIndex: undefined });
+
+  const checkpoints: (AidStation & {
+    originalIndex?: number;
+    kind: "start" | "aid" | "finish";
+  })[] = [
+    { name: startLabel, distanceKm: 0, kind: "start" as const },
+    ...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm),
+    { name: finishLabel, distanceKm: values.raceDistanceKm, originalIndex: undefined, kind: "finish", ...(values.finishPlan ?? {}) },
+  ];
 
   let elapsedMinutes = 0;
-  let previousDistance = 0;
 
-  return checkpoints.map((station) => {
-    const segmentKm = Math.max(0, station.distanceKm - previousDistance);
+  return checkpoints.slice(1).map((station, index) => {
+    const previous = checkpoints[index];
+    const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
     const elevation = calculateSegmentElevation(
       elevationProfile,
-      previousDistance,
+      previous.distanceKm,
       station.distanceKm,
       values.elevationGain,
       values.raceDistanceKm
     );
-    const segmentMinutes = adjustedSegmentMinutes(
+    const estimatedSegmentMinutes = adjustedSegmentMinutes(
       minPerKm,
       segmentKm,
       elevation,
       values.uphillEffort,
       values.downhillEffort
     );
+    const overrideMinutes =
+      typeof station.segmentMinutesOverride === "number" && station.segmentMinutesOverride >= 0
+        ? station.segmentMinutesOverride
+        : undefined;
+    const segmentMinutes = overrideMinutes ?? estimatedSegmentMinutes;
     elapsedMinutes += segmentMinutes;
-    const fuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
-    const waterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
-    const sodiumMg = (segmentMinutes / 60) * values.sodiumIntakePerHour;
+    const targetFuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
+    const targetWaterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
+    const targetSodiumMg = (segmentMinutes / 60) * values.sodiumIntakePerHour;
+    const gelsPlanned = Math.max(0, Math.round((station.gelsPlanned ?? targetFuelGrams / gelCarbs) * 10) / 10);
+    const recommendedGels = Math.max(0, targetFuelGrams / gelCarbs);
+    const plannedFuelGrams = gelsPlanned * gelCarbs;
+    const plannedWaterMl = targetWaterMl;
+    const plannedSodiumMg = targetSodiumMg;
     const segment: Segment = {
       checkpoint: station.name,
+      from: previous.name,
+      startDistanceKm: previous.distanceKm,
       distanceKm: station.distanceKm,
       segmentKm,
       etaMinutes: elapsedMinutes,
       segmentMinutes,
-      fuelGrams,
-      waterMl,
-      sodiumMg,
-      aidStationIndex: station.originalIndex,
+      estimatedSegmentMinutes,
+      fuelGrams: targetFuelGrams,
+      waterMl: targetWaterMl,
+      sodiumMg: targetSodiumMg,
+      plannedFuelGrams,
+      plannedWaterMl,
+      plannedSodiumMg,
+      targetFuelGrams,
+      targetWaterMl,
+      targetSodiumMg,
+    gelsPlanned,
+    recommendedGels,
+      plannedMinutesOverride: overrideMinutes,
+      pickupGels: station.pickupGels,
+      aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
+      isFinish: station.kind === "finish",
     };
-    previousDistance = station.distanceKm;
     return segment;
   });
+}
+
+function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
+  if (!plan || typeof plan !== "object") return {};
+
+  const segmentPlan = plan as Partial<SegmentPlan>;
+
+  const toNumber = (value?: unknown) =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+
+  const segmentMinutesOverride = toNumber(segmentPlan.segmentMinutesOverride);
+  const gelsPlanned = toNumber(segmentPlan.gelsPlanned);
+  const pickupGels = toNumber(segmentPlan.pickupGels);
+
+  return {
+    ...(segmentMinutesOverride !== undefined ? { segmentMinutesOverride } : {}),
+    ...(gelsPlanned !== undefined ? { gelsPlanned } : {}),
+    ...(pickupGels !== undefined ? { pickupGels } : {}),
+  };
 }
 
 function sanitizeAidStations(stations?: { name?: string; distanceKm?: number }[]): AidStation[] {
   if (!stations?.length) return [];
 
-  return stations.filter((station): station is AidStation => {
-    return typeof station?.name === "string" && typeof station?.distanceKm === "number";
-  });
+  return stations
+    .map((station) => {
+      if (typeof station?.name !== "string" || typeof station?.distanceKm !== "number") return null;
+
+      const plan = sanitizeSegmentPlan(station);
+
+      return {
+        name: station.name,
+        distanceKm: station.distanceKm,
+        ...plan,
+      };
+    })
+    .filter((station): station is AidStation => Boolean(station));
 }
 
 function dedupeAidStations(stations: AidStation[]): AidStation[] {
@@ -411,11 +493,13 @@ function sanitizePlannerValues(values?: Partial<FormValues>): Partial<FormValues
 
   const paceType = values.paceType === "speed" ? "speed" : "pace";
   const aidStations = sanitizeAidStations(values.aidStations);
+  const finishPlan = sanitizeSegmentPlan(values.finishPlan);
 
   return {
     ...values,
     paceType,
     aidStations,
+    finishPlan,
   };
 }
 
@@ -473,9 +557,10 @@ function buildFlatElevationProfile(distanceKm: number): ElevationPoint[] {
 
 function buildPlannerGpx(values: FormValues, elevationProfile: ElevationPoint[]) {
   const safeAidStations = sanitizeAidStations(values.aidStations);
+  const safeFinishPlan = sanitizeSegmentPlan(values.finishPlan);
   const distanceKm = Number.isFinite(values.raceDistanceKm) ? values.raceDistanceKm : 0;
   const profile = elevationProfile.length > 0 ? elevationProfile : buildFlatElevationProfile(distanceKm);
-  const plannerState = encodePlannerState({ ...values, aidStations: safeAidStations }, profile);
+  const plannerState = encodePlannerState({ ...values, aidStations: safeAidStations, finishPlan: safeFinishPlan }, profile);
 
   const escapeXml = (text: string) => text.replace(/[&<>"']/g, (char) => {
     switch (char) {
@@ -847,9 +932,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const segments = useMemo(
     () =>
       parsedValues.success
-        ? buildSegments(parsedValues.data, racePlannerCopy.defaults.finish, elevationProfile)
+        ? buildSegments(
+            parsedValues.data,
+            racePlannerCopy.defaults.start,
+            racePlannerCopy.defaults.finish,
+            elevationProfile
+          )
         : [],
-    [elevationProfile, parsedValues, racePlannerCopy.defaults.finish]
+    [elevationProfile, parsedValues, racePlannerCopy.defaults.finish, racePlannerCopy.defaults.start]
   );
   const baseMinutesPerKm = useMemo(
     () => (parsedValues.success ? minutesPerKm(parsedValues.data) : null),
@@ -872,9 +962,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     return segments.reduce(
       (totals, segment) => ({
-        fuelGrams: totals.fuelGrams + segment.fuelGrams,
-        waterMl: totals.waterMl + segment.waterMl,
-        sodiumMg: totals.sodiumMg + segment.sodiumMg,
+        fuelGrams: totals.fuelGrams + segment.plannedFuelGrams,
+        waterMl: totals.waterMl + segment.plannedWaterMl,
+        sodiumMg: totals.sodiumMg + segment.plannedSodiumMg,
         durationMinutes: totals.durationMinutes + segment.segmentMinutes,
       }),
       { fuelGrams: 0, waterMl: 0, sodiumMg: 0, durationMinutes: 0 }
@@ -998,6 +1088,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       ...defaultValues,
       ...plan.plannerValues,
       aidStations,
+      finishPlan: plan.plannerValues.finishPlan ?? defaultValues.finishPlan,
     };
 
     form.reset(mergedValues, { keepDefaultValues: true });
@@ -1132,6 +1223,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           ...parsedGpx.plannerValues,
           raceDistanceKm: parsedGpx.plannerValues.raceDistanceKm ?? fallbackDistance,
           aidStations: mergedAidStations,
+          finishPlan: parsedGpx.plannerValues.finishPlan ?? defaultValues.finishPlan,
         };
         form.reset(mergedValues, { keepDefaultValues: true });
       } else {
@@ -1151,6 +1243,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const handleExportGpx = () => {
     const currentValues = form.getValues();
     const sanitizedStations = sanitizeAidStations(currentValues.aidStations);
+    const finishPlan = sanitizeSegmentPlan(currentValues.finishPlan);
     const raceDistanceKm =
       Number.isFinite(currentValues.raceDistanceKm) && currentValues.raceDistanceKm !== null
         ? currentValues.raceDistanceKm
@@ -1164,6 +1257,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         sanitizedStations.length > 0
           ? sanitizedStations
           : [{ name: racePlannerCopy.defaults.finish, distanceKm: Number(raceDistanceKm.toFixed(1)) }],
+      finishPlan,
     };
 
     const gpxContent = buildPlannerGpx(values, elevationProfile);
@@ -1586,6 +1680,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 <tr>
                   <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">#</th>
                   <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                    {racePlannerCopy.sections.timeline.printView.columns.from}
+                  </th>
+                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
                     {racePlannerCopy.sections.timeline.printView.columns.checkpoint}
                   </th>
                   <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
@@ -1609,6 +1706,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
                     {racePlannerCopy.sections.timeline.printView.columns.sodium}
                   </th>
+                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                    {racePlannerCopy.sections.timeline.printView.columns.pickup}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -1617,6 +1717,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   return (
                     <tr key={`${segment.checkpoint}-print-${segment.distanceKm}`} className="align-top">
                       <td className={`${rowBorder} px-3 py-2 text-slate-700`}>{index + 1}</td>
+                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                        <div className="font-semibold">{segment.from}</div>
+                        <div className="text-[10px] text-slate-600">
+                          {formatDistanceWithUnit(segment.startDistanceKm)}
+                        </div>
+                      </td>
                       <td className={`${rowBorder} px-3 py-2`}>
                         <div className="font-semibold">{segment.checkpoint}</div>
                         <div className="text-[10px] text-slate-600">
@@ -1630,7 +1736,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                         {formatDistanceWithUnit(segment.distanceKm)}
                       </td>
                       <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {racePlannerCopy.sections.timeline.segmentLabel.replace(
+                        {racePlannerCopy.sections.timeline.segmentDistanceBetween.replace(
                           "{distance}",
                           segment.segmentKm.toFixed(1)
                         )}
@@ -1642,13 +1748,25 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                         {formatMinutes(segment.segmentMinutes, racePlannerCopy.units)}
                       </td>
                       <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {formatFuelAmount(segment.fuelGrams)}
+                        <div>{formatFuelAmount(segment.plannedFuelGrams)}</div>
+                        <div className="text-[10px] text-slate-600">
+                          {racePlannerCopy.sections.timeline.targetLabel}: {formatFuelAmount(segment.targetFuelGrams)}
+                        </div>
                       </td>
                       <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {formatWaterAmount(segment.waterMl)}
+                        <div>{formatWaterAmount(segment.plannedWaterMl)}</div>
+                        <div className="text-[10px] text-slate-600">
+                          {racePlannerCopy.sections.timeline.targetLabel}: {formatWaterAmount(segment.targetWaterMl)}
+                        </div>
                       </td>
                       <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {formatSodiumAmount(segment.sodiumMg)}
+                        <div>{formatSodiumAmount(segment.plannedSodiumMg)}</div>
+                        <div className="text-[10px] text-slate-600">
+                          {racePlannerCopy.sections.timeline.targetLabel}: {formatSodiumAmount(segment.targetSodiumMg)}
+                        </div>
+                      </td>
+                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                        {segment.isFinish ? "–" : segment.pickupGels ?? "–"}
                       </td>
                     </tr>
                   );
