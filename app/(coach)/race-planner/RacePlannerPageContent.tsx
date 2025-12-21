@@ -696,6 +696,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     defaultValues,
     mode: "onChange",
   });
+  const { register } = form;
 
   const sectionIds = {
     inputs: "race-inputs",
@@ -1297,6 +1298,94 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       distanceKm: 0,
     });
   }, [append, fields.length, racePlannerCopy.defaults.aidStationName]);
+
+  const courseProfileSection = (
+    <Card id={sectionIds.courseProfile}>
+      <CardHeader className="space-y-0">
+        <div className="flex items-center justify-between gap-3">
+          <CardTitleWithTooltip
+            title={racePlannerCopy.sections.courseProfile.title}
+            description={racePlannerCopy.sections.courseProfile.description}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="-mx-4 -mb-2 px-4 pb-2 sm:-mx-6 sm:px-6">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-h-[220px] w-full">
+            <ElevationProfileChart
+              profile={elevationProfile}
+              aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
+              totalDistanceKm={
+                (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+                defaultValues.raceDistanceKm
+              }
+              copy={racePlannerCopy}
+              baseMinutesPerKm={baseMinutesPerKm}
+              uphillEffort={uphillEffort}
+              downhillEffort={downhillEffort}
+            />
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
+              <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.description}</p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".gpx,application/gpx+xml"
+                className="hidden"
+                onChange={handleImportGpx}
+              />
+              <Button
+                variant="outline"
+                type="button"
+                className="h-9 px-3 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {racePlannerCopy.buttons.importGpx}
+              </Button>
+              <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
+                {racePlannerCopy.buttons.exportGpx}
+              </Button>
+            </div>
+            {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="raceDistanceKm" className="text-xs text-slate-200">
+                  {racePlannerCopy.sections.raceInputs.fields.raceDistance}
+                </Label>
+                <Input
+                  id="raceDistanceKm"
+                  type="number"
+                  step="0.5"
+                  className="border-slate-800/70 bg-slate-950/80 text-sm"
+                  {...register("raceDistanceKm", { valueAsNumber: true })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="elevationGain" className="text-xs text-slate-200">
+                  {racePlannerCopy.sections.raceInputs.fields.elevationGain}
+                </Label>
+                <Input
+                  id="elevationGain"
+                  type="number"
+                  min="0"
+                  step="50"
+                  className="border-slate-800/70 bg-slate-950/80 text-sm"
+                  {...register("elevationGain", { valueAsNumber: true })}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
   const planPrimaryContent = (
     <div className="space-y-6">
       <CommandCenter
@@ -1323,31 +1412,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatSodiumAmount={formatSodiumAmount}
         calculatePercentage={calculatePercentage}
       />
-
-      <Card id={sectionIds.courseProfile}>
-        <CardHeader className="space-y-0">
-          <div className="flex items-center justify-between gap-3">
-            <CardTitleWithTooltip
-              title={racePlannerCopy.sections.courseProfile.title}
-              description={racePlannerCopy.sections.courseProfile.description}
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ElevationProfileChart
-            profile={elevationProfile}
-            aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
-            totalDistanceKm={
-              (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-              defaultValues.raceDistanceKm
-            }
-            copy={racePlannerCopy}
-            baseMinutesPerKm={baseMinutesPerKm}
-            uphillEffort={uphillEffort}
-            downhillEffort={downhillEffort}
-          />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="space-y-0">
@@ -1449,10 +1513,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     <SettingsPanel
       copy={racePlannerCopy}
       sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
-      importError={importError}
-      fileInputRef={fileInputRef}
-      onImportGpx={handleImportGpx}
-      onExportGpx={handleExportGpx}
       register={form.register}
       paceType={paceType}
       onPaceTypeChange={handlePaceTypeChange}
@@ -1466,6 +1526,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       </Script>
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+        {courseProfileSection}
+
         <RacePlannerLayout
           className="space-y-6"
           planContent={planPrimaryContent}
@@ -1685,16 +1747,32 @@ function ElevationProfileChart({
   uphillEffort: number;
   downhillEffort: number;
 }) {
+  const chartContainerRef = useRef<HTMLDivElement | null>(null);
+  const [chartWidth, setChartWidth] = useState(900);
+
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      setChartWidth(entry.contentRect.width);
+    });
+
+    observer.observe(chartContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   if (!profile.length || totalDistanceKm <= 0) {
     return <p className="text-sm text-slate-400">{copy.sections.courseProfile.empty}</p>;
   }
 
-  const width = 900;
-  const paddingX = 32;
-  const paddingY = 20;
-  const elevationAreaHeight = 200;
-  const speedAreaHeight = 120;
-  const verticalGap = 28;
+  const width = Math.max(Math.round(chartWidth), 480);
+  const paddingX = 20;
+  const paddingY = 14;
+  const elevationAreaHeight = 150;
+  const speedAreaHeight = 80;
+  const verticalGap = 20;
   const height = paddingY + elevationAreaHeight + verticalGap + speedAreaHeight + paddingY;
   const elevationBottom = paddingY + elevationAreaHeight;
   const speedTop = elevationBottom + verticalGap;
@@ -1704,9 +1782,11 @@ function ElevationProfileChart({
   const elevationRange = Math.max(maxElevation - minElevation, 1);
   const scaledMax = Math.ceil(maxElevation / 10) * 10;
   const scaledMin = Math.floor(minElevation / 10) * 10;
+  const trackDistanceKm = Math.max(totalDistanceKm, profile.at(-1)?.distanceKm ?? 0, 1);
 
   const xScale = (distanceKm: number) =>
-    paddingX + Math.min(Math.max(distanceKm, 0), totalDistanceKm) * ((width - paddingX * 2) / totalDistanceKm);
+    paddingX +
+    Math.min(Math.max(distanceKm, 0), trackDistanceKm) * ((width - paddingX * 2) / trackDistanceKm);
   const yScale = (elevation: number) =>
     elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight;
 
@@ -1783,10 +1863,10 @@ function ElevationProfileChart({
     .join(" ");
 
   return (
-    <div className="w-full">
+    <div ref={chartContainerRef} className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-80 w-full"
+        className="h-[220px] w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
       >
