@@ -281,9 +281,11 @@ function smoothSpeedSamples(samples: SpeedSample[], windowKm = 0.75): SpeedSampl
 
 function buildSegments(values: FormValues, finishLabel: string, elevationProfile: ElevationPoint[]): Segment[] {
   const minPerKm = minutesPerKm(values);
-  const stations = [...values.aidStations].sort((a, b) => a.distanceKm - b.distanceKm);
-  const checkpoints = [...stations.filter((s) => s.distanceKm < values.raceDistanceKm)];
-  checkpoints.push({ name: finishLabel, distanceKm: values.raceDistanceKm });
+  const stationsWithIndex = values.aidStations
+    .map((station, index) => ({ ...station, originalIndex: index }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+  const checkpoints = [...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm)];
+  checkpoints.push({ name: finishLabel, distanceKm: values.raceDistanceKm, originalIndex: undefined });
 
   let elapsedMinutes = 0;
   let previousDistance = 0;
@@ -317,6 +319,7 @@ function buildSegments(values: FormValues, finishLabel: string, elevationProfile
       fuelGrams,
       waterMl,
       sodiumMg,
+      aidStationIndex: station.originalIndex,
     };
     previousDistance = station.distanceKm;
     return segment;
@@ -1296,7 +1299,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         onPrint={handlePrint}
         onAddAidStation={handleAddAidStation}
         onRemoveAidStation={remove}
-        aidStationFields={fields}
         register={form.register}
         formatDistanceWithUnit={formatDistanceWithUnit}
         formatMinutes={(minutes) => formatMinutes(minutes, racePlannerCopy.units)}
