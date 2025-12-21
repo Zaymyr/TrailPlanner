@@ -19,6 +19,7 @@ import type { RacePlannerTranslations } from "../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues, SavedPlan, Segment, SpeedSample } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
+import type { FuelProduct } from "../../../lib/product-types";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
@@ -59,6 +60,42 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
     </span>
   </CardTitle>
 );
+
+const defaultFuelProducts: FuelProduct[] = [
+  {
+    id: "00000000-0000-0000-0000-000000000001",
+    slug: "maurten-gel-100",
+    sku: "MAURTEN-GEL-100",
+    name: "Maurten Gel 100",
+    caloriesKcal: 100,
+    carbsGrams: 25,
+    sodiumMg: 85,
+    proteinGrams: 0,
+    fatGrams: 0,
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000002",
+    slug: "gu-energy-gel",
+    sku: "GU-ENERGY-GEL",
+    name: "GU Energy Gel",
+    caloriesKcal: 100,
+    carbsGrams: 22,
+    sodiumMg: 60,
+    proteinGrams: 0,
+    fatGrams: 0,
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000003",
+    slug: "sis-go-isotonic-gel",
+    sku: "SIS-GO-ISOTONIC",
+    name: "SIS GO Isotonic Gel",
+    caloriesKcal: 87,
+    carbsGrams: 22,
+    sodiumMg: 10,
+    proteinGrams: 0,
+    fatGrams: 0,
+  },
+];
 
 type ParsedGpx = {
   distanceKm: number;
@@ -681,6 +718,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [planName, setPlanName] = useState("");
   const [session, setSession] = useState<{ accessToken: string; refreshToken?: string; email?: string } | null>(null);
   const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
+  const [rightPanelTab, setRightPanelTab] = useState<"inputs" | "plans" | "fuel">("inputs");
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -859,6 +897,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     if (!total || total <= 0) return 0;
     return Math.min((value / total) * 100, 100);
   };
+
+  const fuelProductEstimates = useMemo(
+    () =>
+      raceTotals
+        ? defaultFuelProducts.map((product) => ({
+            ...product,
+            count: product.carbsGrams > 0 ? Math.ceil(raceTotals.fuelGrams / product.carbsGrams) : 0,
+          }))
+        : [],
+    [raceTotals]
+  );
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
     const target = document.getElementById(sectionId);
@@ -1312,32 +1361,107 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
 
   const settingsContent = (
-    <div className="space-y-6">
-      <PlanManager
-        copy={racePlannerCopy.account}
-        planName={planName}
-        planStatus={planStatus}
-        accountMessage={accountMessage}
-        accountError={accountError}
-        savedPlans={savedPlans}
-        deletingPlanId={deletingPlanId}
-        sessionEmail={session?.email}
-        authStatus={authStatus}
-        onPlanNameChange={setPlanName}
-        onSavePlan={handleSavePlan}
-        onRefreshPlans={handleRefreshPlans}
-        onLoadPlan={handleLoadPlan}
-        onDeletePlan={handleDeletePlan}
-      />
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold">{racePlannerCopy.sections.raceInputs.title}</CardTitle>
+          <div className="flex items-center gap-2">
+            {(
+              [
+                { key: "inputs", label: racePlannerCopy.sections.raceInputs.title },
+                { key: "plans", label: racePlannerCopy.account.title },
+                { key: "fuel", label: racePlannerCopy.sections.gels.title },
+              ] satisfies { key: "inputs" | "plans" | "fuel"; label: string }[]
+            ).map((tab) => {
+              const isActive = rightPanelTab === tab.key;
+              return (
+                <Button
+                  key={tab.key}
+                  type="button"
+                  variant={isActive ? "default" : "outline"}
+                  className="h-9 px-3 text-sm"
+                  aria-pressed={isActive}
+                  onClick={() => setRightPanelTab(tab.key)}
+                >
+                  {tab.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className={rightPanelTab === "inputs" ? "space-y-6" : "hidden"}>
+          <SettingsPanel
+            copy={racePlannerCopy}
+            sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
+            register={form.register}
+            paceType={paceType}
+            onPaceTypeChange={handlePaceTypeChange}
+          />
+        </div>
 
-      <SettingsPanel
-        copy={racePlannerCopy}
-        sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
-        register={form.register}
-        paceType={paceType}
-        onPaceTypeChange={handlePaceTypeChange}
-      />
-    </div>
+        <div className={rightPanelTab === "plans" ? "space-y-6" : "hidden"}>
+          <PlanManager
+            copy={racePlannerCopy.account}
+            planName={planName}
+            planStatus={planStatus}
+            accountMessage={accountMessage}
+            accountError={accountError}
+            savedPlans={savedPlans}
+            deletingPlanId={deletingPlanId}
+            sessionEmail={session?.email}
+            authStatus={authStatus}
+            onPlanNameChange={setPlanName}
+            onSavePlan={handleSavePlan}
+            onRefreshPlans={handleRefreshPlans}
+            onLoadPlan={handleLoadPlan}
+            onDeletePlan={handleDeletePlan}
+          />
+        </div>
+
+        <div className={rightPanelTab === "fuel" ? "space-y-6" : "hidden"}>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.gels.title}</p>
+              <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.description}</p>
+            </div>
+            {fuelProductEstimates.length === 0 ? (
+              <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
+            ) : (
+              <div className="space-y-3">
+                {fuelProductEstimates.map((product) => (
+                  <div
+                    key={product.id}
+                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-50">{product.name}</p>
+                        <p className="text-sm text-slate-400">
+                          {racePlannerCopy.sections.gels.nutrition
+                            .replace("{carbs}", product.carbsGrams.toString())
+                            .replace("{sodium}", product.sodiumMg.toString())}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-slate-200">
+                      <p>
+                        {racePlannerCopy.sections.gels.countLabel.replace(
+                          "{count}",
+                          Math.max(product.count, 0).toString()
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 
   return (
