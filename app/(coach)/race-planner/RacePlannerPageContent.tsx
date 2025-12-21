@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Script from "next/script";
-import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -20,17 +19,12 @@ import type { RacePlannerTranslations } from "../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues, SavedPlan, Segment, SpeedSample } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
-import { MAX_SELECTED_PRODUCTS } from "../../../lib/product-preferences";
 import type { FuelProduct } from "../../../lib/product-types";
-import { AffiliateProductModal } from "./components/AffiliateProductModal";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { SettingsPanel } from "../../../components/race-planner/SettingsPanel";
-import { ProductsPicker } from "../../../components/race-planner/ProductsPicker";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
-import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
-import { useProductSelection } from "../../hooks/useProductSelection";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -48,8 +42,6 @@ const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.4 8.5 8.5 0 0 1-6.6 3.1 8.38 8.38 0 0 1-5.4-1.9L3 21l1.9-4.1a8.38 8.38 0 0 1-1.9-5.4 8.5 8.5 0 0 1 3.1-6.6 8.38 8.38 0 0 1 5.4-1.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
   </svg>
 );
-
-type ProductEstimate = FuelProduct & { count: number };
 
 type CardTitleWithTooltipProps = {
   title: string;
@@ -326,9 +318,11 @@ function smoothSpeedSamples(samples: SpeedSample[], windowKm = 0.75): SpeedSampl
 
 function buildSegments(values: FormValues, finishLabel: string, elevationProfile: ElevationPoint[]): Segment[] {
   const minPerKm = minutesPerKm(values);
-  const stations = [...values.aidStations].sort((a, b) => a.distanceKm - b.distanceKm);
-  const checkpoints = [...stations.filter((s) => s.distanceKm < values.raceDistanceKm)];
-  checkpoints.push({ name: finishLabel, distanceKm: values.raceDistanceKm });
+  const stationsWithIndex: (AidStation & { originalIndex?: number })[] = values.aidStations
+    .map((station, index) => ({ ...station, originalIndex: index }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+  const checkpoints = [...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm)];
+  checkpoints.push({ name: finishLabel, distanceKm: values.raceDistanceKm, originalIndex: undefined });
 
   let elapsedMinutes = 0;
   let previousDistance = 0;
@@ -362,6 +356,7 @@ function buildSegments(values: FormValues, finishLabel: string, elevationProfile
       fuelGrams,
       waterMl,
       sodiumMg,
+      aidStationIndex: station.originalIndex,
     };
     previousDistance = station.distanceKm;
     return segment;
@@ -723,17 +718,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [planName, setPlanName] = useState("");
   const [session, setSession] = useState<{ accessToken: string; refreshToken?: string; email?: string } | null>(null);
   const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
+  const [rightPanelTab, setRightPanelTab] = useState<"inputs" | "plans" | "fuel">("inputs");
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
-  const [activeAffiliateProduct, setActiveAffiliateProduct] = useState<{ slug: string; name: string } | null>(null);
-  const [countryCode, setCountryCode] = useState<string | null>(null);
-  const { selectedProducts, toggleProduct } = useProductSelection();
-  const affiliateSessionId = useAffiliateSessionId();
-  const affiliateLogger = useAffiliateEventLogger({ accessToken: session?.accessToken });
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -741,16 +732,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
 
     setIsDesktopApp(isElectron || Boolean(isStandalone));
-  }, []);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    const locale = navigator.language ?? "";
-    const parts = locale.split("-");
-    const inferredCountry = parts.length > 1 ? parts[1]?.toUpperCase() : null;
-    if (inferredCountry) {
-      setCountryCode(inferredCountry);
-    }
   }, []);
 
   const persistSession = useCallback(
@@ -900,41 +881,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     );
   }, [parsedValues.success, segments]);
 
-  const customFuelProducts = useMemo<FuelProduct[]>(
-    () =>
-      selectedProducts.map((product) => ({
-        id: product.id,
-        slug: product.slug,
-        sku: product.sku ?? product.slug,
-        name: product.name,
-        productUrl: product.productUrl ?? undefined,
-        caloriesKcal: product.caloriesKcal ?? 0,
-        carbsGrams: product.carbsGrams,
-        sodiumMg: product.sodiumMg ?? 0,
-        proteinGrams: 0,
-        fatGrams: 0,
-      })),
-    [selectedProducts]
-  );
-
-  const fuelProducts = useMemo<FuelProduct[]>(
-    () => (customFuelProducts.length > 0 ? customFuelProducts.slice(0, MAX_SELECTED_PRODUCTS) : defaultFuelProducts),
-    [customFuelProducts]
-  );
-
-  const productEstimates = useMemo<ProductEstimate[]>(
-    () =>
-      raceTotals
-        ? fuelProducts.map((product) => ({
-            ...product,
-            count: product.carbsGrams > 0 ? Math.ceil(raceTotals.fuelGrams / product.carbsGrams) : 0,
-          }))
-        : [],
-    [fuelProducts, raceTotals]
-  );
-
-  const isUsingCustomProducts = customFuelProducts.length > 0;
-
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
@@ -952,17 +898,16 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     return Math.min((value / total) * 100, 100);
   };
 
-  const selectedProductSlugs = useMemo(() => selectedProducts.map((product) => product.slug), [selectedProducts]);
-
-  const toggleProductSelection = (product: { slug: string }) => {
-    const matchingProduct = fuelProducts.find((item) => item.slug === product.slug);
-    if (!matchingProduct) return;
-    toggleProduct(matchingProduct);
-  };
-
-  const handleViewProduct = (product: { slug: string; name: string }) => {
-    setActiveAffiliateProduct({ slug: product.slug, name: product.name });
-  };
+  const fuelProductEstimates = useMemo(
+    () =>
+      raceTotals
+        ? defaultFuelProducts.map((product) => ({
+            ...product,
+            count: product.carbsGrams > 0 ? Math.ceil(raceTotals.fuelGrams / product.carbsGrams) : 0,
+          }))
+        : [],
+    [raceTotals]
+  );
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
     const target = document.getElementById(sectionId);
@@ -1403,7 +1348,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         onPrint={handlePrint}
         onAddAidStation={handleAddAidStation}
         onRemoveAidStation={remove}
-        aidStationFields={fields}
         register={form.register}
         formatDistanceWithUnit={formatDistanceWithUnit}
         formatMinutes={(minutes) => formatMinutes(minutes, racePlannerCopy.units)}
@@ -1413,110 +1357,111 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         calculatePercentage={calculatePercentage}
       />
 
-      <Card>
-        <CardHeader className="space-y-0">
-          <CardTitleWithTooltip
-            title={racePlannerCopy.sections.gels.title}
-            description={racePlannerCopy.sections.gels.description}
-          />
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 text-sm text-slate-400">
-            {isUsingCustomProducts ? (
-              <p>{racePlannerCopy.sections.gels.usingCustom}</p>
-            ) : (
-              <p className="flex flex-wrap items-center gap-1">
-                <span>{racePlannerCopy.sections.gels.settingsHint}</span>
-                <Link href="/settings" className="font-semibold text-emerald-300 transition hover:text-emerald-200">
-                  {t.navigation.settings}
-                </Link>
-              </p>
-            )}
-          </div>
-          {!raceTotals ? (
-            <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {productEstimates.map((product) => (
-                <div key={product.id} className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-50">{product.name}</p>
-                      <p className="text-sm text-slate-400">
-                        {racePlannerCopy.sections.gels.nutrition
-                          .replace("{carbs}", product.carbsGrams.toString())
-                          .replace("{sodium}", product.sodiumMg.toString())}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveAffiliateProduct({ slug: product.slug, name: product.name })}
-                      className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
-                    >
-                      {racePlannerCopy.sections.gels.linkLabel}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-slate-200">
-                    <p>
-                      {racePlannerCopy.sections.gels.countLabel.replace(
-                        "{count}",
-                        Math.max(product.count, 0).toString()
-                      )}
-                    </p>
-                    <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const planSecondaryContent = (
-    <div className="space-y-6">
-      <PlanManager
-        copy={racePlannerCopy.account}
-        planName={planName}
-        planStatus={planStatus}
-        accountMessage={accountMessage}
-        accountError={accountError}
-        savedPlans={savedPlans}
-        deletingPlanId={deletingPlanId}
-        sessionEmail={session?.email}
-        authStatus={authStatus}
-        onPlanNameChange={setPlanName}
-        onSavePlan={handleSavePlan}
-        onRefreshPlans={handleRefreshPlans}
-        onLoadPlan={handleLoadPlan}
-        onDeletePlan={handleDeletePlan}
-      />
-
-      <ProductsPicker
-        copy={racePlannerCopy.sections.gels}
-        products={productEstimates.map(({ count, ...gel }) => ({
-          slug: gel.slug,
-          name: gel.name,
-          carbs: gel.carbsGrams,
-          sodium: gel.sodiumMg,
-          servings: count,
-        }))}
-        selectedProducts={selectedProductSlugs}
-        onToggleProduct={toggleProductSelection}
-        onViewProduct={handleViewProduct}
-      />
     </div>
   );
 
   const settingsContent = (
-    <SettingsPanel
-      copy={racePlannerCopy}
-      sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
-      register={form.register}
-      paceType={paceType}
-      onPaceTypeChange={handlePaceTypeChange}
-    />
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold">{racePlannerCopy.sections.raceInputs.title}</CardTitle>
+          <div className="flex items-center gap-2">
+            {(
+              [
+                { key: "inputs", label: racePlannerCopy.sections.raceInputs.title },
+                { key: "plans", label: racePlannerCopy.account.title },
+                { key: "fuel", label: racePlannerCopy.sections.gels.title },
+              ] satisfies { key: "inputs" | "plans" | "fuel"; label: string }[]
+            ).map((tab) => {
+              const isActive = rightPanelTab === tab.key;
+              return (
+                <Button
+                  key={tab.key}
+                  type="button"
+                  variant={isActive ? "default" : "outline"}
+                  className="h-9 px-3 text-sm"
+                  aria-pressed={isActive}
+                  onClick={() => setRightPanelTab(tab.key)}
+                >
+                  {tab.label}
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className={rightPanelTab === "inputs" ? "space-y-6" : "hidden"}>
+          <SettingsPanel
+            copy={racePlannerCopy}
+            sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
+            register={form.register}
+            paceType={paceType}
+            onPaceTypeChange={handlePaceTypeChange}
+          />
+        </div>
+
+        <div className={rightPanelTab === "plans" ? "space-y-6" : "hidden"}>
+          <PlanManager
+            copy={racePlannerCopy.account}
+            planName={planName}
+            planStatus={planStatus}
+            accountMessage={accountMessage}
+            accountError={accountError}
+            savedPlans={savedPlans}
+            deletingPlanId={deletingPlanId}
+            sessionEmail={session?.email}
+            authStatus={authStatus}
+            onPlanNameChange={setPlanName}
+            onSavePlan={handleSavePlan}
+            onRefreshPlans={handleRefreshPlans}
+            onLoadPlan={handleLoadPlan}
+            onDeletePlan={handleDeletePlan}
+          />
+        </div>
+
+        <div className={rightPanelTab === "fuel" ? "space-y-6" : "hidden"}>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.gels.title}</p>
+              <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.description}</p>
+            </div>
+            {fuelProductEstimates.length === 0 ? (
+              <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
+            ) : (
+              <div className="space-y-3">
+                {fuelProductEstimates.map((product) => (
+                  <div
+                    key={product.id}
+                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-slate-50">{product.name}</p>
+                        <p className="text-sm text-slate-400">
+                          {racePlannerCopy.sections.gels.nutrition
+                            .replace("{carbs}", product.carbsGrams.toString())
+                            .replace("{sodium}", product.sodiumMg.toString())}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-slate-200">
+                      <p>
+                        {racePlannerCopy.sections.gels.countLabel.replace(
+                          "{count}",
+                          Math.max(product.count, 0).toString()
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 
   return (
@@ -1531,7 +1476,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         <RacePlannerLayout
           className="space-y-6"
           planContent={planPrimaryContent}
-          planSecondaryContent={planSecondaryContent}
           settingsContent={settingsContent}
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
@@ -1715,16 +1659,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         </div>
       ) : null}
 
-      <AffiliateProductModal
-        open={Boolean(activeAffiliateProduct)}
-        onClose={() => setActiveAffiliateProduct(null)}
-        slug={activeAffiliateProduct?.slug ?? ""}
-        displayName={activeAffiliateProduct?.name ?? ""}
-        countryCode={countryCode}
-        sessionId={affiliateSessionId}
-        logger={affiliateLogger}
-        totals={raceTotals}
-      />
     </>
   );
 

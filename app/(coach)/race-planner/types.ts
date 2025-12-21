@@ -24,6 +24,7 @@ export type Segment = {
   fuelGrams: number;
   waterMl: number;
   sodiumMg: number;
+  aidStationIndex?: number;
 };
 
 export type ElevationPoint = { distanceKm: number; elevationM: number };
