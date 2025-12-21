@@ -159,36 +159,40 @@ export function ActionPlan({
               const timeFieldName = getSegmentFieldName(segment, "segmentMinutesOverride");
               const pickupFieldName = getSegmentFieldName(segment, "pickupGels");
               const plannedFields: {
-                key: keyof SegmentPlan;
+                key: "gelsPlanned" | "water" | "sodium";
                 tone: NutrientChipProps["tone"];
                 label: string;
                 planned: number;
                 target: number;
                 format: (value: number) => string;
+                inputType: "gels" | "readonly";
               }[] = [
                 {
-                  key: "plannedFuelGrams",
+                  key: "gelsPlanned",
                   tone: "carbs",
-                  label: copy.sections.summary.items.carbs,
+                  label: timelineCopy.gelsBetweenLabel,
                   planned: segment.plannedFuelGrams,
                   target: segment.targetFuelGrams,
                   format: formatFuelAmount,
+                  inputType: "gels",
                 },
                 {
-                  key: "plannedWaterMl",
+                  key: "water",
                   tone: "water",
                   label: copy.sections.summary.items.water,
                   planned: segment.plannedWaterMl,
                   target: segment.targetWaterMl,
                   format: formatWaterAmount,
+                  inputType: "readonly",
                 },
                 {
-                  key: "plannedSodiumMg",
+                  key: "sodium",
                   tone: "sodium",
                   label: copy.sections.summary.items.sodium,
                   planned: segment.plannedSodiumMg,
                   target: segment.targetSodiumMg,
                   format: formatSodiumAmount,
+                  inputType: "readonly",
                 },
               ];
 
@@ -312,9 +316,9 @@ export function ActionPlan({
                       {plannedFields.map((field) => {
                         const status = getPlanStatus(field.planned, field.target);
                         const total =
-                          field.key === "plannedFuelGrams"
+                          field.key === "gelsPlanned"
                             ? raceTotals?.fuelGrams
-                            : field.key === "plannedWaterMl"
+                            : field.key === "water"
                               ? raceTotals?.waterMl
                               : raceTotals?.sodiumMg;
                         return (
@@ -325,7 +329,7 @@ export function ActionPlan({
                             value={field.format(field.planned)}
                             helper={`${timelineCopy.targetLabel}: ${field.format(field.target)}`}
                             percent={calculatePercentage(field.planned, total)}
-                            statusLabel={status.label}
+                            statusLabel={field.inputType === "gels" ? status.label : undefined}
                             statusTone={status.tone}
                           />
                         );
@@ -342,29 +346,36 @@ export function ActionPlan({
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
                           {plannedFields.map((field) => {
-                            const fieldName = getSegmentFieldName(segment, field.key);
+                            const fieldName = field.key === "gelsPlanned" ? getSegmentFieldName(segment, "gelsPlanned") : null;
                             const status = getPlanStatus(field.planned, field.target);
+                            const recommendedGels =
+                              field.key === "gelsPlanned"
+                                ? Math.max(0, Math.round(segment.recommendedGels * 10) / 10)
+                                : null;
                             return (
                               <div key={`${segment.checkpoint}-${field.key}`} className="space-y-1.5">
                                 <Label className="text-xs text-slate-200">{field.label}</Label>
-                                {fieldName ? (
-                                  <Input
-                                    id={fieldName}
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    defaultValue={field.planned ?? ""}
-                                    placeholder={Math.round(field.target).toString()}
-                                    className="border-slate-800/70 bg-slate-950/80 text-sm"
-                                    {...register(fieldName, {
-                                      setValueAs: parseOptionalNumber,
-                                    })}
+                        {field.inputType === "gels" && fieldName ? (
+                          <Input
+                            id={fieldName}
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            defaultValue={segment.gelsPlanned ?? ""}
+                            placeholder={recommendedGels?.toString() ?? undefined}
+                            className="border-slate-800/70 bg-slate-950/80 text-sm"
+                            {...register(fieldName, {
+                              setValueAs: parseOptionalNumber,
+                            })}
                                   />
                                 ) : (
                                   <p className="text-sm font-semibold text-slate-100">{field.format(field.planned)}</p>
                                 )}
-                                <p className={`text-[11px] ${status.tone === "warning" ? "text-amber-300" : "text-slate-400"}`}>
-                                  {timelineCopy.targetLabel}: {field.format(field.target)} · {status.label}
+                                <p className={`text-[11px] ${field.inputType === "gels" && status.tone === "warning" ? "text-amber-300" : "text-slate-400"}`}>
+                                  {timelineCopy.targetLabel}: {field.format(field.target)}
+                                  {field.inputType === "gels" && recommendedGels !== null
+                                    ? ` · ${recommendedGels} ${timelineCopy.gelsBetweenLabel.toLowerCase()} (${status.label})`
+                                    : ""}
                                 </p>
                               </div>
                             );

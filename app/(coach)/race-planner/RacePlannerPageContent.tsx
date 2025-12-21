@@ -140,9 +140,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
 const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation"]) =>
   z.object({
     segmentMinutesOverride: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
-    plannedFuelGrams: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
-    plannedWaterMl: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
-    plannedSodiumMg: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+    gelsPlanned: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     pickupGels: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
   });
 
@@ -341,6 +339,7 @@ function buildSegments(
   finishLabel: string,
   elevationProfile: ElevationPoint[]
 ): Segment[] {
+  const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
   const minPerKm = minutesPerKm(values);
   const stationsWithIndex: (AidStation & { originalIndex?: number; kind: "aid" | "finish" })[] = values.aidStations
     .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const }))
@@ -383,18 +382,11 @@ function buildSegments(
     const targetFuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
     const targetWaterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
     const targetSodiumMg = (segmentMinutes / 60) * values.sodiumIntakePerHour;
-    const plannedFuelGrams =
-      typeof station.plannedFuelGrams === "number" && Number.isFinite(station.plannedFuelGrams)
-        ? station.plannedFuelGrams
-        : targetFuelGrams;
-    const plannedWaterMl =
-      typeof station.plannedWaterMl === "number" && Number.isFinite(station.plannedWaterMl)
-        ? station.plannedWaterMl
-        : targetWaterMl;
-    const plannedSodiumMg =
-      typeof station.plannedSodiumMg === "number" && Number.isFinite(station.plannedSodiumMg)
-        ? station.plannedSodiumMg
-        : targetSodiumMg;
+    const gelsPlanned = Math.max(0, Math.round((station.gelsPlanned ?? targetFuelGrams / gelCarbs) * 10) / 10);
+    const recommendedGels = Math.max(0, targetFuelGrams / gelCarbs);
+    const plannedFuelGrams = gelsPlanned * gelCarbs;
+    const plannedWaterMl = targetWaterMl;
+    const plannedSodiumMg = targetSodiumMg;
     const segment: Segment = {
       checkpoint: station.name,
       from: previous.name,
@@ -413,6 +405,8 @@ function buildSegments(
       targetFuelGrams,
       targetWaterMl,
       targetSodiumMg,
+    gelsPlanned,
+    recommendedGels,
       plannedMinutesOverride: overrideMinutes,
       pickupGels: station.pickupGels,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
@@ -431,16 +425,12 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 
   const segmentMinutesOverride = toNumber(segmentPlan.segmentMinutesOverride);
-  const plannedFuelGrams = toNumber(segmentPlan.plannedFuelGrams);
-  const plannedWaterMl = toNumber(segmentPlan.plannedWaterMl);
-  const plannedSodiumMg = toNumber(segmentPlan.plannedSodiumMg);
+  const gelsPlanned = toNumber(segmentPlan.gelsPlanned);
   const pickupGels = toNumber(segmentPlan.pickupGels);
 
   return {
     ...(segmentMinutesOverride !== undefined ? { segmentMinutesOverride } : {}),
-    ...(plannedFuelGrams !== undefined ? { plannedFuelGrams } : {}),
-    ...(plannedWaterMl !== undefined ? { plannedWaterMl } : {}),
-    ...(plannedSodiumMg !== undefined ? { plannedSodiumMg } : {}),
+    ...(gelsPlanned !== undefined ? { gelsPlanned } : {}),
     ...(pickupGels !== undefined ? { pickupGels } : {}),
   };
 }

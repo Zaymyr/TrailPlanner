@@ -1,8 +1,6 @@
 export type SegmentPlan = {
   segmentMinutesOverride?: number;
-  plannedFuelGrams?: number;
-  plannedWaterMl?: number;
-  plannedSodiumMg?: number;
+  gelsPlanned?: number;
   pickupGels?: number;
 };
 
@@ -42,6 +40,8 @@ export type Segment = {
   targetFuelGrams: number;
   targetWaterMl: number;
   targetSodiumMg: number;
+  gelsPlanned: number;
+  recommendedGels: number;
   plannedMinutesOverride?: number;
   pickupGels?: number;
   aidStationIndex?: number;

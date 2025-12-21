@@ -218,6 +218,7 @@ export const en: Translations = {
         rangeLabel: "{from} → {to}",
         betweenStationsTitle: "Consume between stations",
         betweenStationsHelper: "Keep these plans close to your nutrition targets.",
+        gelsBetweenLabel: "Gels to consume",
         plannedLabel: "Planned",
         targetLabel: "Target",
         pickupTitle: "Aid station pickup",

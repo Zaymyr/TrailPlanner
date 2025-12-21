@@ -220,6 +220,7 @@ export const fr: Translations = {
         rangeLabel: "{from} → {to}",
         betweenStationsTitle: "Consommation entre les ravitos",
         betweenStationsHelper: "Garde ce plan aligné avec tes objectifs nutritionnels.",
+        gelsBetweenLabel: "Gels à consommer",
         plannedLabel: "Prévu",
         targetLabel: "Cible",
         pickupTitle: "À récupérer au ravito",
