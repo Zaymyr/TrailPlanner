@@ -1474,24 +1474,28 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     </div>
   );
 
+  const planManagerCard = (
+    <PlanManager
+      copy={racePlannerCopy.account}
+      planName={planName}
+      planStatus={planStatus}
+      accountMessage={accountMessage}
+      accountError={accountError}
+      savedPlans={savedPlans}
+      deletingPlanId={deletingPlanId}
+      sessionEmail={session?.email}
+      authStatus={authStatus}
+      onPlanNameChange={setPlanName}
+      onSavePlan={handleSavePlan}
+      onRefreshPlans={handleRefreshPlans}
+      onLoadPlan={handleLoadPlan}
+      onDeletePlan={handleDeletePlan}
+    />
+  );
+
   const planSecondaryContent = (
     <div className="space-y-6">
-      <PlanManager
-        copy={racePlannerCopy.account}
-        planName={planName}
-        planStatus={planStatus}
-        accountMessage={accountMessage}
-        accountError={accountError}
-        savedPlans={savedPlans}
-        deletingPlanId={deletingPlanId}
-        sessionEmail={session?.email}
-        authStatus={authStatus}
-        onPlanNameChange={setPlanName}
-        onSavePlan={handleSavePlan}
-        onRefreshPlans={handleRefreshPlans}
-        onLoadPlan={handleLoadPlan}
-        onDeletePlan={handleDeletePlan}
-      />
+      <div className="xl:hidden">{planManagerCard}</div>
 
       <ProductsPicker
         copy={racePlannerCopy.sections.gels}
@@ -1510,13 +1514,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
 
   const settingsContent = (
-    <SettingsPanel
-      copy={racePlannerCopy}
-      sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
-      register={form.register}
-      paceType={paceType}
-      onPaceTypeChange={handlePaceTypeChange}
-    />
+    <div className="space-y-6">
+      <div className="hidden xl:block">{planManagerCard}</div>
+
+      <SettingsPanel
+        copy={racePlannerCopy}
+        sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
+        register={form.register}
+        paceType={paceType}
+        onPaceTypeChange={handlePaceTypeChange}
+      />
+    </div>
   );
 
   return (
