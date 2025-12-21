@@ -49,8 +49,6 @@ const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-type ProductEstimate = FuelProduct & { count: number };
-
 type CardTitleWithTooltipProps = {
   title: string;
   description: string;
@@ -922,15 +920,34 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [customFuelProducts]
   );
 
-  const productEstimates = useMemo<ProductEstimate[]>(
+  const segmentProductEstimates = useMemo(
     () =>
-      raceTotals
-        ? fuelProducts.map((product) => ({
-            ...product,
-            count: product.carbsGrams > 0 ? Math.ceil(raceTotals.fuelGrams / product.carbsGrams) : 0,
-          }))
-        : [],
-    [fuelProducts, raceTotals]
+      segments.map((segment) => ({
+        ...segment,
+        products: fuelProducts.map((product) => ({
+          ...product,
+          count: product.carbsGrams > 0 ? Math.ceil(segment.fuelGrams / product.carbsGrams) : 0,
+        })),
+      })),
+    [fuelProducts, segments]
+  );
+
+  const productsPerAidStation = useMemo(
+    () =>
+      fuelProducts.map((product) => {
+        const maxCount = segmentProductEstimates.reduce((max, segment) => {
+          const match = segment.products.find((item) => item.id === product.id);
+          return Math.max(max, match?.count ?? 0);
+        }, 0);
+        return {
+          slug: product.slug,
+          name: product.name,
+          carbs: product.carbsGrams,
+          sodium: product.sodiumMg,
+          servings: maxCount,
+        };
+      }),
+    [fuelProducts, segmentProductEstimates]
   );
 
   const isUsingCustomProducts = customFuelProducts.length > 0;
@@ -1433,37 +1450,64 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </p>
             )}
           </div>
-          {!raceTotals ? (
+          {segmentProductEstimates.length === 0 ? (
             <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {productEstimates.map((product) => (
-                <div key={product.id} className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4">
-                  <div className="flex items-start justify-between gap-3">
+            <div className="space-y-4">
+              {segmentProductEstimates.map((segment) => (
+                <div
+                  key={`${segment.checkpoint}-${segment.distanceKm}`}
+                  className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
+                >
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="font-semibold text-slate-50">{product.name}</p>
-                      <p className="text-sm text-slate-400">
-                        {racePlannerCopy.sections.gels.nutrition
-                          .replace("{carbs}", product.carbsGrams.toString())
-                          .replace("{sodium}", product.sodiumMg.toString())}
+                      <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
+                      <p className="text-xs text-slate-400">
+                        {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}{" "}
+                        {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setActiveAffiliateProduct({ slug: product.slug, name: product.name })}
-                      className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
-                    >
-                      {racePlannerCopy.sections.gels.linkLabel}
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between text-sm text-slate-200">
-                    <p>
-                      {racePlannerCopy.sections.gels.countLabel.replace(
-                        "{count}",
-                        Math.max(product.count, 0).toString()
+                    <p className="text-xs font-medium text-slate-300">
+                      {racePlannerCopy.sections.timeline.segmentLabel.replace(
+                        "{distance}",
+                        segment.segmentKm.toFixed(1)
                       )}
                     </p>
-                    <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {segment.products.map((product) => (
+                      <div
+                        key={`${segment.checkpoint}-${product.id}`}
+                        className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-semibold text-slate-50">{product.name}</p>
+                            <p className="text-sm text-slate-400">
+                              {racePlannerCopy.sections.gels.nutrition
+                                .replace("{carbs}", product.carbsGrams.toString())
+                                .replace("{sodium}", product.sodiumMg.toString())}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveAffiliateProduct({ slug: product.slug, name: product.name })}
+                            className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
+                          >
+                            {racePlannerCopy.sections.gels.linkLabel}
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between text-sm text-slate-200">
+                          <p>
+                            {racePlannerCopy.sections.gels.countLabel.replace(
+                              "{count}",
+                              Math.max(product.count, 0).toString()
+                            )}
+                          </p>
+                          <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
@@ -1499,13 +1543,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       <ProductsPicker
         copy={racePlannerCopy.sections.gels}
-        products={productEstimates.map(({ count, ...gel }) => ({
-          slug: gel.slug,
-          name: gel.name,
-          carbs: gel.carbsGrams,
-          sodium: gel.sodiumMg,
-          servings: count,
-        }))}
+        products={productsPerAidStation}
         selectedProducts={selectedProductSlugs}
         onToggleProduct={toggleProductSelection}
         onViewProduct={handleViewProduct}
