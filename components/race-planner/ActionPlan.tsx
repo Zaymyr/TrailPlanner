@@ -172,7 +172,6 @@ export function ActionPlan({
                           <Button
                             type="button"
                             variant="ghost"
-                            size="sm"
                             className="h-7 px-2 text-[11px] font-semibold text-red-200 hover:text-red-100"
                             onClick={() => onRemoveAidStation(segment.aidStationIndex)}
                           >
