@@ -62,7 +62,7 @@ export function RacePlannerLayout({
       </div>
 
       <div className="hidden xl:grid xl:grid-cols-12 xl:gap-6">
-        <div className="space-y-6 xl:col-span-8 2xl:col-span-9">
+        <div className="space-y-6 xl:col-span-9 2xl:col-span-10">
           {planSecondaryContent ? (
             <div className="space-y-6 2xl:grid 2xl:grid-cols-[1.6fr,1fr] 2xl:items-start 2xl:gap-6 2xl:space-y-0">
               <div className="space-y-6">{planContent}</div>
@@ -72,7 +72,7 @@ export function RacePlannerLayout({
             <div className="space-y-6">{planContent}</div>
           )}
         </div>
-        <div className="space-y-6 xl:col-span-4 2xl:col-span-3 xl:sticky xl:top-4 xl:self-start">
+        <div className="space-y-6 xl:col-span-3 2xl:col-span-2 xl:sticky xl:top-4 xl:self-start">
           {settingsContent}
         </div>
       </div>

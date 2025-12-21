@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Script from "next/script";
-import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -20,17 +19,11 @@ import type { RacePlannerTranslations } from "../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues, SavedPlan, Segment, SpeedSample } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
-import { MAX_SELECTED_PRODUCTS } from "../../../lib/product-preferences";
-import type { FuelProduct } from "../../../lib/product-types";
-import { AffiliateProductModal } from "./components/AffiliateProductModal";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { SettingsPanel } from "../../../components/race-planner/SettingsPanel";
-import { ProductsPicker } from "../../../components/race-planner/ProductsPicker";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
-import { useAffiliateEventLogger, useAffiliateSessionId } from "./hooks/useAffiliateEvents";
-import { useProductSelection } from "../../hooks/useProductSelection";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -66,42 +59,6 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
     </span>
   </CardTitle>
 );
-
-const defaultFuelProducts: FuelProduct[] = [
-  {
-    id: "00000000-0000-0000-0000-000000000001",
-    slug: "maurten-gel-100",
-    sku: "MAURTEN-GEL-100",
-    name: "Maurten Gel 100",
-    caloriesKcal: 100,
-    carbsGrams: 25,
-    sodiumMg: 85,
-    proteinGrams: 0,
-    fatGrams: 0,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000002",
-    slug: "gu-energy-gel",
-    sku: "GU-ENERGY-GEL",
-    name: "GU Energy Gel",
-    caloriesKcal: 100,
-    carbsGrams: 22,
-    sodiumMg: 60,
-    proteinGrams: 0,
-    fatGrams: 0,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000003",
-    slug: "sis-go-isotonic-gel",
-    sku: "SIS-GO-ISOTONIC",
-    name: "SIS GO Isotonic Gel",
-    caloriesKcal: 87,
-    carbsGrams: 22,
-    sodiumMg: 10,
-    proteinGrams: 0,
-    fatGrams: 0,
-  },
-];
 
 type ParsedGpx = {
   distanceKm: number;
@@ -727,11 +684,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
-  const [activeAffiliateProduct, setActiveAffiliateProduct] = useState<{ slug: string; name: string } | null>(null);
-  const [countryCode, setCountryCode] = useState<string | null>(null);
-  const { selectedProducts, toggleProduct } = useProductSelection();
-  const affiliateSessionId = useAffiliateSessionId();
-  const affiliateLogger = useAffiliateEventLogger({ accessToken: session?.accessToken });
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -739,16 +691,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
 
     setIsDesktopApp(isElectron || Boolean(isStandalone));
-  }, []);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    const locale = navigator.language ?? "";
-    const parts = locale.split("-");
-    const inferredCountry = parts.length > 1 ? parts[1]?.toUpperCase() : null;
-    if (inferredCountry) {
-      setCountryCode(inferredCountry);
-    }
   }, []);
 
   const persistSession = useCallback(
@@ -898,60 +840,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     );
   }, [parsedValues.success, segments]);
 
-  const customFuelProducts = useMemo<FuelProduct[]>(
-    () =>
-      selectedProducts.map((product) => ({
-        id: product.id,
-        slug: product.slug,
-        sku: product.sku ?? product.slug,
-        name: product.name,
-        productUrl: product.productUrl ?? undefined,
-        caloriesKcal: product.caloriesKcal ?? 0,
-        carbsGrams: product.carbsGrams,
-        sodiumMg: product.sodiumMg ?? 0,
-        proteinGrams: 0,
-        fatGrams: 0,
-      })),
-    [selectedProducts]
-  );
-
-  const fuelProducts = useMemo<FuelProduct[]>(
-    () => (customFuelProducts.length > 0 ? customFuelProducts.slice(0, MAX_SELECTED_PRODUCTS) : defaultFuelProducts),
-    [customFuelProducts]
-  );
-
-  const segmentProductEstimates = useMemo(
-    () =>
-      segments.map((segment) => ({
-        ...segment,
-        products: fuelProducts.map((product) => ({
-          ...product,
-          count: product.carbsGrams > 0 ? Math.ceil(segment.fuelGrams / product.carbsGrams) : 0,
-        })),
-      })),
-    [fuelProducts, segments]
-  );
-
-  const productsPerAidStation = useMemo(
-    () =>
-      fuelProducts.map((product) => {
-        const maxCount = segmentProductEstimates.reduce((max, segment) => {
-          const match = segment.products.find((item) => item.id === product.id);
-          return Math.max(max, match?.count ?? 0);
-        }, 0);
-        return {
-          slug: product.slug,
-          name: product.name,
-          carbs: product.carbsGrams,
-          sodium: product.sodiumMg,
-          servings: maxCount,
-        };
-      }),
-    [fuelProducts, segmentProductEstimates]
-  );
-
-  const isUsingCustomProducts = customFuelProducts.length > 0;
-
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
 
@@ -967,18 +855,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const calculatePercentage = (value: number, total?: number) => {
     if (!total || total <= 0) return 0;
     return Math.min((value / total) * 100, 100);
-  };
-
-  const selectedProductSlugs = useMemo(() => selectedProducts.map((product) => product.slug), [selectedProducts]);
-
-  const toggleProductSelection = (product: { slug: string }) => {
-    const matchingProduct = fuelProducts.find((item) => item.slug === product.slug);
-    if (!matchingProduct) return;
-    toggleProduct(matchingProduct);
-  };
-
-  const handleViewProduct = (product: { slug: string; name: string }) => {
-    setActiveAffiliateProduct({ slug: product.slug, name: product.name });
   };
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
@@ -1430,130 +1306,27 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         calculatePercentage={calculatePercentage}
       />
 
-      <Card>
-        <CardHeader className="space-y-0">
-          <CardTitleWithTooltip
-            title={racePlannerCopy.sections.gels.title}
-            description={racePlannerCopy.sections.gels.description}
-          />
-        </CardHeader>
-        <CardContent>
-          <div className="mb-4 text-sm text-slate-400">
-            {isUsingCustomProducts ? (
-              <p>{racePlannerCopy.sections.gels.usingCustom}</p>
-            ) : (
-              <p className="flex flex-wrap items-center gap-1">
-                <span>{racePlannerCopy.sections.gels.settingsHint}</span>
-                <Link href="/settings" className="font-semibold text-emerald-300 transition hover:text-emerald-200">
-                  {t.navigation.settings}
-                </Link>
-              </p>
-            )}
-          </div>
-          {segmentProductEstimates.length === 0 ? (
-            <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
-          ) : (
-            <div className="space-y-4">
-              {segmentProductEstimates.map((segment) => (
-                <div
-                  key={`${segment.checkpoint}-${segment.distanceKm}`}
-                  className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
-                >
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-semibold text-slate-50">{segment.checkpoint}</p>
-                      <p className="text-xs text-slate-400">
-                        {formatDistanceWithUnit(segment.distanceKm)} · {racePlannerCopy.sections.timeline.etaLabel}{" "}
-                        {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
-                      </p>
-                    </div>
-                    <p className="text-xs font-medium text-slate-300">
-                      {racePlannerCopy.sections.timeline.segmentLabel.replace(
-                        "{distance}",
-                        segment.segmentKm.toFixed(1)
-                      )}
-                    </p>
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                    {segment.products.map((product) => (
-                      <div
-                        key={`${segment.checkpoint}-${product.id}`}
-                        className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-semibold text-slate-50">{product.name}</p>
-                            <p className="text-sm text-slate-400">
-                              {racePlannerCopy.sections.gels.nutrition
-                                .replace("{carbs}", product.carbsGrams.toString())
-                                .replace("{sodium}", product.sodiumMg.toString())}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setActiveAffiliateProduct({ slug: product.slug, name: product.name })}
-                            className="text-sm font-medium text-emerald-300 hover:text-emerald-200"
-                          >
-                            {racePlannerCopy.sections.gels.linkLabel}
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between text-sm text-slate-200">
-                          <p>
-                            {racePlannerCopy.sections.gels.countLabel.replace(
-                              "{count}",
-                              Math.max(product.count, 0).toString()
-                            )}
-                          </p>
-                          <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const planManagerCard = (
-    <PlanManager
-      copy={racePlannerCopy.account}
-      planName={planName}
-      planStatus={planStatus}
-      accountMessage={accountMessage}
-      accountError={accountError}
-      savedPlans={savedPlans}
-      deletingPlanId={deletingPlanId}
-      sessionEmail={session?.email}
-      authStatus={authStatus}
-      onPlanNameChange={setPlanName}
-      onSavePlan={handleSavePlan}
-      onRefreshPlans={handleRefreshPlans}
-      onLoadPlan={handleLoadPlan}
-      onDeletePlan={handleDeletePlan}
-    />
-  );
-
-  const planSecondaryContent = (
-    <div className="space-y-6">
-      <div className="xl:hidden">{planManagerCard}</div>
-
-      <ProductsPicker
-        copy={racePlannerCopy.sections.gels}
-        products={productsPerAidStation}
-        selectedProducts={selectedProductSlugs}
-        onToggleProduct={toggleProductSelection}
-        onViewProduct={handleViewProduct}
-      />
     </div>
   );
 
   const settingsContent = (
     <div className="space-y-6">
-      <div className="hidden xl:block">{planManagerCard}</div>
+      <PlanManager
+        copy={racePlannerCopy.account}
+        planName={planName}
+        planStatus={planStatus}
+        accountMessage={accountMessage}
+        accountError={accountError}
+        savedPlans={savedPlans}
+        deletingPlanId={deletingPlanId}
+        sessionEmail={session?.email}
+        authStatus={authStatus}
+        onPlanNameChange={setPlanName}
+        onSavePlan={handleSavePlan}
+        onRefreshPlans={handleRefreshPlans}
+        onLoadPlan={handleLoadPlan}
+        onDeletePlan={handleDeletePlan}
+      />
 
       <SettingsPanel
         copy={racePlannerCopy}
@@ -1577,7 +1350,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         <RacePlannerLayout
           className="space-y-6"
           planContent={planPrimaryContent}
-          planSecondaryContent={planSecondaryContent}
           settingsContent={settingsContent}
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
@@ -1761,16 +1533,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         </div>
       ) : null}
 
-      <AffiliateProductModal
-        open={Boolean(activeAffiliateProduct)}
-        onClose={() => setActiveAffiliateProduct(null)}
-        slug={activeAffiliateProduct?.slug ?? ""}
-        displayName={activeAffiliateProduct?.name ?? ""}
-        countryCode={countryCode}
-        sessionId={affiliateSessionId}
-        logger={affiliateLogger}
-        totals={raceTotals}
-      />
     </>
   );
 
