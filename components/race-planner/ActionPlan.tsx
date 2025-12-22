@@ -346,6 +346,13 @@ export function ActionPlan({
                   : null;
 
               const nextSegment = item.upcomingSegment;
+              const recommendedPickupGels =
+                nextSegment && Number.isFinite(nextSegment.recommendedGels)
+                  ? Math.max(0, Math.round(nextSegment.recommendedGels * 10) / 10)
+                  : null;
+              const pickupHelperText = recommendedPickupGels
+                ? `${timelineCopy.pickupHelper} · ${timelineCopy.targetLabel}: ${recommendedPickupGels} ${timelineCopy.gelsBetweenLabel.toLowerCase()}`
+                : timelineCopy.pickupHelper;
               const pointMetrics = ["carbs", "water", "sodium"].map((key) => {
                 const metricKey = key as "carbs" | "water" | "sodium";
                 const value =
@@ -409,7 +416,7 @@ export function ActionPlan({
                       ) : null
                     }
                     pickupLabel={timelineCopy.pickupTitle}
-                    pickupHelper={timelineCopy.pickupHelper}
+                    pickupHelper={pickupHelperText}
                     pickupInput={
                       pickupFieldName && !item.isFinish ? (
                         <div className="space-y-1">
@@ -422,6 +429,7 @@ export function ActionPlan({
                             min="0"
                             step="1"
                             defaultValue={item.pickupGels ?? ""}
+                            placeholder={recommendedPickupGels?.toString()}
                             className="border-slate-800/70 bg-slate-950/80 text-sm"
                             {...register(pickupFieldName, {
                               setValueAs: parseOptionalNumber,
@@ -436,10 +444,13 @@ export function ActionPlan({
                         <Button
                           type="button"
                           variant="ghost"
-                          className="h-8 px-2 text-[11px] font-semibold text-red-200 hover:text-red-100"
+                          className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
                           onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
                         >
-                          {aidStationsCopy.remove}
+                          <span aria-hidden>×</span>
+                          <span className="sr-only">
+                            {aidStationsCopy.remove} {item.title}
+                          </span>
                         </Button>
                       ) : null
                     }
