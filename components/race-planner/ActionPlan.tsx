@@ -212,14 +212,20 @@ export function ActionPlan({
         {segments.length > 0 ? (
           <div className="relative space-y-4">
             <div className="absolute left-[18px] top-0 h-full w-px bg-slate-800/70" aria-hidden />
-            {renderItems.map((item, itemIndex) => {
-              if (item.kind === "segment") {
-                const { segment } = item;
-                const distanceHelper = timelineCopy.segmentDistanceBetween.replace(
-                  "{distance}",
-                  segment.segmentKm.toFixed(1)
-                );
-                const railDistance = `${segment.segmentKm.toFixed(1)} km`;
+            {(() => {
+              let carrySupplies: StationSupply[] = [];
+              return renderItems.map((item, itemIndex) => {
+                if (item.kind === "segment") {
+                  const { segment } = item;
+                  const carriedTotals = summarizeSupplies(carrySupplies);
+                  const plannedFuel = carriedTotals ? carriedTotals.totals.carbs : segment.plannedFuelGrams;
+                  const plannedWater = carriedTotals ? carriedTotals.totals.water : segment.plannedWaterMl;
+                  const plannedSodium = carriedTotals ? carriedTotals.totals.sodium : segment.plannedSodiumMg;
+                  const distanceHelper = timelineCopy.segmentDistanceBetween.replace(
+                    "{distance}",
+                    segment.segmentKm.toFixed(1)
+                  );
+                  const railDistance = `${segment.segmentKm.toFixed(1)} km`;
                 const railTime = formatMinutes(segment.segmentMinutes);
                 const timeFieldName = getSegmentFieldName(segment, "segmentMinutesOverride");
                 const timeInput = timeFieldName ? (
@@ -242,15 +248,15 @@ export function ActionPlan({
                 ) : null;
 
                 const gelsFieldName = getSegmentFieldName(segment, "gelsPlanned");
-                const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
-                const metrics = [
-                  {
-                    key: "carbs" as const,
-                    label: timelineCopy.gelsBetweenLabel,
-                    planned: segment.plannedFuelGrams,
-                    target: segment.targetFuelGrams,
-                    total: raceTotals?.fuelGrams,
-                    format: formatFuelAmount,
+                  const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
+                  const metrics = [
+                    {
+                      key: "carbs" as const,
+                      label: timelineCopy.gelsBetweenLabel,
+                      planned: plannedFuel,
+                      target: segment.targetFuelGrams,
+                      total: raceTotals?.fuelGrams,
+                      format: formatFuelAmount,
                     input: gelsFieldName ? (
                       <div className="space-y-1">
                         <Label className="sr-only" htmlFor={gelsFieldName}>
@@ -273,24 +279,24 @@ export function ActionPlan({
                         </p>
                       </div>
                     ) : null,
-                  },
-                  {
-                    key: "water" as const,
-                    label: copy.sections.summary.items.water,
-                    planned: segment.plannedWaterMl,
-                    target: segment.targetWaterMl,
-                    total: raceTotals?.waterMl,
-                    format: formatWaterAmount,
-                  },
-                  {
-                    key: "sodium" as const,
-                    label: copy.sections.summary.items.sodium,
-                    planned: segment.plannedSodiumMg,
-                    target: segment.targetSodiumMg,
-                    total: raceTotals?.sodiumMg,
-                    format: formatSodiumAmount,
-                  },
-                ];
+                    },
+                    {
+                      key: "water" as const,
+                      label: copy.sections.summary.items.water,
+                      planned: plannedWater,
+                      target: segment.targetWaterMl,
+                      total: raceTotals?.waterMl,
+                      format: formatWaterAmount,
+                    },
+                    {
+                      key: "sodium" as const,
+                      label: copy.sections.summary.items.sodium,
+                      planned: plannedSodium,
+                      target: segment.targetSodiumMg,
+                      total: raceTotals?.sodiumMg,
+                      format: formatSodiumAmount,
+                    },
+                  ];
 
                 const inlineMetrics = metrics.map((metric) => {
                   const status = getPlanStatus(metric.planned, metric.target);
@@ -310,8 +316,8 @@ export function ActionPlan({
                   };
                 });
 
-                return (
-                  <div key={item.id} className="relative pl-20">
+                  return (
+                    <div key={item.id} className="relative pl-20">
                     <div className="pointer-events-none absolute left-6 top-2 bottom-2 flex flex-col items-center" aria-hidden>
                       <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
                       <div className="relative flex h-full w-px items-center justify-center">
@@ -367,11 +373,11 @@ export function ActionPlan({
                         ))}
                       </div>
                     </div>
-                  </div>
-                );
-              }
+                    </div>
+                  );
+                }
 
-              const pointNumber = itemIndex === 0 ? 1 : Math.ceil(itemIndex / 2) + 1;
+                const pointNumber = itemIndex === 0 ? 1 : Math.ceil(itemIndex / 2) + 1;
               const distanceFieldName =
                 typeof item.aidStationIndex === "number"
                   ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
@@ -416,8 +422,8 @@ export function ActionPlan({
                 };
               });
 
-              const suppliesDropZone =
-                typeof item.aidStationIndex === "number" ? (
+                const suppliesDropZone =
+                  typeof item.aidStationIndex === "number" ? (
                   <div
                     className="flex w-full flex-col gap-3 rounded-lg border border-dashed border-emerald-400/40 bg-emerald-500/5 p-3 transition hover:border-emerald-300/70"
                     onDragOver={(event) => event.preventDefault()}
@@ -482,53 +488,56 @@ export function ActionPlan({
                   </div>
                 ) : null;
 
-              return (
-                <div key={item.id} className="relative pl-8">
-                  <TimelinePointCard
-                    pointIndex={pointNumber}
-                    title={item.title}
-                    distanceText={formatDistanceWithUnit(item.distanceKm)}
-                    etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
-                    metrics={[]}
-                    distanceInput={
-                      distanceFieldName ? (
-                        <div className="space-y-1 text-right sm:text-left">
-                          <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
-                            {aidStationsCopy.labels.distance}
-                          </Label>
-                          <Input
-                            id={distanceFieldName}
-                            type="number"
-                            step="0.5"
-                            className="max-w-[160px] border-slate-800/70 bg-slate-950/80 text-sm"
-                            {...register(distanceFieldName, { valueAsNumber: true })}
-                          />
-                        </div>
-                      ) : null
-                    }
-                    finishLabel={copy.defaults.finish}
-                    removeAction={
-                      typeof item.aidStationIndex === "number" && !item.isFinish ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
-                          onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
-                        >
-                          <span aria-hidden>×</span>
-                          <span className="sr-only">
-                            {aidStationsCopy.remove} {item.title}
-                          </span>
-                        </Button>
-                      ) : null
-                    }
-                    isStart={item.isStart}
-                    isFinish={item.isFinish}
-                    dropSection={suppliesDropZone}
-                  />
-                </div>
-              );
-            })}
+                carrySupplies = supplies ?? [];
+
+                return (
+                  <div key={item.id} className="relative pl-8">
+                    <TimelinePointCard
+                      pointIndex={pointNumber}
+                      title={item.title}
+                      distanceText={formatDistanceWithUnit(item.distanceKm)}
+                      etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
+                      metrics={[]}
+                      distanceInput={
+                        distanceFieldName ? (
+                          <div className="space-y-1 text-right sm:text-left">
+                            <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
+                              {aidStationsCopy.labels.distance}
+                            </Label>
+                            <Input
+                              id={distanceFieldName}
+                              type="number"
+                              step="0.5"
+                              className="max-w-[160px] border-slate-800/70 bg-slate-950/80 text-sm"
+                              {...register(distanceFieldName, { valueAsNumber: true })}
+                            />
+                          </div>
+                        ) : null
+                      }
+                      finishLabel={copy.defaults.finish}
+                      removeAction={
+                        typeof item.aidStationIndex === "number" && !item.isFinish ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
+                            onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
+                          >
+                            <span aria-hidden>×</span>
+                            <span className="sr-only">
+                              {aidStationsCopy.remove} {item.title}
+                            </span>
+                          </Button>
+                        ) : null
+                      }
+                      isStart={item.isStart}
+                      isFinish={item.isFinish}
+                      dropSection={suppliesDropZone}
+                    />
+                  </div>
+                );
+              });
+            })()}
           </div>
         ) : null}
       </CardContent>
