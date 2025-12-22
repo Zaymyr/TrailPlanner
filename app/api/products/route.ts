@@ -36,6 +36,7 @@ const productResponseSchema = z.object({
       sodiumMg: z.number(),
       proteinGrams: z.number(),
       fatGrams: z.number(),
+      waterMl: z.number().optional(),
     })
   ),
 });
@@ -71,6 +72,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   sodiumMg: Number(row.sodium_mg) || 0,
   proteinGrams: Number(row.protein_g) || 0,
   fatGrams: Number(row.fat_g) || 0,
+  waterMl: 0,
 });
 
 const buildSlug = (name: string) => {

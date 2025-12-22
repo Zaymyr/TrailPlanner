@@ -32,6 +32,7 @@ const productResponseSchema = z.object({
       isLive: z.boolean(),
       isArchived: z.boolean(),
       updatedAt: z.string(),
+      waterMl: z.number().optional(),
     })
   ),
 });
@@ -55,6 +56,7 @@ const mapProduct = (row: z.infer<typeof supabaseProductSchema>): z.infer<typeof 
   isLive: row.is_live,
   isArchived: row.is_archived,
   updatedAt: row.updated_at,
+  waterMl: 0,
 });
 
 const authorizeAdmin = async (request: NextRequest) => {

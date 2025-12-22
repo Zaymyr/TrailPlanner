@@ -1,7 +1,13 @@
+export type StationSupply = {
+  productId: string;
+  quantity: number;
+};
+
 export type SegmentPlan = {
   segmentMinutesOverride?: number;
   gelsPlanned?: number;
   pickupGels?: number;
+  supplies?: StationSupply[];
 };
 
 export type AidStation = { name: string; distanceKm: number } & SegmentPlan;
@@ -44,6 +50,7 @@ export type Segment = {
   recommendedGels: number;
   plannedMinutesOverride?: number;
   pickupGels?: number;
+  supplies?: StationSupply[];
   aidStationIndex?: number;
   isFinish?: boolean;
 };

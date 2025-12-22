@@ -23,6 +23,7 @@ import type {
   SavedPlan,
   Segment,
   SegmentPlan,
+  StationSupply,
   SpeedSample,
 } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
@@ -80,6 +81,7 @@ const defaultFuelProducts: FuelProduct[] = [
     sodiumMg: 85,
     proteinGrams: 0,
     fatGrams: 0,
+    waterMl: 0,
   },
   {
     id: "00000000-0000-0000-0000-000000000002",
@@ -91,6 +93,7 @@ const defaultFuelProducts: FuelProduct[] = [
     sodiumMg: 60,
     proteinGrams: 0,
     fatGrams: 0,
+    waterMl: 0,
   },
   {
     id: "00000000-0000-0000-0000-000000000003",
@@ -102,6 +105,7 @@ const defaultFuelProducts: FuelProduct[] = [
     sodiumMg: 10,
     proteinGrams: 0,
     fatGrams: 0,
+    waterMl: 0,
   },
 ];
 
@@ -142,6 +146,14 @@ const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation
     segmentMinutesOverride: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     gelsPlanned: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     pickupGels: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+    supplies: z
+      .array(
+        z.object({
+          productId: z.string().min(1),
+          quantity: z.coerce.number().positive({ message: validation.nonNegative }),
+        })
+      )
+      .optional(),
   });
 
 const createAidStationSchema = (validation: RacePlannerTranslations["validation"]) =>
@@ -405,10 +417,11 @@ function buildSegments(
       targetFuelGrams,
       targetWaterMl,
       targetSodiumMg,
-    gelsPlanned,
-    recommendedGels,
+      gelsPlanned,
+      recommendedGels,
       plannedMinutesOverride: overrideMinutes,
       pickupGels: station.pickupGels,
+      supplies: station.supplies,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
     };
@@ -427,11 +440,22 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
   const segmentMinutesOverride = toNumber(segmentPlan.segmentMinutesOverride);
   const gelsPlanned = toNumber(segmentPlan.gelsPlanned);
   const pickupGels = toNumber(segmentPlan.pickupGels);
+  const supplies: StationSupply[] = Array.isArray(segmentPlan.supplies)
+    ? segmentPlan.supplies
+        .map((supply) => {
+          const productId = typeof supply?.productId === "string" ? supply.productId : null;
+          const quantity = toNumber(supply?.quantity);
+          if (!productId || quantity === undefined) return null;
+          return { productId, quantity };
+        })
+        .filter((supply): supply is StationSupply => Boolean(supply))
+    : [];
 
   return {
     ...(segmentMinutesOverride !== undefined ? { segmentMinutesOverride } : {}),
     ...(gelsPlanned !== undefined ? { gelsPlanned } : {}),
     ...(pickupGels !== undefined ? { pickupGels } : {}),
+    ...(supplies.length ? { supplies } : {}),
   };
 }
 
@@ -1338,6 +1362,39 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     });
   }, [append, fields.length, racePlannerCopy.defaults.aidStationName]);
 
+  const handleSupplyDrop = useCallback(
+    (aidStationIndex: number, productId: string, quantity = 1) => {
+      const current = form.getValues(`aidStations.${aidStationIndex}.supplies`) ?? [];
+      const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
+      const existing = sanitized.find((supply) => supply.productId === productId);
+      const nextSupplies: StationSupply[] = existing
+        ? sanitized.map((supply) =>
+            supply.productId === productId ? { ...supply, quantity: supply.quantity + quantity } : supply
+          )
+        : [...sanitized, { productId, quantity }];
+
+      form.setValue(`aidStations.${aidStationIndex}.supplies`, nextSupplies, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    },
+    [form]
+  );
+
+  const handleSupplyRemove = useCallback(
+    (aidStationIndex: number, productId: string) => {
+      const current = form.getValues(`aidStations.${aidStationIndex}.supplies`) ?? [];
+      const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
+      const filtered = sanitized.filter((supply) => supply.productId !== productId);
+
+      form.setValue(`aidStations.${aidStationIndex}.supplies`, filtered, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    },
+    [form]
+  );
+
   const courseProfileSection = (
     <Card id={sectionIds.courseProfile}>
       <CardHeader className="space-y-0">
@@ -1449,6 +1506,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatWaterAmount={formatWaterAmount}
         formatSodiumAmount={formatSodiumAmount}
         calculatePercentage={calculatePercentage}
+        fuelProducts={fuelProductEstimates}
+        onSupplyDrop={handleSupplyDrop}
+        onSupplyRemove={handleSupplyRemove}
       />
 
     </div>
@@ -1527,7 +1587,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 {fuelProductEstimates.map((product) => (
                   <div
                     key={product.id}
-                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                    draggable
+                    onDragStart={(event) => {
+                      event.dataTransfer.setData("text/trailplanner-product-id", product.id);
+                      event.dataTransfer.setData("text/trailplanner-product-qty", "1");
+                    }}
+                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px]"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
