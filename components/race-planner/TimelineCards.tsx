@@ -129,8 +129,8 @@ export function TimelineSegmentCard({
 }: TimelineSegmentCardProps) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.35)]">
-      <div className="flex flex-col gap-4 md:flex-row md:items-stretch md:gap-6">
-        <div className="flex-1 space-y-3">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,320px)_1fr] md:items-start md:gap-6">
+        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-100">
@@ -144,40 +144,27 @@ export function TimelineSegmentCard({
             </div>
           </div>
 
-          <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-3">
-                <div className="min-w-[120px] space-y-0.5">
-                  <p className="text-sm font-semibold text-slate-50">{fromTitle}</p>
-                </div>
-                <div className="relative flex flex-1 items-center gap-2">
-                  <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" aria-hidden />
-                  <div className="relative flex-1">
-                    <div className="absolute left-0 right-0 top-1/2 h-[2px] -translate-y-1/2 bg-gradient-to-r from-emerald-400/40 via-emerald-400 to-emerald-300/70" />
-                    <div className="relative flex h-6 items-center justify-end">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/15">
-                        <ArrowRightIcon className="h-3.5 w-3.5 text-emerald-200" aria-hidden />
-                      </span>
-                    </div>
-                  </div>
-                  <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" aria-hidden />
-                </div>
-                <div className="min-w-[120px] space-y-0.5 text-right">
-                  <p className="text-sm font-semibold text-slate-50">{toTitle}</p>
-                </div>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4">
+            <div className="flex flex-1 flex-col items-center gap-2">
+              <p className="text-sm font-semibold text-slate-50">{fromTitle}</p>
+              <div className="relative flex flex-col items-center">
+                <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" aria-hidden />
+                <span className="my-1 h-10 w-px bg-gradient-to-b from-emerald-400/60 via-emerald-400 to-emerald-300/70" aria-hidden />
+                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/15">
+                  <ArrowRightIcon className="h-3.5 w-3.5 -rotate-90 text-emerald-200" aria-hidden />
+                </span>
+                <span className="my-1 h-10 w-px bg-gradient-to-b from-emerald-300/70 via-emerald-400 to-emerald-400/60" aria-hidden />
+                <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" aria-hidden />
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-                <p>{segmentDistanceHelper}</p>
-                <p>{distanceText}</p>
-              </div>
+              <p className="text-sm font-semibold text-slate-50">{toTitle}</p>
             </div>
 
-            <div className="flex flex-col gap-2 text-xs text-slate-300 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex-1 space-y-2">
+              <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
                 <p className="text-[11px] uppercase tracking-wide text-slate-400">{durationLabel}</p>
-                {timeInput ?? <p className="text-sm font-semibold text-slate-50">{durationValue}</p>}
-              </div>
-              <div className="text-right sm:text-left">
+                <div className="mt-1 text-sm font-semibold text-slate-50">
+                  {timeInput ?? durationValue}
+                </div>
                 <p className="text-[11px] text-slate-400">{etaText}</p>
                 <p className="text-[11px] text-slate-500">{durationHelper}</p>
               </div>
