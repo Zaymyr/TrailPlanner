@@ -436,10 +436,13 @@ export function ActionPlan({
                         <Button
                           type="button"
                           variant="ghost"
-                          className="h-8 px-2 text-[11px] font-semibold text-red-200 hover:text-red-100"
+                          className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
                           onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
                         >
-                          {aidStationsCopy.remove}
+                          <span aria-hidden>×</span>
+                          <span className="sr-only">
+                            {aidStationsCopy.remove} {item.title}
+                          </span>
                         </Button>
                       ) : null
                     }
