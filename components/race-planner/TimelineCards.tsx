@@ -205,11 +205,13 @@ export function TimelinePointCard({
             {pointIndex}
           </span>
           <div className="space-y-1">
-            <p className="text-base font-semibold text-slate-50">{title}</p>
-            <div className="flex items-center gap-3 text-xs text-slate-400">
-              <span className="font-semibold text-slate-200">{distanceText}</span>
-              {etaText ? <span className="text-slate-500">{etaText}</span> : null}
-            </div>
+            <p className="text-base font-semibold text-slate-50">
+              {title}
+              <span className="ml-2 text-xs font-normal text-slate-300">
+                {distanceText}
+                {etaText ? ` · ${etaText}` : ""}
+              </span>
+            </p>
           </div>
         </div>
         <div className="flex flex-1 flex-wrap items-center gap-2">

@@ -187,6 +187,7 @@ export function ActionPlan({
         <SectionHeader
           title={timelineCopy.title}
           description={timelineCopy.description}
+          descriptionAsTooltip
           action={
             <div className="flex items-center gap-2">
               <Button type="button" onClick={onAddAidStation}>
