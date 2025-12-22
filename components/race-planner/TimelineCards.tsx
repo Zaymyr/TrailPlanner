@@ -144,30 +144,17 @@ export function TimelineSegmentCard({
             </div>
           </div>
 
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4">
-            <div className="flex flex-1 flex-col items-center gap-2">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2">
               <p className="text-sm font-semibold text-slate-50">{fromTitle}</p>
-              <div className="relative flex flex-col items-center">
-                <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" aria-hidden />
-                <span className="my-1 h-10 w-px bg-gradient-to-b from-emerald-400/60 via-emerald-400 to-emerald-300/70" aria-hidden />
-                <span className="flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/50 bg-emerald-500/15">
-                  <ArrowRightIcon className="h-3.5 w-3.5 -rotate-90 text-emerald-200" aria-hidden />
-                </span>
-                <span className="my-1 h-10 w-px bg-gradient-to-b from-emerald-300/70 via-emerald-400 to-emerald-400/60" aria-hidden />
-                <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" aria-hidden />
-              </div>
+              <ArrowRightIcon className="h-4 w-4 text-emerald-200" aria-hidden />
               <p className="text-sm font-semibold text-slate-50">{toTitle}</p>
             </div>
-
-            <div className="flex-1 space-y-2">
-              <div className="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-                <p className="text-[11px] uppercase tracking-wide text-slate-400">{durationLabel}</p>
-                <div className="mt-1 text-sm font-semibold text-slate-50">
-                  {timeInput ?? durationValue}
-                </div>
-                <p className="text-[11px] text-slate-400">{etaText}</p>
-                <p className="text-[11px] text-slate-500">{durationHelper}</p>
-              </div>
+            <div className="flex flex-col gap-1 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300 sm:text-right">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400">{durationLabel}</p>
+              <div className="text-sm font-semibold text-slate-50">{timeInput ?? durationValue}</div>
+              <p className="text-[11px] text-slate-400">{etaText}</p>
+              <p className="text-[11px] text-slate-500">{durationHelper}</p>
             </div>
           </div>
         </div>

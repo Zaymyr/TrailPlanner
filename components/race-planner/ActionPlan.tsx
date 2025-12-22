@@ -256,17 +256,19 @@ export function ActionPlan({
                 ];
 
                 return (
-                  <div key={item.id} className="relative pl-16">
-                    <div className="absolute left-[10px] top-[-12px] bottom-[-12px] flex items-center" aria-hidden>
-                      <div className="relative h-full w-px">
-                        <div className="absolute inset-x-[-2px] top-0 h-4 rounded-full bg-emerald-400/50" />
-                        <div className="absolute left-0 right-0 top-4 bottom-8 bg-gradient-to-b from-emerald-400/80 via-emerald-400 to-emerald-300" />
-                        <div className="absolute left-0 right-0 bottom-8 h-4 rounded-full bg-emerald-300/70" />
-                        <div className="absolute left-1/2 bottom-0 flex h-8 -translate-x-1/2 translate-y-[2px] items-start justify-center">
-                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
-                            <ArrowRightIcon className="h-3.5 w-3.5 -rotate-90 text-emerald-200" aria-hidden />
-                          </span>
+                  <div key={item.id} className="relative pl-20">
+                    <div className="pointer-events-none absolute left-4 top-0 bottom-[-28px] flex flex-col items-center" aria-hidden>
+                      <div className="flex flex-col items-center">
+                        <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
+                        <span className="h-8 w-px bg-gradient-to-b from-emerald-400/80 via-emerald-400 to-emerald-300" />
+                        <div className="flex flex-col items-center rounded-md border border-slate-800 bg-slate-950/90 px-2 py-1 text-[11px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/10">
+                          <span>{distanceHelper}</span>
+                          <span className="text-[10px] font-normal text-slate-300">{formatMinutes(segment.segmentMinutes)}</span>
                         </div>
+                        <span className="flex-1 w-px bg-gradient-to-b from-emerald-300 via-emerald-400 to-emerald-300" />
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
+                          <ArrowRightIcon className="h-3.5 w-3.5 -rotate-90 text-emerald-200" aria-hidden />
+                        </span>
                       </div>
                     </div>
                     <TimelineSegmentCard
