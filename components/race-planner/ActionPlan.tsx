@@ -279,10 +279,10 @@ export function ActionPlan({
                   <div key={item.id} className="relative pl-20">
                     <div className="pointer-events-none absolute left-6 top-2 bottom-2 flex flex-col items-center" aria-hidden>
                       <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
-                      <div className="relative mt-1 flex h-full w-px flex-col items-center">
-                        <span className="absolute left-1/2 top-8 z-10 w-24 -translate-x-1/2 rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[11px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
-                          <span className="block">{railDistance}</span>
-                          <span className="block text-[10px] font-normal text-emerald-50/80">
+                      <div className="relative flex h-full w-px items-center justify-center">
+                        <span className="absolute left-1/2 top-1/2 z-10 w-20 -translate-x-1/2 -translate-y-1/2 rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[10px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
+                          <span className="block leading-tight">{railDistance}</span>
+                          <span className="block text-[10px] font-normal text-emerald-50/80 leading-tight">
                             {railTime}
                           </span>
                         </span>
@@ -294,7 +294,7 @@ export function ActionPlan({
                     </div>
 
                     <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                         <div className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/70 px-3 py-2 text-sm font-semibold text-slate-50 shadow-sm shadow-emerald-500/10">
                           <span>{segment.from}</span>
                           <ArrowRightIcon className="h-4 w-4 text-emerald-200" aria-hidden />
@@ -303,9 +303,6 @@ export function ActionPlan({
                         <div className="text-xs text-slate-300">
                           <p>
                             {timelineCopy.etaLabel}: {formatMinutes(segment.etaMinutes)}
-                          </p>
-                          <p className="text-[11px] text-slate-500">
-                            {timelineCopy.segmentTimeHelp} (≈ {formatMinutes(segment.estimatedSegmentMinutes)})
                           </p>
                         </div>
                       </div>
