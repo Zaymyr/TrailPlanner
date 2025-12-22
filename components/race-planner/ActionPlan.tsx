@@ -276,23 +276,22 @@ export function ActionPlan({
                     },
                   ];
 
-                const inlineMetrics = metrics.map((metric) => {
-                  const status = getPlanStatus(metric.planned, metric.target);
-                  const targetPercent =
-                    metric.target > 0 ? Math.max(0, Math.min((metric.planned / metric.target) * 100, 999)) : 0;
-                  return {
-                    key: metric.key,
-                    label: metric.label,
-                    value: metric.format(metric.planned),
-                    targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
-                    targetPercent,
-                    totalPercent: calculatePercentage(metric.planned, metric.total),
-                    statusLabel: status.label,
-                    statusTone: status.tone,
-                    icon: metricIcons[metric.key],
-                    input: metric.input,
-                  };
-                });
+                  const inlineMetrics = metrics.map((metric) => {
+                    const status = getPlanStatus(metric.planned, metric.target);
+                    const targetPercent =
+                      metric.target > 0 ? Math.max(0, Math.min((metric.planned / metric.target) * 100, 999)) : 0;
+                    return {
+                      key: metric.key,
+                      label: metric.label,
+                      value: metric.format(metric.planned),
+                      targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
+                      targetPercent,
+                      totalPercent: calculatePercentage(metric.planned, metric.total),
+                      statusLabel: status.label,
+                      statusTone: status.tone,
+                      icon: metricIcons[metric.key],
+                    };
+                  });
 
                   return (
                     <div key={item.id} className="relative pl-20">
@@ -341,7 +340,6 @@ export function ActionPlan({
                             <div className="mt-2 flex flex-col gap-1 text-sm text-slate-50">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-semibold">{metric.value}</span>
-                                {metric.input ? <div className="max-w-[160px]">{metric.input}</div> : null}
                               </div>
                               <p className="text-[11px] text-slate-200">
                                 {metric.targetText} · {metric.targetPercent.toFixed(0)}% ({metric.totalPercent.toFixed(0)}% total)
