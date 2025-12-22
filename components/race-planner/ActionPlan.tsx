@@ -184,6 +184,8 @@ export function ActionPlan({
                   "{distance}",
                   segment.segmentKm.toFixed(1)
                 );
+                const railDistance = `${segment.segmentKm.toFixed(1)} km`;
+                const railTime = formatMinutes(segment.segmentMinutes);
                 const timeFieldName = getSegmentFieldName(segment, "segmentMinutesOverride");
                 const timeInput = timeFieldName ? (
                   <div className="flex w-full flex-col items-end gap-1">
@@ -278,16 +280,16 @@ export function ActionPlan({
                     <div className="pointer-events-none absolute left-6 top-2 bottom-2 flex flex-col items-center" aria-hidden>
                       <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
                       <div className="relative mt-1 flex h-full w-px flex-col items-center">
-                        <span className="absolute left-1/2 top-8 z-10 w-28 -translate-x-1/2 rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[11px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
-                          <span className="block">{distanceHelper}</span>
-                          <span className="block text-[10px] font-normal text-slate-300">
-                            {timelineCopy.segmentTimeLabel}: {formatMinutes(segment.segmentMinutes)}
+                        <span className="absolute left-1/2 top-8 z-10 w-24 -translate-x-1/2 rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[11px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
+                          <span className="block">{railDistance}</span>
+                          <span className="block text-[10px] font-normal text-emerald-50/80">
+                            {railTime}
                           </span>
                         </span>
                         <span className="h-full w-px bg-gradient-to-b from-emerald-400 via-emerald-400/80 to-emerald-300" />
                       </div>
                       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
-                        <ArrowRightIcon className="h-3.5 w-3.5 -rotate-90 text-emerald-200" aria-hidden />
+                        <ArrowRightIcon className="h-3.5 w-3.5 rotate-90 text-emerald-200" aria-hidden />
                       </span>
                     </div>
 
