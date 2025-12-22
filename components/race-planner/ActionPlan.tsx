@@ -346,6 +346,13 @@ export function ActionPlan({
                   : null;
 
               const nextSegment = item.upcomingSegment;
+              const recommendedPickupGels =
+                nextSegment && Number.isFinite(nextSegment.recommendedGels)
+                  ? Math.max(0, Math.round(nextSegment.recommendedGels * 10) / 10)
+                  : null;
+              const pickupHelperText = recommendedPickupGels
+                ? `${timelineCopy.pickupHelper} · ${timelineCopy.targetLabel}: ${recommendedPickupGels} ${timelineCopy.gelsBetweenLabel.toLowerCase()}`
+                : timelineCopy.pickupHelper;
               const pointMetrics = ["carbs", "water", "sodium"].map((key) => {
                 const metricKey = key as "carbs" | "water" | "sodium";
                 const value =
@@ -409,7 +416,7 @@ export function ActionPlan({
                       ) : null
                     }
                     pickupLabel={timelineCopy.pickupTitle}
-                    pickupHelper={timelineCopy.pickupHelper}
+                    pickupHelper={pickupHelperText}
                     pickupInput={
                       pickupFieldName && !item.isFinish ? (
                         <div className="space-y-1">
@@ -422,6 +429,7 @@ export function ActionPlan({
                             min="0"
                             step="1"
                             defaultValue={item.pickupGels ?? ""}
+                            placeholder={recommendedPickupGels?.toString()}
                             className="border-slate-800/70 bg-slate-950/80 text-sm"
                             {...register(pickupFieldName, {
                               setValueAs: parseOptionalNumber,
