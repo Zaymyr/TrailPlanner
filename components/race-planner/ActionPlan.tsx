@@ -438,10 +438,16 @@ export function ActionPlan({
                         {supplyMetrics.map((metric) => (
                           <span
                             key={metric.key}
-                            className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/15 px-2 py-1 font-semibold"
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${
+                              metric.status.tone === "success"
+                                ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-50"
+                                : metric.status.tone === "warning"
+                                  ? "border-amber-400/60 bg-amber-500/20 text-amber-50"
+                                  : "border-slate-500/60 bg-slate-800/60 text-slate-100"
+                            }`}
                           >
                             {metricIcons[metric.key]}
-                            {metric.label}: {metric.format(metric.planned)} / {metric.format(metric.target)}
+                            {metric.label}: {metric.format(metric.planned)} / {metric.format(metric.target)} ({metric.status.label})
                           </span>
                         ))}
                       </div>
@@ -483,15 +489,7 @@ export function ActionPlan({
                     title={item.title}
                     distanceText={formatDistanceWithUnit(item.distanceKm)}
                     etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
-                    metrics={supplyMetrics.map((metric) => ({
-                      key: metric.key,
-                      label: metric.label,
-                      value: metric.format(metric.planned),
-                      helper: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
-                      icon: metricIcons[metric.key],
-                      statusLabel: metric.status.label,
-                      statusTone: metric.status.tone,
-                    }))}
+                    metrics={[]}
                     distanceInput={
                       distanceFieldName ? (
                         <div className="space-y-1 text-right sm:text-left">
