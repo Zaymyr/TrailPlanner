@@ -249,41 +249,19 @@ export function ActionPlan({
 
                 const gelsFieldName = getSegmentFieldName(segment, "gelsPlanned");
                   const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
-                  const metrics = [
-                    {
-                      key: "carbs" as const,
-                      label: timelineCopy.gelsBetweenLabel,
-                      planned: plannedFuel,
-                      target: segment.targetFuelGrams,
-                      total: raceTotals?.fuelGrams,
-                      format: formatFuelAmount,
-                    input: gelsFieldName ? (
-                      <div className="space-y-1">
-                        <Label className="sr-only" htmlFor={gelsFieldName}>
-                          {timelineCopy.gelsBetweenLabel}
-                        </Label>
-                        <Input
-                          id={gelsFieldName}
-                          type="number"
-                          min="0"
-                          step="0.5"
-                          defaultValue={segment.gelsPlanned ?? ""}
-                          placeholder={recommendedGels.toString()}
-                          className="border-slate-800/70 bg-slate-950/80 text-sm"
-                          {...register(gelsFieldName, {
-                            setValueAs: parseOptionalNumber,
-                          })}
-                        />
-                        <p className="text-[11px] text-slate-400">
-                          {timelineCopy.targetLabel}: {formatFuelAmount(segment.targetFuelGrams)}
-                        </p>
-                      </div>
-                    ) : null,
-                    },
-                    {
-                      key: "water" as const,
-                      label: copy.sections.summary.items.water,
-                      planned: plannedWater,
+                const metrics = [
+                  {
+                    key: "carbs" as const,
+                    label: timelineCopy.gelsBetweenLabel,
+                    planned: plannedFuel,
+                    target: segment.targetFuelGrams,
+                    total: raceTotals?.fuelGrams,
+                    format: formatFuelAmount,
+                  },
+                  {
+                    key: "water" as const,
+                    label: copy.sections.summary.items.water,
+                    planned: plannedWater,
                       target: segment.targetWaterMl,
                       total: raceTotals?.waterMl,
                       format: formatWaterAmount,
