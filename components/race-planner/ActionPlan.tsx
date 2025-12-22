@@ -400,7 +400,6 @@ export function ActionPlan({
                     : metricKey === "water"
                       ? formatWaterAmount
                       : formatSodiumAmount;
-                const status = getPlanStatus(planned, target);
                 return {
                   key: metricKey,
                   label:
@@ -412,7 +411,6 @@ export function ActionPlan({
                   planned,
                   target,
                   format,
-                  status,
                 };
               });
 
@@ -434,20 +432,14 @@ export function ActionPlan({
                         <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
                         <span className="text-[11px] text-emerald-100/80">{timelineCopy.pointStockHelper}</span>
                       </div>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 text-[11px] text-emerald-50">
                         {supplyMetrics.map((metric) => (
                           <span
                             key={metric.key}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${
-                              metric.status.tone === "success"
-                                ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-50"
-                                : metric.status.tone === "warning"
-                                  ? "border-amber-400/60 bg-amber-500/20 text-amber-50"
-                                  : "border-slate-500/60 bg-slate-800/60 text-slate-100"
-                            }`}
+                            className="inline-flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/15 px-2 py-1 font-semibold"
                           >
                             {metricIcons[metric.key]}
-                            {metric.status.label}: {metric.format(metric.planned)} / {metric.format(metric.target)}
+                            {metric.label}: {metric.format(metric.planned)} / {metric.format(metric.target)}
                           </span>
                         ))}
                       </div>
@@ -482,21 +474,6 @@ export function ActionPlan({
                   </div>
                 ) : null;
 
-              const metricCards = supplyMetrics.map((metric) => ({
-                key: metric.key,
-                label:
-                  metric.key === "carbs"
-                    ? timelineCopy.gelsBetweenLabel
-                    : metric.key === "water"
-                      ? copy.sections.summary.items.water
-                      : copy.sections.summary.items.sodium,
-                value: metric.format(metric.planned),
-                helper: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
-                icon: metricIcons[metric.key],
-                statusLabel: metric.status.label,
-                statusTone: metric.status.tone,
-              }));
-
               return (
                 <div key={item.id} className="relative pl-8">
                   <TimelinePointCard
@@ -504,7 +481,7 @@ export function ActionPlan({
                     title={item.title}
                     distanceText={formatDistanceWithUnit(item.distanceKm)}
                     etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
-                    metrics={metricCards}
+                    metrics={[]}
                     distanceInput={
                       distanceFieldName ? (
                         <div className="space-y-1 text-right sm:text-left">
