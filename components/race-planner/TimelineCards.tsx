@@ -47,18 +47,14 @@ type TimelinePointCardProps = {
   title: string;
   distanceText: string;
   etaText?: string;
-  stockLabel: string;
-  upcomingHelper?: string;
   metrics: PointMetric[];
   distanceInput?: ReactNode;
-  pickupInput?: ReactNode;
-  pickupHelper?: string;
-  pickupLabel?: string;
   finishLabel?: string;
   removeAction?: ReactNode;
   isStart?: boolean;
   isFinish?: boolean;
-  suppliesSection?: ReactNode;
+  infoSection?: ReactNode;
+  dropSection?: ReactNode;
 };
 
 const metricToneClasses: Record<SegmentMetric["key"], string> = {
@@ -194,18 +190,14 @@ export function TimelinePointCard({
   title,
   distanceText,
   etaText,
-  stockLabel,
-  upcomingHelper,
   metrics,
   distanceInput,
-  pickupInput,
-  pickupHelper,
-  pickupLabel,
   finishLabel,
   removeAction,
   isStart,
   isFinish,
-  suppliesSection,
+  infoSection,
+  dropSection,
 }: TimelinePointCardProps) {
   return (
     <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
@@ -239,21 +231,9 @@ export function TimelinePointCard({
         ) : null}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-wide text-slate-400">{stockLabel}</p>
-          {upcomingHelper ? <p className="text-xs text-slate-500">{upcomingHelper}</p> : null}
-        </div>
-        {suppliesSection ? <div className="flex-1 min-w-[280px]">{suppliesSection}</div> : null}
-        {!isStart && !isFinish ? (
-          <div className="min-w-[240px] flex-1">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">
-              {pickupLabel ?? "Gels"}
-            </p>
-            {pickupInput ?? <p className="text-sm text-slate-400">—</p>}
-            {pickupHelper ? <p className="text-[11px] text-slate-500">{pickupHelper}</p> : null}
-          </div>
-        ) : null}
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        {infoSection ? <div className="min-w-[260px] space-y-2">{infoSection}</div> : null}
+        {dropSection ? <div className="min-w-[260px] space-y-2">{dropSection}</div> : null}
         {isFinish ? (
           <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
             <Clock3Icon className="h-4 w-4 text-emerald-200" aria-hidden />

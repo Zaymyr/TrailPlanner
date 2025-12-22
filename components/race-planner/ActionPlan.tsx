@@ -372,22 +372,12 @@ export function ActionPlan({
               }
 
               const pointNumber = itemIndex === 0 ? 1 : Math.ceil(itemIndex / 2) + 1;
-              const pickupFieldName = item.checkpointSegment
-                ? getSegmentFieldName(item.checkpointSegment, "pickupGels")
-                : null;
               const distanceFieldName =
                 typeof item.aidStationIndex === "number"
                   ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
                   : null;
 
               const nextSegment = item.upcomingSegment;
-              const recommendedPickupGels =
-                nextSegment && Number.isFinite(nextSegment.recommendedGels)
-                  ? Math.max(0, Math.round(nextSegment.recommendedGels * 10) / 10)
-                  : null;
-              const pickupHelperText = recommendedPickupGels
-                ? `${timelineCopy.pickupHelper} · ${timelineCopy.targetLabel}: ${recommendedPickupGels} ${timelineCopy.gelsBetweenLabel.toLowerCase()}`
-                : timelineCopy.pickupHelper;
               const supplies = item.checkpointSegment?.supplies;
               const summarized = summarizeSupplies(supplies);
               const supplyMetrics = ["carbs", "water", "sodium"].map((key) => {
@@ -426,7 +416,54 @@ export function ActionPlan({
                 };
               });
 
-              const suppliesSection =
+              const supplyInfoSection =
+                typeof item.aidStationIndex === "number" ? (
+                  <div className="space-y-3 rounded-lg border border-slate-800 bg-slate-950/70 p-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-50">{timelineCopy.pickupTitle}</p>
+                      {nextSegment ? <p className="text-xs text-slate-400">{timelineCopy.pickupHelper}</p> : null}
+                    </div>
+                    <div className="space-y-2">
+                      {supplyMetrics.map((metric) => (
+                        <div
+                          key={metric.key}
+                          className={`flex items-center justify-between rounded-md border px-3 py-2 ${
+                            metric.key === "carbs"
+                              ? "border-purple-400/50 bg-purple-500/10"
+                              : metric.key === "water"
+                                ? "border-sky-400/50 bg-sky-500/10"
+                                : "border-amber-300/50 bg-amber-500/10"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-900">
+                              {metricIcons[metric.key]}
+                            </span>
+                            <div className="space-y-0.5">
+                              <p className="text-sm font-semibold text-slate-50">
+                                {metric.format(metric.planned)} / {metric.format(metric.target)}
+                              </p>
+                              <p className="text-[11px] text-slate-200">{metric.label}</p>
+                            </div>
+                          </div>
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold ${
+                              metric.status.tone === "success"
+                                ? "border border-emerald-400/50 bg-emerald-500/20 text-emerald-50"
+                                : metric.status.tone === "warning"
+                                  ? "border border-amber-400/60 bg-amber-500/20 text-amber-50"
+                                  : "border border-slate-500/60 bg-slate-800/60 text-slate-100"
+                            }`}
+                          >
+                            {metric.status.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null;
+
+              const suppliesDropZone =
                 typeof item.aidStationIndex === "number" ? (
                   <div
                     className="flex w-full flex-col gap-3 rounded-lg border border-dashed border-emerald-400/40 bg-emerald-500/5 p-3 transition hover:border-emerald-300/70"
@@ -439,46 +476,27 @@ export function ActionPlan({
                       onSupplyDrop(item.aidStationIndex as number, productId, quantity);
                     }}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-emerald-50">{timelineCopy.pickupTitle}</p>
-                        <p className="text-[11px] text-emerald-100/80">{timelineCopy.pickupHelper}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-slate-200">
-                        {supplyMetrics.map((metric) => (
-                          <span
-                            key={metric.key}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 ${
-                              metric.status.tone === "success"
-                                ? "border-emerald-400/60 bg-emerald-500/20 text-emerald-50"
-                                : metric.status.tone === "warning"
-                                  ? "border-amber-400/50 bg-amber-500/20 text-amber-50"
-                                  : "border-slate-500/60 bg-slate-800/50 text-slate-100"
-                            }`}
-                          >
-                            {metricIcons[metric.key]}
-                            {metric.format(metric.planned)} / {metric.format(metric.target)} ({metric.status.label})
-                          </span>
-                        ))}
-                      </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
+                      <span className="text-[11px] text-emerald-100/80">{timelineCopy.pointStockHelper}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {summarized.items.length === 0 ? (
-                        <p className="text-xs text-emerald-100/70">{timelineCopy.pointStockHelper}</p>
+                        <p className="text-xs text-emerald-100/70">{timelineCopy.pickupHelper}</p>
                       ) : (
-                            summarized.items.map(({ product, quantity }) => (
-                              <div
-                                key={product.id}
-                                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
-                              >
-                                <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                  onClick={() => onSupplyRemove(item.aidStationIndex as number, product.id)}
-                                >
-                                  ×
+                        summarized.items.map(({ product, quantity }) => (
+                          <div
+                            key={product.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
+                          >
+                            <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                              onClick={() => onSupplyRemove(item.aidStationIndex as number, product.id)}
+                            >
+                              ×
                             </Button>
                           </div>
                         ))
@@ -499,8 +517,6 @@ export function ActionPlan({
                     title={item.title}
                     distanceText={formatDistanceWithUnit(item.distanceKm)}
                     etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
-                    stockLabel={timelineCopy.pointStockLabel}
-                    upcomingHelper={timelineCopy.pointStockHelper}
                     metrics={[]}
                     distanceInput={
                       distanceFieldName ? (
@@ -514,29 +530,6 @@ export function ActionPlan({
                             step="0.5"
                             className="max-w-[160px] border-slate-800/70 bg-slate-950/80 text-sm"
                             {...register(distanceFieldName, { valueAsNumber: true })}
-                          />
-                        </div>
-                      ) : null
-                    }
-                    pickupLabel={timelineCopy.pickupTitle}
-                    pickupHelper={pickupHelperText}
-                    pickupInput={
-                      pickupFieldName && !item.isFinish ? (
-                        <div className="space-y-1">
-                          <Label className="text-xs text-slate-200" htmlFor={pickupFieldName}>
-                            {timelineCopy.pickupGelsLabel}
-                          </Label>
-                          <Input
-                            id={pickupFieldName}
-                            type="number"
-                            min="0"
-                            step="1"
-                            defaultValue={item.pickupGels ?? ""}
-                            placeholder={recommendedPickupGels?.toString()}
-                            className="border-slate-800/70 bg-slate-950/80 text-sm"
-                            {...register(pickupFieldName, {
-                              setValueAs: parseOptionalNumber,
-                            })}
                           />
                         </div>
                       ) : null
@@ -559,7 +552,8 @@ export function ActionPlan({
                     }
                     isStart={item.isStart}
                     isFinish={item.isFinish}
-                    suppliesSection={suppliesSection}
+                    infoSection={supplyInfoSection}
+                    dropSection={suppliesDropZone}
                   />
                 </div>
               );
