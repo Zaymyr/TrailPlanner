@@ -466,20 +466,19 @@ export function ActionPlan({
                       {summarized.items.length === 0 ? (
                         <p className="text-xs text-emerald-100/70">{timelineCopy.pointStockHelper}</p>
                       ) : (
-                        summarized.items.map(({ product, quantity }) => (
-                          <div
-                            key={product.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
-                          >
-                            <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                            <Button
-                              type="button"
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                              onClick={() => onSupplyRemove(item.aidStationIndex as number, product.id)}
-                            >
-                              ×
+                            summarized.items.map(({ product, quantity }) => (
+                              <div
+                                key={product.id}
+                                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
+                              >
+                                <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                  onClick={() => onSupplyRemove(item.aidStationIndex as number, product.id)}
+                                >
+                                  ×
                             </Button>
                           </div>
                         ))
