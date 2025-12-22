@@ -53,7 +53,6 @@ type TimelinePointCardProps = {
   removeAction?: ReactNode;
   isStart?: boolean;
   isFinish?: boolean;
-  infoSection?: ReactNode;
   dropSection?: ReactNode;
 };
 
@@ -196,7 +195,6 @@ export function TimelinePointCard({
   removeAction,
   isStart,
   isFinish,
-  infoSection,
   dropSection,
 }: TimelinePointCardProps) {
   return (
@@ -231,8 +229,7 @@ export function TimelinePointCard({
         ) : null}
       </div>
 
-      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        {infoSection ? <div className="min-w-[260px] space-y-2">{infoSection}</div> : null}
+      <div className="mt-3">
         {dropSection ? <div className="min-w-[260px] space-y-2">{dropSection}</div> : null}
         {isFinish ? (
           <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
