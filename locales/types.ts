@@ -191,6 +191,9 @@ export type RacePlannerTranslations = {
       segmentTimeLabel: string;
       segmentTimeHelp: string;
       rangeLabel: string;
+      segmentConsumptionLabel: string;
+      pointStockLabel: string;
+      pointStockHelper: string;
       betweenStationsTitle: string;
       betweenStationsHelper: string;
       gelsBetweenLabel: string;
