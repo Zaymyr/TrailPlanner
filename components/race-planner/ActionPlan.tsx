@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
@@ -136,6 +136,7 @@ export function ActionPlan({
   onSupplyDrop,
   onSupplyRemove,
 }: ActionPlanProps) {
+  const [startSupplies, setStartSupplies] = useState<StationSupply[]>([]);
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const renderItems = buildRenderItems(segments);
@@ -214,7 +215,7 @@ export function ActionPlan({
           <div className="relative space-y-4">
             <div className="absolute left-[18px] top-0 h-full w-px bg-slate-800/70" aria-hidden />
             {(() => {
-              let carrySupplies: StationSupply[] = [];
+              let carrySupplies: StationSupply[] = startSupplies;
               return renderItems.map((item, itemIndex) => {
                 if (item.kind === "segment") {
                   const { segment } = item;
@@ -355,14 +356,14 @@ export function ActionPlan({
                 }
 
                 const pointNumber = itemIndex === 0 ? 1 : Math.ceil(itemIndex / 2) + 1;
-              const distanceFieldName =
-                typeof item.aidStationIndex === "number"
-                  ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
-                  : null;
+                const distanceFieldName =
+                  typeof item.aidStationIndex === "number"
+                    ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
+                    : null;
 
-              const nextSegment = item.upcomingSegment;
-              const supplies = item.checkpointSegment?.supplies;
-              const summarized = summarizeSupplies(supplies);
+                const nextSegment = item.upcomingSegment;
+                const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
+                const summarized = summarizeSupplies(supplies);
               const supplyMetrics = ["carbs", "water", "sodium"].map((key) => {
                 const metricKey = key as "carbs" | "water" | "sodium";
                 const planned =
@@ -400,18 +401,29 @@ export function ActionPlan({
               });
 
                 const suppliesDropZone =
-                  typeof item.aidStationIndex === "number" ? (
-                  <div
-                    className="flex w-full flex-col gap-3 rounded-lg border border-dashed border-emerald-400/40 bg-emerald-500/5 p-3 transition hover:border-emerald-300/70"
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const productId = event.dataTransfer.getData("text/trailplanner-product-id");
-                      const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
-                      if (!productId) return;
-                      onSupplyDrop(item.aidStationIndex as number, productId, quantity);
-                    }}
-                  >
+                  item.isStart || typeof item.aidStationIndex === "number" ? (
+                    <div
+                      className="flex w-full flex-col gap-3 rounded-lg border border-dashed border-emerald-400/40 bg-emerald-500/5 p-3 transition hover:border-emerald-300/70"
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const productId = event.dataTransfer.getData("text/trailplanner-product-id");
+                        const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
+                        if (!productId) return;
+                        if (item.isStart) {
+                          setStartSupplies((current) => {
+                            const existing = current.find((s) => s.productId === productId);
+                            return existing
+                              ? current.map((s) =>
+                                  s.productId === productId ? { ...s, quantity: s.quantity + quantity } : s
+                                )
+                              : [...current, { productId, quantity }];
+                          });
+                        } else {
+                          onSupplyDrop(item.aidStationIndex as number, productId, quantity);
+                        }
+                      }}
+                    >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="space-y-0.5">
                         <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
@@ -432,7 +444,13 @@ export function ActionPlan({
                               type="button"
                               variant="ghost"
                               className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                              onClick={() => onSupplyRemove(item.aidStationIndex as number, product.id)}
+                              onClick={() => {
+                                if (item.isStart) {
+                                  setStartSupplies((current) => current.filter((s) => s.productId !== product.id));
+                                } else {
+                                  onSupplyRemove(item.aidStationIndex as number, product.id);
+                                }
+                              }}
                             >
                               ×
                             </Button>
