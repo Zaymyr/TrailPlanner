@@ -482,6 +482,21 @@ export function ActionPlan({
                   </div>
                 ) : null;
 
+              const metricCards = supplyMetrics.map((metric) => ({
+                key: metric.key,
+                label:
+                  metric.key === "carbs"
+                    ? timelineCopy.gelsBetweenLabel
+                    : metric.key === "water"
+                      ? copy.sections.summary.items.water
+                      : copy.sections.summary.items.sodium,
+                value: metric.format(metric.planned),
+                helper: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
+                icon: metricIcons[metric.key],
+                statusLabel: metric.status.label,
+                statusTone: metric.status.tone,
+              }));
+
               return (
                 <div key={item.id} className="relative pl-8">
                   <TimelinePointCard
@@ -489,7 +504,7 @@ export function ActionPlan({
                     title={item.title}
                     distanceText={formatDistanceWithUnit(item.distanceKm)}
                     etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
-                    metrics={[]}
+                    metrics={metricCards}
                     distanceInput={
                       distanceFieldName ? (
                         <div className="space-y-1 text-right sm:text-left">

@@ -40,6 +40,8 @@ type PointMetric = {
   helper?: string;
   icon: ReactNode;
   muted?: boolean;
+  statusLabel?: string;
+  statusTone?: StatusTone;
 };
 
 type TimelinePointCardProps = {
@@ -121,6 +123,19 @@ function PointMetricCard({ metric }: { metric: PointMetric }) {
           {metric.icon}
         </span>
         <p className="text-[12px] font-semibold text-slate-100">{metric.label}</p>
+        {metric.statusLabel ? (
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-1 text-[11px] font-semibold ${
+              metric.statusTone === "success"
+                ? "border border-emerald-400/50 bg-emerald-500/20 text-emerald-50"
+                : metric.statusTone === "warning"
+                  ? "border border-amber-400/60 bg-amber-500/20 text-amber-50"
+                  : "border border-slate-500/60 bg-slate-800/60 text-slate-100"
+            }`}
+          >
+            {metric.statusLabel}
+          </span>
+        ) : null}
       </div>
       <p className="text-lg font-semibold text-slate-50">{metric.value ?? "—"}</p>
       {metric.helper ? <p className="text-[11px] text-slate-400">{metric.helper}</p> : null}
@@ -214,13 +229,13 @@ export function TimelinePointCard({
         </div>
         <div className="flex flex-1 flex-wrap items-center gap-2">
           {metrics.length ? (
-            <div className="flex flex-wrap gap-2">
-              {metrics.map((metric) => (
-                <PointMetricCard key={metric.key} metric={metric} />
-              ))}
-            </div>
-          ) : null}
-        </div>
+          <div className="flex flex-wrap gap-2">
+            {metrics.map((metric) => (
+              <PointMetricCard key={metric.key} metric={metric} />
+            ))}
+          </div>
+        ) : null}
+      </div>
         {distanceInput || removeAction ? (
           <div className="flex items-start gap-3">
             {distanceInput ? <div className="text-right text-xs text-slate-300">{distanceInput}</div> : null}
