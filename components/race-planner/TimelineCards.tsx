@@ -58,6 +58,7 @@ type TimelinePointCardProps = {
   removeAction?: ReactNode;
   isStart?: boolean;
   isFinish?: boolean;
+  suppliesSection?: ReactNode;
 };
 
 const metricToneClasses: Record<SegmentMetric["key"], string> = {
@@ -204,6 +205,7 @@ export function TimelinePointCard({
   removeAction,
   isStart,
   isFinish,
+  suppliesSection,
 }: TimelinePointCardProps) {
   return (
     <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
@@ -221,11 +223,13 @@ export function TimelinePointCard({
           </div>
         </div>
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          <div className="flex flex-wrap gap-2">
-            {metrics.map((metric) => (
-              <PointMetricCard key={metric.key} metric={metric} />
-            ))}
-          </div>
+          {metrics.length ? (
+            <div className="flex flex-wrap gap-2">
+              {metrics.map((metric) => (
+                <PointMetricCard key={metric.key} metric={metric} />
+              ))}
+            </div>
+          ) : null}
         </div>
         {distanceInput || removeAction ? (
           <div className="flex items-start gap-3">
@@ -240,6 +244,7 @@ export function TimelinePointCard({
           <p className="text-[11px] uppercase tracking-wide text-slate-400">{stockLabel}</p>
           {upcomingHelper ? <p className="text-xs text-slate-500">{upcomingHelper}</p> : null}
         </div>
+        {suppliesSection ? <div className="flex-1 min-w-[280px]">{suppliesSection}</div> : null}
         {!isStart && !isFinish ? (
           <div className="min-w-[240px] flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-300">

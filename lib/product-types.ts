@@ -11,6 +11,7 @@ export const fuelProductSchema = z.object({
   sodiumMg: z.number(),
   proteinGrams: z.number(),
   fatGrams: z.number(),
+  waterMl: z.number().optional(),
 });
 
 export type FuelProduct = z.infer<typeof fuelProductSchema>;

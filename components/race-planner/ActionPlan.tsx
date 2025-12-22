@@ -1,9 +1,11 @@
 "use client";
 
+import { useMemo } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
-import type { FormValues, Segment, SegmentPlan } from "../../app/(coach)/race-planner/types";
+import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
+import type { FuelProduct } from "../../lib/product-types";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
@@ -34,6 +36,9 @@ type ActionPlanProps = {
   formatWaterAmount: (value: number) => string;
   formatSodiumAmount: (value: number) => string;
   calculatePercentage: (value: number, total?: number) => number;
+  fuelProducts: FuelProduct[];
+  onSupplyDrop: (aidStationIndex: number, productId: string, quantity?: number) => void;
+  onSupplyRemove: (aidStationIndex: number, productId: string) => void;
 };
 
 const parseOptionalNumber = (value: string | number) => {
@@ -127,10 +132,14 @@ export function ActionPlan({
   formatWaterAmount,
   formatSodiumAmount,
   calculatePercentage,
+  fuelProducts,
+  onSupplyDrop,
+  onSupplyRemove,
 }: ActionPlanProps) {
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const renderItems = buildRenderItems(segments);
+  const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const metricIcons = {
     carbs: <FlameIcon className="h-4 w-4 text-purple-100" aria-hidden />,
     water: <DropletsIcon className="h-4 w-4 text-sky-100" aria-hidden />,
@@ -144,6 +153,32 @@ export function ActionPlan({
     if (ratio < 0.9) return { label: timelineCopy.status.belowTarget, tone: "warning" as const };
     if (ratio > 1.1) return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
     return { label: timelineCopy.status.atTarget, tone: "success" as const };
+  };
+
+  const summarizeSupplies = (supplies?: StationSupply[]) => {
+    const grouped: Record<string, { product: FuelProduct; quantity: number }> = {};
+    supplies?.forEach((supply) => {
+      const product = productById[supply.productId];
+      if (!product) return;
+      const safeQuantity = Number.isFinite(supply.quantity) ? supply.quantity : 0;
+      if (safeQuantity <= 0) return;
+      if (!grouped[product.id]) {
+        grouped[product.id] = { product, quantity: 0 };
+      }
+      grouped[product.id].quantity += safeQuantity;
+    });
+
+    const items = Object.values(grouped).sort((a, b) => a.product.name.localeCompare(b.product.name));
+    const totals = items.reduce(
+      (acc, item) => ({
+        carbs: acc.carbs + item.product.carbsGrams * item.quantity,
+        water: acc.water + (item.product.waterMl ?? 0) * item.quantity,
+        sodium: acc.sodium + item.product.sodiumMg * item.quantity,
+      }),
+      { carbs: 0, water: 0, sodium: 0 }
+    );
+
+    return { items, totals };
   };
 
   return (
@@ -353,27 +388,29 @@ export function ActionPlan({
               const pickupHelperText = recommendedPickupGels
                 ? `${timelineCopy.pickupHelper} · ${timelineCopy.targetLabel}: ${recommendedPickupGels} ${timelineCopy.gelsBetweenLabel.toLowerCase()}`
                 : timelineCopy.pickupHelper;
-              const pointMetrics = ["carbs", "water", "sodium"].map((key) => {
+              const supplies = item.checkpointSegment?.supplies;
+              const summarized = summarizeSupplies(supplies);
+              const supplyMetrics = ["carbs", "water", "sodium"].map((key) => {
                 const metricKey = key as "carbs" | "water" | "sodium";
-                const value =
+                const planned =
                   metricKey === "carbs"
-                    ? nextSegment?.plannedFuelGrams
+                    ? summarized.totals.carbs
                     : metricKey === "water"
-                      ? nextSegment?.plannedWaterMl
-                      : nextSegment?.plannedSodiumMg;
-                const formattedValue =
-                  metricKey === "carbs"
-                    ? formatFuelAmount(value ?? 0)
-                    : metricKey === "water"
-                      ? formatWaterAmount(value ?? 0)
-                      : formatSodiumAmount(value ?? 0);
+                      ? summarized.totals.water
+                      : summarized.totals.sodium;
                 const target =
                   metricKey === "carbs"
-                    ? formatFuelAmount(nextSegment?.targetFuelGrams ?? 0)
+                    ? nextSegment?.targetFuelGrams ?? 0
                     : metricKey === "water"
-                      ? formatWaterAmount(nextSegment?.targetWaterMl ?? 0)
-                      : formatSodiumAmount(nextSegment?.targetSodiumMg ?? 0);
-
+                      ? nextSegment?.targetWaterMl ?? 0
+                      : nextSegment?.targetSodiumMg ?? 0;
+                const format =
+                  metricKey === "carbs"
+                    ? formatFuelAmount
+                    : metricKey === "water"
+                      ? formatWaterAmount
+                      : formatSodiumAmount;
+                const status = getPlanStatus(planned, target);
                 return {
                   key: metricKey,
                   label:
@@ -382,12 +419,79 @@ export function ActionPlan({
                       : metricKey === "water"
                         ? copy.sections.summary.items.water
                         : copy.sections.summary.items.sodium,
-                  value: nextSegment ? formattedValue : undefined,
-                  helper: nextSegment ? `${timelineCopy.targetLabel}: ${target}` : undefined,
-                  icon: metricIcons[metricKey],
-                  muted: !nextSegment,
+                  planned,
+                  target,
+                  format,
+                  status,
                 };
               });
+
+              const suppliesSection =
+                typeof item.aidStationIndex === "number" ? (
+                  <div
+                    className="flex w-full flex-col gap-3 rounded-lg border border-dashed border-emerald-400/40 bg-emerald-500/5 p-3 transition hover:border-emerald-300/70"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      const productId = event.dataTransfer.getData("text/trailplanner-product-id");
+                      const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
+                      if (!productId) return;
+                      onSupplyDrop(item.aidStationIndex as number, productId, quantity);
+                    }}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-50">{timelineCopy.pickupTitle}</p>
+                        <p className="text-[11px] text-emerald-100/80">{timelineCopy.pickupHelper}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-slate-200">
+                        {supplyMetrics.map((metric) => (
+                          <span
+                            key={metric.key}
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 ${
+                              metric.status.tone === "success"
+                                ? "border-emerald-400/60 bg-emerald-500/20 text-emerald-50"
+                                : metric.status.tone === "warning"
+                                  ? "border-amber-400/50 bg-amber-500/20 text-amber-50"
+                                  : "border-slate-500/60 bg-slate-800/50 text-slate-100"
+                            }`}
+                          >
+                            {metricIcons[metric.key]}
+                            {metric.format(metric.planned)} / {metric.format(metric.target)} ({metric.status.label})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {summarized.items.length === 0 ? (
+                        <p className="text-xs text-emerald-100/70">{timelineCopy.pointStockHelper}</p>
+                      ) : (
+                        summarized.items.map(({ product, quantity }) => (
+                          <div
+                            key={product.id}
+                            className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
+                          >
+                            <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                              onClick={() => onSupplyRemove(item.aidStationIndex as number, product.id)}
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-300">
+                      {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized.totals.carbs)} ·{" "}
+                      {copy.sections.summary.items.water}: {formatWaterAmount(summarized.totals.water)} ·{" "}
+                      {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized.totals.sodium)}
+                    </p>
+                  </div>
+                ) : null;
 
               return (
                 <div key={item.id} className="relative pl-8">
@@ -398,7 +502,7 @@ export function ActionPlan({
                     etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
                     stockLabel={timelineCopy.pointStockLabel}
                     upcomingHelper={timelineCopy.pointStockHelper}
-                    metrics={pointMetrics}
+                    metrics={[]}
                     distanceInput={
                       distanceFieldName ? (
                         <div className="space-y-1 text-right sm:text-left">
@@ -456,6 +560,7 @@ export function ActionPlan({
                     }
                     isStart={item.isStart}
                     isFinish={item.isFinish}
+                    suppliesSection={suppliesSection}
                   />
                 </div>
               );
