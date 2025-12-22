@@ -275,31 +275,36 @@ export function ActionPlan({
 
                 return (
                   <div key={item.id} className="relative pl-20">
-                    <div className="pointer-events-none absolute left-4 top-0 bottom-[-28px] flex flex-col items-center" aria-hidden>
-                      <div className="flex flex-col items-center">
-                        <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
-                        <span className="h-8 w-px bg-gradient-to-b from-emerald-400/80 via-emerald-400 to-emerald-300" />
-                        <div className="flex flex-col items-center rounded-md border border-slate-800 bg-slate-950/90 px-2 py-1 text-[11px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/10">
-                          <span>{distanceHelper}</span>
-                          <span className="text-[10px] font-normal text-slate-300">{formatMinutes(segment.segmentMinutes)}</span>
-                        </div>
-                        <span className="flex-1 w-px bg-gradient-to-b from-emerald-300 via-emerald-400 to-emerald-300" />
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
-                          <ArrowRightIcon className="h-3.5 w-3.5 -rotate-90 text-emerald-200" aria-hidden />
+                    <div className="pointer-events-none absolute left-6 top-2 bottom-2 flex flex-col items-center" aria-hidden>
+                      <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
+                      <div className="relative mt-1 flex h-full w-px flex-col items-center">
+                        <span className="absolute left-1/2 top-8 z-10 w-28 -translate-x-1/2 rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[11px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
+                          <span className="block">{distanceHelper}</span>
+                          <span className="block text-[10px] font-normal text-slate-300">
+                            {timelineCopy.segmentTimeLabel}: {formatMinutes(segment.segmentMinutes)}
+                          </span>
                         </span>
+                        <span className="h-full w-px bg-gradient-to-b from-emerald-400 via-emerald-400/80 to-emerald-300" />
                       </div>
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
+                        <ArrowRightIcon className="h-3.5 w-3.5 -rotate-90 text-emerald-200" aria-hidden />
+                      </span>
                     </div>
 
                     <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/70 px-3 py-2 text-sm font-semibold text-slate-50">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/70 px-3 py-2 text-sm font-semibold text-slate-50 shadow-sm shadow-emerald-500/10">
                           <span>{segment.from}</span>
                           <ArrowRightIcon className="h-4 w-4 text-emerald-200" aria-hidden />
                           <span>{segment.checkpoint}</span>
                         </div>
-                        <div className="text-right text-xs text-slate-300">
-                          <p>{timelineCopy.segmentTimeLabel}: {timeInput ? null : formatMinutes(segment.segmentMinutes)}</p>
-                          <p className="text-[11px] text-slate-400">{timelineCopy.etaLabel}: {formatMinutes(segment.etaMinutes)}</p>
+                        <div className="text-xs text-slate-300">
+                          <p>
+                            {timelineCopy.etaLabel}: {formatMinutes(segment.etaMinutes)}
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            {timelineCopy.segmentTimeHelp} (≈ {formatMinutes(segment.estimatedSegmentMinutes)})
+                          </p>
                         </div>
                       </div>
 
