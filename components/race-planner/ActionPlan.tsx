@@ -400,6 +400,7 @@ export function ActionPlan({
                     : metricKey === "water"
                       ? formatWaterAmount
                       : formatSodiumAmount;
+                const status = getPlanStatus(planned, target);
                 return {
                   key: metricKey,
                   label:
@@ -411,6 +412,7 @@ export function ActionPlan({
                   planned,
                   target,
                   format,
+                  status,
                 };
               });
 
@@ -481,7 +483,15 @@ export function ActionPlan({
                     title={item.title}
                     distanceText={formatDistanceWithUnit(item.distanceKm)}
                     etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
-                    metrics={[]}
+                    metrics={supplyMetrics.map((metric) => ({
+                      key: metric.key,
+                      label: metric.label,
+                      value: metric.format(metric.planned),
+                      helper: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
+                      icon: metricIcons[metric.key],
+                      statusLabel: metric.status.label,
+                      statusTone: metric.status.tone,
+                    }))}
                     distanceInput={
                       distanceFieldName ? (
                         <div className="space-y-1 text-right sm:text-left">
