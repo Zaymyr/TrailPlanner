@@ -10,7 +10,7 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ArrowRightIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
-import { TimelinePointCard, TimelineSegmentCard } from "./TimelineCards";
+import { TimelinePointCard } from "./TimelineCards";
 
 type RaceTotals = {
   fuelGrams: number;
@@ -255,6 +255,24 @@ export function ActionPlan({
                   },
                 ];
 
+                const inlineMetrics = metrics.map((metric) => {
+                  const status = getPlanStatus(metric.planned, metric.target);
+                  const targetPercent =
+                    metric.target > 0 ? Math.max(0, Math.min((metric.planned / metric.target) * 100, 999)) : 0;
+                  return {
+                    key: metric.key,
+                    label: metric.label,
+                    value: metric.format(metric.planned),
+                    targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
+                    targetPercent,
+                    totalPercent: calculatePercentage(metric.planned, metric.total),
+                    statusLabel: status.label,
+                    statusTone: status.tone,
+                    icon: metricIcons[metric.key],
+                    input: metric.input,
+                  };
+                });
+
                 return (
                   <div key={item.id} className="relative pl-20">
                     <div className="pointer-events-none absolute left-4 top-0 bottom-[-28px] flex flex-col items-center" aria-hidden>
@@ -271,36 +289,58 @@ export function ActionPlan({
                         </span>
                       </div>
                     </div>
-                    <TimelineSegmentCard
-                      segmentIndex={item.index}
-                      headerLabel={timelineCopy.segmentConsumptionLabel ?? timelineCopy.betweenStationsTitle}
-                      fromTitle={segment.from}
-                      toTitle={segment.checkpoint}
-                      distanceText={`${formatDistanceWithUnit(segment.startDistanceKm)} → ${formatDistanceWithUnit(segment.distanceKm)}`}
-                      segmentDistanceHelper={distanceHelper}
-                      durationLabel={timelineCopy.segmentTimeLabel}
-                      durationValue={formatMinutes(segment.segmentMinutes)}
-                      etaText={`${timelineCopy.etaLabel}: ${formatMinutes(segment.etaMinutes)}`}
-                      durationHelper={`${timelineCopy.segmentTimeHelp} (≈ ${formatMinutes(segment.estimatedSegmentMinutes)})`}
-                      timeInput={timeInput}
-                      metrics={metrics.map((metric) => {
-                        const status = getPlanStatus(metric.planned, metric.target);
-                        const targetPercent =
-                          metric.target > 0 ? Math.max(0, Math.min((metric.planned / metric.target) * 100, 999)) : 0;
-                        return {
-                          key: metric.key,
-                          label: metric.label,
-                          value: metric.format(metric.planned),
-                          targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
-                          targetPercent,
-                          totalPercent: calculatePercentage(metric.planned, metric.total),
-                          statusLabel: status.label,
-                          statusTone: status.tone,
-                          icon: metricIcons[metric.key],
-                          input: metric.input,
-                        };
-                      })}
-                    />
+
+                    <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-900/70 px-3 py-2 text-sm font-semibold text-slate-50">
+                          <span>{segment.from}</span>
+                          <ArrowRightIcon className="h-4 w-4 text-emerald-200" aria-hidden />
+                          <span>{segment.checkpoint}</span>
+                        </div>
+                        <div className="text-right text-xs text-slate-300">
+                          <p>{timelineCopy.segmentTimeLabel}: {timeInput ? null : formatMinutes(segment.segmentMinutes)}</p>
+                          <p className="text-[11px] text-slate-400">{timelineCopy.etaLabel}: {formatMinutes(segment.etaMinutes)}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 lg:flex-row">
+                        {inlineMetrics.map((metric) => (
+                          <div
+                            key={metric.key}
+                            className={`flex-1 rounded-lg border px-3 py-2 ${metric.key === "carbs" ? "border-purple-500/40 bg-purple-500/10" : metric.key === "water" ? "border-sky-500/40 bg-sky-500/10" : "border-slate-500/40 bg-slate-500/10"}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-900">
+                                  {metric.icon}
+                                </span>
+                                <p className="text-sm font-semibold text-slate-50">{metric.label}</p>
+                              </div>
+                              <span
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                  metric.statusTone === "success"
+                                    ? "border border-emerald-400/40 bg-emerald-500/20 text-emerald-50"
+                                    : metric.statusTone === "warning"
+                                      ? "border border-amber-400/40 bg-amber-500/15 text-amber-50"
+                                      : "border border-slate-400/40 bg-slate-600/20 text-slate-50"
+                                }`}
+                              >
+                                {metric.statusLabel}
+                              </span>
+                            </div>
+                            <div className="mt-2 flex flex-col gap-1 text-sm text-slate-50">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold">{metric.value}</span>
+                                {metric.input ? <div className="max-w-[160px]">{metric.input}</div> : null}
+                              </div>
+                              <p className="text-[11px] text-slate-200">
+                                {metric.targetText} · {metric.targetPercent.toFixed(0)}% ({metric.totalPercent.toFixed(0)}% total)
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 );
               }
