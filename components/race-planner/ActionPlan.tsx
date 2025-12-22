@@ -416,23 +416,6 @@ export function ActionPlan({
                         <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
                         <span className="text-[11px] text-emerald-100/80">{timelineCopy.pointStockHelper}</span>
                       </div>
-                      <div className="flex flex-wrap gap-1 text-[11px] text-emerald-50">
-                        {supplyMetrics.map((metric) => (
-                          <span
-                            key={metric.key}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold ${
-                              metric.status.tone === "success"
-                                ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-50"
-                                : metric.status.tone === "warning"
-                                  ? "border-amber-400/60 bg-amber-500/20 text-amber-50"
-                                  : "border-slate-500/60 bg-slate-800/60 text-slate-100"
-                            }`}
-                          >
-                            {metricIcons[metric.key]}
-                            {metric.label}: {metric.format(metric.planned)} / {metric.format(metric.target)} ({metric.status.label})
-                          </span>
-                        ))}
-                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {summarized.items.length === 0 ? (
