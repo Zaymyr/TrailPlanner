@@ -209,11 +209,11 @@ export function TimelinePointCard({
         <div className="md:col-span-3">
           <p className="text-[11px] uppercase tracking-wide text-slate-400">{stockLabel}</p>
           {upcomingHelper ? <p className="text-xs text-slate-500">{upcomingHelper}</p> : null}
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {metrics.map((metric) => (
               <div
                 key={metric.key}
-                className={`flex min-w-[180px] flex-1 rounded-lg border border-slate-800 bg-slate-900/70 p-3 ${metric.muted ? "opacity-60" : ""}`}
+                className={`rounded-lg border border-slate-800 bg-slate-900/70 p-3 ${metric.muted ? "opacity-60" : ""}`}
               >
                 <div className="flex items-center gap-2">
                   <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-950 text-slate-200">
