@@ -136,6 +136,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   targetIntakePerHour: 70,
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 600,
+  startSupplies: [],
   aidStations: [
     { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10 },
     { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20 },
@@ -184,6 +185,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      startSupplies: createSegmentPlanSchema(copy.validation).shape.supplies.optional(),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
     })
@@ -523,10 +525,12 @@ function sanitizePlannerValues(values?: Partial<FormValues>): Partial<FormValues
   const paceType = values.paceType === "speed" ? "speed" : "pace";
   const aidStations = sanitizeAidStations(values.aidStations);
   const finishPlan = sanitizeSegmentPlan(values.finishPlan);
+  const startSupplies = sanitizeSegmentPlan({ supplies: values.startSupplies }).supplies;
 
   return {
     ...values,
     paceType,
+    startSupplies,
     aidStations,
     finishPlan,
   };
@@ -820,6 +824,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const paceType = form.watch("paceType");
   const uphillEffort = form.watch("uphillEffort") ?? defaultValues.uphillEffort;
   const downhillEffort = form.watch("downhillEffort") ?? defaultValues.downhillEffort;
+  const startSupplies = form.watch("startSupplies") ?? [];
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -1181,6 +1186,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         ...parsedValues.data,
         aidStations: sanitizedAidStations,
         finishPlan: sanitizedFinishPlan,
+        startSupplies: sanitizeSegmentPlan({ supplies: parsedValues.data.startSupplies }).supplies ?? [],
       };
 
       const existingPlanByName = savedPlans.find(
@@ -1233,11 +1239,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const handleLoadPlan = (plan: SavedPlan) => {
     const sanitizedAidStations = sanitizeAidStations(plan.plannerValues.aidStations) ?? [];
     const aidStations = sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
+    const startSupplies = sanitizeSegmentPlan({ supplies: plan.plannerValues.startSupplies }).supplies ?? [];
 
     const mergedValues: FormValues = {
       ...defaultValues,
       ...plan.plannerValues,
       aidStations,
+      startSupplies,
       finishPlan: plan.plannerValues.finishPlan ?? defaultValues.finishPlan,
     };
 
@@ -1523,6 +1531,27 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [form]
   );
 
+  const handleStartSupplyDrop = useCallback((productId: string, quantity = 1) => {
+    const current = form.getValues("startSupplies") ?? [];
+    const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
+    const existing = sanitized.find((supply) => supply.productId === productId);
+    const nextSupplies: StationSupply[] = existing
+      ? sanitized.map((supply) =>
+          supply.productId === productId ? { ...supply, quantity: supply.quantity + quantity } : supply
+        )
+      : [...sanitized, { productId, quantity }];
+
+    form.setValue("startSupplies", nextSupplies, { shouldDirty: true, shouldValidate: true });
+  }, [form]);
+
+  const handleStartSupplyRemove = useCallback((productId: string) => {
+    const current = form.getValues("startSupplies") ?? [];
+    const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
+    const filtered = sanitized.filter((supply) => supply.productId !== productId);
+
+    form.setValue("startSupplies", filtered, { shouldDirty: true, shouldValidate: true });
+  }, [form]);
+
   const courseProfileSection = (
     <Card id={sectionIds.courseProfile}>
       <CardHeader className="space-y-0">
@@ -1635,6 +1664,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatSodiumAmount={formatSodiumAmount}
         calculatePercentage={calculatePercentage}
         fuelProducts={fuelProductEstimates}
+        startSupplies={startSupplies}
+        onStartSupplyDrop={handleStartSupplyDrop}
+        onStartSupplyRemove={handleStartSupplyRemove}
         onSupplyDrop={handleSupplyDrop}
         onSupplyRemove={handleSupplyRemove}
       />
