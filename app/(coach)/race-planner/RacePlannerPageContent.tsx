@@ -1186,7 +1186,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       const existingPlanByName = savedPlans.find(
         (plan) => plan.name.trim().toLowerCase() === trimmedName.toLowerCase()
       );
-      const planIdToUpdate = activePlanId ?? existingPlanByName?.id ?? null;
+      const planIdToUpdate = existingPlanByName?.id ?? null;
 
       const payload = {
         name: trimmedName,
