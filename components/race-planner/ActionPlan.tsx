@@ -37,6 +37,9 @@ type ActionPlanProps = {
   formatSodiumAmount: (value: number) => string;
   calculatePercentage: (value: number, total?: number) => number;
   fuelProducts: FuelProduct[];
+  startSupplies: StationSupply[];
+  onStartSupplyDrop: (productId: string, quantity?: number) => void;
+  onStartSupplyRemove: (productId: string) => void;
   onSupplyDrop: (aidStationIndex: number, productId: string, quantity?: number) => void;
   onSupplyRemove: (aidStationIndex: number, productId: string) => void;
 };
@@ -133,10 +136,12 @@ export function ActionPlan({
   formatSodiumAmount,
   calculatePercentage,
   fuelProducts,
+  startSupplies,
+  onStartSupplyDrop,
+  onStartSupplyRemove,
   onSupplyDrop,
   onSupplyRemove,
 }: ActionPlanProps) {
-  const [startSupplies, setStartSupplies] = useState<StationSupply[]>([]);
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
@@ -480,14 +485,7 @@ export function ActionPlan({
                         const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
                         if (!productId) return;
                         if (item.isStart) {
-                          setStartSupplies((current) => {
-                            const existing = current.find((s) => s.productId === productId);
-                            return existing
-                              ? current.map((s) =>
-                                  s.productId === productId ? { ...s, quantity: s.quantity + quantity } : s
-                                )
-                              : [...current, { productId, quantity }];
-                          });
+                          onStartSupplyDrop(productId, quantity);
                         } else {
                           onSupplyDrop(item.aidStationIndex as number, productId, quantity);
                         }
@@ -515,7 +513,7 @@ export function ActionPlan({
                               className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
                               onClick={() => {
                                 if (item.isStart) {
-                                  setStartSupplies((current) => current.filter((s) => s.productId !== product.id));
+                                  onStartSupplyRemove(product.id);
                                 } else {
                                   onSupplyRemove(item.aidStationIndex as number, product.id);
                                 }

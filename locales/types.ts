@@ -163,6 +163,10 @@ export type RacePlannerTranslations = {
     gels: {
       title: string;
       description: string;
+      loading: string;
+      loadError: string;
+      favoritesTitle: string;
+      allProductsTitle: string;
       empty: string;
       linkLabel: string;
       nutrition: string;
