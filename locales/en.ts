@@ -187,7 +187,11 @@ export const en: Translations = {
       gels: {
         title: "Fuel products",
         description:
-          "Pick up to three products in Settings to personalize these estimates for your fueling targets.",
+          "Your top three favorites from Settings appear first, followed by every shared product in the database.",
+        loading: "Loading fuel products…",
+        loadError: "Unable to load fuel products. Showing defaults.",
+        favoritesTitle: "Favorites from Settings",
+        allProductsTitle: "All fuel products",
         empty: "Add your pacing and fueling targets to calculate how many servings you need.",
         linkLabel: "View product",
         nutrition: "{carbs} g carbs · {sodium} mg sodium per serving",

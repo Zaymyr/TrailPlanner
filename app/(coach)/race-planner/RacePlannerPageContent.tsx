@@ -14,6 +14,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
+import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
 import type {
@@ -28,7 +29,7 @@ import type {
 } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
-import type { FuelProduct } from "../../../lib/product-types";
+import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
@@ -69,6 +70,10 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
     </span>
   </CardTitle>
 );
+
+type FuelProductEstimate = FuelProduct & { count: number };
+
+const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
 const defaultFuelProducts: FuelProduct[] = [
   {
@@ -834,6 +839,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
+  const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const { selectedProducts } = useProductSelection();
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -950,6 +959,61 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
     }
   }, [verifySession]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      setFuelProducts(defaultFuelProducts);
+      setProductsStatus("idle");
+      setProductsError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+    setProductsStatus("loading");
+    setProductsError(null);
+
+    const loadProducts = async () => {
+      try {
+        const response = await fetch("/api/products", {
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          cache: "no-store",
+          signal: abortController.signal,
+        });
+
+        const data = (await response.json().catch(() => null)) as unknown;
+
+        if (!response.ok) {
+          const message = (data as { message?: string } | null)?.message ?? racePlannerCopy.sections.gels.loadError;
+          throw new Error(message);
+        }
+
+        const parsed = productListSchema.safeParse(data);
+
+        if (!parsed.success) {
+          throw new Error(racePlannerCopy.sections.gels.loadError);
+        }
+
+        if (!abortController.signal.aborted) {
+          setFuelProducts(parsed.data.products);
+          setProductsStatus("success");
+        }
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Unable to load fuel products", error);
+        setProductsError(error instanceof Error ? error.message : racePlannerCopy.sections.gels.loadError);
+        setFuelProducts(defaultFuelProducts);
+        setProductsStatus("error");
+      }
+    };
+
+    void loadProducts();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [racePlannerCopy.sections.gels.loadError, session?.accessToken]);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
@@ -1012,15 +1076,59 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     return Math.min((value / total) * 100, 100);
   };
 
-  const fuelProductEstimates = useMemo(
+  const mergedFuelProducts = useMemo(() => {
+    const productsById = new Map<string, FuelProduct>();
+    fuelProducts.forEach((product) => productsById.set(product.id, product));
+
+    selectedProducts.forEach((product) => {
+      if (!productsById.has(product.id)) {
+        productsById.set(product.id, {
+          id: product.id,
+          slug: product.slug,
+          sku: product.sku ?? undefined,
+          name: product.name,
+          productUrl: product.productUrl ?? undefined,
+          caloriesKcal: product.caloriesKcal ?? 0,
+          carbsGrams: product.carbsGrams,
+          sodiumMg: product.sodiumMg ?? 0,
+          proteinGrams: 0,
+          fatGrams: 0,
+          waterMl: 0,
+        });
+      }
+    });
+
+    return Array.from(productsById.values());
+  }, [fuelProducts, selectedProducts]);
+
+  const fuelProductEstimates = useMemo<FuelProductEstimate[]>(
     () =>
       raceTotals
-        ? defaultFuelProducts.map((product) => ({
+        ? mergedFuelProducts.map((product) => ({
             ...product,
             count: product.carbsGrams > 0 ? Math.ceil(raceTotals.fuelGrams / product.carbsGrams) : 0,
           }))
         : [],
-    [raceTotals]
+    [mergedFuelProducts, raceTotals]
+  );
+
+  const favoriteProductEstimates = useMemo(() => {
+    if (fuelProductEstimates.length === 0) return [];
+
+    const selectionOrder = selectedProducts.map((product) => product.id);
+    const productById = new Map(fuelProductEstimates.map((product) => [product.id, product] as const));
+
+    return selectionOrder
+      .map((id) => productById.get(id))
+      .filter((product): product is FuelProductEstimate => Boolean(product));
+  }, [fuelProductEstimates, selectedProducts]);
+
+  const otherProductEstimates = useMemo(
+    () =>
+      fuelProductEstimates.filter((product) =>
+        favoriteProductEstimates.every((favorite) => favorite.id !== product.id)
+      ),
+    [favoriteProductEstimates, fuelProductEstimates]
   );
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
@@ -1514,6 +1622,38 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     </div>
   );
 
+  const renderFuelProductCard = (product: FuelProductEstimate) => (
+    <div
+      key={product.id}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/trailplanner-product-id", product.id);
+        event.dataTransfer.setData("text/trailplanner-product-qty", "1");
+      }}
+      className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-50">{product.name}</p>
+          <p className="text-sm text-slate-400">
+            {racePlannerCopy.sections.gels.nutrition
+              .replace("{carbs}", product.carbsGrams.toString())
+              .replace("{sodium}", product.sodiumMg.toString())}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-sm text-slate-200">
+        <p>
+          {racePlannerCopy.sections.gels.countLabel.replace(
+            "{count}",
+            Math.max(product.count, 0).toString()
+          )}
+        </p>
+        <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+      </div>
+    </div>
+  );
+
   const settingsContent = (
     <Card>
       <CardHeader className="pb-3">
@@ -1579,42 +1719,35 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             <div className="space-y-1">
               <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.gels.title}</p>
               <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.description}</p>
+              {productsStatus === "loading" ? (
+                <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.loading}</p>
+              ) : null}
+              {productsError ? <p className="text-xs text-red-300">{productsError}</p> : null}
             </div>
             {fuelProductEstimates.length === 0 ? (
               <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
             ) : (
-              <div className="space-y-3">
-                {fuelProductEstimates.map((product) => (
-                  <div
-                    key={product.id}
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData("text/trailplanner-product-id", product.id);
-                      event.dataTransfer.setData("text/trailplanner-product-qty", "1");
-                    }}
-                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-slate-50">{product.name}</p>
-                        <p className="text-sm text-slate-400">
-                          {racePlannerCopy.sections.gels.nutrition
-                            .replace("{carbs}", product.carbsGrams.toString())
-                            .replace("{sodium}", product.sodiumMg.toString())}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-slate-200">
-                      <p>
-                        {racePlannerCopy.sections.gels.countLabel.replace(
-                          "{count}",
-                          Math.max(product.count, 0).toString()
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+              <div className="space-y-4">
+                {favoriteProductEstimates.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                      {racePlannerCopy.sections.gels.favoritesTitle}
+                    </p>
+                    <div className="space-y-3">
+                      {favoriteProductEstimates.map((product) => renderFuelProductCard(product))}
                     </div>
                   </div>
-                ))}
+                ) : null}
+                {otherProductEstimates.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                      {racePlannerCopy.sections.gels.allProductsTitle}
+                    </p>
+                    <div className="space-y-3">
+                      {otherProductEstimates.map((product) => renderFuelProductCard(product))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
