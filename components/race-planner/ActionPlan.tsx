@@ -572,52 +572,42 @@ export function ActionPlan({
                   return (
                     <div key={item.id} className="relative pl-8">
                       <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="flex items-start gap-3">
                             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
                               {pointNumber}
                             </span>
-                            <div className="space-y-0.5">
+                            <div className="space-y-1">
                               <p className="text-base font-semibold text-slate-50">{item.title}</p>
-                              <p className="text-xs text-slate-300">
-                                {formatDistanceWithUnit(item.distanceKm)} · {timelineCopy.etaLabel}:{" "}
-                                {formatMinutes(item.etaMinutes)}
-                              </p>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                                <span>
+                                  {formatDistanceWithUnit(item.distanceKm)} · {timelineCopy.etaLabel}:{" "}
+                                  {formatMinutes(item.etaMinutes)}
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-800/60 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100">
+                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                  {timelineCopy.collapsedScopeLabel}
+                                </span>
+                              </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {distanceFieldName ? (
-                              <div className="text-right text-xs text-slate-300">
-                                <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
-                                  {aidStationsCopy.labels.distance}
-                                </Label>
-                                <Input
-                                  id={distanceFieldName}
-                                  type="number"
-                                  step="0.5"
-                                  className="max-w-[120px] border-slate-800/70 bg-slate-950/80 text-sm"
-                                  {...register(distanceFieldName, { valueAsNumber: true })}
-                                />
-                              </div>
-                            ) : null}
-                            {toggleButton}
+                          <div className="flex items-center gap-3">
                             {removeButton}
+                            {toggleButton}
                           </div>
                         </div>
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                          <div className="flex flex-wrap gap-2">
-                            {supplyMetrics.map((metric) => (
-                              <span
-                                key={metric.key}
-                                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${statusToneStyles[metric.status.tone]}`}
-                              >
-                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-800/60 bg-slate-950/40 text-xs font-bold">
-                                  {statusToneIcons[metric.status.tone]}
-                                </span>
-                                <span className="uppercase tracking-wide text-slate-100">{metric.label}</span>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          {supplyMetrics.map((metric) => (
+                            <span
+                              key={metric.key}
+                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${statusToneStyles[metric.status.tone]}`}
+                            >
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-800/60 bg-slate-950/40 text-xs font-bold">
+                                {statusToneIcons[metric.status.tone]}
                               </span>
-                            ))}
-                          </div>
+                              <span className="uppercase tracking-wide text-slate-100">{metric.label}</span>
+                            </span>
+                          ))}
                           <span
                             className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${statusToneStyles[sectionStatus.tone]}`}
                           >
@@ -644,7 +634,7 @@ export function ActionPlan({
                       finishLabel={copy.defaults.finish}
                       removeAction={
                         isCollapsible ? (
-                          <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-3">
                             {toggleButton}
                             {removeButton}
                           </div>

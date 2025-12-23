@@ -224,6 +224,7 @@ export const fr: Translations = {
         betweenStationsTitle: "Consommation entre les ravitos",
         betweenStationsHelper: "Garde ce plan aligné avec tes objectifs nutritionnels.",
         gelsBetweenLabel: "Gels à consommer",
+        collapsedScopeLabel: "Ravito + portion suivante repliés",
         collapseLabel: "Replier le ravito + tronçon",
         expandLabel: "Déplier le ravito + tronçon",
         plannedLabel: "Prévu",
