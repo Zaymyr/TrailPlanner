@@ -197,6 +197,9 @@ export type RacePlannerTranslations = {
       betweenStationsTitle: string;
       betweenStationsHelper: string;
       gelsBetweenLabel: string;
+      collapsedScopeLabel: string;
+      collapseLabel: string;
+      expandLabel: string;
       plannedLabel: string;
       targetLabel: string;
       pickupTitle: string;
