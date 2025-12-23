@@ -839,6 +839,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [productsError, setProductsError] = useState<string | null>(null);
@@ -883,6 +884,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     setSession(null);
     setSavedPlans([]);
+    setActivePlanId(null);
   }, []);
 
   const refreshSavedPlans = useCallback(
@@ -1171,19 +1173,34 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setPlanStatus("saving");
 
     try {
+      const trimmedName = planName.trim() || racePlannerCopy.account.plans.defaultName;
+      const sanitizedAidStations = dedupeAidStations(sanitizeAidStations(parsedValues.data.aidStations));
+      const sanitizedFinishPlan = sanitizeSegmentPlan(parsedValues.data.finishPlan);
+
+      const plannerValues: FormValues = {
+        ...parsedValues.data,
+        aidStations: sanitizedAidStations,
+        finishPlan: sanitizedFinishPlan,
+      };
+
+      const existingPlanByName = savedPlans.find(
+        (plan) => plan.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      );
+      const planIdToUpdate = activePlanId ?? existingPlanByName?.id ?? null;
+
       const payload = {
-        name: planName.trim() || racePlannerCopy.account.plans.defaultName,
-        plannerValues: parsedValues.data,
+        name: trimmedName,
+        plannerValues,
         elevationProfile: sanitizeElevationProfile(elevationProfile),
       };
 
       const response = await fetch("/api/plans", {
-        method: "POST",
+        method: planIdToUpdate ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.accessToken}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(planIdToUpdate ? { ...payload, id: planIdToUpdate } : payload),
       });
 
       const data = (await response.json().catch(() => null)) as {
@@ -1201,6 +1218,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       if (parsedPlan) {
         setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
         setPlanName(parsedPlan.name);
+        setActivePlanId(parsedPlan.id);
       }
 
       setAccountMessage(racePlannerCopy.account.messages.savedPlan);
@@ -1226,6 +1244,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     form.reset(mergedValues, { keepDefaultValues: true });
     setElevationProfile(plan.elevationProfile);
     setPlanName(plan.name);
+    setActivePlanId(plan.id);
     setAccountMessage(racePlannerCopy.account.messages.loadedPlan);
   };
 
@@ -1264,6 +1283,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setAccountError(racePlannerCopy.account.errors.deleteFailed);
     } finally {
       setDeletingPlanId(null);
+      setActivePlanId((current) => (current === planId ? null : current));
     }
   };
 
