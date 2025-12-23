@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { ArrowRightIcon, Clock3Icon } from "./TimelineIcons";
 
-type StatusTone = "success" | "warning" | "neutral";
+type StatusTone = "success" | "warning" | "danger" | "neutral";
 
 type SegmentMetric = {
   key: "carbs" | "water" | "sodium";
@@ -65,6 +65,7 @@ const metricToneClasses: Record<SegmentMetric["key"], string> = {
 const statusToneClasses: Record<StatusTone, string> = {
   success: "border-emerald-400/30 bg-emerald-500/15 text-emerald-100",
   warning: "border-amber-400/30 bg-amber-500/15 text-amber-100",
+  danger: "border-rose-400/30 bg-rose-500/15 text-rose-100",
   neutral: "border-slate-400/30 bg-slate-600/15 text-slate-100",
 };
 
