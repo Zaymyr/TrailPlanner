@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { ArrowRightIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
+import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
 import { TimelinePointCard } from "./TimelineCards";
 
 type RaceTotals = {
@@ -137,7 +137,7 @@ export function ActionPlan({
   onSupplyRemove,
 }: ActionPlanProps) {
   const [startSupplies, setStartSupplies] = useState<StationSupply[]>([]);
-  const [collapsedAidStations, setCollapsedAidStations] = useState<Record<number, boolean>>({});
+  const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const renderItems = buildRenderItems(segments);
@@ -190,10 +190,10 @@ export function ActionPlan({
       return tonePriority[candidate.tone] > tonePriority[current.tone] ? candidate : current;
     }, fallback);
   };
-  const toggleAidStationCollapse = (aidStationIndex: number) => {
+  const toggleAidStationCollapse = (collapseKey: string) => {
     setCollapsedAidStations((current) => ({
       ...current,
-      [aidStationIndex]: !current[aidStationIndex],
+      [collapseKey]: !current[collapseKey],
     }));
   };
 
@@ -439,8 +439,10 @@ export function ActionPlan({
                     status,
                   };
                 });
-                const isCollapsible = typeof item.aidStationIndex === "number" && !!nextSegment && !item.isFinish;
-                const isCollapsed = isCollapsible ? Boolean(collapsedAidStations[item.aidStationIndex as number]) : false;
+                const isCollapsible =
+                  !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
+                const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
+                const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
                 if (isCollapsible && isCollapsed) {
                   hideNextSegment = true;
                 }
@@ -449,14 +451,21 @@ export function ActionPlan({
                   { label: timelineCopy.status.atTarget, tone: "neutral" as const }
                 );
                 const toggleButton =
-                  isCollapsible && typeof item.aidStationIndex === "number" ? (
+                  isCollapsible && collapseKey ? (
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 rounded-full border border-slate-700 bg-slate-900/60 px-3 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
-                      onClick={() => toggleAidStationCollapse(item.aidStationIndex as number)}
+                      className="h-9 w-9 rounded-full border border-slate-700 bg-slate-900/60 p-0 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
+                      onClick={() => toggleAidStationCollapse(collapseKey)}
                     >
-                      {isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel}
+                      <span className="sr-only">
+                        {isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel}
+                      </span>
+                      {isCollapsed ? (
+                        <ChevronDownIcon className="h-4 w-4" aria-hidden />
+                      ) : (
+                        <ChevronUpIcon className="h-4 w-4" aria-hidden />
+                      )}
                     </Button>
                   ) : null;
 
