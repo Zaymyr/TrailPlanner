@@ -137,6 +137,7 @@ export function ActionPlan({
   onSupplyRemove,
 }: ActionPlanProps) {
   const [startSupplies, setStartSupplies] = useState<StationSupply[]>([]);
+  const [collapsedAidStations, setCollapsedAidStations] = useState<Record<number, boolean>>({});
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const renderItems = buildRenderItems(segments);
@@ -151,9 +152,49 @@ export function ActionPlan({
       return { label: timelineCopy.status.atTarget, tone: "neutral" as const };
     }
     const ratio = planned / target;
-    if (ratio < 0.9) return { label: timelineCopy.status.belowTarget, tone: "warning" as const };
-    if (ratio > 1.1) return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
-    return { label: timelineCopy.status.atTarget, tone: "success" as const };
+    const deviation = Math.abs(1 - ratio);
+    const label =
+      ratio < 0.95
+        ? timelineCopy.status.belowTarget
+        : ratio > 1.05
+          ? timelineCopy.status.aboveTarget
+          : timelineCopy.status.atTarget;
+    if (deviation < 0.1) return { label: timelineCopy.status.atTarget, tone: "success" as const };
+    if (deviation < 0.25) return { label, tone: "warning" as const };
+    return { label, tone: "danger" as const };
+  };
+  const statusToneStyles = {
+    success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
+    warning: "border-amber-400/40 bg-amber-500/15 text-amber-50",
+    danger: "border-rose-400/40 bg-rose-500/20 text-rose-50",
+    neutral: "border-slate-400/40 bg-slate-600/20 text-slate-50",
+  } as const;
+  const statusToneIcons = {
+    success: "✓",
+    warning: "!",
+    danger: "×",
+    neutral: "•",
+  } as const;
+  const prioritizeStatus = <T extends { tone: keyof typeof statusToneStyles; label: string }>(
+    statuses: T[],
+    fallback: T
+  ) => {
+    const tonePriority: Record<keyof typeof statusToneStyles, number> = {
+      neutral: 0,
+      success: 1,
+      warning: 2,
+      danger: 3,
+    };
+    return statuses.reduce((current, candidate) => {
+      if (!current) return candidate;
+      return tonePriority[candidate.tone] > tonePriority[current.tone] ? candidate : current;
+    }, fallback);
+  };
+  const toggleAidStationCollapse = (aidStationIndex: number) => {
+    setCollapsedAidStations((current) => ({
+      ...current,
+      [aidStationIndex]: !current[aidStationIndex],
+    }));
   };
 
   const summarizeSupplies = (supplies?: StationSupply[]) => {
@@ -216,8 +257,13 @@ export function ActionPlan({
             <div className="absolute left-[18px] top-0 h-full w-px bg-slate-800/70" aria-hidden />
             {(() => {
               let carrySupplies: StationSupply[] = startSupplies;
+              let hideNextSegment = false;
               return renderItems.map((item, itemIndex) => {
                 if (item.kind === "segment") {
+                  if (hideNextSegment) {
+                    hideNextSegment = false;
+                    return null;
+                  }
                   const { segment } = item;
                   const carriedTotals = summarizeSupplies(carrySupplies);
                   const plannedFuel = carriedTotals ? carriedTotals.totals.carbs : segment.plannedFuelGrams;
@@ -328,13 +374,7 @@ export function ActionPlan({
                                 <p className="text-sm font-semibold text-slate-50">{metric.label}</p>
                               </div>
                               <span
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                  metric.statusTone === "success"
-                                    ? "border border-emerald-400/40 bg-emerald-500/20 text-emerald-50"
-                                    : metric.statusTone === "warning"
-                                      ? "border border-amber-400/40 bg-amber-500/15 text-amber-50"
-                                      : "border border-slate-400/40 bg-slate-600/20 text-slate-50"
-                                }`}
+                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
                               >
                                 {metric.statusLabel}
                               </span>
@@ -364,41 +404,61 @@ export function ActionPlan({
                 const nextSegment = item.upcomingSegment;
                 const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
                 const summarized = summarizeSupplies(supplies);
-              const supplyMetrics = ["carbs", "water", "sodium"].map((key) => {
-                const metricKey = key as "carbs" | "water" | "sodium";
-                const planned =
-                  metricKey === "carbs"
-                    ? summarized.totals.carbs
-                    : metricKey === "water"
-                      ? summarized.totals.water
-                      : summarized.totals.sodium;
-                const target =
-                  metricKey === "carbs"
-                    ? nextSegment?.targetFuelGrams ?? 0
-                    : metricKey === "water"
-                      ? nextSegment?.targetWaterMl ?? 0
-                      : nextSegment?.targetSodiumMg ?? 0;
-                const format =
-                  metricKey === "carbs"
-                    ? formatFuelAmount
-                    : metricKey === "water"
-                      ? formatWaterAmount
-                      : formatSodiumAmount;
-                const status = getPlanStatus(planned, target);
-                return {
-                  key: metricKey,
-                  label:
+                const supplyMetrics = ["carbs", "water", "sodium"].map((key) => {
+                  const metricKey = key as "carbs" | "water" | "sodium";
+                  const planned =
                     metricKey === "carbs"
-                      ? timelineCopy.gelsBetweenLabel
+                      ? summarized.totals.carbs
                       : metricKey === "water"
-                        ? copy.sections.summary.items.water
-                        : copy.sections.summary.items.sodium,
-                  planned,
-                  target,
-                  format,
-                  status,
-                };
-              });
+                        ? summarized.totals.water
+                        : summarized.totals.sodium;
+                  const target =
+                    metricKey === "carbs"
+                      ? nextSegment?.targetFuelGrams ?? 0
+                      : metricKey === "water"
+                        ? nextSegment?.targetWaterMl ?? 0
+                        : nextSegment?.targetSodiumMg ?? 0;
+                  const format =
+                    metricKey === "carbs"
+                      ? formatFuelAmount
+                      : metricKey === "water"
+                        ? formatWaterAmount
+                        : formatSodiumAmount;
+                  const status = getPlanStatus(planned, target);
+                  return {
+                    key: metricKey,
+                    label:
+                      metricKey === "carbs"
+                        ? timelineCopy.gelsBetweenLabel
+                        : metricKey === "water"
+                          ? copy.sections.summary.items.water
+                          : copy.sections.summary.items.sodium,
+                    planned,
+                    target,
+                    format,
+                    status,
+                  };
+                });
+                const isCollapsible = typeof item.aidStationIndex === "number" && !!nextSegment && !item.isFinish;
+                const isCollapsed = isCollapsible ? Boolean(collapsedAidStations[item.aidStationIndex as number]) : false;
+                if (isCollapsible && isCollapsed) {
+                  hideNextSegment = true;
+                }
+                const sectionStatus = prioritizeStatus(
+                  supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
+                  { label: timelineCopy.status.atTarget, tone: "neutral" as const }
+                );
+                const toggleButton =
+                  isCollapsible && typeof item.aidStationIndex === "number" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 rounded-full border border-slate-700 bg-slate-900/60 px-3 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
+                      onClick={() => toggleAidStationCollapse(item.aidStationIndex as number)}
+                    >
+                      {isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel}
+                    </Button>
+                  ) : null;
 
                 const suppliesDropZone =
                   item.isStart || typeof item.aidStationIndex === "number" ? (
@@ -468,6 +528,101 @@ export function ActionPlan({
 
                 carrySupplies = supplies ?? [];
 
+                const distanceInput =
+                  distanceFieldName && !isCollapsed ? (
+                    <div className="space-y-1 text-right sm:text-left">
+                      <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
+                        {aidStationsCopy.labels.distance}
+                      </Label>
+                      <Input
+                        id={distanceFieldName}
+                        type="number"
+                        step="0.5"
+                        className="max-w-[160px] border-slate-800/70 bg-slate-950/80 text-sm"
+                        {...register(distanceFieldName, { valueAsNumber: true })}
+                      />
+                    </div>
+                  ) : null;
+
+                const removeButton =
+                  typeof item.aidStationIndex === "number" && !item.isFinish ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
+                      onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
+                    >
+                      <span aria-hidden>×</span>
+                      <span className="sr-only">
+                        {aidStationsCopy.remove} {item.title}
+                      </span>
+                    </Button>
+                  ) : null;
+
+                if (isCollapsible && isCollapsed) {
+                  return (
+                    <div key={item.id} className="relative pl-8">
+                      <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+                              {pointNumber}
+                            </span>
+                            <div className="space-y-0.5">
+                              <p className="text-base font-semibold text-slate-50">{item.title}</p>
+                              <p className="text-xs text-slate-300">
+                                {formatDistanceWithUnit(item.distanceKm)} · {timelineCopy.etaLabel}:{" "}
+                                {formatMinutes(item.etaMinutes)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {distanceFieldName ? (
+                              <div className="text-right text-xs text-slate-300">
+                                <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
+                                  {aidStationsCopy.labels.distance}
+                                </Label>
+                                <Input
+                                  id={distanceFieldName}
+                                  type="number"
+                                  step="0.5"
+                                  className="max-w-[120px] border-slate-800/70 bg-slate-950/80 text-sm"
+                                  {...register(distanceFieldName, { valueAsNumber: true })}
+                                />
+                              </div>
+                            ) : null}
+                            {toggleButton}
+                            {removeButton}
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap gap-2">
+                            {supplyMetrics.map((metric) => (
+                              <span
+                                key={metric.key}
+                                className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${statusToneStyles[metric.status.tone]}`}
+                              >
+                                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-800/60 bg-slate-950/40 text-xs font-bold">
+                                  {statusToneIcons[metric.status.tone]}
+                                </span>
+                                <span className="uppercase tracking-wide text-slate-100">{metric.label}</span>
+                              </span>
+                            ))}
+                          </div>
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${statusToneStyles[sectionStatus.tone]}`}
+                          >
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800/60 bg-slate-950/40 text-sm font-bold">
+                              {statusToneIcons[sectionStatus.tone]}
+                            </span>
+                            <span>{sectionStatus.label}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={item.id} className="relative pl-8">
                     <TimelinePointCard
@@ -476,41 +631,21 @@ export function ActionPlan({
                       distanceText={formatDistanceWithUnit(item.distanceKm)}
                       etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
                       metrics={[]}
-                      distanceInput={
-                        distanceFieldName ? (
-                          <div className="space-y-1 text-right sm:text-left">
-                            <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
-                              {aidStationsCopy.labels.distance}
-                            </Label>
-                            <Input
-                              id={distanceFieldName}
-                              type="number"
-                              step="0.5"
-                              className="max-w-[160px] border-slate-800/70 bg-slate-950/80 text-sm"
-                              {...register(distanceFieldName, { valueAsNumber: true })}
-                            />
-                          </div>
-                        ) : null
-                      }
+                      distanceInput={distanceInput}
                       finishLabel={copy.defaults.finish}
                       removeAction={
-                        typeof item.aidStationIndex === "number" && !item.isFinish ? (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
-                            onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
-                          >
-                            <span aria-hidden>×</span>
-                            <span className="sr-only">
-                              {aidStationsCopy.remove} {item.title}
-                            </span>
-                          </Button>
-                        ) : null
+                        isCollapsible ? (
+                          <div className="flex flex-col gap-2">
+                            {toggleButton}
+                            {removeButton}
+                          </div>
+                        ) : (
+                          removeButton
+                        )
                       }
                       isStart={item.isStart}
                       isFinish={item.isFinish}
-                      dropSection={suppliesDropZone}
+                      dropSection={isCollapsed ? null : suppliesDropZone}
                     />
                   </div>
                 );

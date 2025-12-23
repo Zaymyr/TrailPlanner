@@ -222,6 +222,8 @@ export const en: Translations = {
         betweenStationsTitle: "Consume between stations",
         betweenStationsHelper: "Keep these plans close to your nutrition targets.",
         gelsBetweenLabel: "Gels to consume",
+        collapseLabel: "Collapse aid + leg",
+        expandLabel: "Expand aid + leg",
         plannedLabel: "Planned",
         targetLabel: "Target",
         pickupTitle: "Aid station pickup",
