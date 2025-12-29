@@ -35,6 +35,25 @@ const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType 
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
+const findExistingPlanByName = async (supabaseUrl: string, supabaseKey: string, token: string, name: string) => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/race_plans?name=eq.${encodeURIComponent(name)}&select=id,name,created_at,updated_at,planner_values,elevation_profile&limit=1`,
+    {
+      headers: buildAuthHeaders(supabaseKey, token, undefined),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    const message = await response.text().catch(() => "");
+    console.error("Unable to check for existing plan", message);
+    return null;
+  }
+
+  const plans = (await response.json().catch(() => null)) as SupabasePlanRow[] | null;
+  return plans?.[0] ?? null;
+};
+
 export async function GET(request: Request) {
   const supabaseConfig = getSupabaseAnonConfig();
 
@@ -91,18 +110,30 @@ export async function POST(request: Request) {
   }
 
   try {
-    const response = await fetch(`${supabaseConfig.supabaseUrl}/rest/v1/race_plans`, {
-      method: "POST",
-      headers: {
-        ...buildAuthHeaders(supabaseConfig.supabaseAnonKey, token),
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
-        name: parsedBody.data.name,
-        planner_values: parsedBody.data.plannerValues,
-        elevation_profile: parsedBody.data.elevationProfile,
-      }),
-    });
+    const existingPlan = await findExistingPlanByName(
+      supabaseConfig.supabaseUrl,
+      supabaseConfig.supabaseAnonKey,
+      token,
+      parsedBody.data.name
+    );
+
+    const response = await fetch(
+      existingPlan
+        ? `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${existingPlan.id}`
+        : `${supabaseConfig.supabaseUrl}/rest/v1/race_plans`,
+      {
+        method: existingPlan ? "PATCH" : "POST",
+        headers: {
+          ...buildAuthHeaders(supabaseConfig.supabaseAnonKey, token),
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          name: parsedBody.data.name,
+          planner_values: parsedBody.data.plannerValues,
+          elevation_profile: parsedBody.data.elevationProfile,
+        }),
+      }
+    );
 
     const result = (await response.json().catch(() => null)) as SupabasePlanRow[] | null;
 
@@ -112,7 +143,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: "Unable to save plan." }, { status: 500 });
     }
 
-    return NextResponse.json({ plan: result[0] }, { status: 201 });
+    return NextResponse.json({ plan: result[0] }, { status: existingPlan ? 200 : 201 });
   } catch (error) {
     console.error("Unexpected Supabase error while saving plan", error);
     return NextResponse.json({ message: "Unable to save plan." }, { status: 500 });

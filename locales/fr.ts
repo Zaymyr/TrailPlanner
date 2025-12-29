@@ -188,7 +188,11 @@ export const fr: Translations = {
       gels: {
         title: "Produits énergétiques",
         description:
-          "Sélectionnez jusqu'à trois produits dans Paramètres pour personnaliser ces estimations d'apport.",
+          "Vos trois favoris depuis Paramètres apparaissent en premier, suivis de tous les produits partagés de la base.",
+        loading: "Chargement des produits énergétiques…",
+        loadError: "Impossible de charger les produits. Affichage des valeurs par défaut.",
+        favoritesTitle: "Favoris depuis Paramètres",
+        allProductsTitle: "Tous les produits énergétiques",
         empty:
           "Renseignez votre allure et vos objectifs nutritionnels pour calculer les portions nécessaires.",
         linkLabel: "Voir le produit",

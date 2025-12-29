@@ -37,6 +37,9 @@ type ActionPlanProps = {
   formatSodiumAmount: (value: number) => string;
   calculatePercentage: (value: number, total?: number) => number;
   fuelProducts: FuelProduct[];
+  startSupplies: StationSupply[];
+  onStartSupplyDrop: (productId: string, quantity?: number) => void;
+  onStartSupplyRemove: (productId: string) => void;
   onSupplyDrop: (aidStationIndex: number, productId: string, quantity?: number) => void;
   onSupplyRemove: (aidStationIndex: number, productId: string) => void;
 };
@@ -133,10 +136,12 @@ export function ActionPlan({
   formatSodiumAmount,
   calculatePercentage,
   fuelProducts,
+  startSupplies,
+  onStartSupplyDrop,
+  onStartSupplyRemove,
   onSupplyDrop,
   onSupplyRemove,
 }: ActionPlanProps) {
-  const [startSupplies, setStartSupplies] = useState<StationSupply[]>([]);
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
@@ -343,23 +348,22 @@ export function ActionPlan({
 
                   return (
                     <div key={item.id} className="relative pl-20">
-                    <div className="pointer-events-none absolute left-6 top-2 bottom-2 flex flex-col items-center" aria-hidden>
-                      <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
-                      <div className="relative flex h-full w-px items-center justify-center">
-                        <span className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[10px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
-                          <span className="block leading-tight">{railDistance}</span>
-                          <span className="block text-[10px] font-normal text-emerald-50/80 leading-tight">
-                            {railTime}
+                      <div className="pointer-events-none absolute left-6 top-2 bottom-2 flex flex-col items-center" aria-hidden>
+                        <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
+                        <div className="relative flex h-full w-px items-center justify-center">
+                          <span className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[10px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
+                            <span className="block leading-tight">{railDistance}</span>
+                            <span className="block text-[10px] font-normal text-emerald-50/80 leading-tight">
+                              {railTime}
+                            </span>
                           </span>
+                          <span className="h-full w-px bg-gradient-to-b from-emerald-400 via-emerald-400/80 to-emerald-300" />
+                        </div>
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
+                          <ArrowRightIcon className="h-3.5 w-3.5 rotate-90 text-emerald-200" aria-hidden />
                         </span>
-                        <span className="h-full w-px bg-gradient-to-b from-emerald-400 via-emerald-400/80 to-emerald-300" />
                       </div>
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
-                        <ArrowRightIcon className="h-3.5 w-3.5 rotate-90 text-emerald-200" aria-hidden />
-                      </span>
-                    </div>
 
-                    <div className="space-y-2 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
                       <div className="flex flex-col gap-2 lg:flex-row">
                         {inlineMetrics.map((metric) => (
                           <div
@@ -390,7 +394,6 @@ export function ActionPlan({
                           </div>
                         ))}
                       </div>
-                    </div>
                     </div>
                   );
                 }
@@ -480,14 +483,7 @@ export function ActionPlan({
                         const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
                         if (!productId) return;
                         if (item.isStart) {
-                          setStartSupplies((current) => {
-                            const existing = current.find((s) => s.productId === productId);
-                            return existing
-                              ? current.map((s) =>
-                                  s.productId === productId ? { ...s, quantity: s.quantity + quantity } : s
-                                )
-                              : [...current, { productId, quantity }];
-                          });
+                          onStartSupplyDrop(productId, quantity);
                         } else {
                           onSupplyDrop(item.aidStationIndex as number, productId, quantity);
                         }
@@ -515,7 +511,7 @@ export function ActionPlan({
                               className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
                               onClick={() => {
                                 if (item.isStart) {
-                                  setStartSupplies((current) => current.filter((s) => s.productId !== product.id));
+                                  onStartSupplyRemove(product.id);
                                 } else {
                                   onSupplyRemove(item.aidStationIndex as number, product.id);
                                 }

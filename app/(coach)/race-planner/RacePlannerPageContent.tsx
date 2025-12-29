@@ -14,6 +14,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
+import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RacePlannerTranslations } from "../../../locales/types";
 import type {
@@ -28,7 +29,7 @@ import type {
 } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
-import type { FuelProduct } from "../../../lib/product-types";
+import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
@@ -69,6 +70,10 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
     </span>
   </CardTitle>
 );
+
+type FuelProductEstimate = FuelProduct & { count: number };
+
+const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
 const defaultFuelProducts: FuelProduct[] = [
   {
@@ -131,6 +136,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   targetIntakePerHour: 70,
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 600,
+  startSupplies: [],
   aidStations: [
     { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10 },
     { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20 },
@@ -179,6 +185,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      startSupplies: createSegmentPlanSchema(copy.validation).shape.supplies.optional(),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
     })
@@ -518,10 +525,12 @@ function sanitizePlannerValues(values?: Partial<FormValues>): Partial<FormValues
   const paceType = values.paceType === "speed" ? "speed" : "pace";
   const aidStations = sanitizeAidStations(values.aidStations);
   const finishPlan = sanitizeSegmentPlan(values.finishPlan);
+  const startSupplies = sanitizeSegmentPlan({ supplies: values.startSupplies }).supplies;
 
   return {
     ...values,
     paceType,
+    startSupplies,
     aidStations,
     finishPlan,
   };
@@ -815,6 +824,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const paceType = form.watch("paceType");
   const uphillEffort = form.watch("uphillEffort") ?? defaultValues.uphillEffort;
   const downhillEffort = form.watch("downhillEffort") ?? defaultValues.downhillEffort;
+  const startSupplies = form.watch("startSupplies") ?? [];
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -834,6 +844,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
+  const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const { selectedProducts } = useProductSelection();
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -874,6 +889,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     setSession(null);
     setSavedPlans([]);
+    setActivePlanId(null);
   }, []);
 
   const refreshSavedPlans = useCallback(
@@ -950,6 +966,61 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
     }
   }, [verifySession]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      setFuelProducts(defaultFuelProducts);
+      setProductsStatus("idle");
+      setProductsError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+    setProductsStatus("loading");
+    setProductsError(null);
+
+    const loadProducts = async () => {
+      try {
+        const response = await fetch("/api/products", {
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          cache: "no-store",
+          signal: abortController.signal,
+        });
+
+        const data = (await response.json().catch(() => null)) as unknown;
+
+        if (!response.ok) {
+          const message = (data as { message?: string } | null)?.message ?? racePlannerCopy.sections.gels.loadError;
+          throw new Error(message);
+        }
+
+        const parsed = productListSchema.safeParse(data);
+
+        if (!parsed.success) {
+          throw new Error(racePlannerCopy.sections.gels.loadError);
+        }
+
+        if (!abortController.signal.aborted) {
+          setFuelProducts(parsed.data.products);
+          setProductsStatus("success");
+        }
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Unable to load fuel products", error);
+        setProductsError(error instanceof Error ? error.message : racePlannerCopy.sections.gels.loadError);
+        setFuelProducts(defaultFuelProducts);
+        setProductsStatus("error");
+      }
+    };
+
+    void loadProducts();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [racePlannerCopy.sections.gels.loadError, session?.accessToken]);
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
@@ -1012,15 +1083,59 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     return Math.min((value / total) * 100, 100);
   };
 
-  const fuelProductEstimates = useMemo(
+  const mergedFuelProducts = useMemo(() => {
+    const productsById = new Map<string, FuelProduct>();
+    fuelProducts.forEach((product) => productsById.set(product.id, product));
+
+    selectedProducts.forEach((product) => {
+      if (!productsById.has(product.id)) {
+        productsById.set(product.id, {
+          id: product.id,
+          slug: product.slug,
+          sku: product.sku ?? undefined,
+          name: product.name,
+          productUrl: product.productUrl ?? undefined,
+          caloriesKcal: product.caloriesKcal ?? 0,
+          carbsGrams: product.carbsGrams,
+          sodiumMg: product.sodiumMg ?? 0,
+          proteinGrams: 0,
+          fatGrams: 0,
+          waterMl: 0,
+        });
+      }
+    });
+
+    return Array.from(productsById.values());
+  }, [fuelProducts, selectedProducts]);
+
+  const fuelProductEstimates = useMemo<FuelProductEstimate[]>(
     () =>
       raceTotals
-        ? defaultFuelProducts.map((product) => ({
+        ? mergedFuelProducts.map((product) => ({
             ...product,
             count: product.carbsGrams > 0 ? Math.ceil(raceTotals.fuelGrams / product.carbsGrams) : 0,
           }))
         : [],
-    [raceTotals]
+    [mergedFuelProducts, raceTotals]
+  );
+
+  const favoriteProductEstimates = useMemo(() => {
+    if (fuelProductEstimates.length === 0) return [];
+
+    const selectionOrder = selectedProducts.map((product) => product.id);
+    const productById = new Map(fuelProductEstimates.map((product) => [product.id, product] as const));
+
+    return selectionOrder
+      .map((id) => productById.get(id))
+      .filter((product): product is FuelProductEstimate => Boolean(product));
+  }, [fuelProductEstimates, selectedProducts]);
+
+  const otherProductEstimates = useMemo(
+    () =>
+      fuelProductEstimates.filter((product) =>
+        favoriteProductEstimates.every((favorite) => favorite.id !== product.id)
+      ),
+    [favoriteProductEstimates, fuelProductEstimates]
   );
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
@@ -1063,19 +1178,35 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setPlanStatus("saving");
 
     try {
+      const trimmedName = planName.trim() || racePlannerCopy.account.plans.defaultName;
+      const sanitizedAidStations = dedupeAidStations(sanitizeAidStations(parsedValues.data.aidStations));
+      const sanitizedFinishPlan = sanitizeSegmentPlan(parsedValues.data.finishPlan);
+
+      const plannerValues: FormValues = {
+        ...parsedValues.data,
+        aidStations: sanitizedAidStations,
+        finishPlan: sanitizedFinishPlan,
+        startSupplies: sanitizeSegmentPlan({ supplies: parsedValues.data.startSupplies }).supplies ?? [],
+      };
+
+      const existingPlanByName = savedPlans.find(
+        (plan) => plan.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      );
+      const planIdToUpdate = existingPlanByName?.id ?? null;
+
       const payload = {
-        name: planName.trim() || racePlannerCopy.account.plans.defaultName,
-        plannerValues: parsedValues.data,
+        name: trimmedName,
+        plannerValues,
         elevationProfile: sanitizeElevationProfile(elevationProfile),
       };
 
       const response = await fetch("/api/plans", {
-        method: "POST",
+        method: planIdToUpdate ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.accessToken}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(planIdToUpdate ? { ...payload, id: planIdToUpdate } : payload),
       });
 
       const data = (await response.json().catch(() => null)) as {
@@ -1093,6 +1224,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       if (parsedPlan) {
         setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
         setPlanName(parsedPlan.name);
+        setActivePlanId(parsedPlan.id);
       }
 
       setAccountMessage(racePlannerCopy.account.messages.savedPlan);
@@ -1107,17 +1239,20 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const handleLoadPlan = (plan: SavedPlan) => {
     const sanitizedAidStations = sanitizeAidStations(plan.plannerValues.aidStations) ?? [];
     const aidStations = sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
+    const startSupplies = sanitizeSegmentPlan({ supplies: plan.plannerValues.startSupplies }).supplies ?? [];
 
     const mergedValues: FormValues = {
       ...defaultValues,
       ...plan.plannerValues,
       aidStations,
+      startSupplies,
       finishPlan: plan.plannerValues.finishPlan ?? defaultValues.finishPlan,
     };
 
     form.reset(mergedValues, { keepDefaultValues: true });
     setElevationProfile(plan.elevationProfile);
     setPlanName(plan.name);
+    setActivePlanId(plan.id);
     setAccountMessage(racePlannerCopy.account.messages.loadedPlan);
   };
 
@@ -1156,6 +1291,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setAccountError(racePlannerCopy.account.errors.deleteFailed);
     } finally {
       setDeletingPlanId(null);
+      setActivePlanId((current) => (current === planId ? null : current));
     }
   };
 
@@ -1395,6 +1531,27 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [form]
   );
 
+  const handleStartSupplyDrop = useCallback((productId: string, quantity = 1) => {
+    const current = form.getValues("startSupplies") ?? [];
+    const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
+    const existing = sanitized.find((supply) => supply.productId === productId);
+    const nextSupplies: StationSupply[] = existing
+      ? sanitized.map((supply) =>
+          supply.productId === productId ? { ...supply, quantity: supply.quantity + quantity } : supply
+        )
+      : [...sanitized, { productId, quantity }];
+
+    form.setValue("startSupplies", nextSupplies, { shouldDirty: true, shouldValidate: true });
+  }, [form]);
+
+  const handleStartSupplyRemove = useCallback((productId: string) => {
+    const current = form.getValues("startSupplies") ?? [];
+    const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
+    const filtered = sanitized.filter((supply) => supply.productId !== productId);
+
+    form.setValue("startSupplies", filtered, { shouldDirty: true, shouldValidate: true });
+  }, [form]);
+
   const courseProfileSection = (
     <Card id={sectionIds.courseProfile}>
       <CardHeader className="space-y-0">
@@ -1507,10 +1664,45 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatSodiumAmount={formatSodiumAmount}
         calculatePercentage={calculatePercentage}
         fuelProducts={fuelProductEstimates}
+        startSupplies={startSupplies}
+        onStartSupplyDrop={handleStartSupplyDrop}
+        onStartSupplyRemove={handleStartSupplyRemove}
         onSupplyDrop={handleSupplyDrop}
         onSupplyRemove={handleSupplyRemove}
       />
 
+    </div>
+  );
+
+  const renderFuelProductCard = (product: FuelProductEstimate) => (
+    <div
+      key={product.id}
+      draggable
+      onDragStart={(event) => {
+        event.dataTransfer.setData("text/trailplanner-product-id", product.id);
+        event.dataTransfer.setData("text/trailplanner-product-qty", "1");
+      }}
+      className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px]"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-slate-50">{product.name}</p>
+          <p className="text-sm text-slate-400">
+            {racePlannerCopy.sections.gels.nutrition
+              .replace("{carbs}", product.carbsGrams.toString())
+              .replace("{sodium}", product.sodiumMg.toString())}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between text-sm text-slate-200">
+        <p>
+          {racePlannerCopy.sections.gels.countLabel.replace(
+            "{count}",
+            Math.max(product.count, 0).toString()
+          )}
+        </p>
+        <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+      </div>
     </div>
   );
 
@@ -1579,42 +1771,35 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             <div className="space-y-1">
               <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.gels.title}</p>
               <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.description}</p>
+              {productsStatus === "loading" ? (
+                <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.loading}</p>
+              ) : null}
+              {productsError ? <p className="text-xs text-red-300">{productsError}</p> : null}
             </div>
             {fuelProductEstimates.length === 0 ? (
               <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
             ) : (
-              <div className="space-y-3">
-                {fuelProductEstimates.map((product) => (
-                  <div
-                    key={product.id}
-                    draggable
-                    onDragStart={(event) => {
-                      event.dataTransfer.setData("text/trailplanner-product-id", product.id);
-                      event.dataTransfer.setData("text/trailplanner-product-qty", "1");
-                    }}
-                    className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px]"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-slate-50">{product.name}</p>
-                        <p className="text-sm text-slate-400">
-                          {racePlannerCopy.sections.gels.nutrition
-                            .replace("{carbs}", product.carbsGrams.toString())
-                            .replace("{sodium}", product.sodiumMg.toString())}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-slate-200">
-                      <p>
-                        {racePlannerCopy.sections.gels.countLabel.replace(
-                          "{count}",
-                          Math.max(product.count, 0).toString()
-                        )}
-                      </p>
-                      <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+              <div className="space-y-4">
+                {favoriteProductEstimates.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                      {racePlannerCopy.sections.gels.favoritesTitle}
+                    </p>
+                    <div className="space-y-3">
+                      {favoriteProductEstimates.map((product) => renderFuelProductCard(product))}
                     </div>
                   </div>
-                ))}
+                ) : null}
+                {otherProductEstimates.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                      {racePlannerCopy.sections.gels.allProductsTitle}
+                    </p>
+                    <div className="space-y-3">
+                      {otherProductEstimates.map((product) => renderFuelProductCard(product))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
