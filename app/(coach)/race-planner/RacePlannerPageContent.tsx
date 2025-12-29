@@ -821,10 +821,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
-  const paceType = form.watch("paceType");
   const uphillEffort = form.watch("uphillEffort") ?? defaultValues.uphillEffort;
   const downhillEffort = form.watch("downhillEffort") ?? defaultValues.downhillEffort;
   const startSupplies = form.watch("startSupplies") ?? [];
+  const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
+  const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
+  const speedKphValue = form.watch("speedKph") ?? defaultValues.speedKph;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -1040,17 +1042,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     () => (parsedValues.success ? minutesPerKm(parsedValues.data) : null),
     [parsedValues]
   );
-  const intakeTargets = useMemo(
-    () =>
-      parsedValues.success
-        ? {
-            carbsPerHour: parsedValues.data.targetIntakePerHour,
-            waterPerHour: parsedValues.data.waterIntakePerHour,
-            sodiumPerHour: parsedValues.data.sodiumIntakePerHour,
-          }
-        : null,
-    [parsedValues]
-  );
 
   const raceTotals = useMemo(() => {
     if (!parsedValues.success || segments.length === 0) return null;
@@ -1065,6 +1056,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       { fuelGrams: 0, waterMl: 0, sodiumMg: 0, durationMinutes: 0 }
     );
   }, [parsedValues.success, segments]);
+
+  const distanceForDuration =
+    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+    defaultValues.raceDistanceKm;
+  const projectedDurationMinutes =
+    baseMinutesPerKm && Number.isFinite(distanceForDuration) && distanceForDuration > 0
+      ? distanceForDuration * baseMinutesPerKm
+      : null;
+  const pacingOverviewDuration = raceTotals?.durationMinutes ?? projectedDurationMinutes ?? null;
 
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
@@ -1327,40 +1327,67 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     {
       key: "pacing",
       label: racePlannerCopy.mobileNav.pacing,
-      onClick: () => focusSection(sectionIds.pacing, "settings"),
+      onClick: () => focusSection(sectionIds.pacing, "plan"),
     },
     {
       key: "intake",
       label: racePlannerCopy.mobileNav.intake,
-      onClick: () => focusSection(sectionIds.intake, "settings"),
+      onClick: () => focusSection(sectionIds.intake, "plan"),
     },
   ];
 
-  const handlePaceTypeChange = (nextType: FormValues["paceType"]) => {
-    const currentType = form.getValues("paceType");
-    if (currentType === nextType) return;
+  const handlePaceUpdate = useCallback(
+    (minutes: number, seconds: number) => {
+      const safeMinutes = Number.isFinite(minutes) && minutes >= 0 ? Math.floor(minutes) : 0;
+      let safeSeconds = Number.isFinite(seconds) && seconds >= 0 ? Math.round(seconds) : 0;
+      let normalizedMinutes = safeMinutes;
+      if (safeSeconds >= 60) {
+        normalizedMinutes += Math.floor(safeSeconds / 60);
+        safeSeconds %= 60;
+      }
+      form.setValue("paceMinutes", normalizedMinutes, { shouldDirty: true, shouldValidate: true });
+      form.setValue("paceSeconds", safeSeconds, { shouldDirty: true, shouldValidate: true });
+      const convertedSpeed = paceToSpeedKph(normalizedMinutes, safeSeconds);
+      if (convertedSpeed) {
+        form.setValue("speedKph", Number(convertedSpeed.toFixed(2)), { shouldDirty: true, shouldValidate: true });
+      }
+      form.setValue("paceType", "pace", { shouldDirty: true, shouldValidate: true });
+    },
+    [form]
+  );
 
-    if (nextType === "speed") {
-      const currentMinutes = form.getValues("paceMinutes") ?? 0;
-      const currentSeconds = form.getValues("paceSeconds") ?? 0;
-      const convertedSpeed = paceToSpeedKph(currentMinutes, currentSeconds);
-      const fallbackSpeed = form.getValues("speedKph") ?? defaultValues.speedKph;
-      const nextSpeed = convertedSpeed ?? fallbackSpeed;
-      form.setValue("speedKph", Number(nextSpeed.toFixed(2)), {
-        shouldDirty: true,
-        shouldValidate: true,
-      });
-    } else {
-      const currentSpeed = form.getValues("speedKph") ?? 0;
-      const convertedPace = speedToPace(currentSpeed);
+  const handleSpeedUpdate = useCallback(
+    (speed: number) => {
+      const safeSpeed = Number.isFinite(speed) && speed >= 0 ? speed : 0;
+      form.setValue("speedKph", safeSpeed, { shouldDirty: true, shouldValidate: true });
+      const convertedPace = speedToPace(safeSpeed);
       if (convertedPace) {
         form.setValue("paceMinutes", convertedPace.minutes, { shouldDirty: true, shouldValidate: true });
         form.setValue("paceSeconds", convertedPace.seconds, { shouldDirty: true, shouldValidate: true });
       }
-    }
+      form.setValue("paceType", "speed", { shouldDirty: true, shouldValidate: true });
+    },
+    [form]
+  );
 
-    form.setValue("paceType", nextType, { shouldDirty: true, shouldValidate: true });
-  };
+  const handleDurationUpdate = useCallback(
+    (durationMinutes: number) => {
+      if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return;
+      const distance = form.getValues("raceDistanceKm") ?? defaultValues.raceDistanceKm;
+      const safeDistance = Number.isFinite(distance) && distance > 0 ? distance : null;
+      if (!safeDistance) return;
+      const paceMinutesTotal = durationMinutes / safeDistance;
+      const minutes = Math.floor(paceMinutesTotal);
+      let seconds = Math.round((paceMinutesTotal - minutes) * 60);
+      let normalizedMinutes = minutes;
+      if (seconds === 60) {
+        normalizedMinutes += 1;
+        seconds = 0;
+      }
+      handlePaceUpdate(normalizedMinutes, seconds);
+    },
+    [defaultValues.raceDistanceKm, form, handlePaceUpdate]
+  );
 
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1642,9 +1669,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const planPrimaryContent = (
     <div className="space-y-6">
       <CommandCenter
-        totals={raceTotals}
-        targets={intakeTargets}
         copy={racePlannerCopy}
+        sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
+        pacing={{
+          durationMinutes: pacingOverviewDuration,
+          paceMinutes: paceMinutesValue,
+          paceSeconds: paceSecondsValue,
+          speedKph: speedKphValue,
+        }}
+        register={register}
+        onDurationChange={handleDurationUpdate}
+        onPaceChange={handlePaceUpdate}
+        onSpeedChange={handleSpeedUpdate}
         formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
       />
 
@@ -1742,8 +1778,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             copy={racePlannerCopy}
             sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
             register={form.register}
-            paceType={paceType}
-            onPaceTypeChange={handlePaceTypeChange}
           />
         </div>
 
