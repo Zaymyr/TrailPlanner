@@ -46,23 +46,37 @@ export function CommandCenter({
     : 0;
 
   return (
-    <Card>
-      <CardHeader className="space-y-3 pb-2">
-        <SectionHeader title={copy.sections.raceInputs.pacingTitle} description={copy.sections.raceInputs.description} />
-        <p className="text-xs text-slate-500">{copy.sections.summary.description}</p>
+    <Card className="border-emerald-500/30 bg-slate-950/70 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]">
+      <CardHeader className="space-y-4 pb-2">
+        <SectionHeader
+          title={copy.sections.raceInputs.pacingTitle}
+          description={copy.sections.raceInputs.description}
+          action={
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+              {copy.sections.summary.items.duration}
+            </span>
+          }
+        />
+        <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50 shadow-inner shadow-emerald-500/10">
+          <p className="font-semibold text-emerald-100">{copy.sections.summary.description}</p>
+          <p className="mt-1 text-emerald-100/80">{copy.sections.raceInputs.description}</p>
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div id={sectionIds.pacing} className="space-y-3 rounded-lg border border-slate-800/70 bg-slate-950/70 p-4">
+        <div
+          id={sectionIds.pacing}
+          className="space-y-4 rounded-xl border border-slate-800/70 bg-slate-950/80 p-4 shadow-inner shadow-emerald-500/5"
+        >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-slate-100">{copy.sections.summary.items.duration}</p>
             {pacing.durationMinutes ? (
-              <p className="text-xs text-slate-400">{formatDuration(pacing.durationMinutes)}</p>
+              <p className="text-xs text-emerald-200">{formatDuration(pacing.durationMinutes)}</p>
             ) : null}
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="durationHours" className="text-xs text-slate-200">
-                {copy.units.hourShort}
+              <Label htmlFor="durationHours" className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                {copy.units.hourShort} · {copy.sections.summary.items.duration}
               </Label>
               <Input
                 id="durationHours"
@@ -70,7 +84,7 @@ export function CommandCenter({
                 min="0"
                 step="1"
                 value={durationHours}
-                className="border-slate-800/70 bg-slate-950/80 text-sm"
+                className="border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 onChange={(event) => {
                   const hours = Number(event.target.value);
                   if (!Number.isFinite(hours) || hours < 0) return;
@@ -80,7 +94,10 @@ export function CommandCenter({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="durationMinutes" className="text-xs text-slate-200">
+              <Label
+                htmlFor="durationMinutes"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-300"
+              >
                 {copy.units.minuteShort}
               </Label>
               <Input
@@ -90,7 +107,7 @@ export function CommandCenter({
                 max="59"
                 step="1"
                 value={durationRemainderMinutes}
-                className="border-slate-800/70 bg-slate-950/80 text-sm"
+                className="border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 onChange={(event) => {
                   const minutes = Number(event.target.value);
                   if (!Number.isFinite(minutes) || minutes < 0) return;
@@ -101,7 +118,7 @@ export function CommandCenter({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="paceMinutes" className="text-xs text-slate-200">
+              <Label htmlFor="paceMinutes" className="text-xs font-semibold uppercase tracking-wide text-slate-300">
                 {copy.sections.raceInputs.paceOptions.pace}
               </Label>
               <div className="grid grid-cols-[1fr_1fr] gap-2">
@@ -110,7 +127,7 @@ export function CommandCenter({
                 type="number"
                 min="0"
                 step="1"
-                className="border-slate-800/70 bg-slate-950/80 text-sm"
+                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("paceMinutes", {
                   valueAsNumber: true,
                   onChange: (event) => {
@@ -126,7 +143,7 @@ export function CommandCenter({
                 min="0"
                 max="59"
                 step="1"
-                className="border-slate-800/70 bg-slate-950/80 text-sm"
+                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("paceSeconds", {
                   valueAsNumber: true,
                   onChange: (event) => {
@@ -147,7 +164,7 @@ export function CommandCenter({
               type="number"
               min="0"
               step="0.1"
-              className="border-slate-800/70 bg-slate-950/80 text-sm"
+              className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
               {...register("speedKph", {
                 valueAsNumber: true,
                 onChange: (event) => {
@@ -160,9 +177,12 @@ export function CommandCenter({
           </div>
         </div>
         <input type="hidden" {...register("paceType")} />
-      </div>
+        </div>
 
-        <div id={sectionIds.intake} className="space-y-3 rounded-lg border border-slate-800/70 bg-slate-950/70 p-4">
+        <div
+          id={sectionIds.intake}
+          className="space-y-3 rounded-xl border border-slate-800/70 bg-slate-950/80 p-4 shadow-inner shadow-emerald-500/5"
+        >
           <div className="flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.nutritionTitle}</p>
             <p className="text-xs text-slate-400">{copy.sections.raceInputs.description}</p>
@@ -176,7 +196,7 @@ export function CommandCenter({
                 id="targetIntakePerHour"
                 type="number"
                 step="1"
-                className="border-slate-800/70 bg-slate-950/80 text-sm"
+                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("targetIntakePerHour", { valueAsNumber: true })}
               />
             </div>
@@ -189,7 +209,7 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="border-slate-800/70 bg-slate-950/80 text-sm"
+                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("waterIntakePerHour", { valueAsNumber: true })}
               />
             </div>
@@ -202,7 +222,7 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="border-slate-800/70 bg-slate-950/80 text-sm"
+                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("sodiumIntakePerHour", { valueAsNumber: true })}
               />
             </div>
