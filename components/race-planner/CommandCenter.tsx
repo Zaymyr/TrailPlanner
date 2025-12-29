@@ -237,6 +237,8 @@ export function CommandCenter({
                 </div>
               ) : null}
 
+              <div className="hidden h-9 w-px bg-slate-800/70 md:block" aria-hidden />
+
               <div className="w-[140px] space-y-1">
                 <Label
                   htmlFor="targetIntakePerHour"
