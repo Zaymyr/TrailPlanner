@@ -73,8 +73,8 @@ export function CommandCenter({
               <p className="text-xs text-emerald-200">{formatDuration(pacing.durationMinutes)}</p>
             ) : null}
           </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-2">
+          <div className="grid items-end gap-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9">
+            <div className="space-y-1">
               <Label htmlFor="durationHours" className="text-xs font-semibold uppercase tracking-wide text-slate-300">
                 {copy.units.hourShort} · {copy.sections.summary.items.duration}
               </Label>
@@ -84,7 +84,7 @@ export function CommandCenter({
                 min="0"
                 step="1"
                 value={durationHours}
-                className="border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 onChange={(event) => {
                   const hours = Number(event.target.value);
                   if (!Number.isFinite(hours) || hours < 0) return;
@@ -93,7 +93,7 @@ export function CommandCenter({
                 }}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label
                 htmlFor="durationMinutes"
                 className="text-xs font-semibold uppercase tracking-wide text-slate-300"
@@ -107,7 +107,7 @@ export function CommandCenter({
                 max="59"
                 step="1"
                 value={durationRemainderMinutes}
-                className="border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 onChange={(event) => {
                   const minutes = Number(event.target.value);
                   if (!Number.isFinite(minutes) || minutes < 0) return;
@@ -117,91 +117,84 @@ export function CommandCenter({
                 }}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1 lg:col-span-2">
               <Label htmlFor="paceMinutes" className="text-xs font-semibold uppercase tracking-wide text-slate-300">
                 {copy.sections.raceInputs.paceOptions.pace}
               </Label>
               <div className="grid grid-cols-[1fr_1fr] gap-2">
+                <Input
+                  id="paceMinutes"
+                  type="number"
+                  min="0"
+                  step="1"
+                  className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  {...register("paceMinutes", {
+                    valueAsNumber: true,
+                    onChange: (event) => {
+                      const minutes = Number(event.target.value);
+                      if (!Number.isFinite(minutes) || minutes < 0) return;
+                      onPaceChange(Math.floor(minutes), pacing.paceSeconds);
+                    },
+                  })}
+                />
+                <Input
+                  id="paceSeconds"
+                  type="number"
+                  min="0"
+                  max="59"
+                  step="1"
+                  className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  {...register("paceSeconds", {
+                    valueAsNumber: true,
+                    onChange: (event) => {
+                      const seconds = Number(event.target.value);
+                      if (!Number.isFinite(seconds) || seconds < 0) return;
+                      onPaceChange(pacing.paceMinutes, clampSeconds(seconds));
+                    },
+                  })}
+                />
+              </div>
+            </div>
+            <div className="space-y-1 md:col-span-2 lg:col-span-1">
+              <Label htmlFor="speedKph" className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                {copy.sections.raceInputs.fields.speedKph}
+              </Label>
               <Input
-                id="paceMinutes"
+                id="speedKph"
                 type="number"
                 min="0"
-                step="1"
-                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
-                {...register("paceMinutes", {
+                step="0.1"
+                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                {...register("speedKph", {
                   valueAsNumber: true,
                   onChange: (event) => {
-                    const minutes = Number(event.target.value);
-                    if (!Number.isFinite(minutes) || minutes < 0) return;
-                    onPaceChange(Math.floor(minutes), pacing.paceSeconds);
-                  },
-                })}
-              />
-              <Input
-                id="paceSeconds"
-                type="number"
-                min="0"
-                max="59"
-                step="1"
-                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
-                {...register("paceSeconds", {
-                  valueAsNumber: true,
-                  onChange: (event) => {
-                    const seconds = Number(event.target.value);
-                    if (!Number.isFinite(seconds) || seconds < 0) return;
-                    onPaceChange(pacing.paceMinutes, clampSeconds(seconds));
+                    const speed = Number(event.target.value);
+                    if (!Number.isFinite(speed) || speed < 0) return;
+                    onSpeedChange(speed);
                   },
                 })}
               />
             </div>
-          </div>
-          <div className="space-y-2 md:col-span-3 lg:col-span-1">
-            <Label htmlFor="speedKph" className="text-xs text-slate-200">
-              {copy.sections.raceInputs.fields.speedKph}
-            </Label>
-            <Input
-              id="speedKph"
-              type="number"
-              min="0"
-              step="0.1"
-              className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
-              {...register("speedKph", {
-                valueAsNumber: true,
-                onChange: (event) => {
-                  const speed = Number(event.target.value);
-                  if (!Number.isFinite(speed) || speed < 0) return;
-                  onSpeedChange(speed);
-                },
-              })}
-            />
-          </div>
-        </div>
-        <input type="hidden" {...register("paceType")} />
-        </div>
-
-        <div
-          id={sectionIds.intake}
-          className="space-y-3 rounded-xl border border-slate-800/70 bg-slate-950/80 p-4 shadow-inner shadow-emerald-500/5"
-        >
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.nutritionTitle}</p>
-            <p className="text-xs text-slate-400">{copy.sections.raceInputs.description}</p>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="space-y-2">
-              <Label htmlFor="targetIntakePerHour" className="text-xs text-slate-200">
+            <div className="space-y-1 lg:col-span-1">
+              <Label
+                htmlFor="targetIntakePerHour"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-300"
+              >
                 {copy.sections.raceInputs.fields.targetIntakePerHour}
               </Label>
               <Input
                 id="targetIntakePerHour"
                 type="number"
                 step="1"
-                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("targetIntakePerHour", { valueAsNumber: true })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="waterIntakePerHour" className="text-xs text-slate-200">
+            <div className="space-y-1">
+              <Label
+                htmlFor="waterIntakePerHour"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-300"
+              >
                 {copy.sections.raceInputs.fields.waterIntakePerHour}
               </Label>
               <Input
@@ -209,12 +202,15 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("waterIntakePerHour", { valueAsNumber: true })}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="sodiumIntakePerHour" className="text-xs text-slate-200">
+            <div className="space-y-1">
+              <Label
+                htmlFor="sodiumIntakePerHour"
+                className="text-xs font-semibold uppercase tracking-wide text-slate-300"
+              >
                 {copy.sections.raceInputs.fields.sodiumIntakePerHour}
               </Label>
               <Input
@@ -222,12 +218,13 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("sodiumIntakePerHour", { valueAsNumber: true })}
               />
             </div>
           </div>
         </div>
+        <input type="hidden" {...register("paceType")} />
       </CardContent>
     </Card>
   );
