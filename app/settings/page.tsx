@@ -259,7 +259,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
+    <div className="mx-auto flex w-full flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-50">{t.productSettings.title}</h1>
@@ -333,8 +333,13 @@ export default function SettingsPage() {
               <Table containerClassName="max-h-[520px] overflow-y-auto">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="w-10 text-center" aria-label="Product link">
-                      <ProductIcon className="mx-auto h-4 w-4 text-emerald-200" />
+                    <TableHead className="w-24 text-center">
+                      <div className="flex items-center justify-center gap-2 text-emerald-200">
+                        <ProductIcon className="h-4 w-4" />
+                        <span className="text-xs font-semibold uppercase tracking-wide">
+                          {t.productSettings.fields.productUrl}
+                        </span>
+                      </div>
                     </TableHead>
                     <TableHead>
                       <button
@@ -412,8 +417,10 @@ export default function SettingsPage() {
                               rel="noreferrer noopener"
                               className="inline-flex items-center justify-center rounded-full p-2 hover:bg-emerald-900/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
                               aria-label={t.productSettings.fields.productUrl}
+                              title={t.productSettings.fields.productUrl}
                             >
                               <ProductIcon className="h-4 w-4" />
+                              <span className="sr-only">{t.productSettings.fields.productUrl}</span>
                             </a>
                           ) : (
                             <span className="inline-flex items-center justify-center rounded-full bg-slate-800/60 p-2 text-slate-400">
@@ -424,16 +431,6 @@ export default function SettingsPage() {
                         <TableCell className="font-semibold text-slate-50">
                           <div className="flex flex-col gap-1">
                             <span>{product.name}</span>
-                            {product.productUrl && (
-                              <a
-                                href={product.productUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                className="text-xs text-emerald-200 underline-offset-4 hover:underline"
-                              >
-                                {product.productUrl}
-                              </a>
-                            )}
                           </div>
                         </TableCell>
                         <TableCell>{product.carbsGrams} g</TableCell>
