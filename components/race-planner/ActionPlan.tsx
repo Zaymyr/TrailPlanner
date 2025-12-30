@@ -225,6 +225,8 @@ export function ActionPlan({
       { carbs: 0, water: 0, sodium: 0 }
     );
 
+    if (!items.length) return null;
+
     return { items, totals };
   };
 
@@ -248,13 +250,7 @@ export function ActionPlan({
             </div>
           }
         />
-        {segments.length === 0 ? (
-          <p className="text-sm text-slate-400">{timelineCopy.empty}</p>
-        ) : (
-          <p className="text-xs text-slate-400">
-            {copy.sections.timeline.printView.description}
-          </p>
-        )}
+        {segments.length === 0 ? <p className="text-sm text-slate-400">{timelineCopy.empty}</p> : null}
       </CardHeader>
       <CardContent className="space-y-4">
         {segments.length > 0 ? (
@@ -271,9 +267,9 @@ export function ActionPlan({
                   }
                   const { segment } = item;
                   const carriedTotals = summarizeSupplies(carrySupplies);
-                  const plannedFuel = carriedTotals ? carriedTotals.totals.carbs : segment.plannedFuelGrams;
-                  const plannedWater = carriedTotals ? carriedTotals.totals.water : segment.plannedWaterMl;
-                  const plannedSodium = carriedTotals ? carriedTotals.totals.sodium : segment.plannedSodiumMg;
+                  const plannedFuel = carriedTotals?.totals.carbs ?? 0;
+                  const plannedWater = segment.plannedWaterMl;
+                  const plannedSodium = carriedTotals?.totals.sodium ?? 0;
                   const distanceHelper = timelineCopy.segmentDistanceBetween.replace(
                     "{distance}",
                     segment.segmentKm.toFixed(1)
@@ -431,10 +427,10 @@ export function ActionPlan({
                   const metricKey = key as "carbs" | "water" | "sodium";
                   const planned =
                     metricKey === "carbs"
-                      ? summarized.totals.carbs
+                      ? summarized?.totals.carbs ?? 0
                       : metricKey === "water"
-                        ? summarized.totals.water
-                        : summarized.totals.sodium;
+                        ? summarized?.totals.water ?? 0
+                        : summarized?.totals.sodium ?? 0;
                   const target =
                     metricKey === "carbs"
                       ? nextSegment?.targetFuelGrams ?? 0
@@ -510,43 +506,38 @@ export function ActionPlan({
                       }}
                     >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
-                        <span className="text-[11px] text-emerald-100/80">{timelineCopy.pointStockHelper}</span>
-                      </div>
+                      <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {summarized.items.length === 0 ? (
-                        <p className="text-xs text-emerald-100/70">{timelineCopy.pickupHelper}</p>
-                      ) : (
-                        summarized.items.map(({ product, quantity }) => (
-                          <div
-                            key={product.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
-                          >
-                            <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                              onClick={() => {
-                                if (item.isStart) {
-                                  onStartSupplyRemove(product.id);
-                                } else {
-                                  onSupplyRemove(item.aidStationIndex as number, product.id);
-                                }
-                              }}
+                      {summarized?.items?.length
+                        ? summarized.items.map(({ product, quantity }) => (
+                            <div
+                              key={product.id}
+                              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
                             >
-                              ×
-                            </Button>
-                          </div>
-                        ))
-                      )}
+                              <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                onClick={() => {
+                                  if (item.isStart) {
+                                    onStartSupplyRemove(product.id);
+                                  } else {
+                                    onSupplyRemove(item.aidStationIndex as number, product.id);
+                                  }
+                                }}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))
+                        : null}
                     </div>
                     <p className="text-[11px] text-slate-300">
-                      {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized.totals.carbs)} ·{" "}
-                      {copy.sections.summary.items.water}: {formatWaterAmount(summarized.totals.water)} ·{" "}
-                      {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized.totals.sodium)}
+                      {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized?.totals.carbs ?? 0)} ·{" "}
+                      {copy.sections.summary.items.water}: {formatWaterAmount(summarized?.totals.water ?? 0)} ·{" "}
+                      {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized?.totals.sodium ?? 0)}
                     </p>
                   </div>
                 ) : null;
