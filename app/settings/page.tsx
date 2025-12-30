@@ -316,7 +316,7 @@ export default function SettingsPage() {
               <Table containerClassName="max-h-[520px] overflow-y-auto">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow>
-                    <TableHead className="w-10 text-center" aria-label="Product icon">
+                    <TableHead className="w-10 text-center" aria-label="Product link">
                       <Utensils className="mx-auto h-4 w-4 text-emerald-200" />
                     </TableHead>
                     <TableHead>
@@ -388,7 +388,21 @@ export default function SettingsPage() {
                     return (
                       <TableRow key={product.id}>
                         <TableCell className="text-center text-emerald-200">
-                          <Utensils className="mx-auto h-4 w-4" aria-hidden="true" />
+                          {product.productUrl ? (
+                            <a
+                              href={product.productUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center justify-center rounded-full p-2 hover:bg-emerald-900/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                              aria-label={t.productSettings.fields.productUrl}
+                            >
+                              <Utensils className="h-4 w-4" aria-hidden="true" />
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center justify-center rounded-full bg-slate-800/60 p-2 text-slate-400">
+                              <Utensils className="h-4 w-4" aria-hidden="true" />
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="font-semibold text-slate-50">
                           <div className="flex flex-col gap-1">
