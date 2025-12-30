@@ -250,13 +250,7 @@ export function ActionPlan({
             </div>
           }
         />
-        {segments.length === 0 ? (
-          <p className="text-sm text-slate-400">{timelineCopy.empty}</p>
-        ) : (
-          <p className="text-xs text-slate-400">
-            {copy.sections.timeline.printView.description}
-          </p>
-        )}
+        {segments.length === 0 ? <p className="text-sm text-slate-400">{timelineCopy.empty}</p> : null}
       </CardHeader>
       <CardContent className="space-y-4">
         {segments.length > 0 ? (
@@ -512,38 +506,33 @@ export function ActionPlan({
                       }}
                     >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
-                        <span className="text-[11px] text-emerald-100/80">{timelineCopy.pointStockHelper}</span>
-                      </div>
+                      <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {summarized?.items?.length ? (
-                        summarized.items.map(({ product, quantity }) => (
-                          <div
-                            key={product.id}
-                            className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
-                          >
-                            <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                              onClick={() => {
-                                if (item.isStart) {
-                                  onStartSupplyRemove(product.id);
-                                } else {
-                                  onSupplyRemove(item.aidStationIndex as number, product.id);
-                                }
-                              }}
+                      {summarized?.items?.length
+                        ? summarized.items.map(({ product, quantity }) => (
+                            <div
+                              key={product.id}
+                              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
                             >
-                              ×
-                            </Button>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-xs text-emerald-100/70">{timelineCopy.pickupHelper}</p>
-                      )}
+                              <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                onClick={() => {
+                                  if (item.isStart) {
+                                    onStartSupplyRemove(product.id);
+                                  } else {
+                                    onSupplyRemove(item.aidStationIndex as number, product.id);
+                                  }
+                                }}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))
+                        : null}
                     </div>
                     <p className="text-[11px] text-slate-300">
                       {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized?.totals.carbs ?? 0)} ·{" "}
