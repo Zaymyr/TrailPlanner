@@ -50,21 +50,24 @@ export function CommandCenter({
     hours: durationHours.toString(),
     minutes: durationRemainderMinutes.toString().padStart(2, "0"),
   });
+  const [isEditingDuration, setIsEditingDuration] = useState(false);
 
   useEffect(() => {
-    if (pacingMode !== "duration") return;
+    if (pacingMode !== "duration" || isEditingDuration) return;
     setDurationInputs({
       hours: durationHours.toString(),
       minutes: durationRemainderMinutes.toString().padStart(2, "0"),
     });
-  }, [durationHours, durationRemainderMinutes, pacingMode]);
+  }, [durationHours, durationRemainderMinutes, isEditingDuration, pacingMode]);
 
   const parseDurationInputs = (hoursValue: string, minutesValue: string) => {
+    if (hoursValue.trim() === "" || minutesValue.trim() === "") return null;
     const hours = Number(hoursValue);
     const minutes = Number(minutesValue);
-    const safeHours = Number.isFinite(hours) && hours >= 0 ? hours : 0;
-    const safeMinutes = Number.isFinite(minutes) && minutes >= 0 ? Math.min(minutes, 59) : 0;
-    return safeHours * 60 + safeMinutes;
+    if (!Number.isFinite(hours) || hours < 0) return null;
+    if (!Number.isFinite(minutes) || minutes < 0) return null;
+    const safeMinutes = Math.min(minutes, 59);
+    return hours * 60 + safeMinutes;
   };
 
   return (
@@ -148,10 +151,15 @@ export function CommandCenter({
                             const value = event.target.value;
                             setDurationInputs((previous) => {
                               const next = { ...previous, hours: value };
-                              onDurationChange(parseDurationInputs(next.hours, next.minutes));
+                              const parsed = parseDurationInputs(next.hours, next.minutes);
+                              if (parsed !== null) {
+                                onDurationChange(parsed);
+                              }
                               return next;
                             });
                           }}
+                          onFocus={() => setIsEditingDuration(true)}
+                          onBlur={() => setIsEditingDuration(false)}
                         />
                       </div>
                       <div className="w-[110px] space-y-1">
@@ -173,10 +181,15 @@ export function CommandCenter({
                             const value = event.target.value;
                             setDurationInputs((previous) => {
                               const next = { ...previous, minutes: value };
-                              onDurationChange(parseDurationInputs(next.hours, next.minutes));
+                              const parsed = parseDurationInputs(next.hours, next.minutes);
+                              if (parsed !== null) {
+                                onDurationChange(parsed);
+                              }
                               return next;
                             });
                           }}
+                          onFocus={() => setIsEditingDuration(true)}
+                          onBlur={() => setIsEditingDuration(false)}
                         />
                       </div>
                     </>
