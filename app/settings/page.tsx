@@ -44,6 +44,23 @@ function ProductIcon({ className }: { className?: string }) {
   );
 }
 
+function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const [session, setSession] = useState(() => readStoredSession());
@@ -401,7 +418,7 @@ export default function SettingsPage() {
                         {sortKey === "fatGrams" ? (sortDirection === "asc" ? "↑" : "↓") : null}
                       </button>
                     </TableHead>
-                    <TableHead className="text-right">{t.productSettings.actions.select}</TableHead>
+                    <TableHead className="text-center">{t.productSettings.actions.select}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -438,15 +455,26 @@ export default function SettingsPage() {
                         <TableCell>{product.caloriesKcal}</TableCell>
                         <TableCell>{product.proteinGrams} g</TableCell>
                         <TableCell>{product.fatGrams} g</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant={isSelected ? "ghost" : "outline"}
-                            className={`${isSelected ? "text-emerald-200" : ""} h-9 px-3 text-sm`}
+                        <TableCell className="text-center">
+                          <button
+                            type="button"
                             onClick={() => handleToggle(product)}
                             disabled={authMissing}
+                            aria-pressed={isSelected}
+                            aria-label={
+                              isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select
+                            }
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/70 transition ${
+                              isSelected
+                                ? "bg-amber-300/20 text-amber-300 hover:bg-amber-300/30"
+                                : "bg-transparent text-amber-200 hover:bg-amber-300/10"
+                            } disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300`}
                           >
-                            {isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
-                          </Button>
+                            <StarIcon filled={isSelected} className="h-4 w-4" />
+                            <span className="sr-only">
+                              {isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
+                            </span>
+                          </button>
                         </TableCell>
                       </TableRow>
                     );
