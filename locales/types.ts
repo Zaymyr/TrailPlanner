@@ -119,14 +119,16 @@ export type RacePlannerTranslations = {
         uphillEffortHelp: string;
         downhillEffort: string;
         downhillEffortHelp: string;
-        targetIntakePerHour: string;
-        waterIntakePerHour: string;
-        sodiumIntakePerHour: string;
-      };
-      paceOptions: {
-        pace: string;
-        speed: string;
-      };
+      targetIntakePerHour: string;
+      waterIntakePerHour: string;
+      sodiumIntakePerHour: string;
+      waterBagLiters: string;
+      waterBagHelper: string;
+    };
+    paceOptions: {
+      pace: string;
+      speed: string;
+    };
     };
     summary: {
       title: string;
@@ -209,6 +211,8 @@ export type RacePlannerTranslations = {
       pickupTitle: string;
       pickupHelper: string;
       pickupGelsLabel: string;
+      waterCapacityLabel: string;
+      waterCapacityWarning: string;
       status: {
         belowTarget: string;
         atTarget: string;
@@ -383,6 +387,48 @@ export type AdminTranslations = {
   };
 };
 
+export type ProfileTranslations = {
+  title: string;
+  description: string;
+  authRequired: string;
+  save: string;
+  saving: string;
+  success: string;
+  error: string;
+  basics: {
+    title: string;
+    subtitle: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    ageLabel: string;
+    agePlaceholder: string;
+    waterBagLabel: string;
+    waterBagHelper: string;
+  };
+  favorites: {
+    title: string;
+    subtitle: string;
+    add: string;
+    empty: string;
+    selectedLabel: string;
+    limit: string;
+    remove: string;
+    dialog: {
+      title: string;
+      searchPlaceholder: string;
+      close: string;
+    };
+    table: {
+      name: string;
+      carbs: string;
+      sodium: string;
+      calories: string;
+      select: string;
+      selected: string;
+    };
+  };
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
@@ -394,9 +440,11 @@ export type Translations = {
     settings: string;
     admin: string;
     menuLabel: string;
+    profile: string;
   };
   admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;
+  profile: ProfileTranslations;
 };
 
 export type ProductSettingsTranslations = {

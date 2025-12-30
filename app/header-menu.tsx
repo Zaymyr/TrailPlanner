@@ -39,12 +39,17 @@ export function HeaderMenu() {
         active: pathname === "/settings",
       },
       {
+        label: t.navigation.profile,
+        href: "/profile",
+        active: pathname === "/profile",
+      },
+      {
         label: t.navigation.admin,
         href: "/admin",
         active: pathname === "/admin",
       },
     ],
-    [pathname, t.navigation.admin, t.navigation.racePlanner, t.navigation.settings]
+    [pathname, t.navigation.admin, t.navigation.profile, t.navigation.racePlanner, t.navigation.settings]
   );
 
   useEffect(() => {

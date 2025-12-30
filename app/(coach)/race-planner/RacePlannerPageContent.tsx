@@ -30,6 +30,8 @@ import type {
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
 import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
+import { fetchUserProfile } from "../../../lib/profile-client";
+import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
@@ -134,6 +136,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   uphillEffort: 50,
   downhillEffort: 50,
   targetIntakePerHour: 70,
+  waterBagLiters: 1.5,
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 600,
   startSupplies: [],
@@ -185,6 +188,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      waterBagLiters: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       startSupplies: createSegmentPlanSchema(copy.validation).shape.supplies.optional(),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
@@ -374,6 +378,10 @@ function buildSegments(
   ];
 
   let elapsedMinutes = 0;
+  const waterCapacityMl =
+    typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters)
+      ? Math.max(0, values.waterBagLiters * 1000)
+      : null;
 
   return checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
@@ -404,7 +412,9 @@ function buildSegments(
     const gelsPlanned = Math.max(0, Math.round((station.gelsPlanned ?? targetFuelGrams / gelCarbs) * 10) / 10);
     const recommendedGels = Math.max(0, targetFuelGrams / gelCarbs);
     const plannedFuelGrams = gelsPlanned * gelCarbs;
-    const plannedWaterMl = targetWaterMl;
+    const plannedWaterMl = waterCapacityMl !== null ? Math.min(targetWaterMl, waterCapacityMl) : targetWaterMl;
+    const waterShortfallMl =
+      waterCapacityMl !== null && targetWaterMl > waterCapacityMl ? targetWaterMl - waterCapacityMl : 0;
     const plannedSodiumMg = targetSodiumMg;
     const segment: Segment = {
       checkpoint: station.name,
@@ -429,6 +439,8 @@ function buildSegments(
       plannedMinutesOverride: overrideMinutes,
       pickupGels: station.pickupGels,
       supplies: station.supplies,
+      waterCapacityMl: waterCapacityMl ?? undefined,
+      waterShortfallMl: waterShortfallMl > 0 ? waterShortfallMl : undefined,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
     };
@@ -526,10 +538,15 @@ function sanitizePlannerValues(values?: Partial<FormValues>): Partial<FormValues
   const aidStations = sanitizeAidStations(values.aidStations);
   const finishPlan = sanitizeSegmentPlan(values.finishPlan);
   const startSupplies = sanitizeSegmentPlan({ supplies: values.startSupplies }).supplies;
+  const waterBagLiters =
+    typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters) && values.waterBagLiters >= 0
+      ? values.waterBagLiters
+      : undefined;
 
   return {
     ...values,
     paceType,
+    waterBagLiters,
     startSupplies,
     aidStations,
     finishPlan,
@@ -850,7 +867,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [productsError, setProductsError] = useState<string | null>(null);
-  const { selectedProducts } = useProductSelection();
+  const { selectedProducts, replaceSelection } = useProductSelection();
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -968,6 +986,44 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
     }
   }, [verifySession]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      setProfileError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+    setProfileError(null);
+
+    const loadProfile = async () => {
+      try {
+        const data = await fetchUserProfile(session.accessToken, abortController.signal);
+        if (abortController.signal.aborted) return;
+        if (typeof data.waterBagLiters === "number") {
+          form.setValue("waterBagLiters", data.waterBagLiters);
+        }
+        replaceSelection(data.favoriteProducts.map((product) => mapProductToSelection(product)));
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Unable to load profile", error);
+        setProfileError(
+          error instanceof Error ? error.message : racePlannerCopy.account.errors.fetchFailed
+        );
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [
+    form,
+    racePlannerCopy.account.errors.fetchFailed,
+    replaceSelection,
+    session?.accessToken,
+  ]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -1649,6 +1705,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
   const planPrimaryContent = (
     <div className="space-y-6">
+      {session?.accessToken && profileError ? (
+        <p className="text-sm text-amber-200">{profileError}</p>
+      ) : null}
       <CommandCenter
         copy={racePlannerCopy}
         sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}

@@ -24,6 +24,7 @@ export type FormValues = {
   targetIntakePerHour: number;
   waterIntakePerHour: number;
   sodiumIntakePerHour: number;
+  waterBagLiters: number;
   startSupplies?: StationSupply[];
   aidStations: AidStation[];
   finishPlan?: SegmentPlan;
@@ -52,6 +53,8 @@ export type Segment = {
   plannedMinutesOverride?: number;
   pickupGels?: number;
   supplies?: StationSupply[];
+  waterCapacityMl?: number;
+  waterShortfallMl?: number;
   aidStationIndex?: number;
   isFinish?: boolean;
 };

@@ -333,11 +333,26 @@ export function ActionPlan({
                     const status = getPlanStatus(metric.planned, metric.target);
                     const targetPercent =
                       metric.target > 0 ? Math.max(0, Math.min((metric.planned / metric.target) * 100, 999)) : 0;
+                    const capacityLabel =
+                      metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
+                        ? timelineCopy.waterCapacityLabel.replace(
+                            "{capacity}",
+                            formatWaterAmount(segment.waterCapacityMl)
+                          )
+                        : null;
+                    const capacityWarning =
+                      metric.key === "water" && typeof segment.waterShortfallMl === "number" && segment.waterShortfallMl > 0
+                        ? timelineCopy.waterCapacityWarning.replace(
+                            "{missing}",
+                            formatWaterAmount(segment.waterShortfallMl)
+                          )
+                        : null;
                     return {
                       key: metric.key,
                       label: metric.label,
                       value: metric.format(metric.planned),
                       targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
+                      helper: capacityWarning ?? capacityLabel ?? null,
                       targetPercent,
                       totalPercent: calculatePercentage(metric.planned, metric.total),
                       statusLabel: status.label,
@@ -390,6 +405,9 @@ export function ActionPlan({
                               <p className="text-[11px] text-slate-200">
                                 {metric.targetText} · {metric.targetPercent.toFixed(0)}% ({metric.totalPercent.toFixed(0)}% total)
                               </p>
+                              {metric.helper ? (
+                                <p className="text-[11px] text-amber-200">{metric.helper}</p>
+                              ) : null}
                             </div>
                           </div>
                         ))}
