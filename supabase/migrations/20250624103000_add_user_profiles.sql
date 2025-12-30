@@ -40,20 +40,30 @@ create index if not exists user_favorite_products_product_idx on public.user_fav
 alter table public.user_profiles enable row level security;
 alter table public.user_favorite_products enable row level security;
 
-create policy if not exists "Users can view their profile" on public.user_profiles
-  for select using (auth.uid() = user_id);
+-- Policies (Postgres doesn't support CREATE POLICY IF NOT EXISTS)
+drop policy if exists "Users can view their profile" on public.user_profiles;
+create policy "Users can view their profile" on public.user_profiles
+  for select
+  using (auth.uid() = user_id);
 
-create policy if not exists "Users can upsert their profile" on public.user_profiles
-  for insert with check (auth.uid() = user_id);
-
-create policy if not exists "Users can update their profile" on public.user_profiles
-  for update using (auth.uid() = user_id)
+drop policy if exists "Users can upsert their profile" on public.user_profiles;
+create policy "Users can upsert their profile" on public.user_profiles
+  for insert
   with check (auth.uid() = user_id);
 
-create policy if not exists "Users can view their favorite products" on public.user_favorite_products
-  for select using (auth.uid() = user_id);
+drop policy if exists "Users can update their profile" on public.user_profiles;
+create policy "Users can update their profile" on public.user_profiles
+  for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
-create policy if not exists "Users can manage their favorite products" on public.user_favorite_products
+drop policy if exists "Users can view their favorite products" on public.user_favorite_products;
+create policy "Users can view their favorite products" on public.user_favorite_products
+  for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can manage their favorite products" on public.user_favorite_products;
+create policy "Users can manage their favorite products" on public.user_favorite_products
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
