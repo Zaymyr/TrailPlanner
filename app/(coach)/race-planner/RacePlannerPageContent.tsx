@@ -468,17 +468,14 @@ function buildSegments(
 
   stretches.forEach(({ start, end, totalNeed }) => {
     const carryCapacity = waterCapacityMl ?? Number.POSITIVE_INFINITY;
-    const carryAtStart = Math.min(carryCapacity, totalNeed);
     const stretchShortfall = Math.max(0, totalNeed - (waterCapacityMl ?? totalNeed));
-    let remainingCarry = carryAtStart;
+    const plannedCarry = Number.isFinite(waterCapacityMl) && waterCapacityMl !== null ? waterCapacityMl : totalNeed;
 
     for (let i = start; i <= end; i += 1) {
       const segment = segments[i];
-      const plannedForLeg = Math.min(segment.targetWaterMl, remainingCarry);
-      segment.plannedWaterMl = plannedForLeg;
+      segment.plannedWaterMl = plannedCarry;
       segment.waterCapacityMl = waterCapacityMl ?? undefined;
       segment.waterShortfallMl = stretchShortfall > 0 ? stretchShortfall : undefined;
-      remainingCarry = Math.max(0, remainingCarry - plannedForLeg);
     }
   });
 
