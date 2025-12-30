@@ -42,7 +42,7 @@ export function CommandCenter({
 
   return (
     <div className="space-y-4">
-      <Card className="border-emerald-500/30 bg-slate-950/70 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]">
+      <Card className="bg-slate-950/40 shadow-none">
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2">
             <Card id={sectionIds.pacing} className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5">
