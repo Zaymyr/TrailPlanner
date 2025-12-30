@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
@@ -20,7 +20,6 @@ type CommandCenterProps = {
     speedKph: number;
   };
   register: UseFormRegister<FormValues>;
-  onDurationChange: (minutes: number) => void;
   onPaceChange: (minutes: number, seconds: number) => void;
   onSpeedChange: (speedKph: number) => void;
   formatDuration: (totalMinutes: number) => string;
@@ -36,39 +35,11 @@ export function CommandCenter({
   sectionIds,
   pacing,
   register,
-  onDurationChange,
   onPaceChange,
   onSpeedChange,
   formatDuration,
 }: CommandCenterProps) {
-  const durationHours = pacing.durationMinutes ? Math.max(0, Math.floor(pacing.durationMinutes / 60)) : 0;
-  const durationRemainderMinutes = pacing.durationMinutes
-    ? Math.max(0, Math.round(pacing.durationMinutes - durationHours * 60))
-    : 0;
-  const [pacingMode, setPacingMode] = useState<"duration" | "pace" | "speed">("duration");
-  const [durationInputs, setDurationInputs] = useState<{ hours: string; minutes: string }>({
-    hours: durationHours.toString(),
-    minutes: durationRemainderMinutes.toString().padStart(2, "0"),
-  });
-  const [isEditingDuration, setIsEditingDuration] = useState(false);
-
-  useEffect(() => {
-    if (pacingMode !== "duration" || isEditingDuration) return;
-    setDurationInputs({
-      hours: durationHours.toString(),
-      minutes: durationRemainderMinutes.toString().padStart(2, "0"),
-    });
-  }, [durationHours, durationRemainderMinutes, isEditingDuration, pacingMode]);
-
-  const parseDurationInputs = (hoursValue: string, minutesValue: string) => {
-    if (hoursValue.trim() === "" || minutesValue.trim() === "") return null;
-    const hours = Number(hoursValue);
-    const minutes = Number(minutesValue);
-    if (!Number.isFinite(hours) || hours < 0) return null;
-    if (!Number.isFinite(minutes) || minutes < 0) return null;
-    const safeMinutes = Math.min(minutes, 59);
-    return hours * 60 + safeMinutes;
-  };
+  const [pacingMode, setPacingMode] = useState<"pace" | "speed">("pace");
 
   return (
     <div className="space-y-4">
@@ -98,6 +69,9 @@ export function CommandCenter({
                     <p className="text-xs text-emerald-200">{formatDuration(pacing.durationMinutes)}</p>
                   ) : null}
                 </div>
+                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
+                  {pacing.durationMinutes ? formatDuration(pacing.durationMinutes) : "--"}
+                </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     {copy.sections.raceInputs.fields.paceType}
@@ -105,10 +79,9 @@ export function CommandCenter({
                   <div className="flex items-center gap-2 rounded-md border border-slate-800/80 bg-slate-900/80 p-1">
                     {(
                       [
-                        { key: "duration", label: copy.sections.summary.items.duration },
                         { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
                         { key: "speed", label: copy.sections.raceInputs.paceOptions.speed as string },
-                      ] satisfies { key: "duration" | "pace" | "speed"; label: string }[]
+                      ] satisfies { key: "pace" | "speed"; label: string }[]
                     ).map((option) => {
                       const isActive = pacingMode === option.key;
                       return (
@@ -131,70 +104,6 @@ export function CommandCenter({
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap items-end gap-3">
-                  {pacingMode === "duration" ? (
-                    <>
-                      <div className="w-[110px] space-y-1">
-                        <Label
-                          htmlFor="durationHours"
-                          className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
-                        >
-                          {copy.units.hourShort}
-                        </Label>
-                        <Input
-                          id="durationHours"
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={durationInputs.hours}
-                          className="h-11 border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setDurationInputs((previous) => {
-                              const next = { ...previous, hours: value };
-                              const parsed = parseDurationInputs(next.hours, next.minutes);
-                              if (parsed !== null) {
-                                onDurationChange(parsed);
-                              }
-                              return next;
-                            });
-                          }}
-                          onFocus={() => setIsEditingDuration(true)}
-                          onBlur={() => setIsEditingDuration(false)}
-                        />
-                      </div>
-                      <div className="w-[110px] space-y-1">
-                        <Label
-                          htmlFor="durationMinutes"
-                          className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
-                        >
-                          {copy.units.minuteShort}
-                        </Label>
-                        <Input
-                          id="durationMinutes"
-                          type="number"
-                          min="0"
-                          max="59"
-                          step="1"
-                          value={durationInputs.minutes}
-                          className="h-11 border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setDurationInputs((previous) => {
-                              const next = { ...previous, minutes: value };
-                              const parsed = parseDurationInputs(next.hours, next.minutes);
-                              if (parsed !== null) {
-                                onDurationChange(parsed);
-                              }
-                              return next;
-                            });
-                          }}
-                          onFocus={() => setIsEditingDuration(true)}
-                          onBlur={() => setIsEditingDuration(false)}
-                        />
-                      </div>
-                    </>
-                  ) : null}
-
                   {pacingMode === "pace" ? (
                     <div className="flex flex-wrap gap-2">
                       <div className="w-[120px] space-y-1">

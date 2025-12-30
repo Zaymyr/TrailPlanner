@@ -1370,25 +1370,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [form]
   );
 
-  const handleDurationUpdate = useCallback(
-    (durationMinutes: number) => {
-      if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return;
-      const distance = form.getValues("raceDistanceKm") ?? defaultValues.raceDistanceKm;
-      const safeDistance = Number.isFinite(distance) && distance > 0 ? distance : null;
-      if (!safeDistance) return;
-      const paceMinutesTotal = durationMinutes / safeDistance;
-      const minutes = Math.floor(paceMinutesTotal);
-      let seconds = Math.round((paceMinutesTotal - minutes) * 60);
-      let normalizedMinutes = minutes;
-      if (seconds === 60) {
-        normalizedMinutes += 1;
-        seconds = 0;
-      }
-      handlePaceUpdate(normalizedMinutes, seconds);
-    },
-    [defaultValues.raceDistanceKm, form, handlePaceUpdate]
-  );
-
   const handleImportGpx = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -1678,7 +1659,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           speedKph: speedKphValue,
         }}
         register={register}
-        onDurationChange={handleDurationUpdate}
         onPaceChange={handlePaceUpdate}
         onSpeedChange={handleSpeedUpdate}
         formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
