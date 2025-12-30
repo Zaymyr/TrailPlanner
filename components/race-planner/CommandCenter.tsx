@@ -5,7 +5,6 @@ import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues } from "../../app/(coach)/race-planner/types";
-import { SectionHeader } from "../ui/SectionHeader";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -44,33 +43,17 @@ export function CommandCenter({
   return (
     <div className="space-y-4">
       <Card className="border-emerald-500/30 bg-slate-950/70 shadow-[0_0_0_1px_rgba(16,185,129,0.18)]">
-        <CardHeader className="space-y-4 pb-2">
-          <SectionHeader
-            title={copy.sections.raceInputs.pacingTitle}
-            description={copy.sections.raceInputs.description}
-            action={
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/50 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
-                {copy.sections.summary.items.duration}
-              </span>
-            }
-          />
-          <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-50 shadow-inner shadow-emerald-500/10">
-            <p className="font-semibold text-emerald-100">{copy.sections.summary.description}</p>
-            <p className="mt-1 text-emerald-100/80">{copy.sections.raceInputs.description}</p>
-          </div>
-        </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2">
             <Card id={sectionIds.pacing} className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5">
               <CardHeader className="space-y-3 pb-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-slate-100">{copy.sections.summary.items.duration}</p>
+                  <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.pacingTitle}</p>
                   {pacing.durationMinutes ? (
-                    <p className="text-xs text-emerald-200">{formatDuration(pacing.durationMinutes)}</p>
+                    <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                      {formatDuration(pacing.durationMinutes)}
+                    </span>
                   ) : null}
-                </div>
-                <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-100">
-                  {pacing.durationMinutes ? formatDuration(pacing.durationMinutes) : "--"}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
