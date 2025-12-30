@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../locales/types";
@@ -14,8 +14,6 @@ type SettingsPanelProps = {
   copy: RacePlannerTranslations;
   sectionIds: { inputs: string; pacing: string; intake: string };
   register: UseFormRegister<FormValues>;
-  paceType: FormValues["paceType"];
-  onPaceTypeChange: (nextType: FormValues["paceType"]) => void;
 };
 
 type AccordionSectionProps = {
@@ -54,8 +52,6 @@ export function SettingsPanel({
   copy,
   sectionIds,
   register,
-  paceType,
-  onPaceTypeChange,
 }: SettingsPanelProps) {
   const [isVisible, setIsVisible] = useState(true);
 
@@ -71,15 +67,6 @@ export function SettingsPanel({
     if (typeof window === "undefined") return;
     window.localStorage.setItem(VISIBILITY_KEY, isVisible ? "shown" : "hidden");
   }, [isVisible]);
-
-  const paceOptions = useMemo(
-    () =>
-      [
-        { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
-        { key: "speed", label: copy.sections.raceInputs.paceOptions.speed as string },
-      ] satisfies { key: FormValues["paceType"]; label: string }[],
-    [copy.sections.raceInputs.paceOptions.pace, copy.sections.raceInputs.paceOptions.speed]
-  );
 
   return (
     <Card id={sectionIds.inputs} className="border-slate-800/80 bg-slate-950/70">
@@ -105,155 +92,40 @@ export function SettingsPanel({
       {isVisible ? (
       <CardContent className="space-y-3">
           <AccordionSection
-            id={sectionIds.pacing}
+            id={`${sectionIds.pacing}-settings`}
             title={copy.sections.raceInputs.pacingTitle}
-            description={copy.sections.raceInputs.fields.paceType}
-          >
-            <div className="grid gap-3 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="space-y-3 rounded-md border border-slate-800/60 bg-slate-900/60 p-3">
-                <div className="grid grid-cols-2 gap-2">
-                  {paceOptions.map((option) => {
-                    const isActive = paceType === option.key;
-                    return (
-                      <Button
-                        key={option.key}
-                        type="button"
-                        variant={isActive ? "default" : "outline"}
-                        className="w-full justify-center text-xs"
-                        aria-pressed={isActive}
-                        onClick={() => onPaceTypeChange(option.key)}
-                      >
-                        {option.label}
-                      </Button>
-                    );
-                  })}
-                </div>
-                <input id="paceType" type="hidden" {...register("paceType")} />
-
-                {paceType === "pace" ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="paceMinutes" className="text-xs text-slate-200">
-                        {copy.sections.raceInputs.fields.paceMinutes}
-                      </Label>
-                      <Input
-                        id="paceMinutes"
-                        type="number"
-                        min="0"
-                        step="1"
-                        className="border-slate-800/70 bg-slate-950/80 text-sm"
-                        {...register("paceMinutes", { valueAsNumber: true })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="paceSeconds" className="text-xs text-slate-200">
-                        {copy.sections.raceInputs.fields.paceSeconds}
-                      </Label>
-                      <Input
-                        id="paceSeconds"
-                        type="number"
-                        min="0"
-                        max="59"
-                        step="1"
-                        className="border-slate-800/70 bg-slate-950/80 text-sm"
-                        {...register("paceSeconds", { valueAsNumber: true })}
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label htmlFor="speedKph" className="text-xs text-slate-200">
-                      {copy.sections.raceInputs.fields.speedKph}
-                    </Label>
-                    <Input
-                      id="speedKph"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      className="border-slate-800/70 bg-slate-950/80 text-sm"
-                      {...register("speedKph", { valueAsNumber: true })}
-                    />
-                  </div>
-                )}
-              </div>
-              <div className="space-y-3 rounded-md border border-slate-800/60 bg-slate-900/60 p-3">
-                <div className="space-y-2">
-                  <Label htmlFor="uphillEffort" className="text-xs text-slate-200">
-                    {copy.sections.raceInputs.fields.uphillEffort}
-                  </Label>
-                  <Input
-                    id="uphillEffort"
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    className="accent-emerald-400"
-                    {...register("uphillEffort", { valueAsNumber: true })}
-                  />
-                  <p className="text-[11px] text-slate-500">{copy.sections.raceInputs.fields.uphillEffortHelp}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="downhillEffort" className="text-xs text-slate-200">
-                    {copy.sections.raceInputs.fields.downhillEffort}
-                  </Label>
-                  <Input
-                    id="downhillEffort"
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="5"
-                    className="accent-emerald-400"
-                    {...register("downhillEffort", { valueAsNumber: true })}
-                  />
-                  <p className="text-[11px] text-slate-500">{copy.sections.raceInputs.fields.downhillEffortHelp}</p>
-                </div>
-              </div>
-            </div>
-          </AccordionSection>
-
-          <AccordionSection
-            id={sectionIds.intake}
-            title={copy.sections.raceInputs.nutritionTitle}
             description={copy.sections.raceInputs.description}
           >
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-3 rounded-md border border-slate-800/60 bg-slate-900/60 p-3">
               <div className="space-y-2">
-                <Label htmlFor="targetIntakePerHour" className="text-xs text-slate-200">
-                  {copy.sections.raceInputs.fields.targetIntakePerHour}
+                <Label htmlFor="uphillEffort" className="text-xs text-slate-200">
+                  {copy.sections.raceInputs.fields.uphillEffort}
                 </Label>
                 <Input
-                  id="targetIntakePerHour"
-                  type="number"
-                  step="1"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("targetIntakePerHour", { valueAsNumber: true })}
+                  id="uphillEffort"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  className="accent-emerald-400"
+                  {...register("uphillEffort", { valueAsNumber: true })}
                 />
+                <p className="text-[11px] text-slate-500">{copy.sections.raceInputs.fields.uphillEffortHelp}</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="waterIntakePerHour" className="text-xs text-slate-200">
-                  {copy.sections.raceInputs.fields.waterIntakePerHour}
+                <Label htmlFor="downhillEffort" className="text-xs text-slate-200">
+                  {copy.sections.raceInputs.fields.downhillEffort}
                 </Label>
                 <Input
-                  id="waterIntakePerHour"
-                  type="number"
-                  step="50"
+                  id="downhillEffort"
+                  type="range"
                   min="0"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("waterIntakePerHour", { valueAsNumber: true })}
+                  max="100"
+                  step="5"
+                  className="accent-emerald-400"
+                  {...register("downhillEffort", { valueAsNumber: true })}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sodiumIntakePerHour" className="text-xs text-slate-200">
-                  {copy.sections.raceInputs.fields.sodiumIntakePerHour}
-                </Label>
-                <Input
-                  id="sodiumIntakePerHour"
-                  type="number"
-                  step="50"
-                  min="0"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("sodiumIntakePerHour", { valueAsNumber: true })}
-                />
+                <p className="text-[11px] text-slate-500">{copy.sections.raceInputs.fields.downhillEffortHelp}</p>
               </div>
             </div>
           </AccordionSection>
