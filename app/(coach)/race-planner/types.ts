@@ -10,7 +10,7 @@ export type SegmentPlan = {
   supplies?: StationSupply[];
 };
 
-export type AidStation = { name: string; distanceKm: number } & SegmentPlan;
+export type AidStation = { name: string; distanceKm: number; waterRefill?: boolean } & SegmentPlan;
 
 export type FormValues = {
   raceDistanceKm: number;
