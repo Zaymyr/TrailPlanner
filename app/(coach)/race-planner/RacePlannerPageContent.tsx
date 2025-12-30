@@ -412,7 +412,7 @@ function buildSegments(
     const gelsPlanned = Math.max(0, Math.round((station.gelsPlanned ?? targetFuelGrams / gelCarbs) * 10) / 10);
     const recommendedGels = Math.max(0, targetFuelGrams / gelCarbs);
     const plannedFuelGrams = gelsPlanned * gelCarbs;
-    const plannedWaterMl = waterCapacityMl !== null ? Math.min(targetWaterMl, waterCapacityMl) : targetWaterMl;
+    const plannedWaterMl = waterCapacityMl !== null ? waterCapacityMl : targetWaterMl;
     const waterShortfallMl =
       waterCapacityMl !== null && targetWaterMl > waterCapacityMl ? targetWaterMl - waterCapacityMl : 0;
     const plannedSodiumMg = targetSodiumMg;

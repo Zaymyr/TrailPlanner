@@ -301,7 +301,7 @@ export function ActionPlan({
                 ) : null;
 
                 const gelsFieldName = getSegmentFieldName(segment, "gelsPlanned");
-                  const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
+                const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
                 const metrics = [
                   {
                     key: "carbs" as const,
@@ -315,51 +315,53 @@ export function ActionPlan({
                     key: "water" as const,
                     label: copy.sections.summary.items.water,
                     planned: plannedWater,
-                      target: segment.targetWaterMl,
-                      total: raceTotals?.waterMl,
-                      format: formatWaterAmount,
-                    },
-                    {
-                      key: "sodium" as const,
-                      label: copy.sections.summary.items.sodium,
-                      planned: plannedSodium,
-                      target: segment.targetSodiumMg,
-                      total: raceTotals?.sodiumMg,
-                      format: formatSodiumAmount,
-                    },
-                  ];
+                    target: segment.targetWaterMl,
+                    total: raceTotals?.waterMl,
+                    format: formatWaterAmount,
+                  },
+                  {
+                    key: "sodium" as const,
+                    label: copy.sections.summary.items.sodium,
+                    planned: plannedSodium,
+                    target: segment.targetSodiumMg,
+                    total: raceTotals?.sodiumMg,
+                    format: formatSodiumAmount,
+                  },
+                ];
 
-                  const inlineMetrics = metrics.map((metric) => {
-                    const status = getPlanStatus(metric.planned, metric.target);
-                    const targetPercent =
-                      metric.target > 0 ? Math.max(0, Math.min((metric.planned / metric.target) * 100, 999)) : 0;
-                    const capacityLabel =
-                      metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
-                        ? timelineCopy.waterCapacityLabel.replace(
-                            "{capacity}",
-                            formatWaterAmount(segment.waterCapacityMl)
-                          )
-                        : null;
-                    const capacityWarning =
-                      metric.key === "water" && typeof segment.waterShortfallMl === "number" && segment.waterShortfallMl > 0
-                        ? timelineCopy.waterCapacityWarning.replace(
-                            "{missing}",
-                            formatWaterAmount(segment.waterShortfallMl)
-                          )
-                        : null;
-                    return {
-                      key: metric.key,
-                      label: metric.label,
-                      value: metric.format(metric.planned),
-                      targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
-                      helper: capacityWarning ?? capacityLabel ?? null,
-                      targetPercent,
-                      totalPercent: calculatePercentage(metric.planned, metric.total),
-                      statusLabel: status.label,
-                      statusTone: status.tone,
-                      icon: metricIcons[metric.key],
-                    };
-                  });
+                const inlineMetrics = metrics.map((metric) => {
+                  const plannedForStatus =
+                    metric.key === "water" && metric.target > 0 ? Math.min(metric.planned, metric.target) : metric.planned;
+                  const status = getPlanStatus(plannedForStatus, metric.target);
+                  const targetPercent =
+                    metric.target > 0 ? Math.max(0, Math.min((plannedForStatus / metric.target) * 100, 999)) : 0;
+                  const capacityLabel =
+                    metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
+                      ? timelineCopy.waterCapacityLabel.replace(
+                          "{capacity}",
+                          formatWaterAmount(segment.waterCapacityMl)
+                        )
+                      : null;
+                  const capacityWarning =
+                    metric.key === "water" && typeof segment.waterShortfallMl === "number" && segment.waterShortfallMl > 0
+                      ? timelineCopy.waterCapacityWarning.replace(
+                          "{missing}",
+                          formatWaterAmount(segment.waterShortfallMl)
+                        )
+                      : null;
+                  return {
+                    key: metric.key,
+                    label: metric.label,
+                    value: metric.format(metric.planned),
+                    targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
+                    helper: capacityWarning ?? capacityLabel ?? null,
+                    targetPercent,
+                    totalPercent: calculatePercentage(metric.planned, metric.total),
+                    statusLabel: status.label,
+                    statusTone: status.tone,
+                    icon: metricIcons[metric.key],
+                  };
+                });
 
                   return (
                     <div key={item.id} className="relative pl-20">
