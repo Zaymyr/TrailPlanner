@@ -141,11 +141,11 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   sodiumIntakePerHour: 600,
   startSupplies: [],
   aidStations: [
-    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10 },
-    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20 },
-    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30 },
-    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40 },
-    { name: copy.defaults.finalBottles, distanceKm: 45 },
+    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true },
+    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true },
   ],
   finishPlan: {},
 });
@@ -169,6 +169,7 @@ const createAidStationSchema = (validation: RacePlannerTranslations["validation"
   createSegmentPlanSchema(validation).extend({
     name: z.string().min(1, validation.required),
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
+    waterRefill: z.coerce.boolean().optional().default(true),
   });
 
 const createFormSchema = (copy: RacePlannerTranslations) =>
@@ -365,16 +366,24 @@ function buildSegments(
   const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
   const minPerKm = minutesPerKm(values);
   const stationsWithIndex: (AidStation & { originalIndex?: number; kind: "aid" | "finish" })[] = values.aidStations
-    .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const }))
+    .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const, waterRefill: station.waterRefill !== false }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   const checkpoints: (AidStation & {
     originalIndex?: number;
     kind: "start" | "aid" | "finish";
+    waterRefill?: boolean;
   })[] = [
-    { name: startLabel, distanceKm: 0, kind: "start" as const },
+    { name: startLabel, distanceKm: 0, kind: "start" as const, waterRefill: true },
     ...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm),
-    { name: finishLabel, distanceKm: values.raceDistanceKm, originalIndex: undefined, kind: "finish", ...(values.finishPlan ?? {}) },
+    {
+      name: finishLabel,
+      distanceKm: values.raceDistanceKm,
+      originalIndex: undefined,
+      kind: "finish",
+      waterRefill: true,
+      ...(values.finishPlan ?? {}),
+    },
   ];
 
   let elapsedMinutes = 0;
@@ -383,7 +392,7 @@ function buildSegments(
       ? Math.max(0, values.waterBagLiters * 1000)
       : null;
 
-  return checkpoints.slice(1).map((station, index) => {
+  const segments: Segment[] = checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
     const elevation = calculateSegmentElevation(
@@ -412,9 +421,6 @@ function buildSegments(
     const gelsPlanned = Math.max(0, Math.round((station.gelsPlanned ?? targetFuelGrams / gelCarbs) * 10) / 10);
     const recommendedGels = Math.max(0, targetFuelGrams / gelCarbs);
     const plannedFuelGrams = gelsPlanned * gelCarbs;
-    const plannedWaterMl = waterCapacityMl !== null ? waterCapacityMl : targetWaterMl;
-    const waterShortfallMl =
-      waterCapacityMl !== null && targetWaterMl > waterCapacityMl ? targetWaterMl - waterCapacityMl : 0;
     const plannedSodiumMg = targetSodiumMg;
     const segment: Segment = {
       checkpoint: station.name,
@@ -429,7 +435,7 @@ function buildSegments(
       waterMl: targetWaterMl,
       sodiumMg: targetSodiumMg,
       plannedFuelGrams,
-      plannedWaterMl,
+      plannedWaterMl: targetWaterMl,
       plannedSodiumMg,
       targetFuelGrams,
       targetWaterMl,
@@ -439,13 +445,44 @@ function buildSegments(
       plannedMinutesOverride: overrideMinutes,
       pickupGels: station.pickupGels,
       supplies: station.supplies,
-      waterCapacityMl: waterCapacityMl ?? undefined,
-      waterShortfallMl: waterShortfallMl > 0 ? waterShortfallMl : undefined,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
     };
     return segment;
   });
+
+  const stretches: { start: number; end: number; totalNeed: number }[] = [];
+  let stretchStart = 0;
+  let stretchNeed = 0;
+
+  segments.forEach((segment, index) => {
+    stretchNeed += segment.targetWaterMl;
+    const arrival = checkpoints[index + 1];
+    const canRefillAtArrival = arrival.kind === "finish" ? true : arrival.waterRefill !== false;
+    if (canRefillAtArrival) {
+      stretches.push({ start: stretchStart, end: index, totalNeed: stretchNeed });
+      stretchStart = index + 1;
+      stretchNeed = 0;
+    }
+  });
+
+  stretches.forEach(({ start, end, totalNeed }) => {
+    const carryCapacity = waterCapacityMl ?? Number.POSITIVE_INFINITY;
+    const carryAtStart = Math.min(carryCapacity, totalNeed);
+    const stretchShortfall = Math.max(0, totalNeed - (waterCapacityMl ?? totalNeed));
+    let remainingCarry = carryAtStart;
+
+    for (let i = start; i <= end; i += 1) {
+      const segment = segments[i];
+      const plannedForLeg = Math.min(segment.targetWaterMl, remainingCarry);
+      segment.plannedWaterMl = plannedForLeg;
+      segment.waterCapacityMl = waterCapacityMl ?? undefined;
+      segment.waterShortfallMl = stretchShortfall > 0 ? stretchShortfall : undefined;
+      remainingCarry = Math.max(0, remainingCarry - plannedForLeg);
+    }
+  });
+
+  return segments;
 }
 
 function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
@@ -478,7 +515,7 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
   };
 }
 
-function sanitizeAidStations(stations?: { name?: string; distanceKm?: number }[]): AidStation[] {
+function sanitizeAidStations(stations?: { name?: string; distanceKm?: number; waterRefill?: boolean }[]): AidStation[] {
   if (!stations?.length) return [];
 
   return stations
@@ -490,6 +527,7 @@ function sanitizeAidStations(stations?: { name?: string; distanceKm?: number }[]
       return {
         name: station.name,
         distanceKm: station.distanceKm,
+        waterRefill: station.waterRefill !== false,
         ...plan,
       };
     })
@@ -754,7 +792,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
       })
       .filter(Boolean) as ParsedGpx["aidStations"];
 
-    aidStations.push({ name: copy.defaults.finish, distanceKm: Number((totalMeters / 1000).toFixed(1)) });
+    aidStations.push({ name: copy.defaults.finish, distanceKm: Number((totalMeters / 1000).toFixed(1)), waterRefill: true });
 
     const elevationProfile: ElevationPoint[] = cumulativeTrack.map((point) => ({
       distanceKm: Number((point.distance / 1000).toFixed(2)),
@@ -784,7 +822,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
 
   const aidStationsWithFinish = dedupeAidStations([
     ...baseAidStations,
-    { name: copy.defaults.finish, distanceKm: Number(baseDistance.toFixed(1)) },
+    { name: copy.defaults.finish, distanceKm: Number(baseDistance.toFixed(1)), waterRefill: true },
   ]);
 
   return {

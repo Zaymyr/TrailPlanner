@@ -209,6 +209,7 @@ export const en: Translations = {
         labels: {
           name: "Name",
           distance: "Distance (km)",
+          waterRefill: "Water refill available",
         },
         remove: "Remove",
       },
