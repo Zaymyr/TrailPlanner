@@ -11,8 +11,8 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { readStoredSession } from "../../lib/auth-storage";
-import { MAX_SELECTED_PRODUCTS } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useI18n } from "../i18n-provider";
@@ -24,30 +24,61 @@ const baseButtonClass =
 const outlineButtonClass = "border border-emerald-300 text-emerald-100 hover:bg-emerald-950/60";
 const primaryButtonClass = "bg-emerald-400 text-slate-950 hover:bg-emerald-300";
 
+function ProductIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 3v7a2 2 0 0 0 2 2h1V3" />
+      <path d="M11 3v18" />
+      <path d="M18 3c0 2-1 5-3 5h0c2 0 3 3 3 5v8" />
+    </svg>
+  );
+}
+
+function StarIcon({ filled, className }: { filled: boolean; className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 export default function SettingsPage() {
   const { t } = useI18n();
   const [session, setSession] = useState(() => readStoredSession());
   const [selectionError, setSelectionError] = useState<string | null>(null);
-  const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const { selectedProducts, toggleProduct } = useProductSelection();
+  const [filterQuery, setFilterQuery] = useState("");
+  const [sortKey, setSortKey] = useState<keyof FuelProduct>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [warningDraft, setWarningDraft] = useState<{ values: ProductFormValues; zeroFields: string[] } | null>(null);
 
   useEffect(() => {
     setSession(readStoredSession());
   }, []);
 
-  useEffect(() => {
-    if (selectedProducts.length === 0) {
-      setSelectionMessage(null);
-      return;
-    }
-    setSelectionMessage(t.productSettings.selectionCount.replace("{count}", selectedProducts.length.toString()));
-  }, [selectedProducts, t.productSettings.selectionCount]);
-
   const productFormSchema = useMemo(
     () =>
       z.object({
         name: z.string().trim().min(1, t.racePlanner.validation.required),
-        carbsGrams: z.coerce.number().positive(t.racePlanner.validation.targetIntake),
+        carbsGrams: z.coerce.number().nonnegative({ message: t.productSettings.validation.nonNegative }),
         sodiumMg: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
         caloriesKcal: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
         proteinGrams: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
@@ -61,9 +92,9 @@ export default function SettingsPage() {
       }),
     [
       t.productSettings.validation.invalidUrl,
+      t.productSettings.validation.nonNegative,
       t.racePlanner.validation.nonNegative,
       t.racePlanner.validation.required,
-      t.racePlanner.validation.targetIntake,
     ]
   );
 
@@ -182,18 +213,63 @@ export default function SettingsPage() {
   const onSubmit = handleSubmit((values) => {
     setFormError(null);
     setFormMessage(null);
+    const zeroFields: string[] = [];
+    if (values.carbsGrams === 0) zeroFields.push(t.productSettings.fields.carbs);
+    if (values.caloriesKcal === 0) zeroFields.push(t.productSettings.fields.calories);
+    if (values.proteinGrams === 0) zeroFields.push(t.productSettings.fields.protein);
+    if (values.fatGrams === 0) zeroFields.push(t.productSettings.fields.fat);
+    if (values.sodiumMg === 0) zeroFields.push(t.productSettings.fields.sodium);
+
+    if (zeroFields.length > 0) {
+      setWarningDraft({ values, zeroFields });
+      return;
+    }
+
     return createProductMutation.mutate(values);
   });
 
   const authMissing = !session?.accessToken;
-  const productList = productsQuery.data ?? [];
+  const productList = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
+
+  const filteredProducts = useMemo(() => {
+    const normalizedQuery = filterQuery.trim().toLowerCase();
+    if (!normalizedQuery) return productList;
+    return productList.filter((product) => product.name.toLowerCase().includes(normalizedQuery));
+  }, [filterQuery, productList]);
+
+  const sortedProducts = useMemo(() => {
+    const sorted = [...filteredProducts].sort((a, b) => {
+      const valueA = a[sortKey];
+      const valueB = b[sortKey];
+
+      if (typeof valueA === "string" && typeof valueB === "string") {
+        return valueA.localeCompare(valueB, undefined, { sensitivity: "base" });
+      }
+
+      if (typeof valueA === "number" && typeof valueB === "number") {
+        return valueA - valueB;
+      }
+
+      return 0;
+    });
+
+    return sortDirection === "asc" ? sorted : sorted.reverse();
+  }, [filteredProducts, sortDirection, sortKey]);
+
+  const handleSort = (key: keyof FuelProduct) => {
+    if (sortKey === key) {
+      setSortDirection((direction) => (direction === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortKey(key);
+    setSortDirection("asc");
+  };
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
+    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl bg-slate-950/60 p-6 shadow-md shadow-emerald-900/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-50">{t.productSettings.title}</h1>
-          <p className="text-sm text-slate-300">{t.productSettings.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -212,16 +288,27 @@ export default function SettingsPage() {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
-          <CardHeader className="flex flex-row items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-lg text-slate-50">{t.productSettings.listTitle}</CardTitle>
-              <p className="text-sm text-slate-400">
-                {t.productSettings.selectionHelp.replace("{count}", MAX_SELECTED_PRODUCTS.toString())}
-              </p>
+          <CardHeader className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <CardTitle className="text-lg text-slate-50">{t.productSettings.listTitle}</CardTitle>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Input
+                  value={filterQuery}
+                  onChange={(event) => setFilterQuery(event.target.value)}
+                  placeholder={t.productSettings.filters.searchPlaceholder}
+                  className="w-full sm:w-64"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => productsQuery.refetch()}
+                  disabled={productsQuery.status === "pending"}
+                >
+                  {t.productSettings.actions.refresh}
+                </Button>
+              </div>
             </div>
-            <Button variant="outline" onClick={() => productsQuery.refetch()} disabled={productsQuery.status === "pending"}>
-              {t.productSettings.actions.refresh}
-            </Button>
           </CardHeader>
           <CardContent className="space-y-4">
             {authMissing && (
@@ -230,9 +317,6 @@ export default function SettingsPage() {
               </p>
             )}
 
-            {selectionMessage && (
-              <p className="text-sm font-medium text-emerald-200">{selectionMessage}</p>
-            )}
             {selectionError && <p className="text-sm text-red-300">{selectionError}</p>}
 
             {productsQuery.isLoading && (
@@ -241,58 +325,146 @@ export default function SettingsPage() {
 
             {productLoadError && <p className="text-sm text-red-300">{productLoadError}</p>}
 
-            {!productsQuery.isLoading && productList.length === 0 && (
+            {!productsQuery.isLoading && sortedProducts.length === 0 && (
               <p className="text-sm text-slate-400">{t.productSettings.empty}</p>
             )}
 
-            <div className="grid gap-4 md:grid-cols-2">
-              {productList.map((product) => {
-                const isSelected = selectedProducts.some((item) => item.id === product.id);
-                return (
-                  <div
-                    key={product.id}
-                    className="space-y-2 rounded-lg border border-slate-800 bg-slate-900/60 p-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="font-semibold text-slate-50">{product.name}</p>
-                        {product.productUrl && (
-                          <a
-                            href={product.productUrl}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="text-xs text-emerald-200 underline-offset-4 hover:underline"
-                          >
-                            {product.productUrl}
-                          </a>
-                        )}
+            {sortedProducts.length > 0 && (
+              <Table containerClassName="max-h-[520px] overflow-y-auto">
+                <TableHeader className="sticky top-0 z-10">
+                  <TableRow>
+                    <TableHead className="w-24 text-center">
+                      <div className="flex items-center justify-center gap-2 text-emerald-200">
+                        <ProductIcon className="h-4 w-4" />
+                        <span className="text-xs font-semibold uppercase tracking-wide">
+                          {t.productSettings.fields.productUrl}
+                        </span>
                       </div>
-                      <Button
-                        variant={isSelected ? "ghost" : "outline"}
-                        className={`${isSelected ? "text-emerald-200" : ""} h-9 px-3 text-sm`}
-                        onClick={() => handleToggle(product)}
-                        disabled={authMissing}
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2"
+                        onClick={() => handleSort("name")}
                       >
-                        {isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
-                      </Button>
-                    </div>
-                    <div className="text-sm text-slate-300">
-                      <p>
-                        {t.productSettings.fields.carbs}: <span className="font-semibold">{product.carbsGrams} g</span>
-                      </p>
-                      <p>
-                        {t.productSettings.fields.sodium}:{" "}
-                        <span className="font-semibold">{product.sodiumMg} mg</span>
-                      </p>
-                      <p>
-                        {t.productSettings.fields.calories}:{" "}
-                        <span className="font-semibold">{product.caloriesKcal}</span>
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                        {t.productSettings.fields.name}
+                        {sortKey === "name" ? (sortDirection === "asc" ? "↑" : "↓") : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2"
+                        onClick={() => handleSort("carbsGrams")}
+                      >
+                        {t.productSettings.fields.carbs}
+                        {sortKey === "carbsGrams" ? (sortDirection === "asc" ? "↑" : "↓") : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2"
+                        onClick={() => handleSort("sodiumMg")}
+                      >
+                        {t.productSettings.fields.sodium}
+                        {sortKey === "sodiumMg" ? (sortDirection === "asc" ? "↑" : "↓") : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2"
+                        onClick={() => handleSort("caloriesKcal")}
+                      >
+                        {t.productSettings.fields.calories}
+                        {sortKey === "caloriesKcal" ? (sortDirection === "asc" ? "↑" : "↓") : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2"
+                        onClick={() => handleSort("proteinGrams")}
+                      >
+                        {t.productSettings.fields.protein}
+                        {sortKey === "proteinGrams" ? (sortDirection === "asc" ? "↑" : "↓") : null}
+                      </button>
+                    </TableHead>
+                    <TableHead>
+                      <button
+                        type="button"
+                        className="flex items-center gap-2"
+                        onClick={() => handleSort("fatGrams")}
+                      >
+                        {t.productSettings.fields.fat}
+                        {sortKey === "fatGrams" ? (sortDirection === "asc" ? "↑" : "↓") : null}
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-center">{t.productSettings.actions.select}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sortedProducts.map((product) => {
+                    const isSelected = selectedProducts.some((item) => item.id === product.id);
+                    return (
+                      <TableRow key={product.id}>
+                        <TableCell className="text-center text-emerald-200">
+                          {product.productUrl ? (
+                            <a
+                              href={product.productUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center justify-center rounded-full p-2 hover:bg-emerald-900/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+                              aria-label={t.productSettings.fields.productUrl}
+                              title={t.productSettings.fields.productUrl}
+                            >
+                              <ProductIcon className="h-4 w-4" />
+                              <span className="sr-only">{t.productSettings.fields.productUrl}</span>
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center justify-center rounded-full bg-slate-800/60 p-2 text-slate-400">
+                              <ProductIcon className="h-4 w-4" />
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-50">
+                          <div className="flex flex-col gap-1">
+                            <span>{product.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>{product.carbsGrams} g</TableCell>
+                        <TableCell>{product.sodiumMg} mg</TableCell>
+                        <TableCell>{product.caloriesKcal}</TableCell>
+                        <TableCell>{product.proteinGrams} g</TableCell>
+                        <TableCell>{product.fatGrams} g</TableCell>
+                        <TableCell className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleToggle(product)}
+                            disabled={authMissing}
+                            aria-pressed={isSelected}
+                            aria-label={
+                              isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select
+                            }
+                            className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/70 transition ${
+                              isSelected
+                                ? "bg-amber-300/20 text-amber-300 hover:bg-amber-300/30"
+                                : "bg-transparent text-amber-200 hover:bg-amber-300/10"
+                            } disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300`}
+                          >
+                            <StarIcon filled={isSelected} className="h-4 w-4" />
+                            <span className="sr-only">
+                              {isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select}
+                            </span>
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -404,6 +576,36 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {warningDraft && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur">
+          <div className="w-full max-w-lg space-y-4 rounded-xl border border-amber-500/40 bg-slate-900 p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-slate-50">{t.productSettings.warning.title}</h2>
+            <p className="text-sm text-slate-300">{t.productSettings.warning.description}</p>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-amber-200">
+              {warningDraft.zeroFields.map((field) => (
+                <li key={field}>{field}</li>
+              ))}
+            </ul>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setWarningDraft(null)}>
+                {t.productSettings.warning.back}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (warningDraft) {
+                    createProductMutation.mutate(warningDraft.values);
+                    setWarningDraft(null);
+                  }
+                }}
+                disabled={createProductMutation.isPending}
+              >
+                {t.productSettings.warning.confirm}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -41,7 +41,7 @@ export const en: Translations = {
   },
   navigation: {
     racePlanner: "Race planner",
-    settings: "Settings",
+    settings: "Nutrition list",
     admin: "Admin",
     menuLabel: "Open navigation menu",
   },
@@ -382,16 +382,19 @@ export const en: Translations = {
     },
   },
   productSettings: {
-    title: "Fuel product settings",
+    title: "Nutrition list",
     description:
-      "Choose up to three fueling products to use in the race planner estimates. Add new products to share them with other runners.",
-    authRequired: "Sign in to manage shared fueling products.",
+      "Browse shared fueling products and add new ones. Pick up to three to use in the race planner estimates.",
+    authRequired: "Sign in to manage shared nutrition products.",
     signInCta: "Go to sign in",
-    listTitle: "Live products",
+    listTitle: "Available products",
     selectionHelp: "Pick up to {count} products to use in your race planner fuel estimates.",
     selectionCount: "{count} selected",
     empty: "No products found. Add one below to get started.",
     loading: "Loading products...",
+    filters: {
+      searchPlaceholder: "Filter products...",
+    },
     errors: {
       loadFailed: "Unable to load products. Please try again.",
       createFailed: "Unable to create product. Please try again.",
@@ -406,6 +409,7 @@ export const en: Translations = {
     },
     validation: {
       invalidUrl: "Invalid link. Please use a URL starting with http or https.",
+      nonNegative: "Please enter a number greater than or equal to 0.",
     },
     fields: {
       name: "Name",
@@ -422,6 +426,12 @@ export const en: Translations = {
     submit: "Create product",
     submitting: "Creating product...",
     success: "Product created and added to the catalog.",
+    warning: {
+      title: "Confirm zero nutrition values",
+      description: "You entered one or more fields with a value of 0. Proceed anyway?",
+      back: "Back to edit",
+      confirm: "Confirm and create",
+    },
   },
   resourcePages: {
     "trail-nutrition-planner": {
