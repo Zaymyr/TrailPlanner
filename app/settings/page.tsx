@@ -13,7 +13,6 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { readStoredSession } from "../../lib/auth-storage";
-import { MAX_SELECTED_PRODUCTS } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useI18n } from "../i18n-provider";
@@ -65,7 +64,6 @@ export default function SettingsPage() {
   const { t } = useI18n();
   const [session, setSession] = useState(() => readStoredSession());
   const [selectionError, setSelectionError] = useState<string | null>(null);
-  const [selectionMessage, setSelectionMessage] = useState<string | null>(null);
   const { selectedProducts, toggleProduct } = useProductSelection();
   const [filterQuery, setFilterQuery] = useState("");
   const [sortKey, setSortKey] = useState<keyof FuelProduct>("name");
@@ -75,14 +73,6 @@ export default function SettingsPage() {
   useEffect(() => {
     setSession(readStoredSession());
   }, []);
-
-  useEffect(() => {
-    if (selectedProducts.length === 0) {
-      setSelectionMessage(null);
-      return;
-    }
-    setSelectionMessage(t.productSettings.selectionCount.replace("{count}", selectedProducts.length.toString()));
-  }, [selectedProducts, t.productSettings.selectionCount]);
 
   const productFormSchema = useMemo(
     () =>
@@ -276,11 +266,10 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
+    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl bg-slate-950/60 p-6 shadow-md shadow-emerald-900/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-50">{t.productSettings.title}</h1>
-          <p className="text-sm text-slate-300">{t.productSettings.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link
@@ -303,9 +292,6 @@ export default function SettingsPage() {
             <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <CardTitle className="text-lg text-slate-50">{t.productSettings.listTitle}</CardTitle>
-                <p className="text-sm text-slate-400">
-                  {t.productSettings.selectionHelp.replace("{count}", MAX_SELECTED_PRODUCTS.toString())}
-                </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Input
@@ -331,9 +317,6 @@ export default function SettingsPage() {
               </p>
             )}
 
-            {selectionMessage && (
-              <p className="text-sm font-medium text-emerald-200">{selectionMessage}</p>
-            )}
             {selectionError && <p className="text-sm text-red-300">{selectionError}</p>}
 
             {productsQuery.isLoading && (
