@@ -409,6 +409,9 @@ export type ProductSettingsTranslations = {
   selectionCount: string;
   empty: string;
   loading: string;
+  filters: {
+    searchPlaceholder: string;
+  };
   errors: {
     loadFailed: string;
     createFailed: string;
@@ -423,6 +426,7 @@ export type ProductSettingsTranslations = {
   };
   validation: {
     invalidUrl: string;
+    nonNegative: string;
   };
   fields: {
     name: string;
@@ -438,4 +442,10 @@ export type ProductSettingsTranslations = {
   submit: string;
   submitting: string;
   success: string;
+  warning: {
+    title: string;
+    description: string;
+    back: string;
+    confirm: string;
+  };
 };

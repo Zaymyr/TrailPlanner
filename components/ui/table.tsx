@@ -1,9 +1,13 @@
 import * as React from "react";
 import { cn } from "../utils";
 
-export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
+type TableProps = React.HTMLAttributes<HTMLTableElement> & {
+  containerClassName?: string;
+};
+
+export function Table({ className, containerClassName, ...props }: TableProps) {
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-800">
+    <div className={cn("rounded-lg border border-slate-800", containerClassName)}>
       <table className={cn("w-full border-collapse text-sm", className)} {...props} />
     </div>
   );
