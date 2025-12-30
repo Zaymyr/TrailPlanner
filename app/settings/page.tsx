@@ -7,8 +7,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { Utensils } from "lucide-react";
-
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -26,6 +24,25 @@ const baseButtonClass =
   "inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300";
 const outlineButtonClass = "border border-emerald-300 text-emerald-100 hover:bg-emerald-950/60";
 const primaryButtonClass = "bg-emerald-400 text-slate-950 hover:bg-emerald-300";
+
+function ProductIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 3v7a2 2 0 0 0 2 2h1V3" />
+      <path d="M11 3v18" />
+      <path d="M18 3c0 2-1 5-3 5h0c2 0 3 3 3 5v8" />
+    </svg>
+  );
+}
 
 export default function SettingsPage() {
   const { t } = useI18n();
@@ -205,7 +222,7 @@ export default function SettingsPage() {
   });
 
   const authMissing = !session?.accessToken;
-  const productList = productsQuery.data ?? [];
+  const productList = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
 
   const filteredProducts = useMemo(() => {
     const normalizedQuery = filterQuery.trim().toLowerCase();
@@ -317,7 +334,7 @@ export default function SettingsPage() {
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="w-10 text-center" aria-label="Product link">
-                      <Utensils className="mx-auto h-4 w-4 text-emerald-200" />
+                      <ProductIcon className="mx-auto h-4 w-4 text-emerald-200" />
                     </TableHead>
                     <TableHead>
                       <button
@@ -396,11 +413,11 @@ export default function SettingsPage() {
                               className="inline-flex items-center justify-center rounded-full p-2 hover:bg-emerald-900/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
                               aria-label={t.productSettings.fields.productUrl}
                             >
-                              <Utensils className="h-4 w-4" aria-hidden="true" />
+                              <ProductIcon className="h-4 w-4" />
                             </a>
                           ) : (
                             <span className="inline-flex items-center justify-center rounded-full bg-slate-800/60 p-2 text-slate-400">
-                              <Utensils className="h-4 w-4" aria-hidden="true" />
+                              <ProductIcon className="h-4 w-4" />
                             </span>
                           )}
                         </TableCell>
