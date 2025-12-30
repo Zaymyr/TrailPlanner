@@ -41,7 +41,7 @@ export const fr: Translations = {
   },
   navigation: {
     racePlanner: "Planificateur de course",
-    settings: "Paramètres",
+    settings: "Liste nutrition",
     admin: "Admin",
     menuLabel: "Ouvrir le menu de navigation",
   },
@@ -384,16 +384,19 @@ export const fr: Translations = {
     },
   },
   productSettings: {
-    title: "Paramètres des produits",
+    title: "Liste nutrition",
     description:
-      "Choisissez jusqu'à trois produits d'alimentation à utiliser dans les estimations du plan de course. Ajoutez un produit pour le partager avec tous les coureurs.",
-    authRequired: "Connectez-vous pour gérer les produits partagés.",
+      "Consultez les produits partagés et ajoutez les vôtres. Sélectionnez jusqu'à trois produits pour les estimations du plan de course.",
+    authRequired: "Connectez-vous pour gérer les produits de nutrition partagés.",
     signInCta: "Aller à la connexion",
     listTitle: "Produits disponibles",
     selectionHelp: "Choisissez jusqu'à {count} produits pour les estimations du plan de course.",
     selectionCount: "{count} sélectionné(s)",
     empty: "Aucun produit trouvé. Ajoutez-en un ci-dessous pour commencer.",
     loading: "Chargement des produits...",
+    filters: {
+      searchPlaceholder: "Filtrer les produits...",
+    },
     errors: {
       loadFailed: "Impossible de charger les produits. Réessayez.",
       createFailed: "Impossible de créer le produit. Réessayez.",
@@ -408,6 +411,7 @@ export const fr: Translations = {
     },
     validation: {
       invalidUrl: "Lien invalide. Ajoutez un lien commençant par http ou https.",
+      nonNegative: "Indiquez une valeur supérieure ou égale à 0.",
     },
     fields: {
       name: "Nom",
@@ -424,6 +428,12 @@ export const fr: Translations = {
     submit: "Créer le produit",
     submitting: "Création du produit...",
     success: "Produit créé et ajouté au catalogue.",
+    warning: {
+      title: "Confirmer les valeurs nutritionnelles à 0",
+      description: "Vous avez saisi une ou plusieurs valeurs à 0. Continuer malgré tout ?",
+      back: "Retour à l'édition",
+      confirm: "Confirmer et créer",
+    },
   },
   resourcePages: {
     "trail-nutrition-planner": {
