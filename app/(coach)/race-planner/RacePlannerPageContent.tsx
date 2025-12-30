@@ -391,6 +391,7 @@ function buildSegments(
     typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters)
       ? Math.max(0, values.waterBagLiters * 1000)
       : null;
+  let availableWaterMl = waterCapacityMl ?? 0;
 
   const segments: Segment[] = checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
@@ -422,6 +423,10 @@ function buildSegments(
     const recommendedGels = Math.max(0, targetFuelGrams / gelCarbs);
     const plannedFuelGrams = gelsPlanned * gelCarbs;
     const plannedSodiumMg = targetSodiumMg;
+    const segmentWaterAvailable = Math.max(0, availableWaterMl);
+    const remainingWater = segmentWaterAvailable - targetWaterMl;
+    const waterShortfallMl = remainingWater < 0 ? Math.abs(remainingWater) : undefined;
+
     const segment: Segment = {
       checkpoint: station.name,
       from: previous.name,
@@ -435,7 +440,7 @@ function buildSegments(
       waterMl: targetWaterMl,
       sodiumMg: targetSodiumMg,
       plannedFuelGrams,
-      plannedWaterMl: targetWaterMl,
+      plannedWaterMl: segmentWaterAvailable,
       plannedSodiumMg,
       targetFuelGrams,
       targetWaterMl,
@@ -447,36 +452,18 @@ function buildSegments(
       supplies: station.supplies,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
+      waterCapacityMl: waterCapacityMl ?? undefined,
+      waterShortfallMl,
     };
+
+    availableWaterMl = Math.max(0, remainingWater);
+
+    const canRefillAtArrival = station.kind === "finish" ? true : station.waterRefill !== false;
+    if (canRefillAtArrival && waterCapacityMl !== null) {
+      availableWaterMl = waterCapacityMl;
+    }
+
     return segment;
-  });
-
-  const stretches: { start: number; end: number; totalNeed: number }[] = [];
-  let stretchStart = 0;
-  let stretchNeed = 0;
-
-  segments.forEach((segment, index) => {
-    stretchNeed += segment.targetWaterMl;
-    const arrival = checkpoints[index + 1];
-    const canRefillAtArrival = arrival.kind === "finish" ? true : arrival.waterRefill !== false;
-    if (canRefillAtArrival) {
-      stretches.push({ start: stretchStart, end: index, totalNeed: stretchNeed });
-      stretchStart = index + 1;
-      stretchNeed = 0;
-    }
-  });
-
-  stretches.forEach(({ start, end, totalNeed }) => {
-    const carryCapacity = waterCapacityMl ?? Number.POSITIVE_INFINITY;
-    const stretchShortfall = Math.max(0, totalNeed - (waterCapacityMl ?? totalNeed));
-    const plannedCarry = Number.isFinite(waterCapacityMl) && waterCapacityMl !== null ? waterCapacityMl : totalNeed;
-
-    for (let i = start; i <= end; i += 1) {
-      const segment = segments[i];
-      segment.plannedWaterMl = plannedCarry;
-      segment.waterCapacityMl = waterCapacityMl ?? undefined;
-      segment.waterShortfallMl = stretchShortfall > 0 ? stretchShortfall : undefined;
-    }
   });
 
   return segments;
