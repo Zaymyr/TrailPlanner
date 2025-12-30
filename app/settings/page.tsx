@@ -7,6 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { Utensils } from "lucide-react";
+
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
@@ -240,7 +242,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
+    <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-50">{t.productSettings.title}</h1>
@@ -314,6 +316,9 @@ export default function SettingsPage() {
               <Table containerClassName="max-h-[520px] overflow-y-auto">
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow>
+                    <TableHead className="w-10 text-center" aria-label="Product icon">
+                      <Utensils className="mx-auto h-4 w-4 text-emerald-200" />
+                    </TableHead>
                     <TableHead>
                       <button
                         type="button"
@@ -382,6 +387,9 @@ export default function SettingsPage() {
                     const isSelected = selectedProducts.some((item) => item.id === product.id);
                     return (
                       <TableRow key={product.id}>
+                        <TableCell className="text-center text-emerald-200">
+                          <Utensils className="mx-auto h-4 w-4" aria-hidden="true" />
+                        </TableCell>
                         <TableCell className="font-semibold text-slate-50">
                           <div className="flex flex-col gap-1">
                             <span>{product.name}</span>
