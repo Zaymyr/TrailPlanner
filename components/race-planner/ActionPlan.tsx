@@ -273,9 +273,9 @@ export function ActionPlan({
                   }
                   const { segment } = item;
                   const carriedTotals = summarizeSupplies(carrySupplies);
-                  const plannedFuel = carriedTotals ? carriedTotals.totals.carbs : segment.plannedFuelGrams;
-                  const plannedWater = carriedTotals ? carriedTotals.totals.water : segment.plannedWaterMl;
-                  const plannedSodium = carriedTotals ? carriedTotals.totals.sodium : segment.plannedSodiumMg;
+                  const plannedFuel = carriedTotals?.totals.carbs ?? 0;
+                  const plannedWater = segment.plannedWaterMl;
+                  const plannedSodium = carriedTotals?.totals.sodium ?? 0;
                   const distanceHelper = timelineCopy.segmentDistanceBetween.replace(
                     "{distance}",
                     segment.segmentKm.toFixed(1)
