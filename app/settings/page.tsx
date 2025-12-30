@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -14,6 +14,8 @@ import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { readStoredSession } from "../../lib/auth-storage";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
+import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
+import { MAX_SELECTED_PRODUCTS, mapProductToSelection } from "../../lib/product-preferences";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useI18n } from "../i18n-provider";
 
@@ -64,11 +66,12 @@ export default function SettingsPage() {
   const { t } = useI18n();
   const [session, setSession] = useState(() => readStoredSession());
   const [selectionError, setSelectionError] = useState<string | null>(null);
-  const { selectedProducts, toggleProduct } = useProductSelection();
+  const { selectedProducts, replaceSelection } = useProductSelection();
   const [filterQuery, setFilterQuery] = useState("");
   const [sortKey, setSortKey] = useState<keyof FuelProduct>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [warningDraft, setWarningDraft] = useState<{ values: ProductFormValues; zeroFields: string[] } | null>(null);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     setSession(readStoredSession());
@@ -155,6 +158,29 @@ export default function SettingsPage() {
         ? t.productSettings.errors.loadFailed
         : null;
 
+  const profileQuery = useQuery({
+    queryKey: ["profile", session?.accessToken],
+    enabled: Boolean(session?.accessToken),
+    queryFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error(t.productSettings.errors.missingSession);
+      }
+      return fetchUserProfile(session.accessToken);
+    },
+    staleTime: 60_000,
+    onSuccess: (profile) => {
+      replaceSelection(profile.favoriteProducts.map((product) => mapProductToSelection(product)));
+      queryClient.setQueryData(["profile", session?.accessToken], profile);
+    },
+  });
+
+  const favoritesLoadError =
+    profileQuery.error instanceof Error
+      ? profileQuery.error.message
+      : profileQuery.error
+        ? t.productSettings.errors.loadFailed
+        : null;
+
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
 
@@ -193,7 +219,7 @@ export default function SettingsPage() {
       setFormMessage(t.productSettings.success);
       void productsQuery.refetch();
       reset();
-      toggleProduct(product);
+      handleToggle(product);
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.productSettings.errors.createFailed;
@@ -202,11 +228,45 @@ export default function SettingsPage() {
     },
   });
 
+  const updateFavoritesMutation = useMutation({
+    mutationFn: async (productIds: string[]) => {
+      if (!session?.accessToken) {
+        throw new Error(t.productSettings.errors.missingSession);
+      }
+
+      return updateUserProfile(session.accessToken, { favoriteProductIds: productIds });
+    },
+    onSuccess: (profile) => {
+      setSelectionError(null);
+      replaceSelection(profile.favoriteProducts.map((product) => mapProductToSelection(product)));
+      queryClient.setQueryData(["profile", session?.accessToken], profile);
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : t.productSettings.errors.loadFailed;
+      setSelectionError(message);
+    },
+  });
+
   const handleToggle = (product: FuelProduct) => {
     setSelectionError(null);
-    const result = toggleProduct(product);
-    if (!result.updated && result.reason === "limit") {
+    const isSelected = selectedProducts.some((item) => item.id === product.id);
+
+    if (!isSelected && selectedProducts.length >= MAX_SELECTED_PRODUCTS) {
       setSelectionError(t.productSettings.errors.selectionLimit);
+      return;
+    }
+
+    const nextSelection = isSelected
+      ? selectedProducts.filter((item) => item.id !== product.id)
+      : [...selectedProducts, mapProductToSelection(product)];
+
+    const previousSelection = selectedProducts;
+    replaceSelection(nextSelection);
+
+    if (session?.accessToken) {
+      updateFavoritesMutation.mutate(nextSelection.map((item) => item.id), {
+        onError: () => replaceSelection(previousSelection),
+      });
     }
   };
 
@@ -318,6 +378,8 @@ export default function SettingsPage() {
             )}
 
             {selectionError && <p className="text-sm text-red-300">{selectionError}</p>}
+
+            {favoritesLoadError && <p className="text-sm text-red-300">{favoritesLoadError}</p>}
 
             {productsQuery.isLoading && (
               <p className="text-sm text-slate-400">{t.productSettings.loading}</p>

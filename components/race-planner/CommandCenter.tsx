@@ -172,7 +172,7 @@ export function CommandCenter({
             <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.nutritionTitle}</p>
             <p className="text-xs text-slate-400">{copy.sections.raceInputs.description}</p>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label
                 htmlFor="targetIntakePerHour"
@@ -219,6 +219,23 @@ export function CommandCenter({
                 className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("sodiumIntakePerHour", { valueAsNumber: true })}
               />
+            </div>
+            <div className="space-y-1">
+              <Label
+                htmlFor="waterBagLiters"
+                className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+              >
+                {copy.sections.raceInputs.fields.waterBagLiters}
+              </Label>
+              <Input
+                id="waterBagLiters"
+                type="number"
+                step="0.1"
+                min="0"
+                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                {...register("waterBagLiters", { valueAsNumber: true })}
+              />
+              <p className="text-[11px] text-slate-400">{copy.sections.raceInputs.fields.waterBagHelper}</p>
             </div>
           </CardContent>
         </Card>
