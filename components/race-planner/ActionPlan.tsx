@@ -225,6 +225,8 @@ export function ActionPlan({
       { carbs: 0, water: 0, sodium: 0 }
     );
 
+    if (!items.length) return null;
+
     return { items, totals };
   };
 
@@ -431,10 +433,10 @@ export function ActionPlan({
                   const metricKey = key as "carbs" | "water" | "sodium";
                   const planned =
                     metricKey === "carbs"
-                      ? summarized.totals.carbs
+                      ? summarized?.totals.carbs ?? 0
                       : metricKey === "water"
-                        ? summarized.totals.water
-                        : summarized.totals.sodium;
+                        ? summarized?.totals.water ?? 0
+                        : summarized?.totals.sodium ?? 0;
                   const target =
                     metricKey === "carbs"
                       ? nextSegment?.targetFuelGrams ?? 0
@@ -516,9 +518,7 @@ export function ActionPlan({
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {summarized.items.length === 0 ? (
-                        <p className="text-xs text-emerald-100/70">{timelineCopy.pickupHelper}</p>
-                      ) : (
+                      {summarized?.items?.length ? (
                         summarized.items.map(({ product, quantity }) => (
                           <div
                             key={product.id}
@@ -541,12 +541,14 @@ export function ActionPlan({
                             </Button>
                           </div>
                         ))
+                      ) : (
+                        <p className="text-xs text-emerald-100/70">{timelineCopy.pickupHelper}</p>
                       )}
                     </div>
                     <p className="text-[11px] text-slate-300">
-                      {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized.totals.carbs)} ·{" "}
-                      {copy.sections.summary.items.water}: {formatWaterAmount(summarized.totals.water)} ·{" "}
-                      {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized.totals.sodium)}
+                      {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized?.totals.carbs ?? 0)} ·{" "}
+                      {copy.sections.summary.items.water}: {formatWaterAmount(summarized?.totals.water ?? 0)} ·{" "}
+                      {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized?.totals.sodium ?? 0)}
                     </p>
                   </div>
                 ) : null;
