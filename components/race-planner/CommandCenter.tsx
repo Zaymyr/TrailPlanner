@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
@@ -46,6 +46,26 @@ export function CommandCenter({
     ? Math.max(0, Math.round(pacing.durationMinutes - durationHours * 60))
     : 0;
   const [pacingMode, setPacingMode] = useState<"duration" | "pace" | "speed">("duration");
+  const [durationInputs, setDurationInputs] = useState<{ hours: string; minutes: string }>({
+    hours: durationHours.toString(),
+    minutes: durationRemainderMinutes.toString().padStart(2, "0"),
+  });
+
+  useEffect(() => {
+    if (pacingMode !== "duration") return;
+    setDurationInputs({
+      hours: durationHours.toString(),
+      minutes: durationRemainderMinutes.toString().padStart(2, "0"),
+    });
+  }, [durationHours, durationRemainderMinutes, pacingMode]);
+
+  const parseDurationInputs = (hoursValue: string, minutesValue: string) => {
+    const hours = Number(hoursValue);
+    const minutes = Number(minutesValue);
+    const safeHours = Number.isFinite(hours) && hours >= 0 ? hours : 0;
+    const safeMinutes = Number.isFinite(minutes) && minutes >= 0 ? Math.min(minutes, 59) : 0;
+    return safeHours * 60 + safeMinutes;
+  };
 
   return (
     <div className="space-y-4">
@@ -122,13 +142,15 @@ export function CommandCenter({
                           type="number"
                           min="0"
                           step="1"
-                          value={durationHours}
+                          value={durationInputs.hours}
                           className="h-11 border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                           onChange={(event) => {
-                            const hours = Number(event.target.value);
-                            if (!Number.isFinite(hours) || hours < 0) return;
-                            const nextMinutes = hours * 60 + durationRemainderMinutes;
-                            onDurationChange(nextMinutes);
+                            const value = event.target.value;
+                            setDurationInputs((previous) => {
+                              const next = { ...previous, hours: value };
+                              onDurationChange(parseDurationInputs(next.hours, next.minutes));
+                              return next;
+                            });
                           }}
                         />
                       </div>
@@ -145,14 +167,15 @@ export function CommandCenter({
                           min="0"
                           max="59"
                           step="1"
-                          value={durationRemainderMinutes}
+                          value={durationInputs.minutes}
                           className="h-11 border-emerald-400/40 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                           onChange={(event) => {
-                            const minutes = Number(event.target.value);
-                            if (!Number.isFinite(minutes) || minutes < 0) return;
-                            const safeMinutes = clampSeconds(minutes);
-                            const nextMinutes = durationHours * 60 + safeMinutes;
-                            onDurationChange(nextMinutes);
+                            const value = event.target.value;
+                            setDurationInputs((previous) => {
+                              const next = { ...previous, minutes: value };
+                              onDurationChange(parseDurationInputs(next.hours, next.minutes));
+                              return next;
+                            });
                           }}
                         />
                       </div>
