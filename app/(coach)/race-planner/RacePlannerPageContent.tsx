@@ -518,20 +518,22 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
 function sanitizeAidStations(stations?: { name?: string; distanceKm?: number; waterRefill?: boolean }[]): AidStation[] {
   if (!stations?.length) return [];
 
-  return stations
-    .map((station) => {
-      if (typeof station?.name !== "string" || typeof station?.distanceKm !== "number") return null;
+  const sanitized: AidStation[] = [];
 
-      const plan = sanitizeSegmentPlan(station);
+  stations.forEach((station) => {
+    if (typeof station?.name !== "string" || typeof station?.distanceKm !== "number") return;
 
-      return {
-        name: station.name,
-        distanceKm: station.distanceKm,
-        waterRefill: station.waterRefill !== false,
-        ...plan,
-      };
-    })
-    .filter((station): station is AidStation => Boolean(station));
+    const plan = sanitizeSegmentPlan(station);
+
+    sanitized.push({
+      name: station.name,
+      distanceKm: station.distanceKm,
+      waterRefill: station.waterRefill !== false,
+      ...plan,
+    });
+  });
+
+  return sanitized;
 }
 
 function dedupeAidStations(stations: AidStation[]): AidStation[] {
