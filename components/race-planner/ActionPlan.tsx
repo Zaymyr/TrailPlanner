@@ -463,6 +463,7 @@ export function ActionPlan({
                     key: metric.key,
                     label: metric.label,
                     value: metric.format(metric.planned),
+                    plannedValue: metric.planned,
                     format: metric.format,
                     targetValue: metric.target,
                     targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
@@ -565,7 +566,7 @@ export function ActionPlan({
                               : targetValue;
                           const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
                           const scaleMax = maxValue * 1.3;
-                          const cursorPercent = Math.min((metric.planned / scaleMax) * 100, 100);
+                          const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
                           const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
                           const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
                           const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
