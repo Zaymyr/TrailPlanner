@@ -13,6 +13,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
+import { ChevronDownIcon, ChevronUpIcon } from "../../../components/race-planner/TimelineIcons";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,7 +36,6 @@ import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
-import { SettingsPanel } from "../../../components/race-planner/SettingsPanel";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -133,8 +133,6 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   paceMinutes: 6,
   paceSeconds: 30,
   speedKph: 9.2,
-  uphillEffort: 50,
-  downhillEffort: 50,
   targetIntakePerHour: 70,
   waterBagLiters: 1.5,
   waterIntakePerHour: 500,
@@ -184,8 +182,6 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
         .min(0, { message: copy.validation.paceSecondsRange })
         .max(59, { message: copy.validation.paceSecondsRange }),
       speedKph: z.coerce.number().positive(copy.validation.speedPositive),
-      uphillEffort: z.coerce.number().min(0).max(100),
-      downhillEffort: z.coerce.number().min(0).max(100),
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
@@ -235,88 +231,13 @@ function speedToPace(speedKph: number) {
   return { minutes, seconds };
 }
 
-function getElevationAtDistance(profile: ElevationPoint[], distanceKm: number) {
-  if (profile.length === 0) return 0;
-  if (distanceKm <= profile[0].distanceKm) return profile[0].elevationM;
-
-  for (let i = 1; i < profile.length; i += 1) {
-    const prev = profile[i - 1];
-    const next = profile[i];
-
-    if (distanceKm <= next.distanceKm) {
-      const ratio = (distanceKm - prev.distanceKm) / Math.max(next.distanceKm - prev.distanceKm, 1);
-      return prev.elevationM + (next.elevationM - prev.elevationM) * ratio;
-    }
-  }
-
-  return profile[profile.length - 1].elevationM;
-}
-
-function calculateSegmentElevation(
-  profile: ElevationPoint[],
-  startKm: number,
-  endKm: number,
-  totalElevationGain: number,
-  raceDistanceKm: number
-) {
-  const segmentKm = Math.max(0, endKm - startKm);
-  if (segmentKm === 0) return { ascent: 0, descent: 0 };
-
-  if (profile.length < 2) {
-    const distanceShare = raceDistanceKm > 0 ? segmentKm / raceDistanceKm : 0;
-    const ascent = Math.max(0, totalElevationGain * distanceShare);
-    const descent = ascent; // assume roughly equal climbing and descending when no profile is provided
-    return { ascent, descent };
-  }
-
-  const distances = profile
-    .filter((point) => point.distanceKm > startKm && point.distanceKm < endKm)
-    .map((point) => point.distanceKm);
-
-  distances.unshift(startKm);
-  distances.push(endKm);
-
-  let ascent = 0;
-  let descent = 0;
-
-  for (let i = 1; i < distances.length; i += 1) {
-    const fromDistance = distances[i - 1];
-    const toDistance = distances[i];
-    const fromElevation = getElevationAtDistance(profile, fromDistance);
-    const toElevation = getElevationAtDistance(profile, toDistance);
-    const delta = toElevation - fromElevation;
-
-    if (delta > 0) {
-      ascent += delta;
-    } else if (delta < 0) {
-      descent += Math.abs(delta);
-    }
-  }
-
-  return { ascent, descent };
-}
-
 function adjustedSegmentMinutes(
   baseMinutesPerKm: number,
-  segmentKm: number,
-  elevation: { ascent: number; descent: number },
-  uphillEffort: number,
-  downhillEffort: number
+  segmentKm: number
 ) {
   if (segmentKm === 0) return 0;
 
-  const ascentPerKm = elevation.ascent / (segmentKm * 1000);
-  const descentPerKm = elevation.descent / (segmentKm * 1000);
-  const normalizedUphillSteepness = Math.min(ascentPerKm / 0.12, 1); // taper effect on very steep climbs
-  const normalizedDownhillSteepness = Math.min(descentPerKm / 0.12, 1);
-  const uphillIntensity = 1.35 - (uphillEffort / 100) * 0.7; // higher effort shrinks penalty
-  const downhillIntensity = 0.5 + (downhillEffort / 100) * 0.9; // higher effort boosts benefit
-  const uphillPenalty = ascentPerKm * 10 * uphillIntensity * (1 - 0.35 * normalizedUphillSteepness);
-  const downhillBenefit = descentPerKm * 6 * downhillIntensity * (1 - 0.3 * normalizedDownhillSteepness);
-  const adjustmentFactor = 1 + uphillPenalty - downhillBenefit;
-  const safeAdjustment = Math.min(Math.max(0.6, adjustmentFactor), 1.6);
-
-  return segmentKm * baseMinutesPerKm * safeAdjustment;
+  return segmentKm * baseMinutesPerKm;
 }
 
 function slopeToColor(grade: number) {
@@ -396,20 +317,7 @@ function buildSegments(
   const segments: Segment[] = checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
-    const elevation = calculateSegmentElevation(
-      elevationProfile,
-      previous.distanceKm,
-      station.distanceKm,
-      values.elevationGain,
-      values.raceDistanceKm
-    );
-    const estimatedSegmentMinutes = adjustedSegmentMinutes(
-      minPerKm,
-      segmentKm,
-      elevation,
-      values.uphillEffort,
-      values.downhillEffort
-    );
+    const estimatedSegmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm);
     const overrideMinutes =
       typeof station.segmentMinutesOverride === "number" && station.segmentMinutesOverride >= 0
         ? station.segmentMinutesOverride
@@ -853,7 +761,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { register } = form;
 
   const sectionIds = {
-    inputs: "race-inputs",
     timeline: "race-timeline",
     courseProfile: "course-profile",
     pacing: "pacing-section",
@@ -862,8 +769,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
-  const uphillEffort = form.watch("uphillEffort") ?? defaultValues.uphillEffort;
-  const downhillEffort = form.watch("downhillEffort") ?? defaultValues.downhillEffort;
   const startSupplies = form.watch("startSupplies") ?? [];
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
@@ -880,7 +785,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [planName, setPlanName] = useState("");
   const [session, setSession] = useState<{ accessToken: string; refreshToken?: string; email?: string } | null>(null);
   const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
-  const [rightPanelTab, setRightPanelTab] = useState<"inputs" | "plans" | "fuel">("inputs");
+  const [rightPanelTab, setRightPanelTab] = useState<"plans" | "fuel">("plans");
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -893,6 +798,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [productsError, setProductsError] = useState<string | null>(null);
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [isCourseCollapsed, setIsCourseCollapsed] = useState(false);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -1382,7 +1288,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   };
 
   const handleMobileImport = () => {
-    focusSection(sectionIds.inputs, "settings");
+    focusSection(sectionIds.courseProfile, "plan");
     const input = fileInputRef.current;
     if (!input) return;
 
@@ -1644,39 +1550,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, [form]);
 
   const courseProfileSection = (
-    <Card id={sectionIds.courseProfile}>
-      <CardHeader className="space-y-0">
-        <div className="flex items-center justify-between gap-3">
+    <Card id={sectionIds.courseProfile} className="relative overflow-hidden">
+      <CardHeader className="space-y-0 pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitleWithTooltip
             title={racePlannerCopy.sections.courseProfile.title}
             description={racePlannerCopy.sections.courseProfile.description}
           />
-        </div>
-      </CardHeader>
-      <CardContent className="-mx-4 -mb-2 px-4 pb-2 sm:-mx-6 sm:px-6">
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-h-[220px] w-full">
-            <ElevationProfileChart
-              profile={elevationProfile}
-              aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
-              totalDistanceKm={
-                (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-                defaultValues.raceDistanceKm
-              }
-              copy={racePlannerCopy}
-              baseMinutesPerKm={baseMinutesPerKm}
-              uphillEffort={uphillEffort}
-              downhillEffort={downhillEffort}
-            />
-          </div>
-
-          <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
-              <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.description}</p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
+          {isCourseCollapsed ? (
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1695,39 +1577,126 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
                 {racePlannerCopy.buttons.exportGpx}
               </Button>
-            </div>
-            {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="raceDistanceKm" className="text-xs text-slate-200">
-                  {racePlannerCopy.sections.raceInputs.fields.raceDistance}
-                </Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("raceDistanceKm", { valueAsNumber: true })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="elevationGain" className="text-xs text-slate-200">
-                  {racePlannerCopy.sections.raceInputs.fields.elevationGain}
-                </Label>
-                <Input
-                  id="elevationGain"
-                  type="number"
-                  min="0"
-                  step="50"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("elevationGain", { valueAsNumber: true })}
-                />
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="raceDistanceKm" className="text-[11px] text-slate-300">
+                    {racePlannerCopy.sections.raceInputs.fields.raceDistance}
+                  </Label>
+                  <Input
+                    id="raceDistanceKm"
+                    type="number"
+                    step="0.5"
+                    className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    {...register("raceDistanceKm", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="elevationGain" className="text-[11px] text-slate-300">
+                    {racePlannerCopy.sections.raceInputs.fields.elevationGain}
+                  </Label>
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    {...register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
         </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-10 sm:px-6">
+        {(() => {
+          const courseControls = (
+            <div className="w-full max-w-xl space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4 lg:ml-auto">
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
+                <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.description}</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="h-9 px-3 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {racePlannerCopy.buttons.importGpx}
+                </Button>
+                <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
+                  {racePlannerCopy.buttons.exportGpx}
+                </Button>
+              </div>
+              {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="raceDistanceKm" className="text-xs text-slate-200">
+                    {racePlannerCopy.sections.raceInputs.fields.raceDistance}
+                  </Label>
+                  <Input
+                    id="raceDistanceKm"
+                    type="number"
+                    step="0.5"
+                    className="border-slate-800/70 bg-slate-950/80 text-sm"
+                    {...register("raceDistanceKm", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="elevationGain" className="text-xs text-slate-200">
+                    {racePlannerCopy.sections.raceInputs.fields.elevationGain}
+                  </Label>
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    className="border-slate-800/70 bg-slate-950/80 text-sm"
+                    {...register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+
+          if (isCourseCollapsed) {
+            return null;
+          }
+
+          return (
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:gap-8">
+              <div className="min-h-[240px] w-full rounded-lg border border-slate-800/70 bg-slate-950/40 p-4">
+                <ElevationProfileChart
+                  profile={elevationProfile}
+                  aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
+                  totalDistanceKm={
+                    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+                    defaultValues.raceDistanceKm
+                  }
+                  copy={racePlannerCopy}
+                  baseMinutesPerKm={baseMinutesPerKm}
+                />
+              </div>
+
+              {courseControls}
+            </div>
+          );
+        })()}
       </CardContent>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
+        <Button
+          type="button"
+          variant="ghost"
+          className="pointer-events-auto h-10 w-10 rounded-full border border-slate-800 bg-slate-950/80 shadow-md"
+          aria-label={isCourseCollapsed ? "Expand course profile" : "Collapse course profile"}
+          onClick={() => setIsCourseCollapsed((prev) => !prev)}
+        >
+          {isCourseCollapsed ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+        </Button>
+      </div>
     </Card>
   );
   const planPrimaryContent = (
@@ -1815,14 +1784,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base font-semibold">{racePlannerCopy.sections.raceInputs.title}</CardTitle>
+          <CardTitle className="text-base font-semibold">
+            {rightPanelTab === "plans" ? racePlannerCopy.account.title : racePlannerCopy.sections.gels.title}
+          </CardTitle>
           <div className="flex items-center gap-2">
             {(
               [
-                { key: "inputs", label: racePlannerCopy.sections.raceInputs.title },
                 { key: "plans", label: racePlannerCopy.account.title },
                 { key: "fuel", label: racePlannerCopy.sections.gels.title },
-              ] satisfies { key: "inputs" | "plans" | "fuel"; label: string }[]
+              ] satisfies { key: "plans" | "fuel"; label: string }[]
             ).map((tab) => {
               const isActive = rightPanelTab === tab.key;
               return (
@@ -1842,14 +1812,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className={rightPanelTab === "inputs" ? "space-y-6" : "hidden"}>
-          <SettingsPanel
-            copy={racePlannerCopy}
-            sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
-            register={form.register}
-          />
-        </div>
-
         <div className={rightPanelTab === "plans" ? "space-y-6" : "hidden"}>
           <PlanManager
             copy={racePlannerCopy.account}
@@ -1927,7 +1889,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
-          settingsLabel={racePlannerCopy.sections.raceInputs.title}
+          settingsLabel={racePlannerCopy.account.title}
         />
 
         {enableMobileNav ? (
@@ -2141,16 +2103,12 @@ function ElevationProfileChart({
   totalDistanceKm,
   copy,
   baseMinutesPerKm,
-  uphillEffort,
-  downhillEffort,
 }: {
   profile: ElevationPoint[];
   aidStations: AidStation[];
   totalDistanceKm: number;
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
-  uphillEffort: number;
-  downhillEffort: number;
 }) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState(900);
@@ -2240,15 +2198,7 @@ function ElevationProfileChart({
           const segmentKm = Math.max(point.distanceKm - prev.distanceKm, 0);
           if (segmentKm === 0) return samples;
 
-          const ascent = Math.max(point.elevationM - prev.elevationM, 0);
-          const descent = Math.max(prev.elevationM - point.elevationM, 0);
-          const minutes = adjustedSegmentMinutes(
-            baseMinutesPerKm,
-            segmentKm,
-            { ascent, descent },
-            uphillEffort,
-            downhillEffort
-          );
+          const minutes = adjustedSegmentMinutes(baseMinutesPerKm, segmentKm);
           if (minutes <= 0) return samples;
 
           cumulativeMinutes += minutes;
