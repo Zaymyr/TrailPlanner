@@ -687,7 +687,7 @@ export function ActionPlan({
                           })
                         }
                       >
-                        {copy.sections.gels.addProduct ?? "Add product"}
+                        Add product
                       </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
