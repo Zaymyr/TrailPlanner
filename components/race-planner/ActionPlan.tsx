@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
@@ -27,9 +27,10 @@ type ActionPlanProps = {
   raceTotals: RaceTotals | null;
   sectionId: string;
   onPrint: () => void;
-  onAddAidStation: () => void;
+  onAddAidStation: (station: { name: string; distanceKm: number }) => void;
   onRemoveAidStation: (index: number) => void;
   register: UseFormRegister<FormValues>;
+  setValue: (field: `aidStations.${number}.name` | `aidStations.${number}.distanceKm`, value: string | number) => void;
   formatDistanceWithUnit: (value: number) => string;
   formatMinutes: (totalMinutes: number) => string;
   formatFuelAmount: (value: number) => string;
@@ -129,6 +130,7 @@ export function ActionPlan({
   onAddAidStation,
   onRemoveAidStation,
   register,
+  setValue,
   formatDistanceWithUnit,
   formatMinutes,
   formatFuelAmount,
@@ -143,9 +145,33 @@ export function ActionPlan({
   onSupplyRemove,
 }: ActionPlanProps) {
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
-  const [editingAidStations, setEditingAidStations] = useState<Record<string, boolean>>({});
+  const [editorState, setEditorState] = useState<
+    | null
+    | {
+        mode: "edit";
+        index: number;
+        name: string;
+        distance: string;
+      }
+    | {
+        mode: "create";
+        name: string;
+        distance: string;
+      }
+  >(null);
+  const [editorError, setEditorError] = useState<string | null>(null);
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
+  const openCreateEditor = () =>
+    setEditorState({
+      mode: "create",
+      name: copy.defaults.aidStationName,
+      distance: "0",
+    });
+  const updateEditorField = useCallback((field: "name" | "distance", value: string) => {
+    setEditorState((current) => (current ? { ...current, [field]: value } : current));
+    setEditorError(null);
+  }, []);
   const renderItems = buildRenderItems(segments);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const metricIcons = {
@@ -202,12 +228,31 @@ export function ActionPlan({
       [collapseKey]: !current[collapseKey],
     }));
   };
-  const toggleEditingAidStation = (key: string) => {
-    setEditingAidStations((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
-  };
+  const closeEditor = useCallback(() => {
+    setEditorState(null);
+    setEditorError(null);
+  }, []);
+
+  const handleEditorSave = useCallback(() => {
+    if (!editorState) return;
+    const name = editorState.name.trim();
+    const distanceValue = Number(editorState.distance);
+    if (!name) {
+      setEditorError(copy.validation.required);
+      return;
+    }
+    if (!Number.isFinite(distanceValue) || distanceValue < 0) {
+      setEditorError(copy.validation.nonNegative);
+      return;
+    }
+    if (editorState.mode === "edit") {
+      setValue(`aidStations.${editorState.index}.name`, name);
+      setValue(`aidStations.${editorState.index}.distanceKm`, distanceValue);
+    } else {
+      onAddAidStation({ name, distanceKm: distanceValue });
+    }
+    closeEditor();
+  }, [closeEditor, copy.validation.nonNegative, copy.validation.required, editorState, onAddAidStation, setValue]);
 
   const summarizeSupplies = (supplies?: StationSupply[]) => {
     const grouped: Record<string, { product: FuelProduct; quantity: number }> = {};
@@ -246,7 +291,7 @@ export function ActionPlan({
           descriptionAsTooltip
           action={
             <div className="flex items-center gap-2">
-              <Button type="button" onClick={onAddAidStation}>
+              <Button type="button" onClick={openCreateEditor}>
                 {aidStationsCopy.add}
               </Button>
               {segments.length > 0 ? (
@@ -488,8 +533,6 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.name` as const)
                     : null;
-                const editableKey = typeof item.aidStationIndex === "number" ? String(item.aidStationIndex) : null;
-                const isEditingHeader = editableKey ? Boolean(editingAidStations[editableKey]) : false;
                 const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
@@ -543,39 +586,8 @@ export function ActionPlan({
                   supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
                   { label: timelineCopy.status.atTarget, tone: "neutral" as const }
                 );
-                const titleContent =
-                  isEditingHeader && nameFieldName ? (
-                    <Input
-                      id={nameFieldName}
-                      className="h-9 border-slate-800/70 bg-slate-950/80 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
-                      {...register(nameFieldName)}
-                    />
-                  ) : (
-                    item.title
-                  );
-                const metaContent =
-                  isEditingHeader && distanceFieldName ? (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                      <div className="flex items-center gap-2">
-                        <Label className="text-[10px] uppercase tracking-wide text-slate-400" htmlFor={distanceFieldName}>
-                          {aidStationsCopy.labels.distance}
-                        </Label>
-                        <Input
-                          id={distanceFieldName}
-                          type="number"
-                          step="0.5"
-                          className="h-8 w-24 border-slate-800/70 bg-slate-950/80 text-xs font-semibold text-slate-50 focus-visible:ring-emerald-400"
-                          {...register(distanceFieldName, { valueAsNumber: true })}
-                        />
-                      </div>
-                      <span className="text-slate-500">·</span>
-                      <span>
-                        {timelineCopy.etaLabel}: {formatMinutes(item.etaMinutes)}
-                      </span>
-                    </div>
-                  ) : (
-                    metaText
-                  );
+                const titleContent = item.title;
+                const metaContent = metaText;
                 const toggleButton =
                   isCollapsible && collapseKey ? (
                     <Button
@@ -762,10 +774,14 @@ export function ActionPlan({
                       isFinish={item.isFinish}
                       dropSection={isCollapsed ? null : suppliesDropZone}
                       onTitleClick={
-                        editableKey
-                          ? () => {
-                              toggleEditingAidStation(editableKey);
-                            }
+                        typeof item.aidStationIndex === "number"
+                          ? () =>
+                              setEditorState({
+                                mode: "edit",
+                                index: item.aidStationIndex as number,
+                                name: item.title,
+                                distance: String(item.distanceKm ?? 0),
+                              })
                           : undefined
                       }
                     />
@@ -777,5 +793,47 @@ export function ActionPlan({
         ) : null}
       </CardContent>
     </Card>
+    {editorState ? (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-slate-50">
+              {editorState.mode === "edit" ? aidStationsCopy.title : aidStationsCopy.add}
+            </p>
+            <Button variant="ghost" className="h-8 px-2" onClick={closeEditor}>
+              ✕
+            </Button>
+          </div>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.name}</Label>
+              <Input
+                value={editorState.name}
+                onChange={(event) => updateEditorField("name", event.target.value)}
+                className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.distance}</Label>
+              <Input
+                value={editorState.distance}
+                onChange={(event) => updateEditorField("distance", event.target.value)}
+                type="number"
+                step="0.5"
+                min="0"
+                className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+              />
+            </div>
+            {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={closeEditor}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditorSave}>Save</Button>
+          </div>
+        </div>
+      </div>
+    ) : null}
   );
 }
