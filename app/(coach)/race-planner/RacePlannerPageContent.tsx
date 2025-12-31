@@ -1562,7 +1562,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             className="h-9 px-3 text-xs"
             onClick={() => setIsCourseCollapsed((prev) => !prev)}
           >
-            {isCourseCollapsed ? racePlannerCopy.buttons.show ?? "Show profile" : racePlannerCopy.buttons.hide ?? "Hide profile"}
+            {isCourseCollapsed ? "Show profile" : "Hide profile"}
           </Button>
         </div>
       </CardHeader>
