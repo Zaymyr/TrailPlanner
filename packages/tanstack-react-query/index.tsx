@@ -20,6 +20,8 @@ type QueryState<TData> = {
   updatedAt?: number;
   promise?: Promise<TData> | null;
   queryFn?: QueryFunction<TData>;
+  onSuccess?: (data: TData) => void;
+  onError?: (error: unknown) => void;
 };
 
 type QueryListener<TData> = (state: QueryState<TData>) => void;
@@ -31,12 +33,19 @@ type QueryOptions<TData> = {
   queryFn: QueryFunction<TData>;
   enabled?: boolean;
   staleTime?: number;
+  onSuccess?: (data: TData) => void;
+  onError?: (error: unknown) => void;
 };
 
 type MutationFunction<TData, TVariables> = (variables: TVariables) => Promise<TData>;
 
 type MutationOptions<TData, TVariables> = {
   mutationFn: MutationFunction<TData, TVariables>;
+  onSuccess?: (data: TData, variables: TVariables) => void;
+  onError?: (error: unknown, variables: TVariables) => void;
+};
+
+type MutateOptions<TData, TVariables> = {
   onSuccess?: (data: TData, variables: TVariables) => void;
   onError?: (error: unknown, variables: TVariables) => void;
 };
@@ -48,7 +57,7 @@ class QueryClient {
     return JSON.stringify(key);
   }
 
-  private getRecord(key: QueryKey) {
+  private getRecord<TData>(key: QueryKey) {
     const hash = this.keyToHash(key);
     if (!this.queries.has(hash)) {
       this.queries.set(hash, {
@@ -56,72 +65,110 @@ class QueryClient {
         listeners: new Set(),
       });
     }
-    return { hash, record: this.queries.get(hash)! };
+    const record = this.queries.get(hash)! as {
+      state: QueryState<TData>;
+      listeners: Set<QueryListener<unknown>>;
+    };
+    return { hash, record };
   }
 
   getState<TData>(key: QueryKey): QueryState<TData> {
-    const { record } = this.getRecord(key);
-    return record.state as QueryState<TData>;
+    const { record } = this.getRecord<TData>(key);
+    return record.state;
   }
 
   subscribe<TData>(key: QueryKey, listener: QueryListener<TData>) {
-    const { record } = this.getRecord(key);
+    const { record } = this.getRecord<TData>(key);
     record.listeners.add(listener as QueryListener<unknown>);
     return () => {
       record.listeners.delete(listener as QueryListener<unknown>);
     };
   }
 
-  private notify(key: QueryKey) {
-    const { record } = this.getRecord(key);
-    record.listeners.forEach((listener) => listener(record.state));
+  private notify<TData>(key: QueryKey) {
+    const { record } = this.getRecord<TData>(key);
+    record.listeners.forEach((listener) => listener(record.state as QueryState<unknown>));
   }
 
-  async fetchQuery<TData>(options: { queryKey: QueryKey; queryFn: QueryFunction<TData> }) {
-    const { record } = this.getRecord(options.queryKey);
+  async fetchQuery<TData>(options: {
+    queryKey: QueryKey;
+    queryFn: QueryFunction<TData>;
+    onSuccess?: (data: TData) => void;
+    onError?: (error: unknown) => void;
+  }) {
+    const { record } = this.getRecord<TData>(options.queryKey);
 
     if (record.state.promise) {
       return record.state.promise as Promise<TData>;
     }
 
-    record.state = { ...record.state, queryFn: options.queryFn };
+    record.state = {
+      ...record.state,
+      queryFn: options.queryFn,
+      onSuccess: options.onSuccess,
+      onError: options.onError,
+    };
 
     const promise = options
       .queryFn()
       .then((data) => {
-        record.state = { ...record.state, data, status: "success", updatedAt: Date.now(), promise: null, queryFn: options.queryFn };
-        this.notify(options.queryKey);
+        record.state = {
+          ...record.state,
+          data,
+          status: "success",
+          updatedAt: Date.now(),
+          promise: null,
+          queryFn: options.queryFn,
+          onSuccess: options.onSuccess,
+          onError: options.onError,
+        };
+        this.notify<TData>(options.queryKey);
+        options.onSuccess?.(data);
         return data;
       })
       .catch((error) => {
-        record.state = { ...record.state, error, status: "error", promise: null, queryFn: options.queryFn };
-        this.notify(options.queryKey);
+        record.state = {
+          ...record.state,
+          error,
+          status: "error",
+          promise: null,
+          queryFn: options.queryFn,
+          onSuccess: options.onSuccess,
+          onError: options.onError,
+        };
+        this.notify<TData>(options.queryKey);
+        options.onError?.(error);
         throw error;
       });
 
     record.state = { ...record.state, status: record.state.status === "success" ? "success" : "pending", promise };
-    this.notify(options.queryKey);
+    this.notify<TData>(options.queryKey);
 
     return promise;
   }
 
   setQueryData<TData>(key: QueryKey, updater: TData | ((data?: TData) => TData)) {
-    const { record } = this.getRecord(key);
+    const { record } = this.getRecord<TData>(key);
     const nextData = typeof updater === "function" ? (updater as (data?: TData) => TData)(record.state.data as TData) : updater;
     record.state = { ...record.state, data: nextData, status: "success", updatedAt: Date.now() };
-    this.notify(key);
+    this.notify<TData>(key);
     return nextData;
   }
 
   invalidateQueries({ queryKey }: { queryKey: QueryKey }) {
-    const { record } = this.getRecord(queryKey);
+    const { record } = this.getRecord<unknown>(queryKey);
     if (record.state.queryFn) {
-      void this.fetchQuery({ queryKey, queryFn: record.state.queryFn });
+      void this.fetchQuery({
+        queryKey,
+        queryFn: record.state.queryFn as QueryFunction<unknown>,
+        onSuccess: record.state.onSuccess,
+        onError: record.state.onError,
+      });
       return;
     }
 
     record.state = { status: "idle" };
-    this.notify(queryKey);
+    this.notify<unknown>(queryKey);
   }
 }
 
@@ -153,8 +200,13 @@ export function useQuery<TData>(options: QueryOptions<TData>) {
   }, [client, key]);
 
   const runQuery = useCallback(() => {
-    void client.fetchQuery<TData>({ queryKey: key, queryFn: options.queryFn });
-  }, [client, key, options.queryFn]);
+    void client.fetchQuery<TData>({
+      queryKey: key,
+      queryFn: options.queryFn,
+      onSuccess: options.onSuccess,
+      onError: options.onError,
+    });
+  }, [client, key, options.onError, options.onSuccess, options.queryFn]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -193,7 +245,7 @@ export function useMutation<TData, TVariables = void>(options: MutationOptions<T
   }, []);
 
   const mutateAsync = useCallback(
-    async (variables: TVariables) => {
+    async (variables: TVariables, mutateOptions?: MutateOptions<TData, TVariables>) => {
       setStatus("pending");
       setError(undefined);
       try {
@@ -202,6 +254,7 @@ export function useMutation<TData, TVariables = void>(options: MutationOptions<T
           setData(result);
           setStatus("success");
           options.onSuccess?.(result, variables);
+          mutateOptions?.onSuccess?.(result, variables);
         }
         return result;
       } catch (mutationError) {
@@ -209,6 +262,7 @@ export function useMutation<TData, TVariables = void>(options: MutationOptions<T
           setStatus("error");
           setError(mutationError);
           options.onError?.(mutationError, variables);
+          mutateOptions?.onError?.(mutationError, variables);
         }
         throw mutationError;
       }
@@ -223,8 +277,8 @@ export function useMutation<TData, TVariables = void>(options: MutationOptions<T
     isPending: status === "pending",
     isError: status === "error",
     isSuccess: status === "success",
-    mutate: (variables: TVariables) => {
-      void mutateAsync(variables);
+    mutate: (variables: TVariables, mutateOptions?: MutateOptions<TData, TVariables>) => {
+      void mutateAsync(variables, mutateOptions);
     },
     mutateAsync,
   };

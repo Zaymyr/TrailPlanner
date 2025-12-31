@@ -30,6 +30,8 @@ import type {
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
 import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
+import { fetchUserProfile } from "../../../lib/profile-client";
+import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
@@ -134,15 +136,16 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   uphillEffort: 50,
   downhillEffort: 50,
   targetIntakePerHour: 70,
+  waterBagLiters: 1.5,
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 600,
   startSupplies: [],
   aidStations: [
-    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10 },
-    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20 },
-    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30 },
-    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40 },
-    { name: copy.defaults.finalBottles, distanceKm: 45 },
+    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true },
+    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true },
   ],
   finishPlan: {},
 });
@@ -166,6 +169,7 @@ const createAidStationSchema = (validation: RacePlannerTranslations["validation"
   createSegmentPlanSchema(validation).extend({
     name: z.string().min(1, validation.required),
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
+    waterRefill: z.coerce.boolean().optional().default(true),
   });
 
 const createFormSchema = (copy: RacePlannerTranslations) =>
@@ -185,6 +189,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      waterBagLiters: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       startSupplies: createSegmentPlanSchema(copy.validation).shape.supplies.optional(),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
@@ -361,21 +366,34 @@ function buildSegments(
   const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
   const minPerKm = minutesPerKm(values);
   const stationsWithIndex: (AidStation & { originalIndex?: number; kind: "aid" | "finish" })[] = values.aidStations
-    .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const }))
+    .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const, waterRefill: station.waterRefill !== false }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   const checkpoints: (AidStation & {
     originalIndex?: number;
     kind: "start" | "aid" | "finish";
+    waterRefill?: boolean;
   })[] = [
-    { name: startLabel, distanceKm: 0, kind: "start" as const },
+    { name: startLabel, distanceKm: 0, kind: "start" as const, waterRefill: true },
     ...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm),
-    { name: finishLabel, distanceKm: values.raceDistanceKm, originalIndex: undefined, kind: "finish", ...(values.finishPlan ?? {}) },
+    {
+      name: finishLabel,
+      distanceKm: values.raceDistanceKm,
+      originalIndex: undefined,
+      kind: "finish",
+      waterRefill: true,
+      ...(values.finishPlan ?? {}),
+    },
   ];
 
   let elapsedMinutes = 0;
+  const waterCapacityMl =
+    typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters)
+      ? Math.max(0, values.waterBagLiters * 1000)
+      : null;
+  let availableWaterMl = waterCapacityMl ?? 0;
 
-  return checkpoints.slice(1).map((station, index) => {
+  const segments: Segment[] = checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
     const elevation = calculateSegmentElevation(
@@ -404,8 +422,11 @@ function buildSegments(
     const gelsPlanned = Math.max(0, Math.round((station.gelsPlanned ?? targetFuelGrams / gelCarbs) * 10) / 10);
     const recommendedGels = Math.max(0, targetFuelGrams / gelCarbs);
     const plannedFuelGrams = gelsPlanned * gelCarbs;
-    const plannedWaterMl = targetWaterMl;
     const plannedSodiumMg = targetSodiumMg;
+    const segmentWaterAvailable = Math.max(0, availableWaterMl);
+    const remainingWater = segmentWaterAvailable - targetWaterMl;
+    const waterShortfallMl = remainingWater < 0 ? Math.abs(remainingWater) : undefined;
+
     const segment: Segment = {
       checkpoint: station.name,
       from: previous.name,
@@ -419,7 +440,7 @@ function buildSegments(
       waterMl: targetWaterMl,
       sodiumMg: targetSodiumMg,
       plannedFuelGrams,
-      plannedWaterMl,
+      plannedWaterMl: segmentWaterAvailable,
       plannedSodiumMg,
       targetFuelGrams,
       targetWaterMl,
@@ -431,9 +452,21 @@ function buildSegments(
       supplies: station.supplies,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
+      waterCapacityMl: waterCapacityMl ?? undefined,
+      waterShortfallMl,
     };
+
+    availableWaterMl = Math.max(0, remainingWater);
+
+    const canRefillAtArrival = station.kind === "finish" ? true : station.waterRefill !== false;
+    if (canRefillAtArrival && waterCapacityMl !== null) {
+      availableWaterMl = waterCapacityMl;
+    }
+
     return segment;
   });
+
+  return segments;
 }
 
 function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
@@ -466,22 +499,25 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
   };
 }
 
-function sanitizeAidStations(stations?: { name?: string; distanceKm?: number }[]): AidStation[] {
+function sanitizeAidStations(stations?: { name?: string; distanceKm?: number; waterRefill?: boolean }[]): AidStation[] {
   if (!stations?.length) return [];
 
-  return stations
-    .map((station) => {
-      if (typeof station?.name !== "string" || typeof station?.distanceKm !== "number") return null;
+  const sanitized: AidStation[] = [];
 
-      const plan = sanitizeSegmentPlan(station);
+  stations.forEach((station) => {
+    if (typeof station?.name !== "string" || typeof station?.distanceKm !== "number") return;
 
-      return {
-        name: station.name,
-        distanceKm: station.distanceKm,
-        ...plan,
-      };
-    })
-    .filter((station): station is AidStation => Boolean(station));
+    const plan = sanitizeSegmentPlan(station);
+
+    sanitized.push({
+      name: station.name,
+      distanceKm: station.distanceKm,
+      waterRefill: station.waterRefill !== false,
+      ...plan,
+    });
+  });
+
+  return sanitized;
 }
 
 function dedupeAidStations(stations: AidStation[]): AidStation[] {
@@ -526,10 +562,15 @@ function sanitizePlannerValues(values?: Partial<FormValues>): Partial<FormValues
   const aidStations = sanitizeAidStations(values.aidStations);
   const finishPlan = sanitizeSegmentPlan(values.finishPlan);
   const startSupplies = sanitizeSegmentPlan({ supplies: values.startSupplies }).supplies;
+  const waterBagLiters =
+    typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters) && values.waterBagLiters >= 0
+      ? values.waterBagLiters
+      : undefined;
 
   return {
     ...values,
     paceType,
+    waterBagLiters,
     startSupplies,
     aidStations,
     finishPlan,
@@ -737,7 +778,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
       })
       .filter(Boolean) as ParsedGpx["aidStations"];
 
-    aidStations.push({ name: copy.defaults.finish, distanceKm: Number((totalMeters / 1000).toFixed(1)) });
+    aidStations.push({ name: copy.defaults.finish, distanceKm: Number((totalMeters / 1000).toFixed(1)), waterRefill: true });
 
     const elevationProfile: ElevationPoint[] = cumulativeTrack.map((point) => ({
       distanceKm: Number((point.distance / 1000).toFixed(2)),
@@ -767,7 +808,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
 
   const aidStationsWithFinish = dedupeAidStations([
     ...baseAidStations,
-    { name: copy.defaults.finish, distanceKm: Number(baseDistance.toFixed(1)) },
+    { name: copy.defaults.finish, distanceKm: Number(baseDistance.toFixed(1)), waterRefill: true },
   ]);
 
   return {
@@ -850,7 +891,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [productsError, setProductsError] = useState<string | null>(null);
-  const { selectedProducts } = useProductSelection();
+  const { selectedProducts, replaceSelection } = useProductSelection();
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -968,6 +1010,44 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
     }
   }, [verifySession]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
+      setProfileError(null);
+      return;
+    }
+
+    const abortController = new AbortController();
+    setProfileError(null);
+
+    const loadProfile = async () => {
+      try {
+        const data = await fetchUserProfile(session.accessToken, abortController.signal);
+        if (abortController.signal.aborted) return;
+        if (typeof data.waterBagLiters === "number") {
+          form.setValue("waterBagLiters", data.waterBagLiters);
+        }
+        replaceSelection(data.favoriteProducts.map((product) => mapProductToSelection(product)));
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Unable to load profile", error);
+        setProfileError(
+          error instanceof Error ? error.message : racePlannerCopy.account.errors.fetchFailed
+        );
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      abortController.abort();
+    };
+  }, [
+    form,
+    racePlannerCopy.account.errors.fetchFailed,
+    replaceSelection,
+    session?.accessToken,
+  ]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -1649,6 +1729,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
   const planPrimaryContent = (
     <div className="space-y-6">
+      {session?.accessToken && profileError ? (
+        <p className="text-sm text-amber-200">{profileError}</p>
+      ) : null}
       <CommandCenter
         copy={racePlannerCopy}
         sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
