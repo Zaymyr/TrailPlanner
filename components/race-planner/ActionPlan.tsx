@@ -270,10 +270,9 @@ export function ActionPlan({
                   const plannedFuel = carriedTotals?.totals.carbs ?? 0;
                   const plannedWater = segment.plannedWaterMl;
                   const plannedSodium = carriedTotals?.totals.sodium ?? 0;
-                  const distanceHelper = timelineCopy.segmentDistanceBetween.replace(
-                    "{distance}",
-                    segment.segmentKm.toFixed(1)
-                  );
+                  const distanceHelper = timelineCopy.segmentDistanceBetween.replace("{distance}", segment.segmentKm.toFixed(1));
+                  const segmentRange = `${formatDistanceWithUnit(segment.startDistanceKm)} → ${formatDistanceWithUnit(segment.distanceKm)}`;
+                  const segmentPath = `${segment.from} → ${segment.checkpoint}`;
                   const railDistance = `${segment.segmentKm.toFixed(1)} km`;
                 const railTime = formatMinutes(segment.segmentMinutes);
                 const timeFieldName = getSegmentFieldName(segment, "segmentMinutesOverride");
@@ -362,8 +361,11 @@ export function ActionPlan({
                 });
 
                   return (
-                    <div key={item.id} className="relative pl-20">
-                      <div className="pointer-events-none absolute left-6 top-2 bottom-2 flex flex-col items-center" aria-hidden>
+                    <div
+                      key={item.id}
+                      className="relative rounded-2xl border border-slate-800/70 bg-slate-950/70 p-4 pl-20 shadow-[0_8px_30px_rgba(15,23,42,0.45)]"
+                    >
+                      <div className="pointer-events-none absolute left-6 top-4 bottom-4 flex flex-col items-center" aria-hidden>
                         <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
                         <div className="relative flex h-full w-px items-center justify-center">
                           <span className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[10px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
@@ -377,6 +379,17 @@ export function ActionPlan({
                         <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
                           <ArrowRightIcon className="h-3.5 w-3.5 rotate-90 text-emerald-200" aria-hidden />
                         </span>
+                      </div>
+
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
+                          <ArrowRightIcon className="h-3 w-3" aria-hidden />
+                          <span>{segmentPath}</span>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-100">
+                          <span className="font-semibold uppercase tracking-wide text-slate-300">{timelineCopy.segmentLabel}</span>
+                          <span className="font-semibold text-slate-50">{segmentRange}</span>
+                        </div>
                       </div>
 
                       <div className="flex flex-col gap-2 lg:flex-row">
