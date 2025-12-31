@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
 import type { FuelProduct } from "../../lib/product-types";
+import { MAX_SELECTED_PRODUCTS, type StoredProductPreference } from "../../lib/product-preferences";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
@@ -38,6 +39,8 @@ type ActionPlanProps = {
   formatSodiumAmount: (value: number) => string;
   calculatePercentage: (value: number, total?: number) => number;
   fuelProducts: FuelProduct[];
+  favoriteProducts: StoredProductPreference[];
+  onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
@@ -138,6 +141,8 @@ export function ActionPlan({
   formatSodiumAmount,
   calculatePercentage,
   fuelProducts,
+  favoriteProducts,
+  onFavoriteToggle,
   startSupplies,
   onStartSupplyDrop,
   onStartSupplyRemove,
@@ -163,9 +168,12 @@ export function ActionPlan({
   const [supplyPicker, setSupplyPicker] = useState<{ type: "start" | "aid"; index?: number } | null>(null);
   const [pickerFavorites, setPickerFavorites] = useState<string[]>([]);
   const [pickerSearch, setPickerSearch] = useState("");
-  const [pickerSort, setPickerSort] = useState<{ key: "name" | "carbs" | "sodium" | "calories"; dir: "asc" | "desc" }>({
-    key: "name",
-    dir: "asc",
+  const [pickerSort, setPickerSort] = useState<{
+    key: "name" | "carbs" | "sodium" | "calories" | "favorite";
+    dir: "asc" | "desc";
+  }>({
+    key: "favorite",
+    dir: "desc",
   });
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
@@ -180,6 +188,10 @@ export function ActionPlan({
     setEditorError(null);
   }, []);
   const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
+  const pickerFavoriteSet = useMemo(() => new Set(pickerFavorites), [pickerFavorites]);
+  useEffect(() => {
+    setPickerFavorites(favoriteProducts.map((product) => product.slug));
+  }, [favoriteProducts]);
   const renderItems = buildRenderItems(segments);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const metricIcons = {
@@ -335,14 +347,23 @@ export function ActionPlan({
     },
     [onStartSupplyDrop, onStartSupplyRemove, onSupplyDrop, onSupplyRemove, productBySlug, supplyPicker, supplyPickerSelectedSlugs]
   );
-  const toggleFavorite = (slug: string) => {
-    setPickerFavorites((current) => {
-      const exists = current.includes(slug);
-      if (exists) return current.filter((item) => item !== slug);
-      if (current.length >= 3) return current;
-      return [...current, slug];
-    });
-  };
+  const toggleFavorite = useCallback(
+    (slug: string) => {
+      const product = productBySlug[slug];
+      if (!product) return;
+
+      const result = onFavoriteToggle(product);
+      if (!result.updated) return;
+
+      setPickerFavorites((current) => {
+        const exists = current.includes(slug);
+        if (exists) return current.filter((item) => item !== slug);
+        if (current.length >= MAX_SELECTED_PRODUCTS) return current;
+        return [...current, slug];
+      });
+    },
+    [onFavoriteToggle, productBySlug]
+  );
 
   return (
     <>
@@ -1003,6 +1024,7 @@ export function ActionPlan({
                 <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">
                   <tr>
                     {[
+                      { key: "favorite", label: "★" },
                       { key: "name", label: "Nom" },
                       { key: "carbs", label: "Glucides (g)" },
                       { key: "sodium", label: "Sodium (mg)" },
@@ -1036,6 +1058,12 @@ export function ActionPlan({
                     })
                     .sort((a, b) => {
                       const dir = pickerSort.dir === "asc" ? 1 : -1;
+                      if (pickerSort.key === "favorite") {
+                        const aFav = Number(pickerFavoriteSet.has(a.slug));
+                        const bFav = Number(pickerFavoriteSet.has(b.slug));
+                        if (aFav === bFav) return 0;
+                        return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
+                      }
                       if (pickerSort.key === "name") return a.name.localeCompare(b.name) * dir;
                       if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
                       if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
@@ -1043,21 +1071,21 @@ export function ActionPlan({
                     })
                     .map((product) => {
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
-                      const isFavorite = pickerFavorites.includes(product.slug);
+                      const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
                         <tr key={product.slug} className="border-t border-slate-800/80">
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                className={`text-lg ${isFavorite ? "text-amber-300" : "text-slate-500"} hover:text-amber-200`}
-                                onClick={() => toggleFavorite(product.slug)}
-                                aria-label="Favori"
-                              >
-                                ★
-                              </button>
-                              <span className="font-semibold">{product.name}</span>
-                            </div>
+                            <button
+                              type="button"
+                              className={`text-lg ${isFavorite ? "text-amber-300" : "text-slate-500"} hover:text-amber-200`}
+                              onClick={() => toggleFavorite(product.slug)}
+                              aria-label="Favori"
+                            >
+                              ★
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold">{product.name}</span>
                           </td>
                           <td className="px-4 py-3">{product.carbsGrams} g</td>
                           <td className="px-4 py-3">{product.sodiumMg} mg</td>

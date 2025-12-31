@@ -11,7 +11,7 @@ import {
 } from "../../lib/product-preferences";
 import type { FuelProduct } from "../../lib/product-types";
 
-type ToggleResult = { updated: boolean; reason?: "limit" };
+export type ToggleResult = { updated: boolean; reason?: "limit" };
 
 export const useProductSelection = () => {
   const [selectedProducts, setSelectedProducts] = useState<StoredProductPreference[]>([]);
