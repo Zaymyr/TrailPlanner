@@ -477,6 +477,10 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
                     : null;
+                const nameFieldName =
+                  typeof item.aidStationIndex === "number"
+                    ? (`aidStations.${item.aidStationIndex}.name` as const)
+                    : null;
 
                 const nextSegment = item.upcomingSegment;
                 const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
@@ -612,6 +616,19 @@ export function ActionPlan({
                 const distanceInput =
                   distanceFieldName && !isCollapsed ? (
                     <div className="flex flex-wrap items-end gap-3 text-right sm:text-left">
+                      {nameFieldName ? (
+                        <div className="space-y-1">
+                          <Label className="text-[11px] text-slate-300" htmlFor={nameFieldName}>
+                            {aidStationsCopy.labels.name}
+                          </Label>
+                          <Input
+                            id={nameFieldName}
+                            type="text"
+                            className="w-[180px] border-slate-800/70 bg-slate-950/80 text-sm"
+                            {...register(nameFieldName)}
+                          />
+                        </div>
+                      ) : null}
                       <div className="space-y-1">
                         <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
                           {aidStationsCopy.labels.distance}
