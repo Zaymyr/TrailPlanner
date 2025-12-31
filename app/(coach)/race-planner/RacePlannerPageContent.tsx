@@ -1557,53 +1557,55 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             title={racePlannerCopy.sections.courseProfile.title}
             description={racePlannerCopy.sections.courseProfile.description}
           />
-          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".gpx,application/gpx+xml"
-              className="hidden"
-              onChange={handleImportGpx}
-            />
-            <Button
-              variant="outline"
-              type="button"
-              className="h-9 px-3 text-xs"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {racePlannerCopy.buttons.importGpx}
-            </Button>
-            <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
-              {racePlannerCopy.buttons.exportGpx}
-            </Button>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-2">
-                <Label htmlFor="raceDistanceKm" className="text-[11px] text-slate-300">
-                  {racePlannerCopy.sections.raceInputs.fields.raceDistance}
-                </Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
-                  {...register("raceDistanceKm", { valueAsNumber: true })}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="elevationGain" className="text-[11px] text-slate-300">
-                  {racePlannerCopy.sections.raceInputs.fields.elevationGain}
-                </Label>
-                <Input
-                  id="elevationGain"
-                  type="number"
-                  min="0"
-                  step="50"
-                  className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
-                  {...register("elevationGain", { valueAsNumber: true })}
-                />
+          {isCourseCollapsed ? (
+            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".gpx,application/gpx+xml"
+                className="hidden"
+                onChange={handleImportGpx}
+              />
+              <Button
+                variant="outline"
+                type="button"
+                className="h-9 px-3 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                {racePlannerCopy.buttons.importGpx}
+              </Button>
+              <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
+                {racePlannerCopy.buttons.exportGpx}
+              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="raceDistanceKm" className="text-[11px] text-slate-300">
+                    {racePlannerCopy.sections.raceInputs.fields.raceDistance}
+                  </Label>
+                  <Input
+                    id="raceDistanceKm"
+                    type="number"
+                    step="0.5"
+                    className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    {...register("raceDistanceKm", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="elevationGain" className="text-[11px] text-slate-300">
+                    {racePlannerCopy.sections.raceInputs.fields.elevationGain}
+                  </Label>
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    {...register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-10 sm:px-6">
