@@ -143,6 +143,7 @@ export function ActionPlan({
   onSupplyRemove,
 }: ActionPlanProps) {
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
+  const [editingAidStations, setEditingAidStations] = useState<Record<string, boolean>>({});
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const renderItems = buildRenderItems(segments);
@@ -199,6 +200,12 @@ export function ActionPlan({
     setCollapsedAidStations((current) => ({
       ...current,
       [collapseKey]: !current[collapseKey],
+    }));
+  };
+  const toggleEditingAidStation = (key: string) => {
+    setEditingAidStations((current) => ({
+      ...current,
+      [key]: !current[key],
     }));
   };
 
@@ -481,6 +488,9 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.name` as const)
                     : null;
+                const editableKey = typeof item.aidStationIndex === "number" ? String(item.aidStationIndex) : null;
+                const isEditingHeader = editableKey ? Boolean(editingAidStations[editableKey]) : false;
+                const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
                 const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
@@ -533,6 +543,39 @@ export function ActionPlan({
                   supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
                   { label: timelineCopy.status.atTarget, tone: "neutral" as const }
                 );
+                const titleContent =
+                  isEditingHeader && nameFieldName ? (
+                    <Input
+                      id={nameFieldName}
+                      className="h-9 border-slate-800/70 bg-slate-950/80 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                      {...register(nameFieldName)}
+                    />
+                  ) : (
+                    item.title
+                  );
+                const metaContent =
+                  isEditingHeader && distanceFieldName ? (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
+                      <div className="flex items-center gap-2">
+                        <Label className="text-[10px] uppercase tracking-wide text-slate-400" htmlFor={distanceFieldName}>
+                          {aidStationsCopy.labels.distance}
+                        </Label>
+                        <Input
+                          id={distanceFieldName}
+                          type="number"
+                          step="0.5"
+                          className="h-8 w-24 border-slate-800/70 bg-slate-950/80 text-xs font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                          {...register(distanceFieldName, { valueAsNumber: true })}
+                        />
+                      </div>
+                      <span className="text-slate-500">·</span>
+                      <span>
+                        {timelineCopy.etaLabel}: {formatMinutes(item.etaMinutes)}
+                      </span>
+                    </div>
+                  ) : (
+                    metaText
+                  );
                 const toggleButton =
                   isCollapsible && collapseKey ? (
                     <Button
@@ -614,43 +657,16 @@ export function ActionPlan({
                     : null;
 
                 const distanceInput =
-                  distanceFieldName && !isCollapsed ? (
+                  distanceFieldName && !isCollapsed && waterRefillFieldName ? (
                     <div className="flex flex-wrap items-end gap-3 text-right sm:text-left">
-                      {nameFieldName ? (
-                        <div className="space-y-1">
-                          <Label className="text-[11px] text-slate-300" htmlFor={nameFieldName}>
-                            {aidStationsCopy.labels.name}
-                          </Label>
-                          <Input
-                            id={nameFieldName}
-                            type="text"
-                            className="w-[180px] border-slate-800/70 bg-slate-950/80 text-sm"
-                            {...register(nameFieldName)}
-                          />
-                        </div>
-                      ) : null}
-                      <div className="space-y-1">
-                        <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
-                          {aidStationsCopy.labels.distance}
-                        </Label>
-                        <Input
-                          id={distanceFieldName}
-                          type="number"
-                          step="0.5"
-                          className="max-w-[160px] border-slate-800/70 bg-slate-950/80 text-sm"
-                          {...register(distanceFieldName, { valueAsNumber: true })}
+                      <label className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-[11px] text-slate-200">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                          {...register(waterRefillFieldName)}
                         />
-                      </div>
-                      {waterRefillFieldName ? (
-                        <label className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-[11px] text-slate-200">
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
-                            {...register(waterRefillFieldName)}
-                          />
-                          <span>{aidStationsCopy.labels.waterRefill}</span>
-                        </label>
-                      ) : null}
+                        <span>{aidStationsCopy.labels.waterRefill}</span>
+                      </label>
                     </div>
                   ) : null;
 
@@ -727,9 +743,8 @@ export function ActionPlan({
                   <div key={item.id} className="relative pl-8">
                     <TimelinePointCard
                       pointIndex={pointNumber}
-                      title={item.title}
-                      distanceText={formatDistanceWithUnit(item.distanceKm)}
-                      etaText={`${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
+                      title={titleContent}
+                      meta={metaContent}
                       metrics={[]}
                       distanceInput={distanceInput}
                       finishLabel={copy.defaults.finish}
@@ -746,6 +761,13 @@ export function ActionPlan({
                       isStart={item.isStart}
                       isFinish={item.isFinish}
                       dropSection={isCollapsed ? null : suppliesDropZone}
+                      onTitleClick={
+                        editableKey
+                          ? () => {
+                              toggleEditingAidStation(editableKey);
+                            }
+                          : undefined
+                      }
                     />
                   </div>
                 );
