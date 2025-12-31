@@ -1549,6 +1549,100 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     form.setValue("startSupplies", filtered, { shouldDirty: true, shouldValidate: true });
   }, [form]);
 
+  const handleAutomaticFill = useCallback(() => {
+    if (segments.length === 0) return;
+
+    const productOptions = (() => {
+      const mergedById = new Map(mergedFuelProducts.map((product) => [product.id, product]));
+
+      const favoriteMatches = selectedProducts
+        .map((favorite) => mergedById.get(favorite.id) ?? mergedFuelProducts.find((product) => product.slug === favorite.slug))
+        .filter((product): product is FuelProduct => Boolean(product && product.carbsGrams > 0));
+
+      if (favoriteMatches.length > 0) {
+        return favoriteMatches;
+      }
+
+      return mergedFuelProducts.filter((product) => product.carbsGrams > 0);
+    })();
+
+    if (productOptions.length === 0) return;
+
+    const buildPlanForTarget = (targetFuelGrams: number, targetSodiumMg: number): StationSupply[] => {
+      if (!Number.isFinite(targetFuelGrams) || targetFuelGrams <= 0) return [];
+
+      const options = productOptions
+        .slice()
+        .sort((a, b) => b.carbsGrams - a.carbsGrams)
+        .slice(0, 3)
+        .map((product) => ({
+        id: product.id,
+        carbs: Math.max(product.carbsGrams, 0),
+        sodium: Math.max(product.sodiumMg ?? 0, 0),
+      }));
+
+      const minCarbs = Math.max(Math.min(...options.map((option) => option.carbs)), 1);
+      const maxUnits = Math.min(12, Math.max(3, Math.ceil(targetFuelGrams / minCarbs) + 2));
+      const best = { score: Number.POSITIVE_INFINITY, combo: [] as number[] };
+
+      const evaluateCombo = (combo: number[]) => {
+        const plannedCarbs = combo.reduce((total, qty, index) => total + qty * options[index].carbs, 0);
+        const plannedSodium = combo.reduce((total, qty, index) => total + qty * options[index].sodium, 0);
+        const carbDiff = Math.abs(plannedCarbs - targetFuelGrams) / Math.max(targetFuelGrams, 1);
+        const sodiumDiff =
+          targetSodiumMg > 0 ? Math.abs(plannedSodium - targetSodiumMg) / targetSodiumMg : 0;
+        const underfillPenalty = plannedCarbs < targetFuelGrams ? 0.2 : 0;
+        const itemPenalty = combo.reduce((sum, qty) => sum + qty, 0) * 0.01;
+        const score = carbDiff * 1.5 + sodiumDiff * 0.5 + underfillPenalty + itemPenalty;
+
+        if (score < best.score && plannedCarbs > 0) {
+          best.score = score;
+          best.combo = combo.slice();
+        }
+      };
+
+      const search = (index: number, combo: number[], totalUnits: number) => {
+        if (index === options.length) {
+          evaluateCombo(combo);
+          return;
+        }
+
+        const remainingSlots = maxUnits - totalUnits;
+        for (let qty = 0; qty <= remainingSlots; qty += 1) {
+          combo[index] = qty;
+          search(index + 1, combo, totalUnits + qty);
+        }
+      };
+
+      search(0, new Array(options.length).fill(0), 0);
+
+      if (best.score === Number.POSITIVE_INFINITY || best.combo.every((qty) => qty === 0)) {
+        return [];
+      }
+
+      return best.combo
+        .map((qty, index) => ({ productId: options[index].id, quantity: qty }))
+        .filter((supply) => supply.quantity > 0);
+    };
+
+    const firstSegment = segments[0];
+    if (firstSegment) {
+      const startPlan = buildPlanForTarget(firstSegment.targetFuelGrams, firstSegment.targetSodiumMg);
+      form.setValue("startSupplies", startPlan, { shouldDirty: true, shouldValidate: true });
+    }
+
+    segments.forEach((segment, index) => {
+      const nextSegment = segments[index + 1];
+      if (!nextSegment || typeof segment.aidStationIndex !== "number") return;
+
+      const supplies = buildPlanForTarget(nextSegment.targetFuelGrams, nextSegment.targetSodiumMg);
+      form.setValue(`aidStations.${segment.aidStationIndex}.supplies`, supplies, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    });
+  }, [form, mergedFuelProducts, segments, selectedProducts]);
+
   const courseProfileSection = (
     <Card id={sectionIds.courseProfile} className="relative overflow-hidden">
       <CardHeader className="space-y-0 pb-3">
@@ -1725,6 +1819,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         raceTotals={raceTotals}
         sectionId={sectionIds.timeline}
         onPrint={handlePrint}
+        onAutomaticFill={handleAutomaticFill}
         onAddAidStation={handleAddAidStation}
         onRemoveAidStation={remove}
         register={form.register}

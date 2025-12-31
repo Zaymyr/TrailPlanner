@@ -28,6 +28,7 @@ type ActionPlanProps = {
   raceTotals: RaceTotals | null;
   sectionId: string;
   onPrint: () => void;
+  onAutomaticFill: () => void;
   onAddAidStation: (station: { name: string; distanceKm: number }) => void;
   onRemoveAidStation: (index: number) => void;
   register: UseFormRegister<FormValues>;
@@ -130,6 +131,7 @@ export function ActionPlan({
   raceTotals,
   sectionId,
   onPrint,
+  onAutomaticFill,
   onAddAidStation,
   onRemoveAidStation,
   register,
@@ -383,6 +385,11 @@ export function ActionPlan({
               <Button type="button" onClick={openCreateEditor}>
                 {aidStationsCopy.add}
               </Button>
+              {segments.length > 0 ? (
+                <Button type="button" variant="outline" onClick={onAutomaticFill} title={copy.buttons.autoFillHint}>
+                  {copy.buttons.autoFill}
+                </Button>
+              ) : null}
               {segments.length > 0 ? (
                 <Button type="button" variant="outline" className="hidden sm:inline-flex" onClick={onPrint}>
                   {copy.buttons.printPlan}
