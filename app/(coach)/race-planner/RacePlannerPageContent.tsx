@@ -797,6 +797,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [productsError, setProductsError] = useState<string | null>(null);
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [isCourseCollapsed, setIsCourseCollapsed] = useState(false);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -1550,85 +1551,109 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const courseProfileSection = (
     <Card id={sectionIds.courseProfile}>
       <CardHeader className="space-y-0">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitleWithTooltip
             title={racePlannerCopy.sections.courseProfile.title}
             description={racePlannerCopy.sections.courseProfile.description}
           />
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-9 px-3 text-xs"
+            onClick={() => setIsCourseCollapsed((prev) => !prev)}
+          >
+            {isCourseCollapsed ? racePlannerCopy.buttons.show ?? "Show profile" : racePlannerCopy.buttons.hide ?? "Hide profile"}
+          </Button>
         </div>
       </CardHeader>
-      <CardContent className="-mx-4 -mb-2 px-4 pb-2 sm:-mx-6 sm:px-6">
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-h-[220px] w-full">
-            <ElevationProfileChart
-              profile={elevationProfile}
-              aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
-              totalDistanceKm={
-                (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-                defaultValues.raceDistanceKm
-              }
-              copy={racePlannerCopy}
-              baseMinutesPerKm={baseMinutesPerKm}
-            />
-          </div>
-
-          <div className="space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
-              <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.description}</p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".gpx,application/gpx+xml"
-                className="hidden"
-                onChange={handleImportGpx}
-              />
-              <Button
-                variant="outline"
-                type="button"
-                className="h-9 px-3 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {racePlannerCopy.buttons.importGpx}
-              </Button>
-              <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
-                {racePlannerCopy.buttons.exportGpx}
-              </Button>
-            </div>
-            {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
-
-            <div className="grid gap-3 sm:grid-cols-2">
+      <CardContent className="px-4 pb-4 sm:px-6">
+        {(() => {
+          const courseControls = (
+            <div className="w-full max-w-xl space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4 lg:ml-auto">
               <div className="space-y-2">
-                <Label htmlFor="raceDistanceKm" className="text-xs text-slate-200">
-                  {racePlannerCopy.sections.raceInputs.fields.raceDistance}
-                </Label>
-                <Input
-                  id="raceDistanceKm"
-                  type="number"
-                  step="0.5"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("raceDistanceKm", { valueAsNumber: true })}
-                />
+                <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
+                <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.description}</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="elevationGain" className="text-xs text-slate-200">
-                  {racePlannerCopy.sections.raceInputs.fields.elevationGain}
-                </Label>
-                <Input
-                  id="elevationGain"
-                  type="number"
-                  min="0"
-                  step="50"
-                  className="border-slate-800/70 bg-slate-950/80 text-sm"
-                  {...register("elevationGain", { valueAsNumber: true })}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".gpx,application/gpx+xml"
+                  className="hidden"
+                  onChange={handleImportGpx}
                 />
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="h-9 px-3 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {racePlannerCopy.buttons.importGpx}
+                </Button>
+                <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
+                  {racePlannerCopy.buttons.exportGpx}
+                </Button>
+              </div>
+              {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="raceDistanceKm" className="text-xs text-slate-200">
+                    {racePlannerCopy.sections.raceInputs.fields.raceDistance}
+                  </Label>
+                  <Input
+                    id="raceDistanceKm"
+                    type="number"
+                    step="0.5"
+                    className="border-slate-800/70 bg-slate-950/80 text-sm"
+                    {...register("raceDistanceKm", { valueAsNumber: true })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="elevationGain" className="text-xs text-slate-200">
+                    {racePlannerCopy.sections.raceInputs.fields.elevationGain}
+                  </Label>
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    className="border-slate-800/70 bg-slate-950/80 text-sm"
+                    {...register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          );
+
+          if (isCourseCollapsed) {
+            return (
+              <div className="space-y-3">
+                {courseControls}
+              </div>
+            );
+          }
+
+          return (
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:gap-8">
+              <div className="min-h-[240px] w-full rounded-lg border border-slate-800/70 bg-slate-950/40 p-4">
+                <ElevationProfileChart
+                  profile={elevationProfile}
+                  aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
+                  totalDistanceKm={
+                    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+                    defaultValues.raceDistanceKm
+                  }
+                  copy={racePlannerCopy}
+                  baseMinutesPerKm={baseMinutesPerKm}
+                />
+              </div>
+
+              {courseControls}
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
