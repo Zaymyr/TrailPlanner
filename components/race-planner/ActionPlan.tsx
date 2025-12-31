@@ -349,6 +349,8 @@ export function ActionPlan({
                     key: metric.key,
                     label: metric.label,
                     value: metric.format(metric.planned),
+                    format: metric.format,
+                    targetValue: metric.target,
                     targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
                     helper: capacityWarning ?? capacityLabel ?? null,
                     targetPercent,
@@ -379,33 +381,76 @@ export function ActionPlan({
 
                       <div className="flex flex-col gap-2 lg:flex-row">
                         {inlineMetrics.map((metric) => (
+                          // Visual status cards for each resource (carbs, water, sodium)
                           <div
                             key={metric.key}
-                            className={`flex-1 rounded-lg border px-3 py-2 ${metric.key === "carbs" ? "border-purple-500/40 bg-purple-500/10" : metric.key === "water" ? "border-sky-500/40 bg-sky-500/10" : "border-slate-500/40 bg-slate-500/10"}`}
+                            className={`flex-1 rounded-2xl border bg-slate-950/85 p-4 shadow-inner ${
+                              metric.statusTone === "success"
+                                ? "border-emerald-500/50 shadow-emerald-500/10"
+                                : metric.statusTone === "warning"
+                                  ? "border-amber-500/50 shadow-amber-500/10"
+                                  : metric.statusTone === "danger"
+                                    ? "border-rose-500/50 shadow-rose-500/10"
+                                    : "border-slate-500/40 shadow-slate-500/10"
+                            }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex items-center gap-2">
-                                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-900">
+                                <span
+                                  className={`inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-900 ${
+                                    metric.key === "carbs"
+                                      ? "border-purple-400/40"
+                                      : metric.key === "water"
+                                        ? "border-sky-400/40"
+                                        : "border-slate-400/40"
+                                  }`}
+                                >
                                   {metric.icon}
                                 </span>
-                                <p className="text-sm font-semibold text-slate-50">{metric.label}</p>
+                                <div className="flex flex-col">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                    {metric.label}
+                                  </p>
+                                  <p className="text-sm font-semibold text-slate-50">
+                                    {metric.key === "carbs"
+                                      ? copy.sections.summary.items.carbs
+                                      : metric.key === "water"
+                                        ? copy.sections.summary.items.water
+                                        : copy.sections.summary.items.sodium}
+                                  </p>
+                                </div>
                               </div>
                               <span
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
+                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
                               >
                                 {metric.statusLabel}
                               </span>
                             </div>
-                            <div className="mt-2 flex flex-col gap-1 text-sm text-slate-50">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="font-semibold">{metric.value}</span>
+                            <div className="mt-3 flex flex-col gap-3">
+                              <p className="text-3xl font-extrabold leading-tight text-slate-50">{metric.value}</p>
+                              <div className="space-y-2">
+                                <div className="relative h-3 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
+                                  <div className="absolute inset-0 flex">
+                                    <span className="h-full w-[28%] bg-rose-500/70" aria-hidden />
+                                    <span className="h-full w-[32%] bg-amber-500/70" aria-hidden />
+                                    <span className="h-full flex-1 bg-emerald-500/70" aria-hidden />
+                                  </div>
+                                  <span
+                                    className="absolute inset-y-[-6px] h-[22px] w-[2px] rounded-full bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+                                    style={{
+                                      left: `${Math.min(Math.max(metric.targetPercent, 0), 150) / 150 * 100}%`,
+                                    }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-slate-200">
+                                  <span className="font-semibold">
+                                    {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
+                                  </span>
+                                  {metric.helper ? (
+                                    <span className="text-amber-100">{metric.helper}</span>
+                                  ) : null}
+                                </div>
                               </div>
-                              <p className="text-[11px] text-slate-200">
-                                {metric.targetText} · {metric.targetPercent.toFixed(0)}% ({metric.totalPercent.toFixed(0)}% total)
-                              </p>
-                              {metric.helper ? (
-                                <p className="text-[11px] text-amber-200">{metric.helper}</p>
-                              ) : null}
                             </div>
                           </div>
                         ))}
