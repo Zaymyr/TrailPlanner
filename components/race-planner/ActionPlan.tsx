@@ -501,7 +501,9 @@ export function ActionPlan({
                       : metricKey === "water"
                         ? formatWaterAmount
                         : formatSodiumAmount;
-                  const status = getPlanStatus(planned, target);
+                  const plannedForStatus =
+                    metricKey === "water" && target > 0 ? Math.min(planned, target) : planned;
+                  const status = getPlanStatus(plannedForStatus, target);
                   return {
                     key: metricKey,
                     label:
