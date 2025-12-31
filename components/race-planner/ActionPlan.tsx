@@ -556,29 +556,64 @@ export function ActionPlan({
                             </div>
                             <div className="mt-3 flex flex-col gap-3">
                               <p className="text-3xl font-extrabold leading-tight text-slate-50">{metric.value}</p>
-                              <div className="space-y-2">
-                                <div className="relative h-3 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
-                                  <div className="absolute inset-0 flex">
-                                    <span className="h-full w-[28%] bg-rose-500/70" aria-hidden />
-                                    <span className="h-full w-[32%] bg-amber-500/70" aria-hidden />
-                                    <span className="h-full flex-1 bg-emerald-500/70" aria-hidden />
-                                  </div>
-                                  <span
-                                    className="absolute inset-y-[-6px] h-[22px] w-[2px] rounded-full bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
-                                    style={{
-                                      left: `${Math.min(Math.max(metric.targetPercent, 0), 150) / 150 * 100}%`,
-                                    }}
-                                  />
-                                </div>
-                                <div className="flex items-center justify-between text-xs text-slate-200">
-                                  <span className="font-semibold">
-                                    {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
-                                  </span>
-                                  {metric.helper ? (
-                                    <span className="text-amber-100">{metric.helper}</span>
-                                  ) : null}
-                                </div>
-                              </div>
+                      <div className="space-y-2">
+                        {(() => {
+                          const targetValue = Math.max(metric.targetValue, 0);
+                          const maxValueCandidate =
+                            metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
+                              ? segment.waterCapacityMl
+                              : targetValue;
+                          const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
+                          const scaleMax = maxValue * 1.3;
+                          const cursorPercent = Math.min((metric.planned / scaleMax) * 100, 100);
+                          const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
+                          const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
+                          const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+                          return (
+                            <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
+                              <div
+                                className="absolute inset-0"
+                                style={{
+                                  background: `linear-gradient(to right,
+                                    rgba(248,113,113,0.75) 0%,
+                                    rgba(248,113,113,0.75) ${cautionPercent}%,
+                                    rgba(251,146,60,0.75) ${cautionPercent}%,
+                                    rgba(251,146,60,0.75) ${targetPercent}%,
+                                    rgba(16,185,129,0.8) ${targetPercent}%,
+                                    rgba(16,185,129,0.8) ${maxPercent}%,
+                                    rgba(251,146,60,0.75) ${maxPercent}%,
+                                    rgba(251,146,60,0.75) 100%)`,
+                                }}
+                                aria-hidden
+                              />
+                              <span
+                                className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+                                style={{ left: `${targetPercent}%` }}
+                                aria-label={timelineCopy.targetLabel}
+                              />
+                              <span
+                                className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
+                                style={{ left: `${maxPercent}%` }}
+                                aria-label={timelineCopy.waterCapacityLabel}
+                              />
+                              <span
+                                className={`absolute inset-y-[-4px] h-[24px] w-[6px] rounded-full border-2 border-slate-900 ${
+                                  cursorPercent > maxPercent ? "bg-amber-300" : cursorPercent >= targetPercent ? "bg-emerald-300" : "bg-rose-300"
+                                } shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+                                style={{ left: `${cursorPercent}%`, transform: "translateX(-50%)" }}
+                              />
+                            </div>
+                          );
+                        })()}
+                        <div className="flex items-center justify-between text-xs text-slate-200">
+                          <span className="font-semibold">
+                            {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
+                          </span>
+                          {metric.helper ? (
+                            <span className="text-amber-100">{metric.helper}</span>
+                          ) : null}
+                        </div>
+                      </div>
                             </div>
                           </div>
                         ))}
