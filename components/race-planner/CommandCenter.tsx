@@ -42,8 +42,11 @@ export function CommandCenter({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2">
-        <Card id={sectionIds.pacing} className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5">
+      <div className="grid gap-3 md:grid-cols-5">
+        <Card
+          id={sectionIds.pacing}
+          className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5 md:col-span-2"
+        >
           <CardHeader className="space-y-3 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.pacingTitle}</p>
@@ -167,7 +170,10 @@ export function CommandCenter({
           </CardContent>
         </Card>
 
-        <Card id={sectionIds.intake} className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5">
+        <Card
+          id={sectionIds.intake}
+          className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5 md:col-span-3"
+        >
           <CardHeader className="pb-3">
             <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.nutritionTitle}</p>
             <p className="text-xs text-slate-400">{copy.sections.raceInputs.description}</p>
@@ -235,7 +241,6 @@ export function CommandCenter({
                 className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 {...register("waterBagLiters", { valueAsNumber: true })}
               />
-              <p className="text-[11px] text-slate-400">{copy.sections.raceInputs.fields.waterBagHelper}</p>
             </div>
           </CardContent>
         </Card>

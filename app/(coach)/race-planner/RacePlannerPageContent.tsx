@@ -891,7 +891,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [productsError, setProductsError] = useState<string | null>(null);
-  const { selectedProducts, replaceSelection } = useProductSelection();
+  const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1579,12 +1579,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
   const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
-  const handleAddAidStation = useCallback(() => {
-    append({
-      name: formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
-      distanceKm: 0,
-    });
-  }, [append, fields.length, racePlannerCopy.defaults.aidStationName]);
+  const handleAddAidStation = useCallback(
+    (station?: { name: string; distanceKm: number }) => {
+      append({
+        name: station?.name ?? formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
+        distanceKm: station?.distanceKm ?? 0,
+      });
+    },
+    [append, fields.length, racePlannerCopy.defaults.aidStationName]
+  );
 
   const handleSupplyDrop = useCallback(
     (aidStationIndex: number, productId: string, quantity = 1) => {
@@ -1756,6 +1759,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         onAddAidStation={handleAddAidStation}
         onRemoveAidStation={remove}
         register={form.register}
+        setValue={form.setValue}
         formatDistanceWithUnit={formatDistanceWithUnit}
         formatMinutes={(minutes) => formatMinutes(minutes, racePlannerCopy.units)}
         formatFuelAmount={formatFuelAmount}
@@ -1763,6 +1767,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatSodiumAmount={formatSodiumAmount}
         calculatePercentage={calculatePercentage}
         fuelProducts={fuelProductEstimates}
+        favoriteProducts={selectedProducts}
+        onFavoriteToggle={toggleProduct}
         startSupplies={startSupplies}
         onStartSupplyDrop={handleStartSupplyDrop}
         onStartSupplyRemove={handleStartSupplyRemove}
