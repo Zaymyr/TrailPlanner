@@ -13,7 +13,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon } from "../../../components/race-planner/TimelineIcons";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1693,7 +1693,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           aria-label={isCourseCollapsed ? "Expand course profile" : "Collapse course profile"}
           onClick={() => setIsCourseCollapsed((prev) => !prev)}
         >
-          {isCourseCollapsed ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+          {isCourseCollapsed ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
         </Button>
       </div>
     </Card>
