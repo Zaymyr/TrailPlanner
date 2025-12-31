@@ -381,15 +381,15 @@ export function ActionPlan({
                         </span>
                       </div>
 
-                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
-                          <ArrowRightIcon className="h-3 w-3" aria-hidden />
-                          <span>{segmentPath}</span>
+                      <div className="mb-3 flex items-center gap-3 text-[12px] text-slate-200">
+                        <div className="h-px flex-1 rounded-full bg-slate-800" aria-hidden />
+                        <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1 font-semibold">
+                          <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
+                          <span className="text-slate-100">{segmentPath}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-100">{segmentRange}</span>
                         </div>
-                        <div className="flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/70 px-3 py-1 text-[11px] text-slate-100">
-                          <span className="font-semibold uppercase tracking-wide text-slate-300">{timelineCopy.segmentLabel}</span>
-                          <span className="font-semibold text-slate-50">{segmentRange}</span>
-                        </div>
+                        <div className="h-px flex-1 rounded-full bg-slate-800" aria-hidden />
                       </div>
 
                       <div className="flex flex-col gap-2 lg:flex-row">
