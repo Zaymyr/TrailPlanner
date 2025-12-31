@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { ProductsPicker } from "./ProductsPicker";
 import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
 import { TimelinePointCard } from "./TimelineCards";
 
@@ -160,6 +161,7 @@ export function ActionPlan({
       }
   >(null);
   const [editorError, setEditorError] = useState<string | null>(null);
+  const [supplyPicker, setSupplyPicker] = useState<{ type: "start" | "aid"; index?: number } | null>(null);
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const openCreateEditor = () =>
@@ -172,6 +174,7 @@ export function ActionPlan({
     setEditorState((current) => (current ? { ...current, [field]: value } : current));
     setEditorError(null);
   }, []);
+  const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
   const renderItems = buildRenderItems(segments);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const metricIcons = {
@@ -281,6 +284,52 @@ export function ActionPlan({
 
     return { items, totals };
   };
+
+  const getAidSupplies = useCallback(
+    (aidStationIndex: number) => segments.find((seg) => seg.aidStationIndex === aidStationIndex)?.supplies ?? [],
+    [segments]
+  );
+  const supplyPickerSupplies = useMemo(() => {
+    if (!supplyPicker) return null;
+    return supplyPicker.type === "start"
+      ? startSupplies
+      : typeof supplyPicker.index === "number"
+        ? getAidSupplies(supplyPicker.index)
+        : null;
+  }, [getAidSupplies, startSupplies, supplyPicker]);
+  const supplyPickerSelectedSlugs = useMemo(() => {
+    if (!supplyPickerSupplies) return [];
+    return supplyPickerSupplies
+      .map((supply) => {
+        const product = productById[supply.productId];
+        return product?.slug;
+      })
+      .filter((slug): slug is string => Boolean(slug));
+  }, [productById, supplyPickerSupplies]);
+
+  const handleSupplyToggle = useCallback(
+    (productSlug: string) => {
+      if (!supplyPicker) return;
+      const product = productBySlug[productSlug];
+      if (!product) return;
+      if (supplyPicker.type === "start") {
+        const isSelected = supplyPickerSelectedSlugs.includes(productSlug);
+        if (isSelected) {
+          onStartSupplyRemove(product.id);
+        } else {
+          onStartSupplyDrop(product.id, 1);
+        }
+      } else if (typeof supplyPicker.index === "number") {
+        const isSelected = supplyPickerSelectedSlugs.includes(productSlug);
+        if (isSelected) {
+          onSupplyRemove(supplyPicker.index, product.id);
+        } else {
+          onSupplyDrop(supplyPicker.index, product.id, 1);
+        }
+      }
+    },
+    [onStartSupplyDrop, onStartSupplyRemove, onSupplyDrop, onSupplyRemove, productBySlug, supplyPicker, supplyPickerSelectedSlugs]
+  );
 
   return (
     <>
@@ -613,20 +662,33 @@ export function ActionPlan({
                     <div
                       className="flex w-full flex-col gap-3 rounded-lg border border-dashed border-emerald-400/40 bg-emerald-500/5 p-3 transition hover:border-emerald-300/70"
                       onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        const productId = event.dataTransfer.getData("text/trailplanner-product-id");
-                        const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
-                        if (!productId) return;
-                        if (item.isStart) {
-                          onStartSupplyDrop(productId, quantity);
-                        } else {
-                          onSupplyDrop(item.aidStationIndex as number, productId, quantity);
-                        }
-                      }}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const productId = event.dataTransfer.getData("text/trailplanner-product-id");
+                          const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
+                          if (!productId) return;
+                          if (item.isStart) {
+                            onStartSupplyDrop(productId, quantity);
+                          } else {
+                            onSupplyDrop(item.aidStationIndex as number, productId, quantity);
+                          }
+                        }}
                     >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 px-3 text-xs"
+                        onClick={() =>
+                          setSupplyPicker({
+                            type: item.isStart ? "start" : "aid",
+                            index: item.isStart ? undefined : (item.aidStationIndex as number),
+                          })
+                        }
+                      >
+                        {copy.sections.gels.addProduct ?? "Add product"}
+                      </Button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {summarized?.items?.length
@@ -859,6 +921,36 @@ export function ActionPlan({
               </Button>
               <Button onClick={handleEditorSave}>Save</Button>
             </div>
+          </div>
+        </div>
+      ) : null}
+      {supplyPicker ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-50">{copy.sections.gels.title}</p>
+              <Button variant="ghost" className="h-8 px-2" onClick={() => setSupplyPicker(null)}>
+                ✕
+              </Button>
+            </div>
+            <ProductsPicker
+              copy={copy.sections.gels}
+              products={fuelProducts.map((product) => ({
+                slug: product.slug,
+                name: product.name,
+                carbs: product.carbsGrams,
+                sodium: product.sodiumMg,
+                servings: 1,
+              }))}
+              selectedProducts={supplyPickerSelectedSlugs}
+              onToggleProduct={(product) => handleSupplyToggle(product.slug)}
+              onViewProduct={(product) => {
+                const fullProduct = productBySlug[product.slug];
+                if (fullProduct?.productUrl) {
+                  window.open(fullProduct.productUrl, "_blank", "noopener,noreferrer");
+                }
+              }}
+            />
           </div>
         </div>
       ) : null}
