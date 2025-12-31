@@ -551,7 +551,7 @@ export function ActionPlan({
 
                 const distanceInput =
                   distanceFieldName && !isCollapsed ? (
-                    <div className="space-y-2 text-right sm:text-left">
+                    <div className="flex flex-wrap items-end gap-3 text-right sm:text-left">
                       <div className="space-y-1">
                         <Label className="text-[11px] text-slate-300" htmlFor={distanceFieldName}>
                           {aidStationsCopy.labels.distance}
@@ -565,7 +565,7 @@ export function ActionPlan({
                         />
                       </div>
                       {waterRefillFieldName ? (
-                        <label className="inline-flex items-center gap-2 text-[11px] text-slate-200">
+                        <label className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-[11px] text-slate-200">
                           <input
                             type="checkbox"
                             className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
