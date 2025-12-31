@@ -1012,7 +1012,7 @@ export function ActionPlan({
         </div>
       ) : null}
       {supplyPicker ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm sm:p-6">
           <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1032,8 +1032,8 @@ export function ActionPlan({
               />
               <p className="text-xs text-slate-300">{`${pickerFavorites.length}/3 favoris sélectionnés`}</p>
             </div>
-            <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/60">
-              <table className="w-full text-left text-sm text-slate-200">
+            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60">
+              <table className="min-w-[720px] w-full text-left text-sm text-slate-200">
                 <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">
                   <tr>
                     {[

@@ -81,13 +81,13 @@ function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
 
 function SegmentMetricCard({ metric }: { metric: SegmentMetric }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950/70 p-3 shadow-sm">
+    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950/70 p-3 shadow-sm sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-800 bg-slate-900">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-900 sm:h-8 sm:w-8">
             {metric.icon}
           </span>
-          <p className="text-sm font-semibold text-slate-50">{metric.label}</p>
+        <p className="text-sm font-semibold text-slate-50">{metric.label}</p>
         </div>
         <StatusPill label={metric.statusLabel} tone={metric.statusTone} />
       </div>
@@ -113,17 +113,17 @@ function SegmentMetricCard({ metric }: { metric: SegmentMetric }) {
 function PointMetricCard({ metric }: { metric: PointMetric }) {
   return (
     <div
-      className={`flex flex-1 min-w-[180px] flex-col gap-2 rounded-xl border border-slate-900/80 bg-slate-950/85 px-4 py-3 shadow-inner shadow-slate-900/40 ${
+      className={`flex flex-1 min-w-[150px] flex-col gap-2 rounded-xl border border-slate-900/80 bg-slate-950/85 px-3 py-3 shadow-inner shadow-slate-900/40 sm:min-w-[180px] sm:px-4 ${
         metric.muted ? "opacity-60" : ""
       }`}
     >
       <div className="flex items-center gap-2">
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-100">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-100 sm:h-8 sm:w-8">
           {metric.icon}
         </span>
         <p className="text-[12px] font-semibold text-slate-100">{metric.label}</p>
       </div>
-      <p className="text-lg font-semibold text-slate-50">{metric.value ?? "—"}</p>
+      <p className="text-base font-semibold text-slate-50 sm:text-lg">{metric.value ?? "—"}</p>
       {metric.helper ? <p className="text-[11px] text-slate-400">{metric.helper}</p> : null}
     </div>
   );
