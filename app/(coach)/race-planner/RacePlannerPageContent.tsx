@@ -13,6 +13,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1549,67 +1550,63 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, [form]);
 
   const courseProfileSection = (
-    <Card id={sectionIds.courseProfile}>
-      <CardHeader className="space-y-0">
+    <Card id={sectionIds.courseProfile} className="relative overflow-hidden">
+      <CardHeader className="space-y-0 pb-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitleWithTooltip
             title={racePlannerCopy.sections.courseProfile.title}
             description={racePlannerCopy.sections.courseProfile.description}
           />
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".gpx,application/gpx+xml"
+              className="hidden"
+              onChange={handleImportGpx}
+            />
             <Button
+              variant="outline"
               type="button"
-              variant="ghost"
               className="h-9 px-3 text-xs"
-              onClick={() => setIsCourseCollapsed((prev) => !prev)}
+              onClick={() => fileInputRef.current?.click()}
             >
-              {isCourseCollapsed ? "Show profile" : "Hide profile"}
+              {racePlannerCopy.buttons.importGpx}
             </Button>
-            {isCourseCollapsed ? (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".gpx,application/gpx+xml"
-                  className="hidden"
-                  onChange={handleImportGpx}
+            <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
+              {racePlannerCopy.buttons.exportGpx}
+            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 rounded-md border border-slate-800/70 bg-slate-950/70 px-2 py-1">
+                <Label htmlFor="raceDistanceKm" className="text-[11px] text-slate-300">
+                  {racePlannerCopy.sections.raceInputs.fields.raceDistance}
+                </Label>
+                <Input
+                  id="raceDistanceKm"
+                  type="number"
+                  step="0.5"
+                  className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                  {...register("raceDistanceKm", { valueAsNumber: true })}
                 />
-                <Button
-                  variant="outline"
-                  type="button"
-                  className="h-9 px-3 text-xs"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {racePlannerCopy.buttons.importGpx}
-                </Button>
-                <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
-                  {racePlannerCopy.buttons.exportGpx}
-                </Button>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    id="raceDistanceKm"
-                    type="number"
-                    step="0.5"
-                    className="h-9 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
-                    placeholder={racePlannerCopy.sections.raceInputs.fields.raceDistance}
-                    {...register("raceDistanceKm", { valueAsNumber: true })}
-                  />
-                  <Input
-                    id="elevationGain"
-                    type="number"
-                    min="0"
-                    step="50"
-                    className="h-9 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
-                    placeholder={racePlannerCopy.sections.raceInputs.fields.elevationGain}
-                    {...register("elevationGain", { valueAsNumber: true })}
-                  />
-                </div>
-              </>
-            ) : null}
+              </div>
+              <div className="flex items-center gap-1 rounded-md border border-slate-800/70 bg-slate-950/70 px-2 py-1">
+                <Label htmlFor="elevationGain" className="text-[11px] text-slate-300">
+                  {racePlannerCopy.sections.raceInputs.fields.elevationGain}
+                </Label>
+                <Input
+                  id="elevationGain"
+                  type="number"
+                  min="0"
+                  step="50"
+                  className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                  {...register("elevationGain", { valueAsNumber: true })}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-4 pb-4 sm:px-6">
+      <CardContent className="px-4 pb-10 sm:px-6">
         {(() => {
           const courseControls = (
             <div className="w-full max-w-xl space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4 lg:ml-auto">
@@ -1619,15 +1616,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {!isCourseCollapsed ? (
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".gpx,application/gpx+xml"
-                    className="hidden"
-                    onChange={handleImportGpx}
-                  />
-                ) : null}
                 <Button
                   variant="outline"
                   type="button"
@@ -1696,6 +1684,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           );
         })()}
       </CardContent>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="pointer-events-auto h-10 w-10 rounded-full border border-slate-800 bg-slate-950/80 shadow-md"
+          aria-label={isCourseCollapsed ? "Expand course profile" : "Collapse course profile"}
+          onClick={() => setIsCourseCollapsed((prev) => !prev)}
+        >
+          {isCourseCollapsed ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+        </Button>
+      </div>
     </Card>
   );
   const planPrimaryContent = (
