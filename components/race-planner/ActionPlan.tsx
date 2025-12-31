@@ -283,12 +283,13 @@ export function ActionPlan({
   };
 
   return (
-    <Card id={sectionId}>
-      <CardHeader className="space-y-3">
-        <SectionHeader
-          title={timelineCopy.title}
-          description={timelineCopy.description}
-          descriptionAsTooltip
+    <>
+      <Card id={sectionId}>
+        <CardHeader className="space-y-3">
+          <SectionHeader
+            title={timelineCopy.title}
+            description={timelineCopy.description}
+            descriptionAsTooltip
           action={
             <div className="flex items-center gap-2">
               <Button type="button" onClick={openCreateEditor}>
@@ -817,49 +818,50 @@ export function ActionPlan({
             })()}
           </div>
         ) : null}
-      </CardContent>
-    </Card>
-    {editorState ? (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-        <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-slate-50">
-              {editorState.mode === "edit" ? aidStationsCopy.title : aidStationsCopy.add}
-            </p>
-            <Button variant="ghost" className="h-8 px-2" onClick={closeEditor}>
-              ✕
-            </Button>
-          </div>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.name}</Label>
-              <Input
-                value={editorState.name}
-                onChange={(event) => updateEditorField("name", event.target.value)}
-                className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
-              />
+        </CardContent>
+      </Card>
+      {editorState ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-50">
+                {editorState.mode === "edit" ? aidStationsCopy.title : aidStationsCopy.add}
+              </p>
+              <Button variant="ghost" className="h-8 px-2" onClick={closeEditor}>
+                ✕
+              </Button>
             </div>
-            <div className="space-y-1">
-              <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.distance}</Label>
-              <Input
-                value={editorState.distance}
-                onChange={(event) => updateEditorField("distance", event.target.value)}
-                type="number"
-                step="0.5"
-                min="0"
-                className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
-              />
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.name}</Label>
+                <Input
+                  value={editorState.name}
+                  onChange={(event) => updateEditorField("name", event.target.value)}
+                  className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.distance}</Label>
+                <Input
+                  value={editorState.distance}
+                  onChange={(event) => updateEditorField("distance", event.target.value)}
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                />
+              </div>
+              {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
             </div>
-            {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
-          </div>
-          <div className="flex items-center justify-end gap-2">
-            <Button variant="ghost" onClick={closeEditor}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditorSave}>Save</Button>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="ghost" onClick={closeEditor}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditorSave}>Save</Button>
+            </div>
           </div>
         </div>
-      </div>
-    ) : null}
+      ) : null}
+    </>
   );
 }
