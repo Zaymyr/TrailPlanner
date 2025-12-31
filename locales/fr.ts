@@ -140,11 +140,6 @@ export const fr: Translations = {
           paceMinutes: "Minutes",
           paceSeconds: "Secondes",
           speedKph: "Vitesse (km/h)",
-          uphillEffort: "Effort en montée",
-          downhillEffort: "Effort en descente",
-          uphillEffortHelp: "Plus haut = vitesse accrue en montée ; plus bas = montée plus prudente.",
-          downhillEffortHelp:
-            "Plus haut = plus d'engagement en descente tout en levant le pied sur les sections très raides.",
           targetIntakePerHour: "Glucides (g/h)",
           waterIntakePerHour: "Eau (ml/h)",
           sodiumIntakePerHour: "Sodium (mg/h)",
@@ -272,6 +267,8 @@ export const fr: Translations = {
       importGpx: "Importer un GPX",
       exportGpx: "Exporter le GPX",
       printPlan: "Imprimer le plan",
+      autoFill: "Remplissage auto",
+      autoFillHint: "Remplit automatiquement chaque ravito avec tes produits favoris.",
     },
     account: {
       title: "Enregistrer votre plan",
