@@ -635,20 +635,46 @@ export function ActionPlan({
                               className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
                             >
                               <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                onClick={() => {
-                                  if (item.isStart) {
-                                    onStartSupplyRemove(product.id);
-                                  } else {
-                                    onSupplyRemove(item.aidStationIndex as number, product.id);
-                                  }
-                                }}
-                              >
-                                ×
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                  onClick={() => {
+                                    if (quantity <= 1) {
+                                      if (item.isStart) {
+                                        onStartSupplyRemove(product.id);
+                                      } else {
+                                        onSupplyRemove(item.aidStationIndex as number, product.id);
+                                      }
+                                      return;
+                                    }
+                                    if (item.isStart) {
+                                      onStartSupplyRemove(product.id);
+                                      onStartSupplyDrop(product.id, quantity - 1);
+                                    } else {
+                                      onSupplyRemove(item.aidStationIndex as number, product.id);
+                                      onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
+                                    }
+                                  }}
+                                >
+                                  –
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                  onClick={() => {
+                                    if (item.isStart) {
+                                      onStartSupplyDrop(product.id, 1);
+                                    } else {
+                                      onSupplyDrop(item.aidStationIndex as number, product.id, 1);
+                                    }
+                                  }}
+                                >
+                                  +
+                                </Button>
+                              </div>
                             </div>
                           ))
                         : null}
