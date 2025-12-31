@@ -1577,7 +1577,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               {racePlannerCopy.buttons.exportGpx}
             </Button>
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 rounded-md border border-slate-800/70 bg-slate-950/70 px-2 py-1">
+              <div className="flex items-center gap-2">
                 <Label htmlFor="raceDistanceKm" className="text-[11px] text-slate-300">
                   {racePlannerCopy.sections.raceInputs.fields.raceDistance}
                 </Label>
@@ -1589,7 +1589,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   {...register("raceDistanceKm", { valueAsNumber: true })}
                 />
               </div>
-              <div className="flex items-center gap-1 rounded-md border border-slate-800/70 bg-slate-950/70 px-2 py-1">
+              <div className="flex items-center gap-2">
                 <Label htmlFor="elevationGain" className="text-[11px] text-slate-300">
                   {racePlannerCopy.sections.raceInputs.fields.elevationGain}
                 </Label>
