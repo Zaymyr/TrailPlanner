@@ -491,7 +491,7 @@ export function ActionPlan({
                     metricKey === "carbs"
                       ? summarized?.totals.carbs ?? 0
                       : metricKey === "water"
-                        ? summarized?.totals.water ?? 0
+                        ? nextSegment?.plannedWaterMl ?? 0
                         : summarized?.totals.sodium ?? 0;
                   const target =
                     metricKey === "carbs"
