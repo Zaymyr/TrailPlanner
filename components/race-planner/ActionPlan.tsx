@@ -570,6 +570,12 @@ export function ActionPlan({
                           const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
                           const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
                           const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+                          const cursorToneClass =
+                            cursorPercent > maxPercent
+                              ? "ring-amber-300"
+                              : cursorPercent >= targetPercent
+                                ? "ring-emerald-300"
+                                : "ring-rose-300";
                           return (
                             <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
                               <div
@@ -598,10 +604,8 @@ export function ActionPlan({
                                 aria-label={timelineCopy.waterCapacityLabel}
                               />
                               <span
-                                className={`absolute inset-y-[-4px] h-[24px] w-[6px] rounded-full border-2 border-slate-900 ${
-                                  cursorPercent > maxPercent ? "bg-amber-300" : cursorPercent >= targetPercent ? "bg-emerald-300" : "bg-rose-300"
-                                } shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
-                                style={{ left: `${cursorPercent}%`, transform: "translateX(-50%)" }}
+                                className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+                                style={{ left: `${cursorPercent}%` }}
                               />
                             </div>
                           );
