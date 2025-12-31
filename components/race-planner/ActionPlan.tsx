@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
 import type { FuelProduct } from "../../lib/product-types";
+import { MAX_SELECTED_PRODUCTS, type StoredProductPreference } from "../../lib/product-preferences";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
@@ -38,6 +39,8 @@ type ActionPlanProps = {
   formatSodiumAmount: (value: number) => string;
   calculatePercentage: (value: number, total?: number) => number;
   fuelProducts: FuelProduct[];
+  favoriteProducts: StoredProductPreference[];
+  onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
@@ -138,6 +141,8 @@ export function ActionPlan({
   formatSodiumAmount,
   calculatePercentage,
   fuelProducts,
+  favoriteProducts,
+  onFavoriteToggle,
   startSupplies,
   onStartSupplyDrop,
   onStartSupplyRemove,
@@ -163,9 +168,12 @@ export function ActionPlan({
   const [supplyPicker, setSupplyPicker] = useState<{ type: "start" | "aid"; index?: number } | null>(null);
   const [pickerFavorites, setPickerFavorites] = useState<string[]>([]);
   const [pickerSearch, setPickerSearch] = useState("");
-  const [pickerSort, setPickerSort] = useState<{ key: "name" | "carbs" | "sodium" | "calories"; dir: "asc" | "desc" }>({
-    key: "name",
-    dir: "asc",
+  const [pickerSort, setPickerSort] = useState<{
+    key: "name" | "carbs" | "sodium" | "calories" | "favorite";
+    dir: "asc" | "desc";
+  }>({
+    key: "favorite",
+    dir: "desc",
   });
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
@@ -180,6 +188,10 @@ export function ActionPlan({
     setEditorError(null);
   }, []);
   const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
+  const pickerFavoriteSet = useMemo(() => new Set(pickerFavorites), [pickerFavorites]);
+  useEffect(() => {
+    setPickerFavorites(favoriteProducts.map((product) => product.slug));
+  }, [favoriteProducts]);
   const renderItems = buildRenderItems(segments);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const metricIcons = {
@@ -187,21 +199,26 @@ export function ActionPlan({
     water: <DropletsIcon className="h-4 w-4 text-sky-100" aria-hidden />,
     sodium: <SparklesIcon className="h-4 w-4 text-slate-100" aria-hidden />,
   };
-  const getPlanStatus = (planned: number, target: number) => {
+  const getPlanStatus = (planned: number, target: number, upperBound?: number) => {
     if (!Number.isFinite(target) || target <= 0) {
       return { label: timelineCopy.status.atTarget, tone: "neutral" as const };
     }
-    const ratio = planned / target;
-    const deviation = Math.abs(1 - ratio);
-    const label =
-      ratio < 0.95
-        ? timelineCopy.status.belowTarget
-        : ratio > 1.05
-          ? timelineCopy.status.aboveTarget
-          : timelineCopy.status.atTarget;
-    if (deviation < 0.1) return { label: timelineCopy.status.atTarget, tone: "success" as const };
-    if (deviation < 0.25) return { label, tone: "warning" as const };
-    return { label, tone: "danger" as const };
+    const ceiling = Math.max(upperBound ?? target * 1.2, target);
+    if (planned < target) {
+      const ratio = planned / target;
+      if (ratio < 0.6) {
+        return { label: timelineCopy.status.belowTarget, tone: "danger" as const };
+      }
+      return { label: timelineCopy.status.belowTarget, tone: "warning" as const };
+    }
+    if (planned <= ceiling) {
+      return { label: timelineCopy.status.atTarget, tone: "success" as const };
+    }
+    const overRatio = planned / ceiling;
+    if (overRatio <= 1.1) {
+      return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
+    }
+    return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
   };
   const statusToneStyles = {
     success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
@@ -335,14 +352,23 @@ export function ActionPlan({
     },
     [onStartSupplyDrop, onStartSupplyRemove, onSupplyDrop, onSupplyRemove, productBySlug, supplyPicker, supplyPickerSelectedSlugs]
   );
-  const toggleFavorite = (slug: string) => {
-    setPickerFavorites((current) => {
-      const exists = current.includes(slug);
-      if (exists) return current.filter((item) => item !== slug);
-      if (current.length >= 3) return current;
-      return [...current, slug];
-    });
-  };
+  const toggleFavorite = useCallback(
+    (slug: string) => {
+      const product = productBySlug[slug];
+      if (!product) return;
+
+      const result = onFavoriteToggle(product);
+      if (!result.updated) return;
+
+      setPickerFavorites((current) => {
+        const exists = current.includes(slug);
+        if (exists) return current.filter((item) => item !== slug);
+        if (current.length >= MAX_SELECTED_PRODUCTS) return current;
+        return [...current, slug];
+      });
+    },
+    [onFavoriteToggle, productBySlug]
+  );
 
   return (
     <>
@@ -440,11 +466,15 @@ export function ActionPlan({
                 ];
 
                 const inlineMetrics = metrics.map((metric) => {
-                  const plannedForStatus =
-                    metric.key === "water" && metric.target > 0 ? Math.min(metric.planned, metric.target) : metric.planned;
-                  const status = getPlanStatus(plannedForStatus, metric.target);
+                  const targetValue = Math.max(metric.target, 0);
+                  const maxValueCandidate =
+                    metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
+                      ? segment.waterCapacityMl
+                      : targetValue * 1.2;
+                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
+                  const status = getPlanStatus(metric.planned, targetValue, upperBound);
                   const targetPercent =
-                    metric.target > 0 ? Math.max(0, Math.min((plannedForStatus / metric.target) * 100, 999)) : 0;
+                    targetValue > 0 ? Math.max(0, Math.min((metric.planned / targetValue) * 100, 999)) : 0;
                   const capacityLabel =
                     metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
                       ? timelineCopy.waterCapacityLabel.replace(
@@ -570,6 +600,12 @@ export function ActionPlan({
                           const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
                           const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
                           const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+                          const cursorToneClass =
+                            cursorPercent > maxPercent
+                              ? "ring-amber-300"
+                              : cursorPercent >= targetPercent
+                                ? "ring-emerald-300"
+                                : "ring-rose-300";
                           return (
                             <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
                               <div
@@ -598,10 +634,8 @@ export function ActionPlan({
                                 aria-label={timelineCopy.waterCapacityLabel}
                               />
                               <span
-                                className={`absolute inset-y-[-4px] h-[24px] w-[6px] rounded-full border-2 border-slate-900 ${
-                                  cursorPercent > maxPercent ? "bg-amber-300" : cursorPercent >= targetPercent ? "bg-emerald-300" : "bg-rose-300"
-                                } shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
-                                style={{ left: `${cursorPercent}%`, transform: "translateX(-50%)" }}
+                                className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+                                style={{ left: `${cursorPercent}%` }}
                               />
                             </div>
                           );
@@ -657,9 +691,13 @@ export function ActionPlan({
                       : metricKey === "water"
                         ? formatWaterAmount
                         : formatSodiumAmount;
-                  const plannedForStatus =
-                    metricKey === "water" && target > 0 ? Math.min(planned, target) : planned;
-                  const status = getPlanStatus(plannedForStatus, target);
+                  const targetValue = Math.max(target, 0);
+                  const maxValueCandidate =
+                    metricKey === "water" && typeof nextSegment?.waterCapacityMl === "number" && nextSegment.waterCapacityMl > 0
+                      ? nextSegment.waterCapacityMl
+                      : targetValue * 1.2;
+                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
+                  const status = getPlanStatus(planned, targetValue, upperBound);
                   return {
                     key: metricKey,
                     label:
@@ -999,6 +1037,7 @@ export function ActionPlan({
                 <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">
                   <tr>
                     {[
+                      { key: "favorite", label: "★" },
                       { key: "name", label: "Nom" },
                       { key: "carbs", label: "Glucides (g)" },
                       { key: "sodium", label: "Sodium (mg)" },
@@ -1032,6 +1071,12 @@ export function ActionPlan({
                     })
                     .sort((a, b) => {
                       const dir = pickerSort.dir === "asc" ? 1 : -1;
+                      if (pickerSort.key === "favorite") {
+                        const aFav = Number(pickerFavoriteSet.has(a.slug));
+                        const bFav = Number(pickerFavoriteSet.has(b.slug));
+                        if (aFav === bFav) return 0;
+                        return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
+                      }
                       if (pickerSort.key === "name") return a.name.localeCompare(b.name) * dir;
                       if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
                       if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
@@ -1039,21 +1084,21 @@ export function ActionPlan({
                     })
                     .map((product) => {
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
-                      const isFavorite = pickerFavorites.includes(product.slug);
+                      const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
                         <tr key={product.slug} className="border-t border-slate-800/80">
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                className={`text-lg ${isFavorite ? "text-amber-300" : "text-slate-500"} hover:text-amber-200`}
-                                onClick={() => toggleFavorite(product.slug)}
-                                aria-label="Favori"
-                              >
-                                ★
-                              </button>
-                              <span className="font-semibold">{product.name}</span>
-                            </div>
+                            <button
+                              type="button"
+                              className={`text-lg ${isFavorite ? "text-amber-300" : "text-slate-500"} hover:text-amber-200`}
+                              onClick={() => toggleFavorite(product.slug)}
+                              aria-label="Favori"
+                            >
+                              ★
+                            </button>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="font-semibold">{product.name}</span>
                           </td>
                           <td className="px-4 py-3">{product.carbsGrams} g</td>
                           <td className="px-4 py-3">{product.sodiumMg} mg</td>

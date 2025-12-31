@@ -891,7 +891,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
   const [productsError, setProductsError] = useState<string | null>(null);
-  const { selectedProducts, replaceSelection } = useProductSelection();
+  const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1767,6 +1767,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatSodiumAmount={formatSodiumAmount}
         calculatePercentage={calculatePercentage}
         fuelProducts={fuelProductEstimates}
+        favoriteProducts={selectedProducts}
+        onFavoriteToggle={toggleProduct}
         startSupplies={startSupplies}
         onStartSupplyDrop={handleStartSupplyDrop}
         onStartSupplyRemove={handleStartSupplyRemove}
