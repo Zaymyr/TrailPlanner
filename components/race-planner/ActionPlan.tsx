@@ -199,21 +199,26 @@ export function ActionPlan({
     water: <DropletsIcon className="h-4 w-4 text-sky-100" aria-hidden />,
     sodium: <SparklesIcon className="h-4 w-4 text-slate-100" aria-hidden />,
   };
-  const getPlanStatus = (planned: number, target: number) => {
+  const getPlanStatus = (planned: number, target: number, upperBound?: number) => {
     if (!Number.isFinite(target) || target <= 0) {
       return { label: timelineCopy.status.atTarget, tone: "neutral" as const };
     }
-    const ratio = planned / target;
-    const deviation = Math.abs(1 - ratio);
-    const label =
-      ratio < 0.95
-        ? timelineCopy.status.belowTarget
-        : ratio > 1.05
-          ? timelineCopy.status.aboveTarget
-          : timelineCopy.status.atTarget;
-    if (deviation < 0.1) return { label: timelineCopy.status.atTarget, tone: "success" as const };
-    if (deviation < 0.25) return { label, tone: "warning" as const };
-    return { label, tone: "danger" as const };
+    const ceiling = Math.max(upperBound ?? target * 1.2, target);
+    if (planned < target) {
+      const ratio = planned / target;
+      if (ratio < 0.6) {
+        return { label: timelineCopy.status.belowTarget, tone: "danger" as const };
+      }
+      return { label: timelineCopy.status.belowTarget, tone: "warning" as const };
+    }
+    if (planned <= ceiling) {
+      return { label: timelineCopy.status.atTarget, tone: "success" as const };
+    }
+    const overRatio = planned / ceiling;
+    if (overRatio <= 1.1) {
+      return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
+    }
+    return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
   };
   const statusToneStyles = {
     success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
@@ -461,11 +466,15 @@ export function ActionPlan({
                 ];
 
                 const inlineMetrics = metrics.map((metric) => {
-                  const plannedForStatus =
-                    metric.key === "water" && metric.target > 0 ? Math.min(metric.planned, metric.target) : metric.planned;
-                  const status = getPlanStatus(plannedForStatus, metric.target);
+                  const targetValue = Math.max(metric.target, 0);
+                  const maxValueCandidate =
+                    metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
+                      ? segment.waterCapacityMl
+                      : targetValue * 1.2;
+                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
+                  const status = getPlanStatus(metric.planned, targetValue, upperBound);
                   const targetPercent =
-                    metric.target > 0 ? Math.max(0, Math.min((plannedForStatus / metric.target) * 100, 999)) : 0;
+                    targetValue > 0 ? Math.max(0, Math.min((metric.planned / targetValue) * 100, 999)) : 0;
                   const capacityLabel =
                     metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
                       ? timelineCopy.waterCapacityLabel.replace(
@@ -682,9 +691,13 @@ export function ActionPlan({
                       : metricKey === "water"
                         ? formatWaterAmount
                         : formatSodiumAmount;
-                  const plannedForStatus =
-                    metricKey === "water" && target > 0 ? Math.min(planned, target) : planned;
-                  const status = getPlanStatus(plannedForStatus, target);
+                  const targetValue = Math.max(target, 0);
+                  const maxValueCandidate =
+                    metricKey === "water" && typeof nextSegment?.waterCapacityMl === "number" && nextSegment.waterCapacityMl > 0
+                      ? nextSegment.waterCapacityMl
+                      : targetValue * 1.2;
+                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
+                  const status = getPlanStatus(planned, targetValue, upperBound);
                   return {
                     key: metricKey,
                     label:
