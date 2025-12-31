@@ -473,10 +473,9 @@ function sanitizePlannerValues(values?: Partial<FormValues>): Partial<FormValues
     typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters) && values.waterBagLiters >= 0
       ? values.waterBagLiters
       : undefined;
-  const { uphillEffort: _uphill, downhillEffort: _downhill, ...restValues } = values;
 
   return {
-    ...restValues,
+    ...values,
     paceType,
     waterBagLiters,
     startSupplies,
