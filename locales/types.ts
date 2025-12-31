@@ -115,15 +115,11 @@ export type RacePlannerTranslations = {
         paceMinutes: string;
         paceSeconds: string;
         speedKph: string;
-        uphillEffort: string;
-        uphillEffortHelp: string;
-        downhillEffort: string;
-        downhillEffortHelp: string;
-      targetIntakePerHour: string;
-      waterIntakePerHour: string;
-      sodiumIntakePerHour: string;
-      waterBagLiters: string;
-      waterBagHelper: string;
+        targetIntakePerHour: string;
+        waterIntakePerHour: string;
+        sodiumIntakePerHour: string;
+        waterBagLiters: string;
+        waterBagHelper: string;
     };
     paceOptions: {
       pace: string;

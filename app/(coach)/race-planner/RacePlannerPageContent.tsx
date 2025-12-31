@@ -35,7 +35,6 @@ import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
-import { SettingsPanel } from "../../../components/race-planner/SettingsPanel";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -133,8 +132,6 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   paceMinutes: 6,
   paceSeconds: 30,
   speedKph: 9.2,
-  uphillEffort: 50,
-  downhillEffort: 50,
   targetIntakePerHour: 70,
   waterBagLiters: 1.5,
   waterIntakePerHour: 500,
@@ -184,8 +181,6 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
         .min(0, { message: copy.validation.paceSecondsRange })
         .max(59, { message: copy.validation.paceSecondsRange }),
       speedKph: z.coerce.number().positive(copy.validation.speedPositive),
-      uphillEffort: z.coerce.number().min(0).max(100),
-      downhillEffort: z.coerce.number().min(0).max(100),
       targetIntakePerHour: z.coerce.number().positive(copy.validation.targetIntake),
       waterIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       sodiumIntakePerHour: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
@@ -235,88 +230,13 @@ function speedToPace(speedKph: number) {
   return { minutes, seconds };
 }
 
-function getElevationAtDistance(profile: ElevationPoint[], distanceKm: number) {
-  if (profile.length === 0) return 0;
-  if (distanceKm <= profile[0].distanceKm) return profile[0].elevationM;
-
-  for (let i = 1; i < profile.length; i += 1) {
-    const prev = profile[i - 1];
-    const next = profile[i];
-
-    if (distanceKm <= next.distanceKm) {
-      const ratio = (distanceKm - prev.distanceKm) / Math.max(next.distanceKm - prev.distanceKm, 1);
-      return prev.elevationM + (next.elevationM - prev.elevationM) * ratio;
-    }
-  }
-
-  return profile[profile.length - 1].elevationM;
-}
-
-function calculateSegmentElevation(
-  profile: ElevationPoint[],
-  startKm: number,
-  endKm: number,
-  totalElevationGain: number,
-  raceDistanceKm: number
-) {
-  const segmentKm = Math.max(0, endKm - startKm);
-  if (segmentKm === 0) return { ascent: 0, descent: 0 };
-
-  if (profile.length < 2) {
-    const distanceShare = raceDistanceKm > 0 ? segmentKm / raceDistanceKm : 0;
-    const ascent = Math.max(0, totalElevationGain * distanceShare);
-    const descent = ascent; // assume roughly equal climbing and descending when no profile is provided
-    return { ascent, descent };
-  }
-
-  const distances = profile
-    .filter((point) => point.distanceKm > startKm && point.distanceKm < endKm)
-    .map((point) => point.distanceKm);
-
-  distances.unshift(startKm);
-  distances.push(endKm);
-
-  let ascent = 0;
-  let descent = 0;
-
-  for (let i = 1; i < distances.length; i += 1) {
-    const fromDistance = distances[i - 1];
-    const toDistance = distances[i];
-    const fromElevation = getElevationAtDistance(profile, fromDistance);
-    const toElevation = getElevationAtDistance(profile, toDistance);
-    const delta = toElevation - fromElevation;
-
-    if (delta > 0) {
-      ascent += delta;
-    } else if (delta < 0) {
-      descent += Math.abs(delta);
-    }
-  }
-
-  return { ascent, descent };
-}
-
 function adjustedSegmentMinutes(
   baseMinutesPerKm: number,
-  segmentKm: number,
-  elevation: { ascent: number; descent: number },
-  uphillEffort: number,
-  downhillEffort: number
+  segmentKm: number
 ) {
   if (segmentKm === 0) return 0;
 
-  const ascentPerKm = elevation.ascent / (segmentKm * 1000);
-  const descentPerKm = elevation.descent / (segmentKm * 1000);
-  const normalizedUphillSteepness = Math.min(ascentPerKm / 0.12, 1); // taper effect on very steep climbs
-  const normalizedDownhillSteepness = Math.min(descentPerKm / 0.12, 1);
-  const uphillIntensity = 1.35 - (uphillEffort / 100) * 0.7; // higher effort shrinks penalty
-  const downhillIntensity = 0.5 + (downhillEffort / 100) * 0.9; // higher effort boosts benefit
-  const uphillPenalty = ascentPerKm * 10 * uphillIntensity * (1 - 0.35 * normalizedUphillSteepness);
-  const downhillBenefit = descentPerKm * 6 * downhillIntensity * (1 - 0.3 * normalizedDownhillSteepness);
-  const adjustmentFactor = 1 + uphillPenalty - downhillBenefit;
-  const safeAdjustment = Math.min(Math.max(0.6, adjustmentFactor), 1.6);
-
-  return segmentKm * baseMinutesPerKm * safeAdjustment;
+  return segmentKm * baseMinutesPerKm;
 }
 
 function slopeToColor(grade: number) {
@@ -396,20 +316,7 @@ function buildSegments(
   const segments: Segment[] = checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
-    const elevation = calculateSegmentElevation(
-      elevationProfile,
-      previous.distanceKm,
-      station.distanceKm,
-      values.elevationGain,
-      values.raceDistanceKm
-    );
-    const estimatedSegmentMinutes = adjustedSegmentMinutes(
-      minPerKm,
-      segmentKm,
-      elevation,
-      values.uphillEffort,
-      values.downhillEffort
-    );
+    const estimatedSegmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm);
     const overrideMinutes =
       typeof station.segmentMinutesOverride === "number" && station.segmentMinutesOverride >= 0
         ? station.segmentMinutesOverride
@@ -566,9 +473,10 @@ function sanitizePlannerValues(values?: Partial<FormValues>): Partial<FormValues
     typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters) && values.waterBagLiters >= 0
       ? values.waterBagLiters
       : undefined;
+  const { uphillEffort: _uphill, downhillEffort: _downhill, ...restValues } = values;
 
   return {
-    ...values,
+    ...restValues,
     paceType,
     waterBagLiters,
     startSupplies,
@@ -853,7 +761,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { register } = form;
 
   const sectionIds = {
-    inputs: "race-inputs",
     timeline: "race-timeline",
     courseProfile: "course-profile",
     pacing: "pacing-section",
@@ -862,8 +769,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
-  const uphillEffort = form.watch("uphillEffort") ?? defaultValues.uphillEffort;
-  const downhillEffort = form.watch("downhillEffort") ?? defaultValues.downhillEffort;
   const startSupplies = form.watch("startSupplies") ?? [];
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
@@ -880,7 +785,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [planName, setPlanName] = useState("");
   const [session, setSession] = useState<{ accessToken: string; refreshToken?: string; email?: string } | null>(null);
   const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
-  const [rightPanelTab, setRightPanelTab] = useState<"inputs" | "plans" | "fuel">("inputs");
+  const [rightPanelTab, setRightPanelTab] = useState<"plans" | "fuel">("plans");
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -1382,7 +1287,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   };
 
   const handleMobileImport = () => {
-    focusSection(sectionIds.inputs, "settings");
+    focusSection(sectionIds.courseProfile, "plan");
     const input = fileInputRef.current;
     if (!input) return;
 
@@ -1665,8 +1570,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               }
               copy={racePlannerCopy}
               baseMinutesPerKm={baseMinutesPerKm}
-              uphillEffort={uphillEffort}
-              downhillEffort={downhillEffort}
             />
           </div>
 
@@ -1815,14 +1718,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base font-semibold">{racePlannerCopy.sections.raceInputs.title}</CardTitle>
+          <CardTitle className="text-base font-semibold">
+            {rightPanelTab === "plans" ? racePlannerCopy.account.title : racePlannerCopy.sections.gels.title}
+          </CardTitle>
           <div className="flex items-center gap-2">
             {(
               [
-                { key: "inputs", label: racePlannerCopy.sections.raceInputs.title },
                 { key: "plans", label: racePlannerCopy.account.title },
                 { key: "fuel", label: racePlannerCopy.sections.gels.title },
-              ] satisfies { key: "inputs" | "plans" | "fuel"; label: string }[]
+              ] satisfies { key: "plans" | "fuel"; label: string }[]
             ).map((tab) => {
               const isActive = rightPanelTab === tab.key;
               return (
@@ -1842,14 +1746,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className={rightPanelTab === "inputs" ? "space-y-6" : "hidden"}>
-          <SettingsPanel
-            copy={racePlannerCopy}
-            sectionIds={{ inputs: sectionIds.inputs, pacing: sectionIds.pacing, intake: sectionIds.intake }}
-            register={form.register}
-          />
-        </div>
-
         <div className={rightPanelTab === "plans" ? "space-y-6" : "hidden"}>
           <PlanManager
             copy={racePlannerCopy.account}
@@ -1927,7 +1823,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
-          settingsLabel={racePlannerCopy.sections.raceInputs.title}
+          settingsLabel={racePlannerCopy.account.title}
         />
 
         {enableMobileNav ? (
@@ -2141,16 +2037,12 @@ function ElevationProfileChart({
   totalDistanceKm,
   copy,
   baseMinutesPerKm,
-  uphillEffort,
-  downhillEffort,
 }: {
   profile: ElevationPoint[];
   aidStations: AidStation[];
   totalDistanceKm: number;
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
-  uphillEffort: number;
-  downhillEffort: number;
 }) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState(900);
@@ -2240,15 +2132,7 @@ function ElevationProfileChart({
           const segmentKm = Math.max(point.distanceKm - prev.distanceKm, 0);
           if (segmentKm === 0) return samples;
 
-          const ascent = Math.max(point.elevationM - prev.elevationM, 0);
-          const descent = Math.max(prev.elevationM - point.elevationM, 0);
-          const minutes = adjustedSegmentMinutes(
-            baseMinutesPerKm,
-            segmentKm,
-            { ascent, descent },
-            uphillEffort,
-            downhillEffort
-          );
+          const minutes = adjustedSegmentMinutes(baseMinutesPerKm, segmentKm);
           if (minutes <= 0) return samples;
 
           cumulativeMinutes += minutes;

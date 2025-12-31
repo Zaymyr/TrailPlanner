@@ -19,8 +19,6 @@ export type FormValues = {
   paceMinutes: number;
   paceSeconds: number;
   speedKph: number;
-  uphillEffort: number;
-  downhillEffort: number;
   targetIntakePerHour: number;
   waterIntakePerHour: number;
   sodiumIntakePerHour: number;
