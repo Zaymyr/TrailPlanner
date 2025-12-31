@@ -1556,14 +1556,57 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             title={racePlannerCopy.sections.courseProfile.title}
             description={racePlannerCopy.sections.courseProfile.description}
           />
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-9 px-3 text-xs"
-            onClick={() => setIsCourseCollapsed((prev) => !prev)}
-          >
-            {isCourseCollapsed ? "Show profile" : "Hide profile"}
-          </Button>
+          <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 px-3 text-xs"
+              onClick={() => setIsCourseCollapsed((prev) => !prev)}
+            >
+              {isCourseCollapsed ? "Show profile" : "Hide profile"}
+            </Button>
+            {isCourseCollapsed ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".gpx,application/gpx+xml"
+                  className="hidden"
+                  onChange={handleImportGpx}
+                />
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="h-9 px-3 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {racePlannerCopy.buttons.importGpx}
+                </Button>
+                <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
+                  {racePlannerCopy.buttons.exportGpx}
+                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    id="raceDistanceKm"
+                    type="number"
+                    step="0.5"
+                    className="h-9 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    placeholder={racePlannerCopy.sections.raceInputs.fields.raceDistance}
+                    {...register("raceDistanceKm", { valueAsNumber: true })}
+                  />
+                  <Input
+                    id="elevationGain"
+                    type="number"
+                    min="0"
+                    step="50"
+                    className="h-9 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    placeholder={racePlannerCopy.sections.raceInputs.fields.elevationGain}
+                    {...register("elevationGain", { valueAsNumber: true })}
+                  />
+                </div>
+              </>
+            ) : null}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 sm:px-6">
@@ -1576,13 +1619,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".gpx,application/gpx+xml"
-                  className="hidden"
-                  onChange={handleImportGpx}
-                />
+                {!isCourseCollapsed ? (
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".gpx,application/gpx+xml"
+                    className="hidden"
+                    onChange={handleImportGpx}
+                  />
+                ) : null}
                 <Button
                   variant="outline"
                   type="button"
@@ -1628,11 +1673,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           );
 
           if (isCourseCollapsed) {
-            return (
-              <div className="space-y-3">
-                {courseControls}
-              </div>
-            );
+            return null;
           }
 
           return (
