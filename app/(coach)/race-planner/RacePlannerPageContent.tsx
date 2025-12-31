@@ -1687,7 +1687,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
         <Button
           type="button"
-          size="icon"
           variant="ghost"
           className="pointer-events-auto h-10 w-10 rounded-full border border-slate-800 bg-slate-950/80 shadow-md"
           aria-label={isCourseCollapsed ? "Expand course profile" : "Collapse course profile"}
