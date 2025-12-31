@@ -44,9 +44,8 @@ type PointMetric = {
 
 type TimelinePointCardProps = {
   pointIndex: number;
-  title: string;
-  distanceText: string;
-  etaText?: string;
+  title: ReactNode;
+  meta?: ReactNode;
   metrics: PointMetric[];
   distanceInput?: ReactNode;
   finishLabel?: string;
@@ -54,6 +53,7 @@ type TimelinePointCardProps = {
   isStart?: boolean;
   isFinish?: boolean;
   dropSection?: ReactNode;
+  onTitleClick?: () => void;
 };
 
 const metricToneClasses: Record<SegmentMetric["key"], string> = {
@@ -188,8 +188,7 @@ export function TimelineSegmentCard({
 export function TimelinePointCard({
   pointIndex,
   title,
-  distanceText,
-  etaText,
+  meta,
   metrics,
   distanceInput,
   finishLabel,
@@ -197,22 +196,33 @@ export function TimelinePointCard({
   isStart,
   isFinish,
   dropSection,
+  onTitleClick,
 }: TimelinePointCardProps) {
   return (
     <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex min-w-[220px] items-center gap-3">
+        <div
+          className={`flex min-w-[220px] items-center gap-3 ${onTitleClick ? "cursor-text" : ""}`}
+          onClick={onTitleClick}
+          role={onTitleClick ? "button" : undefined}
+          tabIndex={onTitleClick ? 0 : undefined}
+          onKeyDown={
+            onTitleClick
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onTitleClick();
+                  }
+                }
+              : undefined
+          }
+        >
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
             {pointIndex}
           </span>
           <div className="space-y-1">
-            <p className="text-base font-semibold text-slate-50">
-              {title}
-              <span className="ml-2 text-xs font-normal text-slate-300">
-                {distanceText}
-                {etaText ? ` · ${etaText}` : ""}
-              </span>
-            </p>
+            <div className="text-base font-semibold text-slate-50">{title}</div>
+            {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
           </div>
         </div>
         <div className="flex flex-1 flex-wrap items-center gap-2">
