@@ -267,6 +267,8 @@ export const fr: Translations = {
       importGpx: "Importer un GPX",
       exportGpx: "Exporter le GPX",
       printPlan: "Imprimer le plan",
+      autoFill: "Remplissage auto",
+      autoFillHint: "Remplit automatiquement chaque ravito avec tes produits favoris.",
     },
     account: {
       title: "Enregistrer votre plan",

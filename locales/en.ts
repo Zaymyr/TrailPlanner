@@ -266,6 +266,8 @@ export const en: Translations = {
       importGpx: "Import GPX",
       exportGpx: "Export GPX",
       printPlan: "Print plan",
+      autoFill: "Automatic fill",
+      autoFillHint: "Automatically fills each aid station with your favorite fuel choices.",
     },
     account: {
       title: "Save your plan",

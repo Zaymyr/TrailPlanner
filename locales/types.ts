@@ -240,6 +240,8 @@ export type RacePlannerTranslations = {
     importGpx: string;
     exportGpx: string;
     printPlan: string;
+    autoFill: string;
+    autoFillHint: string;
   };
   account: {
     title: string;
