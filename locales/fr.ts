@@ -520,6 +520,17 @@ export const fr: Translations = {
       refresh: "Actualiser le statut",
       loading: "Vérification de votre abonnement...",
       error: "Impossible de charger votre abonnement. Réessayez.",
+      subscribeCta: "S'abonner",
+      unsubscribeCta: "Se désabonner",
+      checkoutError: "Impossible de lancer le paiement. Réessayez.",
+      portalError: "Impossible d'ouvrir la gestion de facturation. Réessayez.",
+      unsubscribeConfirm: {
+        title: "Voulez-vous annuler votre abonnement ?",
+        description: "En annulant, vous repasserez sur l'offre gratuite à la fin de la période en cours.",
+        lossesTitle: "Vous perdrez l'accès à :",
+        confirm: "Oui, je comprends",
+        cancel: "Garder Premium",
+      },
     },
     premiumModal: {
       title: "Passer en Premium",

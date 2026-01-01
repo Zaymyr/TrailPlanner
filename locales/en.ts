@@ -519,6 +519,18 @@ export const en: Translations = {
       refresh: "Refresh status",
       loading: "Checking your subscription...",
       error: "We couldn't load your subscription. Try again.",
+      subscribeCta: "Subscribe",
+      unsubscribeCta: "Unsubscribe",
+      checkoutError: "We couldn't start checkout. Please try again.",
+      portalError: "We couldn't open billing settings. Please try again.",
+      unsubscribeConfirm: {
+        title: "Do you want to cancel your subscription?",
+        description:
+          "If you cancel, your plan will switch to the free tier at the end of the current period.",
+        lossesTitle: "You will lose access to:",
+        confirm: "Yes, I understand",
+        cancel: "Keep Premium",
+      },
     },
     premiumModal: {
       title: "Upgrade to Premium",
