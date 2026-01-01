@@ -293,6 +293,17 @@ export type RacePlannerTranslations = {
         export: string;
         autoFill: string;
       };
+      premiumModal: {
+        title: string;
+        description: string;
+        priceLabel: string;
+        priceValue: string;
+        featuresTitle: string;
+        features: string[];
+        subscribe: string;
+        cancel: string;
+        popupBlocked: string;
+      };
     };
     errors: {
       missingSession: string;
