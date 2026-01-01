@@ -130,21 +130,8 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
   return items;
 };
 
-const LockIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.8}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-4 w-4"
-    {...props}
-  >
-    <rect x="4" y="11" width="16" height="10" rx="2" />
-    <path d="M8 11V8a4 4 0 1 1 8 0v3" />
-  </svg>
+const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} {...props} />
 );
 
 export function ActionPlan({
@@ -423,8 +410,8 @@ export function ActionPlan({
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
                 >
-                  <span className="flex items-center gap-2">
-                    {autoFillLocked ? <LockIcon className="text-amber-200" /> : null}
+                  <span className="flex items-center gap-1.5" title={autoFillLocked ? "Premium feature" : undefined}>
+                    {autoFillLocked ? <PremiumSparklesIcon aria-hidden /> : null}
                     <span>{copy.buttons.autoFill}</span>
                   </span>
                 </Button>
@@ -437,8 +424,8 @@ export function ActionPlan({
                   onClick={exportLocked ? () => onUpgrade("print") : onPrint}
                   disabled={exportLocked && isUpgradeBusy}
                 >
-                  <span className="flex items-center gap-2">
-                    {exportLocked ? <LockIcon className="text-amber-200" /> : null}
+                  <span className="flex items-center gap-1.5" title={exportLocked ? "Premium feature" : undefined}>
+                    {exportLocked ? <PremiumSparklesIcon aria-hidden /> : null}
                     <span>{copy.buttons.printPlan}</span>
                   </span>
                 </Button>
