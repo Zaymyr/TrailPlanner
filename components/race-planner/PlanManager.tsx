@@ -3,10 +3,9 @@
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { SavedPlan } from "../../app/(coach)/race-planner/types";
 import { Button } from "../ui/button";
-import { Card, CardContent, CardHeader } from "../ui/card";
+import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { SectionHeader } from "../ui/SectionHeader";
 
 type PlanManagerProps = {
   copy: RacePlannerTranslations["account"];
@@ -48,25 +47,15 @@ export function PlanManager({
   onDeletePlan,
 }: PlanManagerProps) {
   const isSaving = planStatus === "saving";
-  const showStatus = authStatus === "checking" ? copy.auth.status : null;
+  const isAuthChecking = authStatus === "checking";
+  const successMessage =
+    accountMessage && accountMessage !== copy.messages.signedIn ? accountMessage : null;
 
   return (
     <Card>
-      <CardHeader className="space-y-3">
-        <SectionHeader title={copy.title} description={copy.description} />
-        <div className="rounded-md border border-slate-800/70 bg-slate-900/60 px-3 py-2 text-sm text-slate-200">
-          {sessionEmail ? (
-            <p>{copy.auth.signedInAs.replace("{email}", sessionEmail)}</p>
-          ) : (
-            <p>{copy.auth.headerHint}</p>
-          )}
-          {showStatus ? <p className="text-xs text-slate-400">{showStatus}</p> : null}
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         {sessionEmail ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="plan-name">{copy.plans.nameLabel}</Label>
               <Input
@@ -79,7 +68,7 @@ export function PlanManager({
                 type="button"
                 className="w-full"
                 onClick={onSavePlan}
-                disabled={isSaving || !canSavePlan}
+                disabled={isSaving || !canSavePlan || isAuthChecking}
               >
                 {isSaving ? copy.plans.saving : copy.plans.save}
               </Button>
@@ -88,9 +77,9 @@ export function PlanManager({
                   {premiumCopy.planLimitReached}
                 </p>
               ) : null}
-              {accountMessage ? (
+              {successMessage ? (
                 <p className="text-xs text-emerald-300" role="status">
-                  {accountMessage}
+                  {successMessage}
                 </p>
               ) : null}
             </div>

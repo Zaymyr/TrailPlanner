@@ -839,7 +839,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [productsError, setProductsError] = useState<string | null>(null);
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [isCourseCollapsed, setIsCourseCollapsed] = useState(false);
+  const [isCourseCollapsed, setIsCourseCollapsed] = useState(true);
   const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
   const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
@@ -1310,10 +1310,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       }
 
       const popup = window.open(data.url, "trailplanner-checkout", "width=520,height=720,noopener,noreferrer");
-      if (!popup) {
-        setUpgradeError(premiumCopy.premiumModal.popupBlocked);
-      } else {
+      if (popup) {
         popup.focus();
+        setUpgradeDialogOpen(false);
+        return;
+      }
+
+      try {
+        window.location.href = data.url;
+        setUpgradeDialogOpen(false);
+      } catch (fallbackError) {
+        console.error("Unable to open checkout in current tab", fallbackError);
+        setUpgradeError(premiumCopy.premiumModal.popupBlocked);
       }
     } catch (error) {
       console.error("Unable to open checkout", error);
@@ -1326,6 +1334,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     premiumCopy.premiumModal.popupBlocked,
     racePlannerCopy.account.errors.missingSession,
     session?.accessToken,
+    setUpgradeDialogOpen,
   ]);
 
   const requestPremiumUpgrade = useCallback(
