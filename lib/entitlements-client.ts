@@ -5,11 +5,11 @@ import type { UserEntitlements } from "./entitlements";
 const entitlementsResponseSchema = z.object({
   entitlements: z.object({
     isPremium: z.boolean(),
-    planLimit: z.number(),
-    favoriteLimit: z.number(),
-    customProductLimit: z.number(),
-    allowExport: z.boolean(),
-    allowAutoFill: z.boolean(),
+    planLimit: z.number().nullable().optional(),
+    favoriteLimit: z.number().nullable().optional(),
+    customProductLimit: z.number().nullable().optional(),
+    allowExport: z.boolean().optional(),
+    allowAutoFill: z.boolean().optional(),
   }),
 });
 
@@ -31,11 +31,23 @@ export const fetchEntitlements = async (accessToken: string, signal?: AbortSigna
 
   const parsed = entitlementsResponseSchema.safeParse(payload);
 
-  if (!parsed.success) {
-    throw new Error("Invalid entitlements response.");
+  if (!parsed.success || !parsed.data.entitlements) {
+    console.error("Invalid entitlements response", payload);
+    return defaultEntitlements;
   }
 
-  return parsed.data.entitlements as UserEntitlements;
+  const normalized: UserEntitlements = {
+    isPremium: parsed.data.entitlements.isPremium,
+    planLimit: parsed.data.entitlements.planLimit ?? (parsed.data.entitlements.isPremium ? Number.POSITIVE_INFINITY : 1),
+    favoriteLimit:
+      parsed.data.entitlements.favoriteLimit ?? (parsed.data.entitlements.isPremium ? Number.POSITIVE_INFINITY : 2),
+    customProductLimit:
+      parsed.data.entitlements.customProductLimit ?? (parsed.data.entitlements.isPremium ? Number.POSITIVE_INFINITY : 1),
+    allowExport: Boolean(parsed.data.entitlements.allowExport ?? parsed.data.entitlements.isPremium),
+    allowAutoFill: Boolean(parsed.data.entitlements.allowAutoFill ?? parsed.data.entitlements.isPremium),
+  };
+
+  return normalized;
 };
 
 export const defaultEntitlements: UserEntitlements = {
