@@ -49,7 +49,7 @@ const getDefaultEntitlements = (): UserEntitlements => ({
   isPremium: false,
   planLimit: 1,
   favoriteLimit: 2,
-  customProductLimit: 0,
+  customProductLimit: 1,
   allowExport: false,
   allowAutoFill: false,
 });

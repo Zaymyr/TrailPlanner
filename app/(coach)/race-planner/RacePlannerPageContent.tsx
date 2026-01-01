@@ -37,6 +37,8 @@ import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerL
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
+import type { UserEntitlements } from "../../../lib/entitlements";
+import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -125,6 +127,12 @@ type ParsedGpx = {
 
 const formatAidStationName = (template: string, index: number) =>
   template.replace("{index}", String(index));
+
+const PremiumBadge = ({ label }: { label: string }) => (
+  <span className="ml-2 inline-flex items-center rounded-full border border-amber-300/60 bg-amber-300/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-50">
+    {label}
+  </span>
+);
 
 const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   raceDistanceKm: 50,
@@ -730,6 +738,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
 export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
   const { t } = useI18n();
   const racePlannerCopy = t.racePlanner;
+  const premiumCopy = racePlannerCopy.account.premium;
 
   const structuredData = useMemo(
     () => ({
@@ -799,6 +808,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isCourseCollapsed, setIsCourseCollapsed] = useState(false);
+  const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
+  const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -840,6 +852,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setSession(null);
     setSavedPlans([]);
     setActivePlanId(null);
+    setEntitlements(defaultEntitlements);
+    setUpgradeError(null);
   }, []);
 
   const refreshSavedPlans = useCallback(
@@ -957,6 +971,29 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   useEffect(() => {
     if (!session?.accessToken) {
+      setEntitlements(defaultEntitlements);
+      return;
+    }
+
+    const abortController = new AbortController();
+
+    fetchEntitlements(session.accessToken, abortController.signal)
+      .then((result) => {
+        if (!abortController.signal.aborted) {
+          setEntitlements(result);
+        }
+      })
+      .catch((error) => {
+        if (abortController.signal.aborted) return;
+        console.error("Unable to load entitlements", error);
+        setEntitlements(defaultEntitlements);
+      });
+
+    return () => abortController.abort();
+  }, [session?.accessToken]);
+
+  useEffect(() => {
+    if (!session?.accessToken) {
       setFuelProducts(defaultFuelProducts);
       setProductsStatus("idle");
       setProductsError(null);
@@ -1051,6 +1088,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       ? distanceForDuration * baseMinutesPerKm
       : null;
   const pacingOverviewDuration = raceTotals?.durationMinutes ?? projectedDurationMinutes ?? null;
+  const isPremium = entitlements.isPremium;
+  const allowExport = entitlements.allowExport || entitlements.isPremium;
+  const allowAutoFill = entitlements.allowAutoFill || entitlements.isPremium;
+  const planLimitReached =
+    !entitlements.isPremium && Number.isFinite(entitlements.planLimit) && savedPlans.length >= entitlements.planLimit;
+  const canSavePlan =
+    entitlements.isPremium || !planLimitReached || Boolean(activePlanId) || Boolean(savedPlans.find((plan) => plan.id === activePlanId));
 
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
@@ -1140,6 +1184,61 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   };
 
+  const handleUpgrade = useCallback(async () => {
+    if (!session?.accessToken) {
+      setUpgradeError(racePlannerCopy.account.errors.missingSession);
+      return;
+    }
+
+    setUpgradeStatus("opening");
+    setUpgradeError(null);
+
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+      });
+
+      const data = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
+
+      if (!response.ok || !data?.url) {
+        throw new Error(data?.message ?? premiumCopy.checkoutError);
+      }
+
+      const popup = window.open(data.url, "trailplanner-checkout", "width=520,height=720,noopener,noreferrer");
+      if (!popup) {
+        window.location.href = data.url;
+      } else {
+        popup.focus();
+      }
+    } catch (error) {
+      console.error("Unable to open checkout", error);
+      setUpgradeError(error instanceof Error ? error.message : premiumCopy.checkoutError);
+    } finally {
+      setUpgradeStatus("idle");
+    }
+  }, [premiumCopy.checkoutError, racePlannerCopy.account.errors.missingSession, session?.accessToken]);
+
+  const requestPremiumUpgrade = useCallback(
+    (message?: string) => {
+      if (message) {
+        setAccountError(message);
+      }
+      void handleUpgrade();
+    },
+    [handleUpgrade]
+  );
+
+  const handlePremiumFeature = useCallback(
+    (reason: "autoFill" | "print") => {
+      const message = reason === "autoFill" ? premiumCopy.autoFillLocked : premiumCopy.printLocked;
+      requestPremiumUpgrade(message);
+    },
+    [premiumCopy.autoFillLocked, premiumCopy.printLocked, requestPremiumUpgrade]
+  );
+
   const handleSignOut = () => {
     setAccountMessage(null);
     setAccountError(null);
@@ -1161,10 +1260,20 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       return;
     }
 
+    const trimmedName = planName.trim() || racePlannerCopy.account.plans.defaultName;
+    const existingPlanByName = savedPlans.find(
+      (plan) => plan.name.trim().toLowerCase() === trimmedName.toLowerCase()
+    );
+
+    if (planLimitReached && !existingPlanByName) {
+      setAccountError(premiumCopy.planLimitReached);
+      requestPremiumUpgrade(premiumCopy.planLimitReached);
+      return;
+    }
+
     setPlanStatus("saving");
 
     try {
-      const trimmedName = planName.trim() || racePlannerCopy.account.plans.defaultName;
       const sanitizedAidStations = dedupeAidStations(sanitizeAidStations(parsedValues.data.aidStations));
       const sanitizedFinishPlan = sanitizeSegmentPlan(parsedValues.data.finishPlan);
 
@@ -1175,9 +1284,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         startSupplies: sanitizeSegmentPlan({ supplies: parsedValues.data.startSupplies }).supplies ?? [],
       };
 
-      const existingPlanByName = savedPlans.find(
-        (plan) => plan.name.trim().toLowerCase() === trimmedName.toLowerCase()
-      );
       const planIdToUpdate = existingPlanByName?.id ?? null;
 
       const payload = {
@@ -1199,6 +1305,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         plan?: Record<string, unknown> | null;
         message?: string;
       };
+
+      if (response.status === 402) {
+        setAccountError(data?.message ?? premiumCopy.planLimitReached);
+        requestPremiumUpgrade(data?.message ?? premiumCopy.planLimitReached);
+        return;
+      }
 
       if (!response.ok || !data?.plan) {
         setAccountError(data?.message ?? racePlannerCopy.account.errors.saveFailed);
@@ -1668,8 +1780,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               >
                 {racePlannerCopy.buttons.importGpx}
               </Button>
-              <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
-                {racePlannerCopy.buttons.exportGpx}
+              <Button
+                type="button"
+                className="h-9 px-3 text-xs"
+                onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
+                variant={allowExport ? "default" : "outline"}
+              >
+                <span>{racePlannerCopy.buttons.exportGpx}</span>
+                {!allowExport ? <PremiumBadge label={premiumCopy.badge} /> : null}
               </Button>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2">
@@ -1720,8 +1838,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 >
                   {racePlannerCopy.buttons.importGpx}
                 </Button>
-                <Button type="button" className="h-9 px-3 text-xs" onClick={handleExportGpx}>
-                  {racePlannerCopy.buttons.exportGpx}
+                <Button
+                  type="button"
+                  className="h-9 px-3 text-xs"
+                  onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
+                  variant={allowExport ? "default" : "outline"}
+                >
+                  <span>{racePlannerCopy.buttons.exportGpx}</span>
+                  {!allowExport ? <PremiumBadge label={premiumCopy.badge} /> : null}
                 </Button>
               </div>
               {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
@@ -1838,6 +1962,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         onStartSupplyRemove={handleStartSupplyRemove}
         onSupplyDrop={handleSupplyDrop}
         onSupplyRemove={handleSupplyRemove}
+        allowAutoFill={allowAutoFill}
+        allowExport={allowExport}
+        premiumCopy={premiumCopy}
+        onUpgrade={handlePremiumFeature}
+        upgradeStatus={upgradeStatus}
       />
 
     </div>
@@ -1918,6 +2047,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             deletingPlanId={deletingPlanId}
             sessionEmail={session?.email}
             authStatus={authStatus}
+            isPremium={isPremium}
+            canSavePlan={canSavePlan}
+            showPlanLimitUpsell={planLimitReached && !isPremium}
+            premiumCopy={premiumCopy}
+            onUpgrade={handleUpgrade}
+            upgradeStatus={upgradeStatus}
+            upgradeError={upgradeError}
             onPlanNameChange={setPlanName}
             onSavePlan={handleSavePlan}
             onRefreshPlans={handleRefreshPlans}

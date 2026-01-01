@@ -47,6 +47,11 @@ type ActionPlanProps = {
   onStartSupplyRemove: (productId: string) => void;
   onSupplyDrop: (aidStationIndex: number, productId: string, quantity?: number) => void;
   onSupplyRemove: (aidStationIndex: number, productId: string) => void;
+  allowAutoFill: boolean;
+  allowExport: boolean;
+  premiumCopy: RacePlannerTranslations["account"]["premium"];
+  onUpgrade: (reason: "autoFill" | "print") => void;
+  upgradeStatus: "idle" | "opening";
 };
 
 const parseOptionalNumber = (value: string | number) => {
@@ -125,6 +130,12 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
   return items;
 };
 
+const PremiumChip = ({ label }: { label: string }) => (
+  <span className="ml-2 inline-flex items-center rounded-full border border-amber-300/60 bg-amber-300/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-50">
+    {label}
+  </span>
+);
+
 export function ActionPlan({
   copy,
   segments,
@@ -150,6 +161,11 @@ export function ActionPlan({
   onStartSupplyRemove,
   onSupplyDrop,
   onSupplyRemove,
+  allowAutoFill,
+  allowExport,
+  premiumCopy,
+  onUpgrade,
+  upgradeStatus,
 }: ActionPlanProps) {
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
   const [editorState, setEditorState] = useState<
@@ -201,6 +217,9 @@ export function ActionPlan({
     water: <DropletsIcon className="h-4 w-4 text-sky-100" aria-hidden />,
     sodium: <SparklesIcon className="h-4 w-4 text-slate-100" aria-hidden />,
   };
+  const autoFillLocked = !allowAutoFill;
+  const exportLocked = !allowExport;
+  const isUpgradeBusy = upgradeStatus === "opening";
   const getPlanStatus = (planned: number, target: number, upperBound?: number) => {
     if (!Number.isFinite(target) || target <= 0) {
       return { label: timelineCopy.status.atTarget, tone: "neutral" as const };
@@ -386,14 +405,28 @@ export function ActionPlan({
                 {aidStationsCopy.add}
               </Button>
               {segments.length > 0 ? (
-                <Button type="button" variant="outline" onClick={onAutomaticFill} title={copy.buttons.autoFillHint}>
-                  {copy.buttons.autoFill}
-                </Button>
-              ) : null}
-              {segments.length > 0 ? (
-                <Button type="button" variant="outline" className="hidden sm:inline-flex" onClick={onPrint}>
-                  {copy.buttons.printPlan}
-                </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
+                title={copy.buttons.autoFillHint}
+                disabled={autoFillLocked && isUpgradeBusy}
+              >
+                <span>{copy.buttons.autoFill}</span>
+                {autoFillLocked ? <PremiumChip label={premiumCopy.badge} /> : null}
+              </Button>
+            ) : null}
+            {segments.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="hidden sm:inline-flex"
+                onClick={exportLocked ? () => onUpgrade("print") : onPrint}
+                disabled={exportLocked && isUpgradeBusy}
+              >
+                <span>{copy.buttons.printPlan}</span>
+                {exportLocked ? <PremiumChip label={premiumCopy.badge} /> : null}
+              </Button>
               ) : null}
             </div>
           }

@@ -275,6 +275,25 @@ export type RacePlannerTranslations = {
       loadedPlan: string;
       deletedPlan: string;
     };
+    premium: {
+      badge: string;
+      title: string;
+      description: string;
+      cta: string;
+      opening: string;
+      checkoutError: string;
+      planLimitReached: string;
+      exportLocked: string;
+      printLocked: string;
+      autoFillLocked: string;
+      limits: {
+        plans: string;
+        favorites: string;
+        customProducts: string;
+        export: string;
+        autoFill: string;
+      };
+    };
     errors: {
       missingSession: string;
       saveFailed: string;
