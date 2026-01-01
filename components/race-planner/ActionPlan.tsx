@@ -403,7 +403,7 @@ export function ActionPlan({
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative overflow-hidden group"
+                  className="relative overflow-visible group"
                   onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
@@ -416,7 +416,7 @@ export function ActionPlan({
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative hidden overflow-hidden sm:inline-flex group"
+                  className="relative hidden overflow-visible sm:inline-flex group"
                   onClick={exportLocked ? () => onUpgrade("print") : onPrint}
                   disabled={exportLocked && isUpgradeBusy}
                 >
