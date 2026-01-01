@@ -813,8 +813,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<"autoFill" | "print" | "plans" | null>(null);
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [upgradeReason, setUpgradeReason] = useState<"autoFill" | "print" | "plans" | null>(null);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
