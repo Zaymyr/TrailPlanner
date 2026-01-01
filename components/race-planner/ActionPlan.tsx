@@ -13,6 +13,7 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
+import { PremiumRibbon } from "./PremiumRibbon";
 import { TimelinePointCard } from "./TimelineCards";
 
 type RaceTotals = {
@@ -129,12 +130,6 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
 
   return items;
 };
-
-const PremiumChip = ({ label }: { label: string }) => (
-  <span className="ml-2 inline-flex items-center rounded-full border border-amber-300/60 bg-amber-300/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-50">
-    {label}
-  </span>
-);
 
 export function ActionPlan({
   copy,
@@ -405,28 +400,29 @@ export function ActionPlan({
                 {aidStationsCopy.add}
               </Button>
               {segments.length > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
-                title={copy.buttons.autoFillHint}
-                disabled={autoFillLocked && isUpgradeBusy}
-              >
-                <span>{copy.buttons.autoFill}</span>
-                {autoFillLocked ? <PremiumChip label={premiumCopy.badge} /> : null}
-              </Button>
-            ) : null}
-            {segments.length > 0 ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="hidden sm:inline-flex"
-                onClick={exportLocked ? () => onUpgrade("print") : onPrint}
-                disabled={exportLocked && isUpgradeBusy}
-              >
-                <span>{copy.buttons.printPlan}</span>
-                {exportLocked ? <PremiumChip label={premiumCopy.badge} /> : null}
-              </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="relative overflow-visible"
+                  onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
+                  title={copy.buttons.autoFillHint}
+                  disabled={autoFillLocked && isUpgradeBusy}
+                >
+                  <span>{copy.buttons.autoFill}</span>
+                  {autoFillLocked ? <PremiumRibbon /> : null}
+                </Button>
+              ) : null}
+              {segments.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="relative hidden overflow-visible sm:inline-flex"
+                  onClick={exportLocked ? () => onUpgrade("print") : onPrint}
+                  disabled={exportLocked && isUpgradeBusy}
+                >
+                  <span>{copy.buttons.printPlan}</span>
+                  {exportLocked ? <PremiumRibbon /> : null}
+                </Button>
               ) : null}
             </div>
           }

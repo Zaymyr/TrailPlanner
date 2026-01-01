@@ -14,6 +14,7 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { ChevronDownIcon, ChevronUpIcon } from "../../../components/race-planner/TimelineIcons";
+import { PremiumRibbon } from "../../../components/race-planner/PremiumRibbon";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -127,12 +128,6 @@ type ParsedGpx = {
 
 const formatAidStationName = (template: string, index: number) =>
   template.replace("{index}", String(index));
-
-const PremiumBadge = ({ label }: { label: string }) => (
-  <span className="ml-2 inline-flex items-center rounded-full border border-amber-300/60 bg-amber-300/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-50">
-    {label}
-  </span>
-);
 
 const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   raceDistanceKm: 50,
@@ -1791,12 +1786,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </Button>
               <Button
                 type="button"
-                className="h-9 px-3 text-xs"
+                className="relative h-9 px-3 text-xs overflow-visible"
                 onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
                 variant={allowExport ? "default" : "outline"}
               >
                 <span>{racePlannerCopy.buttons.exportGpx}</span>
-                {!allowExport ? <PremiumBadge label={premiumCopy.badge} /> : null}
+                {!allowExport ? <PremiumRibbon /> : null}
               </Button>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2">
@@ -1849,12 +1844,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 </Button>
                 <Button
                   type="button"
-                  className="h-9 px-3 text-xs"
+                  className="relative h-9 px-3 text-xs overflow-visible"
                   onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
                   variant={allowExport ? "default" : "outline"}
                 >
                   <span>{racePlannerCopy.buttons.exportGpx}</span>
-                  {!allowExport ? <PremiumBadge label={premiumCopy.badge} /> : null}
+                  {!allowExport ? <PremiumRibbon /> : null}
                 </Button>
               </div>
               {importError ? <p className="text-xs text-red-400">{importError}</p> : null}

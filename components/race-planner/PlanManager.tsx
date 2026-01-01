@@ -75,26 +75,14 @@ export function PlanManager({
                 placeholder={copy.plans.defaultName}
                 onChange={(event) => onPlanNameChange(event.target.value)}
               />
-              <div className="relative">
-                <Button
-                  type="button"
-                  className="w-full"
-                  onClick={onSavePlan}
-                  disabled={isSaving || !canSavePlan}
-                >
-                  {isSaving ? copy.plans.saving : copy.plans.save}
-                </Button>
-                {showPlanLimitUpsell ? (
-                  <>
-                    <span className="pointer-events-none absolute -top-1 -right-1 h-5 w-5 overflow-hidden">
-                      <span className="absolute left-1/2 top-1/2 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-amber-500" />
-                    </span>
-                    <span className="pointer-events-none absolute right-1 top-1 text-[10px] font-bold text-white drop-shadow">
-                      ★
-                    </span>
-                  </>
-                ) : null}
-              </div>
+              <Button
+                type="button"
+                className="w-full"
+                onClick={onSavePlan}
+                disabled={isSaving || !canSavePlan}
+              >
+                {isSaving ? copy.plans.saving : copy.plans.save}
+              </Button>
               {showPlanLimitUpsell ? (
                 <p className="text-xs text-amber-200" role="status">
                   {premiumCopy.planLimitReached}
