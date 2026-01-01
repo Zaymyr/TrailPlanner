@@ -13,7 +13,7 @@ export function PremiumGlow({ tooltip = "Premium feature", className }: PremiumG
       className={cn(
         "pointer-events-none absolute inset-0 rounded-md",
         "before:pointer-events-none before:absolute before:inset-0 before:rounded-md before:border before:border-amber-200/40 before:content-[''] before:opacity-70",
-        "after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:bg-amber-300/10 after:blur-[4px] after:content-[''] after:opacity-60 after:animate-[pulse_3.4s_ease-in-out_infinite]",
+        "after:pointer-events-none after:absolute after:-inset-0.5 after:rounded-[10px] after:border after:border-amber-200/25 after:content-[''] after:opacity-60 after:animate-[pulse_3s_ease-in-out_infinite]",
         "transition duration-500 group-hover:before:opacity-90 group-hover:after:opacity-80 group-focus-visible:before:opacity-90 group-focus-visible:after:opacity-80",
         className
       )}
