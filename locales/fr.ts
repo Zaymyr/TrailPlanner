@@ -497,6 +497,14 @@ export const fr: Translations = {
         selected: "Sélectionné",
       },
     },
+    subscription: {
+      title: "Abonnement",
+      premiumStatus: "Premium actif",
+      freeStatus: "Offre gratuite",
+      refresh: "Actualiser le statut",
+      loading: "Vérification de votre abonnement...",
+      error: "Impossible de charger votre abonnement. Réessayez.",
+    },
   },
   resourcePages: {
     "trail-nutrition-planner": {

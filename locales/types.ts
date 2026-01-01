@@ -445,6 +445,14 @@ export type ProfileTranslations = {
       selected: string;
     };
   };
+  subscription: {
+    title: string;
+    premiumStatus: string;
+    freeStatus: string;
+    refresh: string;
+    loading: string;
+    error: string;
+  };
 };
 
 export type Translations = {
