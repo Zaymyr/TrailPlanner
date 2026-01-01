@@ -13,7 +13,7 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
-import { PremiumMark } from "./PremiumMark";
+import { PremiumGlow } from "./PremiumGlow";
 import { TimelinePointCard } from "./TimelineCards";
 
 type RaceTotals = {
@@ -403,25 +403,25 @@ export function ActionPlan({
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative overflow-hidden"
+                  className="relative overflow-hidden group"
                   onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
                 >
                   <span>{copy.buttons.autoFill}</span>
-                  {autoFillLocked ? <PremiumMark /> : null}
+                  {autoFillLocked ? <PremiumGlow /> : null}
                 </Button>
               ) : null}
               {segments.length > 0 ? (
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative hidden overflow-hidden sm:inline-flex"
+                  className="relative hidden overflow-hidden sm:inline-flex group"
                   onClick={exportLocked ? () => onUpgrade("print") : onPrint}
                   disabled={exportLocked && isUpgradeBusy}
                 >
                   <span>{copy.buttons.printPlan}</span>
-                  {exportLocked ? <PremiumMark /> : null}
+                  {exportLocked ? <PremiumGlow /> : null}
                 </Button>
               ) : null}
             </div>
