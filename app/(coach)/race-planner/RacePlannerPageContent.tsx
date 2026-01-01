@@ -17,7 +17,7 @@ import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "../../../component
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { RacePlannerTranslations } from "../../../locales/types";
+import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type {
   AidStation,
   ElevationPoint,
@@ -118,6 +118,32 @@ const defaultFuelProducts: FuelProduct[] = [
   },
 ];
 
+type StripeInterval = "day" | "week" | "month" | "year";
+
+const stripePriceResponseSchema = z.object({
+  price: z.object({
+    currency: z.string().min(1),
+    unitAmount: z.number().nonnegative(),
+    interval: z.enum(["day", "week", "month", "year"]).nullable(),
+    intervalCount: z.number().int().positive().nullable().optional(),
+  }),
+});
+
+const intervalLabels: Record<Locale, Record<StripeInterval, { singular: string; plural: string }>> = {
+  en: {
+    day: { singular: "day", plural: "days" },
+    week: { singular: "week", plural: "weeks" },
+    month: { singular: "month", plural: "months" },
+    year: { singular: "year", plural: "years" },
+  },
+  fr: {
+    day: { singular: "jour", plural: "jours" },
+    week: { singular: "semaine", plural: "semaines" },
+    month: { singular: "mois", plural: "mois" },
+    year: { singular: "an", plural: "ans" },
+  },
+};
+
 type ParsedGpx = {
   distanceKm: number;
   aidStations: AidStation[];
@@ -127,6 +153,18 @@ type ParsedGpx = {
 
 const formatAidStationName = (template: string, index: number) =>
   template.replace("{index}", String(index));
+
+const formatIntervalLabel = (interval: StripeInterval | null, count: number | null, locale: Locale) => {
+  if (!interval) return null;
+
+  const labels = intervalLabels[locale]?.[interval];
+  if (!labels) return null;
+
+  const safeCount = Math.max(count ?? 1, 1);
+  const label = safeCount > 1 ? labels.plural : labels.singular;
+
+  return safeCount > 1 ? `${safeCount} ${label}` : label;
+};
 
 const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   raceDistanceKm: 50,
@@ -730,7 +768,7 @@ function parseGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
 }
 
 export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const racePlannerCopy = t.racePlanner;
   const premiumCopy = racePlannerCopy.account.premium;
 
@@ -803,6 +841,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isCourseCollapsed, setIsCourseCollapsed] = useState(false);
   const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
+  const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
@@ -989,6 +1028,49 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, [session?.accessToken]);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
+    const loadStripePrice = async () => {
+      try {
+        const response = await fetch("/api/stripe/price", {
+          cache: "no-store",
+          signal: abortController.signal,
+        });
+
+        const data = (await response.json().catch(() => null)) as unknown;
+
+        if (!response.ok) {
+          const message = (data as { message?: string } | null)?.message ?? "Unable to load subscription price.";
+          throw new Error(message);
+        }
+
+        const parsed = stripePriceResponseSchema.safeParse(data);
+
+        if (!parsed.success) {
+          throw new Error("Invalid Stripe price response.");
+        }
+
+        if (!abortController.signal.aborted) {
+          setStripePrice({
+            ...parsed.data.price,
+            intervalCount: parsed.data.price.intervalCount ?? null,
+          });
+        }
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Unable to load subscription price", error);
+        setStripePrice(null);
+      }
+    };
+
+    void loadStripePrice();
+
+    return () => {
+      abortController.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!session?.accessToken) {
       setFuelProducts(defaultFuelProducts);
       setProductsStatus("idle");
@@ -1042,6 +1124,30 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       abortController.abort();
     };
   }, [racePlannerCopy.sections.gels.loadError, session?.accessToken]);
+
+  const formattedPremiumPrice = useMemo(() => {
+    if (!stripePrice) return null;
+
+    try {
+      const formatter = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", {
+        style: "currency",
+        currency: stripePrice.currency,
+      });
+
+      const intervalLabel = formatIntervalLabel(stripePrice.interval, stripePrice.intervalCount, locale);
+      const amount = formatter.format(stripePrice.unitAmount / 100);
+
+      return intervalLabel ? `${amount}/${intervalLabel}` : amount;
+    } catch (error) {
+      console.error("Unable to format premium price", error);
+      return null;
+    }
+  }, [locale, stripePrice]);
+
+  const premiumPriceDisplay = useMemo(
+    () => formattedPremiumPrice ?? premiumCopy.premiumModal.priceValue,
+    [formattedPremiumPrice, premiumCopy.premiumModal.priceValue]
+  );
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
@@ -2242,7 +2348,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
               <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-50">
                 <p className="font-semibold">
-                  {premiumCopy.premiumModal.priceLabel}: {premiumCopy.premiumModal.priceValue}
+                  {premiumCopy.premiumModal.priceLabel}: {premiumPriceDisplay}
                 </p>
                 {upgradeReason === "plans" ? (
                   <p className="text-xs text-emerald-100/80">{premiumCopy.planLimitReached}</p>
