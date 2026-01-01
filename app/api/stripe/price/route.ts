@@ -19,6 +19,7 @@ const stripePriceSchema = z.object({
 });
 
 type StripePrice = z.infer<typeof stripePriceSchema>;
+type StripePriceWithAmount = StripePrice & { unit_amount: number };
 
 type PriceResponse = {
   price: {
@@ -38,7 +39,7 @@ const respondWithPrice = (price: PriceResponse["price"]) => {
   return withSecurityHeaders(response);
 };
 
-const parseStripePrice = (payload: unknown) => {
+const parseStripePrice = (payload: unknown): StripePriceWithAmount => {
   const parsed = stripePriceSchema.safeParse(payload);
 
   if (!parsed.success) {
@@ -51,7 +52,7 @@ const parseStripePrice = (payload: unknown) => {
     throw new Error("Stripe price is missing an amount.");
   }
 
-  return price;
+  return { ...price, unit_amount: price.unit_amount };
 };
 
 export async function GET(request: NextRequest) {
