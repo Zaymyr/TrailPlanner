@@ -133,6 +133,33 @@ create table public.user_favorite_products (
 create index user_favorite_products_user_idx on public.user_favorite_products(user_id);
 create index user_favorite_products_product_idx on public.user_favorite_products(product_id);
 
+create table public.subscriptions (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  status text,
+  price_id text,
+  current_period_end timestamptz,
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create index subscriptions_user_id_idx on public.subscriptions(user_id);
+create index subscriptions_stripe_subscription_id_idx on public.subscriptions(stripe_subscription_id);
+
+create or replace function public.set_subscriptions_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists set_subscriptions_updated_at on public.subscriptions;
+create trigger set_subscriptions_updated_at
+before update on public.subscriptions
+for each row
+execute function public.set_subscriptions_updated_at();
+
 -- Row level security configuration
 alter table public.app_feedback enable row level security;
 alter table public.race_plans enable row level security;
@@ -142,6 +169,7 @@ alter table public.affiliate_click_events enable row level security;
 alter table public.affiliate_events enable row level security;
 alter table public.user_profiles enable row level security;
 alter table public.user_favorite_products enable row level security;
+alter table public.subscriptions enable row level security;
 -- Trace feature tables removed; see migrations for previous definitions.
 
 -- Race plan policies
@@ -224,6 +252,14 @@ create policy "Users can manage their favorite products" on public.user_favorite
   for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "Service role can upsert subscriptions" on public.subscriptions
+  for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create policy "Users can read their subscription" on public.subscriptions
+  for select using (auth.uid() = user_id);
 
 create table public.affiliate_click_events (
   id uuid primary key default gen_random_uuid(),

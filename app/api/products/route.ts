@@ -8,6 +8,7 @@ import {
   getSupabaseAnonConfig,
   getSupabaseServiceConfig,
 } from "../../../lib/supabase";
+import { getUserEntitlements } from "../../../lib/entitlements";
 import type { FuelProduct } from "../../../lib/product-types";
 
 const supabaseProductSchema = z.object({
@@ -154,6 +155,17 @@ export async function POST(request: NextRequest) {
 
   if (!supabaseUser) {
     return withSecurityHeaders(NextResponse.json({ message: "Unauthorized." }, { status: 401 }));
+  }
+
+  const entitlements = await getUserEntitlements(supabaseUser.id);
+
+  if (!entitlements.isPremium && entitlements.customProductLimit <= 0) {
+    return withSecurityHeaders(
+      NextResponse.json(
+        { message: "Creating custom products requires a premium subscription." },
+        { status: 402 }
+      )
+    );
   }
 
   const slug = buildSlug(parsedBody.data.name);
