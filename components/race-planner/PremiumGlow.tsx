@@ -11,7 +11,7 @@ export function PremiumGlow({ tooltip = "Premium feature", className }: PremiumG
   return (
     <span
       className={cn(
-        "pointer-events-none absolute inset-0 rounded-md",
+        "pointer-events-none absolute inset-0 rounded-md overflow-hidden",
         "after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:border after:border-amber-100/40 after:content-[''] after:opacity-85",
         "transition duration-700 group-hover:after:opacity-100 group-focus-visible:after:opacity-100",
         className
@@ -19,11 +19,11 @@ export function PremiumGlow({ tooltip = "Premium feature", className }: PremiumG
       aria-hidden
     >
       <span
-        className="absolute inset-0 rounded-[12px] opacity-70 animate-[spin_5s_linear_infinite]"
+        className="absolute inset-0 rounded-[10px] opacity-75 animate-[spin_5s_linear_infinite]"
         style={{
           background:
-            "conic-gradient(from 0deg, rgba(254,243,199,0.65), rgba(252,211,77,0.6), rgba(245,158,11,0.55), rgba(252,211,77,0.6), rgba(254,243,199,0.65))",
-          padding: "1px",
+            "conic-gradient(from 0deg, rgba(254,243,199,0.55), rgba(252,211,77,0.5), rgba(245,158,11,0.45), rgba(252,211,77,0.5), rgba(254,243,199,0.55))",
+          padding: "2px",
           WebkitMask:
             "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
           WebkitMaskComposite: "xor",
