@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { extractBearerToken, getSupabaseAnonConfig } from "../../../lib/supabase";
+import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../lib/supabase";
+import { getUserEntitlements } from "../../../lib/entitlements";
 
 const basePlanSchema = z.object({
   name: z.string().trim().min(1, "Plan name is required"),
@@ -107,6 +108,35 @@ export async function POST(request: Request) {
 
   if (!parsedBody.success) {
     return NextResponse.json({ message: "Invalid plan payload." }, { status: 400 });
+  }
+
+  const supabaseUser = await fetchSupabaseUser(token, supabaseConfig);
+
+  if (!supabaseUser?.id) {
+    return NextResponse.json({ message: "Invalid session." }, { status: 401 });
+  }
+
+  const entitlements = await getUserEntitlements(supabaseUser.id);
+
+  if (Number.isFinite(entitlements.planLimit)) {
+    const existingPlansResponse = await fetch(
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?select=id&limit=${entitlements.planLimit}`,
+      {
+        headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token, undefined),
+        cache: "no-store",
+      }
+    );
+
+    if (!existingPlansResponse.ok) {
+      console.error("Unable to evaluate plan count", await existingPlansResponse.text());
+      return NextResponse.json({ message: "Unable to validate plan limit." }, { status: 500 });
+    }
+
+    const existingPlans = (await existingPlansResponse.json().catch(() => [])) as SupabasePlanRow[];
+
+    if (existingPlans.length >= entitlements.planLimit) {
+      return NextResponse.json({ message: "A premium plan is required to save additional plans." }, { status: 402 });
+    }
   }
 
   try {
