@@ -14,6 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { MAX_SELECTED_PRODUCTS, mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
+import { fetchEntitlements } from "../../lib/entitlements-client";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
@@ -91,6 +92,17 @@ export default function ProfilePage() {
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.profile.error;
       setSaveError(message);
+    },
+  });
+
+  const entitlementsQuery = useQuery({
+    queryKey: ["entitlements", session?.accessToken],
+    enabled: Boolean(session?.accessToken),
+    queryFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error(t.profile.authRequired);
+      }
+      return fetchEntitlements(session.accessToken);
     },
   });
 
@@ -295,6 +307,55 @@ export default function ProfilePage() {
       ) : null}
 
       <form onSubmit={onSubmit} className="space-y-6">
+        <Card>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-lg text-slate-50">{t.profile.subscription.title}</CardTitle>
+              <p className="text-sm text-slate-400">
+                {entitlementsQuery.isLoading
+                  ? t.profile.subscription.loading
+                  : entitlementsQuery.isError
+                    ? t.profile.subscription.error
+                    : entitlementsQuery.data?.isPremium
+                      ? t.profile.subscription.premiumStatus
+                      : t.profile.subscription.freeStatus}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => entitlementsQuery.refetch()}
+              disabled={!session?.accessToken || entitlementsQuery.isLoading}
+            >
+              {t.profile.subscription.refresh}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {!session?.accessToken ? (
+              <p className="text-sm text-slate-400">{t.profile.authRequired}</p>
+            ) : entitlementsQuery.data ? (
+              <div className="flex items-center gap-3 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
+                    entitlementsQuery.data.isPremium
+                      ? "border border-emerald-300/70 bg-emerald-300/15 text-emerald-100"
+                      : "border border-slate-500/70 bg-slate-800 text-slate-200"
+                  }`}
+                >
+                  {entitlementsQuery.data.isPremium
+                    ? t.profile.subscription.premiumStatus
+                    : t.profile.subscription.freeStatus}
+                </span>
+                <p className="text-sm text-slate-300">
+                  {entitlementsQuery.data.isPremium
+                    ? t.profile.subscription.premiumStatus
+                    : t.profile.subscription.freeStatus}
+                </p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle className="text-lg text-slate-50">{t.profile.basics.title}</CardTitle>
