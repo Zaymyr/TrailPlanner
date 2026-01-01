@@ -125,7 +125,7 @@ const stripePriceResponseSchema = z.object({
     currency: z.string().min(1),
     unitAmount: z.number().nonnegative(),
     interval: z.enum(["day", "week", "month", "year"]).nullable(),
-    intervalCount: z.number().int().positive().nullable().optional(),
+    intervalCount: z.number().int().positive().nullable().optional().default(null),
   }),
 });
 
