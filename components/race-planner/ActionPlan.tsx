@@ -13,7 +13,6 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
-import { PremiumGlow } from "./PremiumGlow";
 import { TimelinePointCard } from "./TimelineCards";
 
 type RaceTotals = {
@@ -130,6 +129,23 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
 
   return items;
 };
+
+const LockIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-4 w-4"
+    {...props}
+  >
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V8a4 4 0 1 1 8 0v3" />
+  </svg>
+);
 
 export function ActionPlan({
   copy,
@@ -403,25 +419,28 @@ export function ActionPlan({
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative overflow-visible group"
                   onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
                 >
-                  <span className="relative z-10">{copy.buttons.autoFill}</span>
-                  {autoFillLocked ? <PremiumGlow /> : null}
+                  <span className="flex items-center gap-2">
+                    {autoFillLocked ? <LockIcon className="text-amber-200" /> : null}
+                    <span>{copy.buttons.autoFill}</span>
+                  </span>
                 </Button>
               ) : null}
               {segments.length > 0 ? (
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative hidden overflow-visible sm:inline-flex group"
+                  className="hidden sm:inline-flex"
                   onClick={exportLocked ? () => onUpgrade("print") : onPrint}
                   disabled={exportLocked && isUpgradeBusy}
                 >
-                  <span className="relative z-10">{copy.buttons.printPlan}</span>
-                  {exportLocked ? <PremiumGlow /> : null}
+                  <span className="flex items-center gap-2">
+                    {exportLocked ? <LockIcon className="text-amber-200" /> : null}
+                    <span>{copy.buttons.printPlan}</span>
+                  </span>
                 </Button>
               ) : null}
             </div>

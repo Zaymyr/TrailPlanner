@@ -27,22 +27,3 @@ button {
     color: #0f172a;
   }
 }
-
-@keyframes premium-border-trace {
-  0% {
-    stroke-dashoffset: 0;
-  }
-  100% {
-    stroke-dashoffset: -248;
-  }
-}
-
-.premium-tracer {
-  animation: premium-border-trace 5s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .premium-tracer {
-    animation: none;
-  }
-}
