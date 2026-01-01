@@ -11,23 +11,36 @@ export function PremiumGlow({ tooltip = "Premium feature", className }: PremiumG
   return (
     <span
       className={cn(
-        "pointer-events-none absolute inset-0 rounded-md overflow-hidden",
-        "after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:border after:border-amber-100/40 after:content-[''] after:opacity-85",
-        "transition duration-700 group-hover:after:opacity-100 group-focus-visible:after:opacity-100",
+        "pointer-events-none absolute inset-0 rounded-md overflow-visible",
         className
       )}
       aria-hidden
     >
-      <span
-        className="premium-border-animate absolute inset-0 rounded-[10px] opacity-80"
-        style={{
-          padding: "2px",
-          WebkitMask:
-            "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
-          WebkitMaskComposite: "xor",
-          maskComposite: "exclude",
-        }}
-      />
+      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 120 44" preserveAspectRatio="none">
+        <defs>
+          <filter id="premium-glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.5" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <rect
+          x="2"
+          y="2"
+          width="116"
+          height="40"
+          rx="8"
+          ry="8"
+          fill="none"
+          stroke="rgba(255, 214, 102, 0.35)"
+          strokeWidth="2"
+          className="premium-tracer"
+          filter="url(#premium-glow)"
+          strokeDasharray="28 220"
+        />
+      </svg>
       <span className="pointer-events-none absolute left-1/2 top-[-120%] -translate-x-1/2 rounded-md bg-slate-900/90 px-2 py-1 text-[10px] font-semibold text-slate-50 opacity-0 shadow-lg ring-1 ring-slate-700/70 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
         {tooltip}
       </span>
