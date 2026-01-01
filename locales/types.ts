@@ -275,6 +275,36 @@ export type RacePlannerTranslations = {
       loadedPlan: string;
       deletedPlan: string;
     };
+    premium: {
+      badge: string;
+      title: string;
+      description: string;
+      cta: string;
+      opening: string;
+      checkoutError: string;
+      planLimitReached: string;
+      exportLocked: string;
+      printLocked: string;
+      autoFillLocked: string;
+      limits: {
+        plans: string;
+        favorites: string;
+        customProducts: string;
+        export: string;
+        autoFill: string;
+      };
+      premiumModal: {
+        title: string;
+        description: string;
+        priceLabel: string;
+        priceValue: string;
+        featuresTitle: string;
+        features: string[];
+        subscribe: string;
+        cancel: string;
+        popupBlocked: string;
+      };
+    };
     errors: {
       missingSession: string;
       saveFailed: string;
@@ -425,6 +455,36 @@ export type ProfileTranslations = {
       select: string;
       selected: string;
     };
+  };
+  subscription: {
+    title: string;
+    premiumStatus: string;
+    freeStatus: string;
+    refresh: string;
+    loading: string;
+    error: string;
+    subscribeCta: string;
+    unsubscribeCta: string;
+    checkoutError: string;
+    portalError: string;
+    unsubscribeConfirm: {
+      title: string;
+      description: string;
+      lossesTitle: string;
+      confirm: string;
+      cancel: string;
+    };
+  };
+  premiumModal: {
+    title: string;
+    description: string;
+    priceLabel: string;
+    priceValue: string;
+    featuresTitle: string;
+    features: string[];
+    subscribe: string;
+    cancel: string;
+    popupBlocked: string;
   };
 };
 

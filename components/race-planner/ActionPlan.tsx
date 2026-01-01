@@ -47,6 +47,11 @@ type ActionPlanProps = {
   onStartSupplyRemove: (productId: string) => void;
   onSupplyDrop: (aidStationIndex: number, productId: string, quantity?: number) => void;
   onSupplyRemove: (aidStationIndex: number, productId: string) => void;
+  allowAutoFill: boolean;
+  allowExport: boolean;
+  premiumCopy: RacePlannerTranslations["account"]["premium"];
+  onUpgrade: (reason: "autoFill" | "print") => void;
+  upgradeStatus: "idle" | "opening";
 };
 
 const parseOptionalNumber = (value: string | number) => {
@@ -125,6 +130,10 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
   return items;
 };
 
+const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} {...props} />
+);
+
 export function ActionPlan({
   copy,
   segments,
@@ -150,6 +159,11 @@ export function ActionPlan({
   onStartSupplyRemove,
   onSupplyDrop,
   onSupplyRemove,
+  allowAutoFill,
+  allowExport,
+  premiumCopy,
+  onUpgrade,
+  upgradeStatus,
 }: ActionPlanProps) {
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
   const [editorState, setEditorState] = useState<
@@ -201,6 +215,9 @@ export function ActionPlan({
     water: <DropletsIcon className="h-4 w-4 text-sky-100" aria-hidden />,
     sodium: <SparklesIcon className="h-4 w-4 text-slate-100" aria-hidden />,
   };
+  const autoFillLocked = !allowAutoFill;
+  const exportLocked = !allowExport;
+  const isUpgradeBusy = upgradeStatus === "opening";
   const getPlanStatus = (planned: number, target: number, upperBound?: number) => {
     if (!Number.isFinite(target) || target <= 0) {
       return { label: timelineCopy.status.atTarget, tone: "neutral" as const };
@@ -386,13 +403,31 @@ export function ActionPlan({
                 {aidStationsCopy.add}
               </Button>
               {segments.length > 0 ? (
-                <Button type="button" variant="outline" onClick={onAutomaticFill} title={copy.buttons.autoFillHint}>
-                  {copy.buttons.autoFill}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
+                  title={copy.buttons.autoFillHint}
+                  disabled={autoFillLocked && isUpgradeBusy}
+                >
+                  <span className="flex items-center gap-1.5" title={autoFillLocked ? "Premium feature" : undefined}>
+                    {autoFillLocked ? <PremiumSparklesIcon aria-hidden /> : null}
+                    <span>{copy.buttons.autoFill}</span>
+                  </span>
                 </Button>
               ) : null}
               {segments.length > 0 ? (
-                <Button type="button" variant="outline" className="hidden sm:inline-flex" onClick={onPrint}>
-                  {copy.buttons.printPlan}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="hidden sm:inline-flex"
+                  onClick={exportLocked ? () => onUpgrade("print") : onPrint}
+                  disabled={exportLocked && isUpgradeBusy}
+                >
+                  <span className="flex items-center gap-1.5" title={exportLocked ? "Premium feature" : undefined}>
+                    {exportLocked ? <PremiumSparklesIcon aria-hidden /> : null}
+                    <span>{copy.buttons.printPlan}</span>
+                  </span>
                 </Button>
               ) : null}
             </div>

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -14,9 +14,47 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { MAX_SELECTED_PRODUCTS, mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
+import { fetchEntitlements } from "../../lib/entitlements-client";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
+import type { Locale } from "../../locales/types";
+
+type StripeInterval = "day" | "week" | "month" | "year";
+
+const stripePriceResponseSchema = z.object({
+  price: z.object({
+    currency: z.string().min(1),
+    unitAmount: z.number().nonnegative(),
+    interval: z.enum(["day", "week", "month", "year"]).nullable(),
+    intervalCount: z.number().int().positive().nullable().optional().default(null),
+  }),
+});
+
+const intervalLabels: Record<Locale, Record<StripeInterval, { singular: string; plural: string }>> = {
+  en: {
+    day: { singular: "day", plural: "days" },
+    week: { singular: "week", plural: "weeks" },
+    month: { singular: "month", plural: "months" },
+    year: { singular: "year", plural: "years" },
+  },
+  fr: {
+    day: { singular: "jour", plural: "jours" },
+    week: { singular: "semaine", plural: "semaines" },
+    month: { singular: "mois", plural: "mois" },
+    year: { singular: "an", plural: "ans" },
+  },
+};
+
+const formatIntervalLabel = (interval: StripeInterval | null, count: number | null, locale: Locale) => {
+  if (!interval) return "";
+
+  const label = intervalLabels[locale]?.[interval];
+  if (!label) return "";
+
+  if (!count || count === 1) return label.singular;
+  return label.plural;
+};
 
 const profileFormSchema = z.object({
   fullName: z
@@ -38,7 +76,7 @@ type ProfileFormValues = z.infer<typeof profileFormSchema>;
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
 export default function ProfilePage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const queryClient = useQueryClient();
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const { replaceSelection } = useProductSelection();
@@ -48,6 +86,13 @@ export default function ProfilePage() {
   const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
+  const [unsubscribeDialogOpen, setUnsubscribeDialogOpen] = useState(false);
+  const [unsubscribeStatus, setUnsubscribeStatus] = useState<"idle" | "opening">("idle");
+  const [unsubscribeError, setUnsubscribeError] = useState<string | null>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
@@ -91,6 +136,17 @@ export default function ProfilePage() {
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.profile.error;
       setSaveError(message);
+    },
+  });
+
+  const entitlementsQuery = useQuery({
+    queryKey: ["entitlements", session?.accessToken],
+    enabled: Boolean(session?.accessToken),
+    queryFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error(t.profile.authRequired);
+      }
+      return fetchEntitlements(session.accessToken);
     },
   });
 
@@ -165,6 +221,171 @@ export default function ProfilePage() {
 
     return products.filter((product) => product.name.toLowerCase().includes(query));
   }, [productsQuery.data, searchQuery]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    const loadStripePrice = async () => {
+      try {
+        const response = await fetch("/api/stripe/price", {
+          cache: "no-store",
+          signal: abortController.signal,
+        });
+
+        const data = (await response.json().catch(() => null)) as unknown;
+
+        if (!response.ok) {
+          const message = (data as { message?: string } | null)?.message ?? t.profile.subscription.checkoutError;
+          throw new Error(message);
+        }
+
+        const parsed = stripePriceResponseSchema.safeParse(data);
+
+        if (!parsed.success) {
+          throw new Error("Invalid Stripe price response.");
+        }
+
+        if (!abortController.signal.aborted) {
+          setStripePrice({
+            ...parsed.data.price,
+            intervalCount: parsed.data.price.intervalCount ?? null,
+          });
+        }
+      } catch (error) {
+        if (abortController.signal.aborted) return;
+        console.error("Unable to load subscription price", error);
+        setStripePrice(null);
+      }
+    };
+
+    void loadStripePrice();
+
+    return () => abortController.abort();
+  }, [t.profile.subscription.checkoutError]);
+
+  const formattedPremiumPrice = useMemo(() => {
+    if (!stripePrice) return null;
+
+    try {
+      const formatter = new Intl.NumberFormat(locale === "fr" ? "fr-FR" : "en-US", {
+        style: "currency",
+        currency: stripePrice.currency,
+      });
+
+      const intervalLabel = formatIntervalLabel(stripePrice.interval, stripePrice.intervalCount, locale);
+      const amount = formatter.format(stripePrice.unitAmount / 100);
+
+      return intervalLabel ? `${amount}/${intervalLabel}` : amount;
+    } catch (error) {
+      console.error("Unable to format premium price", error);
+      return null;
+    }
+  }, [locale, stripePrice]);
+
+  const premiumPriceDisplay = useMemo(
+    () => formattedPremiumPrice ?? t.profile.premiumModal.priceValue,
+    [formattedPremiumPrice, t.profile.premiumModal.priceValue]
+  );
+
+  const handleUpgrade = useCallback(async () => {
+    if (!session?.accessToken) {
+      setUpgradeError(t.profile.authRequired);
+      return;
+    }
+
+    setUpgradeStatus("opening");
+    setUpgradeError(null);
+
+    try {
+      const response = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+      });
+
+      const data = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
+
+      if (!response.ok || !data?.url) {
+        throw new Error(data?.message ?? t.profile.subscription.checkoutError);
+      }
+
+      const popup = window.open(data.url, "trailplanner-checkout", "width=520,height=720,noopener,noreferrer");
+      if (popup) {
+        popup.focus();
+        setUpgradeDialogOpen(false);
+        return;
+      }
+
+      try {
+        window.location.href = data.url;
+        setUpgradeDialogOpen(false);
+      } catch (fallbackError) {
+        console.error("Unable to open checkout in current tab", fallbackError);
+        setUpgradeError(t.profile.premiumModal.popupBlocked);
+      }
+    } catch (error) {
+      console.error("Unable to open checkout", error);
+      setUpgradeError(error instanceof Error ? error.message : t.profile.subscription.checkoutError);
+    } finally {
+      setUpgradeStatus("idle");
+    }
+  }, [
+    session?.accessToken,
+    t.profile.authRequired,
+    t.profile.premiumModal.popupBlocked,
+    t.profile.subscription.checkoutError,
+  ]);
+
+  const handleOpenBillingPortal = useCallback(async () => {
+    if (!session?.accessToken) {
+      setUnsubscribeError(t.profile.authRequired);
+      return;
+    }
+
+    setUnsubscribeStatus("opening");
+    setUnsubscribeError(null);
+
+    try {
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+      });
+
+      const data = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
+
+      if (!response.ok || !data?.url) {
+        throw new Error(data?.message ?? t.profile.subscription.portalError);
+      }
+
+      const popup = window.open(data.url, "trailplanner-portal", "width=960,height=720,noopener,noreferrer");
+      if (popup) {
+        popup.focus();
+        setUnsubscribeDialogOpen(false);
+        return;
+      }
+
+      try {
+        window.location.href = data.url;
+        setUnsubscribeDialogOpen(false);
+      } catch (fallbackError) {
+        console.error("Unable to open billing portal in current tab", fallbackError);
+        setUnsubscribeError(t.profile.premiumModal.popupBlocked);
+      }
+    } catch (error) {
+      console.error("Unable to open billing portal", error);
+      setUnsubscribeError(error instanceof Error ? error.message : t.profile.subscription.portalError);
+    } finally {
+      setUnsubscribeStatus("idle");
+    }
+  }, [
+    session?.accessToken,
+    t.profile.authRequired,
+    t.profile.premiumModal.popupBlocked,
+    t.profile.subscription.portalError,
+  ]);
 
   const favoriteIds = useMemo(() => new Set(favoriteProducts.map((product) => product.id)), [favoriteProducts]);
 
@@ -296,6 +517,78 @@ export default function ProfilePage() {
 
       <form onSubmit={onSubmit} className="space-y-6">
         <Card>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-lg text-slate-50">{t.profile.subscription.title}</CardTitle>
+              <p className="text-sm text-slate-400">
+                {entitlementsQuery.isLoading
+                  ? t.profile.subscription.loading
+                  : entitlementsQuery.isError
+                    ? t.profile.subscription.error
+                    : entitlementsQuery.data?.isPremium
+                      ? t.profile.subscription.premiumStatus
+                      : t.profile.subscription.freeStatus}
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => entitlementsQuery.refetch()}
+              disabled={!session?.accessToken || entitlementsQuery.isLoading}
+            >
+              {t.profile.subscription.refresh}
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!session?.accessToken ? (
+              <p className="text-sm text-slate-400">{t.profile.authRequired}</p>
+            ) : entitlementsQuery.data ? (
+              <div className="flex items-center gap-3 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2">
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
+                    entitlementsQuery.data.isPremium
+                      ? "border border-emerald-300/70 bg-emerald-300/15 text-emerald-100"
+                      : "border border-slate-500/70 bg-slate-800 text-slate-200"
+                  }`}
+                >
+                  {entitlementsQuery.data.isPremium
+                    ? t.profile.subscription.premiumStatus
+                    : t.profile.subscription.freeStatus}
+                </span>
+                <p className="text-sm text-slate-300">
+                  {entitlementsQuery.data.isPremium
+                    ? t.profile.subscription.premiumStatus
+                    : t.profile.subscription.freeStatus}
+                </p>
+              </div>
+            ) : null}
+
+            {session?.accessToken ? (
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  onClick={() => setUpgradeDialogOpen(true)}
+                  disabled={entitlementsQuery.isLoading || entitlementsQuery.data?.isPremium || upgradeStatus === "opening"}
+                >
+                  {t.profile.subscription.subscribeCta}
+                </Button>
+                {entitlementsQuery.data?.isPremium ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-red-300 text-red-100 hover:bg-red-950/60"
+                    onClick={() => setUnsubscribeDialogOpen(true)}
+                    disabled={unsubscribeStatus === "opening"}
+                  >
+                    {t.profile.subscription.unsubscribeCta}
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader>
             <CardTitle className="text-lg text-slate-50">{t.profile.basics.title}</CardTitle>
             <p className="text-sm text-slate-400">{t.profile.basics.subtitle}</p>
@@ -411,6 +704,110 @@ export default function ProfilePage() {
       </form>
 
       {isDialogOpen ? dialogContent : null}
+
+      {upgradeDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
+          <div className="relative w-full max-w-xl space-y-4 rounded-lg border border-emerald-300/30 bg-slate-950 p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-lg font-semibold text-slate-50">{t.profile.premiumModal.title}</p>
+                <p className="text-sm text-slate-300">{t.profile.premiumModal.description}</p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setUpgradeDialogOpen(false);
+                  setUpgradeError(null);
+                }}
+              >
+                {t.profile.premiumModal.cancel}
+              </Button>
+            </div>
+
+            <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-50">
+              <p className="font-semibold">
+                {t.profile.premiumModal.priceLabel}: {premiumPriceDisplay}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-slate-100">{t.profile.premiumModal.featuresTitle}</p>
+              <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                {t.profile.premiumModal.features.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span aria-hidden className="mt-[2px] text-emerald-300">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {upgradeError ? <p className="text-sm text-red-300">{upgradeError}</p> : null}
+
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setUpgradeDialogOpen(false);
+                  setUpgradeError(null);
+                }}
+              >
+                {t.profile.premiumModal.cancel}
+              </Button>
+              <Button type="button" onClick={handleUpgrade} disabled={upgradeStatus === "opening"}>
+                {upgradeStatus === "opening" ? t.profile.subscription.loading : t.profile.premiumModal.subscribe}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {unsubscribeDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
+          <div className="w-full max-w-lg space-y-4 rounded-lg border border-slate-800 bg-slate-950 p-6 shadow-2xl">
+            <div className="space-y-2">
+              <p className="text-lg font-semibold text-slate-50">{t.profile.subscription.unsubscribeConfirm.title}</p>
+              <p className="text-sm text-slate-300">{t.profile.subscription.unsubscribeConfirm.description}</p>
+            </div>
+
+            <div className="space-y-2 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2">
+              <p className="text-sm font-semibold text-amber-100">
+                {t.profile.subscription.unsubscribeConfirm.lossesTitle}
+              </p>
+              <ul className="space-y-1 text-sm text-amber-50">
+                {t.profile.premiumModal.features.map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <span aria-hidden className="mt-[2px] text-amber-200">•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {unsubscribeError ? <p className="text-sm text-red-300">{unsubscribeError}</p> : null}
+
+            <div className="flex flex-wrap justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setUnsubscribeDialogOpen(false);
+                  setUnsubscribeError(null);
+                }}
+              >
+                {t.profile.subscription.unsubscribeConfirm.cancel}
+              </Button>
+              <Button type="button" onClick={handleOpenBillingPortal} disabled={unsubscribeStatus === "opening"}>
+                {unsubscribeStatus === "opening"
+                  ? t.profile.subscription.loading
+                  : t.profile.subscription.unsubscribeConfirm.confirm}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
