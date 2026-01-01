@@ -104,7 +104,6 @@ export default function ProfilePage() {
       }
       return fetchEntitlements(session.accessToken);
     },
-    retry: false,
   });
 
   const productsQuery = useQuery({
