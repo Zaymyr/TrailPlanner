@@ -453,6 +453,17 @@ export type ProfileTranslations = {
     loading: string;
     error: string;
   };
+  premiumModal: {
+    title: string;
+    description: string;
+    priceLabel: string;
+    priceValue: string;
+    featuresTitle: string;
+    features: string[];
+    subscribe: string;
+    cancel: string;
+    popupBlocked: string;
+  };
 };
 
 export type Translations = {

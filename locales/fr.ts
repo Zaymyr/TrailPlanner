@@ -505,6 +505,22 @@ export const fr: Translations = {
       loading: "Vérification de votre abonnement...",
       error: "Impossible de charger votre abonnement. Réessayez.",
     },
+    premiumModal: {
+      title: "Passer en Premium",
+      description: "Débloquez les plans illimités, les exports, le remplissage automatique et des favoris illimités.",
+      priceLabel: "Prix",
+      priceValue: "7,99 $/mois",
+      featuresTitle: "Inclus dans Premium",
+      features: [
+        "Plans enregistrés et exports illimités",
+        "Remplissage automatique avec vos favoris",
+        "Favoris et produits personnalisés illimités",
+        "Impression et export GPX activés",
+      ],
+      subscribe: "S'abonner avec Stripe",
+      cancel: "Plus tard",
+      popupBlocked: "Impossible d'ouvrir le paiement. Autorisez les popups pour ce site et réessayez.",
+    },
   },
   resourcePages: {
     "trail-nutrition-planner": {

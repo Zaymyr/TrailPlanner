@@ -811,6 +811,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<"autoFill" | "print" | "plans" | null>(null);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<"autoFill" | "print" | "plans" | null>(null);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -1209,7 +1213,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       const popup = window.open(data.url, "trailplanner-checkout", "width=520,height=720,noopener,noreferrer");
       if (!popup) {
-        window.location.href = data.url;
+        setUpgradeError(premiumCopy.premiumModal.popupBlocked);
       } else {
         popup.focus();
       }
@@ -1219,22 +1223,29 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     } finally {
       setUpgradeStatus("idle");
     }
-  }, [premiumCopy.checkoutError, racePlannerCopy.account.errors.missingSession, session?.accessToken]);
+  }, [
+    premiumCopy.checkoutError,
+    premiumCopy.premiumModal.popupBlocked,
+    racePlannerCopy.account.errors.missingSession,
+    session?.accessToken,
+  ]);
 
   const requestPremiumUpgrade = useCallback(
-    (message?: string) => {
+    (message?: string, reason: "autoFill" | "print" | "plans" = "plans") => {
       if (message) {
         setAccountError(message);
       }
-      void handleUpgrade();
+      setUpgradeReason(reason);
+      setUpgradeDialogOpen(true);
+      setUpgradeError(null);
     },
-    [handleUpgrade]
+    [setAccountError, setUpgradeDialogOpen, setUpgradeError, setUpgradeReason]
   );
 
   const handlePremiumFeature = useCallback(
     (reason: "autoFill" | "print") => {
       const message = reason === "autoFill" ? premiumCopy.autoFillLocked : premiumCopy.printLocked;
-      requestPremiumUpgrade(message);
+      requestPremiumUpgrade(message, reason);
     },
     [premiumCopy.autoFillLocked, premiumCopy.printLocked, requestPremiumUpgrade]
   );
@@ -1267,7 +1278,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     if (planLimitReached && !existingPlanByName) {
       setAccountError(premiumCopy.planLimitReached);
-      requestPremiumUpgrade(premiumCopy.planLimitReached);
+      requestPremiumUpgrade(premiumCopy.planLimitReached, "plans");
       return;
     }
 
@@ -1308,7 +1319,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       if (response.status === 402) {
         setAccountError(data?.message ?? premiumCopy.planLimitReached);
-        requestPremiumUpgrade(data?.message ?? premiumCopy.planLimitReached);
+        requestPremiumUpgrade(data?.message ?? premiumCopy.planLimitReached, "plans");
         return;
       }
 
@@ -2209,6 +2220,68 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {upgradeDialogOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
+            <div className="relative w-full max-w-xl space-y-4 rounded-lg border border-emerald-300/30 bg-slate-950 p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-lg font-semibold text-slate-50">{premiumCopy.premiumModal.title}</p>
+                  <p className="text-sm text-slate-300">{premiumCopy.premiumModal.description}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setUpgradeDialogOpen(false);
+                    setUpgradeError(null);
+                  }}
+                >
+                  {premiumCopy.premiumModal.cancel}
+                </Button>
+              </div>
+
+              <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-50">
+                <p className="font-semibold">
+                  {premiumCopy.premiumModal.priceLabel}: {premiumCopy.premiumModal.priceValue}
+                </p>
+                {upgradeReason === "plans" ? (
+                  <p className="text-xs text-emerald-100/80">{premiumCopy.planLimitReached}</p>
+                ) : null}
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-slate-100">{premiumCopy.premiumModal.featuresTitle}</p>
+                <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                  {premiumCopy.premiumModal.features.map((item) => (
+                    <li key={item} className="flex items-start gap-2">
+                      <span aria-hidden className="mt-[2px] text-emerald-300">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {upgradeError ? <p className="text-sm text-red-300">{upgradeError}</p> : null}
+
+              <div className="flex flex-wrap justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setUpgradeDialogOpen(false);
+                    setUpgradeError(null);
+                  }}
+                >
+                  {premiumCopy.premiumModal.cancel}
+                </Button>
+                <Button type="button" onClick={handleUpgrade} disabled={upgradeStatus === "opening"}>
+                  {upgradeStatus === "opening" ? premiumCopy.opening : premiumCopy.premiumModal.subscribe}
+                </Button>
+              </div>
             </div>
           </div>
         )}

@@ -504,6 +504,22 @@ export const en: Translations = {
       loading: "Checking your subscription...",
       error: "We couldn't load your subscription. Try again.",
     },
+    premiumModal: {
+      title: "Upgrade to Premium",
+      description: "Unlock unlimited plans, exports, automatic fill, and unlimited favorites.",
+      priceLabel: "Price",
+      priceValue: "$7.99/month",
+      featuresTitle: "Included in Premium",
+      features: [
+        "Unlimited saved plans and exports",
+        "Automatic fill with your favorite products",
+        "Unlimited favorites and custom products",
+        "Printing and GPX export enabled",
+      ],
+      subscribe: "Subscribe with Stripe",
+      cancel: "Not now",
+      popupBlocked: "We couldn't open checkout. Please allow popups for this site and try again.",
+    },
   },
   resourcePages: {
     "trail-nutrition-planner": {
