@@ -1786,12 +1786,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </Button>
               <Button
                 type="button"
-                className="relative h-9 px-3 text-xs overflow-visible"
+                className="relative h-9 px-3 text-xs overflow-visible group"
                 onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
                 variant={allowExport ? "default" : "outline"}
               >
                 <span>{racePlannerCopy.buttons.exportGpx}</span>
-                {!allowExport ? <PremiumRibbon /> : null}
+                {!allowExport ? <PremiumRibbon tooltip={premiumCopy.badge} /> : null}
               </Button>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2">
@@ -1844,12 +1844,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 </Button>
                 <Button
                   type="button"
-                  className="relative h-9 px-3 text-xs overflow-visible"
+                  className="relative h-9 px-3 text-xs overflow-visible group"
                   onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
                   variant={allowExport ? "default" : "outline"}
                 >
                   <span>{racePlannerCopy.buttons.exportGpx}</span>
-                  {!allowExport ? <PremiumRibbon /> : null}
+                  {!allowExport ? <PremiumRibbon tooltip={premiumCopy.badge} /> : null}
                 </Button>
               </div>
               {importError ? <p className="text-xs text-red-400">{importError}</p> : null}

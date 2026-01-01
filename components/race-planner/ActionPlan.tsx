@@ -403,25 +403,25 @@ export function ActionPlan({
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative overflow-visible"
+                  className="relative overflow-visible group"
                   onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
                 >
                   <span>{copy.buttons.autoFill}</span>
-                  {autoFillLocked ? <PremiumRibbon /> : null}
+                  {autoFillLocked ? <PremiumRibbon tooltip={premiumCopy.badge} /> : null}
                 </Button>
               ) : null}
               {segments.length > 0 ? (
                 <Button
                   type="button"
                   variant="outline"
-                  className="relative hidden overflow-visible sm:inline-flex"
+                  className="relative hidden overflow-visible sm:inline-flex group"
                   onClick={exportLocked ? () => onUpgrade("print") : onPrint}
                   disabled={exportLocked && isUpgradeBusy}
                 >
                   <span>{copy.buttons.printPlan}</span>
-                  {exportLocked ? <PremiumRibbon /> : null}
+                  {exportLocked ? <PremiumRibbon tooltip={premiumCopy.badge} /> : null}
                 </Button>
               ) : null}
             </div>
