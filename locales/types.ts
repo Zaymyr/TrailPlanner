@@ -463,6 +463,17 @@ export type ProfileTranslations = {
     refresh: string;
     loading: string;
     error: string;
+    subscribeCta: string;
+    unsubscribeCta: string;
+    checkoutError: string;
+    portalError: string;
+    unsubscribeConfirm: {
+      title: string;
+      description: string;
+      lossesTitle: string;
+      confirm: string;
+      cancel: string;
+    };
   };
   premiumModal: {
     title: string;
