@@ -116,8 +116,17 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Stripe price is not configured." }, { status: 500 }));
   }
 
-  const successUrl = stripeConfig.checkoutSuccessUrl;
-  const cancelUrl = stripeConfig.checkoutCancelUrl;
+  const requestOrigin = (() => {
+    try {
+      const url = new URL(request.url);
+      return url.origin;
+    } catch {
+      return null;
+    }
+  })();
+
+  const successUrl = stripeConfig.checkoutSuccessUrl ?? (requestOrigin ? `${requestOrigin}/settings?billing=success` : null);
+  const cancelUrl = stripeConfig.checkoutCancelUrl ?? (requestOrigin ? `${requestOrigin}/settings?billing=cancel` : null);
 
   if (!successUrl || !cancelUrl) {
     return withSecurityHeaders(
