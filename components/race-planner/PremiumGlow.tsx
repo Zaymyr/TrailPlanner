@@ -12,9 +12,9 @@ export function PremiumGlow({ tooltip = "Premium feature", className }: PremiumG
     <span
       className={cn(
         "pointer-events-none absolute inset-0 rounded-md",
-        "before:pointer-events-none before:absolute before:inset-0 before:rounded-md before:border before:border-amber-200/40 before:content-[''] before:opacity-70",
-        "after:pointer-events-none after:absolute after:-inset-0.5 after:rounded-[10px] after:border after:border-amber-200/25 after:content-[''] after:opacity-60 after:animate-[pulse_3s_ease-in-out_infinite]",
-        "transition duration-500 group-hover:before:opacity-90 group-hover:after:opacity-80 group-focus-visible:before:opacity-90 group-focus-visible:after:opacity-80",
+        "before:pointer-events-none before:absolute before:-inset-[1px] before:rounded-[12px] before:bg-[conic-gradient(at_top,_#fef3c7,_#fcd34d,_#f59e0b,_#fcd34d,_#fef3c7)] before:blur-[4px] before:opacity-55 before:content-[''] before:animate-[spin_7s_linear_infinite]",
+        "after:pointer-events-none after:absolute after:inset-0 after:rounded-md after:border after:border-amber-100/40 after:content-[''] after:opacity-80",
+        "transition duration-700 group-hover:before:opacity-75 group-hover:after:opacity-90 group-focus-visible:before:opacity-75 group-focus-visible:after:opacity-90",
         className
       )}
       aria-hidden

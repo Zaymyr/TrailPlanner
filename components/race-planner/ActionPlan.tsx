@@ -408,7 +408,7 @@ export function ActionPlan({
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
                 >
-                  <span>{copy.buttons.autoFill}</span>
+                  <span className="relative z-10">{copy.buttons.autoFill}</span>
                   {autoFillLocked ? <PremiumGlow /> : null}
                 </Button>
               ) : null}
@@ -420,7 +420,7 @@ export function ActionPlan({
                   onClick={exportLocked ? () => onUpgrade("print") : onPrint}
                   disabled={exportLocked && isUpgradeBusy}
                 >
-                  <span>{copy.buttons.printPlan}</span>
+                  <span className="relative z-10">{copy.buttons.printPlan}</span>
                   {exportLocked ? <PremiumGlow /> : null}
                 </Button>
               ) : null}
