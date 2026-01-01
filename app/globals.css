@@ -27,3 +27,25 @@ button {
     color: #0f172a;
   }
 }
+
+@keyframes premium-border-sweep {
+  0% {
+    --glow-angle: 0deg;
+  }
+  100% {
+    --glow-angle: 360deg;
+  }
+}
+
+.premium-border-animate {
+  --glow-angle: 0deg;
+  background: conic-gradient(
+    from var(--glow-angle),
+    rgba(254, 243, 199, 0.45),
+    rgba(252, 211, 77, 0.38),
+    rgba(245, 158, 11, 0.32),
+    rgba(252, 211, 77, 0.38),
+    rgba(254, 243, 199, 0.45)
+  );
+  animation: premium-border-sweep 6s linear infinite;
+}

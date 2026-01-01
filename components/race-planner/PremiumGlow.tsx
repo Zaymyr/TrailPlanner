@@ -19,10 +19,8 @@ export function PremiumGlow({ tooltip = "Premium feature", className }: PremiumG
       aria-hidden
     >
       <span
-        className="absolute inset-0 rounded-[10px] opacity-75 animate-[spin_5s_linear_infinite]"
+        className="premium-border-animate absolute inset-0 rounded-[10px] opacity-80"
         style={{
-          background:
-            "conic-gradient(from 0deg, rgba(254,243,199,0.55), rgba(252,211,77,0.5), rgba(245,158,11,0.45), rgba(252,211,77,0.5), rgba(254,243,199,0.55))",
           padding: "2px",
           WebkitMask:
             "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
