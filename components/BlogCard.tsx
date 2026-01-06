@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 import type { LinkProps } from "next/link";
 
@@ -9,7 +10,7 @@ import { cn } from "./utils";
 type BlogCardProps = {
   title: string;
   description?: string;
-  href: LinkProps["href"];
+  href: LinkProps<Route>["href"];
   tags: string[];
   date: string;
   readingTime?: ReadingTime;
