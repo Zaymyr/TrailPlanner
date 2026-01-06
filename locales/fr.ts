@@ -8,12 +8,93 @@ export const fr: Translations = {
     cta: "Ouvrir le planificateur de course",
   },
   landing: {
-    heading: "Guides nutrition et hydratation trail",
-    subheading:
-      "Choisissez un guide pour affiner votre plan nutrition trail, hydratation et stratégie de ravitos, ou ouvrez directement l'outil.",
-    plannerCta: "Lancer le planificateur",
-    plannerDescription:
-      "Estimez vos besoins en glucides, eau et sodium par heure, positionnez les ravitaillements et exportez un plan imprimable.",
+    hero: {
+      eyebrow: "TrailPlanner",
+      heading: "Un plan trail clair en quelques minutes",
+      subheading:
+        "Renseignez l’allure, le dénivelé et la météo pour obtenir vos cibles en glucides, eau et sodium à chaque ravito.",
+      bullets: [
+        "Jauges claires pour carbs, eau et sodium pendant la course",
+        "Ravitos auto-cartographiés avec volumes et nombre de gels",
+        "Plan imprimable qui s’adapte au dénivelé et à la chaleur",
+      ],
+      socialProof: "Créé par un traileur pour remplacer les tableurs dispersés.",
+      primaryCta: "Créer mon plan",
+      secondaryCta: "Voir un exemple",
+      heroImageAlt: "Jauges de carburants montrant les cibles en glucides, eau et sodium pour une course trail.",
+      secondaryImageAlt: "Profil d’élévation avec ravitaillements et repères de distance pour une course trail.",
+    },
+    howItWorks: {
+      title: "Comment ça marche",
+      steps: [
+        {
+          title: "Importez ou définissez votre parcours",
+          description:
+            "Ajoutez distance, D+, allure—or importez un GPX pour placer les ravitos automatiquement.",
+        },
+        {
+          title: "Fixez vos cibles de ravito",
+          description:
+            "Définissez glucides, eau et sodium par heure et visualisez les bouteilles, gels et pastilles par segment.",
+        },
+        {
+          title: "Export prêt jour J",
+          description:
+            "Imprimez ou enregistrez le plan avec horaires, volumes à remplir et rappels pour chaque arrêt.",
+        },
+      ],
+    },
+    demo: {
+      title: "Démo : un plan 50K montagne",
+      subtitle: "Voyez comment les jauges, le profil et les cartes ravito fonctionnent ensemble.",
+      cards: [
+        {
+          title: "Restez dans vos cibles",
+          description:
+            "Les jauges signalent quand carbs ou hydratation dérivent pour ajuster avant la prochaine montée.",
+        },
+        {
+          title: "Ravitos en un coup d’œil",
+          description:
+            "Chaque arrêt affiche volumes à remplir, gels et sodium pour ne jamais hésiter quoi prendre.",
+        },
+        {
+          title: "S’adapte au terrain",
+          description:
+            "Le profil d’élévation garde des horaires réalistes quand les pentes changent—fini les estimations sur plat.",
+        },
+      ],
+    },
+    faq: {
+      title: "FAQ",
+      subtitle: "Pensé pour les traileurs et ultra-traileurs qui veulent un plan simple et fiable.",
+      items: [
+        {
+          question: "Puis-je utiliser mes propres gels ou boisson énergétique ?",
+          answer:
+            "Oui. Ajoutez vos produits dans Paramètres et le plan utilisera vos valeurs de glucides et sodium automatiquement.",
+        },
+        {
+          question: "Est-ce que ça marche sans fichier GPX ?",
+          answer:
+            "Bien sûr. Indiquez distance, D+ et allure pour obtenir immédiatement les cibles par ravito.",
+        },
+        {
+          question: "Comment gérez-vous la chaleur et l’altitude ?",
+          answer:
+            "Ajustez la température et les cibles d’hydratation évoluent. Les entrées d’allure permettent de modéliser les sections plus raides et lentes.",
+        },
+        {
+          question: "Puis-je imprimer ou partager le plan ?",
+          answer: "Oui. Exporte un aperçu propre et imprimable pour le jour J et partageable avec votre assistance.",
+        },
+        {
+          question: "Est-ce payant ?",
+          answer: "Le cœur du planning est gratuit. Des fonctions avancées comme les modèles sauvegardés seront optionnelles.",
+        },
+      ],
+      cta: "Commencer mon plan",
+    },
     cardsHeading: "Explorer les guides détaillés",
     cardCta: "Ouvrir le guide",
     cards: [
