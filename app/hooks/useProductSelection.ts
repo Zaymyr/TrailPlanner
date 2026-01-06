@@ -4,14 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   mapProductToSelection,
-  MAX_SELECTED_PRODUCTS,
   persistSelectedProducts,
   readSelectedProducts,
   type StoredProductPreference,
 } from "../../lib/product-preferences";
 import type { FuelProduct } from "../../lib/product-types";
 
-export type ToggleResult = { updated: boolean; reason?: "limit" };
+export type ToggleResult = { updated: boolean };
 
 export const useProductSelection = () => {
   const [selectedProducts, setSelectedProducts] = useState<StoredProductPreference[]>([]);
@@ -21,8 +20,8 @@ export const useProductSelection = () => {
   }, []);
 
   const replaceSelection = useCallback((products: StoredProductPreference[]) => {
-    setSelectedProducts(products.slice(0, MAX_SELECTED_PRODUCTS));
-    persistSelectedProducts(products.slice(0, MAX_SELECTED_PRODUCTS));
+    setSelectedProducts(products);
+    persistSelectedProducts(products);
   }, []);
 
   const toggleProduct = useCallback(
@@ -36,11 +35,6 @@ export const useProductSelection = () => {
           persistSelectedProducts(next);
           result = { updated: true };
           return next;
-        }
-
-        if (current.length >= MAX_SELECTED_PRODUCTS) {
-          result = { updated: false, reason: "limit" };
-          return current;
         }
 
         const next = [...current, mapProductToSelection(product)];

@@ -471,7 +471,6 @@ export type ProfileTranslations = {
     add: string;
     empty: string;
     selectedLabel: string;
-    limit: string;
     remove: string;
     dialog: {
       title: string;
@@ -553,7 +552,6 @@ export type ProductSettingsTranslations = {
   errors: {
     loadFailed: string;
     createFailed: string;
-    selectionLimit: string;
     missingSession: string;
   };
   actions: {
