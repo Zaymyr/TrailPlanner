@@ -1,5 +1,6 @@
-import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "../seo";
 import type { Locale } from "../../locales/types";
+import { getAllPostMetadata } from "../../lib/blog/posts";
+import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "../seo";
 
 type SitemapEntry = {
   path: string;
@@ -29,19 +30,32 @@ const buildAlternateLinks = (path: string) =>
     .join("\n    ");
 
 const buildUrlNode = ({ path, lastModified }: SitemapEntry) => {
-  const lastmod = lastModified ?? new Date().toISOString();
-
-  return [
+  const lines = [
     "  <url>",
     `    <loc>${toAbsoluteUrl(path)}</loc>`,
     `    ${buildAlternateLinks(path)}`,
-    `    <lastmod>${lastmod}</lastmod>`,
-    "  </url>",
-  ].join("\n");
+  ];
+
+  if (lastModified) {
+    lines.push(`    <lastmod>${lastModified}</lastmod>`);
+  }
+
+  lines.push("  </url>");
+
+  return lines.join("\n");
 };
 
-export function GET(): Response {
-  const urlEntries = sitemapEntries.map(buildUrlNode).join("\n");
+export const dynamic = "force-static";
+
+export async function GET(): Promise<Response> {
+  const blogPosts = await getAllPostMetadata();
+
+  const blogEntries: SitemapEntry[] = blogPosts.map((post) => ({
+    path: `/blog/${post.slug}`,
+    lastModified: post.updatedAt ?? post.date,
+  }));
+
+  const urlEntries = [...sitemapEntries, { path: "/blog" }, ...blogEntries].map(buildUrlNode).join("\n");
 
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
