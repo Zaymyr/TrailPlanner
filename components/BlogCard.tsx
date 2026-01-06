@@ -9,7 +9,7 @@ import { cn } from "./utils";
 type BlogCardProps = {
   title: string;
   description?: string;
-  href: LinkProps["href"];
+  href: LinkProps<string>["href"];
   tags: string[];
   date: string;
   readingTime?: ReadingTime;
