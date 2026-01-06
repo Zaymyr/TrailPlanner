@@ -245,19 +245,27 @@ const createHeadingSlugger = () => {
 
 const createHeadingComponent =
   (
-    Tag: 'h2' | 'h3',
-    slugger: (text: string) => string,
-  ): React.FC<React.HTMLAttributes<HTMLHeadingElement>> =>
-  ({ children, ...props }) => {
-    const text = extractHeadingText(children);
-    const id = props.id ?? slugger(text);
+    Tag: "h2" | "h3",
+    slugger: (text: string) => string
+  ): React.FC<React.HTMLAttributes<HTMLHeadingElement>> => {
+    const Component: React.FC<React.HTMLAttributes<HTMLHeadingElement>> = ({
+      children,
+      ...props
+    }) => {
+      const text = extractHeadingText(children);
+      const id = props.id ?? slugger(text);
 
-    return (
-      <Tag {...props} id={id}>
-        {children}
-      </Tag>
-    );
+      return (
+        <Tag {...props} id={id}>
+          {children}
+        </Tag>
+      );
+    };
+
+    Component.displayName = `Heading(${Tag})`;
+    return Component;
   };
+
 
 const extractHeadingText = (value: ReactNode): string => {
   if (typeof value === 'string' || typeof value === 'number') {

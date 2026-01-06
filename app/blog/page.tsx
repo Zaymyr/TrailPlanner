@@ -71,7 +71,13 @@ const buildExcerpt = (description?: string): string =>
 const TagFilter = ({ tags, activeTag }: { tags: TagSummary[]; activeTag?: string }) => {
   const renderTagLink = (tagLabel: string, targetTag?: string, count?: number) => {
     const isActive = activeTag?.toLowerCase() === targetTag?.toLowerCase();
-    const href = targetTag ? `/blog?tag=${encodeURIComponent(targetTag)}` : "/blog";
+    const href = targetTag
+  ? {
+      pathname: "/blog",
+      query: { tag: targetTag },
+    }
+  : { pathname: "/blog" };
+
 
     return (
       <Link
