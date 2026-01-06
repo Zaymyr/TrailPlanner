@@ -10,9 +10,9 @@ export const fr: Translations = {
   landing: {
     hero: {
       eyebrow: "TrailPlanner",
-      heading: "Un plan trail clair en quelques minutes",
+      heading: "Fini les coups de barre à cause d’un plan ravito bancal",
       subheading:
-        "Renseignez l’allure, le dénivelé et la météo pour obtenir vos cibles en glucides, eau et sodium à chaque ravito.",
+        "Vos cibles exactes en glucides, eau et sodium pour chaque segment — selon votre parcours, votre allure et la chaleur.",
       bullets: [
         "Jauges claires pour carbs, eau et sodium pendant la course",
         "Ravitos auto-cartographiés avec volumes et nombre de gels",
