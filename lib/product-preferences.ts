@@ -4,8 +4,6 @@ import { z } from "zod";
 
 import type { FuelProduct } from "./product-types";
 
-export const MAX_SELECTED_PRODUCTS = 3;
-
 const STORAGE_KEY = "trailplanner.selectedProducts";
 
 const storedProductSchema = z.object({
@@ -21,7 +19,7 @@ const storedProductSchema = z.object({
 
 export type StoredProductPreference = z.infer<typeof storedProductSchema>;
 
-const storedSelectionSchema = z.array(storedProductSchema).max(MAX_SELECTED_PRODUCTS);
+const storedSelectionSchema = z.array(storedProductSchema);
 
 export const readSelectedProducts = (): StoredProductPreference[] => {
   if (typeof window === "undefined") return [];

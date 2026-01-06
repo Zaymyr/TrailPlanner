@@ -6,7 +6,7 @@ import type { UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
 import type { FuelProduct } from "../../lib/product-types";
-import { MAX_SELECTED_PRODUCTS, type StoredProductPreference } from "../../lib/product-preferences";
+import type { StoredProductPreference } from "../../lib/product-preferences";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
@@ -382,7 +382,6 @@ export function ActionPlan({
       setPickerFavorites((current) => {
         const exists = current.includes(slug);
         if (exists) return current.filter((item) => item !== slug);
-        if (current.length >= MAX_SELECTED_PRODUCTS) return current;
         return [...current, slug];
       });
     },

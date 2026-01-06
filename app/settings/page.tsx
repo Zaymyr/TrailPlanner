@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { readStoredSession } from "../../lib/auth-storage";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
-import { MAX_SELECTED_PRODUCTS, mapProductToSelection } from "../../lib/product-preferences";
+import { mapProductToSelection } from "../../lib/product-preferences";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useI18n } from "../i18n-provider";
 
@@ -250,11 +250,6 @@ export default function SettingsPage() {
   const handleToggle = (product: FuelProduct) => {
     setSelectionError(null);
     const isSelected = selectedProducts.some((item) => item.id === product.id);
-
-    if (!isSelected && selectedProducts.length >= MAX_SELECTED_PRODUCTS) {
-      setSelectionError(t.productSettings.errors.selectionLimit);
-      return;
-    }
 
     const nextSelection = isSelected
       ? selectedProducts.filter((item) => item.id !== product.id)
