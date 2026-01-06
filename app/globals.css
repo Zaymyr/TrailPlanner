@@ -27,3 +27,53 @@ button {
     color: #0f172a;
   }
 }
+
+@layer components {
+  .blog-prose {
+    @apply max-w-none space-y-6 text-slate-100;
+  }
+
+  .blog-prose h2 {
+    @apply mt-10 text-2xl font-semibold text-slate-50;
+  }
+
+  .blog-prose h3 {
+    @apply mt-8 text-xl font-semibold text-slate-100;
+  }
+
+  .blog-prose p {
+    @apply leading-relaxed text-slate-100;
+  }
+
+  .blog-prose a {
+    @apply font-medium text-emerald-300 underline-offset-4 hover:text-emerald-200;
+  }
+
+  .blog-prose ul {
+    @apply list-disc space-y-2 pl-5 text-slate-100;
+  }
+
+  .blog-prose ol {
+    @apply list-decimal space-y-2 pl-5 text-slate-100;
+  }
+
+  .blog-prose blockquote {
+    @apply border-l-4 border-emerald-400/70 bg-emerald-950/40 px-4 py-2 text-slate-100;
+  }
+
+  .blog-prose code {
+    @apply rounded bg-slate-900 px-1.5 py-0.5 text-sm text-emerald-200;
+  }
+
+  .blog-prose pre {
+    @apply overflow-x-auto rounded-lg border border-slate-800 bg-slate-950 p-4 text-sm leading-relaxed text-slate-100;
+  }
+
+  .blog-prose img {
+    @apply rounded-lg border border-slate-800;
+  }
+
+  .blog-prose hr {
+    @apply border-slate-800;
+  }
+}
