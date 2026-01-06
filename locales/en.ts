@@ -8,12 +8,84 @@ export const en: Translations = {
     cta: "Open race planner",
   },
   landing: {
-    heading: "Trail race fueling & hydration guides",
-    subheading:
-      "Pick a guide to learn how to plan trail nutrition, hydration, and aid-station strategy—or jump straight into the planner.",
-    plannerCta: "Start the race planner",
-    plannerDescription:
-      "Estimate carb, water, and sodium needs by hour, map aid-station stops, and export a printable race plan.",
+    hero: {
+      eyebrow: "TrailPlanner",
+      heading: "Dial your trail plan in minutes, not hours",
+      subheading:
+        "Set your pace, terrain, and temperature to get exact carbs, water, and sodium targets for every aid station.",
+      bullets: [
+        "Clear carb, water, and sodium gauges you can act on mid-race",
+        "Auto-map aid stations with refill volumes and gel counts",
+        "Printable plan that adapts to elevation and heat",
+      ],
+      socialProof: "Built by a trail runner to replace scattered spreadsheets.",
+      primaryCta: "Create my plan",
+      secondaryCta: "See an example",
+      heroImageAlt: "Fueling gauges showing carbs, water, and sodium targets for a trail race.",
+      secondaryImageAlt: "Elevation profile with aid stations and distance markers for a trail race.",
+    },
+    howItWorks: {
+      title: "How it works",
+      steps: [
+        {
+          title: "Import or set your course",
+          description: "Add distance, elevation, and pacing—or import a GPX to place aid stations automatically.",
+        },
+        {
+          title: "Lock in fueling targets",
+          description: "Set carb, water, and sodium per hour and see bottles, gels, and tabs update per segment.",
+        },
+        {
+          title: "Export race-day ready",
+          description: "Print or save the plan with timing, refill volumes, and reminders for each stop.",
+        },
+      ],
+    },
+    demo: {
+      title: "Demo: a 50K mountain plan",
+      subtitle: "See how the gauges, elevation, and aid-station cards work together.",
+      cards: [
+        {
+          title: "Stay inside your targets",
+          description: "Gauges highlight when carbs or hydration drift off target so you can adjust before the next climb.",
+        },
+        {
+          title: "Aid stations at a glance",
+          description: "Each stop shows bottle refills, gel counts, and sodium so you never guess what to grab.",
+        },
+        {
+          title: "Adapts to terrain",
+          description: "Elevation profile keeps timing realistic when grades change—no more flat-road pacing guesses.",
+        },
+      ],
+    },
+    faq: {
+      title: "FAQ",
+      subtitle: "Built for trail and ultra runners who need a simple, accurate plan.",
+      items: [
+        {
+          question: "Can I use my own gels and drink mix?",
+          answer: "Yes. Add your products in Settings and the plan will use your carb and sodium values automatically.",
+        },
+        {
+          question: "Does it work without a GPX file?",
+          answer: "Absolutely. Enter distance, elevation gain, and pacing to get aid-station targets instantly.",
+        },
+        {
+          question: "How do you handle heat and altitude?",
+          answer: "Set temperature and the hydration targets adjust. Pace inputs let you model steeper, slower sections.",
+        },
+        {
+          question: "Can I print or share the plan?",
+          answer: "Yes. Export a clean, printable view for race day and share it with your crew.",
+        },
+        {
+          question: "Is there a cost?",
+          answer: "Core planning is free. Advanced features like saved templates will be optional.",
+        },
+      ],
+      cta: "Start planning",
+    },
     cardsHeading: "Explore focused guides",
     cardCta: "Open guide",
     cards: [

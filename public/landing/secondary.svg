@@ -1,0 +1,28 @@
+<svg width="1803" height="283" viewBox="0 0 1803 283" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1803" height="283" rx="20" fill="#0C1429"/>
+  <rect x="20" y="20" width="1763" height="243" rx="16" fill="#0F1B33" stroke="#124B41" stroke-width="2"/>
+  <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="#1b6156" stop-opacity="0.8" />
+    <stop offset="100%" stop-color="#0f1b33" stop-opacity="0.2" />
+  </linearGradient>
+  <g transform="translate(48,56)">
+    <rect width="1707" height="170" rx="12" fill="url(#grad)" stroke="#1B3A38" stroke-width="1.5"/>
+    <polyline points="0,120 140,110 260,124 360,140 520,110 720,146 900,126 1080,150 1240,134 1440,168 1600,152 1707,170" fill="none" stroke="#d28a37" stroke-width="3"/>
+    <polyline points="0,130 140,136 260,144 360,160 520,150 720,166 900,150 1080,170 1240,160 1440,182 1600,168 1707,183" fill="none" stroke="#2f8f83" stroke-width="3" opacity="0.6"/>
+    <g fill="#9AE6C7" stroke="#0C1429" stroke-width="2">
+      <circle cx="220" cy="128" r="8"/>
+      <circle cx="620" cy="140" r="8"/>
+      <circle cx="1020" cy="150" r="8"/>
+      <circle cx="1400" cy="165" r="8"/>
+    </g>
+    <g font-family="Inter, system-ui" fill="#E6F7F3" font-weight="600" font-size="12">
+      <text x="206" y="148">Ravito 1</text>
+      <text x="606" y="160">Ravito 2</text>
+      <text x="1006" y="170">Ravito 3</text>
+      <text x="1386" y="186">Arrivée</text>
+    </g>
+  </g>
+  <rect x="60" y="236" width="1683" height="18" rx="9" fill="#12384D"/>
+  <rect x="60" y="236" width="980" height="18" rx="9" fill="#2f8f83"/>
+  <rect x="60" y="236" width="640" height="18" rx="9" fill="#a94a66" opacity="0.65"/>
+</svg>

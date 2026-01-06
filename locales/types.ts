@@ -323,10 +323,41 @@ export type RacePlannerTranslations = {
 };
 
 export type LandingPageTranslations = {
-  heading: string;
-  subheading: string;
-  plannerCta: string;
-  plannerDescription: string;
+  hero: {
+    eyebrow: string;
+    heading: string;
+    subheading: string;
+    bullets: string[];
+    socialProof: string;
+    primaryCta: string;
+    secondaryCta: string;
+    heroImageAlt: string;
+    secondaryImageAlt: string;
+  };
+  howItWorks: {
+    title: string;
+    steps: Array<{
+      title: string;
+      description: string;
+    }>;
+  };
+  demo: {
+    title: string;
+    subtitle: string;
+    cards: Array<{
+      title: string;
+      description: string;
+    }>;
+  };
+  faq: {
+    title: string;
+    subtitle: string;
+    items: Array<{
+      question: string;
+      answer: string;
+    }>;
+    cta: string;
+  };
   cardsHeading: string;
   cardCta: string;
   cards: Array<{
