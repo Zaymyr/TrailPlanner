@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { inject } from "@vercel/analytics";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import Script from "next/script";
 
 import { canLoadAnalytics, COOKIE_CONSENT_EVENT } from "../lib/cookies/consent";
 
-let hasInjectedAnalytics = false;
+const GTAG_ID = "G-XP1FWYW1W6";
 
-export function Analytics() {
+export function GTagLoader() {
   const [isEnabled, setIsEnabled] = useState<boolean>(canLoadAnalytics());
 
   useEffect(() => {
@@ -25,20 +24,25 @@ export function Analytics() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isEnabled && !hasInjectedAnalytics) {
-      inject();
-      hasInjectedAnalytics = true;
-    }
-  }, [isEnabled]);
-
-  const speedInsights = useMemo(() => {
+  const scripts = useMemo(() => {
     if (!isEnabled) {
       return null;
     }
 
-    return <SpeedInsights />;
+    return (
+      <>
+        <Script async src={`https://www.googletagmanager.com/gtag/js?id=${GTAG_ID}`} strategy="afterInteractive" />
+        <Script id="ga-gtag" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${GTAG_ID}');
+          `}
+        </Script>
+      </>
+    );
   }, [isEnabled]);
 
-  return speedInsights;
+  return scripts;
 }
