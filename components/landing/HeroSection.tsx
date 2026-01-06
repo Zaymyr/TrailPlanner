@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import type { SVGProps } from "react";
 
 import type { LandingPageTranslations } from "../../locales/types";
@@ -43,6 +44,8 @@ type HeroSectionProps = {
 };
 
 export function HeroSection({ hero }: HeroSectionProps) {
+  const [heroSrc, setHeroSrc] = useState("/landing/hero.png");
+
   return (
     <section className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/80 to-slate-950 p-8 shadow-2xl sm:p-12">
       <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-emerald-500/10 blur-3xl" aria-hidden />
@@ -86,12 +89,18 @@ export function HeroSection({ hero }: HeroSectionProps) {
           <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
           <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3 shadow-2xl shadow-emerald-500/10">
             <Image
-              src="/landing/hero.svg"
+              src={heroSrc}
               alt={hero.heroImageAlt}
               width={1321}
               height={230}
               priority
+              sizes="(min-width: 1024px) 560px, 100vw"
               className="w-full rounded-xl object-cover"
+              onError={() => {
+                if (heroSrc !== "/landing/hero.svg") {
+                  setHeroSrc("/landing/hero.svg");
+                }
+              }}
             />
           </div>
         </div>

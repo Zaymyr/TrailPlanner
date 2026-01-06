@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import type { SVGProps } from "react";
 
 import type { LandingPageTranslations } from "../../locales/types";
@@ -33,6 +34,9 @@ type DemoSectionProps = {
 };
 
 export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }: DemoSectionProps) {
+  const [primarySrc, setPrimarySrc] = useState("/landing/hero.png");
+  const [secondarySrc, setSecondarySrc] = useState("/landing/secondary.png");
+
   return (
     <section id="demo" className="space-y-6 rounded-3xl border border-slate-800 bg-slate-950/60 p-6 sm:p-10">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -64,20 +68,32 @@ export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }:
         <div className="space-y-4">
           <div className="overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 shadow-lg">
             <Image
-              src="/landing/hero.svg"
+              src={primarySrc}
               alt={heroImageAlt}
               width={1321}
               height={230}
+              sizes="(min-width: 1024px) 560px, 100vw"
               className="h-auto w-full object-cover"
+              onError={() => {
+                if (primarySrc !== "/landing/hero.svg") {
+                  setPrimarySrc("/landing/hero.svg");
+                }
+              }}
             />
           </div>
           <div className="overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 shadow-lg">
             <Image
-              src="/landing/secondary.svg"
+              src={secondarySrc}
               alt={secondaryImageAlt}
               width={1803}
               height={283}
+              sizes="(min-width: 1024px) 560px, 100vw"
               className="h-auto w-full object-cover"
+              onError={() => {
+                if (secondarySrc !== "/landing/secondary.svg") {
+                  setSecondarySrc("/landing/secondary.svg");
+                }
+              }}
             />
           </div>
         </div>
