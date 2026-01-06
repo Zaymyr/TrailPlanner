@@ -1725,6 +1725,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [append, fields.length, racePlannerCopy.defaults.aidStationName]
   );
 
+  const handleRemoveAidStation = useCallback(
+    (index: number) => {
+      if (!Number.isInteger(index)) return;
+
+      const totalStations = form.getValues("aidStations")?.length ?? 0;
+      if (index < 0 || index >= totalStations) return;
+
+      remove(index);
+    },
+    [form, remove]
+  );
+
   const handleSupplyDrop = useCallback(
     (aidStationIndex: number, productId: string, quantity = 1) => {
       const current = form.getValues(`aidStations.${aidStationIndex}.supplies`) ?? [];
@@ -2071,7 +2083,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         onPrint={handlePrint}
         onAutomaticFill={handleAutomaticFill}
         onAddAidStation={handleAddAidStation}
-        onRemoveAidStation={remove}
+        onRemoveAidStation={handleRemoveAidStation}
         register={form.register}
         setValue={form.setValue}
         formatDistanceWithUnit={formatDistanceWithUnit}
