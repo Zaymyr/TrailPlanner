@@ -141,10 +141,7 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
                 key={related.slug}
                 title={related.title}
                 description={related.description}
-                href={{
-                  pathname: "/blog/[...slug]",
-                  query: { slug: related.slug.split("/") },
-                }}
+                href={`/blog/${related.slug}`}
                 tags={related.tags}
                 date={related.date}
                 readingTime={related.readingTime}
