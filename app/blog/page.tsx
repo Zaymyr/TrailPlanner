@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import Link from "next/link";
 
 import { BlogCard } from "../../components/BlogCard";
@@ -143,10 +143,7 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
               key={post.meta.slug}
               title={post.meta.title}
               description={buildExcerpt(post.meta.description)}
-              href={{
-                pathname: "/blog/[...slug]",
-                query: { slug: post.meta.slug.split("/") },
-              }}
+              href={`/blog/${post.meta.slug}` as Route}
               tags={post.meta.tags}
               date={post.meta.date}
               readingTime={post.meta.readingTime}

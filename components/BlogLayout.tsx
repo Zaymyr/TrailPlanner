@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 import Script from "next/script";
 
 import type { CompiledPost, PostMeta } from "../lib/blog/posts";
@@ -141,10 +142,7 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
                 key={related.slug}
                 title={related.title}
                 description={related.description}
-                href={{
-                  pathname: "/blog/[...slug]",
-                  query: { slug: related.slug.split("/") },
-                }}
+                href={`/blog/${related.slug}` as Route}
                 tags={related.tags}
                 date={related.date}
                 readingTime={related.readingTime}
