@@ -7,7 +7,17 @@ import { HeroSection } from "../components/landing/HeroSection";
 import { HowItWorksSection } from "../components/landing/HowItWorksSection";
 import { useI18n } from "./i18n-provider";
 
-export function LandingPage() {
+type FeaturedGuideCard = {
+  slug: string;
+  title: string;
+  excerpt: string;
+};
+
+type LandingPageProps = {
+  featuredGuides: FeaturedGuideCard[];
+};
+
+export function LandingPage({ featuredGuides }: LandingPageProps) {
   const { t } = useI18n();
   const landing = t.landing;
 
@@ -22,7 +32,7 @@ export function LandingPage() {
         ctaLabel={landing.hero.primaryCta}
       />
       <FaqSection faq={landing.faq} />
-      <GuideCards cardsHeading={landing.cardsHeading} cardCta={landing.cardCta} cards={landing.cards} />
+      <GuideCards cardsHeading={landing.cardsHeading} cardCta={landing.cardCta} guides={featuredGuides} />
     </div>
   );
 }
