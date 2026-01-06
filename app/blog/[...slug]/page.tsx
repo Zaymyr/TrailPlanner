@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { BlogLayout } from "../../../components/blog/BlogLayout";
+import { BlogLayout } from "../../../components/BlogLayout";
 import { getAllPostMetadata, getPostBySlug, type PostMeta } from "../../../lib/blog/posts";
 import { localeToOgLocale, SITE_URL } from "../../seo";
 
