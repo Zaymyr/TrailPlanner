@@ -54,6 +54,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const canonicalUrl = buildCanonicalUrl(post.meta);
   const description = post.meta.description ?? "Insights from the TrailPlanner team.";
+  const ogImage = post.meta.image ? new URL(post.meta.image, SITE_URL).toString() : undefined;
 
   return {
     metadataBase: new URL(SITE_URL),
@@ -72,11 +73,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       publishedTime: post.meta.date,
       modifiedTime: post.meta.updatedAt ?? post.meta.date,
       tags: post.meta.tags,
+      images: ogImage
+        ? [
+            {
+              url: ogImage,
+              alt: post.meta.imageAlt ?? post.meta.title,
+            },
+          ]
+        : undefined,
     },
     twitter: {
       card: "summary_large_image",
       title: post.meta.title,
       description,
+      images: ogImage ? [ogImage] : undefined,
     },
   };
 }

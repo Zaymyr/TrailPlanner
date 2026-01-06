@@ -72,12 +72,11 @@ const TagFilter = ({ tags, activeTag }: { tags: TagSummary[]; activeTag?: string
   const renderTagLink = (tagLabel: string, targetTag?: string, count?: number) => {
     const isActive = activeTag?.toLowerCase() === targetTag?.toLowerCase();
     const href = targetTag
-  ? {
-      pathname: "/blog",
-      query: { tag: targetTag },
-    }
-  : { pathname: "/blog" };
-
+      ? {
+          pathname: "/blog",
+          query: { tag: targetTag },
+        }
+      : { pathname: "/blog" };
 
     return (
       <Link
@@ -147,6 +146,8 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
               tags={post.meta.tags}
               date={post.meta.date}
               readingTime={post.meta.readingTime}
+              imageSrc={post.meta.image}
+              imageAlt={post.meta.imageAlt}
             />
           ))}
         </div>

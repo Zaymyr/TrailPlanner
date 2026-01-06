@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Hydration for trail running</title>
+  <desc id="desc">Gradient illustration of a mountain horizon and water drops symbolizing hydration.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="60%" stop-color="#0b3d37"/>
+      <stop offset="100%" stop-color="#052e1f"/>
+    </linearGradient>
+    <linearGradient id="sun" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#22c55e" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <circle cx="1250" cy="180" r="120" fill="url(#sun)" opacity="0.85"/>
+  <path d="M0 620 Q200 560 360 600 T760 590 T1200 620 T1600 570 L1600 900 L0 900 Z" fill="#082f2b"/>
+  <path d="M0 640 Q230 520 480 590 T980 560 T1500 600 L1600 650 L1600 900 L0 900 Z" fill="#0b3a33" opacity="0.85"/>
+  <path d="M0 700 Q260 620 520 650 T1100 660 T1600 640 L1600 900 L0 900 Z" fill="#0f4c3c" opacity="0.75"/>
+  <g fill="none" stroke="#7ce7c3" stroke-width="8" stroke-linecap="round" opacity="0.9">
+    <path d="M260 360 Q300 300 340 360 T420 360"/>
+    <path d="M520 320 Q560 250 600 320 T680 320"/>
+    <path d="M820 340 Q860 270 900 340 T980 340"/>
+  </g>
+  <g transform="translate(260 210)">
+    <path d="M80 0 C40 70 0 120 0 170 C0 230 45 280 80 280 C115 280 160 230 160 170 C160 120 120 70 80 0 Z" fill="#34d399" opacity="0.85"/>
+    <path d="M80 30 C55 80 30 115 30 155 C30 205 55 230 80 230 C105 230 130 205 130 155 C130 115 105 80 80 30 Z" fill="#0b172a" opacity="0.25"/>
+    <circle cx="70" cy="120" r="14" fill="#e2ffef" opacity="0.9"/>
+  </g>
+  <text x="80" y="150" fill="#e2ffef" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="48" font-weight="600" letter-spacing="1">
+    Hydration for Trail Running
+  </text>
+  <text x="80" y="210" fill="#a5f3c2" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="26" font-weight="500">
+    Smarter bottles, steadier miles.
+  </text>
+</svg>

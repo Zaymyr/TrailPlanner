@@ -17,6 +17,8 @@ export type PostFrontmatter = {
   updatedAt?: string;
   tags?: string[];
   canonical?: string;
+  image?: string;
+  imageAlt?: string;
 };
 
 export type ReadingTime = {
@@ -32,6 +34,8 @@ export type PostMeta = {
   updatedAt?: string;
   tags: string[];
   canonical?: string;
+  image?: string;
+  imageAlt?: string;
   readingTime: ReadingTime;
 };
 
@@ -152,6 +156,8 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
   const slug = deriveSlugFromPath(filePath);
   const readingTime = computeReadingTime(parsed.content);
   const tags = sanitizeTags(frontmatter.tags);
+  const image = frontmatter.image?.trim() || undefined;
+  const imageAlt = frontmatter.imageAlt?.trim() || frontmatter.title;
   const headingSlugger = createHeadingSlugger();
   const headings = extractHeadings(parsed.content, headingSlugger);
   const renderingSlugger = createHeadingSlugger();
@@ -175,6 +181,8 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
     updatedAt: frontmatter.updatedAt,
     tags,
     canonical: frontmatter.canonical,
+    image,
+    imageAlt,
     readingTime,
   };
 
@@ -193,7 +201,7 @@ const sanitizeTags = (tags?: unknown): string[] => {
 };
 
 const validateFrontmatter = (data: Record<string, unknown>, filePath: string): PostFrontmatter => {
-  const { title, description, date, updatedAt, tags, canonical } = data;
+  const { title, description, date, updatedAt, tags, canonical, image, imageAlt } = data;
 
   if (typeof title !== 'string' || !title.trim()) {
     throw new Error(`Missing or invalid "title" in frontmatter for ${filePath}`);
@@ -215,6 +223,14 @@ const validateFrontmatter = (data: Record<string, unknown>, filePath: string): P
     throw new Error(`Invalid "canonical" in frontmatter for ${filePath}`);
   }
 
+  if (typeof image !== 'undefined' && typeof image !== 'string') {
+    throw new Error(`Invalid "image" in frontmatter for ${filePath}`);
+  }
+
+  if (typeof imageAlt !== 'undefined' && typeof imageAlt !== 'string') {
+    throw new Error(`Invalid "imageAlt" in frontmatter for ${filePath}`);
+  }
+
   if (typeof tags !== 'undefined' && !Array.isArray(tags)) {
     throw new Error(`Invalid "tags" in frontmatter for ${filePath}`);
   }
@@ -226,6 +242,8 @@ const validateFrontmatter = (data: Record<string, unknown>, filePath: string): P
     updatedAt: updatedAt ? normalizeDate(updatedAt) : undefined,
     tags: tags as string[] | undefined,
     canonical,
+    image,
+    imageAlt,
   };
 };
 
