@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Ultra trail fueling tips</title>
+  <desc id="desc">Illustration of an ultra trail route at night with fueling icons.</desc>
+  <defs>
+    <linearGradient id="dusk" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f1c"/>
+      <stop offset="55%" stop-color="#0d2231"/>
+      <stop offset="100%" stop-color="#0d3a2f"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#dusk)"/>
+  <circle cx="230" cy="190" r="120" fill="#22c55e" opacity="0.55"/>
+  <path d="M0 640 Q240 540 500 600 T980 560 T1500 630 L1600 660 L1600 900 L0 900 Z" fill="#0a2d26"/>
+  <path d="M0 700 Q260 610 520 650 T1100 640 T1600 630 L1600 900 L0 900 Z" fill="#0f4237" opacity="0.85"/>
+  <path d="M140 620 C320 520 520 540 700 460 C940 360 1170 380 1390 450" fill="none" stroke="#88f0c7" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+  <g fill="#eafff5" stroke="#22c55e" stroke-width="6">
+    <circle cx="300" cy="560" r="34"/>
+    <circle cx="620" cy="500" r="34"/>
+    <circle cx="920" cy="470" r="34"/>
+    <circle cx="1240" cy="510" r="34"/>
+  </g>
+  <g fill="none" stroke="#b7ffe1" stroke-width="6" stroke-linecap="round">
+    <path d="M300 526 v-90"/>
+    <path d="M620 470 v-120"/>
+    <path d="M920 450 v-100"/>
+    <path d="M1240 480 v-110"/>
+  </g>
+  <g fill="#0d172a" stroke="#b7ffe1" stroke-width="6" stroke-linejoin="round" opacity="0.9">
+    <rect x="272" y="350" width="56" height="80" rx="12"/>
+    <rect x="594" y="300" width="52" height="110" rx="12"/>
+    <rect x="896" y="330" width="60" height="90" rx="12"/>
+    <rect x="1218" y="320" width="56" height="100" rx="12"/>
+  </g>
+  <text x="120" y="140" fill="#eafff5" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="48" font-weight="600" letter-spacing="1">
+    Ultra trail fueling tips
+  </text>
+  <text x="120" y="195" fill="#a5f3c2" font-family="'Inter', 'Segoe UI', system-ui, sans-serif" font-size="26" font-weight="500">
+    Keep the tank steady through the night.
+  </text>
+</svg>

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
 import Script from "next/script";
@@ -32,6 +33,7 @@ const buildJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
   wordCount: post.meta.readingTime.words,
   keywords: post.meta.tags,
   articleBody: post.body,
+  image: post.meta.image ? new URL(post.meta.image, SITE_URL).toString() : undefined,
   author: {
     "@type": "Organization",
     name: "TrailPlanner",
@@ -93,6 +95,21 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
             Plan your next race
           </Link>
         </div>
+
+        {post.meta.image ? (
+          <div className="overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950/60">
+            <div className="relative h-64 w-full sm:h-72 lg:h-80">
+              <Image
+                src={post.meta.image}
+                alt={post.meta.imageAlt ?? post.meta.title}
+                fill
+                priority
+                className="h-full w-full object-cover"
+                sizes="(min-width: 1280px) 960px, (min-width: 1024px) 720px, 100vw"
+              />
+            </div>
+          </div>
+        ) : null}
       </header>
 
       <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_260px]">
@@ -141,16 +158,18 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
               <BlogCard
                 key={related.slug}
                 title={related.title}
-                description={related.description}
-                href={`/blog/${related.slug}` as Route}
-                tags={related.tags}
-                date={related.date}
-                readingTime={related.readingTime}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+              description={related.description}
+              href={`/blog/${related.slug}` as Route}
+              tags={related.tags}
+              date={related.date}
+              readingTime={related.readingTime}
+              imageSrc={related.image}
+              imageAlt={related.imageAlt}
+            />
+          ))}
+        </div>
+      )}
+    </section>
 
       <Script
         id={`blog-json-ld-${post.meta.slug}`}
