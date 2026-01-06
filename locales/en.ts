@@ -10,9 +10,9 @@ export const en: Translations = {
   landing: {
     hero: {
       eyebrow: "TrailPlanner",
-      heading: "Dial your trail plan in minutes, not hours",
+      heading: "No more bonking from bad aid-station planning",
       subheading:
-        "Set your pace, terrain, and temperature to get exact carbs, water, and sodium targets for every aid station.",
+        "Exact carbs, water, and sodium targets for every segment — based on your course, pace, and heat.",
       bullets: [
         "Clear carb, water, and sodium gauges you can act on mid-race",
         "Auto-map aid stations with refill volumes and gel counts",
