@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { UrlObject } from "url";
+import type { LinkProps } from "next/link";
 
 import { formatBlogDate } from "../lib/blog/format";
 import type { ReadingTime } from "../lib/blog/posts";
@@ -9,7 +9,7 @@ import { cn } from "./utils";
 type BlogCardProps = {
   title: string;
   description?: string;
-  href: UrlObject; // ✅ FIX ICI
+  href: LinkProps["href"];
   tags: string[];
   date: string;
   readingTime?: ReadingTime;
