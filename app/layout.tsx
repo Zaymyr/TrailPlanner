@@ -12,6 +12,7 @@ import { HeaderAuth } from "./header-auth";
 import { AuthCallbackHandler } from "./auth-callback-handler";
 import { QueryProvider } from "./query-client-provider";
 import { HeaderMenu } from "./header-menu";
+import { SiteFooter } from "../components/SiteFooter";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -92,7 +93,8 @@ export default function RootLayout({
                   <HeaderAuth />
                 </div>
               </header>
-              <main className="pb-10">{children}</main>
+              <main className="pb-6 sm:pb-8 lg:pb-10">{children}</main>
+              <SiteFooter />
             </div>
           </I18nProvider>
         </QueryProvider>
