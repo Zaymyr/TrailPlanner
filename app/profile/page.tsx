@@ -310,20 +310,15 @@ export default function ProfilePage() {
         throw new Error(data?.message ?? t.profile.subscription.checkoutError);
       }
 
-      const popup = window.open(data.url, "trailplanner-checkout", "width=520,height=720,noopener,noreferrer");
-      if (popup) {
-        popup.focus();
-        setUpgradeDialogOpen(false);
+      const popup = window.open(data.url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        setUpgradeError(t.profile.premiumModal.popupBlocked);
         return;
       }
 
-      try {
-        window.location.href = data.url;
-        setUpgradeDialogOpen(false);
-      } catch (fallbackError) {
-        console.error("Unable to open checkout in current tab", fallbackError);
-        setUpgradeError(t.profile.premiumModal.popupBlocked);
-      }
+      popup.opener = null;
+      popup.focus();
+      setUpgradeDialogOpen(false);
     } catch (error) {
       console.error("Unable to open checkout", error);
       setUpgradeError(error instanceof Error ? error.message : t.profile.subscription.checkoutError);
