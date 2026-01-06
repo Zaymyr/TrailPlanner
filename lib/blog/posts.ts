@@ -1,8 +1,9 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
+import React from 'react';
 import { compileMDX } from 'next-mdx-remote/rsc';
-import { cache, type ReactElement } from 'react';
+import { cache, type ReactElement, type ReactNode } from 'react';
 
 export const BLOG_DIRECTORY = path.join(process.cwd(), 'content', 'blog');
 const WORDS_PER_MINUTE = 225;
@@ -37,11 +38,19 @@ export type PostMeta = {
 export type CompiledPost = {
   meta: PostMeta;
   content: ReactElement;
+  body: string;
+  headings: PostHeading[];
 };
 
 export type TagSummary = {
   tag: string;
   count: number;
+};
+
+export type PostHeading = {
+  id: string;
+  text: string;
+  level: 2 | 3;
 };
 
 const discoverPosts = cache(async (): Promise<CompiledPost[]> => {
@@ -143,11 +152,18 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
   const slug = deriveSlugFromPath(filePath);
   const readingTime = computeReadingTime(parsed.content);
   const tags = sanitizeTags(frontmatter.tags);
+  const headingSlugger = createHeadingSlugger();
+  const headings = extractHeadings(parsed.content, headingSlugger);
+  const renderingSlugger = createHeadingSlugger();
 
   const { content } = await compileMDX({
     source: parsed.content,
     options: {
       parseFrontmatter: false,
+    },
+    components: {
+      h2: createHeadingComponent('h2', renderingSlugger),
+      h3: createHeadingComponent('h3', renderingSlugger),
     },
   });
 
@@ -162,7 +178,7 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
     readingTime,
   };
 
-  return { meta, content };
+  return { meta, content, body: parsed.content, headings };
 };
 
 const sanitizeTags = (tags?: unknown): string[] => {
@@ -212,3 +228,73 @@ const validateFrontmatter = (data: Record<string, unknown>, filePath: string): P
     canonical,
   };
 };
+
+const HEADING_PATTERN = /^(#{2,3})\s+(.+)$/gm;
+
+const createHeadingSlugger = () => {
+  const counts = new Map<string, number>();
+
+  return (text: string): string => {
+    const base = slugifyHeading(text);
+    const count = counts.get(base) ?? 0;
+    counts.set(base, count + 1);
+
+    return count === 0 ? base : `${base}-${count}`;
+  };
+};
+
+const createHeadingComponent =
+  (
+    Tag: 'h2' | 'h3',
+    slugger: (text: string) => string,
+  ): React.FC<React.HTMLAttributes<HTMLHeadingElement>> =>
+  ({ children, ...props }) => {
+    const text = extractHeadingText(children);
+    const id = props.id ?? slugger(text);
+
+    return (
+      <Tag {...props} id={id}>
+        {children}
+      </Tag>
+    );
+  };
+
+const extractHeadingText = (value: ReactNode): string => {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(extractHeadingText).join('');
+  }
+
+  if (React.isValidElement(value)) {
+    return extractHeadingText(value.props.children);
+  }
+
+  return '';
+};
+
+const extractHeadings = (markdown: string, slugger: (text: string) => string): PostHeading[] => {
+  const headings: PostHeading[] = [];
+  HEADING_PATTERN.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = HEADING_PATTERN.exec(markdown)) !== null) {
+    const level = match[1].length === 2 ? 2 : 3;
+    const rawText = match[2].replace(/#+\s*$/, '').trim();
+    const id = slugger(rawText);
+
+    headings.push({ id, text: rawText, level });
+  }
+
+  return headings;
+};
+
+const slugifyHeading = (text: string): string =>
+  (text
+    .toLowerCase()
+    .replace(/[`~!@#$%^&*()_=+[{\]}\\|;:'",<>/?]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'section');
