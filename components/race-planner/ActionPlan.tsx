@@ -159,7 +159,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex flex-col gap-1.5 rounded-2xl border border-slate-800/70 bg-slate-950/80 px-3 py-2 text-slate-200 shadow-[0_6px_20px_rgba(15,23,42,0.45)]"
+          ? "flex flex-col gap-1 rounded-xl border border-slate-800/30 bg-slate-950/40 px-2.5 py-2 text-slate-300"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
@@ -168,19 +168,19 @@ function SegmentCard({
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[11px] font-semibold"
+            ? "flex items-center justify-between text-[10px] font-semibold"
             : isCompact
               ? "flex items-center justify-between text-xs font-semibold"
               : "flex items-center justify-between text-sm font-semibold"
         }
       >
         <span className="tabular-nums">{distanceText}</span>
-        <span className="tabular-nums text-slate-300">{timeText}</span>
+        <span className="tabular-nums text-slate-400">{timeText}</span>
       </div>
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[10px] font-semibold"
+            ? "flex items-center justify-between text-[9px] font-semibold"
             : isCompact
               ? "flex items-center justify-between text-[11px] font-semibold"
               : "flex items-center justify-between text-xs font-semibold"
@@ -242,16 +242,16 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
 
   return (
     <div
-      className={`rounded-2xl border bg-slate-950/90 shadow-inner ${
-        isCompact ? "p-3" : "p-4"
+      className={`rounded-xl border bg-slate-950/70 ${
+        isCompact ? "p-2" : "p-4"
       } ${
         metric.statusTone === "success"
-          ? "border-emerald-500/60 shadow-emerald-500/20"
+          ? "border-emerald-500/40"
           : metric.statusTone === "warning"
-            ? "border-amber-500/60 shadow-amber-500/20"
+            ? "border-amber-500/40"
             : metric.statusTone === "danger"
-              ? "border-rose-500/60 shadow-rose-500/20"
-              : "border-slate-500/50 shadow-slate-500/10"
+              ? "border-rose-500/40"
+              : "border-slate-500/40"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -282,20 +282,20 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
         </div>
         <span
           className={`inline-flex items-center rounded-full border font-semibold ${
-            isCompact ? "px-1.5 py-0 text-[9px]" : "px-2 py-0.5 text-[11px]"
-          } ${statusToneStyles[metric.statusTone]}`}
+            isCompact ? "px-1 py-0 text-[8px]" : "px-2 py-0.5 text-[11px]"
+          } ${statusToneStyles[metric.statusTone]} ${isCompact ? "opacity-70" : ""}`}
         >
           {metric.statusLabel}
         </span>
       </div>
-      <div className={isCompact ? "mt-2 flex flex-col gap-1.5" : "mt-3 flex flex-col gap-3"}>
-        <p className={`${isCompact ? "text-2xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
+      <div className={isCompact ? "mt-1.5 flex flex-col gap-1" : "mt-3 flex flex-col gap-3"}>
+        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
           {isCompact ? compactValue : metric.value}
         </p>
         <div className={isCompact ? "space-y-1" : "space-y-2"}>
           <div
             className={`relative w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900 ${
-              isCompact ? "h-2.5" : "h-4"
+              isCompact ? "h-2" : "h-4"
             }`}
           >
             <div
@@ -329,9 +329,9 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             />
           </div>
           {isCompact ? (
-            <div className="relative h-3">
+            <div className="relative h-2.5">
               <span
-                className="absolute top-0 -translate-x-1/2 text-[10px] font-semibold text-slate-200"
+                className="absolute top-0 -translate-x-1/2 text-[9px] font-semibold text-slate-400"
                 style={{ left: `${targetPercent}%` }}
               >
                 {compactTarget}
@@ -339,7 +339,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             </div>
           ) : null}
           {isCompact ? (
-            metric.helper ? <p className="text-[10px] font-semibold text-amber-100">{metric.helper}</p> : null
+            metric.helper ? <p className="text-[9px] font-semibold text-amber-200/80">{metric.helper}</p> : null
           ) : (
             <div className="flex items-center justify-between text-xs text-slate-200">
               <span className="font-semibold">
@@ -431,17 +431,17 @@ type SectionRowProps = {
 
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
-    <div className="relative rounded-2xl border border-dashed border-slate-700/70 bg-slate-950/60 p-4">
+    <div className="relative rounded-2xl border border-dashed border-slate-700/70 bg-slate-950/55 p-3">
       {showConnector ? (
         <div className="pointer-events-none absolute left-[18px] top-2 flex h-[calc(100%-16px)] flex-col items-center">
-          <div className="h-full w-px bg-emerald-500/45" />
-          <div className="-mt-1 h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-emerald-500/60" />
+          <div className="h-full w-[2px] bg-emerald-500/60" />
+          <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/70" />
         </div>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
         <div className="max-w-xs">{segment}</div>
-        <div className="rounded-2xl border-2 border-slate-700/80 bg-slate-950/90 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.55)]">
-          <div className="grid gap-4 lg:grid-cols-3">{nutritionCards}</div>
+        <div className="rounded-2xl border border-slate-700/70 bg-slate-950/85 p-2">
+          <div className="grid gap-3 lg:grid-cols-3">{nutritionCards}</div>
         </div>
       </div>
     </div>
@@ -1001,7 +1001,7 @@ export function ActionPlan({
                   basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
                 const paceAdjustmentControl =
                   sectionSegment && paceAdjustmentFieldName ? (
-                    <div className="inline-flex items-center gap-1 rounded-full border border-slate-800 bg-slate-950/80 px-2 py-0.5">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-slate-800/60 bg-slate-950/50 px-2 py-0.5">
                       <input
                         type="hidden"
                         {...register(paceAdjustmentFieldName, {
