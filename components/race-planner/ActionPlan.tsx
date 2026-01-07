@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { UseFormRegister } from "react-hook-form";
+import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
@@ -32,7 +32,7 @@ type ActionPlanProps = {
   onAddAidStation: (station: { name: string; distanceKm: number }) => void;
   onRemoveAidStation: (index: number) => void;
   register: UseFormRegister<FormValues>;
-  setValue: (field: `aidStations.${number}.name` | `aidStations.${number}.distanceKm`, value: string | number) => void;
+  setValue: UseFormSetValue<FormValues>;
   formatDistanceWithUnit: (value: number) => string;
   formatMinutes: (totalMinutes: number) => string;
   formatFuelAmount: (value: number) => string;
@@ -456,96 +456,153 @@ export function ActionPlan({
                   const segmentRange = `${formatDistanceWithUnit(segment.startDistanceKm)} → ${formatDistanceWithUnit(segment.distanceKm)}`;
                   const segmentPath = `${segment.from} → ${segment.checkpoint}`;
                   const railDistance = `${segment.segmentKm.toFixed(1)} km`;
-                const railTime = formatMinutes(segment.segmentMinutes);
-                const timeFieldName = getSegmentFieldName(segment, "segmentMinutesOverride");
-                const timeInput = timeFieldName ? (
-                  <div className="flex w-full flex-col items-end gap-1">
-                    <Label className="sr-only" htmlFor={timeFieldName}>
-                      {timelineCopy.segmentTimeLabel}
-                    </Label>
-                    <Input
-                      id={timeFieldName}
-                      type="number"
-                      min="0"
-                      step="1"
-                      defaultValue={segment.plannedMinutesOverride ?? ""}
-                      className="max-w-[180px]"
-                      {...register(timeFieldName, {
-                        setValueAs: parseOptionalNumber,
-                      })}
-                    />
-                  </div>
-                ) : null;
+                  const railTime = formatMinutes(segment.segmentMinutes);
+                  const timeFieldName = getSegmentFieldName(segment, "segmentMinutesOverride");
+                  const paceAdjustmentFieldName = getSegmentFieldName(segment, "paceAdjustmentMinutesPerKm");
+                  const adjustmentStep = 0.25;
+                  const timeInput = timeFieldName ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs text-slate-300" htmlFor={timeFieldName}>
+                          {timelineCopy.segmentTimeLabel}
+                        </Label>
+                        <Input
+                          id={timeFieldName}
+                          type="number"
+                          min="0"
+                          step="1"
+                          defaultValue={segment.plannedMinutesOverride ?? ""}
+                          className="h-9 max-w-[140px]"
+                          {...register(timeFieldName, {
+                            setValueAs: parseOptionalNumber,
+                          })}
+                        />
+                        <p className="text-[11px] text-slate-500">{timelineCopy.segmentTimeHelp}</p>
+                      </div>
+                      {paceAdjustmentFieldName ? (
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs text-slate-300" htmlFor={paceAdjustmentFieldName}>
+                            {timelineCopy.paceAdjustmentLabel}
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-8 w-8 px-0"
+                              onClick={() => {
+                                const nextValue = Number(
+                                  ((segment.paceAdjustmentMinutesPerKm ?? 0) - adjustmentStep).toFixed(2)
+                                );
+                                setValue(paceAdjustmentFieldName, nextValue, {
+                                  shouldDirty: true,
+                                  shouldTouch: true,
+                                });
+                              }}
+                            >
+                              –
+                            </Button>
+                            <Input
+                              id={paceAdjustmentFieldName}
+                              type="number"
+                              step="0.05"
+                              defaultValue={segment.paceAdjustmentMinutesPerKm ?? ""}
+                              className="h-9 max-w-[120px] text-right"
+                              {...register(paceAdjustmentFieldName, {
+                                setValueAs: parseOptionalNumber,
+                              })}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-8 w-8 px-0"
+                              onClick={() => {
+                                const nextValue = Number(
+                                  ((segment.paceAdjustmentMinutesPerKm ?? 0) + adjustmentStep).toFixed(2)
+                                );
+                                setValue(paceAdjustmentFieldName, nextValue, {
+                                  shouldDirty: true,
+                                  shouldTouch: true,
+                                });
+                              }}
+                            >
+                              +
+                            </Button>
+                          </div>
+                          <p className="text-[11px] text-slate-500">{timelineCopy.paceAdjustmentHelp}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null;
 
-                const gelsFieldName = getSegmentFieldName(segment, "gelsPlanned");
-                const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
-                const metrics = [
-                  {
-                    key: "carbs" as const,
-                    label: timelineCopy.gelsBetweenLabel,
-                    planned: plannedFuel,
-                    target: segment.targetFuelGrams,
-                    total: raceTotals?.fuelGrams,
-                    format: formatFuelAmount,
-                  },
-                  {
-                    key: "water" as const,
-                    label: copy.sections.summary.items.water,
-                    planned: plannedWater,
-                    target: segment.targetWaterMl,
-                    total: raceTotals?.waterMl,
-                    format: formatWaterAmount,
-                  },
-                  {
-                    key: "sodium" as const,
-                    label: copy.sections.summary.items.sodium,
-                    planned: plannedSodium,
-                    target: segment.targetSodiumMg,
-                    total: raceTotals?.sodiumMg,
-                    format: formatSodiumAmount,
-                  },
-                ];
+                  const gelsFieldName = getSegmentFieldName(segment, "gelsPlanned");
+                  const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
+                  const metrics = [
+                    {
+                      key: "carbs" as const,
+                      label: timelineCopy.gelsBetweenLabel,
+                      planned: plannedFuel,
+                      target: segment.targetFuelGrams,
+                      total: raceTotals?.fuelGrams,
+                      format: formatFuelAmount,
+                    },
+                    {
+                      key: "water" as const,
+                      label: copy.sections.summary.items.water,
+                      planned: plannedWater,
+                      target: segment.targetWaterMl,
+                      total: raceTotals?.waterMl,
+                      format: formatWaterAmount,
+                    },
+                    {
+                      key: "sodium" as const,
+                      label: copy.sections.summary.items.sodium,
+                      planned: plannedSodium,
+                      target: segment.targetSodiumMg,
+                      total: raceTotals?.sodiumMg,
+                      format: formatSodiumAmount,
+                    },
+                  ];
 
-                const inlineMetrics = metrics.map((metric) => {
-                  const targetValue = Math.max(metric.target, 0);
-                  const maxValueCandidate =
-                    metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
-                      ? segment.waterCapacityMl
-                      : targetValue * 1.2;
-                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
-                  const status = getPlanStatus(metric.planned, targetValue, upperBound);
-                  const targetPercent =
-                    targetValue > 0 ? Math.max(0, Math.min((metric.planned / targetValue) * 100, 999)) : 0;
-                  const capacityLabel =
-                    metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
-                      ? timelineCopy.waterCapacityLabel.replace(
-                          "{capacity}",
-                          formatWaterAmount(segment.waterCapacityMl)
-                        )
-                      : null;
-                  const capacityWarning =
-                    metric.key === "water" && typeof segment.waterShortfallMl === "number" && segment.waterShortfallMl > 0
-                      ? timelineCopy.waterCapacityWarning.replace(
-                          "{missing}",
-                          formatWaterAmount(segment.waterShortfallMl)
-                        )
-                      : null;
-                  return {
-                    key: metric.key,
-                    label: metric.label,
-                    value: metric.format(metric.planned),
-                    plannedValue: metric.planned,
-                    format: metric.format,
-                    targetValue: metric.target,
-                    targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
-                    helper: capacityWarning ?? capacityLabel ?? null,
-                    targetPercent,
-                    totalPercent: calculatePercentage(metric.planned, metric.total),
-                    statusLabel: status.label,
-                    statusTone: status.tone,
-                    icon: metricIcons[metric.key],
-                  };
-                });
+                  const inlineMetrics = metrics.map((metric) => {
+                    const targetValue = Math.max(metric.target, 0);
+                    const maxValueCandidate =
+                      metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
+                        ? segment.waterCapacityMl
+                        : targetValue * 1.2;
+                    const upperBound = Math.max(maxValueCandidate, targetValue || 1);
+                    const status = getPlanStatus(metric.planned, targetValue, upperBound);
+                    const targetPercent =
+                      targetValue > 0 ? Math.max(0, Math.min((metric.planned / targetValue) * 100, 999)) : 0;
+                    const capacityLabel =
+                      metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
+                        ? timelineCopy.waterCapacityLabel.replace(
+                            "{capacity}",
+                            formatWaterAmount(segment.waterCapacityMl)
+                          )
+                        : null;
+                    const capacityWarning =
+                      metric.key === "water" && typeof segment.waterShortfallMl === "number" && segment.waterShortfallMl > 0
+                        ? timelineCopy.waterCapacityWarning.replace(
+                            "{missing}",
+                            formatWaterAmount(segment.waterShortfallMl)
+                          )
+                        : null;
+                    return {
+                      key: metric.key,
+                      label: metric.label,
+                      value: metric.format(metric.planned),
+                      plannedValue: metric.planned,
+                      format: metric.format,
+                      targetValue: metric.target,
+                      targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
+                      helper: capacityWarning ?? capacityLabel ?? null,
+                      targetPercent,
+                      totalPercent: calculatePercentage(metric.planned, metric.total),
+                      statusLabel: status.label,
+                      statusTone: status.tone,
+                      icon: metricIcons[metric.key],
+                    };
+                  });
 
                   return (
                     <div
@@ -578,6 +635,8 @@ export function ActionPlan({
                         </div>
                         <div className="h-px flex-1 rounded-full bg-slate-800" aria-hidden />
                       </div>
+
+                      {timeInput ? <div className="mb-4 flex justify-end">{timeInput}</div> : null}
 
                       <div className="flex flex-col gap-2 lg:flex-row">
                         {inlineMetrics.map((metric) => (
