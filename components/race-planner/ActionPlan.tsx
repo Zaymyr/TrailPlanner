@@ -432,13 +432,13 @@ type SectionRowProps = {
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative">
-      {showConnector ? (
-        <div className="pointer-events-none absolute left-[116px] top-2 z-0 flex h-[calc(100%-16px)] flex-col items-center">
-          <div className="h-full w-[2px] bg-emerald-500/70" />
-          <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
-        </div>
-      ) : null}
-      <div className="relative z-10 mx-10 -mt-2 rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4">
+      <div className="relative z-10 mx-10 -mt-3 rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4">
+        {showConnector ? (
+          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 flex flex-col items-center">
+            <div className="h-full w-[2px] bg-emerald-500/70" />
+            <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
+          </div>
+        ) : null}
         <div className="grid items-center gap-4 lg:grid-cols-[200px_1fr]">
           <div className="relative z-10 w-[200px] self-center">{segment}</div>
           <div className="w-full">
