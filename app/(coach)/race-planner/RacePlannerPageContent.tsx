@@ -328,6 +328,43 @@ function buildSegments(
 ): Segment[] {
   const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
   const minPerKm = minutesPerKm(values);
+  const sortedElevationProfile = [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm);
+  const trackDistanceKm = Math.max(values.raceDistanceKm, sortedElevationProfile.at(-1)?.distanceKm ?? 0);
+  const getElevationAtDistance = (distanceKm: number) => {
+    if (sortedElevationProfile.length === 0) return 0;
+    const clamped = Math.min(Math.max(distanceKm, 0), trackDistanceKm);
+    const nextIndex = sortedElevationProfile.findIndex((point) => point.distanceKm >= clamped);
+    if (nextIndex <= 0) return sortedElevationProfile[0].elevationM;
+    const prevPoint = sortedElevationProfile[nextIndex - 1];
+    const nextPoint = sortedElevationProfile[nextIndex] ?? prevPoint;
+    const ratio =
+      nextPoint.distanceKm === prevPoint.distanceKm
+        ? 0
+        : (clamped - prevPoint.distanceKm) / (nextPoint.distanceKm - prevPoint.distanceKm);
+    return prevPoint.elevationM + (nextPoint.elevationM - prevPoint.elevationM) * ratio;
+  };
+  const getElevationDelta = (startKm: number, endKm: number) => {
+    if (sortedElevationProfile.length === 0) return { gain: 0, loss: 0 };
+    const start = Math.min(startKm, endKm);
+    const end = Math.max(startKm, endKm);
+    const points = [
+      { distanceKm: start, elevationM: getElevationAtDistance(start) },
+      ...sortedElevationProfile.filter((point) => point.distanceKm > start && point.distanceKm < end),
+      { distanceKm: end, elevationM: getElevationAtDistance(end) },
+    ].sort((a, b) => a.distanceKm - b.distanceKm);
+    return points.slice(1).reduce(
+      (acc, point, index) => {
+        const delta = point.elevationM - points[index].elevationM;
+        if (delta >= 0) {
+          acc.gain += delta;
+        } else {
+          acc.loss += Math.abs(delta);
+        }
+        return acc;
+      },
+      { gain: 0, loss: 0 }
+    );
+  };
   const stationsWithIndex: (AidStation & { originalIndex?: number; kind: "aid" | "finish" })[] = values.aidStations
     .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const, waterRefill: station.waterRefill !== false }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
@@ -358,6 +395,7 @@ function buildSegments(
 
   const segments: Segment[] = checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
+    const elevationDelta = getElevationDelta(previous.distanceKm, station.distanceKm);
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
     const estimatedSegmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm);
     const paceAdjustmentMinutesPerKm =
@@ -412,6 +450,9 @@ function buildSegments(
       gelsPlanned,
       recommendedGels,
       plannedMinutesOverride: overrideMinutes,
+      pauseMinutes,
+      elevationGainM: Math.round(elevationDelta.gain),
+      elevationLossM: Math.round(elevationDelta.loss),
       pickupGels: station.pickupGels,
       supplies: station.supplies,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,

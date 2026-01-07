@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
@@ -12,8 +13,16 @@ import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
-import { TimelinePointCard } from "./TimelineCards";
+import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
+
+const statusToneStyles = {
+  success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
+  warning: "border-amber-400/40 bg-amber-500/15 text-amber-50",
+  danger: "border-rose-400/40 bg-rose-500/20 text-rose-50",
+  neutral: "border-slate-400/40 bg-slate-600/20 text-slate-50",
+} as const;
+
+type StatusTone = keyof typeof statusToneStyles;
 
 type RaceTotals = {
   fuelGrams: number;
@@ -57,6 +66,14 @@ const parseOptionalNumber = (value: string | number) => {
   if (value === "" || value === null || typeof value === "undefined") return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const formatPaceValue = (minutesPerKm: number) => {
+  if (!Number.isFinite(minutesPerKm) || minutesPerKm <= 0) return "--";
+  const totalSeconds = Math.round(minutesPerKm * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}'${seconds.toString().padStart(2, "0")}"`;
 };
 
 const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
@@ -117,6 +134,322 @@ const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} {...props} />
 );
 
+type SegmentCardVariant = "default" | "compact" | "compactChip";
+
+type SegmentCardProps = {
+  distanceText: string;
+  timeText: string;
+  elevationGainText: string;
+  elevationLossText: string;
+  paceControl?: ReactNode;
+  variant?: SegmentCardVariant;
+};
+
+function SegmentCard({
+  distanceText,
+  timeText,
+  elevationGainText,
+  elevationLossText,
+  paceControl,
+  variant = "default",
+}: SegmentCardProps) {
+  const isCompact = variant === "compact";
+  const isCompactChip = variant === "compactChip";
+  return (
+    <div
+      className={
+        isCompactChip
+          ? "flex flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/90 px-2.5 py-2 text-slate-200 shadow-sm"
+          : isCompact
+            ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
+            : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
+      }
+    >
+      <div
+        className={
+          isCompactChip
+            ? "flex items-center justify-between text-[10px] font-semibold"
+            : isCompact
+              ? "flex items-center justify-between text-xs font-semibold"
+              : "flex items-center justify-between text-sm font-semibold"
+        }
+      >
+        <span className="tabular-nums">{distanceText}</span>
+        <span className="tabular-nums text-slate-400">{timeText}</span>
+      </div>
+      <div
+        className={
+          isCompactChip
+            ? "flex items-center justify-between text-[9px] font-semibold"
+            : isCompact
+              ? "flex items-center justify-between text-[11px] font-semibold"
+              : "flex items-center justify-between text-xs font-semibold"
+        }
+      >
+        <span className="text-rose-200/90">{elevationGainText}</span>
+        <span className="text-sky-200/90">{elevationLossText}</span>
+      </div>
+      {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
+    </div>
+  );
+}
+
+type NutritionCardVariant = "default" | "compact";
+
+type NutritionMetric = {
+  key: "carbs" | "water" | "sodium";
+  label: string;
+  name: string;
+  value: string;
+  plannedValue: number;
+  targetValue: number;
+  helper: string | null;
+  statusLabel: string;
+  statusTone: StatusTone;
+  icon: ReactNode;
+  format: (value: number) => string;
+};
+
+type NutritionCardProps = {
+  metric: NutritionMetric;
+  variant?: NutritionCardVariant;
+  waterCapacityMl?: number | null;
+  targetLabel: string;
+  maxLabel: string;
+};
+
+function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel, maxLabel }: NutritionCardProps) {
+  const isCompact = variant === "compact";
+  const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
+  const compactTarget = metric.format(metric.targetValue).split(" de ")[0].split(" d'")[0];
+  const targetValue = Math.max(metric.targetValue, 0);
+  const maxValueCandidate =
+    metric.key === "water" && typeof waterCapacityMl === "number" && waterCapacityMl > 0
+      ? waterCapacityMl
+      : targetValue;
+  const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
+  const scaleMax = maxValue * 1.3;
+  const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
+  const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
+  const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
+  const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+  const cursorToneClass =
+    cursorPercent > maxPercent
+      ? "ring-amber-300"
+      : cursorPercent >= targetPercent
+        ? "ring-emerald-300"
+        : "ring-rose-300";
+
+  return (
+    <div
+      className={`rounded-xl border bg-slate-950/70 ${
+        isCompact ? "p-2" : "p-4"
+      } ${
+        metric.statusTone === "success"
+          ? "border-emerald-500/40"
+          : metric.statusTone === "warning"
+            ? "border-amber-500/40"
+            : metric.statusTone === "danger"
+              ? "border-rose-500/40"
+              : "border-slate-500/40"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center justify-center rounded-full border bg-slate-900 ${
+              isCompact ? "h-7 w-7" : "h-9 w-9"
+            } ${
+              metric.key === "carbs"
+                ? "border-purple-400/40"
+                : metric.key === "water"
+                  ? "border-sky-400/40"
+                  : "border-slate-400/40"
+            }`}
+          >
+            {metric.icon}
+          </span>
+          <div className="flex flex-col">
+            {isCompact ? (
+              <p className="text-[11px] font-semibold text-slate-200">{metric.name}</p>
+            ) : (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{metric.label}</p>
+                <p className="text-sm font-semibold text-slate-50">{metric.name}</p>
+              </>
+            )}
+          </div>
+        </div>
+        <span
+          className={`inline-flex items-center rounded-full border font-semibold ${
+            isCompact ? "px-1 py-0 text-[8px]" : "px-2 py-0.5 text-[11px]"
+          } ${statusToneStyles[metric.statusTone]} ${isCompact ? "opacity-70" : ""}`}
+        >
+          {metric.statusLabel}
+        </span>
+      </div>
+      <div className={isCompact ? "mt-1.5 flex flex-col gap-1" : "mt-3 flex flex-col gap-3"}>
+        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
+          {isCompact ? compactValue : metric.value}
+        </p>
+        <div className={isCompact ? "space-y-1" : "space-y-2"}>
+          <div
+            className={`relative w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900 ${
+              isCompact ? "h-2" : "h-4"
+            }`}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to right,
+                  rgba(248,113,113,0.75) 0%,
+                  rgba(248,113,113,0.75) ${cautionPercent}%,
+                  rgba(251,146,60,0.75) ${cautionPercent}%,
+                  rgba(251,146,60,0.75) ${targetPercent}%,
+                  rgba(16,185,129,0.8) ${targetPercent}%,
+                  rgba(16,185,129,0.8) ${maxPercent}%,
+                  rgba(251,146,60,0.75) ${maxPercent}%,
+                  rgba(251,146,60,0.75) 100%)`,
+              }}
+              aria-hidden
+            />
+            <span
+              className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+              style={{ left: `${targetPercent}%` }}
+              aria-label={targetLabel}
+            />
+            <span
+              className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
+              style={{ left: `${maxPercent}%` }}
+              aria-label={maxLabel}
+            />
+            <span
+              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+              style={{ left: `${cursorPercent}%` }}
+            />
+          </div>
+          {isCompact ? (
+            <div className="relative h-2.5">
+              <span
+                className="absolute top-0 -translate-x-1/2 text-[9px] font-semibold text-slate-400"
+                style={{ left: `${targetPercent}%` }}
+              >
+                {compactTarget}
+              </span>
+            </div>
+          ) : null}
+          {isCompact ? (
+            metric.helper ? <p className="text-[9px] font-semibold text-amber-200/80">{metric.helper}</p> : null
+          ) : (
+            <div className="flex items-center justify-between text-xs text-slate-200">
+              <span className="font-semibold">
+                {targetLabel}: {metric.format(targetValue)}
+              </span>
+              {metric.helper ? <span className="text-amber-100">{metric.helper}</span> : null}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type AidStationHeaderRowProps = {
+  pointIndex: number;
+  title: ReactNode;
+  titleIcon?: ReactNode;
+  meta?: ReactNode;
+  headerMiddle?: ReactNode;
+  headerActions?: ReactNode;
+  finishLabel?: string;
+  isFinish?: boolean;
+  onTitleClick?: () => void;
+};
+
+function AidStationHeaderRow({
+  pointIndex,
+  title,
+  titleIcon,
+  meta,
+  headerMiddle,
+  headerActions,
+  finishLabel,
+  isFinish,
+  onTitleClick,
+}: AidStationHeaderRowProps) {
+  return (
+    <div className="relative z-20 rounded-2xl border border-blue-400/50 bg-slate-950/95 px-5 py-4 shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
+        <div
+          className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
+          onClick={onTitleClick}
+          role={onTitleClick ? "button" : undefined}
+          tabIndex={onTitleClick ? 0 : undefined}
+          onKeyDown={
+            onTitleClick
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onTitleClick();
+                  }
+                }
+              : undefined
+          }
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
+              {titleIcon ? (
+                <span className="inline-flex h-5 w-5 items-center justify-center text-slate-50">{titleIcon}</span>
+              ) : null}
+              <span>{title}</span>
+            </div>
+            {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
+          </div>
+        </div>
+        {headerMiddle ? (
+          <div className="flex w-full min-w-[240px] flex-1 justify-center">{headerMiddle}</div>
+        ) : null}
+        {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
+      </div>
+      {isFinish ? (
+        <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+          <span>{finishLabel ?? "Arrivée"}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type SectionRowProps = {
+  segment: ReactNode;
+  nutritionCards: ReactNode;
+  showConnector?: boolean;
+};
+
+function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
+  return (
+    <div className="relative">
+      <div className="relative z-10 mx-10 -mt-3 rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4">
+        {showConnector ? (
+          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 flex flex-col items-center">
+            <div className="h-full w-[2px] bg-emerald-500/70" />
+            <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
+          </div>
+        ) : null}
+        <div className="grid items-center gap-4 lg:grid-cols-[200px_1fr]">
+          <div className="relative z-10 w-[200px] self-center">{segment}</div>
+          <div className="w-full">
+            <div className="grid w-full gap-4 lg:grid-cols-3">{nutritionCards}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ActionPlan({
   copy,
   segments,
@@ -155,11 +488,13 @@ export function ActionPlan({
         index: number;
         name: string;
         distance: string;
+        pauseMinutes: string;
       }
     | {
         mode: "create";
         name: string;
         distance: string;
+        pauseMinutes: string;
       }
   >(null);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -180,8 +515,9 @@ export function ActionPlan({
       mode: "create",
       name: copy.defaults.aidStationName,
       distance: "0",
+      pauseMinutes: "",
     });
-  const updateEditorField = useCallback((field: "name" | "distance", value: string) => {
+  const updateEditorField = useCallback((field: "name" | "distance" | "pauseMinutes", value: string) => {
     setEditorState((current) => (current ? { ...current, [field]: value } : current));
     setEditorError(null);
   }, []);
@@ -242,12 +578,6 @@ export function ActionPlan({
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
   };
-  const statusToneStyles = {
-    success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
-    warning: "border-amber-400/40 bg-amber-500/15 text-amber-50",
-    danger: "border-rose-400/40 bg-rose-500/20 text-rose-50",
-    neutral: "border-slate-400/40 bg-slate-600/20 text-slate-50",
-  } as const;
   const statusToneIcons = {
     success: "✓",
     warning: "!",
@@ -284,6 +614,8 @@ export function ActionPlan({
     if (!editorState) return;
     const name = editorState.name.trim();
     const distanceValue = Number(editorState.distance);
+    const pauseValue =
+      editorState.pauseMinutes === "" ? undefined : Number(editorState.pauseMinutes);
     if (!name) {
       setEditorError(copy.validation.required);
       return;
@@ -292,9 +624,14 @@ export function ActionPlan({
       setEditorError(copy.validation.nonNegative);
       return;
     }
+    if (pauseValue !== undefined && (!Number.isFinite(pauseValue) || pauseValue < 0)) {
+      setEditorError(copy.validation.nonNegative);
+      return;
+    }
     if (editorState.mode === "edit") {
       setValue(`aidStations.${editorState.index}.name`, name);
       setValue(`aidStations.${editorState.index}.distanceKm`, distanceValue);
+      setValue(`aidStations.${editorState.index}.pauseMinutes`, pauseValue);
     } else {
       onAddAidStation({ name, distanceKm: distanceValue });
     }
@@ -440,7 +777,6 @@ export function ActionPlan({
       <CardContent className="space-y-4">
         {segments.length > 0 ? (
           <div className="relative space-y-4">
-            <div className="absolute left-[18px] top-0 h-full w-px bg-slate-800/70" aria-hidden />
             {(() => {
               return renderItems.map((item, itemIndex) => {
                 const pointNumber = itemIndex + 1;
@@ -448,6 +784,12 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
                     : null;
+                const waterRefillFieldName =
+                  typeof item.aidStationIndex === "number"
+                    ? (`aidStations.${item.aidStationIndex}.waterRefill` as const)
+                    : null;
+                const pauseMinutesValue =
+                  typeof item.checkpointSegment?.pauseMinutes === "number" ? item.checkpointSegment.pauseMinutes : 0;
                 const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
@@ -498,6 +840,7 @@ export function ActionPlan({
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
+                const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
                 const sectionStatus = prioritizeStatus(
                   supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
                   { label: timelineCopy.status.atTarget, tone: "neutral" as const }
@@ -518,7 +861,24 @@ export function ActionPlan({
                   />
                 ) : null;
                 const titleContent = item.title;
-                const metaContent = metaText;
+                const metaContent = (
+                  <div className="space-y-1">
+                    <div>{metaText}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {timelineCopy.pauseLabel}: {pauseMinutesValue}
+                    </div>
+                    {distanceFieldName && !isCollapsed && waterRefillFieldName ? (
+                      <label className="mt-1 inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                          {...register(waterRefillFieldName)}
+                        />
+                        <span>{aidStationsCopy.labels.waterRefill}</span>
+                      </label>
+                    ) : null}
+                  </div>
+                );
                 const toggleButton =
                   isCollapsible && collapseKey ? (
                     <Button
@@ -526,20 +886,21 @@ export function ActionPlan({
                       variant="ghost"
                       className="h-8 rounded-full border border-slate-700 bg-slate-900/60 px-3 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
                       onClick={() => toggleAidStationCollapse(collapseKey)}
+                      aria-label={toggleLabel}
+                      title={toggleLabel}
                     >
                       {isCollapsed ? (
                         <ChevronDownIcon className="h-4 w-4" aria-hidden />
                       ) : (
                         <ChevronUpIcon className="h-4 w-4" aria-hidden />
                       )}
-                      <span className="ml-2">{isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel}</span>
                     </Button>
                   ) : null;
 
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
-                      className="flex w-full flex-col gap-3 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-4 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full max-w-xl flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -553,82 +914,75 @@ export function ActionPlan({
                         }
                       }}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-emerald-50">{timelineCopy.pointStockLabel}</p>
-                          <p className="text-[11px] text-emerald-100/70">{timelineCopy.pointStockHelper}</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex flex-wrap gap-2">
+                          {summarized?.items?.length
+                            ? summarized.items.map(({ product, quantity }) => (
+                                <div
+                                  key={product.id}
+                                  className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
+                                >
+                                  <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                      onClick={() => {
+                                        if (quantity <= 1) {
+                                          if (item.isStart) {
+                                            onStartSupplyRemove(product.id);
+                                          } else {
+                                            onSupplyRemove(item.aidStationIndex as number, product.id);
+                                          }
+                                          return;
+                                        }
+                                        if (item.isStart) {
+                                          onStartSupplyRemove(product.id);
+                                          onStartSupplyDrop(product.id, quantity - 1);
+                                        } else {
+                                          onSupplyRemove(item.aidStationIndex as number, product.id);
+                                          onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
+                                        }
+                                      }}
+                                    >
+                                      –
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                      onClick={() => {
+                                        if (item.isStart) {
+                                          onStartSupplyDrop(product.id, 1);
+                                        } else {
+                                          onSupplyDrop(item.aidStationIndex as number, product.id, 1);
+                                        }
+                                      }}
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))
+                            : null}
                         </div>
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-9 border-emerald-400/50 bg-slate-950/60 px-3 text-xs text-emerald-50 hover:bg-emerald-500/10"
+                          className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
                           onClick={() =>
                             setSupplyPicker({
                               type: item.isStart ? "start" : "aid",
                               index: item.isStart ? undefined : (item.aidStationIndex as number),
                             })
                           }
+                          aria-label={timelineCopy.pickupTitle}
+                          title={timelineCopy.pickupTitle}
                         >
-                          Add product
+                          +
                         </Button>
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {summarized?.items?.length
-                          ? summarized.items.map(({ product, quantity }) => (
-                              <div
-                                key={product.id}
-                                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
-                              >
-                                <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                    onClick={() => {
-                                      if (quantity <= 1) {
-                                        if (item.isStart) {
-                                          onStartSupplyRemove(product.id);
-                                        } else {
-                                          onSupplyRemove(item.aidStationIndex as number, product.id);
-                                        }
-                                        return;
-                                      }
-                                      if (item.isStart) {
-                                        onStartSupplyRemove(product.id);
-                                        onStartSupplyDrop(product.id, quantity - 1);
-                                      } else {
-                                        onSupplyRemove(item.aidStationIndex as number, product.id);
-                                        onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
-                                      }
-                                    }}
-                                  >
-                                    –
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                    onClick={() => {
-                                      if (item.isStart) {
-                                        onStartSupplyDrop(product.id, 1);
-                                      } else {
-                                        onSupplyDrop(item.aidStationIndex as number, product.id, 1);
-                                      }
-                                    }}
-                                  >
-                                    +
-                                  </Button>
-                                </div>
-                              </div>
-                            ))
-                          : null}
-                      </div>
-                      <p className="text-[11px] text-slate-300">
-                        {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized?.totals.carbs ?? 0)} ·{" "}
-                        {copy.sections.summary.items.water}: {formatWaterAmount(summarized?.totals.water ?? 0)} ·{" "}
-                        {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized?.totals.sodium ?? 0)}
-                      </p>
                     </div>
                   ) : null;
 
@@ -636,83 +990,61 @@ export function ActionPlan({
                 const plannedFuel = summarized?.totals.carbs ?? 0;
                 const plannedSodium = summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
-                const sectionTimeFieldName = sectionSegment ? getSegmentFieldName(sectionSegment, "segmentMinutesOverride") : null;
                 const paceAdjustmentFieldName = sectionSegment
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
                   : null;
                 const adjustmentStep = 0.25;
-                const timeInput =
-                  sectionSegment && sectionTimeFieldName ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-1">
-                        <Label className="text-xs text-slate-300" htmlFor={sectionTimeFieldName}>
-                          {timelineCopy.segmentTimeLabel}
-                        </Label>
-                        <Input
-                          id={sectionTimeFieldName}
-                          type="number"
-                          min="0"
-                          step="1"
-                          defaultValue={sectionSegment.plannedMinutesOverride ?? ""}
-                          className="h-9 max-w-[140px]"
-                          {...register(sectionTimeFieldName, {
-                            setValueAs: parseOptionalNumber,
-                          })}
-                        />
-                        <p className="text-[11px] text-slate-500">{timelineCopy.segmentTimeHelp}</p>
+                const basePaceMinutesPerKm =
+                  sectionSegment && sectionSegment.segmentKm > 0
+                    ? sectionSegment.estimatedSegmentMinutes / sectionSegment.segmentKm
+                    : 0;
+                const paceMinutesPerKm =
+                  basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
+                const paceAdjustmentControl =
+                  sectionSegment && paceAdjustmentFieldName ? (
+                    <div className="inline-flex items-center gap-1 rounded-full border border-slate-800/60 bg-slate-950/50 px-2 py-0.5">
+                      <input
+                        type="hidden"
+                        {...register(paceAdjustmentFieldName, {
+                          setValueAs: parseOptionalNumber,
+                        })}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-6 w-6 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
+                        onClick={() => {
+                          const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
+                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
+                          setValue(paceAdjustmentFieldName, nextValue, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          });
+                        }}
+                      >
+                        –
+                      </Button>
+                      <div className="flex items-baseline gap-1 px-1">
+                        <span className="text-[13px] font-semibold text-slate-50 tabular-nums">
+                          {formatPaceValue(paceMinutesPerKm)}
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-400">min/km</span>
                       </div>
-                      {paceAdjustmentFieldName ? (
-                        <div className="flex flex-col gap-1">
-                          <Label className="text-xs text-slate-300" htmlFor={paceAdjustmentFieldName}>
-                            {timelineCopy.paceAdjustmentLabel}
-                          </Label>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-8 w-8 px-0"
-                              onClick={() => {
-                                const nextValue = Number(
-                                  ((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) - adjustmentStep).toFixed(2)
-                                );
-                                setValue(paceAdjustmentFieldName, nextValue, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                });
-                              }}
-                            >
-                              –
-                            </Button>
-                            <Input
-                              id={paceAdjustmentFieldName}
-                              type="number"
-                              step="0.05"
-                              defaultValue={sectionSegment.paceAdjustmentMinutesPerKm ?? ""}
-                              className="h-9 max-w-[120px] text-right"
-                              {...register(paceAdjustmentFieldName, {
-                                setValueAs: parseOptionalNumber,
-                              })}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-8 w-8 px-0"
-                              onClick={() => {
-                                const nextValue = Number(
-                                  ((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) + adjustmentStep).toFixed(2)
-                                );
-                                setValue(paceAdjustmentFieldName, nextValue, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                });
-                              }}
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <p className="text-[11px] text-slate-500">{timelineCopy.paceAdjustmentHelp}</p>
-                        </div>
-                      ) : null}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-6 w-6 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
+                        onClick={() => {
+                          const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
+                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
+                          setValue(paceAdjustmentFieldName, nextValue, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          });
+                        }}
+                      >
+                        +
+                      </Button>
                     </div>
                   ) : null;
                 const metrics = sectionSegment
@@ -778,6 +1110,12 @@ export function ActionPlan({
                   return {
                     key: metric.key,
                     label: metric.label,
+                    name:
+                      metric.key === "carbs"
+                        ? copy.sections.summary.items.carbs
+                        : metric.key === "water"
+                          ? copy.sections.summary.items.water
+                          : copy.sections.summary.items.sodium,
                     value: metric.format(metric.planned),
                     plannedValue: metric.planned,
                     format: metric.format,
@@ -789,197 +1127,32 @@ export function ActionPlan({
                   };
                 });
 
-                const waterRefillFieldName =
-                  typeof item.aidStationIndex === "number"
-                    ? (`aidStations.${item.aidStationIndex}.waterRefill` as const)
-                    : null;
-                const pauseFieldName =
-                  typeof item.aidStationIndex === "number"
-                    ? (`aidStations.${item.aidStationIndex}.pauseMinutes` as const)
-                    : null;
-
-                const distanceInput =
-                  distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                    <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-900/70 bg-slate-950/60 p-3">
-                      {pauseFieldName ? (
-                        <div className="flex flex-col gap-1">
-                          <Label className="text-[11px] text-slate-300" htmlFor={pauseFieldName}>
-                            {timelineCopy.pauseLabel}
-                          </Label>
-                          <Input
-                            id={pauseFieldName}
-                            type="number"
-                            min="0"
-                            step="1"
-                            className="h-9 w-28 border-slate-800/70 bg-slate-900 text-xs text-slate-100"
-                            {...register(pauseFieldName, { setValueAs: parseOptionalNumber })}
-                          />
-                          <span className="text-[10px] text-slate-400">{timelineCopy.pauseHelp}</span>
-                        </div>
-                      ) : null}
-                      <label className="inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-200">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
-                          {...register(waterRefillFieldName)}
-                        />
-                        <span>{aidStationsCopy.labels.waterRefill}</span>
-                      </label>
-                    </div>
+                const segmentCard =
+                  sectionSegment && inlineMetrics.length > 0 ? (
+                    <SegmentCard
+                      variant="compactChip"
+                      distanceText={`${sectionSegment.segmentKm.toFixed(1)} km`}
+                      timeText={formatMinutes(sectionSegment.segmentMinutes)}
+                      elevationGainText={`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}
+                      elevationLossText={`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}
+                      paceControl={paceAdjustmentControl}
+                    />
                   ) : null;
 
-                const stationAside =
-                  !isCollapsed && (distanceInput || suppliesDropZone) ? (
-                    <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_1fr]">
-                      {distanceInput ? <div>{distanceInput}</div> : <div />}
-                      {suppliesDropZone ? <div className="min-w-[260px]">{suppliesDropZone}</div> : null}
-                    </div>
-                  ) : null;
+                const nutritionCards = inlineMetrics.map((metric) => (
+                  <NutritionCard
+                    key={metric.key}
+                    metric={metric}
+                    variant="compact"
+                    waterCapacityMl={sectionSegment?.waterCapacityMl ?? null}
+                    targetLabel={timelineCopy.targetLabel}
+                    maxLabel={timelineCopy.waterCapacityLabel}
+                  />
+                ));
 
                 const sectionContent =
-                  sectionSegment && inlineMetrics.length > 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-800/70 bg-slate-950/70 p-4 shadow-[0_4px_24px_rgba(15,23,42,0.35)]">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-300">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1">
-                          <ArrowRightIcon className="h-3.5 w-3.5 text-emerald-200" aria-hidden />
-                          <span className="text-slate-100">{`${sectionSegment.from} → ${sectionSegment.checkpoint}`}</span>
-                          <span className="text-slate-400">·</span>
-                          <span className="text-slate-100">
-                            {formatDistanceWithUnit(sectionSegment.startDistanceKm)} →{" "}
-                            {formatDistanceWithUnit(sectionSegment.distanceKm)}
-                          </span>
-                        </div>
-                        <span className="uppercase tracking-wide text-slate-400">
-                          {timelineCopy.segmentDistanceBetween.replace("{distance}", sectionSegment.segmentKm.toFixed(1))}
-                        </span>
-                      </div>
-                      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,220px)_1fr]">
-                        <div className="space-y-3 rounded-2xl border border-slate-800/70 bg-slate-950/80 p-3">
-                          <div className="flex items-center justify-between text-sm font-semibold text-slate-100">
-                            <span>{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
-                            <span>{formatMinutes(sectionSegment.segmentMinutes)}</span>
-                          </div>
-                          {timeInput}
-                        </div>
-                        <div className="grid gap-3 lg:grid-cols-3">
-                          {inlineMetrics.map((metric) => (
-                            <div
-                              key={metric.key}
-                              className={`rounded-2xl border bg-slate-950/85 p-4 shadow-inner ${
-                                metric.statusTone === "success"
-                                  ? "border-emerald-500/50 shadow-emerald-500/10"
-                                  : metric.statusTone === "warning"
-                                    ? "border-amber-500/50 shadow-amber-500/10"
-                                    : metric.statusTone === "danger"
-                                      ? "border-rose-500/50 shadow-rose-500/10"
-                                      : "border-slate-500/40 shadow-slate-500/10"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-900 ${
-                                      metric.key === "carbs"
-                                        ? "border-purple-400/40"
-                                        : metric.key === "water"
-                                          ? "border-sky-400/40"
-                                          : "border-slate-400/40"
-                                    }`}
-                                  >
-                                    {metric.icon}
-                                  </span>
-                                  <div className="flex flex-col">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                      {metric.label}
-                                    </p>
-                                    <p className="text-sm font-semibold text-slate-50">
-                                      {metric.key === "carbs"
-                                        ? copy.sections.summary.items.carbs
-                                        : metric.key === "water"
-                                          ? copy.sections.summary.items.water
-                                          : copy.sections.summary.items.sodium}
-                                    </p>
-                                  </div>
-                                </div>
-                                <span
-                                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
-                                >
-                                  {metric.statusLabel}
-                                </span>
-                              </div>
-                              <div className="mt-3 flex flex-col gap-3">
-                                <p className="text-3xl font-extrabold leading-tight text-slate-50">{metric.value}</p>
-                                <div className="space-y-2">
-                                  {(() => {
-                                    const targetValue = Math.max(metric.targetValue, 0);
-                                    const maxValueCandidate =
-                                      metric.key === "water" &&
-                                      sectionSegment &&
-                                      typeof sectionSegment.waterCapacityMl === "number" &&
-                                      sectionSegment.waterCapacityMl > 0
-                                        ? sectionSegment.waterCapacityMl
-                                        : targetValue;
-                                    const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
-                                    const scaleMax = maxValue * 1.3;
-                                    const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
-                                    const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
-                                    const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
-                                    const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
-                                    const cursorToneClass =
-                                      cursorPercent > maxPercent
-                                        ? "ring-amber-300"
-                                        : cursorPercent >= targetPercent
-                                          ? "ring-emerald-300"
-                                          : "ring-rose-300";
-                                    return (
-                                      <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
-                                        <div
-                                          className="absolute inset-0"
-                                          style={{
-                                            background: `linear-gradient(to right,
-                                              rgba(248,113,113,0.75) 0%,
-                                              rgba(248,113,113,0.75) ${cautionPercent}%,
-                                              rgba(251,146,60,0.75) ${cautionPercent}%,
-                                              rgba(251,146,60,0.75) ${targetPercent}%,
-                                              rgba(16,185,129,0.8) ${targetPercent}%,
-                                              rgba(16,185,129,0.8) ${maxPercent}%,
-                                              rgba(251,146,60,0.75) ${maxPercent}%,
-                                              rgba(251,146,60,0.75) 100%)`,
-                                          }}
-                                          aria-hidden
-                                        />
-                                        <span
-                                          className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
-                                          style={{ left: `${targetPercent}%` }}
-                                          aria-label={timelineCopy.targetLabel}
-                                        />
-                                        <span
-                                          className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-                                          style={{ left: `${maxPercent}%` }}
-                                          aria-label={timelineCopy.waterCapacityLabel}
-                                        />
-                                        <span
-                                          className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
-                                          style={{ left: `${cursorPercent}%` }}
-                                        />
-                                      </div>
-                                    );
-                                  })()}
-                                  <div className="flex items-center justify-between text-xs text-slate-200">
-                                    <span className="font-semibold">
-                                      {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
-                                    </span>
-                                    {metric.helper ? (
-                                      <span className="text-amber-100">{metric.helper}</span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
+                  sectionSegment && inlineMetrics.length > 0 && segmentCard ? (
+                    <SectionRow segment={segmentCard} nutritionCards={nutritionCards} />
                   ) : null;
 
                 const removeButton =
@@ -1056,37 +1229,43 @@ export function ActionPlan({
 
                 return (
                   <div key={item.id} className="relative pl-8">
-                    <TimelinePointCard
-                      pointIndex={pointNumber}
-                      title={titleContent}
-                      titleIcon={pointIcon}
-                      meta={metaContent}
-                      finishLabel={copy.defaults.finish}
-                      headerActions={
-                        isCollapsible ? (
-                          <div className="flex items-center gap-3">
-                            {toggleButton}
-                            {removeButton}
-                          </div>
-                        ) : (
-                          removeButton
-                        )
-                      }
-                      isFinish={item.isFinish}
-                      headerAside={stationAside}
-                      section={sectionContent}
-                      onTitleClick={
-                        typeof item.aidStationIndex === "number"
-                          ? () =>
-                              setEditorState({
-                                mode: "edit",
-                                index: item.aidStationIndex as number,
-                                name: item.title,
-                                distance: String(item.distanceKm ?? 0),
-                              })
-                          : undefined
-                      }
-                    />
+                    <div className="space-y-3">
+                      <AidStationHeaderRow
+                        pointIndex={pointNumber}
+                        title={titleContent}
+                        titleIcon={pointIcon}
+                        meta={metaContent}
+                        finishLabel={copy.defaults.finish}
+                        isFinish={item.isFinish}
+                        headerMiddle={suppliesDropZone}
+                        headerActions={
+                          isCollapsible ? (
+                            <div className="flex items-center gap-3">
+                              {toggleButton}
+                              {removeButton}
+                            </div>
+                          ) : (
+                            removeButton
+                          )
+                        }
+                        onTitleClick={
+                          typeof item.aidStationIndex === "number"
+                            ? () =>
+                                setEditorState({
+                                  mode: "edit",
+                                  index: item.aidStationIndex as number,
+                                  name: item.title,
+                                  distance: String(item.distanceKm ?? 0),
+                                  pauseMinutes:
+                                    typeof item.checkpointSegment?.pauseMinutes === "number"
+                                      ? String(item.checkpointSegment.pauseMinutes)
+                                      : "",
+                                })
+                            : undefined
+                        }
+                      />
+                      {sectionContent ? <div className="relative">{sectionContent}</div> : null}
+                    </div>
                   </div>
                 );
               });
@@ -1126,6 +1305,19 @@ export function ActionPlan({
                   className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 />
               </div>
+              {editorState.mode === "edit" ? (
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-300">{timelineCopy.pauseLabel}</Label>
+                  <Input
+                    value={editorState.pauseMinutes}
+                    onChange={(event) => updateEditorField("pauseMinutes", event.target.value)}
+                    type="number"
+                    step="1"
+                    min="0"
+                    className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  />
+                </div>
+              ) : null}
               {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
             </div>
             <div className="flex items-center justify-end gap-2">

@@ -304,7 +304,7 @@ export const fr: Translations = {
         segmentTimeHelp: "Ajuste si tu penses être plus rapide ou plus lent sur cette portion.",
         paceAdjustmentLabel: "Ajustement d’allure (min/km)",
         paceAdjustmentHelp: "Ajuste l’allure de base pour cette section uniquement.",
-        pauseLabel: "Pause au ravito (minutes)",
+        pauseLabel: "Pause au ravito",
         pauseHelp: "Ajoute le temps prévu pour s'arrêter à ce ravito.",
         rangeLabel: "{from} → {to}",
         segmentConsumptionLabel: "Consommation sur le segment",

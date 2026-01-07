@@ -294,7 +294,7 @@ export const en: Translations = {
         segmentTimeHelp: "Override the calculated time if you expect to be faster or slower on this leg.",
         paceAdjustmentLabel: "Pace adjustment (min/km)",
         paceAdjustmentHelp: "Fine-tune the base pace for just this leg.",
-        pauseLabel: "Pause time (minutes)",
+        pauseLabel: "Break time",
         pauseHelp: "Add the time you expect to pause at this station.",
         rangeLabel: "{from} → {to}",
         segmentConsumptionLabel: "Segment consumption",

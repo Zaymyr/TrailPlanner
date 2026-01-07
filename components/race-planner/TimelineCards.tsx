@@ -40,6 +40,7 @@ type TimelinePointCardProps = {
   meta?: ReactNode;
   finishLabel?: string;
   headerActions?: ReactNode;
+  headerMiddle?: ReactNode;
   headerAside?: ReactNode;
   section?: ReactNode;
   footer?: ReactNode;
@@ -164,6 +165,7 @@ export function TimelinePointCard({
   meta,
   finishLabel,
   headerActions,
+  headerMiddle,
   headerAside,
   section,
   footer,
@@ -202,6 +204,7 @@ export function TimelinePointCard({
             {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
           </div>
         </div>
+        {headerMiddle ? <div className="flex min-w-[240px] flex-1">{headerMiddle}</div> : null}
         {headerActions ? <div className="flex items-center gap-3">{headerActions}</div> : null}
       </div>
 
