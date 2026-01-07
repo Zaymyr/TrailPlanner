@@ -134,7 +134,7 @@ const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} {...props} />
 );
 
-type SegmentCardVariant = "default" | "compact";
+type SegmentCardVariant = "default" | "compact" | "compactChip";
 
 type SegmentCardProps = {
   distanceText: string;
@@ -154,19 +154,24 @@ function SegmentCard({
   variant = "default",
 }: SegmentCardProps) {
   const isCompact = variant === "compact";
+  const isCompactChip = variant === "compactChip";
   return (
     <div
       className={
-        isCompact
-          ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
-          : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
+        isCompactChip
+          ? "flex flex-col gap-1.5 rounded-2xl border border-slate-800/70 bg-slate-950/80 px-3 py-2 text-slate-200 shadow-[0_6px_20px_rgba(15,23,42,0.45)]"
+          : isCompact
+            ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
+            : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
       }
     >
       <div
         className={
-          isCompact
-            ? "flex items-center justify-between text-xs font-semibold"
-            : "flex items-center justify-between text-sm font-semibold"
+          isCompactChip
+            ? "flex items-center justify-between text-[11px] font-semibold"
+            : isCompact
+              ? "flex items-center justify-between text-xs font-semibold"
+              : "flex items-center justify-between text-sm font-semibold"
         }
       >
         <span className="tabular-nums">{distanceText}</span>
@@ -174,9 +179,11 @@ function SegmentCard({
       </div>
       <div
         className={
-          isCompact
-            ? "flex items-center justify-between text-[11px] font-semibold"
-            : "flex items-center justify-between text-xs font-semibold"
+          isCompactChip
+            ? "flex items-center justify-between text-[10px] font-semibold"
+            : isCompact
+              ? "flex items-center justify-between text-[11px] font-semibold"
+              : "flex items-center justify-between text-xs font-semibold"
         }
       >
         <span className="text-rose-200/90">{elevationGainText}</span>
@@ -213,6 +220,8 @@ type NutritionCardProps = {
 
 function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel, maxLabel }: NutritionCardProps) {
   const isCompact = variant === "compact";
+  const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
+  const compactTarget = metric.format(metric.targetValue).split(" de ")[0].split(" d'")[0];
   const targetValue = Math.max(metric.targetValue, 0);
   const maxValueCandidate =
     metric.key === "water" && typeof waterCapacityMl === "number" && waterCapacityMl > 0
@@ -249,7 +258,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center justify-center rounded-full border bg-slate-900 ${
-              isCompact ? "h-8 w-8" : "h-9 w-9"
+              isCompact ? "h-7 w-7" : "h-9 w-9"
             } ${
               metric.key === "carbs"
                 ? "border-purple-400/40"
@@ -261,32 +270,32 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             {metric.icon}
           </span>
           <div className="flex flex-col">
-            <p
-              className={`font-semibold uppercase tracking-wide text-slate-400 ${
-                isCompact ? "text-[11px]" : "text-xs"
-              }`}
-            >
-              {metric.label}
-            </p>
-            <p className={`font-semibold text-slate-50 ${isCompact ? "text-sm" : "text-sm"}`}>{metric.name}</p>
+            {isCompact ? (
+              <p className="text-[11px] font-semibold text-slate-200">{metric.name}</p>
+            ) : (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{metric.label}</p>
+                <p className="text-sm font-semibold text-slate-50">{metric.name}</p>
+              </>
+            )}
           </div>
         </div>
         <span
-          className={`inline-flex items-center rounded-full border px-2 py-0.5 font-semibold ${
-            isCompact ? "text-[10px]" : "text-[11px]"
+          className={`inline-flex items-center rounded-full border font-semibold ${
+            isCompact ? "px-1.5 py-0 text-[9px]" : "px-2 py-0.5 text-[11px]"
           } ${statusToneStyles[metric.statusTone]}`}
         >
           {metric.statusLabel}
         </span>
       </div>
-      <div className={isCompact ? "mt-2 flex flex-col gap-2" : "mt-3 flex flex-col gap-3"}>
+      <div className={isCompact ? "mt-2 flex flex-col gap-1.5" : "mt-3 flex flex-col gap-3"}>
         <p className={`${isCompact ? "text-2xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
-          {metric.value}
+          {isCompact ? compactValue : metric.value}
         </p>
-        <div className="space-y-2">
+        <div className={isCompact ? "space-y-1" : "space-y-2"}>
           <div
             className={`relative w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900 ${
-              isCompact ? "h-3" : "h-4"
+              isCompact ? "h-2.5" : "h-4"
             }`}
           >
             <div
@@ -319,14 +328,26 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
               style={{ left: `${cursorPercent}%` }}
             />
           </div>
-          <div
-            className={`flex items-center justify-between text-slate-200 ${isCompact ? "text-[10px]" : "text-xs"}`}
-          >
-            <span className="font-semibold">
-              {targetLabel}: {metric.format(targetValue)}
-            </span>
-            {metric.helper ? <span className="text-amber-100">{metric.helper}</span> : null}
-          </div>
+          {isCompact ? (
+            <div className="relative h-3">
+              <span
+                className="absolute top-0 -translate-x-1/2 text-[10px] font-semibold text-slate-200"
+                style={{ left: `${targetPercent}%` }}
+              >
+                {compactTarget}
+              </span>
+            </div>
+          ) : null}
+          {isCompact ? (
+            metric.helper ? <p className="text-[10px] font-semibold text-amber-100">{metric.helper}</p> : null
+          ) : (
+            <div className="flex items-center justify-between text-xs text-slate-200">
+              <span className="font-semibold">
+                {targetLabel}: {metric.format(targetValue)}
+              </span>
+              {metric.helper ? <span className="text-amber-100">{metric.helper}</span> : null}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -357,8 +378,8 @@ function AidStationHeaderRow({
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.35)]">
-      <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="rounded-2xl border border-slate-700/80 bg-slate-950/95 px-5 py-4 shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
         <div
           className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
           onClick={onTitleClick}
@@ -388,8 +409,10 @@ function AidStationHeaderRow({
             {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
           </div>
         </div>
-        {headerMiddle ? <div className="flex min-w-[240px] flex-1">{headerMiddle}</div> : null}
-        {headerActions ? <div className="flex items-center gap-3">{headerActions}</div> : null}
+        {headerMiddle ? (
+          <div className="flex w-full min-w-[240px] flex-1 justify-center">{headerMiddle}</div>
+        ) : null}
+        {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
       {isFinish ? (
         <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
@@ -408,11 +431,11 @@ type SectionRowProps = {
 
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
-    <div className="relative rounded-2xl border border-dashed border-slate-800/60 bg-slate-950/60 p-4">
+    <div className="relative rounded-2xl border border-dashed border-slate-700/70 bg-slate-950/60 p-4">
       {showConnector ? (
-        <div className="pointer-events-none absolute left-[34px] top-2 flex h-[calc(100%-16px)] flex-col items-center">
-          <div className="h-full w-px bg-emerald-500/35" />
-          <div className="-mt-1 h-0 w-0 border-x-[4px] border-t-[6px] border-x-transparent border-t-emerald-500/50" />
+        <div className="pointer-events-none absolute left-[18px] top-2 flex h-[calc(100%-16px)] flex-col items-center">
+          <div className="h-full w-px bg-emerald-500/45" />
+          <div className="-mt-1 h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-emerald-500/60" />
         </div>
       ) : null}
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
@@ -876,7 +899,7 @@ export function ActionPlan({
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
-                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full max-w-xl flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -1106,7 +1129,7 @@ export function ActionPlan({
                 const segmentCard =
                   sectionSegment && inlineMetrics.length > 0 ? (
                     <SegmentCard
-                      variant="compact"
+                      variant="compactChip"
                       distanceText={`${sectionSegment.segmentKm.toFixed(1)} km`}
                       timeText={formatMinutes(sectionSegment.segmentMinutes)}
                       elevationGainText={`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}
@@ -1242,7 +1265,7 @@ export function ActionPlan({
                       />
                       {sectionContent ? (
                         <div className="relative">
-                          <div className="pointer-events-none absolute left-[66px] -top-3 h-3 w-px bg-emerald-500/35" />
+                          <div className="pointer-events-none absolute left-[18px] -top-3 h-3 w-px bg-emerald-500/45" />
                           {sectionContent}
                         </div>
                       ) : null}
