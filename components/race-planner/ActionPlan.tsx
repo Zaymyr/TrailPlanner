@@ -573,88 +573,90 @@ export function ActionPlan({
 
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
-                    <div
-                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
-                      onDragOver={(event) => event.preventDefault()}
-                      onDrop={(event) => {
-                        event.preventDefault();
-                        const productId = event.dataTransfer.getData("text/trailplanner-product-id");
-                        const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
-                        if (!productId) return;
-                        if (item.isStart) {
-                          onStartSupplyDrop(productId, quantity);
-                        } else {
-                          onSupplyDrop(item.aidStationIndex as number, productId, quantity);
-                        }
-                      }}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-9 border-emerald-400/50 bg-slate-950/60 px-3 text-xs text-emerald-50 hover:bg-emerald-500/10"
-                          onClick={() =>
-                            setSupplyPicker({
-                              type: item.isStart ? "start" : "aid",
-                              index: item.isStart ? undefined : (item.aidStationIndex as number),
-                            })
+                    <div className="flex w-full flex-1 items-start gap-2">
+                      <div
+                        className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => {
+                          event.preventDefault();
+                          const productId = event.dataTransfer.getData("text/trailplanner-product-id");
+                          const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
+                          if (!productId) return;
+                          if (item.isStart) {
+                            onStartSupplyDrop(productId, quantity);
+                          } else {
+                            onSupplyDrop(item.aidStationIndex as number, productId, quantity);
                           }
-                        >
-                          Add product
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {summarized?.items?.length
-                          ? summarized.items.map(({ product, quantity }) => (
-                              <div
-                                key={product.id}
-                                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
-                              >
-                                <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                                <div className="flex items-center gap-1">
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                    onClick={() => {
-                                      if (quantity <= 1) {
+                        }}
+                      >
+                        <div className="flex flex-wrap gap-2">
+                          {summarized?.items?.length
+                            ? summarized.items.map(({ product, quantity }) => (
+                                <div
+                                  key={product.id}
+                                  className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
+                                >
+                                  <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                      onClick={() => {
+                                        if (quantity <= 1) {
+                                          if (item.isStart) {
+                                            onStartSupplyRemove(product.id);
+                                          } else {
+                                            onSupplyRemove(item.aidStationIndex as number, product.id);
+                                          }
+                                          return;
+                                        }
                                         if (item.isStart) {
                                           onStartSupplyRemove(product.id);
+                                          onStartSupplyDrop(product.id, quantity - 1);
                                         } else {
                                           onSupplyRemove(item.aidStationIndex as number, product.id);
+                                          onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
                                         }
-                                        return;
-                                      }
-                                      if (item.isStart) {
-                                        onStartSupplyRemove(product.id);
-                                        onStartSupplyDrop(product.id, quantity - 1);
-                                      } else {
-                                        onSupplyRemove(item.aidStationIndex as number, product.id);
-                                        onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
-                                      }
-                                    }}
-                                  >
-                                    –
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                    onClick={() => {
-                                      if (item.isStart) {
-                                        onStartSupplyDrop(product.id, 1);
-                                      } else {
-                                        onSupplyDrop(item.aidStationIndex as number, product.id, 1);
-                                      }
-                                    }}
-                                  >
-                                    +
-                                  </Button>
+                                      }}
+                                    >
+                                      –
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                      onClick={() => {
+                                        if (item.isStart) {
+                                          onStartSupplyDrop(product.id, 1);
+                                        } else {
+                                          onSupplyDrop(item.aidStationIndex as number, product.id, 1);
+                                        }
+                                      }}
+                                    >
+                                      +
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            ))
-                          : null}
+                              ))
+                            : null}
+                        </div>
                       </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 w-9 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
+                        onClick={() =>
+                          setSupplyPicker({
+                            type: item.isStart ? "start" : "aid",
+                            index: item.isStart ? undefined : (item.aidStationIndex as number),
+                          })
+                        }
+                        aria-label={timelineCopy.pickupTitle}
+                        title={timelineCopy.pickupTitle}
+                      >
+                        +
+                      </Button>
                     </div>
                   ) : null;
 
