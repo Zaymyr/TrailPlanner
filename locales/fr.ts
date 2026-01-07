@@ -2,14 +2,14 @@ import type { Translations } from "./types";
 
 export const fr: Translations = {
   homeHero: {
-    heading: "Bienvenue sur TrailPlanner",
+    heading: "Bienvenue sur Pace Yourself",
     description:
       "Rendez-vous dans le planificateur de course pour estimer vos passages aux ravitos, vos objectifs énergétiques et votre allure.",
     cta: "Ouvrir le planificateur de course",
   },
   landing: {
     hero: {
-      eyebrow: "TrailPlanner",
+      eyebrow: "Pace Yourself",
       heading: "Fini les coups de barre à cause d’un plan ravito bancal",
       subheading:
         "Vos cibles exactes en glucides, eau et sodium pour chaque segment — selon votre parcours, votre allure et la chaleur.",
@@ -122,6 +122,7 @@ export const fr: Translations = {
   },
   navigation: {
     racePlanner: "Planificateur de course",
+    blog: "Blog",
     settings: "Liste nutrition",
     profile: "Profil",
     admin: "Admin",
@@ -139,7 +140,7 @@ export const fr: Translations = {
     },
     signUp: {
       title: "Créer un compte",
-      description: "Crée ton compte Trailplanner pour organiser ton ravitaillement de course.",
+      description: "Crée ton compte Pace Yourself pour organiser ton ravitaillement de course.",
       fullNameLabel: "Nom complet",
       fullNamePlaceholder: "Alex Coureur",
       confirmPasswordLabel: "Confirme le mot de passe",
@@ -154,7 +155,7 @@ export const fr: Translations = {
     },
     signIn: {
       title: "Connexion",
-      description: "Accède à ton compte Trailplanner.",
+      description: "Accède à ton compte Pace Yourself.",
       submit: "Se connecter",
       submitting: "Connexion...",
       success: "Connexion réussie. Redirection…",

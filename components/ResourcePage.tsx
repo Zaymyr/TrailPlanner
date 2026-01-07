@@ -14,7 +14,7 @@ export function ResourcePage({ slug }: { slug: ResourcePageSlug }) {
     <div className="space-y-10">
       <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl sm:p-8">
         <div className="space-y-4">
-          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">TrailPlanner</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Pace Yourself</p>
           <div className="space-y-3">
             <h1 className="text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">{copy.title}</h1>
             <p className="text-base text-slate-300 sm:text-lg">{copy.intro}</p>

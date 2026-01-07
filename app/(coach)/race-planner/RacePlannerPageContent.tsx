@@ -622,10 +622,10 @@ function buildPlannerGpx(values: FormValues, elevationProfile: ElevationPoint[])
     .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="TrailPlanner" xmlns="http://www.topografix.com/GPX/1/1" xmlns:trailplanner="https://trailplanner.app/gpx">
+<gpx version="1.1" creator="Pace Yourself" xmlns="http://www.topografix.com/GPX/1/1" xmlns:trailplanner="https://trailplanner.app/gpx">
   <metadata>
     <link href="https://trailplanner.app">
-      <text>TrailPlanner</text>
+      <text>Pace Yourself</text>
     </link>
     <time>${new Date().toISOString()}</time>
     <extensions>

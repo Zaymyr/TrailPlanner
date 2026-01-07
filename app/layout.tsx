@@ -34,7 +34,7 @@ const createMetadata = (locale: Locale): Metadata => {
       title,
       description,
       url: CANONICAL_URL,
-      siteName: "TrailPlanner",
+      siteName: "Pace Yourself",
       locale: ogLocale,
       alternateLocale: [localeToOgLocale(locale === "en" ? "fr" : "en")],
       type: "website",
@@ -70,7 +70,7 @@ export default function RootLayout({
                 <div className="flex items-start gap-3">
                   <HeaderMenu />
                   <div className="space-y-1">
-                    <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Trailplanner</p>
+                    <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Pace Yourself</p>
                     <h1 className="text-2xl font-semibold leading-tight text-slate-50">Race Fuel Planner</h1>
                     <p className="text-sm text-slate-300">
                       Plan your aid-station timing, fueling targets, and pacing for race day.
