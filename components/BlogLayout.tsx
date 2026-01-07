@@ -36,12 +36,12 @@ const buildJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
   image: post.meta.image ? new URL(post.meta.image, SITE_URL).toString() : undefined,
   author: {
     "@type": "Organization",
-    name: "TrailPlanner",
+    name: "Pace Yourself",
     url: SITE_URL,
   },
   publisher: {
     "@type": "Organization",
-    name: "TrailPlanner",
+    name: "Pace Yourself",
     url: SITE_URL,
   },
 });
@@ -67,7 +67,7 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-12 sm:px-6 lg:px-8">
       <header className="space-y-5 rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-sm shadow-emerald-900/30 sm:p-8">
         <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">Trailplanner blog</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">Pace Yourself blog</p>
           <h1 className="text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">{post.meta.title}</h1>
           {post.meta.description && (
             <p className="max-w-3xl text-base text-slate-200 sm:text-lg">{post.meta.description}</p>

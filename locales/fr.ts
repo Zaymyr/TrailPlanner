@@ -2,17 +2,17 @@ import type { Translations } from "./types";
 
 export const fr: Translations = {
   homeHero: {
-    heading: "Bienvenue sur TrailPlanner",
+    heading: "Bienvenue sur Pace Yourself",
     description:
       "Rendez-vous dans le planificateur de course pour estimer vos passages aux ravitos, vos objectifs énergétiques et votre allure.",
     cta: "Ouvrir le planificateur de course",
   },
   landing: {
     hero: {
-      eyebrow: "TrailPlanner",
-      heading: "Un plan trail clair en quelques minutes",
+      eyebrow: "Pace Yourself",
+      heading: "Fini les coups de barre à cause d’un plan ravito bancal",
       subheading:
-        "Renseignez l’allure, le dénivelé et la météo pour obtenir vos cibles en glucides, eau et sodium à chaque ravito.",
+        "Vos cibles exactes en glucides, eau et sodium pour chaque segment — selon votre parcours, votre allure et la chaleur.",
       bullets: [
         "Jauges claires pour carbs, eau et sodium pendant la course",
         "Ravitos auto-cartographiés avec volumes et nombre de gels",
@@ -122,6 +122,7 @@ export const fr: Translations = {
   },
   navigation: {
     racePlanner: "Planificateur de course",
+    blog: "Blog",
     settings: "Liste nutrition",
     profile: "Profil",
     admin: "Admin",
@@ -139,7 +140,7 @@ export const fr: Translations = {
     },
     signUp: {
       title: "Créer un compte",
-      description: "Crée ton compte Trailplanner pour organiser ton ravitaillement de course.",
+      description: "Crée ton compte Pace Yourself pour organiser ton ravitaillement de course.",
       fullNameLabel: "Nom complet",
       fullNamePlaceholder: "Alex Coureur",
       confirmPasswordLabel: "Confirme le mot de passe",
@@ -154,7 +155,7 @@ export const fr: Translations = {
     },
     signIn: {
       title: "Connexion",
-      description: "Accède à ton compte Trailplanner.",
+      description: "Accède à ton compte Pace Yourself.",
       submit: "Se connecter",
       submitting: "Connexion...",
       success: "Connexion réussie. Redirection…",
@@ -267,7 +268,7 @@ export const fr: Translations = {
       gels: {
         title: "Produits énergétiques",
         description:
-          "Vos trois favoris depuis Paramètres apparaissent en premier, suivis de tous les produits partagés de la base.",
+          "Vos favoris depuis Paramètres apparaissent en premier, suivis de tous les produits partagés de la base.",
         loading: "Chargement des produits énergétiques…",
         loadError: "Impossible de charger les produits. Affichage des valeurs par défaut.",
         favoritesTitle: "Favoris depuis Paramètres",
@@ -396,21 +397,21 @@ export const fr: Translations = {
       autoFillLocked: "Le remplissage automatique avec vos favoris est réservé au Premium.",
       limits: {
         plans: "Gratuit : 1 plan sauvegardé au total",
-        favorites: "Gratuit : jusqu'à 2 produits favoris",
+        favorites: "Favoris : produits illimités pour tous les forfaits",
         customProducts: "Gratuit : 1 produit personnalisé",
         export: "Gratuit : impression et export désactivés",
         autoFill: "Gratuit : remplissage automatique désactivé",
       },
       premiumModal: {
         title: "Passer en Premium",
-        description: "Débloquez les plans illimités, les exports, le remplissage automatique et des favoris illimités.",
+        description: "Débloquez les plans illimités, les exports, le remplissage automatique et des produits personnalisés illimités.",
         priceLabel: "Prix",
         priceValue: "7,99 $/mois",
         featuresTitle: "Inclus dans Premium",
         features: [
           "Plans enregistrés et exports illimités",
           "Remplissage automatique avec vos favoris",
-          "Favoris et produits personnalisés illimités",
+          "Produits personnalisés illimités",
           "Impression et export GPX activés",
         ],
         subscribe: "S'abonner avec Stripe",
@@ -505,11 +506,11 @@ export const fr: Translations = {
   productSettings: {
     title: "Liste nutrition",
     description:
-      "Consultez les produits partagés et ajoutez les vôtres. Sélectionnez jusqu'à trois produits pour les estimations du plan de course.",
+      "Consultez les produits partagés et ajoutez les vôtres. Sélectionnez librement des produits pour les estimations du plan de course.",
     authRequired: "Connectez-vous pour gérer les produits de nutrition partagés.",
     signInCta: "Aller à la connexion",
     listTitle: "Produits disponibles",
-    selectionHelp: "Choisissez jusqu'à {count} produits pour les estimations du plan de course.",
+    selectionHelp: "Choisissez les produits à utiliser pour les estimations du plan de course.",
     selectionCount: "{count} sélectionné(s)",
     empty: "Aucun produit trouvé. Ajoutez-en un ci-dessous pour commencer.",
     loading: "Chargement des produits...",
@@ -519,7 +520,6 @@ export const fr: Translations = {
     errors: {
       loadFailed: "Impossible de charger les produits. Réessayez.",
       createFailed: "Impossible de créer le produit. Réessayez.",
-      selectionLimit: "Vous pouvez sélectionner jusqu'à 3 produits pour le planner.",
       missingSession: "Vous devez être connecté pour ajouter ou sélectionner des produits.",
     },
     actions: {
@@ -572,14 +572,13 @@ export const fr: Translations = {
       waterBagLabel: "Volume poche à eau (L)",
       waterBagHelper: "Le planner plafonne l'eau prévue par segment à ce volume.",
     },
-    favorites: {
-      title: "Nutrition favorite",
-      subtitle: "Choisissez jusqu'à trois produits mis en avant dans le planner.",
-      add: "Ajouter des favoris",
-      empty: "Aucun favori pour l'instant. Ajoutez vos produits habituels.",
-      selectedLabel: "Favoris sélectionnés",
-      limit: "Vous pouvez enregistrer jusqu'à trois favoris.",
-      remove: "Retirer",
+  favorites: {
+    title: "Nutrition favorite",
+    subtitle: "Choisissez les produits que vous souhaitez voir en premier dans le planner.",
+    add: "Ajouter des favoris",
+    empty: "Aucun favori pour l'instant. Ajoutez vos produits habituels.",
+    selectedLabel: "Favoris sélectionnés",
+    remove: "Retirer",
       dialog: {
         title: "Sélectionner des produits",
         searchPlaceholder: "Rechercher un produit...",
@@ -612,19 +611,19 @@ export const fr: Translations = {
         confirm: "Oui, je comprends",
         cancel: "Garder Premium",
       },
-    },
-    premiumModal: {
-      title: "Passer en Premium",
-      description: "Débloquez les plans illimités, les exports, le remplissage automatique et des favoris illimités.",
-      priceLabel: "Prix",
-      priceValue: "7,99 $/mois",
-      featuresTitle: "Inclus dans Premium",
-      features: [
-        "Plans enregistrés et exports illimités",
-        "Remplissage automatique avec vos favoris",
-        "Favoris et produits personnalisés illimités",
-        "Impression et export GPX activés",
-      ],
+  },
+  premiumModal: {
+    title: "Passer en Premium",
+    description: "Débloquez les plans illimités, les exports, le remplissage automatique et des produits personnalisés illimités.",
+    priceLabel: "Prix",
+    priceValue: "7,99 $/mois",
+    featuresTitle: "Inclus dans Premium",
+    features: [
+      "Plans enregistrés et exports illimités",
+      "Remplissage automatique avec vos favoris",
+      "Produits personnalisés illimités",
+      "Impression et export GPX activés",
+    ],
       subscribe: "S'abonner avec Stripe",
       cancel: "Plus tard",
       popupBlocked: "Impossible d'ouvrir le paiement. Autorisez les popups pour ce site et réessayez.",

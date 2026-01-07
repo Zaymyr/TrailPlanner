@@ -53,7 +53,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const canonicalUrl = buildCanonicalUrl(post.meta);
-  const description = post.meta.description ?? "Insights from the TrailPlanner team.";
+  const description = post.meta.description ?? "Insights from the Pace Yourself team.";
   const ogImage = post.meta.image ? new URL(post.meta.image, SITE_URL).toString() : undefined;
 
   return {
@@ -67,7 +67,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: post.meta.title,
       description,
       url: canonicalUrl,
-      siteName: "TrailPlanner",
+      siteName: "Pace Yourself",
       locale: localeToOgLocale("en"),
       type: "article",
       publishedTime: post.meta.date,

@@ -2,17 +2,17 @@ import type { Translations } from "./types";
 
 export const en: Translations = {
   homeHero: {
-    heading: "Welcome to TrailPlanner",
+    heading: "Welcome to Pace Yourself",
     description:
       "Head to the race planner to estimate aid-station timing, fueling targets, and pace for your next race.",
     cta: "Open race planner",
   },
   landing: {
     hero: {
-      eyebrow: "TrailPlanner",
-      heading: "Dial your trail plan in minutes, not hours",
+      eyebrow: "Pace Yourself",
+      heading: "No more bonking from bad aid-station planning",
       subheading:
-        "Set your pace, terrain, and temperature to get exact carbs, water, and sodium targets for every aid station.",
+        "Exact carbs, water, and sodium targets for every segment — based on your course, pace, and heat.",
       bullets: [
         "Clear carb, water, and sodium gauges you can act on mid-race",
         "Auto-map aid stations with refill volumes and gel counts",
@@ -113,6 +113,7 @@ export const en: Translations = {
   },
   navigation: {
     racePlanner: "Race planner",
+    blog: "Blog",
     settings: "Nutrition list",
     profile: "Profile",
     admin: "Admin",
@@ -131,7 +132,7 @@ export const en: Translations = {
     signUp: {
       title: "Sign up",
       description:
-        "Create your Trailplanner account to start organizing your race day fueling.",
+        "Create your Pace Yourself account to start organizing your race day fueling.",
       fullNameLabel: "Full name",
       fullNamePlaceholder: "Alex Runner",
       confirmPasswordLabel: "Confirm password",
@@ -146,7 +147,7 @@ export const en: Translations = {
     },
     signIn: {
       title: "Sign in",
-      description: "Access your Trailplanner account.",
+      description: "Access your Pace Yourself account.",
       submit: "Sign in",
       submitting: "Signing in...",
       success: "Signed in successfully. Redirecting…",
@@ -258,7 +259,7 @@ export const en: Translations = {
       gels: {
         title: "Fuel products",
         description:
-          "Your top three favorites from Settings appear first, followed by every shared product in the database.",
+          "Your favorites from Settings appear first, followed by every shared product in the database.",
         loading: "Loading fuel products…",
         loadError: "Unable to load fuel products. Showing defaults.",
         favoritesTitle: "Favorites from Settings",
@@ -386,21 +387,21 @@ export const en: Translations = {
       autoFillLocked: "Automatic fill with your favorites is a premium feature.",
       limits: {
         plans: "Free: save 1 plan total",
-        favorites: "Free: up to 2 favorite products",
+        favorites: "Favorites: unlimited products for all plans",
         customProducts: "Free: 1 custom product",
         export: "Free: printing and exports locked",
         autoFill: "Free: automatic fill locked",
       },
       premiumModal: {
         title: "Upgrade to Premium",
-        description: "Unlock unlimited plans, exports, automatic fill, and unlimited favorites.",
+        description: "Unlock unlimited plans, exports, automatic fill, and unlimited custom products.",
         priceLabel: "Price",
         priceValue: "$7.99/month",
         featuresTitle: "Included in Premium",
         features: [
           "Unlimited saved plans and exports",
           "Automatic fill with your favorite products",
-          "Unlimited favorites and custom products",
+          "Unlimited custom products",
           "Printing and GPX export enabled",
         ],
         subscribe: "Subscribe with Stripe",
@@ -495,11 +496,11 @@ export const en: Translations = {
   productSettings: {
     title: "Nutrition list",
     description:
-      "Browse shared fueling products and add new ones. Pick up to three to use in the race planner estimates.",
+      "Browse shared fueling products and add new ones. Pick any to use in the race planner estimates.",
     authRequired: "Sign in to manage shared nutrition products.",
     signInCta: "Go to sign in",
     listTitle: "Available products",
-    selectionHelp: "Pick up to {count} products to use in your race planner fuel estimates.",
+    selectionHelp: "Pick the products you want to use in your race planner fuel estimates.",
     selectionCount: "{count} selected",
     empty: "No products found. Add one below to get started.",
     loading: "Loading products...",
@@ -509,7 +510,6 @@ export const en: Translations = {
     errors: {
       loadFailed: "Unable to load products. Please try again.",
       createFailed: "Unable to create product. Please try again.",
-      selectionLimit: "You can select up to 3 products for the planner.",
       missingSession: "You need to be signed in to add or select products.",
     },
     actions: {
@@ -564,11 +564,10 @@ export const en: Translations = {
     },
     favorites: {
       title: "Favorite nutrition",
-      subtitle: "Pick up to three items. They show up first in the planner.",
+      subtitle: "Pick the items you want to see first in the planner.",
       add: "Add favorites",
       empty: "No favorites yet. Add products to see them in the planner.",
       selectedLabel: "Selected favorites",
-      limit: "You can save up to three favorites.",
       remove: "Remove",
       dialog: {
         title: "Select nutrition products",
@@ -606,14 +605,14 @@ export const en: Translations = {
     },
     premiumModal: {
       title: "Upgrade to Premium",
-      description: "Unlock unlimited plans, exports, automatic fill, and unlimited favorites.",
+      description: "Unlock unlimited plans, exports, automatic fill, and unlimited custom products.",
       priceLabel: "Price",
       priceValue: "$7.99/month",
       featuresTitle: "Included in Premium",
       features: [
         "Unlimited saved plans and exports",
         "Automatic fill with your favorite products",
-        "Unlimited favorites and custom products",
+        "Unlimited custom products",
         "Printing and GPX export enabled",
       ],
       subscribe: "Subscribe with Stripe",

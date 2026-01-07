@@ -12,7 +12,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
-import { MAX_SELECTED_PRODUCTS, mapProductToSelection } from "../../lib/product-preferences";
+import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchEntitlements } from "../../lib/entitlements-client";
 import { useProductSelection } from "../hooks/useProductSelection";
@@ -83,7 +83,6 @@ export default function ProfilePage() {
   const [favoriteProducts, setFavoriteProducts] = useState<FuelProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [favoriteError, setFavoriteError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
@@ -196,7 +195,6 @@ export default function ProfilePage() {
     onSuccess: (profile) => {
       setSaveMessage(t.profile.success);
       setSaveError(null);
-      setFavoriteError(null);
       setFavoriteProducts(profile.favoriteProducts);
       replaceSelection(profile.favoriteProducts.map((product) => mapProductToSelection(product)));
       form.reset({
@@ -310,20 +308,15 @@ export default function ProfilePage() {
         throw new Error(data?.message ?? t.profile.subscription.checkoutError);
       }
 
-      const popup = window.open(data.url, "trailplanner-checkout", "width=520,height=720,noopener,noreferrer");
-      if (popup) {
-        popup.focus();
-        setUpgradeDialogOpen(false);
+      const popup = window.open(data.url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        setUpgradeError(t.profile.premiumModal.popupBlocked);
         return;
       }
 
-      try {
-        window.location.href = data.url;
-        setUpgradeDialogOpen(false);
-      } catch (fallbackError) {
-        console.error("Unable to open checkout in current tab", fallbackError);
-        setUpgradeError(t.profile.premiumModal.popupBlocked);
-      }
+      popup.opener = null;
+      popup.focus();
+      setUpgradeDialogOpen(false);
     } catch (error) {
       console.error("Unable to open checkout", error);
       setUpgradeError(error instanceof Error ? error.message : t.profile.subscription.checkoutError);
@@ -390,7 +383,6 @@ export default function ProfilePage() {
   const favoriteIds = useMemo(() => new Set(favoriteProducts.map((product) => product.id)), [favoriteProducts]);
 
   const handleFavoriteToggle = (product: FuelProduct) => {
-    setFavoriteError(null);
     setSaveMessage(null);
     setSaveError(null);
 
@@ -398,11 +390,6 @@ export default function ProfilePage() {
       const exists = current.some((item) => item.id === product.id);
       if (exists) {
         return current.filter((item) => item.id !== product.id);
-      }
-
-      if (current.length >= MAX_SELECTED_PRODUCTS) {
-        setFavoriteError(t.profile.favorites.limit);
-        return current;
       }
 
       return [...current, product];
@@ -445,7 +432,7 @@ export default function ProfilePage() {
             className="w-full sm:w-80"
           />
           <p className="text-xs text-slate-400">
-            {favoriteProducts.length}/{MAX_SELECTED_PRODUCTS} {t.profile.favorites.selectedLabel.toLowerCase()}
+            {t.profile.favorites.selectedLabel}: {favoriteProducts.length}
           </p>
         </div>
 
@@ -504,7 +491,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Trailplanner</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Pace Yourself</p>
         <h2 className="text-2xl font-semibold text-slate-50">{t.profile.title}</h2>
         <p className="text-sm text-slate-300">{t.profile.description}</p>
       </div>
@@ -643,7 +630,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex items-center gap-2">
               <p className="text-xs text-slate-400">
-                {favoriteProducts.length}/{MAX_SELECTED_PRODUCTS} {t.profile.favorites.selectedLabel.toLowerCase()}
+                {t.profile.favorites.selectedLabel}: {favoriteProducts.length}
               </p>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(true)} disabled={authMissing}>
                 {t.profile.favorites.add}
@@ -651,7 +638,6 @@ export default function ProfilePage() {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {favoriteError ? <p className="text-sm text-red-300">{favoriteError}</p> : null}
             {profileQuery.isLoading ? (
               <p className="text-sm text-slate-400">{t.productSettings.loading}</p>
             ) : null}

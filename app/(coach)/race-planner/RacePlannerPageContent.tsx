@@ -622,10 +622,10 @@ function buildPlannerGpx(values: FormValues, elevationProfile: ElevationPoint[])
     .join("\n");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="TrailPlanner" xmlns="http://www.topografix.com/GPX/1/1" xmlns:trailplanner="https://trailplanner.app/gpx">
+<gpx version="1.1" creator="Pace Yourself" xmlns="http://www.topografix.com/GPX/1/1" xmlns:trailplanner="https://trailplanner.app/gpx">
   <metadata>
     <link href="https://trailplanner.app">
-      <text>TrailPlanner</text>
+      <text>Pace Yourself</text>
     </link>
     <time>${new Date().toISOString()}</time>
     <extensions>
@@ -1309,20 +1309,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         throw new Error(data?.message ?? premiumCopy.checkoutError);
       }
 
-      const popup = window.open(data.url, "trailplanner-checkout", "width=520,height=720,noopener,noreferrer");
-      if (popup) {
-        popup.focus();
-        setUpgradeDialogOpen(false);
+      const popup = window.open(data.url, "_blank", "noopener,noreferrer");
+      if (!popup) {
+        setUpgradeError(premiumCopy.premiumModal.popupBlocked);
         return;
       }
 
-      try {
-        window.location.href = data.url;
-        setUpgradeDialogOpen(false);
-      } catch (fallbackError) {
-        console.error("Unable to open checkout in current tab", fallbackError);
-        setUpgradeError(premiumCopy.premiumModal.popupBlocked);
-      }
+      popup.opener = null;
+      popup.focus();
+      setUpgradeDialogOpen(false);
     } catch (error) {
       console.error("Unable to open checkout", error);
       setUpgradeError(error instanceof Error ? error.message : premiumCopy.checkoutError);
@@ -1725,6 +1720,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [append, fields.length, racePlannerCopy.defaults.aidStationName]
   );
 
+  const handleRemoveAidStation = useCallback(
+    (index: number) => {
+      if (!Number.isInteger(index)) return;
+
+      const totalStations = form.getValues("aidStations")?.length ?? 0;
+      if (index < 0 || index >= totalStations) return;
+
+      remove(index);
+    },
+    [form, remove]
+  );
+
   const handleSupplyDrop = useCallback(
     (aidStationIndex: number, productId: string, quantity = 1) => {
       const current = form.getValues(`aidStations.${aidStationIndex}.supplies`) ?? [];
@@ -2071,7 +2078,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         onPrint={handlePrint}
         onAutomaticFill={handleAutomaticFill}
         onAddAidStation={handleAddAidStation}
-        onRemoveAidStation={remove}
+        onRemoveAidStation={handleRemoveAidStation}
         register={form.register}
         setValue={form.setValue}
         formatDistanceWithUnit={formatDistanceWithUnit}

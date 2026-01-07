@@ -2,7 +2,7 @@ export default function ConditionsUtilisationPage() {
   return (
     <div className="space-y-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl sm:p-8">
       <header className="space-y-3">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">TrailPlanner</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Pace Yourself</p>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">
             Conditions Générales d&apos;Utilisation (CGU)
@@ -16,7 +16,7 @@ export default function ConditionsUtilisationPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Objet du service</h2>
         <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
-          TrailPlanner aide les athlètes d&apos;ultra-trail à planifier leur ravitaillement et leur stratégie de course.
+          Pace Yourself aide les athlètes d&apos;ultra-trail à planifier leur ravitaillement et leur stratégie de course.
           Le service fournit des informations indicatives et ne remplace pas un avis médical ou professionnel.
         </p>
       </section>

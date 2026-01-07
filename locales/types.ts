@@ -471,7 +471,6 @@ export type ProfileTranslations = {
     add: string;
     empty: string;
     selectedLabel: string;
-    limit: string;
     remove: string;
     dialog: {
       title: string;
@@ -527,6 +526,7 @@ export type Translations = {
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
     racePlanner: string;
+    blog: string;
     settings: string;
     admin: string;
     menuLabel: string;
@@ -553,7 +553,6 @@ export type ProductSettingsTranslations = {
   errors: {
     loadFailed: string;
     createFailed: string;
-    selectionLimit: string;
     missingSession: string;
   };
   actions: {

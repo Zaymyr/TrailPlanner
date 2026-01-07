@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import "./globals.css";
 import React from "react";
 import { I18nProvider } from "./i18n-provider";
@@ -34,7 +36,7 @@ const createMetadata = (locale: Locale): Metadata => {
       title,
       description,
       url: CANONICAL_URL,
-      siteName: "TrailPlanner",
+      siteName: "Pace Yourself",
       locale: ogLocale,
       alternateLocale: [localeToOgLocale(locale === "en" ? "fr" : "en")],
       type: "website",
@@ -43,6 +45,9 @@ const createMetadata = (locale: Locale): Metadata => {
       card: "summary_large_image",
       title,
       description,
+    },
+    icons: {
+      icon: [{ url: "/branding/favicon.png", type: "image/png" }],
     },
   };
 };
@@ -70,8 +75,16 @@ export default function RootLayout({
                 <div className="flex items-start gap-3">
                   <HeaderMenu />
                   <div className="space-y-1">
-                    <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Trailplanner</p>
-                    <h1 className="text-2xl font-semibold leading-tight text-slate-50">Race Fuel Planner</h1>
+                    <Link href="/" aria-label="Go to home" className="inline-flex">
+                      <Image
+                        src="/branding/logo-horizontal.png"
+                        alt="Pace Yourself"
+                        width={220}
+                        height={44}
+                        priority
+                        className="h-15 w-auto"
+                      />
+                    </Link>
                     <p className="text-sm text-slate-300">
                       Plan your aid-station timing, fueling targets, and pacing for race day.
                     </p>

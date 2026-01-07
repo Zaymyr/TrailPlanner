@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import {
-  extractBearerToken,
-  fetchSupabaseUser,
-  getSupabaseAnonConfig,
-} from "../../../lib/supabase";
-import { getUserEntitlements } from "../../../lib/entitlements";
+import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../lib/supabase";
 import {
   profileResponseSchema,
   profileUpdateSchema,
@@ -214,19 +209,6 @@ export async function PUT(request: Request) {
   }
 
   const body: ProfileUpdatePayload = parsedBody.data;
-
-  const entitlements = await getUserEntitlements(user.id);
-
-  if (
-    Array.isArray(body.favoriteProductIds) &&
-    Number.isFinite(entitlements.favoriteLimit) &&
-    body.favoriteProductIds.length > entitlements.favoriteLimit
-  ) {
-    return NextResponse.json(
-      { message: "Favorites are limited on the free plan. Please remove an item or upgrade to continue." },
-      { status: 402 }
-    );
-  }
 
   try {
     const profilePayload: Record<string, unknown> = { user_id: user.id };

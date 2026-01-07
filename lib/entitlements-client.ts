@@ -39,8 +39,7 @@ export const fetchEntitlements = async (accessToken: string, signal?: AbortSigna
   const normalized: UserEntitlements = {
     isPremium: parsed.data.entitlements.isPremium,
     planLimit: parsed.data.entitlements.planLimit ?? (parsed.data.entitlements.isPremium ? Number.POSITIVE_INFINITY : 1),
-    favoriteLimit:
-      parsed.data.entitlements.favoriteLimit ?? (parsed.data.entitlements.isPremium ? Number.POSITIVE_INFINITY : 2),
+    favoriteLimit: parsed.data.entitlements.favoriteLimit ?? Number.POSITIVE_INFINITY,
     customProductLimit:
       parsed.data.entitlements.customProductLimit ?? (parsed.data.entitlements.isPremium ? Number.POSITIVE_INFINITY : 1),
     allowExport: Boolean(parsed.data.entitlements.allowExport ?? parsed.data.entitlements.isPremium),
@@ -53,7 +52,7 @@ export const fetchEntitlements = async (accessToken: string, signal?: AbortSigna
 export const defaultEntitlements: UserEntitlements = {
   isPremium: false,
   planLimit: 1,
-  favoriteLimit: 2,
+  favoriteLimit: Number.POSITIVE_INFINITY,
   customProductLimit: 1,
   allowExport: false,
   allowAutoFill: false,
