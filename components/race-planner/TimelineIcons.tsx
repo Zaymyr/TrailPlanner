@@ -13,24 +13,6 @@ const baseProps = {
   strokeLinejoin: "round",
 } as const;
 
-export function FlameIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" {...baseProps} {...props}>
-      <path d="M12 3c3 3.4 4.6 6.1 4.6 9.2A4.6 4.6 0 0 1 12 17a4.6 4.6 0 0 1-4.6-4.8c0-2 1-3.9 3-6.7" />
-      <path d="M10.5 12.5c0 1.3 1 2.5 2.5 2.5s2.5-1 2.5-2.3c0-1-.4-1.9-1.3-3.2" />
-    </svg>
-  );
-}
-
-export function DropletsIcon(props: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" {...baseProps} {...props}>
-      <path d="M12 2S6 8 6 12a6 6 0 0 0 12 0c0-4-6-10-6-10Z" />
-      <path d="M8 12a4 4 0 0 0 8 0" />
-    </svg>
-  );
-}
-
 export function SparklesIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" {...baseProps} {...props}>
