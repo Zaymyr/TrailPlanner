@@ -155,11 +155,13 @@ export function ActionPlan({
         index: number;
         name: string;
         distance: string;
+        pauseMinutes: string;
       }
     | {
         mode: "create";
         name: string;
         distance: string;
+        pauseMinutes: string;
       }
   >(null);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -180,8 +182,9 @@ export function ActionPlan({
       mode: "create",
       name: copy.defaults.aidStationName,
       distance: "0",
+      pauseMinutes: "",
     });
-  const updateEditorField = useCallback((field: "name" | "distance", value: string) => {
+  const updateEditorField = useCallback((field: "name" | "distance" | "pauseMinutes", value: string) => {
     setEditorState((current) => (current ? { ...current, [field]: value } : current));
     setEditorError(null);
   }, []);
@@ -284,6 +287,8 @@ export function ActionPlan({
     if (!editorState) return;
     const name = editorState.name.trim();
     const distanceValue = Number(editorState.distance);
+    const pauseValue =
+      editorState.pauseMinutes === "" ? undefined : Number(editorState.pauseMinutes);
     if (!name) {
       setEditorError(copy.validation.required);
       return;
@@ -292,9 +297,14 @@ export function ActionPlan({
       setEditorError(copy.validation.nonNegative);
       return;
     }
+    if (pauseValue !== undefined && (!Number.isFinite(pauseValue) || pauseValue < 0)) {
+      setEditorError(copy.validation.nonNegative);
+      return;
+    }
     if (editorState.mode === "edit") {
       setValue(`aidStations.${editorState.index}.name`, name);
       setValue(`aidStations.${editorState.index}.distanceKm`, distanceValue);
+      setValue(`aidStations.${editorState.index}.pauseMinutes`, pauseValue);
     } else {
       onAddAidStation({ name, distanceKm: distanceValue });
     }
@@ -448,6 +458,12 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
                     : null;
+                const waterRefillFieldName =
+                  typeof item.aidStationIndex === "number"
+                    ? (`aidStations.${item.aidStationIndex}.waterRefill` as const)
+                    : null;
+                const pauseMinutesValue =
+                  typeof item.checkpointSegment?.pauseMinutes === "number" ? item.checkpointSegment.pauseMinutes : 0;
                 const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
@@ -498,6 +514,7 @@ export function ActionPlan({
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
+                const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
                 const sectionStatus = prioritizeStatus(
                   supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
                   { label: timelineCopy.status.atTarget, tone: "neutral" as const }
@@ -518,7 +535,24 @@ export function ActionPlan({
                   />
                 ) : null;
                 const titleContent = item.title;
-                const metaContent = metaText;
+                const metaContent = (
+                  <div className="space-y-1">
+                    <div>{metaText}</div>
+                    <div className="text-[11px] text-slate-400">
+                      {timelineCopy.pauseLabel}: {pauseMinutesValue}
+                    </div>
+                    {distanceFieldName && !isCollapsed && waterRefillFieldName ? (
+                      <label className="mt-1 inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                          {...register(waterRefillFieldName)}
+                        />
+                        <span>{aidStationsCopy.labels.waterRefill}</span>
+                      </label>
+                    ) : null}
+                  </div>
+                );
                 const toggleButton =
                   isCollapsible && collapseKey ? (
                     <Button
@@ -526,20 +560,21 @@ export function ActionPlan({
                       variant="ghost"
                       className="h-8 rounded-full border border-slate-700 bg-slate-900/60 px-3 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
                       onClick={() => toggleAidStationCollapse(collapseKey)}
+                      aria-label={toggleLabel}
+                      title={toggleLabel}
                     >
                       {isCollapsed ? (
                         <ChevronDownIcon className="h-4 w-4" aria-hidden />
                       ) : (
                         <ChevronUpIcon className="h-4 w-4" aria-hidden />
                       )}
-                      <span className="ml-2">{isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel}</span>
                     </Button>
                   ) : null;
 
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
-                      className="flex w-full flex-col gap-3 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-4 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -554,10 +589,6 @@ export function ActionPlan({
                       }}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-emerald-50">{timelineCopy.pointStockLabel}</p>
-                          <p className="text-[11px] text-emerald-100/70">{timelineCopy.pointStockHelper}</p>
-                        </div>
                         <Button
                           type="button"
                           variant="outline"
@@ -624,11 +655,6 @@ export function ActionPlan({
                             ))
                           : null}
                       </div>
-                      <p className="text-[11px] text-slate-300">
-                        {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized?.totals.carbs ?? 0)} ·{" "}
-                        {copy.sections.summary.items.water}: {formatWaterAmount(summarized?.totals.water ?? 0)} ·{" "}
-                        {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized?.totals.sodium ?? 0)}
-                      </p>
                     </div>
                   ) : null;
 
@@ -645,7 +671,7 @@ export function ActionPlan({
                   sectionSegment && sectionTimeFieldName ? (
                     <div className="flex flex-col gap-3">
                       <div className="flex flex-col gap-1">
-                        <Label className="text-xs text-slate-300" htmlFor={sectionTimeFieldName}>
+                        <Label className="sr-only" htmlFor={sectionTimeFieldName}>
                           {timelineCopy.segmentTimeLabel}
                         </Label>
                         <Input
@@ -659,11 +685,10 @@ export function ActionPlan({
                             setValueAs: parseOptionalNumber,
                           })}
                         />
-                        <p className="text-[11px] text-slate-500">{timelineCopy.segmentTimeHelp}</p>
                       </div>
                       {paceAdjustmentFieldName ? (
                         <div className="flex flex-col gap-1">
-                          <Label className="text-xs text-slate-300" htmlFor={paceAdjustmentFieldName}>
+                          <Label className="sr-only" htmlFor={paceAdjustmentFieldName}>
                             {timelineCopy.paceAdjustmentLabel}
                           </Label>
                           <div className="flex items-center gap-2">
@@ -710,7 +735,6 @@ export function ActionPlan({
                               +
                             </Button>
                           </div>
-                          <p className="text-[11px] text-slate-500">{timelineCopy.paceAdjustmentHelp}</p>
                         </div>
                       ) : null}
                     </div>
@@ -789,52 +813,7 @@ export function ActionPlan({
                   };
                 });
 
-                const waterRefillFieldName =
-                  typeof item.aidStationIndex === "number"
-                    ? (`aidStations.${item.aidStationIndex}.waterRefill` as const)
-                    : null;
-                const pauseFieldName =
-                  typeof item.aidStationIndex === "number"
-                    ? (`aidStations.${item.aidStationIndex}.pauseMinutes` as const)
-                    : null;
-
-                const distanceInput =
-                  distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                    <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-900/70 bg-slate-950/60 p-3">
-                      {pauseFieldName ? (
-                        <div className="flex flex-col gap-1">
-                          <Label className="text-[11px] text-slate-300" htmlFor={pauseFieldName}>
-                            {timelineCopy.pauseLabel}
-                          </Label>
-                          <Input
-                            id={pauseFieldName}
-                            type="number"
-                            min="0"
-                            step="1"
-                            className="h-9 w-28 border-slate-800/70 bg-slate-900 text-xs text-slate-100"
-                            {...register(pauseFieldName, { setValueAs: parseOptionalNumber })}
-                          />
-                          <span className="text-[10px] text-slate-400">{timelineCopy.pauseHelp}</span>
-                        </div>
-                      ) : null}
-                      <label className="inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-200">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
-                          {...register(waterRefillFieldName)}
-                        />
-                        <span>{aidStationsCopy.labels.waterRefill}</span>
-                      </label>
-                    </div>
-                  ) : null;
-
-                const stationAside =
-                  !isCollapsed && (distanceInput || suppliesDropZone) ? (
-                    <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_1fr]">
-                      {distanceInput ? <div>{distanceInput}</div> : <div />}
-                      {suppliesDropZone ? <div className="min-w-[260px]">{suppliesDropZone}</div> : null}
-                    </div>
-                  ) : null;
+                const stationAside = null;
 
                 const sectionContent =
                   sectionSegment && inlineMetrics.length > 0 ? (
@@ -1072,6 +1051,7 @@ export function ActionPlan({
                           removeButton
                         )
                       }
+                      headerMiddle={suppliesDropZone}
                       isFinish={item.isFinish}
                       headerAside={stationAside}
                       section={sectionContent}
@@ -1083,6 +1063,10 @@ export function ActionPlan({
                                 index: item.aidStationIndex as number,
                                 name: item.title,
                                 distance: String(item.distanceKm ?? 0),
+                                pauseMinutes:
+                                  typeof item.checkpointSegment?.pauseMinutes === "number"
+                                    ? String(item.checkpointSegment.pauseMinutes)
+                                    : "",
                               })
                           : undefined
                       }
@@ -1126,6 +1110,19 @@ export function ActionPlan({
                   className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
                 />
               </div>
+              {editorState.mode === "edit" ? (
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-slate-300">{timelineCopy.pauseLabel}</Label>
+                  <Input
+                    value={editorState.pauseMinutes}
+                    onChange={(event) => updateEditorField("pauseMinutes", event.target.value)}
+                    type="number"
+                    step="1"
+                    min="0"
+                    className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  />
+                </div>
+              ) : null}
               {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
             </div>
             <div className="flex items-center justify-end gap-2">

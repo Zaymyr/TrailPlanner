@@ -412,6 +412,7 @@ function buildSegments(
       gelsPlanned,
       recommendedGels,
       plannedMinutesOverride: overrideMinutes,
+      pauseMinutes,
       pickupGels: station.pickupGels,
       supplies: station.supplies,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
