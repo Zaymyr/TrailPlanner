@@ -59,6 +59,14 @@ const parseOptionalNumber = (value: string | number) => {
   return Number.isFinite(parsed) ? parsed : undefined;
 };
 
+const formatPaceValue = (minutesPerKm: number) => {
+  if (!Number.isFinite(minutesPerKm) || minutesPerKm <= 0) return "--";
+  const totalSeconds = Math.round(minutesPerKm * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}'${seconds.toString().padStart(2, "0")}"`;
+};
+
 const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
   if (segment.isFinish) return `finishPlan.${field}` as const;
   if (typeof segment.aidStationIndex === "number") {
@@ -676,11 +684,17 @@ export function ActionPlan({
                   basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
                 const paceAdjustmentControl =
                   sectionSegment && paceAdjustmentFieldName ? (
-                    <div className="flex items-center gap-2">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-slate-800 bg-slate-950/80 px-2 py-1">
+                      <input
+                        type="hidden"
+                        {...register(paceAdjustmentFieldName, {
+                          setValueAs: parseOptionalNumber,
+                        })}
+                      />
                       <Button
                         type="button"
-                        variant="outline"
-                        className="h-7 w-7 px-0"
+                        variant="ghost"
+                        className="h-7 w-7 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -692,31 +706,16 @@ export function ActionPlan({
                       >
                         –
                       </Button>
-                      <Input
-                        id={paceAdjustmentFieldName}
-                        type="number"
-                        step="0.05"
-                        value={Number.isFinite(paceMinutesPerKm) ? paceMinutesPerKm.toFixed(2) : ""}
-                        className="h-7 w-20 text-right text-xs"
-                        {...register(paceAdjustmentFieldName, {
-                          setValueAs: parseOptionalNumber,
-                        })}
-                        onChange={(event) => {
-                          const nextPace = parseOptionalNumber(event.target.value);
-                          const nextValue =
-                            nextPace === undefined
-                              ? undefined
-                              : Number((nextPace - basePaceMinutesPerKm).toFixed(2));
-                          setValue(paceAdjustmentFieldName, nextValue, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          });
-                        }}
-                      />
+                      <div className="flex items-baseline gap-1 px-1">
+                        <span className="text-sm font-semibold text-slate-50 tabular-nums">
+                          {formatPaceValue(paceMinutesPerKm)}
+                        </span>
+                        <span className="text-[11px] font-semibold text-slate-400">min/km</span>
+                      </div>
                       <Button
                         type="button"
-                        variant="outline"
-                        className="h-7 w-7 px-0"
+                        variant="ghost"
+                        className="h-7 w-7 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -810,10 +809,10 @@ export function ActionPlan({
                   sectionSegment && inlineMetrics.length > 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-800/70 bg-slate-950/70 p-4 shadow-[0_4px_24px_rgba(15,23,42,0.35)]">
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr]">
-                        <div className="space-y-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 p-3">
+                        <div className="flex flex-col gap-2 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3">
                           <div className="flex items-center justify-between text-sm font-semibold text-slate-100">
-                            <span>{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
-                            <span>{formatMinutes(sectionSegment.segmentMinutes)}</span>
+                            <span className="tabular-nums">{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
+                            <span className="tabular-nums">{formatMinutes(sectionSegment.segmentMinutes)}</span>
                           </div>
                           <div className="flex items-center justify-between text-xs font-semibold">
                             <span className="text-rose-200">{`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}</span>
