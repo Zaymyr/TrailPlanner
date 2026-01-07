@@ -830,24 +830,22 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 w-9 rounded-full border border-slate-700 bg-slate-900/60 p-0 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
+                      className="h-8 rounded-full border border-slate-700 bg-slate-900/60 px-3 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
                       onClick={() => toggleAidStationCollapse(collapseKey)}
                     >
-                      <span className="sr-only">
-                        {isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel}
-                      </span>
                       {isCollapsed ? (
                         <ChevronDownIcon className="h-4 w-4" aria-hidden />
                       ) : (
                         <ChevronUpIcon className="h-4 w-4" aria-hidden />
                       )}
+                      <span className="ml-2">{isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel}</span>
                     </Button>
                   ) : null;
 
                 const suppliesDropZone =
                   item.isStart || typeof item.aidStationIndex === "number" ? (
                     <div
-                      className="flex w-full flex-col gap-3 rounded-lg border border-dashed border-emerald-400/40 bg-emerald-500/5 p-3 transition hover:border-emerald-300/70"
+                      className="flex w-full flex-col gap-3 rounded-xl border border-dashed border-emerald-400/40 bg-emerald-500/5 p-4 shadow-inner shadow-emerald-500/5 transition hover:border-emerald-300/70"
                       onDragOver={(event) => event.preventDefault()}
                         onDrop={(event) => {
                           event.preventDefault();
@@ -866,7 +864,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="outline"
-                        className="h-8 px-3 text-xs"
+                        className="h-8 border-emerald-400/40 bg-slate-950/40 px-3 text-xs text-emerald-50 hover:bg-emerald-500/10"
                         onClick={() =>
                           setSupplyPicker({
                             type: item.isStart ? "start" : "aid",
@@ -950,7 +948,7 @@ export function ActionPlan({
 
                 const distanceInput =
                   distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                    <div className="flex flex-wrap items-end gap-3 text-right sm:text-left">
+                    <div className="flex flex-wrap items-end gap-4 rounded-xl border border-slate-900/70 bg-slate-950/60 p-3">
                       {pauseFieldName ? (
                         <div className="flex flex-col gap-1">
                           <Label className="text-[11px] text-slate-300" htmlFor={pauseFieldName}>
@@ -967,7 +965,7 @@ export function ActionPlan({
                           <span className="text-[10px] text-slate-400">{timelineCopy.pauseHelp}</span>
                         </div>
                       ) : null}
-                      <label className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-[11px] text-slate-200">
+                      <label className="inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-3 py-2 text-[11px] text-slate-200">
                         <input
                           type="checkbox"
                           className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
@@ -1025,12 +1023,10 @@ export function ActionPlan({
                           {supplyMetrics.map((metric) => (
                             <span
                               key={metric.key}
-                              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-semibold ${statusToneStyles[metric.status.tone]}`}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-800/60 bg-slate-900/80 px-3 py-1 text-[11px] font-semibold text-slate-100"
                             >
-                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-slate-800/60 bg-slate-950/40 text-xs font-bold">
-                                {statusToneIcons[metric.status.tone]}
-                              </span>
-                              <span className="uppercase tracking-wide text-slate-100">{metric.label}</span>
+                              <span className="uppercase tracking-wide text-slate-300">{metric.label}</span>
+                              <span className="text-slate-50">{metric.format(metric.planned)}</span>
                             </span>
                           ))}
                           <span

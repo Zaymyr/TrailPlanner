@@ -200,9 +200,9 @@ export function TimelinePointCard({
 }: TimelinePointCardProps) {
   return (
     <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div
-          className={`flex min-w-[220px] items-center gap-3 ${onTitleClick ? "cursor-text" : ""}`}
+          className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-text" : ""}`}
           onClick={onTitleClick}
           role={onTitleClick ? "button" : undefined}
           tabIndex={onTitleClick ? 0 : undefined}
@@ -225,25 +225,23 @@ export function TimelinePointCard({
             {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
           </div>
         </div>
-        <div className="flex flex-1 flex-wrap items-center gap-2">
-          {metrics.length ? (
-            <div className="flex flex-wrap gap-2">
-              {metrics.map((metric) => (
-                <PointMetricCard key={metric.key} metric={metric} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-        {distanceInput || removeAction ? (
-          <div className="flex items-start gap-3">
-            {distanceInput ? <div className="text-right text-xs text-slate-300">{distanceInput}</div> : null}
-            {removeAction}
-          </div>
-        ) : null}
+        {removeAction ? <div className="flex items-center gap-3">{removeAction}</div> : null}
       </div>
 
-      <div className="mt-3">
-        {dropSection ? <div className="min-w-[260px] space-y-2">{dropSection}</div> : null}
+      <div className="mt-3 space-y-3">
+        {metrics.length ? (
+          <div className="flex flex-wrap gap-2">
+            {metrics.map((metric) => (
+              <PointMetricCard key={metric.key} metric={metric} />
+            ))}
+          </div>
+        ) : null}
+        {distanceInput || dropSection ? (
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
+            {distanceInput ? <div className="text-xs text-slate-300">{distanceInput}</div> : <div />}
+            {dropSection ? <div className="min-w-[260px] space-y-2">{dropSection}</div> : null}
+          </div>
+        ) : null}
         {isFinish ? (
           <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
             <Clock3Icon className="h-4 w-4 text-emerald-200" aria-hidden />
