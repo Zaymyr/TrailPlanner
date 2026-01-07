@@ -33,27 +33,17 @@ type TimelineSegmentCardProps = {
   metrics: SegmentMetric[];
 };
 
-type PointMetric = {
-  key: "carbs" | "water" | "sodium";
-  label: string;
-  value?: string;
-  helper?: string;
-  icon: ReactNode;
-  muted?: boolean;
-};
-
 type TimelinePointCardProps = {
   pointIndex: number;
   title: ReactNode;
   titleIcon?: ReactNode;
   meta?: ReactNode;
-  metrics: PointMetric[];
-  distanceInput?: ReactNode;
   finishLabel?: string;
-  removeAction?: ReactNode;
-  isStart?: boolean;
+  headerActions?: ReactNode;
+  headerAside?: ReactNode;
+  section?: ReactNode;
+  footer?: ReactNode;
   isFinish?: boolean;
-  dropSection?: ReactNode;
   onTitleClick?: () => void;
 };
 
@@ -107,25 +97,6 @@ function SegmentMetricCard({ metric }: { metric: SegmentMetric }) {
           {metric.totalPercent > 0 ? `${metric.totalPercent.toFixed(0)}% du plan total` : "\u00a0"}
         </p>
       </div>
-    </div>
-  );
-}
-
-function PointMetricCard({ metric }: { metric: PointMetric }) {
-  return (
-    <div
-      className={`flex flex-1 min-w-[150px] flex-col gap-2 rounded-xl border border-slate-900/80 bg-slate-950/85 px-3 py-3 shadow-inner shadow-slate-900/40 sm:min-w-[180px] sm:px-4 ${
-        metric.muted ? "opacity-60" : ""
-      }`}
-    >
-      <div className="flex items-center gap-2">
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-100 sm:h-8 sm:w-8">
-          {metric.icon}
-        </span>
-        <p className="text-[12px] font-semibold text-slate-100">{metric.label}</p>
-      </div>
-      <p className="text-base font-semibold text-slate-50 sm:text-lg">{metric.value ?? "—"}</p>
-      {metric.helper ? <p className="text-[11px] text-slate-400">{metric.helper}</p> : null}
     </div>
   );
 }
@@ -191,13 +162,12 @@ export function TimelinePointCard({
   title,
   titleIcon,
   meta,
-  metrics,
-  distanceInput,
   finishLabel,
-  removeAction,
-  isStart,
+  headerActions,
+  headerAside,
+  section,
+  footer,
   isFinish,
-  dropSection,
   onTitleClick,
 }: TimelinePointCardProps) {
   return (
@@ -232,30 +202,18 @@ export function TimelinePointCard({
             {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
           </div>
         </div>
-        {removeAction ? <div className="flex items-center gap-3">{removeAction}</div> : null}
+        {headerActions ? <div className="flex items-center gap-3">{headerActions}</div> : null}
       </div>
 
-      <div className="mt-3 space-y-3">
-        {metrics.length ? (
-          <div className="flex flex-wrap gap-2">
-            {metrics.map((metric) => (
-              <PointMetricCard key={metric.key} metric={metric} />
-            ))}
-          </div>
-        ) : null}
-        {distanceInput || dropSection ? (
-          <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)]">
-            {distanceInput ? <div className="text-xs text-slate-300">{distanceInput}</div> : <div />}
-            {dropSection ? <div className="min-w-[260px] space-y-2">{dropSection}</div> : null}
-          </div>
-        ) : null}
-        {isFinish ? (
-          <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
-            <Clock3Icon className="h-4 w-4 text-emerald-200" aria-hidden />
-            <span>{finishLabel ?? "Arrivée"}</span>
-          </div>
-        ) : null}
-      </div>
+      {headerAside ? <div className="mt-4">{headerAside}</div> : null}
+      {section ? <div className="mt-4">{section}</div> : null}
+      {footer ? <div className="mt-4">{footer}</div> : null}
+      {isFinish ? (
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+          <Clock3Icon className="h-4 w-4 text-emerald-200" aria-hidden />
+          <span>{finishLabel ?? "Arrivée"}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

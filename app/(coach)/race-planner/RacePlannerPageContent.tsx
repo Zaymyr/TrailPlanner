@@ -1234,11 +1234,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const formatSodiumAmount = (value: number) =>
     racePlannerCopy.sections.timeline.sodiumLabel.replace("{amount}", value.toFixed(0));
 
-  const calculatePercentage = (value: number, total?: number) => {
-    if (!total || total <= 0) return 0;
-    return Math.min((value / total) * 100, 100);
-  };
-
   const mergedFuelProducts = useMemo(() => {
     const productsById = new Map<string, FuelProduct>();
     fuelProducts.forEach((product) => productsById.set(product.id, product));
@@ -2110,7 +2105,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatFuelAmount={formatFuelAmount}
         formatWaterAmount={formatWaterAmount}
         formatSodiumAmount={formatSodiumAmount}
-        calculatePercentage={calculatePercentage}
         fuelProducts={fuelProductEstimates}
         favoriteProducts={selectedProducts}
         onFavoriteToggle={toggleProduct}
