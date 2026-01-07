@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
+import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
 import { TimelinePointCard } from "./TimelineCards";
 
 type RaceTotals = {
@@ -664,81 +664,51 @@ export function ActionPlan({
                 const plannedFuel = summarized?.totals.carbs ?? 0;
                 const plannedSodium = summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
-                const sectionTimeFieldName = sectionSegment ? getSegmentFieldName(sectionSegment, "segmentMinutesOverride") : null;
                 const paceAdjustmentFieldName = sectionSegment
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
                   : null;
                 const adjustmentStep = 0.25;
-                const timeInput =
-                  sectionSegment && sectionTimeFieldName ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-1">
-                        <Label className="sr-only" htmlFor={sectionTimeFieldName}>
-                          {timelineCopy.segmentTimeLabel}
-                        </Label>
-                        <Input
-                          id={sectionTimeFieldName}
-                          type="number"
-                          min="0"
-                          step="1"
-                          defaultValue={sectionSegment.plannedMinutesOverride ?? ""}
-                          className="h-9 max-w-[140px]"
-                          {...register(sectionTimeFieldName, {
-                            setValueAs: parseOptionalNumber,
-                          })}
-                        />
-                      </div>
-                      {paceAdjustmentFieldName ? (
-                        <div className="flex flex-col gap-1">
-                          <Label className="sr-only" htmlFor={paceAdjustmentFieldName}>
-                            {timelineCopy.paceAdjustmentLabel}
-                          </Label>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-8 w-8 px-0"
-                              onClick={() => {
-                                const nextValue = Number(
-                                  ((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) - adjustmentStep).toFixed(2)
-                                );
-                                setValue(paceAdjustmentFieldName, nextValue, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                });
-                              }}
-                            >
-                              –
-                            </Button>
-                            <Input
-                              id={paceAdjustmentFieldName}
-                              type="number"
-                              step="0.05"
-                              defaultValue={sectionSegment.paceAdjustmentMinutesPerKm ?? ""}
-                              className="h-9 max-w-[120px] text-right"
-                              {...register(paceAdjustmentFieldName, {
-                                setValueAs: parseOptionalNumber,
-                              })}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-8 w-8 px-0"
-                              onClick={() => {
-                                const nextValue = Number(
-                                  ((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) + adjustmentStep).toFixed(2)
-                                );
-                                setValue(paceAdjustmentFieldName, nextValue, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                });
-                              }}
-                            >
-                              +
-                            </Button>
-                          </div>
-                        </div>
-                      ) : null}
+                const paceAdjustmentControl =
+                  sectionSegment && paceAdjustmentFieldName ? (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-7 w-7 px-0"
+                        onClick={() => {
+                          const nextValue = Number(((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) - adjustmentStep).toFixed(2));
+                          setValue(paceAdjustmentFieldName, nextValue, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          });
+                        }}
+                      >
+                        –
+                      </Button>
+                      <Input
+                        id={paceAdjustmentFieldName}
+                        type="number"
+                        step="0.05"
+                        defaultValue={sectionSegment.paceAdjustmentMinutesPerKm ?? ""}
+                        className="h-7 w-20 text-right text-xs"
+                        {...register(paceAdjustmentFieldName, {
+                          setValueAs: parseOptionalNumber,
+                        })}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-7 w-7 px-0"
+                        onClick={() => {
+                          const nextValue = Number(((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) + adjustmentStep).toFixed(2));
+                          setValue(paceAdjustmentFieldName, nextValue, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          });
+                        }}
+                      >
+                        +
+                      </Button>
                     </div>
                   ) : null;
                 const metrics = sectionSegment
@@ -820,27 +790,42 @@ export function ActionPlan({
                 const sectionContent =
                   sectionSegment && inlineMetrics.length > 0 ? (
                     <div className="rounded-2xl border border-dashed border-slate-800/70 bg-slate-950/70 p-4 shadow-[0_4px_24px_rgba(15,23,42,0.35)]">
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-300">
-                        <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1">
-                          <ArrowRightIcon className="h-3.5 w-3.5 text-emerald-200" aria-hidden />
-                          <span className="text-slate-100">{`${sectionSegment.from} → ${sectionSegment.checkpoint}`}</span>
-                          <span className="text-slate-400">·</span>
-                          <span className="text-slate-100">
-                            {formatDistanceWithUnit(sectionSegment.startDistanceKm)} →{" "}
-                            {formatDistanceWithUnit(sectionSegment.distanceKm)}
-                          </span>
-                        </div>
-                        <span className="uppercase tracking-wide text-slate-400">
-                          {timelineCopy.segmentDistanceBetween.replace("{distance}", sectionSegment.segmentKm.toFixed(1))}
-                        </span>
-                      </div>
-                      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,220px)_1fr]">
-                        <div className="space-y-3 rounded-2xl border border-slate-800/70 bg-slate-950/80 p-3">
-                          <div className="flex items-center justify-between text-sm font-semibold text-slate-100">
-                            <span>{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
-                            <span>{formatMinutes(sectionSegment.segmentMinutes)}</span>
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr]">
+                        <div className="space-y-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 p-3">
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              {aidStationsCopy.labels.distance}
+                            </p>
+                            <p className="text-sm font-semibold text-slate-100">{`${sectionSegment.segmentKm.toFixed(1)} km`}</p>
                           </div>
-                          {timeInput}
+                          <div className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              {timelineCopy.segmentTimeLabel}
+                            </p>
+                            <p className="text-sm font-semibold text-slate-100">{formatMinutes(sectionSegment.segmentMinutes)}</p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-rose-400/40 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-200">
+                              D+
+                            </span>
+                            <span className="text-xs font-semibold text-slate-200">
+                              {Math.round(sectionSegment.elevationGainM ?? 0)} m
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/40 bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold text-sky-200">
+                              D-
+                            </span>
+                            <span className="text-xs font-semibold text-slate-200">
+                              {Math.round(sectionSegment.elevationLossM ?? 0)} m
+                            </span>
+                          </div>
+                          {paceAdjustmentControl ? (
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                                {timelineCopy.paceAdjustmentLabel}
+                              </p>
+                              {paceAdjustmentControl}
+                            </div>
+                          ) : null}
                         </div>
                         <div className="grid gap-3 lg:grid-cols-3">
                           {inlineMetrics.map((metric) => (

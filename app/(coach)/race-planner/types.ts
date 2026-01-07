@@ -53,6 +53,8 @@ export type Segment = {
   recommendedGels: number;
   plannedMinutesOverride?: number;
   pauseMinutes?: number;
+  elevationGainM?: number;
+  elevationLossM?: number;
   pickupGels?: number;
   supplies?: StationSupply[];
   waterCapacityMl?: number;
