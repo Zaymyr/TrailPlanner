@@ -668,6 +668,12 @@ export function ActionPlan({
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
                   : null;
                 const adjustmentStep = 0.25;
+                const basePaceMinutesPerKm =
+                  sectionSegment && sectionSegment.segmentKm > 0
+                    ? sectionSegment.estimatedSegmentMinutes / sectionSegment.segmentKm
+                    : 0;
+                const paceMinutesPerKm =
+                  basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
                 const paceAdjustmentControl =
                   sectionSegment && paceAdjustmentFieldName ? (
                     <div className="flex items-center gap-2">
@@ -676,7 +682,8 @@ export function ActionPlan({
                         variant="outline"
                         className="h-7 w-7 px-0"
                         onClick={() => {
-                          const nextValue = Number(((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) - adjustmentStep).toFixed(2));
+                          const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
+                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
                           setValue(paceAdjustmentFieldName, nextValue, {
                             shouldDirty: true,
                             shouldTouch: true,
@@ -689,18 +696,30 @@ export function ActionPlan({
                         id={paceAdjustmentFieldName}
                         type="number"
                         step="0.05"
-                        defaultValue={sectionSegment.paceAdjustmentMinutesPerKm ?? ""}
+                        value={Number.isFinite(paceMinutesPerKm) ? paceMinutesPerKm.toFixed(2) : ""}
                         className="h-7 w-20 text-right text-xs"
                         {...register(paceAdjustmentFieldName, {
                           setValueAs: parseOptionalNumber,
                         })}
+                        onChange={(event) => {
+                          const nextPace = parseOptionalNumber(event.target.value);
+                          const nextValue =
+                            nextPace === undefined
+                              ? undefined
+                              : Number((nextPace - basePaceMinutesPerKm).toFixed(2));
+                          setValue(paceAdjustmentFieldName, nextValue, {
+                            shouldDirty: true,
+                            shouldTouch: true,
+                          });
+                        }}
                       />
                       <Button
                         type="button"
                         variant="outline"
                         className="h-7 w-7 px-0"
                         onClick={() => {
-                          const nextValue = Number(((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) + adjustmentStep).toFixed(2));
+                          const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
+                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
                           setValue(paceAdjustmentFieldName, nextValue, {
                             shouldDirty: true,
                             shouldTouch: true,
