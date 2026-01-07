@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, DropletsIcon, FlameIcon, SparklesIcon } from "./TimelineIcons";
+import { ArrowRightIcon, ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
 import { TimelinePointCard } from "./TimelineCards";
 
 type RaceTotals = {
@@ -211,9 +211,30 @@ export function ActionPlan({
   const renderItems = buildRenderItems(segments);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const metricIcons = {
-    carbs: <FlameIcon className="h-4 w-4 text-purple-100" aria-hidden />,
-    water: <DropletsIcon className="h-4 w-4 text-sky-100" aria-hidden />,
-    sodium: <SparklesIcon className="h-4 w-4 text-slate-100" aria-hidden />,
+    carbs: (
+      <img
+        src="/race-planner/icons/glucide.png"
+        alt=""
+        aria-hidden
+        className="h-4 w-4 object-contain"
+      />
+    ),
+    water: (
+      <img
+        src="/race-planner/icons/water.png"
+        alt=""
+        aria-hidden
+        className="h-4 w-4 object-contain"
+      />
+    ),
+    sodium: (
+      <img
+        src="/race-planner/icons/sodium.png"
+        alt=""
+        aria-hidden
+        className="h-4 w-4 object-contain"
+      />
+    ),
   };
   const autoFillLocked = !allowAutoFill;
   const exportLocked = !allowExport;
@@ -823,6 +844,21 @@ export function ActionPlan({
                   supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
                   { label: timelineCopy.status.atTarget, tone: "neutral" as const }
                 );
+                const pointIcon = item.isStart ? (
+                  <img
+                    src="/race-planner/icons/start.svg"
+                    alt=""
+                    aria-hidden
+                    className="h-5 w-5 object-contain"
+                  />
+                ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
+                  <img
+                    src="/race-planner/icons/aid.svg"
+                    alt=""
+                    aria-hidden
+                    className="h-5 w-5 object-contain"
+                  />
+                ) : null;
                 const titleContent = item.title;
                 const metaContent = metaText;
                 const toggleButton =
@@ -1001,7 +1037,12 @@ export function ActionPlan({
                               {pointNumber}
                             </span>
                             <div className="space-y-1">
-                              <p className="text-base font-semibold text-slate-50">{item.title}</p>
+                              <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
+                                {pointIcon ? (
+                                  <span className="inline-flex h-5 w-5 items-center justify-center">{pointIcon}</span>
+                                ) : null}
+                                <span>{item.title}</span>
+                              </div>
                               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
                                 <span>
                                   {formatDistanceWithUnit(item.distanceKm)} · {timelineCopy.etaLabel}:{" "}
@@ -1048,6 +1089,7 @@ export function ActionPlan({
                     <TimelinePointCard
                       pointIndex={pointNumber}
                       title={titleContent}
+                      titleIcon={pointIcon}
                       meta={metaContent}
                       metrics={[]}
                       distanceInput={distanceInput}

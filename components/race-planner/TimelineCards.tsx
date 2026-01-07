@@ -45,6 +45,7 @@ type PointMetric = {
 type TimelinePointCardProps = {
   pointIndex: number;
   title: ReactNode;
+  titleIcon?: ReactNode;
   meta?: ReactNode;
   metrics: PointMetric[];
   distanceInput?: ReactNode;
@@ -188,6 +189,7 @@ export function TimelineSegmentCard({
 export function TimelinePointCard({
   pointIndex,
   title,
+  titleIcon,
   meta,
   metrics,
   distanceInput,
@@ -221,7 +223,12 @@ export function TimelinePointCard({
             {pointIndex}
           </span>
           <div className="space-y-1">
-            <div className="text-base font-semibold text-slate-50">{title}</div>
+            <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
+              {titleIcon ? (
+                <span className="inline-flex h-5 w-5 items-center justify-center text-slate-50">{titleIcon}</span>
+              ) : null}
+              <span>{title}</span>
+            </div>
             {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
           </div>
         </div>
