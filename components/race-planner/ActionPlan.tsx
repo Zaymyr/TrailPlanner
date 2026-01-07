@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
@@ -13,7 +14,15 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
-import { TimelinePointCard } from "./TimelineCards";
+
+const statusToneStyles = {
+  success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
+  warning: "border-amber-400/40 bg-amber-500/15 text-amber-50",
+  danger: "border-rose-400/40 bg-rose-500/20 text-rose-50",
+  neutral: "border-slate-400/40 bg-slate-600/20 text-slate-50",
+} as const;
+
+type StatusTone = keyof typeof statusToneStyles;
 
 type RaceTotals = {
   fuelGrams: number;
@@ -124,6 +133,297 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
 const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} {...props} />
 );
+
+type SegmentCardVariant = "default" | "compact";
+
+type SegmentCardProps = {
+  distanceText: string;
+  timeText: string;
+  elevationGainText: string;
+  elevationLossText: string;
+  paceControl?: ReactNode;
+  variant?: SegmentCardVariant;
+};
+
+function SegmentCard({
+  distanceText,
+  timeText,
+  elevationGainText,
+  elevationLossText,
+  paceControl,
+  variant = "default",
+}: SegmentCardProps) {
+  const isCompact = variant === "compact";
+  return (
+    <div
+      className={
+        isCompact
+          ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
+          : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
+      }
+    >
+      <div
+        className={
+          isCompact
+            ? "flex items-center justify-between text-xs font-semibold"
+            : "flex items-center justify-between text-sm font-semibold"
+        }
+      >
+        <span className="tabular-nums">{distanceText}</span>
+        <span className="tabular-nums text-slate-300">{timeText}</span>
+      </div>
+      <div
+        className={
+          isCompact
+            ? "flex items-center justify-between text-[11px] font-semibold"
+            : "flex items-center justify-between text-xs font-semibold"
+        }
+      >
+        <span className="text-rose-200/90">{elevationGainText}</span>
+        <span className="text-sky-200/90">{elevationLossText}</span>
+      </div>
+      {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
+    </div>
+  );
+}
+
+type NutritionCardVariant = "default" | "compact";
+
+type NutritionMetric = {
+  key: "carbs" | "water" | "sodium";
+  label: string;
+  name: string;
+  value: string;
+  plannedValue: number;
+  targetValue: number;
+  helper: string | null;
+  statusLabel: string;
+  statusTone: StatusTone;
+  icon: ReactNode;
+  format: (value: number) => string;
+};
+
+type NutritionCardProps = {
+  metric: NutritionMetric;
+  variant?: NutritionCardVariant;
+  waterCapacityMl?: number | null;
+  targetLabel: string;
+  maxLabel: string;
+};
+
+function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel, maxLabel }: NutritionCardProps) {
+  const isCompact = variant === "compact";
+  const targetValue = Math.max(metric.targetValue, 0);
+  const maxValueCandidate =
+    metric.key === "water" && typeof waterCapacityMl === "number" && waterCapacityMl > 0
+      ? waterCapacityMl
+      : targetValue;
+  const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
+  const scaleMax = maxValue * 1.3;
+  const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
+  const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
+  const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
+  const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+  const cursorToneClass =
+    cursorPercent > maxPercent
+      ? "ring-amber-300"
+      : cursorPercent >= targetPercent
+        ? "ring-emerald-300"
+        : "ring-rose-300";
+
+  return (
+    <div
+      className={`rounded-2xl border bg-slate-950/90 shadow-inner ${
+        isCompact ? "p-3" : "p-4"
+      } ${
+        metric.statusTone === "success"
+          ? "border-emerald-500/60 shadow-emerald-500/20"
+          : metric.statusTone === "warning"
+            ? "border-amber-500/60 shadow-amber-500/20"
+            : metric.statusTone === "danger"
+              ? "border-rose-500/60 shadow-rose-500/20"
+              : "border-slate-500/50 shadow-slate-500/10"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-flex items-center justify-center rounded-full border bg-slate-900 ${
+              isCompact ? "h-8 w-8" : "h-9 w-9"
+            } ${
+              metric.key === "carbs"
+                ? "border-purple-400/40"
+                : metric.key === "water"
+                  ? "border-sky-400/40"
+                  : "border-slate-400/40"
+            }`}
+          >
+            {metric.icon}
+          </span>
+          <div className="flex flex-col">
+            <p
+              className={`font-semibold uppercase tracking-wide text-slate-400 ${
+                isCompact ? "text-[11px]" : "text-xs"
+              }`}
+            >
+              {metric.label}
+            </p>
+            <p className={`font-semibold text-slate-50 ${isCompact ? "text-sm" : "text-sm"}`}>{metric.name}</p>
+          </div>
+        </div>
+        <span
+          className={`inline-flex items-center rounded-full border px-2 py-0.5 font-semibold ${
+            isCompact ? "text-[10px]" : "text-[11px]"
+          } ${statusToneStyles[metric.statusTone]}`}
+        >
+          {metric.statusLabel}
+        </span>
+      </div>
+      <div className={isCompact ? "mt-2 flex flex-col gap-2" : "mt-3 flex flex-col gap-3"}>
+        <p className={`${isCompact ? "text-2xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
+          {metric.value}
+        </p>
+        <div className="space-y-2">
+          <div
+            className={`relative w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900 ${
+              isCompact ? "h-3" : "h-4"
+            }`}
+          >
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `linear-gradient(to right,
+                  rgba(248,113,113,0.75) 0%,
+                  rgba(248,113,113,0.75) ${cautionPercent}%,
+                  rgba(251,146,60,0.75) ${cautionPercent}%,
+                  rgba(251,146,60,0.75) ${targetPercent}%,
+                  rgba(16,185,129,0.8) ${targetPercent}%,
+                  rgba(16,185,129,0.8) ${maxPercent}%,
+                  rgba(251,146,60,0.75) ${maxPercent}%,
+                  rgba(251,146,60,0.75) 100%)`,
+              }}
+              aria-hidden
+            />
+            <span
+              className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+              style={{ left: `${targetPercent}%` }}
+              aria-label={targetLabel}
+            />
+            <span
+              className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
+              style={{ left: `${maxPercent}%` }}
+              aria-label={maxLabel}
+            />
+            <span
+              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+              style={{ left: `${cursorPercent}%` }}
+            />
+          </div>
+          <div
+            className={`flex items-center justify-between text-slate-200 ${isCompact ? "text-[10px]" : "text-xs"}`}
+          >
+            <span className="font-semibold">
+              {targetLabel}: {metric.format(targetValue)}
+            </span>
+            {metric.helper ? <span className="text-amber-100">{metric.helper}</span> : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type AidStationHeaderRowProps = {
+  pointIndex: number;
+  title: ReactNode;
+  titleIcon?: ReactNode;
+  meta?: ReactNode;
+  headerMiddle?: ReactNode;
+  headerActions?: ReactNode;
+  finishLabel?: string;
+  isFinish?: boolean;
+  onTitleClick?: () => void;
+};
+
+function AidStationHeaderRow({
+  pointIndex,
+  title,
+  titleIcon,
+  meta,
+  headerMiddle,
+  headerActions,
+  finishLabel,
+  isFinish,
+  onTitleClick,
+}: AidStationHeaderRowProps) {
+  return (
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-3 shadow-[0_8px_30px_rgba(15,23,42,0.35)]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div
+          className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
+          onClick={onTitleClick}
+          role={onTitleClick ? "button" : undefined}
+          tabIndex={onTitleClick ? 0 : undefined}
+          onKeyDown={
+            onTitleClick
+              ? (event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    onTitleClick();
+                  }
+                }
+              : undefined
+          }
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
+              {titleIcon ? (
+                <span className="inline-flex h-5 w-5 items-center justify-center text-slate-50">{titleIcon}</span>
+              ) : null}
+              <span>{title}</span>
+            </div>
+            {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
+          </div>
+        </div>
+        {headerMiddle ? <div className="flex min-w-[240px] flex-1">{headerMiddle}</div> : null}
+        {headerActions ? <div className="flex items-center gap-3">{headerActions}</div> : null}
+      </div>
+      {isFinish ? (
+        <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+          <span>{finishLabel ?? "Arrivée"}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type SectionRowProps = {
+  segment: ReactNode;
+  nutritionCards: ReactNode;
+  showConnector?: boolean;
+};
+
+function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
+  return (
+    <div className="relative rounded-2xl border border-dashed border-slate-800/60 bg-slate-950/60 p-4">
+      {showConnector ? (
+        <div className="pointer-events-none absolute left-[34px] top-2 flex h-[calc(100%-16px)] flex-col items-center">
+          <div className="h-full w-px bg-emerald-500/35" />
+          <div className="-mt-1 h-0 w-0 border-x-[4px] border-t-[6px] border-x-transparent border-t-emerald-500/50" />
+        </div>
+      ) : null}
+      <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
+        <div className="max-w-xs">{segment}</div>
+        <div className="rounded-2xl border-2 border-slate-700/80 bg-slate-950/90 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.55)]">
+          <div className="grid gap-4 lg:grid-cols-3">{nutritionCards}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function ActionPlan({
   copy,
@@ -253,12 +553,6 @@ export function ActionPlan({
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
   };
-  const statusToneStyles = {
-    success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
-    warning: "border-amber-400/40 bg-amber-500/15 text-amber-50",
-    danger: "border-rose-400/40 bg-rose-500/20 text-rose-50",
-    neutral: "border-slate-400/40 bg-slate-600/20 text-slate-50",
-  } as const;
   const statusToneIcons = {
     success: "✓",
     warning: "!",
@@ -684,7 +978,7 @@ export function ActionPlan({
                   basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
                 const paceAdjustmentControl =
                   sectionSegment && paceAdjustmentFieldName ? (
-                    <div className="inline-flex items-center gap-1 rounded-full border border-slate-800 bg-slate-950/80 px-2 py-1">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-slate-800 bg-slate-950/80 px-2 py-0.5">
                       <input
                         type="hidden"
                         {...register(paceAdjustmentFieldName, {
@@ -694,7 +988,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-7 w-7 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
+                        className="h-6 w-6 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -707,15 +1001,15 @@ export function ActionPlan({
                         –
                       </Button>
                       <div className="flex items-baseline gap-1 px-1">
-                        <span className="text-sm font-semibold text-slate-50 tabular-nums">
+                        <span className="text-[13px] font-semibold text-slate-50 tabular-nums">
                           {formatPaceValue(paceMinutesPerKm)}
                         </span>
-                        <span className="text-[11px] font-semibold text-slate-400">min/km</span>
+                        <span className="text-[10px] font-semibold text-slate-400">min/km</span>
                       </div>
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-7 w-7 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
+                        className="h-6 w-6 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -792,6 +1086,12 @@ export function ActionPlan({
                   return {
                     key: metric.key,
                     label: metric.label,
+                    name:
+                      metric.key === "carbs"
+                        ? copy.sections.summary.items.carbs
+                        : metric.key === "water"
+                          ? copy.sections.summary.items.water
+                          : copy.sections.summary.items.sodium,
                     value: metric.format(metric.planned),
                     plannedValue: metric.planned,
                     format: metric.format,
@@ -803,153 +1103,32 @@ export function ActionPlan({
                   };
                 });
 
-                const stationAside = null;
+                const segmentCard =
+                  sectionSegment && inlineMetrics.length > 0 ? (
+                    <SegmentCard
+                      variant="compact"
+                      distanceText={`${sectionSegment.segmentKm.toFixed(1)} km`}
+                      timeText={formatMinutes(sectionSegment.segmentMinutes)}
+                      elevationGainText={`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}
+                      elevationLossText={`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}
+                      paceControl={paceAdjustmentControl}
+                    />
+                  ) : null;
+
+                const nutritionCards = inlineMetrics.map((metric) => (
+                  <NutritionCard
+                    key={metric.key}
+                    metric={metric}
+                    variant="compact"
+                    waterCapacityMl={sectionSegment?.waterCapacityMl ?? null}
+                    targetLabel={timelineCopy.targetLabel}
+                    maxLabel={timelineCopy.waterCapacityLabel}
+                  />
+                ));
 
                 const sectionContent =
-                  sectionSegment && inlineMetrics.length > 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-800/60 bg-slate-950/60 p-4">
-                      <div className="grid gap-4 lg:grid-cols-[minmax(0,200px)_1fr]">
-                        <div className="flex flex-col gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/40 px-3 py-2 text-slate-200">
-                          <div className="flex items-center justify-between text-xs font-semibold">
-                            <span className="tabular-nums">{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
-                            <span className="tabular-nums text-slate-300">
-                              {formatMinutes(sectionSegment.segmentMinutes)}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] font-semibold">
-                            <span className="text-rose-200/90">{`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}</span>
-                            <span className="text-sky-200/90">{`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}</span>
-                          </div>
-                          {paceAdjustmentControl ? (
-                            <div className="flex items-center justify-center">{paceAdjustmentControl}</div>
-                          ) : null}
-                        </div>
-                        <div className="relative">
-                          <div className="pointer-events-none absolute -left-3 top-1/2 hidden h-0 w-0 -translate-y-1/2 border-y-8 border-y-transparent border-r-8 border-r-emerald-500/50 lg:block" />
-                          <div className="rounded-2xl border-2 border-slate-700/80 bg-slate-950/90 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.55)]">
-                            <div className="grid gap-3 lg:grid-cols-3">
-                              {inlineMetrics.map((metric) => (
-                                <div
-                                  key={metric.key}
-                                  className={`rounded-2xl border bg-slate-950/90 p-4 shadow-inner ${
-                                    metric.statusTone === "success"
-                                      ? "border-emerald-500/60 shadow-emerald-500/20"
-                                      : metric.statusTone === "warning"
-                                        ? "border-amber-500/60 shadow-amber-500/20"
-                                        : metric.statusTone === "danger"
-                                          ? "border-rose-500/60 shadow-rose-500/20"
-                                          : "border-slate-500/50 shadow-slate-500/10"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-900 ${
-                                          metric.key === "carbs"
-                                            ? "border-purple-400/40"
-                                            : metric.key === "water"
-                                              ? "border-sky-400/40"
-                                              : "border-slate-400/40"
-                                        }`}
-                                      >
-                                        {metric.icon}
-                                      </span>
-                                      <div className="flex flex-col">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                          {metric.label}
-                                        </p>
-                                        <p className="text-sm font-semibold text-slate-50">
-                                          {metric.key === "carbs"
-                                            ? copy.sections.summary.items.carbs
-                                            : metric.key === "water"
-                                              ? copy.sections.summary.items.water
-                                              : copy.sections.summary.items.sodium}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <span
-                                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
-                                    >
-                                      {metric.statusLabel}
-                                    </span>
-                                  </div>
-                                  <div className="mt-3 flex flex-col gap-3">
-                                    <p className="text-3xl font-extrabold leading-tight text-slate-50">
-                                      {metric.value}
-                                    </p>
-                                    <div className="space-y-2">
-                                      {(() => {
-                                        const targetValue = Math.max(metric.targetValue, 0);
-                                        const maxValueCandidate =
-                                          metric.key === "water" &&
-                                          sectionSegment &&
-                                          typeof sectionSegment.waterCapacityMl === "number" &&
-                                          sectionSegment.waterCapacityMl > 0
-                                            ? sectionSegment.waterCapacityMl
-                                            : targetValue;
-                                        const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
-                                        const scaleMax = maxValue * 1.3;
-                                        const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
-                                        const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
-                                        const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
-                                        const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
-                                        const cursorToneClass =
-                                          cursorPercent > maxPercent
-                                            ? "ring-amber-300"
-                                            : cursorPercent >= targetPercent
-                                              ? "ring-emerald-300"
-                                              : "ring-rose-300";
-                                        return (
-                                          <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
-                                            <div
-                                              className="absolute inset-0"
-                                              style={{
-                                                background: `linear-gradient(to right,
-                                                  rgba(248,113,113,0.75) 0%,
-                                                  rgba(248,113,113,0.75) ${cautionPercent}%,
-                                                  rgba(251,146,60,0.75) ${cautionPercent}%,
-                                                  rgba(251,146,60,0.75) ${targetPercent}%,
-                                                  rgba(16,185,129,0.8) ${targetPercent}%,
-                                                  rgba(16,185,129,0.8) ${maxPercent}%,
-                                                  rgba(251,146,60,0.75) ${maxPercent}%,
-                                                  rgba(251,146,60,0.75) 100%)`,
-                                              }}
-                                              aria-hidden
-                                            />
-                                            <span
-                                              className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
-                                              style={{ left: `${targetPercent}%` }}
-                                              aria-label={timelineCopy.targetLabel}
-                                            />
-                                            <span
-                                              className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-                                              style={{ left: `${maxPercent}%` }}
-                                              aria-label={timelineCopy.waterCapacityLabel}
-                                            />
-                                            <span
-                                              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
-                                              style={{ left: `${cursorPercent}%` }}
-                                            />
-                                          </div>
-                                        );
-                                      })()}
-                                      <div className="flex items-center justify-between text-xs text-slate-200">
-                                        <span className="font-semibold">
-                                          {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
-                                        </span>
-                                        {metric.helper ? (
-                                          <span className="text-amber-100">{metric.helper}</span>
-                                        ) : null}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  sectionSegment && inlineMetrics.length > 0 && segmentCard ? (
+                    <SectionRow segment={segmentCard} nutritionCards={nutritionCards} />
                   ) : null;
 
                 const removeButton =
@@ -1026,42 +1205,48 @@ export function ActionPlan({
 
                 return (
                   <div key={item.id} className="relative pl-8">
-                    <TimelinePointCard
-                      pointIndex={pointNumber}
-                      title={titleContent}
-                      titleIcon={pointIcon}
-                      meta={metaContent}
-                      finishLabel={copy.defaults.finish}
-                      headerActions={
-                        isCollapsible ? (
-                          <div className="flex items-center gap-3">
-                            {toggleButton}
-                            {removeButton}
-                          </div>
-                        ) : (
-                          removeButton
-                        )
-                      }
-                      headerMiddle={suppliesDropZone}
-                      isFinish={item.isFinish}
-                      headerAside={stationAside}
-                      section={sectionContent}
-                      onTitleClick={
-                        typeof item.aidStationIndex === "number"
-                          ? () =>
-                              setEditorState({
-                                mode: "edit",
-                                index: item.aidStationIndex as number,
-                                name: item.title,
-                                distance: String(item.distanceKm ?? 0),
-                                pauseMinutes:
-                                  typeof item.checkpointSegment?.pauseMinutes === "number"
-                                    ? String(item.checkpointSegment.pauseMinutes)
-                                    : "",
-                              })
-                          : undefined
-                      }
-                    />
+                    <div className="space-y-3">
+                      <AidStationHeaderRow
+                        pointIndex={pointNumber}
+                        title={titleContent}
+                        titleIcon={pointIcon}
+                        meta={metaContent}
+                        finishLabel={copy.defaults.finish}
+                        isFinish={item.isFinish}
+                        headerMiddle={suppliesDropZone}
+                        headerActions={
+                          isCollapsible ? (
+                            <div className="flex items-center gap-3">
+                              {toggleButton}
+                              {removeButton}
+                            </div>
+                          ) : (
+                            removeButton
+                          )
+                        }
+                        onTitleClick={
+                          typeof item.aidStationIndex === "number"
+                            ? () =>
+                                setEditorState({
+                                  mode: "edit",
+                                  index: item.aidStationIndex as number,
+                                  name: item.title,
+                                  distance: String(item.distanceKm ?? 0),
+                                  pauseMinutes:
+                                    typeof item.checkpointSegment?.pauseMinutes === "number"
+                                      ? String(item.checkpointSegment.pauseMinutes)
+                                      : "",
+                                })
+                            : undefined
+                        }
+                      />
+                      {sectionContent ? (
+                        <div className="relative">
+                          <div className="pointer-events-none absolute left-[66px] -top-3 h-3 w-px bg-emerald-500/35" />
+                          {sectionContent}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 );
               });
