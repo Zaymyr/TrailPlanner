@@ -191,6 +191,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
 const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation"]) =>
   z.object({
     segmentMinutesOverride: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+    pauseMinutes: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     gelsPlanned: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     pickupGels: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     supplies: z
@@ -364,6 +365,12 @@ function buildSegments(
         : undefined;
     const segmentMinutes = overrideMinutes ?? estimatedSegmentMinutes;
     elapsedMinutes += segmentMinutes;
+    const pauseMinutes =
+      typeof station.pauseMinutes === "number" && Number.isFinite(station.pauseMinutes) && station.pauseMinutes >= 0
+        ? station.pauseMinutes
+        : 0;
+    const etaMinutes = elapsedMinutes;
+    elapsedMinutes += pauseMinutes;
     const targetFuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
     const targetWaterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
     const targetSodiumMg = (segmentMinutes / 60) * values.sodiumIntakePerHour;
@@ -381,7 +388,7 @@ function buildSegments(
       startDistanceKm: previous.distanceKm,
       distanceKm: station.distanceKm,
       segmentKm,
-      etaMinutes: elapsedMinutes,
+      etaMinutes,
       segmentMinutes,
       estimatedSegmentMinutes,
       fuelGrams: targetFuelGrams,
@@ -426,6 +433,7 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 
   const segmentMinutesOverride = toNumber(segmentPlan.segmentMinutesOverride);
+  const pauseMinutes = toNumber(segmentPlan.pauseMinutes);
   const gelsPlanned = toNumber(segmentPlan.gelsPlanned);
   const pickupGels = toNumber(segmentPlan.pickupGels);
   const supplies: StationSupply[] = Array.isArray(segmentPlan.supplies)
@@ -441,13 +449,16 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
 
   return {
     ...(segmentMinutesOverride !== undefined ? { segmentMinutesOverride } : {}),
+    ...(pauseMinutes !== undefined ? { pauseMinutes } : {}),
     ...(gelsPlanned !== undefined ? { gelsPlanned } : {}),
     ...(pickupGels !== undefined ? { pickupGels } : {}),
     ...(supplies.length ? { supplies } : {}),
   };
 }
 
-function sanitizeAidStations(stations?: { name?: string; distanceKm?: number; waterRefill?: boolean }[]): AidStation[] {
+function sanitizeAidStations(
+  stations?: { name?: string; distanceKm?: number; waterRefill?: boolean; pauseMinutes?: number }[]
+): AidStation[] {
   if (!stations?.length) return [];
 
   const sanitized: AidStation[] = [];

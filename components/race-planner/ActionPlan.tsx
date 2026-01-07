@@ -884,10 +884,30 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.waterRefill` as const)
                     : null;
+                const pauseFieldName =
+                  typeof item.aidStationIndex === "number"
+                    ? (`aidStations.${item.aidStationIndex}.pauseMinutes` as const)
+                    : null;
 
                 const distanceInput =
                   distanceFieldName && !isCollapsed && waterRefillFieldName ? (
                     <div className="flex flex-wrap items-end gap-3 text-right sm:text-left">
+                      {pauseFieldName ? (
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-[11px] text-slate-300" htmlFor={pauseFieldName}>
+                            {timelineCopy.pauseLabel}
+                          </Label>
+                          <Input
+                            id={pauseFieldName}
+                            type="number"
+                            min="0"
+                            step="1"
+                            className="h-9 w-28 border-slate-800/70 bg-slate-900 text-xs text-slate-100"
+                            {...register(pauseFieldName, { setValueAs: parseOptionalNumber })}
+                          />
+                          <span className="text-[10px] text-slate-400">{timelineCopy.pauseHelp}</span>
+                        </div>
+                      ) : null}
                       <label className="inline-flex items-center gap-2 rounded-md px-2 py-2 text-[11px] text-slate-200">
                         <input
                           type="checkbox"
