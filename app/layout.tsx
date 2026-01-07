@@ -82,7 +82,7 @@ export default function RootLayout({
                         width={220}
                         height={44}
                         priority
-                        className="h-20 w-auto"
+                        className="h-15 w-auto"
                       />
                     </Link>
                     <p className="text-sm text-slate-300">
