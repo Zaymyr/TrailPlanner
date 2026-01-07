@@ -292,6 +292,8 @@ export const en: Translations = {
         segmentDistanceBetween: "{distance} km between aid stations",
         segmentTimeLabel: "Segment time (minutes)",
         segmentTimeHelp: "Override the calculated time if you expect to be faster or slower on this leg.",
+        pauseLabel: "Pause time (minutes)",
+        pauseHelp: "Add the time you expect to pause at this station.",
         rangeLabel: "{from} → {to}",
         segmentConsumptionLabel: "Segment consumption",
         pointStockLabel: "Stock / taken here",

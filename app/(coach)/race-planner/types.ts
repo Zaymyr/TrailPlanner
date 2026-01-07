@@ -5,6 +5,7 @@ export type StationSupply = {
 
 export type SegmentPlan = {
   segmentMinutesOverride?: number;
+  pauseMinutes?: number;
   gelsPlanned?: number;
   pickupGels?: number;
   supplies?: StationSupply[];

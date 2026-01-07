@@ -302,6 +302,8 @@ export const fr: Translations = {
         segmentDistanceBetween: "{distance} km entre ravitos",
         segmentTimeLabel: "Temps du segment (minutes)",
         segmentTimeHelp: "Ajuste si tu penses être plus rapide ou plus lent sur cette portion.",
+        pauseLabel: "Pause au ravito (minutes)",
+        pauseHelp: "Ajoute le temps prévu pour s'arrêter à ce ravito.",
         rangeLabel: "{from} → {to}",
         segmentConsumptionLabel: "Consommation sur le segment",
         pointStockLabel: "Stock / pris ici",
