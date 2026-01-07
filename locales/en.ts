@@ -2,14 +2,14 @@ import type { Translations } from "./types";
 
 export const en: Translations = {
   homeHero: {
-    heading: "Welcome to TrailPlanner",
+    heading: "Welcome to Pace Yourself",
     description:
       "Head to the race planner to estimate aid-station timing, fueling targets, and pace for your next race.",
     cta: "Open race planner",
   },
   landing: {
     hero: {
-      eyebrow: "TrailPlanner",
+      eyebrow: "Pace Yourself",
       heading: "No more bonking from bad aid-station planning",
       subheading:
         "Exact carbs, water, and sodium targets for every segment — based on your course, pace, and heat.",
@@ -113,6 +113,7 @@ export const en: Translations = {
   },
   navigation: {
     racePlanner: "Race planner",
+    blog: "Blog",
     settings: "Nutrition list",
     profile: "Profile",
     admin: "Admin",
@@ -131,7 +132,7 @@ export const en: Translations = {
     signUp: {
       title: "Sign up",
       description:
-        "Create your Trailplanner account to start organizing your race day fueling.",
+        "Create your Pace Yourself account to start organizing your race day fueling.",
       fullNameLabel: "Full name",
       fullNamePlaceholder: "Alex Runner",
       confirmPasswordLabel: "Confirm password",
@@ -146,7 +147,7 @@ export const en: Translations = {
     },
     signIn: {
       title: "Sign in",
-      description: "Access your Trailplanner account.",
+      description: "Access your Pace Yourself account.",
       submit: "Sign in",
       submitting: "Signing in...",
       success: "Signed in successfully. Redirecting…",

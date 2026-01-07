@@ -491,7 +491,7 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Trailplanner</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Pace Yourself</p>
         <h2 className="text-2xl font-semibold text-slate-50">{t.profile.title}</h2>
         <p className="text-sm text-slate-300">{t.profile.description}</p>
       </div>

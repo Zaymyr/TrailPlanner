@@ -2,12 +2,12 @@ export default function PrivacyPage() {
   return (
     <div className="space-y-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl sm:p-8">
       <header className="space-y-3">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">TrailPlanner</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Pace Yourself</p>
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">Politique de confidentialité</h1>
           <p className="text-base text-slate-300 sm:text-lg">
             Détails sur la collecte, l&apos;utilisation et la protection de vos données personnelles lors de l&apos;usage
-            de TrailPlanner.
+            de Pace Yourself.
           </p>
         </div>
       </header>

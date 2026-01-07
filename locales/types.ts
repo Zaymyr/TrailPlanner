@@ -526,6 +526,7 @@ export type Translations = {
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
     racePlanner: string;
+    blog: string;
     settings: string;
     admin: string;
     menuLabel: string;

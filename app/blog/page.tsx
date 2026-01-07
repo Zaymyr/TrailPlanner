@@ -31,7 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       url: canonicalUrl,
-      siteName: "TrailPlanner",
+      siteName: "Pace Yourself",
       locale: localeToOgLocale("en"),
       alternateLocale: [localeToOgLocale("fr")],
       type: "website",
@@ -123,7 +123,7 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
           <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">Blog</p>
           <h1 className="text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">Insights &amp; trail notes</h1>
           <p className="max-w-2xl text-base text-slate-300 sm:text-lg">
-            Articles about fueling, pacing, and race planning from the TrailPlanner team.
+            Articles about fueling, pacing, and race planning from the Pace Yourself team.
           </p>
         </div>
         <TagFilter tags={tags} activeTag={selectedTag} />
