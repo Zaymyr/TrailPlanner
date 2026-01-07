@@ -792,39 +792,16 @@ export function ActionPlan({
                     <div className="rounded-2xl border border-dashed border-slate-800/70 bg-slate-950/70 p-4 shadow-[0_4px_24px_rgba(15,23,42,0.35)]">
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr]">
                         <div className="space-y-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 p-3">
-                          <div className="space-y-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                              {aidStationsCopy.labels.distance}
-                            </p>
-                            <p className="text-sm font-semibold text-slate-100">{`${sectionSegment.segmentKm.toFixed(1)} km`}</p>
+                          <div className="flex items-center justify-between text-sm font-semibold text-slate-100">
+                            <span>{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
+                            <span>{formatMinutes(sectionSegment.segmentMinutes)}</span>
                           </div>
-                          <div className="space-y-1">
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                              {timelineCopy.segmentTimeLabel}
-                            </p>
-                            <p className="text-sm font-semibold text-slate-100">{formatMinutes(sectionSegment.segmentMinutes)}</p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="inline-flex items-center gap-1 rounded-full border border-rose-400/40 bg-rose-500/10 px-2 py-0.5 text-[11px] font-semibold text-rose-200">
-                              D+
-                            </span>
-                            <span className="text-xs font-semibold text-slate-200">
-                              {Math.round(sectionSegment.elevationGainM ?? 0)} m
-                            </span>
-                            <span className="inline-flex items-center gap-1 rounded-full border border-sky-400/40 bg-sky-500/10 px-2 py-0.5 text-[11px] font-semibold text-sky-200">
-                              D-
-                            </span>
-                            <span className="text-xs font-semibold text-slate-200">
-                              {Math.round(sectionSegment.elevationLossM ?? 0)} m
-                            </span>
+                          <div className="flex items-center justify-between text-xs font-semibold">
+                            <span className="text-rose-200">{`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}</span>
+                            <span className="text-sky-200">{`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}</span>
                           </div>
                           {paceAdjustmentControl ? (
-                            <div className="space-y-1">
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                                {timelineCopy.paceAdjustmentLabel}
-                              </p>
-                              {paceAdjustmentControl}
-                            </div>
+                            <div className="flex items-center justify-center">{paceAdjustmentControl}</div>
                           ) : null}
                         </div>
                         <div className="grid gap-3 lg:grid-cols-3">
