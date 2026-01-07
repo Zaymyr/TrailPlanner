@@ -38,7 +38,6 @@ type ActionPlanProps = {
   formatFuelAmount: (value: number) => string;
   formatWaterAmount: (value: number) => string;
   formatSodiumAmount: (value: number) => string;
-  calculatePercentage: (value: number, total?: number) => number;
   fuelProducts: FuelProduct[];
   favoriteProducts: StoredProductPreference[];
   onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
@@ -70,7 +69,6 @@ const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
 
 type RenderItem =
   | {
-      kind: "point";
       id: string;
       title: string;
       distanceKm: number;
@@ -81,12 +79,6 @@ type RenderItem =
       pickupGels?: number;
       checkpointSegment?: Segment;
       upcomingSegment?: Segment;
-    }
-  | {
-      kind: "segment";
-      id: string;
-      segment: Segment;
-      index: number;
     };
 
 const buildRenderItems = (segments: Segment[]): RenderItem[] => {
@@ -96,7 +88,6 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
   const startSegment = segments[0];
 
   items.push({
-    kind: "point",
     id: `point-${startSegment.from}-start`,
     title: startSegment.from,
     distanceKm: startSegment.startDistanceKm,
@@ -107,14 +98,6 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
 
   segments.forEach((segment, index) => {
     items.push({
-      kind: "segment",
-      id: `segment-${segment.from}-${segment.checkpoint}-${segment.distanceKm}`,
-      segment,
-      index: index + 1,
-    });
-
-    items.push({
-      kind: "point",
       id: `point-${segment.checkpoint}-${segment.distanceKm}`,
       title: segment.checkpoint,
       distanceKm: segment.distanceKm,
@@ -150,7 +133,6 @@ export function ActionPlan({
   formatFuelAmount,
   formatWaterAmount,
   formatSodiumAmount,
-  calculatePercentage,
   fuelProducts,
   favoriteProducts,
   onFavoriteToggle,
@@ -460,332 +442,11 @@ export function ActionPlan({
           <div className="relative space-y-4">
             <div className="absolute left-[18px] top-0 h-full w-px bg-slate-800/70" aria-hidden />
             {(() => {
-              let carrySupplies: StationSupply[] = startSupplies;
-              let hideNextSegment = false;
               return renderItems.map((item, itemIndex) => {
-                if (item.kind === "segment") {
-                  if (hideNextSegment) {
-                    hideNextSegment = false;
-                    return null;
-                  }
-                  const { segment } = item;
-                  const carriedTotals = summarizeSupplies(carrySupplies);
-                  const plannedFuel = carriedTotals?.totals.carbs ?? 0;
-                  const plannedWater = segment.plannedWaterMl;
-                  const plannedSodium = carriedTotals?.totals.sodium ?? 0;
-                  const distanceHelper = timelineCopy.segmentDistanceBetween.replace("{distance}", segment.segmentKm.toFixed(1));
-                  const segmentRange = `${formatDistanceWithUnit(segment.startDistanceKm)} → ${formatDistanceWithUnit(segment.distanceKm)}`;
-                  const segmentPath = `${segment.from} → ${segment.checkpoint}`;
-                  const railDistance = `${segment.segmentKm.toFixed(1)} km`;
-                  const railTime = formatMinutes(segment.segmentMinutes);
-                  const timeFieldName = getSegmentFieldName(segment, "segmentMinutesOverride");
-                  const paceAdjustmentFieldName = getSegmentFieldName(segment, "paceAdjustmentMinutesPerKm");
-                  const adjustmentStep = 0.25;
-                  const timeInput = timeFieldName ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex flex-col gap-1">
-                        <Label className="text-xs text-slate-300" htmlFor={timeFieldName}>
-                          {timelineCopy.segmentTimeLabel}
-                        </Label>
-                        <Input
-                          id={timeFieldName}
-                          type="number"
-                          min="0"
-                          step="1"
-                          defaultValue={segment.plannedMinutesOverride ?? ""}
-                          className="h-9 max-w-[140px]"
-                          {...register(timeFieldName, {
-                            setValueAs: parseOptionalNumber,
-                          })}
-                        />
-                        <p className="text-[11px] text-slate-500">{timelineCopy.segmentTimeHelp}</p>
-                      </div>
-                      {paceAdjustmentFieldName ? (
-                        <div className="flex flex-col gap-1">
-                          <Label className="text-xs text-slate-300" htmlFor={paceAdjustmentFieldName}>
-                            {timelineCopy.paceAdjustmentLabel}
-                          </Label>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-8 w-8 px-0"
-                              onClick={() => {
-                                const nextValue = Number(
-                                  ((segment.paceAdjustmentMinutesPerKm ?? 0) - adjustmentStep).toFixed(2)
-                                );
-                                setValue(paceAdjustmentFieldName, nextValue, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                });
-                              }}
-                            >
-                              –
-                            </Button>
-                            <Input
-                              id={paceAdjustmentFieldName}
-                              type="number"
-                              step="0.05"
-                              defaultValue={segment.paceAdjustmentMinutesPerKm ?? ""}
-                              className="h-9 max-w-[120px] text-right"
-                              {...register(paceAdjustmentFieldName, {
-                                setValueAs: parseOptionalNumber,
-                              })}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-8 w-8 px-0"
-                              onClick={() => {
-                                const nextValue = Number(
-                                  ((segment.paceAdjustmentMinutesPerKm ?? 0) + adjustmentStep).toFixed(2)
-                                );
-                                setValue(paceAdjustmentFieldName, nextValue, {
-                                  shouldDirty: true,
-                                  shouldTouch: true,
-                                });
-                              }}
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <p className="text-[11px] text-slate-500">{timelineCopy.paceAdjustmentHelp}</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null;
-
-                  const gelsFieldName = getSegmentFieldName(segment, "gelsPlanned");
-                  const recommendedGels = Math.max(0, Math.round(segment.recommendedGels * 10) / 10);
-                  const metrics = [
-                    {
-                      key: "carbs" as const,
-                      label: timelineCopy.gelsBetweenLabel,
-                      planned: plannedFuel,
-                      target: segment.targetFuelGrams,
-                      total: raceTotals?.fuelGrams,
-                      format: formatFuelAmount,
-                    },
-                    {
-                      key: "water" as const,
-                      label: copy.sections.summary.items.water,
-                      planned: plannedWater,
-                      target: segment.targetWaterMl,
-                      total: raceTotals?.waterMl,
-                      format: formatWaterAmount,
-                    },
-                    {
-                      key: "sodium" as const,
-                      label: copy.sections.summary.items.sodium,
-                      planned: plannedSodium,
-                      target: segment.targetSodiumMg,
-                      total: raceTotals?.sodiumMg,
-                      format: formatSodiumAmount,
-                    },
-                  ];
-
-                  const inlineMetrics = metrics.map((metric) => {
-                    const targetValue = Math.max(metric.target, 0);
-                    const maxValueCandidate =
-                      metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
-                        ? segment.waterCapacityMl
-                        : targetValue * 1.2;
-                    const upperBound = Math.max(maxValueCandidate, targetValue || 1);
-                    const status = getPlanStatus(metric.planned, targetValue, upperBound);
-                    const targetPercent =
-                      targetValue > 0 ? Math.max(0, Math.min((metric.planned / targetValue) * 100, 999)) : 0;
-                    const capacityLabel =
-                      metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
-                        ? timelineCopy.waterCapacityLabel.replace(
-                            "{capacity}",
-                            formatWaterAmount(segment.waterCapacityMl)
-                          )
-                        : null;
-                    const capacityWarning =
-                      metric.key === "water" && typeof segment.waterShortfallMl === "number" && segment.waterShortfallMl > 0
-                        ? timelineCopy.waterCapacityWarning.replace(
-                            "{missing}",
-                            formatWaterAmount(segment.waterShortfallMl)
-                          )
-                        : null;
-                    return {
-                      key: metric.key,
-                      label: metric.label,
-                      value: metric.format(metric.planned),
-                      plannedValue: metric.planned,
-                      format: metric.format,
-                      targetValue: metric.target,
-                      targetText: `${timelineCopy.targetLabel}: ${metric.format(metric.target)}`,
-                      helper: capacityWarning ?? capacityLabel ?? null,
-                      targetPercent,
-                      totalPercent: calculatePercentage(metric.planned, metric.total),
-                      statusLabel: status.label,
-                      statusTone: status.tone,
-                      icon: metricIcons[metric.key],
-                    };
-                  });
-
-                  return (
-                    <div
-                      key={item.id}
-                      className="relative rounded-2xl border border-slate-800/70 bg-slate-950/70 p-4 pl-20 shadow-[0_8px_30px_rgba(15,23,42,0.45)]"
-                    >
-                      <div className="pointer-events-none absolute left-6 top-4 bottom-4 flex flex-col items-center" aria-hidden>
-                        <span className="h-3 w-3 rounded-full bg-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.25)]" />
-                        <div className="relative flex h-full w-px items-center justify-center">
-                          <span className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-md border border-emerald-400/30 bg-slate-950/95 px-2 py-1 text-[10px] font-semibold text-slate-50 shadow-lg shadow-emerald-500/15">
-                            <span className="block leading-tight">{railDistance}</span>
-                            <span className="block text-[10px] font-normal text-emerald-50/80 leading-tight">
-                              {railTime}
-                            </span>
-                          </span>
-                          <span className="h-full w-px bg-gradient-to-b from-emerald-400 via-emerald-400/80 to-emerald-300" />
-                        </div>
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-400/60 bg-emerald-500/15">
-                          <ArrowRightIcon className="h-3.5 w-3.5 rotate-90 text-emerald-200" aria-hidden />
-                        </span>
-                      </div>
-
-                      <div className="mb-3 flex items-center gap-3 text-[12px] text-slate-200">
-                        <div className="h-px flex-1 rounded-full bg-slate-800" aria-hidden />
-                        <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1 font-semibold">
-                          <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden />
-                          <span className="text-slate-100">{segmentPath}</span>
-                          <span className="text-slate-400">·</span>
-                          <span className="text-slate-100">{segmentRange}</span>
-                        </div>
-                        <div className="h-px flex-1 rounded-full bg-slate-800" aria-hidden />
-                      </div>
-
-                      {timeInput ? <div className="mb-4 flex justify-end">{timeInput}</div> : null}
-
-                      <div className="flex flex-col gap-2 lg:flex-row">
-                        {inlineMetrics.map((metric) => (
-                          // Visual status cards for each resource (carbs, water, sodium)
-                          <div
-                            key={metric.key}
-                            className={`flex-1 rounded-2xl border bg-slate-950/85 p-4 shadow-inner ${
-                              metric.statusTone === "success"
-                                ? "border-emerald-500/50 shadow-emerald-500/10"
-                                : metric.statusTone === "warning"
-                                  ? "border-amber-500/50 shadow-amber-500/10"
-                                  : metric.statusTone === "danger"
-                                    ? "border-rose-500/50 shadow-rose-500/10"
-                                    : "border-slate-500/40 shadow-slate-500/10"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <span
-                                  className={`inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-900 ${
-                                    metric.key === "carbs"
-                                      ? "border-purple-400/40"
-                                      : metric.key === "water"
-                                        ? "border-sky-400/40"
-                                        : "border-slate-400/40"
-                                  }`}
-                                >
-                                  {metric.icon}
-                                </span>
-                                <div className="flex flex-col">
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                    {metric.label}
-                                  </p>
-                                  <p className="text-sm font-semibold text-slate-50">
-                                    {metric.key === "carbs"
-                                      ? copy.sections.summary.items.carbs
-                                      : metric.key === "water"
-                                        ? copy.sections.summary.items.water
-                                        : copy.sections.summary.items.sodium}
-                                  </p>
-                                </div>
-                              </div>
-                              <span
-                                className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
-                              >
-                                {metric.statusLabel}
-                              </span>
-                            </div>
-                            <div className="mt-3 flex flex-col gap-3">
-                              <p className="text-3xl font-extrabold leading-tight text-slate-50">{metric.value}</p>
-                      <div className="space-y-2">
-                        {(() => {
-                          const targetValue = Math.max(metric.targetValue, 0);
-                          const maxValueCandidate =
-                            metric.key === "water" && typeof segment.waterCapacityMl === "number" && segment.waterCapacityMl > 0
-                              ? segment.waterCapacityMl
-                              : targetValue;
-                          const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
-                          const scaleMax = maxValue * 1.3;
-                          const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
-                          const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
-                          const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
-                          const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
-                          const cursorToneClass =
-                            cursorPercent > maxPercent
-                              ? "ring-amber-300"
-                              : cursorPercent >= targetPercent
-                                ? "ring-emerald-300"
-                                : "ring-rose-300";
-                          return (
-                            <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
-                              <div
-                                className="absolute inset-0"
-                                style={{
-                                  background: `linear-gradient(to right,
-                                    rgba(248,113,113,0.75) 0%,
-                                    rgba(248,113,113,0.75) ${cautionPercent}%,
-                                    rgba(251,146,60,0.75) ${cautionPercent}%,
-                                    rgba(251,146,60,0.75) ${targetPercent}%,
-                                    rgba(16,185,129,0.8) ${targetPercent}%,
-                                    rgba(16,185,129,0.8) ${maxPercent}%,
-                                    rgba(251,146,60,0.75) ${maxPercent}%,
-                                    rgba(251,146,60,0.75) 100%)`,
-                                }}
-                                aria-hidden
-                              />
-                              <span
-                                className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
-                                style={{ left: `${targetPercent}%` }}
-                                aria-label={timelineCopy.targetLabel}
-                              />
-                              <span
-                                className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-                                style={{ left: `${maxPercent}%` }}
-                                aria-label={timelineCopy.waterCapacityLabel}
-                              />
-                              <span
-                                className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
-                                style={{ left: `${cursorPercent}%` }}
-                              />
-                            </div>
-                          );
-                        })()}
-                        <div className="flex items-center justify-between text-xs text-slate-200">
-                          <span className="font-semibold">
-                            {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
-                          </span>
-                          {metric.helper ? (
-                            <span className="text-amber-100">{metric.helper}</span>
-                          ) : null}
-                        </div>
-                      </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                }
-
-                const pointNumber = itemIndex === 0 ? 1 : Math.ceil(itemIndex / 2) + 1;
+                const pointNumber = itemIndex + 1;
                 const distanceFieldName =
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.distanceKm` as const)
-                    : null;
-                const nameFieldName =
-                  typeof item.aidStationIndex === "number"
-                    ? (`aidStations.${item.aidStationIndex}.name` as const)
                     : null;
                 const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
@@ -837,9 +498,6 @@ export function ActionPlan({
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
-                if (isCollapsible && isCollapsed) {
-                  hideNextSegment = true;
-                }
                 const sectionStatus = prioritizeStatus(
                   supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
                   { label: timelineCopy.status.atTarget, tone: "neutral" as const }
@@ -879,99 +537,257 @@ export function ActionPlan({
                   ) : null;
 
                 const suppliesDropZone =
-                  item.isStart || typeof item.aidStationIndex === "number" ? (
+                  (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
-                      className="flex w-full flex-col gap-3 rounded-xl border border-dashed border-emerald-400/40 bg-emerald-500/5 p-4 shadow-inner shadow-emerald-500/5 transition hover:border-emerald-300/70"
+                      className="flex w-full flex-col gap-3 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-4 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
-                        onDrop={(event) => {
-                          event.preventDefault();
-                          const productId = event.dataTransfer.getData("text/trailplanner-product-id");
-                          const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
-                          if (!productId) return;
-                          if (item.isStart) {
-                            onStartSupplyDrop(productId, quantity);
-                          } else {
-                            onSupplyDrop(item.aidStationIndex as number, productId, quantity);
-                          }
-                        }}
-                    >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold text-emerald-50">{copy.sections.gels.title}</p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-8 border-emerald-400/40 bg-slate-950/40 px-3 text-xs text-emerald-50 hover:bg-emerald-500/10"
-                        onClick={() =>
-                          setSupplyPicker({
-                            type: item.isStart ? "start" : "aid",
-                            index: item.isStart ? undefined : (item.aidStationIndex as number),
-                          })
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const productId = event.dataTransfer.getData("text/trailplanner-product-id");
+                        const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
+                        if (!productId) return;
+                        if (item.isStart) {
+                          onStartSupplyDrop(productId, quantity);
+                        } else {
+                          onSupplyDrop(item.aidStationIndex as number, productId, quantity);
                         }
-                      >
-                        Add product
-                      </Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {summarized?.items?.length
-                        ? summarized.items.map(({ product, quantity }) => (
-                            <div
-                              key={product.id}
-                              className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
-                            >
-                              <span className="font-semibold">{`${product.name} x${quantity}`}</span>
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                  onClick={() => {
-                                    if (quantity <= 1) {
+                      }}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="space-y-1">
+                          <p className="text-sm font-semibold text-emerald-50">{timelineCopy.pointStockLabel}</p>
+                          <p className="text-[11px] text-emerald-100/70">{timelineCopy.pointStockHelper}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 border-emerald-400/50 bg-slate-950/60 px-3 text-xs text-emerald-50 hover:bg-emerald-500/10"
+                          onClick={() =>
+                            setSupplyPicker({
+                              type: item.isStart ? "start" : "aid",
+                              index: item.isStart ? undefined : (item.aidStationIndex as number),
+                            })
+                          }
+                        >
+                          Add product
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {summarized?.items?.length
+                          ? summarized.items.map(({ product, quantity }) => (
+                              <div
+                                key={product.id}
+                                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
+                              >
+                                <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                    onClick={() => {
+                                      if (quantity <= 1) {
+                                        if (item.isStart) {
+                                          onStartSupplyRemove(product.id);
+                                        } else {
+                                          onSupplyRemove(item.aidStationIndex as number, product.id);
+                                        }
+                                        return;
+                                      }
                                       if (item.isStart) {
                                         onStartSupplyRemove(product.id);
+                                        onStartSupplyDrop(product.id, quantity - 1);
                                       } else {
                                         onSupplyRemove(item.aidStationIndex as number, product.id);
+                                        onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
                                       }
-                                      return;
-                                    }
-                                    if (item.isStart) {
-                                      onStartSupplyRemove(product.id);
-                                      onStartSupplyDrop(product.id, quantity - 1);
-                                    } else {
-                                      onSupplyRemove(item.aidStationIndex as number, product.id);
-                                      onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
-                                    }
-                                  }}
-                                >
-                                  –
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
-                                  onClick={() => {
-                                    if (item.isStart) {
-                                      onStartSupplyDrop(product.id, 1);
-                                    } else {
-                                      onSupplyDrop(item.aidStationIndex as number, product.id, 1);
-                                    }
-                                  }}
-                                >
-                                  +
-                                </Button>
+                                    }}
+                                  >
+                                    –
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                    onClick={() => {
+                                      if (item.isStart) {
+                                        onStartSupplyDrop(product.id, 1);
+                                      } else {
+                                        onSupplyDrop(item.aidStationIndex as number, product.id, 1);
+                                      }
+                                    }}
+                                  >
+                                    +
+                                  </Button>
+                                </div>
                               </div>
-                            </div>
-                          ))
-                        : null}
+                            ))
+                          : null}
+                      </div>
+                      <p className="text-[11px] text-slate-300">
+                        {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized?.totals.carbs ?? 0)} ·{" "}
+                        {copy.sections.summary.items.water}: {formatWaterAmount(summarized?.totals.water ?? 0)} ·{" "}
+                        {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized?.totals.sodium ?? 0)}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-slate-300">
-                      {copy.sections.summary.items.carbs}: {formatFuelAmount(summarized?.totals.carbs ?? 0)} ·{" "}
-                      {copy.sections.summary.items.water}: {formatWaterAmount(summarized?.totals.water ?? 0)} ·{" "}
-                      {copy.sections.summary.items.sodium}: {formatSodiumAmount(summarized?.totals.sodium ?? 0)}
-                    </p>
-                  </div>
-                ) : null;
+                  ) : null;
 
-                carrySupplies = supplies ?? [];
+                const sectionSegment = !isCollapsed ? nextSegment : undefined;
+                const plannedFuel = summarized?.totals.carbs ?? 0;
+                const plannedSodium = summarized?.totals.sodium ?? 0;
+                const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
+                const sectionTimeFieldName = sectionSegment ? getSegmentFieldName(sectionSegment, "segmentMinutesOverride") : null;
+                const paceAdjustmentFieldName = sectionSegment
+                  ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
+                  : null;
+                const adjustmentStep = 0.25;
+                const timeInput =
+                  sectionSegment && sectionTimeFieldName ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs text-slate-300" htmlFor={sectionTimeFieldName}>
+                          {timelineCopy.segmentTimeLabel}
+                        </Label>
+                        <Input
+                          id={sectionTimeFieldName}
+                          type="number"
+                          min="0"
+                          step="1"
+                          defaultValue={sectionSegment.plannedMinutesOverride ?? ""}
+                          className="h-9 max-w-[140px]"
+                          {...register(sectionTimeFieldName, {
+                            setValueAs: parseOptionalNumber,
+                          })}
+                        />
+                        <p className="text-[11px] text-slate-500">{timelineCopy.segmentTimeHelp}</p>
+                      </div>
+                      {paceAdjustmentFieldName ? (
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs text-slate-300" htmlFor={paceAdjustmentFieldName}>
+                            {timelineCopy.paceAdjustmentLabel}
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-8 w-8 px-0"
+                              onClick={() => {
+                                const nextValue = Number(
+                                  ((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) - adjustmentStep).toFixed(2)
+                                );
+                                setValue(paceAdjustmentFieldName, nextValue, {
+                                  shouldDirty: true,
+                                  shouldTouch: true,
+                                });
+                              }}
+                            >
+                              –
+                            </Button>
+                            <Input
+                              id={paceAdjustmentFieldName}
+                              type="number"
+                              step="0.05"
+                              defaultValue={sectionSegment.paceAdjustmentMinutesPerKm ?? ""}
+                              className="h-9 max-w-[120px] text-right"
+                              {...register(paceAdjustmentFieldName, {
+                                setValueAs: parseOptionalNumber,
+                              })}
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-8 w-8 px-0"
+                              onClick={() => {
+                                const nextValue = Number(
+                                  ((sectionSegment.paceAdjustmentMinutesPerKm ?? 0) + adjustmentStep).toFixed(2)
+                                );
+                                setValue(paceAdjustmentFieldName, nextValue, {
+                                  shouldDirty: true,
+                                  shouldTouch: true,
+                                });
+                              }}
+                            >
+                              +
+                            </Button>
+                          </div>
+                          <p className="text-[11px] text-slate-500">{timelineCopy.paceAdjustmentHelp}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null;
+                const metrics = sectionSegment
+                  ? [
+                      {
+                        key: "carbs" as const,
+                        label: timelineCopy.gelsBetweenLabel,
+                        planned: plannedFuel,
+                        target: sectionSegment.targetFuelGrams,
+                        total: raceTotals?.fuelGrams,
+                        format: formatFuelAmount,
+                      },
+                      {
+                        key: "water" as const,
+                        label: copy.sections.summary.items.water,
+                        planned: plannedWater,
+                        target: sectionSegment.targetWaterMl,
+                        total: raceTotals?.waterMl,
+                        format: formatWaterAmount,
+                      },
+                      {
+                        key: "sodium" as const,
+                        label: copy.sections.summary.items.sodium,
+                        planned: plannedSodium,
+                        target: sectionSegment.targetSodiumMg,
+                        total: raceTotals?.sodiumMg,
+                        format: formatSodiumAmount,
+                      },
+                    ]
+                  : [];
+
+                const inlineMetrics = metrics.map((metric) => {
+                  const targetValue = Math.max(metric.target, 0);
+                  const maxValueCandidate =
+                    metric.key === "water" &&
+                    sectionSegment &&
+                    typeof sectionSegment.waterCapacityMl === "number" &&
+                    sectionSegment.waterCapacityMl > 0
+                      ? sectionSegment.waterCapacityMl
+                      : targetValue * 1.2;
+                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
+                  const status = getPlanStatus(metric.planned, targetValue, upperBound);
+                  const capacityLabel =
+                    metric.key === "water" &&
+                    sectionSegment &&
+                    typeof sectionSegment.waterCapacityMl === "number" &&
+                    sectionSegment.waterCapacityMl > 0
+                      ? timelineCopy.waterCapacityLabel.replace(
+                          "{capacity}",
+                          formatWaterAmount(sectionSegment.waterCapacityMl)
+                        )
+                      : null;
+                  const capacityWarning =
+                    metric.key === "water" &&
+                    sectionSegment &&
+                    typeof sectionSegment.waterShortfallMl === "number" &&
+                    sectionSegment.waterShortfallMl > 0
+                      ? timelineCopy.waterCapacityWarning.replace(
+                          "{missing}",
+                          formatWaterAmount(sectionSegment.waterShortfallMl)
+                        )
+                      : null;
+                  return {
+                    key: metric.key,
+                    label: metric.label,
+                    value: metric.format(metric.planned),
+                    plannedValue: metric.planned,
+                    format: metric.format,
+                    targetValue: metric.target,
+                    helper: capacityWarning ?? capacityLabel ?? null,
+                    statusLabel: status.label,
+                    statusTone: status.tone,
+                    icon: metricIcons[metric.key],
+                  };
+                });
 
                 const waterRefillFieldName =
                   typeof item.aidStationIndex === "number"
@@ -1009,6 +825,160 @@ export function ActionPlan({
                         />
                         <span>{aidStationsCopy.labels.waterRefill}</span>
                       </label>
+                    </div>
+                  ) : null;
+
+                const stationAside =
+                  !isCollapsed && (distanceInput || suppliesDropZone) ? (
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,220px)_1fr]">
+                      {distanceInput ? <div>{distanceInput}</div> : <div />}
+                      {suppliesDropZone ? <div className="min-w-[260px]">{suppliesDropZone}</div> : null}
+                    </div>
+                  ) : null;
+
+                const sectionContent =
+                  sectionSegment && inlineMetrics.length > 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-800/70 bg-slate-950/70 p-4 shadow-[0_4px_24px_rgba(15,23,42,0.35)]">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-semibold text-slate-300">
+                        <div className="inline-flex items-center gap-2 rounded-full bg-slate-900/70 px-3 py-1">
+                          <ArrowRightIcon className="h-3.5 w-3.5 text-emerald-200" aria-hidden />
+                          <span className="text-slate-100">{`${sectionSegment.from} → ${sectionSegment.checkpoint}`}</span>
+                          <span className="text-slate-400">·</span>
+                          <span className="text-slate-100">
+                            {formatDistanceWithUnit(sectionSegment.startDistanceKm)} →{" "}
+                            {formatDistanceWithUnit(sectionSegment.distanceKm)}
+                          </span>
+                        </div>
+                        <span className="uppercase tracking-wide text-slate-400">
+                          {timelineCopy.segmentDistanceBetween.replace("{distance}", sectionSegment.segmentKm.toFixed(1))}
+                        </span>
+                      </div>
+                      <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,220px)_1fr]">
+                        <div className="space-y-3 rounded-2xl border border-slate-800/70 bg-slate-950/80 p-3">
+                          <div className="flex items-center justify-between text-sm font-semibold text-slate-100">
+                            <span>{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
+                            <span>{formatMinutes(sectionSegment.segmentMinutes)}</span>
+                          </div>
+                          {timeInput}
+                        </div>
+                        <div className="grid gap-3 lg:grid-cols-3">
+                          {inlineMetrics.map((metric) => (
+                            <div
+                              key={metric.key}
+                              className={`rounded-2xl border bg-slate-950/85 p-4 shadow-inner ${
+                                metric.statusTone === "success"
+                                  ? "border-emerald-500/50 shadow-emerald-500/10"
+                                  : metric.statusTone === "warning"
+                                    ? "border-amber-500/50 shadow-amber-500/10"
+                                    : metric.statusTone === "danger"
+                                      ? "border-rose-500/50 shadow-rose-500/10"
+                                      : "border-slate-500/40 shadow-slate-500/10"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-900 ${
+                                      metric.key === "carbs"
+                                        ? "border-purple-400/40"
+                                        : metric.key === "water"
+                                          ? "border-sky-400/40"
+                                          : "border-slate-400/40"
+                                    }`}
+                                  >
+                                    {metric.icon}
+                                  </span>
+                                  <div className="flex flex-col">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                      {metric.label}
+                                    </p>
+                                    <p className="text-sm font-semibold text-slate-50">
+                                      {metric.key === "carbs"
+                                        ? copy.sections.summary.items.carbs
+                                        : metric.key === "water"
+                                          ? copy.sections.summary.items.water
+                                          : copy.sections.summary.items.sodium}
+                                    </p>
+                                  </div>
+                                </div>
+                                <span
+                                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
+                                >
+                                  {metric.statusLabel}
+                                </span>
+                              </div>
+                              <div className="mt-3 flex flex-col gap-3">
+                                <p className="text-3xl font-extrabold leading-tight text-slate-50">{metric.value}</p>
+                                <div className="space-y-2">
+                                  {(() => {
+                                    const targetValue = Math.max(metric.targetValue, 0);
+                                    const maxValueCandidate =
+                                      metric.key === "water" &&
+                                      sectionSegment &&
+                                      typeof sectionSegment.waterCapacityMl === "number" &&
+                                      sectionSegment.waterCapacityMl > 0
+                                        ? sectionSegment.waterCapacityMl
+                                        : targetValue;
+                                    const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
+                                    const scaleMax = maxValue * 1.3;
+                                    const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
+                                    const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
+                                    const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
+                                    const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+                                    const cursorToneClass =
+                                      cursorPercent > maxPercent
+                                        ? "ring-amber-300"
+                                        : cursorPercent >= targetPercent
+                                          ? "ring-emerald-300"
+                                          : "ring-rose-300";
+                                    return (
+                                      <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
+                                        <div
+                                          className="absolute inset-0"
+                                          style={{
+                                            background: `linear-gradient(to right,
+                                              rgba(248,113,113,0.75) 0%,
+                                              rgba(248,113,113,0.75) ${cautionPercent}%,
+                                              rgba(251,146,60,0.75) ${cautionPercent}%,
+                                              rgba(251,146,60,0.75) ${targetPercent}%,
+                                              rgba(16,185,129,0.8) ${targetPercent}%,
+                                              rgba(16,185,129,0.8) ${maxPercent}%,
+                                              rgba(251,146,60,0.75) ${maxPercent}%,
+                                              rgba(251,146,60,0.75) 100%)`,
+                                          }}
+                                          aria-hidden
+                                        />
+                                        <span
+                                          className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+                                          style={{ left: `${targetPercent}%` }}
+                                          aria-label={timelineCopy.targetLabel}
+                                        />
+                                        <span
+                                          className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
+                                          style={{ left: `${maxPercent}%` }}
+                                          aria-label={timelineCopy.waterCapacityLabel}
+                                        />
+                                        <span
+                                          className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+                                          style={{ left: `${cursorPercent}%` }}
+                                        />
+                                      </div>
+                                    );
+                                  })()}
+                                  <div className="flex items-center justify-between text-xs text-slate-200">
+                                    <span className="font-semibold">
+                                      {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
+                                    </span>
+                                    {metric.helper ? (
+                                      <span className="text-amber-100">{metric.helper}</span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   ) : null;
 
@@ -1091,10 +1061,8 @@ export function ActionPlan({
                       title={titleContent}
                       titleIcon={pointIcon}
                       meta={metaContent}
-                      metrics={[]}
-                      distanceInput={distanceInput}
                       finishLabel={copy.defaults.finish}
-                      removeAction={
+                      headerActions={
                         isCollapsible ? (
                           <div className="flex items-center gap-3">
                             {toggleButton}
@@ -1104,9 +1072,9 @@ export function ActionPlan({
                           removeButton
                         )
                       }
-                      isStart={item.isStart}
                       isFinish={item.isFinish}
-                      dropSection={isCollapsed ? null : suppliesDropZone}
+                      headerAside={stationAside}
+                      section={sectionContent}
                       onTitleClick={
                         typeof item.aidStationIndex === "number"
                           ? () =>
