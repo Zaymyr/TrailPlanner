@@ -847,14 +847,14 @@ export function ActionPlan({
                 );
                 const pointIcon = item.isStart ? (
                   <img
-                    src="/race-planner/icons/start.svg"
+                    src="/race-planner/icons/start.png"
                     alt=""
                     aria-hidden
                     className="h-5 w-5 object-contain"
                   />
                 ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
                   <img
-                    src="/race-planner/icons/aid.svg"
+                    src="/race-planner/icons/ravito.png"
                     alt=""
                     aria-hidden
                     className="h-5 w-5 object-contain"
