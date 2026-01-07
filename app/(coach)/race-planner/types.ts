@@ -5,6 +5,8 @@ export type StationSupply = {
 
 export type SegmentPlan = {
   segmentMinutesOverride?: number;
+  paceAdjustmentMinutesPerKm?: number;
+  pauseMinutes?: number;
   gelsPlanned?: number;
   pickupGels?: number;
   supplies?: StationSupply[];
@@ -37,6 +39,7 @@ export type Segment = {
   etaMinutes: number;
   segmentMinutes: number;
   estimatedSegmentMinutes: number;
+  paceAdjustmentMinutesPerKm?: number;
   fuelGrams: number;
   waterMl: number;
   sodiumMg: number;
@@ -49,6 +52,9 @@ export type Segment = {
   gelsPlanned: number;
   recommendedGels: number;
   plannedMinutesOverride?: number;
+  pauseMinutes?: number;
+  elevationGainM?: number;
+  elevationLossM?: number;
   pickupGels?: number;
   supplies?: StationSupply[];
   waterCapacityMl?: number;

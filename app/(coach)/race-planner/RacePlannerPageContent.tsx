@@ -191,6 +191,8 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
 const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation"]) =>
   z.object({
     segmentMinutesOverride: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+    paceAdjustmentMinutesPerKm: z.coerce.number().optional(),
+    pauseMinutes: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     gelsPlanned: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     pickupGels: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     supplies: z
@@ -326,6 +328,43 @@ function buildSegments(
 ): Segment[] {
   const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
   const minPerKm = minutesPerKm(values);
+  const sortedElevationProfile = [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm);
+  const trackDistanceKm = Math.max(values.raceDistanceKm, sortedElevationProfile.at(-1)?.distanceKm ?? 0);
+  const getElevationAtDistance = (distanceKm: number) => {
+    if (sortedElevationProfile.length === 0) return 0;
+    const clamped = Math.min(Math.max(distanceKm, 0), trackDistanceKm);
+    const nextIndex = sortedElevationProfile.findIndex((point) => point.distanceKm >= clamped);
+    if (nextIndex <= 0) return sortedElevationProfile[0].elevationM;
+    const prevPoint = sortedElevationProfile[nextIndex - 1];
+    const nextPoint = sortedElevationProfile[nextIndex] ?? prevPoint;
+    const ratio =
+      nextPoint.distanceKm === prevPoint.distanceKm
+        ? 0
+        : (clamped - prevPoint.distanceKm) / (nextPoint.distanceKm - prevPoint.distanceKm);
+    return prevPoint.elevationM + (nextPoint.elevationM - prevPoint.elevationM) * ratio;
+  };
+  const getElevationDelta = (startKm: number, endKm: number) => {
+    if (sortedElevationProfile.length === 0) return { gain: 0, loss: 0 };
+    const start = Math.min(startKm, endKm);
+    const end = Math.max(startKm, endKm);
+    const points = [
+      { distanceKm: start, elevationM: getElevationAtDistance(start) },
+      ...sortedElevationProfile.filter((point) => point.distanceKm > start && point.distanceKm < end),
+      { distanceKm: end, elevationM: getElevationAtDistance(end) },
+    ].sort((a, b) => a.distanceKm - b.distanceKm);
+    return points.slice(1).reduce(
+      (acc, point, index) => {
+        const delta = point.elevationM - points[index].elevationM;
+        if (delta >= 0) {
+          acc.gain += delta;
+        } else {
+          acc.loss += Math.abs(delta);
+        }
+        return acc;
+      },
+      { gain: 0, loss: 0 }
+    );
+  };
   const stationsWithIndex: (AidStation & { originalIndex?: number; kind: "aid" | "finish" })[] = values.aidStations
     .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const, waterRefill: station.waterRefill !== false }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
@@ -356,14 +395,28 @@ function buildSegments(
 
   const segments: Segment[] = checkpoints.slice(1).map((station, index) => {
     const previous = checkpoints[index];
+    const elevationDelta = getElevationDelta(previous.distanceKm, station.distanceKm);
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
     const estimatedSegmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm);
+    const paceAdjustmentMinutesPerKm =
+      typeof station.paceAdjustmentMinutesPerKm === "number" && Number.isFinite(station.paceAdjustmentMinutesPerKm)
+        ? station.paceAdjustmentMinutesPerKm
+        : undefined;
+    const adjustedMinutesPerKm =
+      paceAdjustmentMinutesPerKm !== undefined ? Math.max(0, minPerKm + paceAdjustmentMinutesPerKm) : minPerKm;
+    const adjustedSegmentDurationMinutes = adjustedSegmentMinutes(adjustedMinutesPerKm, segmentKm);
     const overrideMinutes =
       typeof station.segmentMinutesOverride === "number" && station.segmentMinutesOverride >= 0
         ? station.segmentMinutesOverride
         : undefined;
-    const segmentMinutes = overrideMinutes ?? estimatedSegmentMinutes;
+    const segmentMinutes = overrideMinutes ?? adjustedSegmentDurationMinutes;
     elapsedMinutes += segmentMinutes;
+    const pauseMinutes =
+      typeof station.pauseMinutes === "number" && Number.isFinite(station.pauseMinutes) && station.pauseMinutes >= 0
+        ? station.pauseMinutes
+        : 0;
+    const etaMinutes = elapsedMinutes;
+    elapsedMinutes += pauseMinutes;
     const targetFuelGrams = (segmentMinutes / 60) * values.targetIntakePerHour;
     const targetWaterMl = (segmentMinutes / 60) * values.waterIntakePerHour;
     const targetSodiumMg = (segmentMinutes / 60) * values.sodiumIntakePerHour;
@@ -381,9 +434,10 @@ function buildSegments(
       startDistanceKm: previous.distanceKm,
       distanceKm: station.distanceKm,
       segmentKm,
-      etaMinutes: elapsedMinutes,
+      etaMinutes,
       segmentMinutes,
       estimatedSegmentMinutes,
+      paceAdjustmentMinutesPerKm,
       fuelGrams: targetFuelGrams,
       waterMl: targetWaterMl,
       sodiumMg: targetSodiumMg,
@@ -396,6 +450,9 @@ function buildSegments(
       gelsPlanned,
       recommendedGels,
       plannedMinutesOverride: overrideMinutes,
+      pauseMinutes,
+      elevationGainM: Math.round(elevationDelta.gain),
+      elevationLossM: Math.round(elevationDelta.loss),
       pickupGels: station.pickupGels,
       supplies: station.supplies,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
@@ -422,17 +479,21 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
 
   const segmentPlan = plan as Partial<SegmentPlan>;
 
-  const toNumber = (value?: unknown) =>
+  const toNonNegativeNumber = (value?: unknown) =>
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+  const toFiniteNumber = (value?: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
-  const segmentMinutesOverride = toNumber(segmentPlan.segmentMinutesOverride);
-  const gelsPlanned = toNumber(segmentPlan.gelsPlanned);
-  const pickupGels = toNumber(segmentPlan.pickupGels);
+  const segmentMinutesOverride = toNonNegativeNumber(segmentPlan.segmentMinutesOverride);
+  const paceAdjustmentMinutesPerKm = toFiniteNumber(segmentPlan.paceAdjustmentMinutesPerKm);
+  const pauseMinutes = toNonNegativeNumber(segmentPlan.pauseMinutes);
+  const gelsPlanned = toNonNegativeNumber(segmentPlan.gelsPlanned);
+  const pickupGels = toNonNegativeNumber(segmentPlan.pickupGels);
   const supplies: StationSupply[] = Array.isArray(segmentPlan.supplies)
     ? segmentPlan.supplies
         .map((supply) => {
           const productId = typeof supply?.productId === "string" ? supply.productId : null;
-          const quantity = toNumber(supply?.quantity);
+          const quantity = toNonNegativeNumber(supply?.quantity);
           if (!productId || quantity === undefined) return null;
           return { productId, quantity };
         })
@@ -441,13 +502,17 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
 
   return {
     ...(segmentMinutesOverride !== undefined ? { segmentMinutesOverride } : {}),
+    ...(paceAdjustmentMinutesPerKm !== undefined ? { paceAdjustmentMinutesPerKm } : {}),
+    ...(pauseMinutes !== undefined ? { pauseMinutes } : {}),
     ...(gelsPlanned !== undefined ? { gelsPlanned } : {}),
     ...(pickupGels !== undefined ? { pickupGels } : {}),
     ...(supplies.length ? { supplies } : {}),
   };
 }
 
-function sanitizeAidStations(stations?: { name?: string; distanceKm?: number; waterRefill?: boolean }[]): AidStation[] {
+function sanitizeAidStations(
+  stations?: { name?: string; distanceKm?: number; waterRefill?: boolean; pauseMinutes?: number }[]
+): AidStation[] {
   if (!stations?.length) return [];
 
   const sanitized: AidStation[] = [];
@@ -1209,11 +1274,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const formatSodiumAmount = (value: number) =>
     racePlannerCopy.sections.timeline.sodiumLabel.replace("{amount}", value.toFixed(0));
-
-  const calculatePercentage = (value: number, total?: number) => {
-    if (!total || total <= 0) return 0;
-    return Math.min((value / total) * 100, 100);
-  };
 
   const mergedFuelProducts = useMemo(() => {
     const productsById = new Map<string, FuelProduct>();
@@ -2086,7 +2146,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         formatFuelAmount={formatFuelAmount}
         formatWaterAmount={formatWaterAmount}
         formatSodiumAmount={formatSodiumAmount}
-        calculatePercentage={calculatePercentage}
         fuelProducts={fuelProductEstimates}
         favoriteProducts={selectedProducts}
         onFavoriteToggle={toggleProduct}
