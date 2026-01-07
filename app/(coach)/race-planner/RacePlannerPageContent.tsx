@@ -191,6 +191,7 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
 const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation"]) =>
   z.object({
     segmentMinutesOverride: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
+    paceAdjustmentMinutesPerKm: z.coerce.number().optional(),
     pauseMinutes: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     gelsPlanned: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     pickupGels: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
@@ -359,11 +360,18 @@ function buildSegments(
     const previous = checkpoints[index];
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
     const estimatedSegmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm);
+    const paceAdjustmentMinutesPerKm =
+      typeof station.paceAdjustmentMinutesPerKm === "number" && Number.isFinite(station.paceAdjustmentMinutesPerKm)
+        ? station.paceAdjustmentMinutesPerKm
+        : undefined;
+    const adjustedMinutesPerKm =
+      paceAdjustmentMinutesPerKm !== undefined ? Math.max(0, minPerKm + paceAdjustmentMinutesPerKm) : minPerKm;
+    const adjustedSegmentDurationMinutes = adjustedSegmentMinutes(adjustedMinutesPerKm, segmentKm);
     const overrideMinutes =
       typeof station.segmentMinutesOverride === "number" && station.segmentMinutesOverride >= 0
         ? station.segmentMinutesOverride
         : undefined;
-    const segmentMinutes = overrideMinutes ?? estimatedSegmentMinutes;
+    const segmentMinutes = overrideMinutes ?? adjustedSegmentDurationMinutes;
     elapsedMinutes += segmentMinutes;
     const pauseMinutes =
       typeof station.pauseMinutes === "number" && Number.isFinite(station.pauseMinutes) && station.pauseMinutes >= 0
@@ -391,6 +399,7 @@ function buildSegments(
       etaMinutes,
       segmentMinutes,
       estimatedSegmentMinutes,
+      paceAdjustmentMinutesPerKm,
       fuelGrams: targetFuelGrams,
       waterMl: targetWaterMl,
       sodiumMg: targetSodiumMg,
@@ -429,18 +438,21 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
 
   const segmentPlan = plan as Partial<SegmentPlan>;
 
-  const toNumber = (value?: unknown) =>
+  const toNonNegativeNumber = (value?: unknown) =>
     typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+  const toFiniteNumber = (value?: unknown) =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
-  const segmentMinutesOverride = toNumber(segmentPlan.segmentMinutesOverride);
-  const pauseMinutes = toNumber(segmentPlan.pauseMinutes);
-  const gelsPlanned = toNumber(segmentPlan.gelsPlanned);
-  const pickupGels = toNumber(segmentPlan.pickupGels);
+  const segmentMinutesOverride = toNonNegativeNumber(segmentPlan.segmentMinutesOverride);
+  const paceAdjustmentMinutesPerKm = toFiniteNumber(segmentPlan.paceAdjustmentMinutesPerKm);
+  const pauseMinutes = toNonNegativeNumber(segmentPlan.pauseMinutes);
+  const gelsPlanned = toNonNegativeNumber(segmentPlan.gelsPlanned);
+  const pickupGels = toNonNegativeNumber(segmentPlan.pickupGels);
   const supplies: StationSupply[] = Array.isArray(segmentPlan.supplies)
     ? segmentPlan.supplies
         .map((supply) => {
           const productId = typeof supply?.productId === "string" ? supply.productId : null;
-          const quantity = toNumber(supply?.quantity);
+          const quantity = toNonNegativeNumber(supply?.quantity);
           if (!productId || quantity === undefined) return null;
           return { productId, quantity };
         })
@@ -449,6 +461,7 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
 
   return {
     ...(segmentMinutesOverride !== undefined ? { segmentMinutesOverride } : {}),
+    ...(paceAdjustmentMinutesPerKm !== undefined ? { paceAdjustmentMinutesPerKm } : {}),
     ...(pauseMinutes !== undefined ? { pauseMinutes } : {}),
     ...(gelsPlanned !== undefined ? { gelsPlanned } : {}),
     ...(pickupGels !== undefined ? { pickupGels } : {}),
