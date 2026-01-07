@@ -82,10 +82,9 @@ export default function RootLayout({
                         width={220}
                         height={44}
                         priority
-                        className="h-7 w-auto"
+                        className="h-10 w-auto"
                       />
                     </Link>
-                    <h1 className="text-2xl font-semibold leading-tight text-slate-50">Race Fuel Planner</h1>
                     <p className="text-sm text-slate-300">
                       Plan your aid-station timing, fueling targets, and pacing for race day.
                     </p>
