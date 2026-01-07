@@ -195,6 +195,8 @@ export type RacePlannerTranslations = {
       segmentTimeHelp: string;
       paceAdjustmentLabel: string;
       paceAdjustmentHelp: string;
+      pauseLabel: string;
+      pauseHelp: string;
       rangeLabel: string;
       segmentConsumptionLabel: string;
       pointStockLabel: string;
