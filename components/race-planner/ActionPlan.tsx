@@ -573,22 +573,22 @@ export function ActionPlan({
 
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
-                    <div className="flex w-full flex-1 items-start gap-2">
-                      <div
-                        className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={(event) => {
-                          event.preventDefault();
-                          const productId = event.dataTransfer.getData("text/trailplanner-product-id");
-                          const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
-                          if (!productId) return;
-                          if (item.isStart) {
-                            onStartSupplyDrop(productId, quantity);
-                          } else {
-                            onSupplyDrop(item.aidStationIndex as number, productId, quantity);
-                          }
-                        }}
-                      >
+                    <div
+                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const productId = event.dataTransfer.getData("text/trailplanner-product-id");
+                        const quantity = Number(event.dataTransfer.getData("text/trailplanner-product-qty")) || 1;
+                        if (!productId) return;
+                        if (item.isStart) {
+                          onStartSupplyDrop(productId, quantity);
+                        } else {
+                          onSupplyDrop(item.aidStationIndex as number, productId, quantity);
+                        }
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
                         <div className="flex flex-wrap gap-2">
                           {summarized?.items?.length
                             ? summarized.items.map(({ product, quantity }) => (
@@ -641,22 +641,22 @@ export function ActionPlan({
                               ))
                             : null}
                         </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
+                          onClick={() =>
+                            setSupplyPicker({
+                              type: item.isStart ? "start" : "aid",
+                              index: item.isStart ? undefined : (item.aidStationIndex as number),
+                            })
+                          }
+                          aria-label={timelineCopy.pickupTitle}
+                          title={timelineCopy.pickupTitle}
+                        >
+                          +
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-9 w-9 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
-                        onClick={() =>
-                          setSupplyPicker({
-                            type: item.isStart ? "start" : "aid",
-                            index: item.isStart ? undefined : (item.aidStationIndex as number),
-                          })
-                        }
-                        aria-label={timelineCopy.pickupTitle}
-                        title={timelineCopy.pickupTitle}
-                      >
-                        +
-                      </Button>
                     </div>
                   ) : null;
 
