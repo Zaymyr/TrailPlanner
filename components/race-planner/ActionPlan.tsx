@@ -807,137 +807,146 @@ export function ActionPlan({
 
                 const sectionContent =
                   sectionSegment && inlineMetrics.length > 0 ? (
-                    <div className="rounded-2xl border border-dashed border-slate-800/70 bg-slate-950/70 p-4 shadow-[0_4px_24px_rgba(15,23,42,0.35)]">
-                      <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr]">
-                        <div className="flex flex-col gap-2 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3">
-                          <div className="flex items-center justify-between text-sm font-semibold text-slate-100">
-                            <span className="tabular-nums">{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
-                            <span className="tabular-nums">{formatMinutes(sectionSegment.segmentMinutes)}</span>
-                          </div>
+                    <div className="rounded-2xl border border-dashed border-slate-800/60 bg-slate-950/60 p-4">
+                      <div className="grid gap-4 lg:grid-cols-[minmax(0,200px)_1fr]">
+                        <div className="flex flex-col gap-2 rounded-2xl border border-slate-800/60 bg-slate-950/40 px-3 py-2 text-slate-200">
                           <div className="flex items-center justify-between text-xs font-semibold">
-                            <span className="text-rose-200">{`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}</span>
-                            <span className="text-sky-200">{`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}</span>
+                            <span className="tabular-nums">{`${sectionSegment.segmentKm.toFixed(1)} km`}</span>
+                            <span className="tabular-nums text-slate-300">
+                              {formatMinutes(sectionSegment.segmentMinutes)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] font-semibold">
+                            <span className="text-rose-200/90">{`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}</span>
+                            <span className="text-sky-200/90">{`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}</span>
                           </div>
                           {paceAdjustmentControl ? (
                             <div className="flex items-center justify-center">{paceAdjustmentControl}</div>
                           ) : null}
                         </div>
-                        <div className="grid gap-3 lg:grid-cols-3">
-                          {inlineMetrics.map((metric) => (
-                            <div
-                              key={metric.key}
-                              className={`rounded-2xl border bg-slate-950/85 p-4 shadow-inner ${
-                                metric.statusTone === "success"
-                                  ? "border-emerald-500/50 shadow-emerald-500/10"
-                                  : metric.statusTone === "warning"
-                                    ? "border-amber-500/50 shadow-amber-500/10"
-                                    : metric.statusTone === "danger"
-                                      ? "border-rose-500/50 shadow-rose-500/10"
-                                      : "border-slate-500/40 shadow-slate-500/10"
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-900 ${
-                                      metric.key === "carbs"
-                                        ? "border-purple-400/40"
-                                        : metric.key === "water"
-                                          ? "border-sky-400/40"
-                                          : "border-slate-400/40"
-                                    }`}
-                                  >
-                                    {metric.icon}
-                                  </span>
-                                  <div className="flex flex-col">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                                      {metric.label}
-                                    </p>
-                                    <p className="text-sm font-semibold text-slate-50">
-                                      {metric.key === "carbs"
-                                        ? copy.sections.summary.items.carbs
-                                        : metric.key === "water"
-                                          ? copy.sections.summary.items.water
-                                          : copy.sections.summary.items.sodium}
-                                    </p>
-                                  </div>
-                                </div>
-                                <span
-                                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
+                        <div className="relative">
+                          <div className="pointer-events-none absolute -left-3 top-1/2 hidden h-0 w-0 -translate-y-1/2 border-y-8 border-y-transparent border-r-8 border-r-emerald-500/50 lg:block" />
+                          <div className="rounded-2xl border-2 border-slate-700/80 bg-slate-950/90 p-3 shadow-[0_10px_30px_rgba(15,23,42,0.55)]">
+                            <div className="grid gap-3 lg:grid-cols-3">
+                              {inlineMetrics.map((metric) => (
+                                <div
+                                  key={metric.key}
+                                  className={`rounded-2xl border bg-slate-950/90 p-4 shadow-inner ${
+                                    metric.statusTone === "success"
+                                      ? "border-emerald-500/60 shadow-emerald-500/20"
+                                      : metric.statusTone === "warning"
+                                        ? "border-amber-500/60 shadow-amber-500/20"
+                                        : metric.statusTone === "danger"
+                                          ? "border-rose-500/60 shadow-rose-500/20"
+                                          : "border-slate-500/50 shadow-slate-500/10"
+                                  }`}
                                 >
-                                  {metric.statusLabel}
-                                </span>
-                              </div>
-                              <div className="mt-3 flex flex-col gap-3">
-                                <p className="text-3xl font-extrabold leading-tight text-slate-50">{metric.value}</p>
-                                <div className="space-y-2">
-                                  {(() => {
-                                    const targetValue = Math.max(metric.targetValue, 0);
-                                    const maxValueCandidate =
-                                      metric.key === "water" &&
-                                      sectionSegment &&
-                                      typeof sectionSegment.waterCapacityMl === "number" &&
-                                      sectionSegment.waterCapacityMl > 0
-                                        ? sectionSegment.waterCapacityMl
-                                        : targetValue;
-                                    const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
-                                    const scaleMax = maxValue * 1.3;
-                                    const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
-                                    const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
-                                    const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
-                                    const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
-                                    const cursorToneClass =
-                                      cursorPercent > maxPercent
-                                        ? "ring-amber-300"
-                                        : cursorPercent >= targetPercent
-                                          ? "ring-emerald-300"
-                                          : "ring-rose-300";
-                                    return (
-                                      <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
-                                        <div
-                                          className="absolute inset-0"
-                                          style={{
-                                            background: `linear-gradient(to right,
-                                              rgba(248,113,113,0.75) 0%,
-                                              rgba(248,113,113,0.75) ${cautionPercent}%,
-                                              rgba(251,146,60,0.75) ${cautionPercent}%,
-                                              rgba(251,146,60,0.75) ${targetPercent}%,
-                                              rgba(16,185,129,0.8) ${targetPercent}%,
-                                              rgba(16,185,129,0.8) ${maxPercent}%,
-                                              rgba(251,146,60,0.75) ${maxPercent}%,
-                                              rgba(251,146,60,0.75) 100%)`,
-                                          }}
-                                          aria-hidden
-                                        />
-                                        <span
-                                          className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
-                                          style={{ left: `${targetPercent}%` }}
-                                          aria-label={timelineCopy.targetLabel}
-                                        />
-                                        <span
-                                          className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-                                          style={{ left: `${maxPercent}%` }}
-                                          aria-label={timelineCopy.waterCapacityLabel}
-                                        />
-                                        <span
-                                          className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
-                                          style={{ left: `${cursorPercent}%` }}
-                                        />
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`inline-flex h-9 w-9 items-center justify-center rounded-full border bg-slate-900 ${
+                                          metric.key === "carbs"
+                                            ? "border-purple-400/40"
+                                            : metric.key === "water"
+                                              ? "border-sky-400/40"
+                                              : "border-slate-400/40"
+                                        }`}
+                                      >
+                                        {metric.icon}
+                                      </span>
+                                      <div className="flex flex-col">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+                                          {metric.label}
+                                        </p>
+                                        <p className="text-sm font-semibold text-slate-50">
+                                          {metric.key === "carbs"
+                                            ? copy.sections.summary.items.carbs
+                                            : metric.key === "water"
+                                              ? copy.sections.summary.items.water
+                                              : copy.sections.summary.items.sodium}
+                                        </p>
                                       </div>
-                                    );
-                                  })()}
-                                  <div className="flex items-center justify-between text-xs text-slate-200">
-                                    <span className="font-semibold">
-                                      {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
+                                    </div>
+                                    <span
+                                      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${statusToneStyles[metric.statusTone]}`}
+                                    >
+                                      {metric.statusLabel}
                                     </span>
-                                    {metric.helper ? (
-                                      <span className="text-amber-100">{metric.helper}</span>
-                                    ) : null}
+                                  </div>
+                                  <div className="mt-3 flex flex-col gap-3">
+                                    <p className="text-3xl font-extrabold leading-tight text-slate-50">
+                                      {metric.value}
+                                    </p>
+                                    <div className="space-y-2">
+                                      {(() => {
+                                        const targetValue = Math.max(metric.targetValue, 0);
+                                        const maxValueCandidate =
+                                          metric.key === "water" &&
+                                          sectionSegment &&
+                                          typeof sectionSegment.waterCapacityMl === "number" &&
+                                          sectionSegment.waterCapacityMl > 0
+                                            ? sectionSegment.waterCapacityMl
+                                            : targetValue;
+                                        const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
+                                        const scaleMax = maxValue * 1.3;
+                                        const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
+                                        const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
+                                        const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
+                                        const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+                                        const cursorToneClass =
+                                          cursorPercent > maxPercent
+                                            ? "ring-amber-300"
+                                            : cursorPercent >= targetPercent
+                                              ? "ring-emerald-300"
+                                              : "ring-rose-300";
+                                        return (
+                                          <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
+                                            <div
+                                              className="absolute inset-0"
+                                              style={{
+                                                background: `linear-gradient(to right,
+                                                  rgba(248,113,113,0.75) 0%,
+                                                  rgba(248,113,113,0.75) ${cautionPercent}%,
+                                                  rgba(251,146,60,0.75) ${cautionPercent}%,
+                                                  rgba(251,146,60,0.75) ${targetPercent}%,
+                                                  rgba(16,185,129,0.8) ${targetPercent}%,
+                                                  rgba(16,185,129,0.8) ${maxPercent}%,
+                                                  rgba(251,146,60,0.75) ${maxPercent}%,
+                                                  rgba(251,146,60,0.75) 100%)`,
+                                              }}
+                                              aria-hidden
+                                            />
+                                            <span
+                                              className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+                                              style={{ left: `${targetPercent}%` }}
+                                              aria-label={timelineCopy.targetLabel}
+                                            />
+                                            <span
+                                              className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
+                                              style={{ left: `${maxPercent}%` }}
+                                              aria-label={timelineCopy.waterCapacityLabel}
+                                            />
+                                            <span
+                                              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+                                              style={{ left: `${cursorPercent}%` }}
+                                            />
+                                          </div>
+                                        );
+                                      })()}
+                                      <div className="flex items-center justify-between text-xs text-slate-200">
+                                        <span className="font-semibold">
+                                          {timelineCopy.targetLabel}: {metric.format(metric.targetValue)}
+                                        </span>
+                                        {metric.helper ? (
+                                          <span className="text-amber-100">{metric.helper}</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
+                              ))}
                             </div>
-                          ))}
+                          </div>
                         </div>
                       </div>
                     </div>
