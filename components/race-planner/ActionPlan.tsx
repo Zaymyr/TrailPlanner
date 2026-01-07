@@ -159,7 +159,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex flex-col gap-1 rounded-xl border border-slate-800/30 bg-slate-950/40 px-2.5 py-2 text-slate-300"
+          ? "flex flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/90 px-2.5 py-2 text-slate-200 shadow-sm"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
@@ -378,7 +378,7 @@ function AidStationHeaderRow({
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
-    <div className="rounded-2xl border border-blue-400/50 bg-slate-950/95 px-5 py-4 shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
+    <div className="relative z-20 rounded-2xl border border-blue-400/50 bg-slate-950/95 px-5 py-4 shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
         <div
           className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
@@ -433,14 +433,14 @@ function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRo
   return (
     <div className="relative">
       {showConnector ? (
-        <div className="pointer-events-none absolute left-[18px] top-2 z-0 flex h-[calc(100%-16px)] flex-col items-center">
+        <div className="pointer-events-none absolute left-[150px] top-2 z-0 flex h-[calc(100%-16px)] flex-col items-center">
           <div className="h-full w-[2px] bg-emerald-500/70" />
           <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
         </div>
       ) : null}
-      <div className="relative z-10 rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4">
+      <div className="relative z-10 mx-10 mt-3 rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4">
         <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-          <div className="relative z-10 max-w-[220px]">{segment}</div>
+          <div className="relative z-10 w-[220px]">{segment}</div>
           <div className="w-full">
             <div className="grid w-full gap-4 lg:grid-cols-3">{nutritionCards}</div>
           </div>
