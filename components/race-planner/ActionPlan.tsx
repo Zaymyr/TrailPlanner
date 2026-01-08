@@ -222,24 +222,19 @@ type NutritionCardProps = {
 function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel, maxLabel }: NutritionCardProps) {
   const isCompact = variant === "compact";
   const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
-  const compactTarget = metric.format(metric.targetValue).split(" de ")[0].split(" d'")[0];
+  const currentValueLabel = metric.value.split(/\s+/).slice(0, 2).join(" ");
   const targetValue = Math.max(metric.targetValue, 0);
+  const targetValueLabel = metric.format(targetValue).split(/\s+/).slice(0, 2).join(" ");
   const maxValueCandidate =
     metric.key === "water" && typeof waterCapacityMl === "number" && waterCapacityMl > 0
       ? waterCapacityMl
       : targetValue;
-  const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
-  const scaleMax = maxValue * 1.3;
-  const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
-  const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
-  const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
-  const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
-  const cursorToneClass =
-    cursorPercent > maxPercent
-      ? "ring-amber-300"
-      : cursorPercent >= targetPercent
-        ? "ring-emerald-300"
-        : "ring-rose-300";
+  const maxValue = Math.max(maxValueCandidate, 1);
+  const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+  const currentPct = clamp(metric.plannedValue / maxValue, 0, 1);
+  const targetPct = clamp(targetValue / maxValue, 0, 1);
+  const currentLeft = `${currentPct * 100}%`;
+  const targetLeft = `${targetPct * 100}%`;
 
   return (
     <div
@@ -280,52 +275,49 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
         <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
           {isCompact ? compactValue : metric.value}
         </p>
-        <div className={isCompact ? "space-y-1" : "space-y-2"}>
-          <div
-            className={`relative w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900 ${
-              isCompact ? "h-2" : "h-4"
-            }`}
-          >
-            <div
-              className="absolute inset-0"
+        <div className={isCompact ? "space-y-2" : "space-y-3"}>
+          <div className="relative w-full pb-6 pt-6">
+            <div className="relative h-6 w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
+              <div className="absolute inset-0 flex" aria-hidden>
+                <span className="h-full w-[15%] bg-rose-500" />
+                <span className="h-full w-[35%] bg-orange-500" />
+                <span className="h-full w-[15%] bg-emerald-500" />
+                <span className="h-full w-[20%] bg-orange-500" />
+                <span className="h-full w-[15%] bg-rose-500" />
+              </div>
+              <span
+                className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 bg-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
+                style={{
+                  left: targetLeft,
+                  clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+                }}
+                aria-label={targetLabel}
+              />
+            </div>
+            <span
+              className="absolute left-0 top-1.5 h-3.5 w-3.5 -translate-x-1/2 bg-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
               style={{
-                background: `linear-gradient(to right,
-                  rgba(248,113,113,0.75) 0%,
-                  rgba(248,113,113,0.75) ${cautionPercent}%,
-                  rgba(251,146,60,0.75) ${cautionPercent}%,
-                  rgba(251,146,60,0.75) ${targetPercent}%,
-                  rgba(16,185,129,0.8) ${targetPercent}%,
-                  rgba(16,185,129,0.8) ${maxPercent}%,
-                  rgba(251,146,60,0.75) ${maxPercent}%,
-                  rgba(251,146,60,0.75) 100%)`,
+                left: currentLeft,
+                clipPath: "polygon(50% 100%, 0% 0%, 100% 0%)",
               }}
               aria-hidden
             />
             <span
-              className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
-              style={{ left: `${targetPercent}%` }}
-              aria-label={targetLabel}
-            />
+              className="absolute left-0 top-0 -translate-x-1/2 -translate-y-full text-xs font-semibold text-slate-100"
+              style={{ left: currentLeft }}
+            >
+              {currentValueLabel}
+            </span>
             <span
-              className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-              style={{ left: `${maxPercent}%` }}
-              aria-label={maxLabel}
-            />
-            <span
-              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
-              style={{ left: `${cursorPercent}%` }}
-            />
+              className="absolute bottom-[-22px] left-0 -translate-x-1/2 text-xs font-semibold text-slate-100"
+              style={{ left: targetLeft }}
+            >
+              {targetValueLabel}
+            </span>
+            {metric.key === "water" && typeof waterCapacityMl === "number" && waterCapacityMl > 0 ? (
+              <span className="sr-only">{maxLabel}</span>
+            ) : null}
           </div>
-          {isCompact ? (
-            <div className="relative h-2.5">
-              <span
-                className="absolute top-0 -translate-x-1/2 text-[9px] font-semibold text-slate-400"
-                style={{ left: `${targetPercent}%` }}
-              >
-                {compactTarget}
-              </span>
-            </div>
-          ) : null}
           {isCompact ? (
             metric.helper ? <p className="text-[9px] font-semibold text-amber-200/80">{metric.helper}</p> : null
           ) : (
