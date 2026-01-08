@@ -1,7 +1,7 @@
 import type { ComponentPropsWithoutRef } from "react";
 
 const variantIconMap = {
-  ravito: "/race-planner/icons/ravito.png",
+  ravito: "/race-planner/icons/ravito.svg",
 } as const;
 
 type AidStationBadgeProps = ComponentPropsWithoutRef<"div"> & {

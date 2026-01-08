@@ -869,14 +869,14 @@ export function ActionPlan({
                 const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
                 const pointIconLarge = item.isStart ? (
                   <img
-                    src="/race-planner/icons/start.png"
+                    src="/race-planner/icons/start.svg"
                     alt=""
                     aria-hidden
                     className="h-8 w-8 object-contain"
                   />
                 ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
                   <img
-                    src="/race-planner/icons/aid.svg"
+                    src="/race-planner/icons/ravito.svg"
                     alt=""
                     aria-hidden
                     className="h-8 w-8 object-contain"
