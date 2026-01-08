@@ -159,7 +159,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex w-[210px] flex-col gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-1.5 text-slate-200 shadow-sm"
+          ? "flex w-[190px] flex-col gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-1.5 text-slate-200 shadow-sm"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
@@ -432,7 +432,7 @@ type SectionRowProps = {
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative flex justify-center">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1200px]">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1080px]">
         {showConnector ? (
           <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
@@ -520,7 +520,7 @@ function AidStationCollapsedRow({
           <div className="truncate text-xs text-slate-300">{metaLine}</div>
           <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
         </div>
-        <div className="order-3 flex w-full justify-start md:order-2 md:w-[210px] md:justify-center lg:order-2">
+        <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
           {segmentCard}
         </div>
         <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
