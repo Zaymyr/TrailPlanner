@@ -258,14 +258,8 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center justify-center rounded-full border bg-slate-900 ${
+            className={`inline-flex items-center justify-center rounded-full bg-white ${
               isCompact ? "h-7 w-7" : "h-9 w-9"
-            } ${
-              metric.key === "carbs"
-                ? "border-purple-400/40"
-                : metric.key === "water"
-                  ? "border-sky-400/40"
-                  : "border-slate-400/40"
             }`}
           >
             {metric.icon}
@@ -902,7 +896,7 @@ export function ActionPlan({
                   />
                 ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
                   <img
-                    src="/race-planner/icons/aid.svg"
+                    src="/race-planner/icons/ravito.png"
                     alt=""
                     aria-hidden
                     className="h-5 w-5 object-contain"
