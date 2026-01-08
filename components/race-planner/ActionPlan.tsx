@@ -450,6 +450,86 @@ function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRo
   );
 }
 
+type EmbarkedSummaryItem = {
+  key: string;
+  label: string;
+  value: string;
+  dotClassName: string;
+};
+
+type EmbarkedSummaryBoxProps = {
+  items: EmbarkedSummaryItem[];
+};
+
+function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
+  return (
+    <div className="w-full max-w-[220px] rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-3 py-2">
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-slate-50">
+            <span className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${item.dotClassName}`} />
+              <span className="font-medium">{item.label}</span>
+            </span>
+            <span className="font-semibold">{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type AidStationCollapsedRowProps = {
+  pointIndex: number;
+  title: ReactNode;
+  titleIcon?: ReactNode;
+  metaLine: string;
+  pauseLine: string;
+  segmentCard?: ReactNode;
+  embarkedItems: EmbarkedSummaryItem[];
+  actions?: ReactNode;
+};
+
+function AidStationCollapsedRow({
+  pointIndex,
+  title,
+  titleIcon,
+  metaLine,
+  pauseLine,
+  segmentCard,
+  embarkedItems,
+  actions,
+}: AidStationCollapsedRowProps) {
+  return (
+    <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+      <div className="flex flex-wrap items-center gap-4 lg:grid lg:grid-cols-[auto_minmax(0,260px)_minmax(0,1fr)_minmax(0,240px)_auto] lg:items-center">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="flex flex-col items-center gap-1">
+            {titleIcon ? (
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-800/60 bg-slate-900/70 text-slate-50">
+                {titleIcon}
+              </span>
+            ) : null}
+            <span className="h-6 w-[2px] bg-emerald-400/80" />
+            <span className="h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-emerald-400/80" />
+          </div>
+        </div>
+        <div className="min-w-[200px] space-y-1">
+          <div className="text-sm font-semibold text-slate-50">{title}</div>
+          <div className="text-xs text-slate-300">{metaLine}</div>
+          <div className="text-[11px] text-slate-400">{pauseLine}</div>
+        </div>
+        <div className="flex w-full min-w-[220px] flex-1 justify-center">{segmentCard}</div>
+        <EmbarkedSummaryBox items={embarkedItems} />
+        {actions ? <div className="flex items-center justify-end gap-3">{actions}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 export function ActionPlan({
   copy,
   segments,
@@ -577,27 +657,6 @@ export function ActionPlan({
       return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
-  };
-  const statusToneIcons = {
-    success: "✓",
-    warning: "!",
-    danger: "×",
-    neutral: "•",
-  } as const;
-  const prioritizeStatus = <T extends { tone: keyof typeof statusToneStyles; label: string }>(
-    statuses: T[],
-    fallback: T
-  ) => {
-    const tonePriority: Record<keyof typeof statusToneStyles, number> = {
-      neutral: 0,
-      success: 1,
-      warning: 2,
-      danger: 3,
-    };
-    return statuses.reduce((current, candidate) => {
-      if (!current) return candidate;
-      return tonePriority[candidate.tone] > tonePriority[current.tone] ? candidate : current;
-    }, fallback);
   };
   const toggleAidStationCollapse = (collapseKey: string) => {
     setCollapsedAidStations((current) => ({
@@ -795,56 +854,11 @@ export function ActionPlan({
                 const nextSegment = item.upcomingSegment;
                 const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
                 const summarized = summarizeSupplies(supplies);
-                const supplyMetrics = ["carbs", "water", "sodium"].map((key) => {
-                  const metricKey = key as "carbs" | "water" | "sodium";
-                  const planned =
-                    metricKey === "carbs"
-                      ? summarized?.totals.carbs ?? 0
-                      : metricKey === "water"
-                        ? nextSegment?.plannedWaterMl ?? 0
-                        : summarized?.totals.sodium ?? 0;
-                  const target =
-                    metricKey === "carbs"
-                      ? nextSegment?.targetFuelGrams ?? 0
-                      : metricKey === "water"
-                        ? nextSegment?.targetWaterMl ?? 0
-                        : nextSegment?.targetSodiumMg ?? 0;
-                  const format =
-                    metricKey === "carbs"
-                      ? formatFuelAmount
-                      : metricKey === "water"
-                        ? formatWaterAmount
-                        : formatSodiumAmount;
-                  const targetValue = Math.max(target, 0);
-                  const maxValueCandidate =
-                    metricKey === "water" && typeof nextSegment?.waterCapacityMl === "number" && nextSegment.waterCapacityMl > 0
-                      ? nextSegment.waterCapacityMl
-                      : targetValue * 1.2;
-                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
-                  const status = getPlanStatus(planned, targetValue, upperBound);
-                  return {
-                    key: metricKey,
-                    label:
-                      metricKey === "carbs"
-                        ? timelineCopy.gelsBetweenLabel
-                        : metricKey === "water"
-                          ? copy.sections.summary.items.water
-                          : copy.sections.summary.items.sodium,
-                    planned,
-                    target,
-                    format,
-                    status,
-                  };
-                });
                 const isCollapsible =
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
                 const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
-                const sectionStatus = prioritizeStatus(
-                  supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
-                  { label: timelineCopy.status.atTarget, tone: "neutral" as const }
-                );
                 const pointIcon = item.isStart ? (
                   <img
                     src="/race-planner/icons/start.svg"
@@ -1171,58 +1185,43 @@ export function ActionPlan({
                   ) : null;
 
                 if (isCollapsible && isCollapsed) {
+                  const embarkedItems: EmbarkedSummaryItem[] = [
+                    {
+                      key: "carbs",
+                      label: copy.sections.summary.items.carbs,
+                      value: formatFuelAmount(plannedFuel),
+                      dotClassName: "bg-rose-400",
+                    },
+                    {
+                      key: "water",
+                      label: copy.sections.summary.items.water,
+                      value: formatWaterAmount(plannedWater),
+                      dotClassName: "bg-sky-400",
+                    },
+                    {
+                      key: "sodium",
+                      label: copy.sections.summary.items.sodium,
+                      value: formatSodiumAmount(plannedSodium),
+                      dotClassName: "bg-amber-400",
+                    },
+                  ];
                   return (
                     <div key={item.id} className="relative pl-8">
-                      <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
-                              {pointNumber}
-                            </span>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
-                                {pointIcon ? (
-                                  <span className="inline-flex h-5 w-5 items-center justify-center">{pointIcon}</span>
-                                ) : null}
-                                <span>{item.title}</span>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                                <span>
-                                  {formatDistanceWithUnit(item.distanceKm)} · {timelineCopy.etaLabel}:{" "}
-                                  {formatMinutes(item.etaMinutes)}
-                                </span>
-                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-800/60 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                                  {timelineCopy.collapsedScopeLabel}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                      <AidStationCollapsedRow
+                        pointIndex={pointNumber}
+                        title={item.title}
+                        titleIcon={pointIcon}
+                        metaLine={`${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
+                        pauseLine={`${timelineCopy.pauseLabel}: ${pauseMinutesValue}`}
+                        segmentCard={segmentCard}
+                        embarkedItems={embarkedItems}
+                        actions={
                           <div className="flex items-center gap-3">
                             {toggleButton}
                             {removeButton}
                           </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {supplyMetrics.map((metric) => (
-                            <span
-                              key={metric.key}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-800/60 bg-slate-900/80 px-3 py-1 text-[11px] font-semibold text-slate-100"
-                            >
-                              <span className="uppercase tracking-wide text-slate-300">{metric.label}</span>
-                              <span className="text-slate-50">{metric.format(metric.planned)}</span>
-                            </span>
-                          ))}
-                          <span
-                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${statusToneStyles[sectionStatus.tone]}`}
-                          >
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800/60 bg-slate-950/40 text-sm font-bold">
-                              {statusToneIcons[sectionStatus.tone]}
-                            </span>
-                            <span>{sectionStatus.label}</span>
-                          </span>
-                        </div>
-                      </div>
+                        }
+                      />
                     </div>
                   );
                 }
