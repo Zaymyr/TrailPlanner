@@ -222,7 +222,6 @@ type NutritionCardProps = {
 function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel, maxLabel }: NutritionCardProps) {
   const isCompact = variant === "compact";
   const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
-  const currentValueLabel = metric.value.split(/\s+/).slice(0, 2).join(" ");
   const targetValue = Math.max(metric.targetValue, 0);
   const targetValueLabel = metric.format(targetValue).split(/\s+/).slice(0, 2).join(" ");
   const maxValueCandidate =
@@ -276,8 +275,8 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
           {isCompact ? compactValue : metric.value}
         </p>
         <div className={isCompact ? "space-y-2" : "space-y-3"}>
-          <div className="relative w-full pb-6 pt-6">
-            <div className="relative h-6 w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
+          <div className="relative w-full pt-3 pb-6">
+            <div className="relative h-4 w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900">
               <div className="absolute inset-0 flex" aria-hidden>
                 <span className="h-full w-[15%] bg-rose-500" />
                 <span className="h-full w-[35%] bg-orange-500" />
@@ -285,17 +284,9 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
                 <span className="h-full w-[20%] bg-orange-500" />
                 <span className="h-full w-[15%] bg-rose-500" />
               </div>
-              <span
-                className="absolute left-0 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 bg-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
-                style={{
-                  left: targetLeft,
-                  clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
-                }}
-                aria-label={targetLabel}
-              />
             </div>
             <span
-              className="absolute left-0 top-1.5 h-3.5 w-3.5 -translate-x-1/2 bg-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
+              className="absolute left-0 top-0 h-3.5 w-3.5 -translate-x-1/2 bg-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
               style={{
                 left: currentLeft,
                 clipPath: "polygon(50% 100%, 0% 0%, 100% 0%)",
@@ -303,14 +294,17 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
               aria-hidden
             />
             <span
-              className="absolute left-0 top-0 -translate-x-1/2 -translate-y-full text-xs font-semibold text-slate-100"
-              style={{ left: currentLeft }}
-            >
-              {currentValueLabel}
-            </span>
+              className="absolute left-0 h-3.5 w-3.5 -translate-x-1/2 bg-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
+              style={{
+                left: targetLeft,
+                top: "calc(100% + 6px)",
+                clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+              }}
+              aria-label={targetLabel}
+            />
             <span
-              className="absolute bottom-[-22px] left-0 -translate-x-1/2 text-xs font-semibold text-slate-100"
-              style={{ left: targetLeft }}
+              className="pointer-events-none absolute left-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-slate-100"
+              style={{ left: `clamp(12px, ${targetLeft}, calc(100% - 12px))`, top: "calc(100% + 18px)" }}
             >
               {targetValueLabel}
             </span>
