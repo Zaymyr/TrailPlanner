@@ -884,7 +884,9 @@ export function ActionPlan({
                 ) : null;
                 const titleContent = item.title;
                 const isAidStation = typeof item.aidStationIndex === "number" && !item.isFinish;
-                const aidStationBadge = isAidStation ? (
+                const aidStationBadge = item.isStart ? (
+                  <AidStationBadge step={pointNumber} variant="start" />
+                ) : isAidStation ? (
                   <AidStationBadge step={pointNumber} variant="ravito" />
                 ) : null;
                 const metaContent = (
