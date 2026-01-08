@@ -514,6 +514,58 @@ function AidStationCollapsedRow({
             <span className="h-8 w-[2px] bg-emerald-400/80" />
             <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type AidStationCollapsedRowProps = {
+  pointIndex: number;
+  title: ReactNode;
+  leftIcon?: ReactNode;
+  metaLine: string;
+  pauseLine: string;
+  segmentCard?: ReactNode;
+  embarkedItems: EmbarkedSummaryItem[];
+  actions?: ReactNode;
+};
+
+function AidStationCollapsedRow({
+  pointIndex,
+  title,
+  leftIcon,
+  metaLine,
+  pauseLine,
+  segmentCard,
+  embarkedItems,
+  actions,
+}: AidStationCollapsedRowProps) {
+  return (
+    <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+        <div className="relative flex shrink-0 flex-col items-center gap-2">
+          <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
+            {leftIcon}
+          </div>
+          <div className="hidden flex-col items-center md:flex">
+            <span className="h-8 w-[2px] bg-emerald-400/80" />
+            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 space-y-1 md:order-1">
+          <div className="truncate text-sm font-semibold text-slate-50">{title}</div>
+          <div className="truncate text-xs text-slate-300">{metaLine}</div>
+          <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
+        </div>
+        <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
+          {segmentCard}
+        </div>
+        <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
+          <EmbarkedSummaryBox items={embarkedItems} />
         </div>
         <div className="min-w-0 flex-1 space-y-1 md:order-1">
           <div className="truncate text-sm font-semibold text-slate-50">{title}</div>
