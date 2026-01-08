@@ -159,7 +159,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex w-[230px] flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/90 px-2.5 py-2 text-slate-200 shadow-sm"
+          ? "flex w-[210px] flex-col gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-1.5 text-slate-200 shadow-sm"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
@@ -168,7 +168,7 @@ function SegmentCard({
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[10px] font-semibold"
+            ? "flex items-center justify-between text-xs font-semibold"
             : isCompact
               ? "flex items-center justify-between text-xs font-semibold"
               : "flex items-center justify-between text-sm font-semibold"
@@ -180,7 +180,7 @@ function SegmentCard({
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[9px] font-semibold"
+            ? "flex items-center justify-between text-[11px] font-semibold"
             : isCompact
               ? "flex items-center justify-between text-[11px] font-semibold"
               : "flex items-center justify-between text-xs font-semibold"
@@ -431,16 +431,16 @@ type SectionRowProps = {
 
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
-    <div className="relative">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-8">
+    <div className="relative flex justify-center">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1200px]">
         {showConnector ? (
           <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
             <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
           </div>
         ) : null}
-        <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-start md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
-          <div className="relative z-10 w-full max-w-[240px] self-start">{segment}</div>
+        <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-center md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
+          <div className="relative z-10 w-full max-w-[240px] self-center">{segment}</div>
           <div className="w-full">
             <div className="grid w-full gap-4 md:grid-cols-3">{nutritionCards}</div>
           </div>
@@ -520,7 +520,7 @@ function AidStationCollapsedRow({
           <div className="truncate text-xs text-slate-300">{metaLine}</div>
           <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
         </div>
-        <div className="order-3 flex w-full justify-start md:order-2 md:w-[230px] md:justify-center lg:order-2">
+        <div className="order-3 flex w-full justify-start md:order-2 md:w-[210px] md:justify-center lg:order-2">
           {segmentCard}
         </div>
         <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
