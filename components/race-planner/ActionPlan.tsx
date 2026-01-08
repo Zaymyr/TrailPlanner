@@ -159,7 +159,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex w-[190px] flex-col gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-1.5 text-slate-200 shadow-sm"
+          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-1.5 text-slate-200 shadow-sm"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
@@ -432,7 +432,7 @@ type SectionRowProps = {
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative flex justify-center">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1080px]">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1120px]">
         {showConnector ? (
           <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
@@ -514,6 +514,47 @@ function AidStationCollapsedRow({
             <span className="h-8 w-[2px] bg-emerald-400/80" />
             <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type AidStationCollapsedRowProps = {
+  pointIndex: number;
+  title: ReactNode;
+  leftIcon?: ReactNode;
+  metaLine: string;
+  pauseLine: string;
+  segmentCard?: ReactNode;
+  embarkedItems: EmbarkedSummaryItem[];
+  actions?: ReactNode;
+};
+
+function AidStationCollapsedRow({
+  pointIndex,
+  title,
+  leftIcon,
+  metaLine,
+  pauseLine,
+  segmentCard,
+  embarkedItems,
+  actions,
+}: AidStationCollapsedRowProps) {
+  return (
+    <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+        <div className="relative flex shrink-0 flex-col items-center gap-2">
+          <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
+            {leftIcon}
+          </div>
+          <div className="hidden flex-col items-center md:flex">
+            <span className="h-8 w-[2px] bg-emerald-400/80" />
+            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
+          </div>
         </div>
         <div className="min-w-0 flex-1 space-y-1 md:order-1">
           <div className="truncate text-sm font-semibold text-slate-50">{title}</div>
@@ -521,6 +562,17 @@ function AidStationCollapsedRow({
           <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
         </div>
         <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
+          {segmentCard}
+        </div>
+        <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
+          <EmbarkedSummaryBox items={embarkedItems} />
+        </div>
+        <div className="min-w-0 flex-1 space-y-1 md:order-1">
+          <div className="truncate text-sm font-semibold text-slate-50">{title}</div>
+          <div className="truncate text-xs text-slate-300">{metaLine}</div>
+          <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
+        </div>
+        <div className="order-3 flex w-full justify-start md:order-2 md:w-[170px] md:justify-center lg:order-2">
           {segmentCard}
         </div>
         <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
@@ -902,16 +954,6 @@ export function ActionPlan({
                     <div className="text-[11px] text-slate-400">
                       {timelineCopy.pauseLabel}: {pauseMinutesValue}
                     </div>
-                    {distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                      <label className="mt-1 inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
-                          {...register(waterRefillFieldName)}
-                        />
-                        <span>{aidStationsCopy.labels.waterRefill}</span>
-                      </label>
-                    ) : null}
                   </div>
                 );
                 const toggleButton =
@@ -932,10 +974,21 @@ export function ActionPlan({
                     </Button>
                   ) : null;
 
+                const waterRefillToggle =
+                  distanceFieldName && !isCollapsed && waterRefillFieldName ? (
+                    <label className="inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                        {...register(waterRefillFieldName)}
+                      />
+                      <span>{aidStationsCopy.labels.waterRefill}</span>
+                    </label>
+                  ) : null;
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
-                      className="flex w-full max-w-xl flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -950,7 +1003,7 @@ export function ActionPlan({
                       }}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-1 flex-wrap gap-2">
                           {summarized?.items?.length
                             ? summarized.items.map(({ product, quantity }) => (
                                 <div
@@ -1002,21 +1055,24 @@ export function ActionPlan({
                               ))
                             : null}
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
-                          onClick={() =>
-                            setSupplyPicker({
-                              type: item.isStart ? "start" : "aid",
-                              index: item.isStart ? undefined : (item.aidStationIndex as number),
-                            })
-                          }
-                          aria-label={timelineCopy.pickupTitle}
-                          title={timelineCopy.pickupTitle}
-                        >
-                          +
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {waterRefillToggle}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
+                            onClick={() =>
+                              setSupplyPicker({
+                                type: item.isStart ? "start" : "aid",
+                                index: item.isStart ? undefined : (item.aidStationIndex as number),
+                              })
+                            }
+                            aria-label={timelineCopy.pickupTitle}
+                            title={timelineCopy.pickupTitle}
+                          >
+                            +
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : null;
