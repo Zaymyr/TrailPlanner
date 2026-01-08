@@ -463,7 +463,7 @@ type EmbarkedSummaryBoxProps = {
 
 function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
   return (
-    <div className="w-full max-w-[220px] rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-3 py-2">
+    <div className="w-full max-w-[300px] rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5">
       <div className="space-y-1.5">
         {items.map((item) => (
           <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-slate-50">
@@ -482,7 +482,7 @@ function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
 type AidStationCollapsedRowProps = {
   pointIndex: number;
   title: ReactNode;
-  titleIcon?: ReactNode;
+  leftIcon?: ReactNode;
   metaLine: string;
   pauseLine: string;
   segmentCard?: ReactNode;
@@ -493,7 +493,7 @@ type AidStationCollapsedRowProps = {
 function AidStationCollapsedRow({
   pointIndex,
   title,
-  titleIcon,
+  leftIcon,
   metaLine,
   pauseLine,
   segmentCard,
@@ -502,27 +502,25 @@ function AidStationCollapsedRow({
 }: AidStationCollapsedRowProps) {
   return (
     <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
-      <div className="flex flex-wrap items-center gap-4 lg:grid lg:grid-cols-[auto_minmax(0,260px)_minmax(0,1fr)_minmax(0,240px)_auto] lg:items-center">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+      <div className="grid w-full grid-cols-[80px_minmax(0,1fr)_minmax(240px,300px)_minmax(240px,300px)_auto] items-center gap-4">
+        <div className="relative flex flex-col items-center gap-2">
+          <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
             {pointIndex}
           </span>
-          <div className="flex flex-col items-center gap-1">
-            {titleIcon ? (
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-800/60 bg-slate-900/70 text-slate-50">
-                {titleIcon}
-              </span>
-            ) : null}
-            <span className="h-6 w-[2px] bg-emerald-400/80" />
-            <span className="h-0 w-0 border-x-[5px] border-t-[7px] border-x-transparent border-t-emerald-400/80" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
+            {leftIcon}
+          </div>
+          <div className="flex flex-col items-center">
+            <span className="h-8 w-[2px] bg-emerald-400/80" />
+            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
           </div>
         </div>
-        <div className="min-w-[200px] space-y-1">
+        <div className="space-y-1">
           <div className="text-sm font-semibold text-slate-50">{title}</div>
           <div className="text-xs text-slate-300">{metaLine}</div>
           <div className="text-[11px] text-slate-400">{pauseLine}</div>
         </div>
-        <div className="flex w-full min-w-[220px] flex-1 justify-center">{segmentCard}</div>
+        <div className="flex justify-center">{segmentCard}</div>
         <EmbarkedSummaryBox items={embarkedItems} />
         {actions ? <div className="flex items-center justify-end gap-3">{actions}</div> : null}
       </div>
@@ -859,6 +857,21 @@ export function ActionPlan({
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
                 const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
+                const pointIconLarge = item.isStart ? (
+                  <img
+                    src="/race-planner/icons/start.svg"
+                    alt=""
+                    aria-hidden
+                    className="h-8 w-8 object-contain"
+                  />
+                ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
+                  <img
+                    src="/race-planner/icons/aid.svg"
+                    alt=""
+                    aria-hidden
+                    className="h-8 w-8 object-contain"
+                  />
+                ) : null;
                 const pointIcon = item.isStart ? (
                   <img
                     src="/race-planner/icons/start.svg"
@@ -1185,23 +1198,33 @@ export function ActionPlan({
                   ) : null;
 
                 if (isCollapsible && isCollapsed) {
+                  const embarkedSupplies = summarized?.items ?? [];
+                  const countEmbarked = (predicate: (item: (typeof embarkedSupplies)[number]) => boolean) =>
+                    embarkedSupplies.reduce((total, item) => total + (predicate(item) ? item.quantity : 0), 0);
+                  const glucideCount = countEmbarked((item) => item.product.carbsGrams > 0);
+                  const waterCount = countEmbarked((item) => (item.product.waterMl ?? 0) > 0);
+                  const sodiumCount = countEmbarked(
+                    (item) => item.product.carbsGrams <= 0 && item.product.sodiumMg > 0
+                  );
+                  const formatItemCount = (count: number, singular: string, plural: string) =>
+                    `${count} ${count === 1 ? singular : plural}`;
                   const embarkedItems: EmbarkedSummaryItem[] = [
                     {
                       key: "carbs",
                       label: copy.sections.summary.items.carbs,
-                      value: formatFuelAmount(plannedFuel),
+                      value: formatItemCount(glucideCount, "gel", "gels"),
                       dotClassName: "bg-rose-400",
                     },
                     {
                       key: "water",
                       label: copy.sections.summary.items.water,
-                      value: formatWaterAmount(plannedWater),
+                      value: formatItemCount(waterCount, "flask", "flasks"),
                       dotClassName: "bg-sky-400",
                     },
                     {
                       key: "sodium",
                       label: copy.sections.summary.items.sodium,
-                      value: formatSodiumAmount(plannedSodium),
+                      value: formatItemCount(sodiumCount, "cap", "caps"),
                       dotClassName: "bg-amber-400",
                     },
                   ];
@@ -1210,7 +1233,7 @@ export function ActionPlan({
                       <AidStationCollapsedRow
                         pointIndex={pointNumber}
                         title={item.title}
-                        titleIcon={pointIcon}
+                        leftIcon={pointIconLarge}
                         metaLine={`${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
                         pauseLine={`${timelineCopy.pauseLabel}: ${pauseMinutesValue}`}
                         segmentCard={segmentCard}
