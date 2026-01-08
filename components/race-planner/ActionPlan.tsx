@@ -297,14 +297,14 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
               className="absolute left-0 h-3.5 w-3.5 -translate-x-1/2 bg-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
               style={{
                 left: targetLeft,
-                top: "calc(100% + 6px)",
+                top: "calc(100% + 2px)",
                 clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
               }}
               aria-label={targetLabel}
             />
             <span
               className="pointer-events-none absolute left-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs font-semibold text-slate-100"
-              style={{ left: `clamp(12px, ${targetLeft}, calc(100% - 12px))`, top: "calc(100% + 18px)" }}
+              style={{ left: `clamp(12px, ${targetLeft}, calc(100% - 12px))`, top: "calc(100% + 12px)" }}
             >
               {targetValueLabel}
             </span>
