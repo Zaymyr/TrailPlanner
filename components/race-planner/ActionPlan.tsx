@@ -275,13 +275,6 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             )}
           </div>
         </div>
-        <span
-          className={`inline-flex items-center rounded-full border font-semibold ${
-            isCompact ? "px-1 py-0 text-[8px]" : "px-2 py-0.5 text-[11px]"
-          } ${statusToneStyles[metric.statusTone]} ${isCompact ? "opacity-70" : ""}`}
-        >
-          {metric.statusLabel}
-        </span>
       </div>
       <div className={isCompact ? "mt-1.5 flex flex-col gap-1" : "mt-3 flex flex-col gap-3"}>
         <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
