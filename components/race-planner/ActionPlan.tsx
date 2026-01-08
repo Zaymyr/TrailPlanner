@@ -520,7 +520,7 @@ function AidStationCollapsedRow({
           <div className="text-xs text-slate-300">{metaLine}</div>
           <div className="text-[11px] text-slate-400">{pauseLine}</div>
         </div>
-        <div className="flex justify-center">{segmentCard}</div>
+        <div className="flex w-[280px] justify-center">{segmentCard}</div>
         <EmbarkedSummaryBox items={embarkedItems} />
         {actions ? <div className="flex items-center justify-end gap-3">{actions}</div> : null}
       </div>
@@ -1013,7 +1013,7 @@ export function ActionPlan({
                     </div>
                   ) : null;
 
-                const sectionSegment = !isCollapsed ? nextSegment : undefined;
+                const sectionSegment = nextSegment;
                 const plannedFuel = summarized?.totals.carbs ?? 0;
                 const plannedSodium = summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
