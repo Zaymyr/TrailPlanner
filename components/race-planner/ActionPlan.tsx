@@ -159,7 +159,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/90 px-2.5 py-2 text-slate-200 shadow-sm"
+          ? "flex w-[230px] flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/90 px-2.5 py-2 text-slate-200 shadow-sm"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
@@ -175,7 +175,7 @@ function SegmentCard({
         }
       >
         <span className="tabular-nums">{distanceText}</span>
-        <span className="tabular-nums text-slate-400">{timeText}</span>
+        <span className="tabular-nums text-rose-200/90">{elevationGainText}</span>
       </div>
       <div
         className={
@@ -186,7 +186,7 @@ function SegmentCard({
               : "flex items-center justify-between text-xs font-semibold"
         }
       >
-        <span className="text-rose-200/90">{elevationGainText}</span>
+        <span className="tabular-nums text-slate-400">{timeText}</span>
         <span className="text-sky-200/90">{elevationLossText}</span>
       </div>
       {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
@@ -502,7 +502,7 @@ function AidStationCollapsedRow({
 }: AidStationCollapsedRowProps) {
   return (
     <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
-      <div className="grid w-full grid-cols-[80px_minmax(0,1fr)_minmax(240px,300px)_minmax(240px,300px)_auto] items-center gap-4">
+      <div className="grid w-full grid-cols-[80px_minmax(0,1fr)_minmax(220px,240px)_minmax(240px,300px)_auto] items-center gap-4">
         <div className="relative flex flex-col items-center gap-2">
           <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
             {pointIndex}
@@ -520,7 +520,7 @@ function AidStationCollapsedRow({
           <div className="text-xs text-slate-300">{metaLine}</div>
           <div className="text-[11px] text-slate-400">{pauseLine}</div>
         </div>
-        <div className="flex w-[280px] justify-center">{segmentCard}</div>
+        <div className="flex w-[230px] justify-center">{segmentCard}</div>
         <EmbarkedSummaryBox items={embarkedItems} />
         {actions ? <div className="flex items-center justify-end gap-3">{actions}</div> : null}
       </div>
@@ -1055,7 +1055,6 @@ export function ActionPlan({
                         <span className="text-[13px] font-semibold text-slate-50 tabular-nums">
                           {formatPaceValue(paceMinutesPerKm)}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-400">min/km</span>
                       </div>
                       <Button
                         type="button"
