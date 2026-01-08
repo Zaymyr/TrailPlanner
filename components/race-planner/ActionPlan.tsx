@@ -353,7 +353,6 @@ type AidStationHeaderRowProps = {
   pointIndex: number;
   badge?: ReactNode;
   title: ReactNode;
-  titleIcon?: ReactNode;
   meta?: ReactNode;
   headerMiddle?: ReactNode;
   headerActions?: ReactNode;
@@ -366,7 +365,6 @@ function AidStationHeaderRow({
   pointIndex,
   badge,
   title,
-  titleIcon,
   meta,
   headerMiddle,
   headerActions,
@@ -400,9 +398,6 @@ function AidStationHeaderRow({
           )}
           <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
-              {titleIcon ? (
-                <span className="inline-flex h-5 w-5 items-center justify-center text-slate-50">{titleIcon}</span>
-              ) : null}
               <span>{title}</span>
             </div>
             {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
@@ -887,21 +882,6 @@ export function ActionPlan({
                     className="h-8 w-8 object-contain"
                   />
                 ) : null;
-                const pointIcon = item.isStart ? (
-                  <img
-                    src="/race-planner/icons/start.png"
-                    alt=""
-                    aria-hidden
-                    className="h-5 w-5 object-contain"
-                  />
-                ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
-                  <img
-                    src="/race-planner/icons/ravito.png"
-                    alt=""
-                    aria-hidden
-                    className="h-5 w-5 object-contain"
-                  />
-                ) : null;
                 const titleContent = item.title;
                 const isAidStation = typeof item.aidStationIndex === "number" && !item.isFinish;
                 const aidStationBadge = isAidStation ? (
@@ -1279,7 +1259,6 @@ export function ActionPlan({
                         pointIndex={pointNumber}
                         badge={aidStationBadge ?? undefined}
                         title={titleContent}
-                        titleIcon={pointIcon}
                         meta={metaContent}
                         finishLabel={copy.defaults.finish}
                         isFinish={item.isFinish}
