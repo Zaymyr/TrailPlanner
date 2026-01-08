@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { AidStationBadge } from "./AidStationBadge";
 import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
 
 const statusToneStyles = {
@@ -356,6 +357,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
 
 type AidStationHeaderRowProps = {
   pointIndex: number;
+  badge?: ReactNode;
   title: ReactNode;
   titleIcon?: ReactNode;
   meta?: ReactNode;
@@ -368,6 +370,7 @@ type AidStationHeaderRowProps = {
 
 function AidStationHeaderRow({
   pointIndex,
+  badge,
   title,
   titleIcon,
   meta,
@@ -396,10 +399,12 @@ function AidStationHeaderRow({
               : undefined
           }
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
-            {pointIndex}
-          </span>
-          <div className="space-y-1">
+          {badge ?? (
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+              {pointIndex}
+            </span>
+          )}
+          <div className="min-w-0 space-y-1">
             <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
               {titleIcon ? (
                 <span className="inline-flex h-5 w-5 items-center justify-center text-slate-50">{titleIcon}</span>
@@ -481,6 +486,7 @@ function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
 
 type AidStationCollapsedRowProps = {
   pointIndex: number;
+  badge?: ReactNode;
   title: ReactNode;
   leftIcon?: ReactNode;
   metaLine: string;
@@ -492,6 +498,7 @@ type AidStationCollapsedRowProps = {
 
 function AidStationCollapsedRow({
   pointIndex,
+  badge,
   title,
   leftIcon,
   metaLine,
@@ -504,12 +511,18 @@ function AidStationCollapsedRow({
     <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         <div className="relative flex shrink-0 flex-col items-center gap-2">
-          <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
-            {pointIndex}
-          </span>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
-            {leftIcon}
-          </div>
+          {badge ? (
+            badge
+          ) : (
+            <>
+              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
+                {pointIndex}
+              </span>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
+                {leftIcon}
+              </div>
+            </>
+          )}
           <div className="hidden flex-col items-center md:flex">
             <span className="h-8 w-[2px] bg-emerald-400/80" />
             <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
@@ -867,7 +880,7 @@ export function ActionPlan({
                 const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
                 const pointIconLarge = item.isStart ? (
                   <img
-                    src="/race-planner/icons/start.svg"
+                    src="/race-planner/icons/start.png"
                     alt=""
                     aria-hidden
                     className="h-8 w-8 object-contain"
@@ -882,7 +895,7 @@ export function ActionPlan({
                 ) : null;
                 const pointIcon = item.isStart ? (
                   <img
-                    src="/race-planner/icons/start.svg"
+                    src="/race-planner/icons/start.png"
                     alt=""
                     aria-hidden
                     className="h-5 w-5 object-contain"
@@ -896,6 +909,10 @@ export function ActionPlan({
                   />
                 ) : null;
                 const titleContent = item.title;
+                const isAidStation = typeof item.aidStationIndex === "number" && !item.isFinish;
+                const aidStationBadge = isAidStation ? (
+                  <AidStationBadge step={pointNumber} variant="ravito" />
+                ) : null;
                 const metaContent = (
                   <div className="space-y-1">
                     <div>{metaText}</div>
@@ -1243,8 +1260,9 @@ export function ActionPlan({
                     <div key={item.id} className="relative pl-8">
                       <AidStationCollapsedRow
                         pointIndex={pointNumber}
+                        badge={aidStationBadge ?? undefined}
                         title={item.title}
-                        leftIcon={pointIconLarge}
+                        leftIcon={isAidStation ? undefined : pointIconLarge}
                         metaLine={`${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
                         pauseLine={`${timelineCopy.pauseLabel}: ${pauseMinutesValue}`}
                         segmentCard={segmentCard}
@@ -1265,6 +1283,7 @@ export function ActionPlan({
                     <div className="space-y-3">
                       <AidStationHeaderRow
                         pointIndex={pointNumber}
+                        badge={aidStationBadge ?? undefined}
                         title={titleContent}
                         titleIcon={pointIcon}
                         meta={metaContent}
