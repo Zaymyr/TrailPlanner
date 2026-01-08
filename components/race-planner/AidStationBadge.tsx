@@ -24,7 +24,7 @@ export function AidStationBadge({ step, variant, className, ...props }: AidStati
       {...props}
     >
       <img src={iconSrc} alt="" aria-hidden className="h-full w-full object-contain" />
-      <span className="absolute bottom-0 left-0 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-slate-700 bg-slate-950/90 px-1 text-[11px] font-semibold text-white shadow">
+      <span className="absolute bottom-1 left-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full border border-slate-700 bg-slate-950/90 px-1 text-[11px] font-semibold text-white shadow">
         {step}
       </span>
     </div>
