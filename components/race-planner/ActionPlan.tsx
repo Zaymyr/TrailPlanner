@@ -159,7 +159,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex flex-col gap-1 rounded-xl border border-white/10 bg-slate-950/90 px-2.5 py-2 text-slate-200 shadow-sm"
+          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-1.5 text-slate-200 shadow-sm"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
@@ -168,25 +168,25 @@ function SegmentCard({
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[10px] font-semibold"
+            ? "flex items-center justify-between text-xs font-semibold"
             : isCompact
               ? "flex items-center justify-between text-xs font-semibold"
               : "flex items-center justify-between text-sm font-semibold"
         }
       >
         <span className="tabular-nums">{distanceText}</span>
-        <span className="tabular-nums text-slate-400">{timeText}</span>
+        <span className="tabular-nums text-rose-200/90">{elevationGainText}</span>
       </div>
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[9px] font-semibold"
+            ? "flex items-center justify-between text-[11px] font-semibold"
             : isCompact
               ? "flex items-center justify-between text-[11px] font-semibold"
               : "flex items-center justify-between text-xs font-semibold"
         }
       >
-        <span className="text-rose-200/90">{elevationGainText}</span>
+        <span className="tabular-nums text-slate-400">{timeText}</span>
         <span className="text-sky-200/90">{elevationLossText}</span>
       </div>
       {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
@@ -425,20 +425,106 @@ type SectionRowProps = {
 
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
-    <div className="relative">
-      <div className="relative z-10 mx-10 -mt-3 rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4">
+    <div className="relative flex justify-center">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1120px]">
         {showConnector ? (
-          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 flex flex-col items-center">
+          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
             <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
           </div>
         ) : null}
-        <div className="grid items-center gap-4 lg:grid-cols-[200px_1fr]">
-          <div className="relative z-10 w-[200px] self-center">{segment}</div>
+        <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-center md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
+          <div className="relative z-10 w-full max-w-[240px] self-center">{segment}</div>
           <div className="w-full">
-            <div className="grid w-full gap-4 lg:grid-cols-3">{nutritionCards}</div>
+            <div className="grid w-full gap-4 md:grid-cols-3">{nutritionCards}</div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+type EmbarkedSummaryItem = {
+  key: string;
+  label: string;
+  value: string;
+  dotClassName: string;
+};
+
+type EmbarkedSummaryBoxProps = {
+  items: EmbarkedSummaryItem[];
+};
+
+function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
+  return (
+    <div className="w-full rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5 md:max-w-[300px]">
+      <div className="space-y-1.5">
+        {items.map((item) => (
+          <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-slate-50">
+            <span className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${item.dotClassName}`} />
+              <span className="font-medium">{item.label}</span>
+            </span>
+            <span className="font-semibold">{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type AidStationCollapsedRowProps = {
+  pointIndex: number;
+  title: ReactNode;
+  leftIcon?: ReactNode;
+  metaLine: string;
+  pauseLine: string;
+  segmentCard?: ReactNode;
+  embarkedItems: EmbarkedSummaryItem[];
+  actions?: ReactNode;
+};
+
+function AidStationCollapsedRow({
+  pointIndex,
+  title,
+  leftIcon,
+  metaLine,
+  pauseLine,
+  segmentCard,
+  embarkedItems,
+  actions,
+}: AidStationCollapsedRowProps) {
+  return (
+    <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+        <div className="relative flex shrink-0 flex-col items-center gap-2">
+          <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
+            {leftIcon}
+          </div>
+          <div className="hidden flex-col items-center md:flex">
+            <span className="h-8 w-[2px] bg-emerald-400/80" />
+            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
+          </div>
+        </div>
+        <div className="min-w-0 flex-1 space-y-1 md:order-1">
+          <div className="truncate text-sm font-semibold text-slate-50">{title}</div>
+          <div className="truncate text-xs text-slate-300">{metaLine}</div>
+          <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
+        </div>
+        <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
+          {segmentCard}
+        </div>
+        <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
+          <EmbarkedSummaryBox items={embarkedItems} />
+        </div>
+        {actions ? (
+          <div className="order-2 ml-auto flex items-center justify-end gap-3 md:order-4">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -571,27 +657,6 @@ export function ActionPlan({
       return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
-  };
-  const statusToneIcons = {
-    success: "✓",
-    warning: "!",
-    danger: "×",
-    neutral: "•",
-  } as const;
-  const prioritizeStatus = <T extends { tone: keyof typeof statusToneStyles; label: string }>(
-    statuses: T[],
-    fallback: T
-  ) => {
-    const tonePriority: Record<keyof typeof statusToneStyles, number> = {
-      neutral: 0,
-      success: 1,
-      warning: 2,
-      danger: 3,
-    };
-    return statuses.reduce((current, candidate) => {
-      if (!current) return candidate;
-      return tonePriority[candidate.tone] > tonePriority[current.tone] ? candidate : current;
-    }, fallback);
   };
   const toggleAidStationCollapse = (collapseKey: string) => {
     setCollapsedAidStations((current) => ({
@@ -789,56 +854,26 @@ export function ActionPlan({
                 const nextSegment = item.upcomingSegment;
                 const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
                 const summarized = summarizeSupplies(supplies);
-                const supplyMetrics = ["carbs", "water", "sodium"].map((key) => {
-                  const metricKey = key as "carbs" | "water" | "sodium";
-                  const planned =
-                    metricKey === "carbs"
-                      ? summarized?.totals.carbs ?? 0
-                      : metricKey === "water"
-                        ? nextSegment?.plannedWaterMl ?? 0
-                        : summarized?.totals.sodium ?? 0;
-                  const target =
-                    metricKey === "carbs"
-                      ? nextSegment?.targetFuelGrams ?? 0
-                      : metricKey === "water"
-                        ? nextSegment?.targetWaterMl ?? 0
-                        : nextSegment?.targetSodiumMg ?? 0;
-                  const format =
-                    metricKey === "carbs"
-                      ? formatFuelAmount
-                      : metricKey === "water"
-                        ? formatWaterAmount
-                        : formatSodiumAmount;
-                  const targetValue = Math.max(target, 0);
-                  const maxValueCandidate =
-                    metricKey === "water" && typeof nextSegment?.waterCapacityMl === "number" && nextSegment.waterCapacityMl > 0
-                      ? nextSegment.waterCapacityMl
-                      : targetValue * 1.2;
-                  const upperBound = Math.max(maxValueCandidate, targetValue || 1);
-                  const status = getPlanStatus(planned, targetValue, upperBound);
-                  return {
-                    key: metricKey,
-                    label:
-                      metricKey === "carbs"
-                        ? timelineCopy.gelsBetweenLabel
-                        : metricKey === "water"
-                          ? copy.sections.summary.items.water
-                          : copy.sections.summary.items.sodium,
-                    planned,
-                    target,
-                    format,
-                    status,
-                  };
-                });
                 const isCollapsible =
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
                 const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
-                const sectionStatus = prioritizeStatus(
-                  supplyMetrics.map((metric) => ({ tone: metric.status.tone, label: metric.status.label })),
-                  { label: timelineCopy.status.atTarget, tone: "neutral" as const }
-                );
+                const pointIconLarge = item.isStart ? (
+                  <img
+                    src="/race-planner/icons/start.svg"
+                    alt=""
+                    aria-hidden
+                    className="h-8 w-8 object-contain"
+                  />
+                ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
+                  <img
+                    src="/race-planner/icons/aid.svg"
+                    alt=""
+                    aria-hidden
+                    className="h-8 w-8 object-contain"
+                  />
+                ) : null;
                 const pointIcon = item.isStart ? (
                   <img
                     src="/race-planner/icons/start.png"
@@ -861,16 +896,6 @@ export function ActionPlan({
                     <div className="text-[11px] text-slate-400">
                       {timelineCopy.pauseLabel}: {pauseMinutesValue}
                     </div>
-                    {distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                      <label className="mt-1 inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
-                          {...register(waterRefillFieldName)}
-                        />
-                        <span>{aidStationsCopy.labels.waterRefill}</span>
-                      </label>
-                    ) : null}
                   </div>
                 );
                 const toggleButton =
@@ -891,10 +916,21 @@ export function ActionPlan({
                     </Button>
                   ) : null;
 
+                const waterRefillToggle =
+                  distanceFieldName && !isCollapsed && waterRefillFieldName ? (
+                    <label className="inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                        {...register(waterRefillFieldName)}
+                      />
+                      <span>{aidStationsCopy.labels.waterRefill}</span>
+                    </label>
+                  ) : null;
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
-                      className="flex w-full max-w-xl flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -909,7 +945,7 @@ export function ActionPlan({
                       }}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-1 flex-wrap gap-2">
                           {summarized?.items?.length
                             ? summarized.items.map(({ product, quantity }) => (
                                 <div
@@ -961,26 +997,29 @@ export function ActionPlan({
                               ))
                             : null}
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
-                          onClick={() =>
-                            setSupplyPicker({
-                              type: item.isStart ? "start" : "aid",
-                              index: item.isStart ? undefined : (item.aidStationIndex as number),
-                            })
-                          }
-                          aria-label={timelineCopy.pickupTitle}
-                          title={timelineCopy.pickupTitle}
-                        >
-                          +
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {waterRefillToggle}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
+                            onClick={() =>
+                              setSupplyPicker({
+                                type: item.isStart ? "start" : "aid",
+                                index: item.isStart ? undefined : (item.aidStationIndex as number),
+                              })
+                            }
+                            aria-label={timelineCopy.pickupTitle}
+                            title={timelineCopy.pickupTitle}
+                          >
+                            +
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : null;
 
-                const sectionSegment = !isCollapsed ? nextSegment : undefined;
+                const sectionSegment = nextSegment;
                 const plannedFuel = summarized?.totals.carbs ?? 0;
                 const plannedSodium = summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
@@ -1022,7 +1061,6 @@ export function ActionPlan({
                         <span className="text-[13px] font-semibold text-slate-50 tabular-nums">
                           {formatPaceValue(paceMinutesPerKm)}
                         </span>
-                        <span className="text-[10px] font-semibold text-slate-400">min/km</span>
                       </div>
                       <Button
                         type="button"
@@ -1165,58 +1203,53 @@ export function ActionPlan({
                   ) : null;
 
                 if (isCollapsible && isCollapsed) {
+                  const embarkedSupplies = summarized?.items ?? [];
+                  const countEmbarked = (predicate: (item: (typeof embarkedSupplies)[number]) => boolean) =>
+                    embarkedSupplies.reduce((total, item) => total + (predicate(item) ? item.quantity : 0), 0);
+                  const glucideCount = countEmbarked((item) => item.product.carbsGrams > 0);
+                  const waterCount = countEmbarked((item) => (item.product.waterMl ?? 0) > 0);
+                  const sodiumCount = countEmbarked(
+                    (item) => item.product.carbsGrams <= 0 && item.product.sodiumMg > 0
+                  );
+                  const formatItemCount = (count: number, singular: string, plural: string) =>
+                    `${count} ${count === 1 ? singular : plural}`;
+                  const embarkedItems: EmbarkedSummaryItem[] = [
+                    {
+                      key: "carbs",
+                      label: copy.sections.summary.items.carbs,
+                      value: formatItemCount(glucideCount, "gel", "gels"),
+                      dotClassName: "bg-rose-400",
+                    },
+                    {
+                      key: "water",
+                      label: copy.sections.summary.items.water,
+                      value: formatItemCount(waterCount, "flask", "flasks"),
+                      dotClassName: "bg-sky-400",
+                    },
+                    {
+                      key: "sodium",
+                      label: copy.sections.summary.items.sodium,
+                      value: formatItemCount(sodiumCount, "cap", "caps"),
+                      dotClassName: "bg-amber-400",
+                    },
+                  ];
                   return (
                     <div key={item.id} className="relative pl-8">
-                      <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
-                              {pointNumber}
-                            </span>
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
-                                {pointIcon ? (
-                                  <span className="inline-flex h-5 w-5 items-center justify-center">{pointIcon}</span>
-                                ) : null}
-                                <span>{item.title}</span>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300">
-                                <span>
-                                  {formatDistanceWithUnit(item.distanceKm)} · {timelineCopy.etaLabel}:{" "}
-                                  {formatMinutes(item.etaMinutes)}
-                                </span>
-                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-800/60 bg-slate-900/80 px-2 py-0.5 text-[10px] font-semibold text-slate-100">
-                                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                                  {timelineCopy.collapsedScopeLabel}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
+                      <AidStationCollapsedRow
+                        pointIndex={pointNumber}
+                        title={item.title}
+                        leftIcon={pointIconLarge}
+                        metaLine={`${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`}
+                        pauseLine={`${timelineCopy.pauseLabel}: ${pauseMinutesValue}`}
+                        segmentCard={segmentCard}
+                        embarkedItems={embarkedItems}
+                        actions={
                           <div className="flex items-center gap-3">
                             {toggleButton}
                             {removeButton}
                           </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {supplyMetrics.map((metric) => (
-                            <span
-                              key={metric.key}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-800/60 bg-slate-900/80 px-3 py-1 text-[11px] font-semibold text-slate-100"
-                            >
-                              <span className="uppercase tracking-wide text-slate-300">{metric.label}</span>
-                              <span className="text-slate-50">{metric.format(metric.planned)}</span>
-                            </span>
-                          ))}
-                          <span
-                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${statusToneStyles[sectionStatus.tone]}`}
-                          >
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800/60 bg-slate-950/40 text-sm font-bold">
-                              {statusToneIcons[sectionStatus.tone]}
-                            </span>
-                            <span>{sectionStatus.label}</span>
-                          </span>
-                        </div>
-                      </div>
+                        }
+                      />
                     </div>
                   );
                 }
