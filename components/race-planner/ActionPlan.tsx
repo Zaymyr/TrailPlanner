@@ -432,17 +432,17 @@ type SectionRowProps = {
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative">
-      <div className="relative z-10 mx-10 -mt-3 rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-8">
         {showConnector ? (
-          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 flex flex-col items-center">
+          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
             <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
           </div>
         ) : null}
-        <div className="grid items-center gap-4 lg:grid-cols-[200px_1fr]">
-          <div className="relative z-10 w-[200px] self-center">{segment}</div>
+        <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-start md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
+          <div className="relative z-10 w-full max-w-[240px] self-start">{segment}</div>
           <div className="w-full">
-            <div className="grid w-full gap-4 lg:grid-cols-3">{nutritionCards}</div>
+            <div className="grid w-full gap-4 md:grid-cols-3">{nutritionCards}</div>
           </div>
         </div>
       </div>
@@ -463,7 +463,7 @@ type EmbarkedSummaryBoxProps = {
 
 function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
   return (
-    <div className="w-full max-w-[300px] rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5">
+    <div className="w-full rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5 md:max-w-[300px]">
       <div className="space-y-1.5">
         {items.map((item) => (
           <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-slate-50">
@@ -502,27 +502,35 @@ function AidStationCollapsedRow({
 }: AidStationCollapsedRowProps) {
   return (
     <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
-      <div className="grid w-full grid-cols-[80px_minmax(0,1fr)_minmax(220px,240px)_minmax(240px,300px)_auto] items-center gap-4">
-        <div className="relative flex flex-col items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+        <div className="relative flex shrink-0 flex-col items-center gap-2">
           <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
             {pointIndex}
           </span>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
             {leftIcon}
           </div>
-          <div className="flex flex-col items-center">
+          <div className="hidden flex-col items-center md:flex">
             <span className="h-8 w-[2px] bg-emerald-400/80" />
             <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
           </div>
         </div>
-        <div className="space-y-1">
-          <div className="text-sm font-semibold text-slate-50">{title}</div>
-          <div className="text-xs text-slate-300">{metaLine}</div>
-          <div className="text-[11px] text-slate-400">{pauseLine}</div>
+        <div className="min-w-0 flex-1 space-y-1 md:order-1">
+          <div className="truncate text-sm font-semibold text-slate-50">{title}</div>
+          <div className="truncate text-xs text-slate-300">{metaLine}</div>
+          <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
         </div>
-        <div className="flex w-[230px] justify-center">{segmentCard}</div>
-        <EmbarkedSummaryBox items={embarkedItems} />
-        {actions ? <div className="flex items-center justify-end gap-3">{actions}</div> : null}
+        <div className="order-3 flex w-full justify-start md:order-2 md:w-[230px] md:justify-center lg:order-2">
+          {segmentCard}
+        </div>
+        <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
+          <EmbarkedSummaryBox items={embarkedItems} />
+        </div>
+        {actions ? (
+          <div className="order-2 ml-auto flex items-center justify-end gap-3 md:order-4">
+            {actions}
+          </div>
+        ) : null}
       </div>
     </div>
   );
