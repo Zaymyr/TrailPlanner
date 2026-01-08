@@ -432,7 +432,7 @@ type SectionRowProps = {
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative flex justify-center">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[980px]">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1120px]">
         {showConnector ? (
           <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
@@ -902,16 +902,6 @@ export function ActionPlan({
                     <div className="text-[11px] text-slate-400">
                       {timelineCopy.pauseLabel}: {pauseMinutesValue}
                     </div>
-                    {distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                      <label className="mt-1 inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
-                          {...register(waterRefillFieldName)}
-                        />
-                        <span>{aidStationsCopy.labels.waterRefill}</span>
-                      </label>
-                    ) : null}
                   </div>
                 );
                 const toggleButton =
@@ -932,10 +922,21 @@ export function ActionPlan({
                     </Button>
                   ) : null;
 
+                const waterRefillToggle =
+                  distanceFieldName && !isCollapsed && waterRefillFieldName ? (
+                    <label className="inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                        {...register(waterRefillFieldName)}
+                      />
+                      <span>{aidStationsCopy.labels.waterRefill}</span>
+                    </label>
+                  ) : null;
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
-                      className="flex w-full max-w-xl flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -950,7 +951,7 @@ export function ActionPlan({
                       }}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-1 flex-wrap gap-2">
                           {summarized?.items?.length
                             ? summarized.items.map(({ product, quantity }) => (
                                 <div
@@ -1002,21 +1003,24 @@ export function ActionPlan({
                               ))
                             : null}
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
-                          onClick={() =>
-                            setSupplyPicker({
-                              type: item.isStart ? "start" : "aid",
-                              index: item.isStart ? undefined : (item.aidStationIndex as number),
-                            })
-                          }
-                          aria-label={timelineCopy.pickupTitle}
-                          title={timelineCopy.pickupTitle}
-                        >
-                          +
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          {waterRefillToggle}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
+                            onClick={() =>
+                              setSupplyPicker({
+                                type: item.isStart ? "start" : "aid",
+                                index: item.isStart ? undefined : (item.aidStationIndex as number),
+                              })
+                            }
+                            aria-label={timelineCopy.pickupTitle}
+                            title={timelineCopy.pickupTitle}
+                          >
+                            +
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ) : null;
