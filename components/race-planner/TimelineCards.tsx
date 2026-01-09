@@ -73,10 +73,10 @@ function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
 
 function SegmentMetricCard({ metric }: { metric: SegmentMetric }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/70 sm:p-4">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm dark:bg-slate-950/70 sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background dark:border-slate-800 dark:bg-slate-900 sm:h-8 sm:w-8">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background dark:bg-slate-900 sm:h-8 sm:w-8">
             {metric.icon}
           </span>
           <p className="text-sm font-semibold text-foreground dark:text-slate-50">{metric.label}</p>
@@ -117,9 +117,9 @@ export function TimelineSegmentCard({
   metrics,
 }: TimelineSegmentCardProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-md dark:border-slate-800 dark:bg-slate-900/70 dark:shadow-[0_4px_30px_rgba(15,23,42,0.35)]">
+    <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-900/70 dark:shadow-[0_4px_30px_rgba(15,23,42,0.35)]">
       <div className="grid gap-4 md:grid-cols-[minmax(0,320px)_1fr] md:items-start md:gap-6">
-        <div className="space-y-3 rounded-xl border border-border bg-background p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950/80">
+        <div className="space-y-3 rounded-xl border border-border bg-background p-3 shadow-sm dark:bg-slate-950/80">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-100">
@@ -134,12 +134,12 @@ export function TimelineSegmentCard({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 dark:bg-slate-900/60">
               <p className="text-sm font-semibold text-foreground dark:text-slate-50">{fromTitle}</p>
               <ArrowRightIcon className="h-4 w-4 text-emerald-200" aria-hidden />
               <p className="text-sm font-semibold text-foreground dark:text-slate-50">{toTitle}</p>
             </div>
-            <div className="flex flex-col gap-1 rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground dark:border-slate-800 dark:bg-slate-950/70 dark:text-slate-300 sm:text-right">
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground dark:bg-slate-950/70 dark:text-slate-300 sm:text-right">
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground dark:text-slate-400">
                 {durationLabel}
               </p>
@@ -177,7 +177,7 @@ export function TimelinePointCard({
   onTitleClick,
 }: TimelinePointCardProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-md dark:border-slate-900/80 dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
+    <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div
           className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-text" : ""}`}
