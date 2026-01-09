@@ -97,10 +97,7 @@ export async function GET(request: NextRequest) {
   }
 
   const token = extractBearerToken(request.headers.get("authorization"));
-
-  if (!token) {
-    return withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 }));
-  }
+  const authToken = token ?? supabaseConfig.supabaseAnonKey;
 
   try {
     const response = await fetch(
@@ -108,7 +105,7 @@ export async function GET(request: NextRequest) {
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
         cache: "no-store",
       }

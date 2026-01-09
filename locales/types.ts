@@ -545,6 +545,7 @@ export type ProductSettingsTranslations = {
   title: string;
   description: string;
   authRequired: string;
+  localNotice: string;
   signInCta: string;
   listTitle: string;
   selectionHelp: string;

@@ -30,6 +30,8 @@ import type {
 } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
+import { defaultFuelProducts } from "../../../lib/default-products";
+import { readLocalProducts } from "../../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
 import { fetchUserProfile } from "../../../lib/profile-client";
 import { mapProductToSelection } from "../../../lib/product-preferences";
@@ -79,44 +81,16 @@ type FuelProductEstimate = FuelProduct & { count: number };
 
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
-const defaultFuelProducts: FuelProduct[] = [
-  {
-    id: "00000000-0000-0000-0000-000000000001",
-    slug: "maurten-gel-100",
-    sku: "MAURTEN-GEL-100",
-    name: "Maurten Gel 100",
-    caloriesKcal: 100,
-    carbsGrams: 25,
-    sodiumMg: 85,
-    proteinGrams: 0,
-    fatGrams: 0,
-    waterMl: 0,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000002",
-    slug: "gu-energy-gel",
-    sku: "GU-ENERGY-GEL",
-    name: "GU Energy Gel",
-    caloriesKcal: 100,
-    carbsGrams: 22,
-    sodiumMg: 60,
-    proteinGrams: 0,
-    fatGrams: 0,
-    waterMl: 0,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000003",
-    slug: "sis-go-isotonic-gel",
-    sku: "SIS-GO-ISOTONIC",
-    name: "SIS GO Isotonic Gel",
-    caloriesKcal: 87,
-    carbsGrams: 22,
-    sodiumMg: 10,
-    proteinGrams: 0,
-    fatGrams: 0,
-    waterMl: 0,
-  },
-];
+const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => {
+  const productsById = new Map<string, FuelProduct>();
+  primary.forEach((product) => productsById.set(product.id, product));
+  secondary.forEach((product) => {
+    if (!productsById.has(product.id)) {
+      productsById.set(product.id, product);
+    }
+  });
+  return Array.from(productsById.values());
+};
 
 type StripeInterval = "day" | "week" | "month" | "year";
 
@@ -873,7 +847,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     intake: "intake-section",
   } as const;
 
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
+  const { fields, append, replace } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const startSupplies = form.watch("startSupplies") ?? [];
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
@@ -1136,13 +1110,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, []);
 
   useEffect(() => {
-    if (!session?.accessToken) {
-      setFuelProducts(defaultFuelProducts);
-      setProductsStatus("idle");
-      setProductsError(null);
-      return;
-    }
-
     const abortController = new AbortController();
     setProductsStatus("loading");
     setProductsError(null);
@@ -1150,9 +1117,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const loadProducts = async () => {
       try {
         const response = await fetch("/api/products", {
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-          },
+          headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
           cache: "no-store",
           signal: abortController.signal,
         });
@@ -1171,14 +1136,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         }
 
         if (!abortController.signal.aborted) {
-          setFuelProducts(parsed.data.products);
+          const localProducts = readLocalProducts();
+          const baseProducts = parsed.data.products.length > 0 ? parsed.data.products : defaultFuelProducts;
+          setFuelProducts(mergeFuelProducts(baseProducts, localProducts));
           setProductsStatus("success");
         }
       } catch (error) {
         if (abortController.signal.aborted) return;
         console.error("Unable to load fuel products", error);
         setProductsError(error instanceof Error ? error.message : racePlannerCopy.sections.gels.loadError);
-        setFuelProducts(defaultFuelProducts);
+        const localProducts = readLocalProducts();
+        setFuelProducts(mergeFuelProducts(defaultFuelProducts, localProducts));
         setProductsStatus("error");
       }
     };
@@ -1784,12 +1752,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (index: number) => {
       if (!Number.isInteger(index)) return;
 
-      const totalStations = form.getValues("aidStations")?.length ?? 0;
-      if (index < 0 || index >= totalStations) return;
+      const current = form.getValues("aidStations");
+      if (!Array.isArray(current) || index < 0 || index >= current.length) return;
 
-      remove(index);
+      const nextStations = current.filter((_, stationIndex) => stationIndex !== index);
+      replace(nextStations);
+      form.setValue("aidStations", nextStations, { shouldDirty: true, shouldValidate: true });
     },
-    [form, remove]
+    [form, replace]
   );
 
   const handleSupplyDrop = useCallback(

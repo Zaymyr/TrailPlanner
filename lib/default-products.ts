@@ -1,0 +1,40 @@
+import type { FuelProduct } from "./product-types";
+
+export const defaultFuelProducts: FuelProduct[] = [
+  {
+    id: "00000000-0000-0000-0000-000000000001",
+    slug: "maurten-gel-100",
+    sku: "MAURTEN-GEL-100",
+    name: "Maurten Gel 100",
+    caloriesKcal: 100,
+    carbsGrams: 25,
+    sodiumMg: 85,
+    proteinGrams: 0,
+    fatGrams: 0,
+    waterMl: 0,
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000002",
+    slug: "gu-energy-gel",
+    sku: "GU-ENERGY-GEL",
+    name: "GU Energy Gel",
+    caloriesKcal: 100,
+    carbsGrams: 22,
+    sodiumMg: 60,
+    proteinGrams: 0,
+    fatGrams: 0,
+    waterMl: 0,
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000003",
+    slug: "sis-go-isotonic-gel",
+    sku: "SIS-GO-ISOTONIC",
+    name: "SIS GO Isotonic Gel",
+    caloriesKcal: 87,
+    carbsGrams: 22,
+    sodiumMg: 10,
+    proteinGrams: 0,
+    fatGrams: 0,
+    waterMl: 0,
+  },
+];
