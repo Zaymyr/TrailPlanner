@@ -196,6 +196,10 @@ create policy "Authenticated can read live products" on public.products
   for select
   using ((auth.role() = 'authenticated' and is_live = true and is_archived = false) or auth.role() = 'service_role');
 
+create policy "Anon can read live products" on public.products
+  for select
+  using (auth.role() = 'anon' and is_live = true and is_archived = false);
+
 -- Affiliate offer policies
 create policy "Service role can manage affiliate offers" on public.affiliate_offers
   for all
