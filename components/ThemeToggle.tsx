@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { applyTheme, getInitialTheme, type Theme } from "../lib/theme";
 
-const iconClassName = "h-4 w-4";
+const iconClassName = "h-4 w-4 text-[hsl(var(--icon))]";
 
 const SunIcon = () => (
   <svg
@@ -68,11 +68,11 @@ export function ThemeToggle() {
       onClick={handleToggle}
       aria-pressed={isDark}
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-emerald-300 hover:text-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+      className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-[hsl(var(--brand))] hover:text-[hsl(var(--brand))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--brand))] dark:hover:border-emerald-300 dark:hover:text-emerald-200 dark:focus-visible:outline-emerald-400"
     >
       {isDark ? <SunIcon /> : <MoonIcon />}
       <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Theme</span>
-      <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-emerald-200">
+      <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-[hsl(var(--success))] dark:text-emerald-200">
         {nextTheme}
       </span>
     </button>

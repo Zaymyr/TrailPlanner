@@ -15,7 +15,7 @@ type MenuItem = {
 };
 
 const buttonBaseClass =
-  "flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300/60 bg-card/80 text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300";
+  "flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-[hsl(var(--icon))] shadow-sm transition hover:border-[hsl(var(--brand))] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--brand))] dark:hover:text-emerald-50 dark:focus-visible:outline-emerald-300";
 
 export function HeaderMenu() {
   const { t } = useI18n();
@@ -108,14 +108,16 @@ export function HeaderMenu() {
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border border-emerald-300/40 bg-card/95 p-2 shadow-xl backdrop-blur">
+        <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border border-border bg-card/95 p-2 shadow-xl dark:border-emerald-300/40 dark:bg-card/60 dark:backdrop-blur">
           <nav aria-label={t.navigation.menuLabel} className="space-y-1">
             {visibleMenuItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition hover:bg-emerald-500/15 hover:text-emerald-50 ${
-                  item.active ? "bg-emerald-500/20 text-emerald-50" : "text-emerald-100"
+                className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
+                  item.active
+                    ? "bg-muted text-foreground dark:bg-emerald-500/20 dark:text-emerald-50"
+                    : "text-muted-foreground dark:text-emerald-100"
                 }`}
               >
                 {item.label}
@@ -125,7 +127,7 @@ export function HeaderMenu() {
             {session ? (
               <button
                 type="button"
-                className="mt-1 w-full rounded-md border border-emerald-300/50 px-3 py-2 text-sm font-semibold text-emerald-50 transition hover:border-emerald-200 hover:bg-emerald-500/10"
+                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted dark:border-emerald-300/50 dark:text-emerald-50 dark:hover:border-emerald-200 dark:hover:bg-emerald-500/10"
                 onClick={handleSignOut}
               >
                 {t.racePlanner.account.auth.signOut}

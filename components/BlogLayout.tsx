@@ -67,7 +67,9 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-12 sm:px-6 lg:px-8">
       <header className="space-y-5 rounded-2xl border border-border bg-card/60 p-6 shadow-sm shadow-emerald-900/30 sm:p-8">
         <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">Pace Yourself blog</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-[hsl(var(--success))] dark:text-emerald-300">
+            Pace Yourself blog
+          </p>
           <h1 className="text-3xl font-semibold leading-tight text-foreground sm:text-4xl">{post.meta.title}</h1>
           {post.meta.description && (
             <p className="max-w-3xl text-base text-muted-foreground sm:text-lg">{post.meta.description}</p>
@@ -90,7 +92,7 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
           <TagList tags={post.meta.tags} />
           <Link
             href={RACE_PLANNER_PATH}
-            className="inline-flex items-center justify-center rounded-md border border-emerald-400/70 bg-emerald-500 px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+            className="inline-flex items-center justify-center rounded-md border border-[hsl(var(--brand))] bg-[hsl(var(--brand))] px-4 py-2 text-sm font-semibold text-[hsl(var(--brand-foreground))] transition hover:bg-[hsl(var(--brand)/0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--brand))] dark:border-emerald-400/70 dark:bg-emerald-500 dark:text-foreground dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-300"
           >
             Plan your next race
           </Link>
@@ -129,7 +131,7 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
             </p>
             <Link
               href={RACE_PLANNER_PATH}
-              className="mt-3 inline-flex items-center gap-2 text-emerald-200 hover:text-emerald-100"
+              className="mt-3 inline-flex items-center gap-2 text-[hsl(var(--success))] hover:text-[hsl(var(--brand))] dark:text-emerald-200 dark:hover:text-emerald-100"
             >
               Build your race plan →
             </Link>
@@ -146,7 +148,10 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold text-foreground">Related posts</h2>
-          <Link href="/blog" className="text-sm text-emerald-200 hover:text-emerald-100">
+          <Link
+            href="/blog"
+            className="text-sm text-[hsl(var(--success))] hover:text-[hsl(var(--brand))] dark:text-emerald-200 dark:hover:text-emerald-100"
+          >
             View all
           </Link>
         </div>

@@ -14,6 +14,12 @@
   --input: 220 13% 85%;
   --primary: 158 64% 42%;
   --primary-foreground: 0 0% 100%;
+  --icon: 222 47% 11%;
+  --icon-muted: 215 16% 47%;
+  --brand: 158 64% 32%;
+  --brand-foreground: 0 0% 100%;
+  --success: 158 64% 32%;
+  --success-foreground: 0 0% 100%;
 }
 
 .dark {
@@ -25,6 +31,12 @@
   --border: #1e293b;
   --muted: #0f172a;
   --muted-foreground: #94a3b8;
+  --icon: 210 40% 98%;
+  --icon-muted: 215 20% 65%;
+  --brand: 159 64% 52%;
+  --brand-foreground: 0 0% 100%;
+  --success: 160 84% 80%;
+  --success-foreground: 15 23% 4%;
 }
 
 body {
@@ -53,54 +65,54 @@ button {
 
 @layer components {
   .prose-content {
-    @apply mx-auto w-full max-w-3xl space-y-6 text-base leading-relaxed text-slate-100 sm:text-lg sm:leading-8;
+    @apply mx-auto w-full max-w-3xl space-y-6 text-base leading-relaxed text-foreground sm:text-lg sm:leading-8;
   }
 
   .prose-content h2 {
-    @apply mt-12 text-3xl font-semibold leading-tight text-slate-50 scroll-mt-28;
+    @apply mt-12 text-3xl font-semibold leading-tight text-foreground scroll-mt-28;
   }
 
   .prose-content h3 {
-    @apply mt-8 text-2xl font-semibold leading-snug text-slate-100 scroll-mt-28;
+    @apply mt-8 text-2xl font-semibold leading-snug text-foreground scroll-mt-28;
   }
 
   .prose-content p {
-    @apply text-slate-100;
+    @apply text-foreground;
   }
 
   .prose-content a {
-    @apply font-semibold text-emerald-300 underline-offset-4 hover:text-emerald-200;
+    @apply font-semibold text-[hsl(var(--brand))] underline-offset-4 hover:text-[hsl(var(--success))] dark:text-emerald-300 dark:hover:text-emerald-200;
   }
 
   .prose-content ul {
-    @apply list-disc space-y-2 pl-5 text-slate-100;
+    @apply list-disc space-y-2 pl-5 text-foreground;
   }
 
   .prose-content ol {
-    @apply list-decimal space-y-2 pl-5 text-slate-100;
+    @apply list-decimal space-y-2 pl-5 text-foreground;
   }
 
   .prose-content blockquote {
-    @apply border-l-4 border-emerald-400/70 bg-emerald-950/40 px-4 py-3 text-slate-100;
+    @apply border-l-4 border-[hsl(var(--brand))]/40 bg-[hsl(var(--brand)/0.1)] px-4 py-3 text-foreground dark:border-emerald-400/70 dark:bg-emerald-950/40;
   }
 
   .prose-content strong {
-    @apply font-semibold text-slate-50;
+    @apply font-semibold text-foreground;
   }
 
   .prose-content code {
-    @apply rounded bg-slate-900 px-1.5 py-0.5 text-sm text-emerald-200;
+    @apply rounded bg-muted px-1.5 py-0.5 text-sm text-foreground dark:bg-slate-900 dark:text-emerald-200;
   }
 
   .prose-content pre {
-    @apply overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 p-4 text-sm leading-relaxed text-slate-100;
+    @apply overflow-x-auto rounded-xl border border-border bg-card p-4 text-sm leading-relaxed text-foreground dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100;
   }
 
   .prose-content img {
-    @apply my-4 w-full rounded-xl border border-slate-800;
+    @apply my-4 w-full rounded-xl border border-border dark:border-slate-800;
   }
 
   .prose-content hr {
-    @apply border-slate-800;
+    @apply border-border dark:border-slate-800;
   }
 }
