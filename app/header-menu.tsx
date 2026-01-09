@@ -15,7 +15,7 @@ type MenuItem = {
 };
 
 const buttonBaseClass =
-  "flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300/60 bg-slate-900/80 text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300";
+  "flex h-10 w-10 items-center justify-center rounded-md border border-emerald-300/60 bg-card/80 text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300";
 
 export function HeaderMenu() {
   const { t } = useI18n();
@@ -108,7 +108,7 @@ export function HeaderMenu() {
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border border-emerald-300/40 bg-slate-900/95 p-2 shadow-xl backdrop-blur">
+        <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border border-emerald-300/40 bg-card/95 p-2 shadow-xl backdrop-blur">
           <nav aria-label={t.navigation.menuLabel} className="space-y-1">
             {visibleMenuItems.map((item) => (
               <Link

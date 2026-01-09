@@ -11,11 +11,11 @@ export function SectionHeader({ title, description, action, descriptionAsTooltip
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="space-y-1">
-        <p className="text-sm font-semibold text-slate-100 flex items-center gap-2">
+        <p className="text-sm font-semibold text-foreground flex items-center gap-2">
           {title}
           {description && descriptionAsTooltip ? (
             <span
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-[11px] font-semibold text-slate-200"
+              className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-[11px] font-semibold text-foreground"
               title={description}
               aria-label={description}
             >
@@ -23,7 +23,7 @@ export function SectionHeader({ title, description, action, descriptionAsTooltip
             </span>
           ) : null}
         </p>
-        {description && !descriptionAsTooltip ? <p className="text-sm text-slate-400">{description}</p> : null}
+        {description && !descriptionAsTooltip ? <p className="text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>
