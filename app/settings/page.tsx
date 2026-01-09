@@ -13,6 +13,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { readStoredSession } from "../../lib/auth-storage";
+import { readLocalProducts, upsertLocalProduct } from "../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
@@ -26,6 +27,12 @@ const baseButtonClass =
 const outlineButtonClass =
   "border border-border text-[hsl(var(--success))] hover:bg-muted hover:text-foreground dark:border-emerald-300 dark:text-emerald-100 dark:hover:bg-emerald-950/60";
 const primaryButtonClass = "bg-emerald-400 text-slate-950 hover:bg-emerald-300";
+const createLocalProductId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
 function ProductIcon({ className }: { className?: string }) {
   return (
@@ -123,21 +130,21 @@ export default function SettingsPage() {
   });
 
   const productsQuery = useQuery({
-    queryKey: ["products", session?.accessToken],
-    enabled: Boolean(session?.accessToken),
+    queryKey: ["products", session?.accessToken ?? "local"],
     queryFn: async () => {
-      if (!session?.accessToken) {
-        throw new Error(t.productSettings.errors.missingSession);
-      }
+      const localProducts = readLocalProducts();
 
       const response = await fetch("/api/products", {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
+        headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
         cache: "no-store",
       });
 
       const data = (await response.json().catch(() => null)) as unknown;
 
       if (!response.ok) {
+        if (localProducts.length > 0) {
+          return localProducts;
+        }
         const message = (data as { message?: string } | null)?.message ?? t.productSettings.errors.loadFailed;
         throw new Error(message);
       }
@@ -145,10 +152,19 @@ export default function SettingsPage() {
       const parsed = productListSchema.safeParse(data);
 
       if (!parsed.success) {
+        if (localProducts.length > 0) {
+          return localProducts;
+        }
         throw new Error(t.productSettings.errors.loadFailed);
       }
 
-      return parsed.data.products;
+      const merged = new Map(parsed.data.products.map((product) => [product.id, product]));
+      localProducts.forEach((product) => {
+        if (!merged.has(product.id)) {
+          merged.set(product.id, product);
+        }
+      });
+      return Array.from(merged.values());
     },
   });
 
@@ -188,7 +204,27 @@ export default function SettingsPage() {
   const createProductMutation = useMutation({
     mutationFn: async (values: ProductFormValues) => {
       if (!session?.accessToken) {
-        throw new Error(t.productSettings.errors.missingSession);
+        const slugBase = values.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "");
+        const suffix = Math.random().toString(36).slice(2, 6);
+        const product: FuelProduct = {
+          id: createLocalProductId(),
+          slug: slugBase ? `${slugBase}-${suffix}` : `product-${suffix}`,
+          name: values.name,
+          productUrl: values.productUrl ?? undefined,
+          caloriesKcal: values.caloriesKcal,
+          carbsGrams: values.carbsGrams,
+          sodiumMg: values.sodiumMg,
+          proteinGrams: values.proteinGrams,
+          fatGrams: values.fatGrams,
+          waterMl: 0,
+        };
+
+        upsertLocalProduct(product);
+        return product;
       }
 
       const response = await fetch("/api/products", {
@@ -218,7 +254,14 @@ export default function SettingsPage() {
     onSuccess: (product) => {
       setFormError(null);
       setFormMessage(t.productSettings.success);
-      void productsQuery.refetch();
+      if (!session?.accessToken) {
+        queryClient.setQueryData(["products", "local"], (current) => {
+          const list = Array.isArray(current) ? current : [];
+          return [product, ...list.filter((item) => item.id !== product.id)];
+        });
+      } else {
+        void productsQuery.refetch();
+      }
       reset();
       handleToggle(product);
     },
@@ -369,7 +412,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             {authMissing && (
               <p className="rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700 dark:text-amber-200">
-                {t.productSettings.authRequired}
+                {t.productSettings.localNotice}
               </p>
             )}
 
@@ -498,7 +541,6 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => handleToggle(product)}
-                            disabled={authMissing}
                             aria-pressed={isSelected}
                             aria-label={
                               isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select

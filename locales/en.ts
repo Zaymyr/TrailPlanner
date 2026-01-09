@@ -502,6 +502,7 @@ export const en: Translations = {
     description:
       "Browse shared fueling products and add new ones. Pick any to use in the race planner estimates.",
     authRequired: "Sign in to manage shared nutrition products.",
+    localNotice: "You are in local mode. Products and selections stay on this device until you sign in.",
     signInCta: "Go to sign in",
     listTitle: "Available products",
     selectionHelp: "Pick the products you want to use in your race planner fuel estimates.",

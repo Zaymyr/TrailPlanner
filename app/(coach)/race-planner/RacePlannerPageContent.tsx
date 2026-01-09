@@ -30,6 +30,7 @@ import type {
 } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
+import { readLocalProducts } from "../../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
 import { fetchUserProfile } from "../../../lib/profile-client";
 import { mapProductToSelection } from "../../../lib/product-preferences";
@@ -117,6 +118,17 @@ const defaultFuelProducts: FuelProduct[] = [
     waterMl: 0,
   },
 ];
+
+const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => {
+  const productsById = new Map<string, FuelProduct>();
+  primary.forEach((product) => productsById.set(product.id, product));
+  secondary.forEach((product) => {
+    if (!productsById.has(product.id)) {
+      productsById.set(product.id, product);
+    }
+  });
+  return Array.from(productsById.values());
+};
 
 type StripeInterval = "day" | "week" | "month" | "year";
 
@@ -873,7 +885,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     intake: "intake-section",
   } as const;
 
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
+  const { fields, append, replace } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const startSupplies = form.watch("startSupplies") ?? [];
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
@@ -1136,13 +1148,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, []);
 
   useEffect(() => {
-    if (!session?.accessToken) {
-      setFuelProducts(defaultFuelProducts);
-      setProductsStatus("idle");
-      setProductsError(null);
-      return;
-    }
-
     const abortController = new AbortController();
     setProductsStatus("loading");
     setProductsError(null);
@@ -1150,9 +1155,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const loadProducts = async () => {
       try {
         const response = await fetch("/api/products", {
-          headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-          },
+          headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
           cache: "no-store",
           signal: abortController.signal,
         });
@@ -1171,14 +1174,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         }
 
         if (!abortController.signal.aborted) {
-          setFuelProducts(parsed.data.products);
+          const localProducts = readLocalProducts();
+          const baseProducts = parsed.data.products.length > 0 ? parsed.data.products : defaultFuelProducts;
+          setFuelProducts(mergeFuelProducts(baseProducts, localProducts));
           setProductsStatus("success");
         }
       } catch (error) {
         if (abortController.signal.aborted) return;
         console.error("Unable to load fuel products", error);
         setProductsError(error instanceof Error ? error.message : racePlannerCopy.sections.gels.loadError);
-        setFuelProducts(defaultFuelProducts);
+        const localProducts = readLocalProducts();
+        setFuelProducts(mergeFuelProducts(defaultFuelProducts, localProducts));
         setProductsStatus("error");
       }
     };
@@ -1784,12 +1790,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (index: number) => {
       if (!Number.isInteger(index)) return;
 
-      const totalStations = form.getValues("aidStations")?.length ?? 0;
-      if (index < 0 || index >= totalStations) return;
+      const current = form.getValues("aidStations") ?? [];
+      if (index < 0 || index >= current.length) return;
 
-      remove(index);
+      const nextStations = current.filter((_, stationIndex) => stationIndex !== index);
+      replace(nextStations);
     },
-    [form, remove]
+    [form, replace]
   );
 
   const handleSupplyDrop = useCallback(

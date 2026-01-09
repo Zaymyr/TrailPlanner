@@ -512,6 +512,7 @@ export const fr: Translations = {
     description:
       "Consultez les produits partagés et ajoutez les vôtres. Sélectionnez librement des produits pour les estimations du plan de course.",
     authRequired: "Connectez-vous pour gérer les produits de nutrition partagés.",
+    localNotice: "Vous êtes en mode local. Vos produits et sélections restent sur cet appareil tant que vous n'êtes pas connecté.",
     signInCta: "Aller à la connexion",
     listTitle: "Produits disponibles",
     selectionHelp: "Choisissez les produits à utiliser pour les estimations du plan de course.",
