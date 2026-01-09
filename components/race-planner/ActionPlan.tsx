@@ -238,12 +238,22 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
   const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
   const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
   const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
-  const cursorToneClass =
-    cursorPercent > maxPercent
-      ? "ring-amber-300"
-      : cursorPercent >= targetPercent
-        ? "ring-emerald-300"
-        : "ring-rose-300";
+  const valueToneClass =
+    metric.statusTone === "success"
+      ? "text-emerald-600 dark:text-emerald-300"
+      : metric.statusTone === "warning"
+        ? "text-amber-600 dark:text-amber-300"
+        : metric.statusTone === "danger"
+          ? "text-rose-600 dark:text-rose-300"
+          : "text-foreground dark:text-slate-50";
+  const valueMarkerToneClass =
+    metric.statusTone === "success"
+      ? "border-t-emerald-500 dark:border-t-emerald-300"
+      : metric.statusTone === "warning"
+        ? "border-t-amber-500 dark:border-t-amber-300"
+        : metric.statusTone === "danger"
+          ? "border-t-rose-500 dark:border-t-rose-300"
+          : "border-t-slate-500 dark:border-t-slate-300";
 
   return (
     <div
@@ -283,43 +293,55 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
         </div>
       </div>
       <div className={isCompact ? "mt-1.5 flex flex-col gap-1" : "mt-3 flex flex-col gap-3"}>
-        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-foreground dark:text-slate-50`}>
+        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight ${valueToneClass}`}>
           {isCompact ? compactValue : metric.value}
         </p>
         <div className={isCompact ? "space-y-1" : "space-y-2"}>
-          <div
-            className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:bg-slate-900 ${
-              isCompact ? "h-2" : "h-4"
-            }`}
-          >
+          <div className="relative w-full">
             <div
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(to right,
-                  rgba(248,113,113,0.75) 0%,
-                  rgba(248,113,113,0.75) ${cautionPercent}%,
-                  rgba(251,146,60,0.75) ${cautionPercent}%,
-                  rgba(251,146,60,0.75) ${targetPercent}%,
-                  rgba(16,185,129,0.8) ${targetPercent}%,
-                  rgba(16,185,129,0.8) ${maxPercent}%,
-                  rgba(251,146,60,0.75) ${maxPercent}%,
-                  rgba(251,146,60,0.75) 100%)`,
-              }}
-              aria-hidden
-            />
+              className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:bg-slate-900 ${
+                isCompact ? "h-2" : "h-4"
+              }`}
+            >
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(to right,
+                    rgba(248,113,113,0.75) 0%,
+                    rgba(248,113,113,0.75) ${cautionPercent}%,
+                    rgba(251,146,60,0.75) ${cautionPercent}%,
+                    rgba(251,146,60,0.75) ${targetPercent}%,
+                    rgba(16,185,129,0.8) ${targetPercent}%,
+                    rgba(16,185,129,0.8) ${maxPercent}%,
+                    rgba(251,146,60,0.75) ${maxPercent}%,
+                    rgba(251,146,60,0.75) 100%)`,
+                }}
+                aria-hidden
+              />
+              <span
+                className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+                style={{ left: `${targetPercent}%` }}
+                aria-label={targetLabel}
+              />
+              <span
+                className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
+                style={{ left: `${maxPercent}%` }}
+                aria-label={maxLabel}
+              />
+            </div>
             <span
-              className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+              className={`absolute left-0 top-full mt-0.5 h-0 w-0 -translate-x-1/2 border-x-[5px] border-t-0 border-x-transparent border-b-[6px] border-b-slate-500/70 dark:border-b-slate-200/70 ${
+                isCompact ? "border-x-[4px] border-b-[5px]" : ""
+              }`}
               style={{ left: `${targetPercent}%` }}
               aria-label={targetLabel}
             />
             <span
-              className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-              style={{ left: `${maxPercent}%` }}
-              aria-label={maxLabel}
-            />
-            <span
-              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-background dark:ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+              className={`absolute left-0 bottom-full mb-0.5 h-0 w-0 -translate-x-1/2 border-x-[5px] border-b-0 border-x-transparent border-t-[6px] ${
+                isCompact ? "border-x-[4px] border-t-[5px]" : ""
+              } ${valueMarkerToneClass}`}
               style={{ left: `${cursorPercent}%` }}
+              aria-label={metric.name}
             />
           </div>
           {isCompact ? (
