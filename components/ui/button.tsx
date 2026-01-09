@@ -9,10 +9,11 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", ...props }, ref) => {
     const variantClass = {
       default:
-        "bg-emerald-500 text-foreground hover:bg-emerald-400 focus-visible:outline-emerald-300",
+        "bg-[hsl(var(--brand))] text-[hsl(var(--brand-foreground))] hover:bg-[hsl(var(--brand)/0.9)] focus-visible:outline-[hsl(var(--brand))] dark:bg-emerald-500 dark:text-foreground dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-300",
       outline:
-        "border border-emerald-300 text-emerald-100 hover:bg-emerald-950/60 focus-visible:outline-emerald-300",
-      ghost: "text-emerald-200 hover:bg-emerald-900/40 focus-visible:outline-emerald-300",
+        "border border-border text-[hsl(var(--success))] hover:bg-muted hover:text-foreground focus-visible:outline-[hsl(var(--brand))] dark:border-emerald-300 dark:text-emerald-100 dark:hover:bg-emerald-950/60 dark:focus-visible:outline-emerald-300",
+      ghost:
+        "text-[hsl(var(--success))] hover:bg-muted hover:text-foreground focus-visible:outline-[hsl(var(--brand))] dark:text-emerald-200 dark:hover:bg-emerald-900/40 dark:focus-visible:outline-emerald-300",
     }[variant];
 
     return (

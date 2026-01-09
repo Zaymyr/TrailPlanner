@@ -39,7 +39,7 @@ export const BlogCard = ({
     <Link
       href={href}
       className={cn(
-        "group flex h-full flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card/50 text-left transition hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-emerald-950/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
+        "group flex h-full flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card/50 text-left transition hover:-translate-y-0.5 hover:border-[hsl(var(--brand))] hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--brand))] dark:hover:border-emerald-700 dark:hover:bg-emerald-950/40 dark:focus-visible:outline-emerald-300",
         className,
       )}
     >
@@ -57,7 +57,7 @@ export const BlogCard = ({
 
       <div className="flex h-full flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold leading-snug text-foreground group-hover:text-emerald-100">
+          <h3 className="text-lg font-semibold leading-snug text-foreground group-hover:text-[hsl(var(--brand))] dark:group-hover:text-emerald-100">
             {title}
           </h3>
           <span className="whitespace-nowrap text-xs text-muted-foreground">

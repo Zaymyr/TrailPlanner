@@ -51,7 +51,7 @@ export function HeroSection({ hero }: HeroSectionProps) {
       <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-emerald-500/10 blur-3xl" aria-hidden />
       <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
         <div className="relative space-y-6">
-          <div className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-100">
+          <div className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-foreground dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
             {hero.eyebrow}
           </div>
           <div className="space-y-3">
@@ -66,7 +66,7 @@ export function HeroSection({ hero }: HeroSectionProps) {
               </li>
             ))}
           </ul>
-          <p className="text-sm font-medium text-emerald-200">{hero.socialProof}</p>
+          <p className="text-sm font-medium text-muted-foreground dark:text-emerald-200">{hero.socialProof}</p>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/race-planner"

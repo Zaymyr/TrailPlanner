@@ -27,7 +27,7 @@ export function RacePlannerLayout({
   return (
     <div className={className}>
       <div className="space-y-4 xl:hidden">
-        <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-2">
+        <div className="rounded-lg border border-border bg-card p-2 dark:border-slate-800 dark:bg-slate-900/60">
           <div className="grid grid-cols-2 gap-2">
             {(
               [

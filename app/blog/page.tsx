@@ -91,8 +91,8 @@ const TagFilter = ({ tags, activeTag }: { tags: TagSummary[]; activeTag?: string
           label={tagLabel}
           variant={isActive ? "default" : "muted"}
           className={cn(
-            "group-hover:border-emerald-500 group-hover:text-emerald-100",
-            isActive && "shadow-[0_0_0_1px_rgba(52,211,153,0.5)]",
+            "group-hover:border-[hsl(var(--brand))] group-hover:text-[hsl(var(--brand))] dark:group-hover:border-emerald-500 dark:group-hover:text-emerald-100",
+            isActive && "shadow-[0_0_0_1px_rgba(52,211,153,0.5)] dark:shadow-[0_0_0_1px_rgba(52,211,153,0.5)]",
           )}
         />
         {typeof count === "number" && <span className="text-xs text-slate-400">{count}</span>}
@@ -120,9 +120,13 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
     <div className="mx-auto max-w-6xl space-y-10 px-4 pb-12 sm:px-6 lg:px-8">
       <header className="space-y-5">
         <div className="space-y-3">
-          <p className="text-xs uppercase tracking-[0.25em] text-emerald-300">Blog</p>
-          <h1 className="text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">Insights &amp; trail notes</h1>
-          <p className="max-w-2xl text-base text-slate-300 sm:text-lg">
+          <p className="text-xs uppercase tracking-[0.25em] text-[hsl(var(--success))] dark:text-emerald-300">
+            Blog
+          </p>
+          <h1 className="text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
+            Insights &amp; trail notes
+          </h1>
+          <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
             Articles about fueling, pacing, and race planning from the Pace Yourself team.
           </p>
         </div>
@@ -130,7 +134,7 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
       </header>
 
       {visiblePosts.length === 0 ? (
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-muted-foreground">
           {selectedTag
             ? `No posts found for “${selectedTag}”.`
             : "No posts available yet. Check back soon!"}
