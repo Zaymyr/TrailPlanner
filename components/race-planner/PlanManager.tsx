@@ -86,23 +86,23 @@ export function PlanManager({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-slate-100">{copy.plans.title}</p>
+                <p className="text-sm font-semibold text-foreground dark:text-slate-100">{copy.plans.title}</p>
                 <Button variant="ghost" className="h-9 px-3 text-xs" onClick={onRefreshPlans}>
                   {copy.plans.refresh}
                 </Button>
               </div>
               {savedPlans.length === 0 ? (
-                <p className="text-sm text-slate-400">{copy.plans.empty}</p>
+                <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.plans.empty}</p>
               ) : (
                 <div className="space-y-3">
                   {savedPlans.map((plan) => (
                     <div
                       key={plan.id}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
                     >
                       <div className="space-y-1">
-                        <p className="text-sm font-semibold text-slate-50">{plan.name}</p>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-sm font-semibold text-foreground dark:text-slate-50">{plan.name}</p>
+                        <p className="text-xs text-muted-foreground dark:text-slate-400">
                           {copy.plans.updatedAt.replace("{date}", new Date(plan.updatedAt).toLocaleString())}
                         </p>
                       </div>
@@ -131,7 +131,7 @@ export function PlanManager({
             </div>
           </div>
         ) : (
-          <p className="text-sm text-slate-400">{copy.auth.headerHint}</p>
+          <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.auth.headerHint}</p>
         )}
 
         {accountError ? <p className="text-xs text-red-400">{accountError}</p> : null}

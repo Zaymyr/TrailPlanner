@@ -4,13 +4,16 @@
 
 :root {
   color-scheme: light;
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --border: #e2e8f0;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --card: 220 14% 96%;
+  --card-foreground: 222 47% 11%;
+  --muted: 220 14% 92%;
+  --muted-foreground: 220 15% 35%;
+  --border: 220 13% 85%;
+  --input: 220 13% 85%;
+  --primary: 158 64% 42%;
+  --primary-foreground: 0 0% 100%;
 }
 
 .dark {
