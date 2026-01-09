@@ -220,10 +220,9 @@ type NutritionCardProps = {
   variant?: NutritionCardVariant;
   waterCapacityMl?: number | null;
   targetLabel: string;
-  maxLabel: string;
 };
 
-function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel, maxLabel }: NutritionCardProps) {
+function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel }: NutritionCardProps) {
   const isCompact = variant === "compact";
   const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
   const compactTarget = metric.format(metric.targetValue).split(" de ")[0].split(" d'")[0];
@@ -317,16 +316,6 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
                     rgba(251,146,60,0.75) 100%)`,
                 }}
                 aria-hidden
-              />
-              <span
-                className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
-                style={{ left: `${targetPercent}%` }}
-                aria-label={targetLabel}
-              />
-              <span
-                className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-                style={{ left: `${maxPercent}%` }}
-                aria-label={maxLabel}
               />
             </div>
             <span
@@ -1200,7 +1189,6 @@ export function ActionPlan({
                     variant="compact"
                     waterCapacityMl={sectionSegment?.waterCapacityMl ?? null}
                     targetLabel={timelineCopy.targetLabel}
-                    maxLabel={timelineCopy.waterCapacityLabel}
                   />
                 ));
 
