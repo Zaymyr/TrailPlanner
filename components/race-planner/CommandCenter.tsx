@@ -45,11 +45,13 @@ export function CommandCenter({
       <div className="grid gap-3 md:grid-cols-5">
         <Card
           id={sectionIds.pacing}
-          className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5 md:col-span-2"
+          className="border-border bg-card shadow-md md:col-span-2 dark:border-slate-800/70 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
         >
           <CardHeader className="space-y-3 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.pacingTitle}</p>
+              <p className="text-sm font-semibold text-foreground dark:text-slate-100">
+                {copy.sections.raceInputs.pacingTitle}
+              </p>
               {pacing.durationMinutes ? (
                 <span className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-100">
                   {formatDuration(pacing.durationMinutes)}
@@ -57,10 +59,10 @@ export function CommandCenter({
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
                 {copy.sections.raceInputs.fields.paceType}
               </p>
-              <div className="flex items-center gap-2 rounded-md border border-slate-800/80 bg-slate-900/80 p-1">
+              <div className="flex items-center gap-2 rounded-md border border-border bg-background p-1 dark:border-slate-800/80 dark:bg-slate-900/80">
                 {(
                   [
                     { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
@@ -75,7 +77,7 @@ export function CommandCenter({
                       className={`rounded px-3 py-1 text-xs font-semibold transition ${
                         isActive
                           ? "bg-emerald-500/20 text-emerald-100 shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
-                          : "text-slate-300 hover:text-emerald-100"
+                          : "text-muted-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-emerald-100"
                       }`}
                       onClick={() => setPacingMode(option.key)}
                     >
@@ -93,7 +95,7 @@ export function CommandCenter({
                   <div className="w-[120px] space-y-1">
                     <Label
                       htmlFor="paceMinutes"
-                      className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+                      className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300"
                     >
                       {copy.sections.raceInputs.fields.paceMinutes}
                     </Label>
@@ -102,7 +104,7 @@ export function CommandCenter({
                       type="number"
                       min="0"
                       step="1"
-                      className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                       {...register("paceMinutes", {
                         valueAsNumber: true,
                         onChange: (event) => {
@@ -116,7 +118,7 @@ export function CommandCenter({
                   <div className="w-[120px] space-y-1">
                     <Label
                       htmlFor="paceSeconds"
-                      className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+                      className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300"
                     >
                       {copy.sections.raceInputs.fields.paceSeconds}
                     </Label>
@@ -126,7 +128,7 @@ export function CommandCenter({
                       min="0"
                       max="59"
                       step="1"
-                      className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                       {...register("paceSeconds", {
                         valueAsNumber: true,
                         onChange: (event) => {
@@ -144,7 +146,7 @@ export function CommandCenter({
                 <div className="w-[140px] space-y-1">
                   <Label
                     htmlFor="speedKph"
-                    className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+                    className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300"
                   >
                     {copy.sections.raceInputs.fields.speedKph}
                   </Label>
@@ -153,7 +155,7 @@ export function CommandCenter({
                     type="number"
                     min="0"
                     step="0.1"
-                    className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                    className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                     {...register("speedKph", {
                       valueAsNumber: true,
                       onChange: (event) => {
@@ -172,17 +174,19 @@ export function CommandCenter({
 
         <Card
           id={sectionIds.intake}
-          className="border-slate-800/70 bg-slate-950/80 shadow-inner shadow-emerald-500/5 md:col-span-3"
+          className="border-border bg-card shadow-md md:col-span-3 dark:border-slate-800/70 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
         >
           <CardHeader className="pb-3">
-            <p className="text-sm font-semibold text-slate-100">{copy.sections.raceInputs.nutritionTitle}</p>
-            <p className="text-xs text-slate-400">{copy.sections.raceInputs.description}</p>
+            <p className="text-sm font-semibold text-foreground dark:text-slate-100">
+              {copy.sections.raceInputs.nutritionTitle}
+            </p>
+            <p className="text-xs text-muted-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label
                 htmlFor="targetIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+                className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.targetIntakePerHour}
               </Label>
@@ -190,14 +194,14 @@ export function CommandCenter({
                 id="targetIntakePerHour"
                 type="number"
                 step="1"
-                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                 {...register("targetIntakePerHour", { valueAsNumber: true })}
               />
             </div>
             <div className="space-y-1">
               <Label
                 htmlFor="waterIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+                className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.waterIntakePerHour}
               </Label>
@@ -206,14 +210,14 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                 {...register("waterIntakePerHour", { valueAsNumber: true })}
               />
             </div>
             <div className="space-y-1">
               <Label
                 htmlFor="sodiumIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+                className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.sodiumIntakePerHour}
               </Label>
@@ -222,14 +226,14 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                 {...register("sodiumIntakePerHour", { valueAsNumber: true })}
               />
             </div>
             <div className="space-y-1">
               <Label
                 htmlFor="waterBagLiters"
-                className="text-[11px] font-semibold uppercase tracking-wide text-slate-300"
+                className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.waterBagLiters}
               </Label>
@@ -238,7 +242,7 @@ export function CommandCenter({
                 type="number"
                 step="0.1"
                 min="0"
-                className="h-11 border-slate-800/70 bg-slate-900 text-base font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                 {...register("waterBagLiters", { valueAsNumber: true })}
               />
             </div>
