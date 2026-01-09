@@ -21,7 +21,7 @@ export function HeaderAuth() {
 
     return (
       <div className="flex items-center gap-3">
-        <span className="rounded-full bg-emerald-300/15 px-3 py-1 text-sm font-medium text-emerald-100">
+        <span className="rounded-full bg-[hsl(var(--success)/0.12)] px-3 py-1 text-sm font-medium text-[hsl(var(--success))] dark:bg-emerald-300/15 dark:text-emerald-100">
           {signedInLabel}
         </span>
       </div>
@@ -32,13 +32,13 @@ export function HeaderAuth() {
     <div className="flex items-center gap-2">
       <Link
         href="/sign-in"
-        className="rounded-lg border border-emerald-300/40 px-3 py-1.5 text-sm font-medium text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
+        className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-[hsl(var(--success))] transition hover:border-[hsl(var(--brand))] hover:text-foreground dark:border-emerald-300/40 dark:text-emerald-100 dark:hover:border-emerald-200 dark:hover:text-emerald-50"
       >
         {t.racePlanner.account.auth.signIn}
       </Link>
       <Link
         href="/sign-up"
-        className="rounded-lg bg-emerald-400 px-3 py-1.5 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-300"
+        className="rounded-lg bg-[hsl(var(--brand))] px-3 py-1.5 text-sm font-semibold text-[hsl(var(--brand-foreground))] shadow-sm transition hover:bg-[hsl(var(--brand)/0.9)] dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300"
       >
         {t.racePlanner.account.auth.create}
       </Link>

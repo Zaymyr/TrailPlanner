@@ -73,13 +73,13 @@ function StatusPill({ label, tone }: { label: string; tone: StatusTone }) {
 
 function SegmentMetricCard({ metric }: { metric: SegmentMetric }) {
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-950/70 p-3 shadow-sm sm:p-4">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-sm dark:bg-slate-950/70 sm:p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-800 bg-slate-900 sm:h-8 sm:w-8">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background dark:bg-slate-900 sm:h-8 sm:w-8">
             {metric.icon}
           </span>
-        <p className="text-sm font-semibold text-slate-50">{metric.label}</p>
+          <p className="text-sm font-semibold text-foreground dark:text-slate-50">{metric.label}</p>
         </div>
         <StatusPill label={metric.statusLabel} tone={metric.statusTone} />
       </div>
@@ -87,14 +87,14 @@ function SegmentMetricCard({ metric }: { metric: SegmentMetric }) {
       <div className={`rounded-lg border px-3 py-2 ${metricToneClasses[metric.key]}`}>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <p className="text-base font-semibold text-slate-50">{metric.value}</p>
-            <p className="text-xs text-slate-200/90">
+            <p className="text-base font-semibold text-foreground dark:text-slate-50">{metric.value}</p>
+            <p className="text-xs text-muted-foreground dark:text-slate-200/90">
               {metric.targetText} · {metric.targetPercent.toFixed(0)}%
             </p>
           </div>
           {metric.input ? <div className="min-w-[140px] sm:text-right">{metric.input}</div> : null}
         </div>
-        <p className="mt-1 text-[11px] text-slate-300/90">
+        <p className="mt-1 text-[11px] text-muted-foreground dark:text-slate-300/90">
           {metric.totalPercent > 0 ? `${metric.totalPercent.toFixed(0)}% du plan total` : "\u00a0"}
         </p>
       </div>
@@ -117,33 +117,37 @@ export function TimelineSegmentCard({
   metrics,
 }: TimelineSegmentCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.35)]">
+    <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-900/70 dark:shadow-[0_4px_30px_rgba(15,23,42,0.35)]">
       <div className="grid gap-4 md:grid-cols-[minmax(0,320px)_1fr] md:items-start md:gap-6">
-        <div className="space-y-3 rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+        <div className="space-y-3 rounded-xl border border-border bg-background p-3 shadow-sm dark:bg-slate-950/80">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+            <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-sm font-semibold text-emerald-100">
                 {segmentIndex}
               </span>
               {headerLabel}
             </div>
             <div className="text-right">
-              <p className="text-xs font-semibold text-slate-200">{segmentDistanceHelper}</p>
-              <p className="text-[11px] text-slate-500">{distanceText}</p>
+              <p className="text-xs font-semibold text-foreground dark:text-slate-200">{segmentDistanceHelper}</p>
+              <p className="text-[11px] text-muted-foreground dark:text-slate-500">{distanceText}</p>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2">
-              <p className="text-sm font-semibold text-slate-50">{fromTitle}</p>
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 dark:bg-slate-900/60">
+              <p className="text-sm font-semibold text-foreground dark:text-slate-50">{fromTitle}</p>
               <ArrowRightIcon className="h-4 w-4 text-emerald-200" aria-hidden />
-              <p className="text-sm font-semibold text-slate-50">{toTitle}</p>
+              <p className="text-sm font-semibold text-foreground dark:text-slate-50">{toTitle}</p>
             </div>
-            <div className="flex flex-col gap-1 rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300 sm:text-right">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400">{durationLabel}</p>
-              <div className="text-sm font-semibold text-slate-50">{timeInput ?? durationValue}</div>
-              <p className="text-[11px] text-slate-400">{etaText}</p>
-              <p className="text-[11px] text-slate-500">{durationHelper}</p>
+            <div className="flex flex-col gap-1 rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground dark:bg-slate-950/70 dark:text-slate-300 sm:text-right">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+                {durationLabel}
+              </p>
+              <div className="text-sm font-semibold text-foreground dark:text-slate-50">
+                {timeInput ?? durationValue}
+              </div>
+              <p className="text-[11px] text-muted-foreground dark:text-slate-400">{etaText}</p>
+              <p className="text-[11px] text-muted-foreground dark:text-slate-500">{durationHelper}</p>
             </div>
           </div>
         </div>
@@ -173,7 +177,7 @@ export function TimelinePointCard({
   onTitleClick,
 }: TimelinePointCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-900/80 bg-slate-950/85 p-4 shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
+    <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div
           className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-text" : ""}`}
@@ -195,13 +199,15 @@ export function TimelinePointCard({
             {pointIndex}
           </span>
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
+            <div className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-slate-50">
               {titleIcon ? (
-                <span className="inline-flex h-5 w-5 items-center justify-center text-slate-50">{titleIcon}</span>
+                <span className="inline-flex h-5 w-5 items-center justify-center text-foreground dark:text-slate-50">
+                  {titleIcon}
+                </span>
               ) : null}
               <span>{title}</span>
             </div>
-            {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
+            {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
           </div>
         </div>
         {headerMiddle ? <div className="flex min-w-[240px] flex-1">{headerMiddle}</div> : null}
@@ -212,7 +218,7 @@ export function TimelinePointCard({
       {section ? <div className="mt-4">{section}</div> : null}
       {footer ? <div className="mt-4">{footer}</div> : null}
       {isFinish ? (
-        <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+        <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
           <Clock3Icon className="h-4 w-4 text-emerald-200" aria-hidden />
           <span>{finishLabel ?? "Arrivée"}</span>
         </div>

@@ -91,17 +91,17 @@ export default function SignInPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/60 p-6 shadow-lg">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-border-strong bg-card p-6 text-foreground shadow-lg dark:bg-slate-950/60">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-slate-50">{t.auth.signIn.title}</h1>
-        <p className="text-slate-300">{t.auth.signIn.description}</p>
+        <h1 className="text-2xl font-semibold text-foreground">{t.auth.signIn.title}</h1>
+        <p className="text-muted-foreground">{t.auth.signIn.description}</p>
       </div>
 
       <div className="flex flex-col gap-3">
         <Button
           type="button"
           variant="outline"
-          className="justify-center border-slate-700 bg-slate-900/60 text-slate-50 hover:bg-slate-800"
+          className="justify-center border-border bg-background text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-50 dark:hover:bg-slate-800"
           onClick={handleGoogleSignIn}
         >
           Continue with Google
@@ -109,10 +109,10 @@ export default function SignInPage() {
         {oauthError && <p className="text-sm text-amber-400">{oauthError}</p>}
       </div>
 
-      <div className="flex items-center gap-3 text-sm text-slate-400">
-        <div className="h-px flex-1 bg-slate-800" />
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="h-px flex-1 bg-border" />
         <span>Or continue with email</span>
-        <div className="h-px flex-1 bg-slate-800" />
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-4">

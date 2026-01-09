@@ -36,7 +36,7 @@ export function ProductsPicker({
       </CardHeader>
       <CardContent className="space-y-4">
         {products.length === 0 ? (
-          <p className="text-sm text-slate-400">{copy.empty}</p>
+          <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.empty}</p>
         ) : (
           <div className="space-y-3">
           {products.map((product) => {
@@ -50,7 +50,7 @@ export function ProductsPicker({
               return (
                 <div
                   key={product.slug}
-                  className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3"
+                  className="space-y-3 rounded-lg border border-border bg-card p-3 dark:border-slate-800 dark:bg-slate-900/60"
                 >
                   <MetricCard
                     label={product.name}
@@ -70,7 +70,7 @@ export function ProductsPicker({
                     <button
                       type="button"
                       onClick={() => onViewProduct(product)}
-                      className="text-sm font-semibold text-emerald-300 transition hover:text-emerald-200"
+                      className="text-sm font-semibold text-[hsl(var(--success))] transition hover:text-[hsl(var(--brand))] dark:text-emerald-300 dark:hover:text-emerald-200"
                     >
                       {copy.linkLabel}
                     </button>

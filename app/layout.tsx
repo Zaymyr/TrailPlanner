@@ -16,6 +16,7 @@ import { HeaderMenu } from "./header-menu";
 import { SiteFooter } from "../components/SiteFooter";
 import { CookieBanner } from "../components/CookieBanner";
 import { GTagLoader } from "./gtag-loader";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -62,7 +63,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
-      <body className="min-h-screen bg-slate-950 text-slate-50">
+      <body className="min-h-screen bg-background text-foreground">
         <GTagLoader />
         <Analytics />
         <CookieBanner />
@@ -85,13 +86,14 @@ export default function RootLayout({
                         className="h-15 w-auto"
                       />
                     </Link>
-                    <p className="text-sm text-slate-300">
+                    <p className="text-sm text-muted-foreground">
                       Plan your aid-station timing, fueling targets, and pacing for race day.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <LanguageToggle />
+                  <ThemeToggle />
                   <HeaderAuth />
                 </div>
               </header>

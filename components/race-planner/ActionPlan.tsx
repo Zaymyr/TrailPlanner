@@ -132,7 +132,11 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
 };
 
 const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} {...props} />
+  <SparklesIcon
+    className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
+    strokeWidth={2}
+    {...props}
+  />
 );
 
 type SegmentCardVariant = "default" | "compact" | "compactChip";
@@ -160,10 +164,10 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-white/10 bg-slate-950/90 px-2 py-1.5 text-slate-200 shadow-sm"
+          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 text-foreground shadow-sm dark:bg-slate-950/90 dark:text-slate-200"
           : isCompact
-            ? "flex flex-col gap-2 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2 text-slate-200"
-            : "flex flex-col gap-3 rounded-2xl border border-emerald-700/60 bg-slate-950/80 px-4 py-3 text-slate-100"
+            ? "flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground shadow-sm dark:bg-slate-950/50 dark:text-slate-200"
+            : "flex flex-col gap-3 rounded-2xl border border-border-strong bg-card px-4 py-3 text-foreground shadow-sm dark:bg-slate-950/80 dark:text-slate-100"
       }
     >
       <div
@@ -176,7 +180,7 @@ function SegmentCard({
         }
       >
         <span className="tabular-nums">{distanceText}</span>
-        <span className="tabular-nums text-rose-200/90">{elevationGainText}</span>
+        <span className="tabular-nums text-red-600 dark:text-red-400">{elevationGainText}</span>
       </div>
       <div
         className={
@@ -187,8 +191,8 @@ function SegmentCard({
               : "flex items-center justify-between text-xs font-semibold"
         }
       >
-        <span className="tabular-nums text-slate-400">{timeText}</span>
-        <span className="text-sky-200/90">{elevationLossText}</span>
+        <span className="tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
+        <span className="text-blue-600 dark:text-blue-400">{elevationLossText}</span>
       </div>
       {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
     </div>
@@ -243,7 +247,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
 
   return (
     <div
-      className={`rounded-xl border bg-slate-950/70 ${
+      className={`rounded-xl border bg-card shadow-sm dark:bg-slate-950/70 ${
         isCompact ? "p-2" : "p-4"
       } ${
         metric.statusTone === "success"
@@ -252,7 +256,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             ? "border-amber-500/40"
             : metric.statusTone === "danger"
               ? "border-rose-500/40"
-              : "border-slate-500/40"
+              : "border-border"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -266,23 +270,25 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
           </span>
           <div className="flex flex-col">
             {isCompact ? (
-              <p className="text-[11px] font-semibold text-slate-200">{metric.name}</p>
+              <p className="text-[11px] font-semibold text-foreground dark:text-slate-200">{metric.name}</p>
             ) : (
               <>
-                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{metric.label}</p>
-                <p className="text-sm font-semibold text-slate-50">{metric.name}</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+                  {metric.label}
+                </p>
+                <p className="text-sm font-semibold text-foreground dark:text-slate-50">{metric.name}</p>
               </>
             )}
           </div>
         </div>
       </div>
       <div className={isCompact ? "mt-1.5 flex flex-col gap-1" : "mt-3 flex flex-col gap-3"}>
-        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-slate-50`}>
+        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-foreground dark:text-slate-50`}>
           {isCompact ? compactValue : metric.value}
         </p>
         <div className={isCompact ? "space-y-1" : "space-y-2"}>
           <div
-            className={`relative w-full overflow-hidden rounded-full border border-slate-800 bg-slate-900 ${
+            className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:bg-slate-900 ${
               isCompact ? "h-2" : "h-4"
             }`}
           >
@@ -312,14 +318,14 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
               aria-label={maxLabel}
             />
             <span
-              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-background dark:ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
               style={{ left: `${cursorPercent}%` }}
             />
           </div>
           {isCompact ? (
             <div className="relative h-2.5">
               <span
-                className="absolute top-0 -translate-x-1/2 text-[9px] font-semibold text-slate-400"
+                className="absolute top-0 -translate-x-1/2 text-[9px] font-semibold text-muted-foreground dark:text-slate-400"
                 style={{ left: `${targetPercent}%` }}
               >
                 {compactTarget}
@@ -329,7 +335,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
           {isCompact ? (
             metric.helper ? <p className="text-[9px] font-semibold text-amber-200/80">{metric.helper}</p> : null
           ) : (
-            <div className="flex items-center justify-between text-xs text-slate-200">
+            <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-slate-200">
               <span className="font-semibold">
                 {targetLabel}: {metric.format(targetValue)}
               </span>
@@ -366,7 +372,7 @@ function AidStationHeaderRow({
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
-    <div className="relative z-20 rounded-2xl border border-blue-400/50 bg-slate-950/95 px-5 py-4 shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
+    <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
         <div
           className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
@@ -385,15 +391,15 @@ function AidStationHeaderRow({
           }
         >
           {badge ?? (
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
               {pointIndex}
             </span>
           )}
           <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-base font-semibold text-slate-50">
+            <div className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-slate-50">
               <span>{title}</span>
             </div>
-            {meta ? <div className="text-xs font-normal text-slate-300">{meta}</div> : null}
+            {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
           </div>
         </div>
         {headerMiddle ? (
@@ -402,7 +408,7 @@ function AidStationHeaderRow({
         {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
       {isFinish ? (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 text-sm text-slate-300">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground dark:bg-slate-900/60 dark:text-slate-300">
           <span>{finishLabel ?? "Arrivée"}</span>
         </div>
       ) : null}
@@ -419,7 +425,7 @@ type SectionRowProps = {
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative flex justify-center">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-400/40 bg-slate-950/55 p-4 lg:mx-auto lg:max-w-[1120px]">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55 lg:mx-auto lg:max-w-[1120px]">
         {showConnector ? (
           <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
@@ -453,7 +459,7 @@ function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
     <div className="w-full rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5 md:max-w-[300px]">
       <div className="space-y-1.5">
         {items.map((item) => (
-          <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-slate-50">
+          <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
             <span className="flex items-center gap-2">
               <span className={`h-2 w-2 rounded-full ${item.dotClassName}`} />
               <span className="font-medium">{item.label}</span>
@@ -490,7 +496,7 @@ function AidStationCollapsedRow({
   actions,
 }: AidStationCollapsedRowProps) {
   return (
-    <div className="rounded-2xl border-2 border-blue-400/70 bg-slate-950/90 px-4 py-3 shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+    <div className="rounded-2xl border-2 border-blue-500/70 bg-card px-4 py-3 shadow-md dark:border-blue-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         <div className="relative flex shrink-0 flex-col items-center gap-2">
           {badge ? (
@@ -500,7 +506,7 @@ function AidStationCollapsedRow({
               <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
                 {pointIndex}
               </span>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-800/60 bg-slate-900/70 text-slate-50">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground dark:bg-slate-900/70 dark:text-slate-50">
                 {leftIcon}
               </div>
             </>
@@ -511,9 +517,9 @@ function AidStationCollapsedRow({
           </div>
         </div>
         <div className="min-w-0 flex-1 space-y-1 md:order-1">
-          <div className="truncate text-sm font-semibold text-slate-50">{title}</div>
-          <div className="truncate text-xs text-slate-300">{metaLine}</div>
-          <div className="truncate text-[11px] text-slate-400">{pauseLine}</div>
+          <div className="truncate text-sm font-semibold text-foreground dark:text-slate-50">{title}</div>
+          <div className="truncate text-xs text-muted-foreground dark:text-slate-300">{metaLine}</div>
+          <div className="truncate text-[11px] text-muted-foreground dark:text-slate-400">{pauseLine}</div>
         </div>
         <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
           {segmentCard}
@@ -832,7 +838,9 @@ export function ActionPlan({
             </div>
           }
         />
-        {segments.length === 0 ? <p className="text-sm text-slate-400">{timelineCopy.empty}</p> : null}
+        {segments.length === 0 ? (
+          <p className="text-sm text-muted-foreground dark:text-slate-400">{timelineCopy.empty}</p>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
         {segments.length > 0 ? (
@@ -865,14 +873,14 @@ export function ActionPlan({
                     src="/race-planner/icons/start.svg"
                     alt=""
                     aria-hidden
-                    className="h-8 w-8 object-contain"
+                    className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
                   <img
                     src="/race-planner/icons/ravito.svg"
                     alt=""
                     aria-hidden
-                    className="h-8 w-8 object-contain"
+                    className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : null;
                 const titleContent = item.title;
@@ -885,7 +893,7 @@ export function ActionPlan({
                 const metaContent = (
                   <div className="space-y-1">
                     <div>{metaText}</div>
-                    <div className="text-[11px] text-slate-400">
+                    <div className="text-[11px] text-muted-foreground dark:text-slate-400">
                       {timelineCopy.pauseLabel}: {pauseMinutesValue}
                     </div>
                   </div>
@@ -895,7 +903,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-8 rounded-full border border-slate-700 bg-slate-900/60 px-3 text-xs font-semibold text-slate-100 hover:bg-slate-800/60"
+                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
                       onClick={() => toggleAidStationCollapse(collapseKey)}
                       aria-label={toggleLabel}
                       title={toggleLabel}
@@ -910,10 +918,10 @@ export function ActionPlan({
 
                 const waterRefillToggle =
                   distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                    <label className="inline-flex items-center gap-2 rounded-md border border-slate-800/70 bg-slate-900/60 px-2 py-1 text-[11px] text-slate-200">
+                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500"
+                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
                         {...register(waterRefillFieldName)}
                       />
                       <span>{aidStationsCopy.labels.waterRefill}</span>
@@ -942,14 +950,14 @@ export function ActionPlan({
                             ? summarized.items.map(({ product, quantity }) => (
                                 <div
                                   key={product.id}
-                                  className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-slate-950/70 px-3 py-1 text-sm text-slate-50"
+                                  className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-card px-3 py-1 text-sm text-foreground dark:bg-slate-950/70 dark:text-slate-50"
                                 >
                                   <span className="font-semibold">{`${product.name} x${quantity}`}</span>
                                   <div className="flex items-center gap-1">
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
                                       onClick={() => {
                                         if (quantity <= 1) {
                                           if (item.isStart) {
@@ -973,7 +981,7 @@ export function ActionPlan({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-slate-700 bg-slate-900/80 text-slate-200 hover:text-white"
+                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
                                       onClick={() => {
                                         if (item.isStart) {
                                           onStartSupplyDrop(product.id, 1);
@@ -994,7 +1002,7 @@ export function ActionPlan({
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-slate-950/60 p-0 text-emerald-50 hover:bg-emerald-500/10"
+                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-background p-0 text-emerald-700 hover:bg-emerald-500/10 dark:bg-slate-950/60 dark:text-emerald-50"
                             onClick={() =>
                               setSupplyPicker({
                                 type: item.isStart ? "start" : "aid",
@@ -1027,7 +1035,7 @@ export function ActionPlan({
                   basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
                 const paceAdjustmentControl =
                   sectionSegment && paceAdjustmentFieldName ? (
-                    <div className="inline-flex items-center gap-1 rounded-full border border-slate-800/60 bg-slate-950/50 px-2 py-0.5">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50">
                       <input
                         type="hidden"
                         {...register(paceAdjustmentFieldName, {
@@ -1037,7 +1045,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
+                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1050,14 +1058,14 @@ export function ActionPlan({
                         –
                       </Button>
                       <div className="flex items-baseline gap-1 px-1">
-                        <span className="text-[13px] font-semibold text-slate-50 tabular-nums">
+                        <span className="text-[13px] font-semibold text-foreground tabular-nums dark:text-slate-50">
                           {formatPaceValue(paceMinutesPerKm)}
                         </span>
                       </div>
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-slate-700 px-0 text-slate-200 hover:text-white"
+                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1184,7 +1192,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
+                      className="h-9 w-9 rounded-full border border-red-200 bg-red-100 px-0 text-lg font-bold text-red-950 hover:bg-red-200 dark:border-red-500/50 dark:bg-red-500/10 dark:text-white dark:hover:bg-red-500/20"
                       onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
                     >
                       <span aria-hidden>×</span>
@@ -1296,9 +1304,9 @@ export function ActionPlan({
       </Card>
       {editorState ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-border-strong bg-card p-5 shadow-2xl dark:bg-slate-950">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-slate-50">
+              <p className="text-sm font-semibold text-foreground dark:text-slate-50">
                 {editorState.mode === "edit" ? aidStationsCopy.title : aidStationsCopy.add}
               </p>
               <Button variant="ghost" className="h-8 px-2" onClick={closeEditor}>
@@ -1307,34 +1315,40 @@ export function ActionPlan({
             </div>
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.name}</Label>
+                <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                  {aidStationsCopy.labels.name}
+                </Label>
                 <Input
                   value={editorState.name}
                   onChange={(event) => updateEditorField("name", event.target.value)}
-                  className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.distance}</Label>
+                <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                  {aidStationsCopy.labels.distance}
+                </Label>
                 <Input
                   value={editorState.distance}
                   onChange={(event) => updateEditorField("distance", event.target.value)}
                   type="number"
                   step="0.5"
                   min="0"
-                  className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               {editorState.mode === "edit" ? (
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-slate-300">{timelineCopy.pauseLabel}</Label>
+                  <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                    {timelineCopy.pauseLabel}
+                  </Label>
                   <Input
                     value={editorState.pauseMinutes}
                     onChange={(event) => updateEditorField("pauseMinutes", event.target.value)}
                     type="number"
                     step="1"
                     min="0"
-                    className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                    className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                   />
                 </div>
               ) : null}
@@ -1351,11 +1365,15 @@ export function ActionPlan({
       ) : null}
       {supplyPicker ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm sm:p-6">
-          <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
+          <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-border-strong bg-card p-5 shadow-2xl dark:bg-slate-950">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-lg font-semibold text-slate-50">{copy.sections.gels.title}</p>
-                <p className="text-sm text-slate-300">{copy.sections.gels.description}</p>
+                <p className="text-lg font-semibold text-foreground dark:text-slate-50">
+                  {copy.sections.gels.title}
+                </p>
+                <p className="text-sm text-muted-foreground dark:text-slate-300">
+                  {copy.sections.gels.description}
+                </p>
               </div>
               <Button variant="ghost" className="h-8 px-2" onClick={() => setSupplyPicker(null)}>
                 ✕
@@ -1366,13 +1384,15 @@ export function ActionPlan({
                 value={pickerSearch}
                 onChange={(event) => setPickerSearch(event.target.value)}
                 placeholder="Rechercher un produit..."
-                className="w-full max-w-md border-slate-800/70 bg-slate-900 text-sm text-slate-50 focus-visible:ring-emerald-400"
+                className="w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
               />
-              <p className="text-xs text-slate-300">{`${pickerFavorites.length}/3 favoris sélectionnés`}</p>
+              <p className="text-xs text-muted-foreground dark:text-slate-300">
+                {`${pickerFavorites.length}/3 favoris sélectionnés`}
+              </p>
             </div>
-            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60">
-              <table className="min-w-[720px] w-full text-left text-sm text-slate-200">
-                <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">
+            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:bg-slate-950/60">
+              <table className="min-w-[720px] w-full text-left text-sm text-foreground dark:text-slate-200">
+                <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground dark:bg-slate-900/70 dark:text-slate-400">
                   <tr>
                     {[
                       { key: "favorite", label: "★" },
@@ -1424,11 +1444,11 @@ export function ActionPlan({
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
                       const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
-                        <tr key={product.slug} className="border-t border-slate-800/80">
+                        <tr key={product.slug} className="border-t border-border">
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              className={`text-lg ${isFavorite ? "text-amber-300" : "text-slate-500"} hover:text-amber-200`}
+                              className={`text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
                               onClick={() => toggleFavorite(product.slug)}
                               aria-label="Favori"
                             >

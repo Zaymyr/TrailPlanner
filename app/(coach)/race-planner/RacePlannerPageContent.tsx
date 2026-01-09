@@ -66,7 +66,7 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
   <CardTitle className="flex items-center gap-2">
     <span>{title}</span>
     <span
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-700 bg-slate-900 text-xs font-semibold text-slate-200"
+      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
       title={description}
       aria-label={description}
     >
@@ -1973,26 +1973,30 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               >
                 <span className="flex items-center gap-1.5" title={!allowExport ? "Premium feature" : undefined}>
                   {!allowExport ? (
-                    <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} aria-hidden />
+                    <SparklesIcon
+                      className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
+                      strokeWidth={2}
+                      aria-hidden
+                    />
                   ) : null}
                   <span>{racePlannerCopy.buttons.exportGpx}</span>
                 </span>
               </Button>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="raceDistanceKm" className="text-[11px] text-slate-300">
+                  <Label htmlFor="raceDistanceKm" className="text-[11px] text-muted-foreground dark:text-slate-300">
                     {racePlannerCopy.sections.raceInputs.fields.raceDistance}
                   </Label>
                   <Input
                     id="raceDistanceKm"
                     type="number"
                     step="0.5"
-                    className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    className="h-8 w-[110px] border-border bg-background text-xs text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
                     {...register("raceDistanceKm", { valueAsNumber: true })}
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="elevationGain" className="text-[11px] text-slate-300">
+                  <Label htmlFor="elevationGain" className="text-[11px] text-muted-foreground dark:text-slate-300">
                     {racePlannerCopy.sections.raceInputs.fields.elevationGain}
                   </Label>
                   <Input
@@ -2000,7 +2004,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                     type="number"
                     min="0"
                     step="50"
-                    className="h-8 w-[110px] border-slate-800/70 bg-slate-950/80 text-xs"
+                    className="h-8 w-[110px] border-border bg-background text-xs text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
                     {...register("elevationGain", { valueAsNumber: true })}
                   />
                 </div>
@@ -2012,10 +2016,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       <CardContent className="px-4 pb-10 sm:px-6">
         {(() => {
           const courseControls = (
-            <div className="w-full max-w-xl space-y-4 rounded-lg border border-slate-800 bg-slate-950/60 p-4 lg:ml-auto">
+            <div className="w-full max-w-xl space-y-4 rounded-lg border border-border bg-card p-4 dark:border-slate-800 dark:bg-slate-950/60 lg:ml-auto">
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-slate-50">{racePlannerCopy.sections.raceInputs.courseTitle}</p>
-                <p className="text-xs text-slate-400">{racePlannerCopy.sections.raceInputs.description}</p>
+                <p className="text-sm font-semibold text-foreground dark:text-slate-50">
+                  {racePlannerCopy.sections.raceInputs.courseTitle}
+                </p>
+                <p className="text-xs text-muted-foreground dark:text-slate-400">
+                  {racePlannerCopy.sections.raceInputs.description}
+                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -2035,7 +2043,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 >
                   <span className="flex items-center gap-1.5" title={!allowExport ? "Premium feature" : undefined}>
                     {!allowExport ? (
-                      <SparklesIcon className="h-3.5 w-3.5 text-slate-100/60" strokeWidth={2} aria-hidden />
+                      <SparklesIcon
+                        className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
                     ) : null}
                     <span>{racePlannerCopy.buttons.exportGpx}</span>
                   </span>
@@ -2045,19 +2057,19 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="raceDistanceKm" className="text-xs text-slate-200">
+                  <Label htmlFor="raceDistanceKm" className="text-xs text-muted-foreground dark:text-slate-200">
                     {racePlannerCopy.sections.raceInputs.fields.raceDistance}
                   </Label>
                   <Input
                     id="raceDistanceKm"
                     type="number"
                     step="0.5"
-                    className="border-slate-800/70 bg-slate-950/80 text-sm"
+                    className="border-border bg-background text-sm text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
                     {...register("raceDistanceKm", { valueAsNumber: true })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="elevationGain" className="text-xs text-slate-200">
+                  <Label htmlFor="elevationGain" className="text-xs text-muted-foreground dark:text-slate-200">
                     {racePlannerCopy.sections.raceInputs.fields.elevationGain}
                   </Label>
                   <Input
@@ -2065,7 +2077,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                     type="number"
                     min="0"
                     step="50"
-                    className="border-slate-800/70 bg-slate-950/80 text-sm"
+                    className="border-border bg-background text-sm text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
                     {...register("elevationGain", { valueAsNumber: true })}
                   />
                 </div>
@@ -2079,7 +2091,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
           return (
             <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:gap-8">
-              <div className="min-h-[240px] w-full rounded-lg border border-slate-800/70 bg-slate-950/40 p-4">
+              <div className="min-h-[240px] w-full rounded-lg border border-border bg-card p-4 dark:border-slate-800/70 dark:bg-slate-950/40">
                 <ElevationProfileChart
                   profile={elevationProfile}
                   aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
@@ -2101,7 +2113,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         <Button
           type="button"
           variant="ghost"
-          className="pointer-events-auto h-10 w-10 rounded-full border border-slate-800 bg-slate-950/80 shadow-md"
+          className="pointer-events-auto h-10 w-10 rounded-full border border-border bg-card text-foreground shadow-md hover:bg-muted dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:hover:bg-slate-900/60"
           aria-label={isCourseCollapsed ? "Expand course profile" : "Collapse course profile"}
           onClick={() => setIsCourseCollapsed((prev) => !prev)}
         >
@@ -2172,26 +2184,26 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         event.dataTransfer.setData("text/trailplanner-product-id", product.id);
         event.dataTransfer.setData("text/trailplanner-product-qty", "1");
       }}
-      className="space-y-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px]"
+      className="space-y-3 rounded-lg border border-border bg-card p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px] dark:border-slate-800 dark:bg-slate-900/60"
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-semibold text-slate-50">{product.name}</p>
-          <p className="text-sm text-slate-400">
+          <p className="font-semibold text-foreground dark:text-slate-50">{product.name}</p>
+          <p className="text-sm text-muted-foreground dark:text-slate-400">
             {racePlannerCopy.sections.gels.nutrition
               .replace("{carbs}", product.carbsGrams.toString())
               .replace("{sodium}", product.sodiumMg.toString())}
           </p>
         </div>
       </div>
-      <div className="flex items-center justify-between text-sm text-slate-200">
+      <div className="flex items-center justify-between text-sm text-foreground dark:text-slate-200">
         <p>
           {racePlannerCopy.sections.gels.countLabel.replace(
             "{count}",
             Math.max(product.count, 0).toString()
           )}
         </p>
-        <p className="text-xs text-slate-500">{product.carbsGrams} g</p>
+        <p className="text-xs text-muted-foreground dark:text-slate-500">{product.carbsGrams} g</p>
       </div>
     </div>
   );
@@ -2253,20 +2265,26 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         <div className={rightPanelTab === "fuel" ? "space-y-6" : "hidden"}>
           <div className="space-y-3">
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-slate-100">{racePlannerCopy.sections.gels.title}</p>
-              <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.description}</p>
+              <p className="text-sm font-semibold text-foreground dark:text-slate-100">
+                {racePlannerCopy.sections.gels.title}
+              </p>
+              <p className="text-xs text-muted-foreground dark:text-slate-400">
+                {racePlannerCopy.sections.gels.description}
+              </p>
               {productsStatus === "loading" ? (
-                <p className="text-xs text-slate-400">{racePlannerCopy.sections.gels.loading}</p>
+                <p className="text-xs text-muted-foreground dark:text-slate-400">
+                  {racePlannerCopy.sections.gels.loading}
+                </p>
               ) : null}
               {productsError ? <p className="text-xs text-red-300">{productsError}</p> : null}
             </div>
             {fuelProductEstimates.length === 0 ? (
-              <p className="text-sm text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
+              <p className="text-sm text-muted-foreground dark:text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
             ) : (
               <div className="space-y-4">
                 {favoriteProductEstimates.length > 0 ? (
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-emerald-200">
                       {racePlannerCopy.sections.gels.favoritesTitle}
                     </p>
                     <div className="space-y-3">
@@ -2276,7 +2294,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 ) : null}
                 {otherProductEstimates.length > 0 ? (
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300">
                       {racePlannerCopy.sections.gels.allProductsTitle}
                     </p>
                     <div className="space-y-3">
@@ -2313,13 +2331,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
         {enableMobileNav ? (
           <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">
-            <div className="rounded-full border border-slate-800 bg-slate-950/90 px-2 py-2 shadow-lg shadow-emerald-500/20 backdrop-blur">
-              <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-slate-100">
+            <div className="rounded-full border border-border bg-card/95 px-2 py-2 shadow-lg shadow-emerald-500/20 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+              <div className="grid grid-cols-4 gap-2 text-xs font-semibold text-foreground dark:text-slate-100">
                 {mobileNavActions.map((action) => (
                   <button
                     key={action.key}
                     type="button"
-                    className="flex items-center justify-center rounded-full px-3 py-2 text-center transition hover:bg-slate-800/80 active:translate-y-[1px]"
+                    className="flex items-center justify-center rounded-full px-3 py-2 text-center transition hover:bg-muted active:translate-y-[1px] dark:hover:bg-slate-800/80"
                     onClick={action.onClick}
                   >
                     {action.label}
@@ -2343,18 +2361,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
         {feedbackOpen && (
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 px-4">
-            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-slate-800 bg-slate-900/90 p-6 shadow-2xl">
+            <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-lg border border-border bg-card p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900/90">
               <Button
                 type="button"
                 variant="ghost"
-                className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-slate-200"
+                className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-foreground dark:text-slate-200"
                 aria-label="Close feedback form"
                 onClick={closeFeedbackForm}
               >
                 ×
               </Button>
               <div className="mb-4 pr-8">
-                <p className="text-lg font-semibold text-slate-50">
+                <p className="text-lg font-semibold text-foreground dark:text-slate-50">
                   {racePlannerCopy.sections.summary.feedback.title}
                 </p>
               </div>
@@ -2384,7 +2402,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                       setFeedbackError(null);
                     }}
                     required
-                    className="min-h-[120px] w-full rounded-md border border-slate-800 bg-slate-900/80 p-3 text-sm text-slate-50 shadow-sm transition placeholder:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400"
+                    className="min-h-[120px] w-full rounded-md border border-border bg-background p-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-50 dark:placeholder:text-slate-500"
                   />
                 </div>
                 {feedbackError && <p className="text-sm text-red-400">{feedbackError}</p>}
@@ -2403,11 +2421,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
         {upgradeDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
-            <div className="relative w-full max-w-xl space-y-4 rounded-lg border border-emerald-300/30 bg-slate-950 p-6 shadow-2xl">
+            <div className="relative w-full max-w-xl space-y-4 rounded-lg border border-emerald-300/30 bg-card p-6 shadow-2xl dark:bg-slate-950">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-lg font-semibold text-slate-50">{premiumCopy.premiumModal.title}</p>
-                  <p className="text-sm text-slate-300">{premiumCopy.premiumModal.description}</p>
+                  <p className="text-lg font-semibold text-foreground dark:text-slate-50">
+                    {premiumCopy.premiumModal.title}
+                  </p>
+                  <p className="text-sm text-muted-foreground dark:text-slate-300">
+                    {premiumCopy.premiumModal.description}
+                  </p>
                 </div>
                 <Button
                   type="button"
@@ -2431,8 +2453,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-slate-100">{premiumCopy.premiumModal.featuresTitle}</p>
-                <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                <p className="text-sm font-semibold text-foreground dark:text-slate-100">
+                  {premiumCopy.premiumModal.featuresTitle}
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-muted-foreground dark:text-slate-300">
                   {premiumCopy.premiumModal.features.map((item) => (
                     <li key={item} className="flex items-start gap-2">
                       <span aria-hidden className="mt-[2px] text-emerald-300">•</span>
@@ -2608,7 +2632,7 @@ function ElevationProfileChart({
   }, []);
 
   if (!profile.length || totalDistanceKm <= 0) {
-    return <p className="text-sm text-slate-400">{copy.sections.courseProfile.empty}</p>;
+    return <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.sections.courseProfile.empty}</p>;
   }
 
   const width = Math.max(Math.round(chartWidth), 480);
