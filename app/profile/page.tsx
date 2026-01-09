@@ -413,12 +413,12 @@ export default function ProfilePage() {
   };
 
   const dialogContent = (
-    <div className="fixed inset-0 z-30 flex items-start justify-center bg-slate-950/80 px-4 py-10 backdrop-blur">
-      <div className="w-full max-w-5xl space-y-4 rounded-lg border border-emerald-300/30 bg-slate-950 p-4 shadow-2xl">
+    <div className="fixed inset-0 z-30 flex items-start justify-center bg-background/80 px-4 py-10 backdrop-blur">
+      <div className="w-full max-w-5xl space-y-4 rounded-lg border border-emerald-300/30 bg-card p-4 text-foreground shadow-2xl dark:bg-slate-950">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
-            <p className="text-lg font-semibold text-slate-50">{t.profile.favorites.dialog.title}</p>
-            <p className="text-sm text-slate-400">{t.profile.favorites.subtitle}</p>
+            <p className="text-lg font-semibold text-foreground">{t.profile.favorites.dialog.title}</p>
+            <p className="text-sm text-muted-foreground">{t.profile.favorites.subtitle}</p>
           </div>
           <Button type="button" variant="ghost" onClick={closeDialog}>
             {t.profile.favorites.dialog.close}
@@ -431,21 +431,21 @@ export default function ProfilePage() {
             onChange={(event) => setSearchQuery(event.target.value)}
             className="w-full sm:w-80"
           />
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-muted-foreground">
             {t.profile.favorites.selectedLabel}: {favoriteProducts.length}
           </p>
         </div>
 
         {productsQuery.isLoading ? (
-          <p className="text-sm text-slate-400">{t.productSettings.loading}</p>
+          <p className="text-sm text-muted-foreground">{t.productSettings.loading}</p>
         ) : null}
 
         {productsQuery.error ? (
-          <p className="text-sm text-red-300">{t.profile.error}</p>
+          <p className="text-sm text-red-600 dark:text-red-300">{t.profile.error}</p>
         ) : null}
 
         {!productsQuery.isLoading && filteredProducts.length === 0 ? (
-          <p className="text-sm text-slate-400">{t.productSettings.empty}</p>
+          <p className="text-sm text-muted-foreground">{t.productSettings.empty}</p>
         ) : null}
 
         {filteredProducts.length > 0 ? (
@@ -464,7 +464,7 @@ export default function ProfilePage() {
                 const isSelected = favoriteIds.has(product.id);
                 return (
                   <TableRow key={product.id}>
-                    <TableCell className="font-semibold text-slate-50">{product.name}</TableCell>
+                    <TableCell className="font-semibold text-foreground">{product.name}</TableCell>
                     <TableCell>{product.carbsGrams} g</TableCell>
                     <TableCell>{product.sodiumMg} mg</TableCell>
                     <TableCell>{product.caloriesKcal}</TableCell>
@@ -491,13 +491,13 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <p className="text-sm uppercase tracking-[0.2em] text-emerald-300">Pace Yourself</p>
-        <h2 className="text-2xl font-semibold text-slate-50">{t.profile.title}</h2>
-        <p className="text-sm text-slate-300">{t.profile.description}</p>
+        <p className="text-sm uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Pace Yourself</p>
+        <h2 className="text-2xl font-semibold text-foreground">{t.profile.title}</h2>
+        <p className="text-sm text-muted-foreground">{t.profile.description}</p>
       </div>
 
       {!isSessionLoading && authMissing ? (
-        <p className="rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-200">
+        <p className="rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700 dark:text-amber-200">
           {t.profile.authRequired}
         </p>
       ) : null}
@@ -506,8 +506,8 @@ export default function ProfilePage() {
         <Card>
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-lg text-slate-50">{t.profile.subscription.title}</CardTitle>
-              <p className="text-sm text-slate-400">
+              <CardTitle className="text-lg">{t.profile.subscription.title}</CardTitle>
+              <p className="text-sm text-muted-foreground">
                 {entitlementsQuery.isLoading
                   ? t.profile.subscription.loading
                   : entitlementsQuery.isError
@@ -528,21 +528,21 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {!session?.accessToken ? (
-              <p className="text-sm text-slate-400">{t.profile.authRequired}</p>
+              <p className="text-sm text-muted-foreground">{t.profile.authRequired}</p>
             ) : entitlementsQuery.data ? (
-              <div className="flex items-center gap-3 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2">
+              <div className="flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-2">
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
                     entitlementsQuery.data.isPremium
-                      ? "border border-emerald-300/70 bg-emerald-300/15 text-emerald-100"
-                      : "border border-slate-500/70 bg-slate-800 text-slate-200"
+                      ? "border border-emerald-300/70 bg-emerald-300/20 text-emerald-700 dark:text-emerald-100"
+                      : "border border-border bg-card text-foreground"
                   }`}
                 >
                   {entitlementsQuery.data.isPremium
                     ? t.profile.subscription.premiumStatus
                     : t.profile.subscription.freeStatus}
                 </span>
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-muted-foreground">
                   {entitlementsQuery.data.isPremium
                     ? t.profile.subscription.premiumStatus
                     : t.profile.subscription.freeStatus}
@@ -563,7 +563,7 @@ export default function ProfilePage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-red-300 text-red-100 hover:bg-red-950/60"
+                    className="border-red-300 text-red-700 hover:bg-red-50 dark:text-red-100 dark:hover:bg-red-950/60"
                     onClick={() => setUnsubscribeDialogOpen(true)}
                     disabled={unsubscribeStatus === "opening"}
                   >
@@ -577,8 +577,8 @@ export default function ProfilePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg text-slate-50">{t.profile.basics.title}</CardTitle>
-            <p className="text-sm text-slate-400">{t.profile.basics.subtitle}</p>
+            <CardTitle className="text-lg">{t.profile.basics.title}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t.profile.basics.subtitle}</p>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -617,7 +617,7 @@ export default function ProfilePage() {
                   setValueAs: (value) => (value === "" || value === null ? undefined : Number(value)),
                 })}
               />
-              <p className="text-xs text-slate-400">{t.profile.basics.waterBagHelper}</p>
+              <p className="text-xs text-muted-foreground">{t.profile.basics.waterBagHelper}</p>
             </div>
           </CardContent>
         </Card>
@@ -625,11 +625,11 @@ export default function ProfilePage() {
         <Card>
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-lg text-slate-50">{t.profile.favorites.title}</CardTitle>
-              <p className="text-sm text-slate-400">{t.profile.favorites.subtitle}</p>
+              <CardTitle className="text-lg">{t.profile.favorites.title}</CardTitle>
+              <p className="text-sm text-muted-foreground">{t.profile.favorites.subtitle}</p>
             </div>
             <div className="flex items-center gap-2">
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted-foreground">
                 {t.profile.favorites.selectedLabel}: {favoriteProducts.length}
               </p>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(true)} disabled={authMissing}>
@@ -639,26 +639,26 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {profileQuery.isLoading ? (
-              <p className="text-sm text-slate-400">{t.productSettings.loading}</p>
+              <p className="text-sm text-muted-foreground">{t.productSettings.loading}</p>
             ) : null}
             {favoriteProducts.length === 0 ? (
-              <p className="text-sm text-slate-400">{t.profile.favorites.empty}</p>
+              <p className="text-sm text-muted-foreground">{t.profile.favorites.empty}</p>
             ) : (
               <div className="space-y-2">
                 {favoriteProducts.map((product) => (
                   <div
                     key={product.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted px-3 py-2"
                   >
                     <div>
-                      <p className="font-semibold text-slate-50">{product.name}</p>
-                      <p className="text-xs text-slate-400">
+                      <p className="font-semibold text-foreground">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {t.racePlanner.sections.gels.nutrition
                           .replace("{carbs}", product.carbsGrams.toString())
                           .replace("{sodium}", product.sodiumMg.toString())}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-300">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>
                         {t.profile.favorites.table.calories}: {product.caloriesKcal}
                       </span>
@@ -679,8 +679,8 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {saveError ? <p className="text-sm text-red-300">{saveError}</p> : null}
-        {saveMessage ? <p className="text-sm text-emerald-300">{saveMessage}</p> : null}
+        {saveError ? <p className="text-sm text-red-600 dark:text-red-300">{saveError}</p> : null}
+        {saveMessage ? <p className="text-sm text-[hsl(var(--success))]">{saveMessage}</p> : null}
 
         <div className="flex justify-end">
           <Button type="submit" disabled={authMissing || saveProfileMutation.isPending}>
@@ -692,12 +692,12 @@ export default function ProfilePage() {
       {isDialogOpen ? dialogContent : null}
 
       {upgradeDialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
-          <div className="relative w-full max-w-xl space-y-4 rounded-lg border border-emerald-300/30 bg-slate-950 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 py-8 backdrop-blur">
+          <div className="relative w-full max-w-xl space-y-4 rounded-lg border border-emerald-300/30 bg-card p-6 text-foreground shadow-2xl dark:bg-slate-950">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-lg font-semibold text-slate-50">{t.profile.premiumModal.title}</p>
-                <p className="text-sm text-slate-300">{t.profile.premiumModal.description}</p>
+                <p className="text-lg font-semibold text-foreground">{t.profile.premiumModal.title}</p>
+                <p className="text-sm text-muted-foreground">{t.profile.premiumModal.description}</p>
               </div>
               <Button
                 type="button"
@@ -711,25 +711,25 @@ export default function ProfilePage() {
               </Button>
             </div>
 
-            <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-50">
+            <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-50">
               <p className="font-semibold">
                 {t.profile.premiumModal.priceLabel}: {premiumPriceDisplay}
               </p>
             </div>
 
             <div>
-              <p className="text-sm font-semibold text-slate-100">{t.profile.premiumModal.featuresTitle}</p>
-              <ul className="mt-2 space-y-1 text-sm text-slate-300">
+              <p className="text-sm font-semibold text-foreground">{t.profile.premiumModal.featuresTitle}</p>
+              <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                 {t.profile.premiumModal.features.map((item) => (
                   <li key={item} className="flex items-start gap-2">
-                    <span aria-hidden className="mt-[2px] text-emerald-300">•</span>
+                    <span aria-hidden className="mt-[2px] text-emerald-500 dark:text-emerald-300">•</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {upgradeError ? <p className="text-sm text-red-300">{upgradeError}</p> : null}
+            {upgradeError ? <p className="text-sm text-red-600 dark:text-red-300">{upgradeError}</p> : null}
 
             <div className="flex flex-wrap justify-end gap-3">
               <Button
@@ -751,28 +751,28 @@ export default function ProfilePage() {
       ) : null}
 
       {unsubscribeDialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
-          <div className="w-full max-w-lg space-y-4 rounded-lg border border-slate-800 bg-slate-950 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 py-8 backdrop-blur">
+          <div className="w-full max-w-lg space-y-4 rounded-lg border border-border bg-card p-6 text-foreground shadow-2xl dark:bg-slate-950">
             <div className="space-y-2">
-              <p className="text-lg font-semibold text-slate-50">{t.profile.subscription.unsubscribeConfirm.title}</p>
-              <p className="text-sm text-slate-300">{t.profile.subscription.unsubscribeConfirm.description}</p>
+              <p className="text-lg font-semibold text-foreground">{t.profile.subscription.unsubscribeConfirm.title}</p>
+              <p className="text-sm text-muted-foreground">{t.profile.subscription.unsubscribeConfirm.description}</p>
             </div>
 
             <div className="space-y-2 rounded-md border border-amber-300/30 bg-amber-300/10 px-3 py-2">
-              <p className="text-sm font-semibold text-amber-100">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-100">
                 {t.profile.subscription.unsubscribeConfirm.lossesTitle}
               </p>
-              <ul className="space-y-1 text-sm text-amber-50">
+              <ul className="space-y-1 text-sm text-amber-700 dark:text-amber-50">
                 {t.profile.premiumModal.features.map((item) => (
                   <li key={item} className="flex items-start gap-2">
-                    <span aria-hidden className="mt-[2px] text-amber-200">•</span>
+                    <span aria-hidden className="mt-[2px] text-amber-500 dark:text-amber-200">•</span>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            {unsubscribeError ? <p className="text-sm text-red-300">{unsubscribeError}</p> : null}
+            {unsubscribeError ? <p className="text-sm text-red-600 dark:text-red-300">{unsubscribeError}</p> : null}
 
             <div className="flex flex-wrap justify-end gap-3">
               <Button
