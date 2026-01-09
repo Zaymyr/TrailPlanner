@@ -25,6 +25,40 @@ const statusToneStyles = {
 
 type StatusTone = keyof typeof statusToneStyles;
 
+const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const buildGaugeRanges = (targetValue: number, maxValue: number) => {
+  const safeTarget = Math.max(targetValue, 0);
+  const safeMax = Math.max(maxValue, safeTarget);
+  const lowerWarning = safeTarget * 0.6;
+  const upperWarning = safeMax;
+  const fallbackTolerance = safeTarget * 0.1;
+  let tolerance = Math.min(safeTarget - lowerWarning, upperWarning - safeTarget);
+  if (!Number.isFinite(tolerance) || tolerance <= 0) {
+    tolerance = fallbackTolerance;
+  }
+  const gaugeMax = safeMax * 1.3;
+  let greenStart = safeTarget - tolerance;
+  let greenEnd = safeTarget + tolerance;
+  if (greenStart < 0) {
+    greenEnd = Math.min(gaugeMax, greenEnd - greenStart);
+    greenStart = 0;
+  }
+  if (greenEnd > gaugeMax) {
+    greenStart = Math.max(0, greenStart - (greenEnd - gaugeMax));
+    greenEnd = gaugeMax;
+  }
+  const upperDanger = upperWarning * 1.1;
+  return {
+    gaugeMax,
+    lowerWarning,
+    upperWarning,
+    upperDanger,
+    greenStart,
+    greenEnd,
+  };
+};
+
 type RaceTotals = {
   fuelGrams: number;
   waterMl: number;
@@ -232,11 +266,14 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
       ? waterCapacityMl
       : targetValue;
   const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
-  const scaleMax = maxValue * 1.3;
-  const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
-  const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
-  const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
-  const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
+  const ranges = buildGaugeRanges(targetValue, maxValue);
+  const scaleMax = ranges.gaugeMax;
+  const cursorPercent = clampNumber((metric.plannedValue / scaleMax) * 100, 0, 100);
+  const targetPercent = clampNumber((targetValue / scaleMax) * 100, 0, 100);
+  const lowerWarningPercent = clampNumber((ranges.lowerWarning / scaleMax) * 100, 0, 100);
+  const greenStartPercent = clampNumber((ranges.greenStart / scaleMax) * 100, 0, 100);
+  const greenEndPercent = clampNumber((ranges.greenEnd / scaleMax) * 100, 0, 100);
+  const upperDangerPercent = clampNumber((ranges.upperDanger / scaleMax) * 100, 0, 100);
   const valueToneClass =
     metric.statusTone === "success"
       ? "text-emerald-600 dark:text-emerald-300"
@@ -302,21 +339,23 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
                 isCompact ? "h-2" : "h-4"
               }`}
             >
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(to right,
-                    rgba(248,113,113,0.75) 0%,
-                    rgba(248,113,113,0.75) ${cautionPercent}%,
-                    rgba(251,146,60,0.75) ${cautionPercent}%,
-                    rgba(251,146,60,0.75) ${targetPercent}%,
-                    rgba(16,185,129,0.8) ${targetPercent}%,
-                    rgba(16,185,129,0.8) ${maxPercent}%,
-                    rgba(251,146,60,0.75) ${maxPercent}%,
-                    rgba(251,146,60,0.75) 100%)`,
-                }}
-                aria-hidden
-              />
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(to right,
+                      rgba(248,113,113,0.75) 0%,
+                      rgba(248,113,113,0.75) ${lowerWarningPercent}%,
+                      rgba(251,146,60,0.75) ${lowerWarningPercent}%,
+                      rgba(251,146,60,0.75) ${greenStartPercent}%,
+                      rgba(16,185,129,0.8) ${greenStartPercent}%,
+                      rgba(16,185,129,0.8) ${greenEndPercent}%,
+                      rgba(251,146,60,0.75) ${greenEndPercent}%,
+                      rgba(251,146,60,0.75) ${upperDangerPercent}%,
+                      rgba(248,113,113,0.75) ${upperDangerPercent}%,
+                      rgba(248,113,113,0.75) 100%)`,
+                  }}
+                  aria-hidden
+                />
             </div>
             <span
               className={`absolute left-0 top-full mt-0.5 h-0 w-0 -translate-x-1/2 border-x-[5px] border-t-0 border-x-transparent border-b-[6px] border-b-slate-500/70 dark:border-b-slate-200/70 ${
@@ -660,18 +699,17 @@ export function ActionPlan({
       return { label: timelineCopy.status.atTarget, tone: "neutral" as const };
     }
     const ceiling = Math.max(upperBound ?? target * 1.2, target);
-    if (planned < target) {
-      const ratio = planned / target;
-      if (ratio < 0.6) {
-        return { label: timelineCopy.status.belowTarget, tone: "danger" as const };
-      }
+    const ranges = buildGaugeRanges(target, ceiling);
+    if (planned < ranges.lowerWarning) {
+      return { label: timelineCopy.status.belowTarget, tone: "danger" as const };
+    }
+    if (planned < ranges.greenStart) {
       return { label: timelineCopy.status.belowTarget, tone: "warning" as const };
     }
-    if (planned <= ceiling) {
+    if (planned <= ranges.greenEnd) {
       return { label: timelineCopy.status.atTarget, tone: "success" as const };
     }
-    const overRatio = planned / ceiling;
-    if (overRatio <= 1.1) {
+    if (planned <= ranges.upperDanger) {
       return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
