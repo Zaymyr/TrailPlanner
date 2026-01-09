@@ -74,7 +74,9 @@ export function AlertsRow({ summaryCopy, units, actuals, targets }: AlertsRowPro
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{summaryCopy.alerts.label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+        {summaryCopy.alerts.label}
+      </p>
       {alerts.length === 0 ? (
         <Badge tone="success" label={summaryCopy.alerts.resolvedTitle} description={summaryCopy.alerts.resolvedBody} />
       ) : (
@@ -111,8 +113,8 @@ function Badge({ label, description, tone }: BadgeProps) {
 
   const toneClasses =
     tone === "warning"
-      ? "border-amber-500/50 text-amber-100 hover:bg-amber-500/10"
-      : "border-emerald-500/50 text-emerald-100 hover:bg-emerald-500/10";
+      ? "border-amber-300 text-amber-900 hover:bg-amber-100 dark:border-amber-500/50 dark:text-amber-100 dark:hover:bg-amber-500/10"
+      : "border-emerald-300 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/50 dark:text-emerald-100 dark:hover:bg-emerald-500/10";
 
   return (
     <div className="relative" ref={popoverRef}>
@@ -127,9 +129,9 @@ function Badge({ label, description, tone }: BadgeProps) {
         <span className="line-clamp-1">{label}</span>
       </button>
       {open ? (
-        <div className="absolute left-0 top-11 z-20 w-64 rounded-md border border-slate-800 bg-slate-950/95 p-3 text-sm text-slate-100 shadow-xl">
+        <div className="absolute left-0 top-11 z-20 w-64 rounded-md border border-border bg-card p-3 text-sm text-foreground shadow-xl dark:border-slate-800 dark:bg-slate-950/95 dark:text-slate-100">
           <p className="font-semibold">{label}</p>
-          <p className="mt-1 text-slate-300">{description}</p>
+          <p className="mt-1 text-muted-foreground dark:text-slate-300">{description}</p>
         </div>
       ) : null}
     </div>

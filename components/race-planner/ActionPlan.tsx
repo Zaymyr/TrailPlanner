@@ -180,7 +180,7 @@ function SegmentCard({
         }
       >
         <span className="tabular-nums">{distanceText}</span>
-        <span className="tabular-nums text-rose-200/90">{elevationGainText}</span>
+        <span className="tabular-nums text-red-600 dark:text-red-400">{elevationGainText}</span>
       </div>
       <div
         className={
@@ -192,7 +192,7 @@ function SegmentCard({
         }
       >
         <span className="tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
-        <span className="text-sky-200/90">{elevationLossText}</span>
+        <span className="text-blue-600 dark:text-blue-400">{elevationLossText}</span>
       </div>
       {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
     </div>
@@ -372,7 +372,7 @@ function AidStationHeaderRow({
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
-    <div className="relative z-20 rounded-2xl border border-border bg-card px-5 py-4 shadow-md dark:border-blue-400/50 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
+    <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
         <div
           className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
@@ -391,7 +391,7 @@ function AidStationHeaderRow({
           }
         >
           {badge ?? (
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
               {pointIndex}
             </span>
           )}
@@ -425,7 +425,7 @@ type SectionRowProps = {
 function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative flex justify-center">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-border bg-card p-4 shadow-sm dark:border-blue-400/40 dark:bg-slate-950/55 lg:mx-auto lg:max-w-[1120px]">
+      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55 lg:mx-auto lg:max-w-[1120px]">
         {showConnector ? (
           <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
             <div className="h-full w-[2px] bg-emerald-500/70" />
@@ -496,7 +496,7 @@ function AidStationCollapsedRow({
   actions,
 }: AidStationCollapsedRowProps) {
   return (
-    <div className="rounded-2xl border-2 border-border bg-card px-4 py-3 shadow-md dark:border-blue-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+    <div className="rounded-2xl border-2 border-blue-500/70 bg-card px-4 py-3 shadow-md dark:border-blue-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         <div className="relative flex shrink-0 flex-col items-center gap-2">
           {badge ? (
@@ -873,14 +873,14 @@ export function ActionPlan({
                     src="/race-planner/icons/start.svg"
                     alt=""
                     aria-hidden
-                    className="h-8 w-8 object-contain"
+                    className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
                   <img
                     src="/race-planner/icons/ravito.svg"
                     alt=""
                     aria-hidden
-                    className="h-8 w-8 object-contain"
+                    className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : null;
                 const titleContent = item.title;
@@ -1192,7 +1192,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 w-9 rounded-full border border-red-500/50 bg-red-500/10 px-0 text-lg font-bold text-red-200 hover:bg-red-500/20 hover:text-red-100"
+                      className="h-9 w-9 rounded-full border border-red-200 bg-red-100 px-0 text-lg font-bold text-red-950 hover:bg-red-200 dark:border-red-500/50 dark:bg-red-500/10 dark:text-white dark:hover:bg-red-500/20"
                       onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
                     >
                       <span aria-hidden>×</span>
@@ -1304,9 +1304,9 @@ export function ActionPlan({
       </Card>
       {editorState ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-slate-50">
+              <p className="text-sm font-semibold text-foreground dark:text-slate-50">
                 {editorState.mode === "edit" ? aidStationsCopy.title : aidStationsCopy.add}
               </p>
               <Button variant="ghost" className="h-8 px-2" onClick={closeEditor}>
@@ -1315,34 +1315,40 @@ export function ActionPlan({
             </div>
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.name}</Label>
+                <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                  {aidStationsCopy.labels.name}
+                </Label>
                 <Input
                   value={editorState.name}
                   onChange={(event) => updateEditorField("name", event.target.value)}
-                  className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-slate-300">{aidStationsCopy.labels.distance}</Label>
+                <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                  {aidStationsCopy.labels.distance}
+                </Label>
                 <Input
                   value={editorState.distance}
                   onChange={(event) => updateEditorField("distance", event.target.value)}
                   type="number"
                   step="0.5"
                   min="0"
-                  className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               {editorState.mode === "edit" ? (
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-slate-300">{timelineCopy.pauseLabel}</Label>
+                  <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                    {timelineCopy.pauseLabel}
+                  </Label>
                   <Input
                     value={editorState.pauseMinutes}
                     onChange={(event) => updateEditorField("pauseMinutes", event.target.value)}
                     type="number"
                     step="1"
                     min="0"
-                    className="border-slate-800/70 bg-slate-900 text-sm font-semibold text-slate-50 focus-visible:ring-emerald-400"
+                    className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
                   />
                 </div>
               ) : null}
@@ -1359,11 +1365,15 @@ export function ActionPlan({
       ) : null}
       {supplyPicker ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm sm:p-6">
-          <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-slate-800 bg-slate-950 p-5 shadow-2xl">
+          <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-lg font-semibold text-slate-50">{copy.sections.gels.title}</p>
-                <p className="text-sm text-slate-300">{copy.sections.gels.description}</p>
+                <p className="text-lg font-semibold text-foreground dark:text-slate-50">
+                  {copy.sections.gels.title}
+                </p>
+                <p className="text-sm text-muted-foreground dark:text-slate-300">
+                  {copy.sections.gels.description}
+                </p>
               </div>
               <Button variant="ghost" className="h-8 px-2" onClick={() => setSupplyPicker(null)}>
                 ✕
@@ -1374,13 +1384,15 @@ export function ActionPlan({
                 value={pickerSearch}
                 onChange={(event) => setPickerSearch(event.target.value)}
                 placeholder="Rechercher un produit..."
-                className="w-full max-w-md border-slate-800/70 bg-slate-900 text-sm text-slate-50 focus-visible:ring-emerald-400"
+                className="w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
               />
-              <p className="text-xs text-slate-300">{`${pickerFavorites.length}/3 favoris sélectionnés`}</p>
+              <p className="text-xs text-muted-foreground dark:text-slate-300">
+                {`${pickerFavorites.length}/3 favoris sélectionnés`}
+              </p>
             </div>
-            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-slate-800 bg-slate-950/60">
-              <table className="min-w-[720px] w-full text-left text-sm text-slate-200">
-                <thead className="bg-slate-900/70 text-xs uppercase tracking-wide text-slate-400">
+            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:border-slate-800 dark:bg-slate-950/60">
+              <table className="min-w-[720px] w-full text-left text-sm text-foreground dark:text-slate-200">
+                <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground dark:bg-slate-900/70 dark:text-slate-400">
                   <tr>
                     {[
                       { key: "favorite", label: "★" },
@@ -1432,11 +1444,11 @@ export function ActionPlan({
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
                       const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
-                        <tr key={product.slug} className="border-t border-slate-800/80">
+                        <tr key={product.slug} className="border-t border-border dark:border-slate-800/80">
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              className={`text-lg ${isFavorite ? "text-amber-300" : "text-slate-500"} hover:text-amber-200`}
+                              className={`text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
                               onClick={() => toggleFavorite(product.slug)}
                               aria-label="Favori"
                             >
