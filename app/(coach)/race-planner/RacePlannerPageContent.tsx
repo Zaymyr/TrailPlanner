@@ -30,6 +30,7 @@ import type {
 } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
+import { defaultFuelProducts } from "../../../lib/default-products";
 import { readLocalProducts } from "../../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
 import { fetchUserProfile } from "../../../lib/profile-client";
@@ -80,44 +81,16 @@ type FuelProductEstimate = FuelProduct & { count: number };
 
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
-const defaultFuelProducts: FuelProduct[] = [
-  {
-    id: "00000000-0000-0000-0000-000000000001",
-    slug: "maurten-gel-100",
-    sku: "MAURTEN-GEL-100",
-    name: "Maurten Gel 100",
-    caloriesKcal: 100,
-    carbsGrams: 25,
-    sodiumMg: 85,
-    proteinGrams: 0,
-    fatGrams: 0,
-    waterMl: 0,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000002",
-    slug: "gu-energy-gel",
-    sku: "GU-ENERGY-GEL",
-    name: "GU Energy Gel",
-    caloriesKcal: 100,
-    carbsGrams: 22,
-    sodiumMg: 60,
-    proteinGrams: 0,
-    fatGrams: 0,
-    waterMl: 0,
-  },
-  {
-    id: "00000000-0000-0000-0000-000000000003",
-    slug: "sis-go-isotonic-gel",
-    sku: "SIS-GO-ISOTONIC",
-    name: "SIS GO Isotonic Gel",
-    caloriesKcal: 87,
-    carbsGrams: 22,
-    sodiumMg: 10,
-    proteinGrams: 0,
-    fatGrams: 0,
-    waterMl: 0,
-  },
-];
+const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => {
+  const productsById = new Map<string, FuelProduct>();
+  primary.forEach((product) => productsById.set(product.id, product));
+  secondary.forEach((product) => {
+    if (!productsById.has(product.id)) {
+      productsById.set(product.id, product);
+    }
+  });
+  return Array.from(productsById.values());
+};
 
 const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => {
   const productsById = new Map<string, FuelProduct>();
@@ -1790,11 +1763,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (index: number) => {
       if (!Number.isInteger(index)) return;
 
-      const current = form.getValues("aidStations") ?? [];
-      if (index < 0 || index >= current.length) return;
+      const current = form.getValues("aidStations");
+      if (!Array.isArray(current) || index < 0 || index >= current.length) return;
 
       const nextStations = current.filter((_, stationIndex) => stationIndex !== index);
       replace(nextStations);
+      form.setValue("aidStations", nextStations, { shouldDirty: true, shouldValidate: true });
     },
     [form, replace]
   );
