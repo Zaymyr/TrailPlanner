@@ -164,10 +164,10 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 text-foreground shadow-sm dark:border-white/10 dark:bg-slate-950/90 dark:text-slate-200"
+          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 text-foreground shadow-sm dark:bg-slate-950/90 dark:text-slate-200"
           : isCompact
-            ? "flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground shadow-sm dark:border-slate-800/60 dark:bg-slate-950/50 dark:text-slate-200"
-            : "flex flex-col gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-foreground shadow-sm dark:border-emerald-700/60 dark:bg-slate-950/80 dark:text-slate-100"
+            ? "flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground shadow-sm dark:bg-slate-950/50 dark:text-slate-200"
+            : "flex flex-col gap-3 rounded-2xl border border-border-strong bg-card px-4 py-3 text-foreground shadow-sm dark:bg-slate-950/80 dark:text-slate-100"
       }
     >
       <div
@@ -256,7 +256,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             ? "border-amber-500/40"
             : metric.statusTone === "danger"
               ? "border-rose-500/40"
-              : "border-border dark:border-slate-500/40"
+              : "border-border"
       }`}
     >
       <div className="flex items-center justify-between gap-2">
@@ -288,7 +288,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
         </p>
         <div className={isCompact ? "space-y-1" : "space-y-2"}>
           <div
-            className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:border-slate-800 dark:bg-slate-900 ${
+            className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:bg-slate-900 ${
               isCompact ? "h-2" : "h-4"
             }`}
           >
@@ -408,7 +408,7 @@ function AidStationHeaderRow({
         {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
       {isFinish ? (
-        <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-300">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm text-muted-foreground dark:bg-slate-900/60 dark:text-slate-300">
           <span>{finishLabel ?? "Arrivée"}</span>
         </div>
       ) : null}
@@ -506,7 +506,7 @@ function AidStationCollapsedRow({
               <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
                 {pointIndex}
               </span>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground dark:border-slate-800/60 dark:bg-slate-900/70 dark:text-slate-50">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground dark:bg-slate-900/70 dark:text-slate-50">
                 {leftIcon}
               </div>
             </>
@@ -903,7 +903,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
                       onClick={() => toggleAidStationCollapse(collapseKey)}
                       aria-label={toggleLabel}
                       title={toggleLabel}
@@ -918,10 +918,10 @@ export function ActionPlan({
 
                 const waterRefillToggle =
                   distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:border-slate-800/70 dark:bg-slate-900/60 dark:text-slate-200">
+                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-900"
+                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
                         {...register(waterRefillFieldName)}
                       />
                       <span>{aidStationsCopy.labels.waterRefill}</span>
@@ -957,7 +957,7 @@ export function ActionPlan({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
+                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
                                       onClick={() => {
                                         if (quantity <= 1) {
                                           if (item.isStart) {
@@ -981,7 +981,7 @@ export function ActionPlan({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
+                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
                                       onClick={() => {
                                         if (item.isStart) {
                                           onStartSupplyDrop(product.id, 1);
@@ -1035,7 +1035,7 @@ export function ActionPlan({
                   basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
                 const paceAdjustmentControl =
                   sectionSegment && paceAdjustmentFieldName ? (
-                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:border-slate-800/60 dark:bg-slate-950/50">
+                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50">
                       <input
                         type="hidden"
                         {...register(paceAdjustmentFieldName, {
@@ -1045,7 +1045,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:border-slate-700 dark:text-slate-200 dark:hover:text-white"
+                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1065,7 +1065,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:border-slate-700 dark:text-slate-200 dark:hover:text-white"
+                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1304,7 +1304,7 @@ export function ActionPlan({
       </Card>
       {editorState ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+          <div className="w-full max-w-md space-y-4 rounded-2xl border border-border-strong bg-card p-5 shadow-2xl dark:bg-slate-950">
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold text-foreground dark:text-slate-50">
                 {editorState.mode === "edit" ? aidStationsCopy.title : aidStationsCopy.add}
@@ -1321,7 +1321,7 @@ export function ActionPlan({
                 <Input
                   value={editorState.name}
                   onChange={(event) => updateEditorField("name", event.target.value)}
-                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               <div className="space-y-1">
@@ -1334,7 +1334,7 @@ export function ActionPlan({
                   type="number"
                   step="0.5"
                   min="0"
-                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               {editorState.mode === "edit" ? (
@@ -1348,7 +1348,7 @@ export function ActionPlan({
                     type="number"
                     step="1"
                     min="0"
-                    className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                    className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                   />
                 </div>
               ) : null}
@@ -1365,7 +1365,7 @@ export function ActionPlan({
       ) : null}
       {supplyPicker ? (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm sm:p-6">
-          <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-border bg-card p-5 shadow-2xl dark:border-slate-800 dark:bg-slate-950">
+          <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-border-strong bg-card p-5 shadow-2xl dark:bg-slate-950">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-lg font-semibold text-foreground dark:text-slate-50">
@@ -1384,13 +1384,13 @@ export function ActionPlan({
                 value={pickerSearch}
                 onChange={(event) => setPickerSearch(event.target.value)}
                 placeholder="Rechercher un produit..."
-                className="w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                className="w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
               />
               <p className="text-xs text-muted-foreground dark:text-slate-300">
                 {`${pickerFavorites.length}/3 favoris sélectionnés`}
               </p>
             </div>
-            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:border-slate-800 dark:bg-slate-950/60">
+            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:bg-slate-950/60">
               <table className="min-w-[720px] w-full text-left text-sm text-foreground dark:text-slate-200">
                 <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground dark:bg-slate-900/70 dark:text-slate-400">
                   <tr>
@@ -1444,7 +1444,7 @@ export function ActionPlan({
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
                       const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
-                        <tr key={product.slug} className="border-t border-border dark:border-slate-800/80">
+                        <tr key={product.slug} className="border-t border-border">
                           <td className="px-4 py-3">
                             <button
                               type="button"

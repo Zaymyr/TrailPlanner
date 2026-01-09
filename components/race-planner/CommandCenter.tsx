@@ -104,7 +104,7 @@ export function CommandCenter({
                       type="number"
                       min="0"
                       step="1"
-                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                       {...register("paceMinutes", {
                         valueAsNumber: true,
                         onChange: (event) => {
@@ -128,7 +128,7 @@ export function CommandCenter({
                       min="0"
                       max="59"
                       step="1"
-                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                      className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                       {...register("paceSeconds", {
                         valueAsNumber: true,
                         onChange: (event) => {
@@ -155,7 +155,7 @@ export function CommandCenter({
                     type="number"
                     min="0"
                     step="0.1"
-                    className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                    className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                     {...register("speedKph", {
                       valueAsNumber: true,
                       onChange: (event) => {
@@ -174,7 +174,7 @@ export function CommandCenter({
 
         <Card
           id={sectionIds.intake}
-          className="border-border bg-card shadow-md md:col-span-3 dark:border-slate-800/70 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
+          className="border-border-strong bg-card shadow-md md:col-span-3 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
         >
           <CardHeader className="pb-3">
             <p className="text-sm font-semibold text-foreground dark:text-slate-100">
@@ -194,7 +194,7 @@ export function CommandCenter({
                 id="targetIntakePerHour"
                 type="number"
                 step="1"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 {...register("targetIntakePerHour", { valueAsNumber: true })}
               />
             </div>
@@ -210,7 +210,7 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 {...register("waterIntakePerHour", { valueAsNumber: true })}
               />
             </div>
@@ -226,7 +226,7 @@ export function CommandCenter({
                 type="number"
                 step="50"
                 min="0"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 {...register("sodiumIntakePerHour", { valueAsNumber: true })}
               />
             </div>
@@ -242,7 +242,7 @@ export function CommandCenter({
                 type="number"
                 step="0.1"
                 min="0"
-                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-emerald-400 dark:border-slate-800/70 dark:bg-slate-900 dark:text-slate-50"
+                className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 {...register("waterBagLiters", { valueAsNumber: true })}
               />
             </div>
