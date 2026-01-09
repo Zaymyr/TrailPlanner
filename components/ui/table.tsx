@@ -7,18 +7,18 @@ type TableProps = React.HTMLAttributes<HTMLTableElement> & {
 
 export function Table({ className, containerClassName, ...props }: TableProps) {
   return (
-    <div className={cn("rounded-lg border border-slate-800", containerClassName)}>
+    <div className={cn("rounded-lg border border-border", containerClassName)}>
       <table className={cn("w-full border-collapse text-sm", className)} {...props} />
     </div>
   );
 }
 
 export function TableHeader({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <thead className={cn("bg-slate-900/60 text-slate-300", className)} {...props} />;
+  return <thead className={cn("bg-muted text-muted-foreground", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <tbody className={cn("divide-y divide-slate-800 bg-slate-950/40", className)} {...props} />;
+  return <tbody className={cn("divide-y divide-border bg-background", className)} {...props} />;
 }
 
 export function TableRow({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) {
@@ -30,5 +30,5 @@ export function TableHead({ className, ...props }: React.ThHTMLAttributes<HTMLTa
 }
 
 export function TableCell({ className, ...props }: React.TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cn("px-4 py-3 text-slate-100", className)} {...props} />;
+  return <td className={cn("px-4 py-3 text-foreground", className)} {...props} />;
 }
