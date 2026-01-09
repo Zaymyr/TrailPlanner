@@ -59,22 +59,22 @@ const icons = [IconMap, IconDroplet, IconExport];
 
 export function HowItWorksSection({ copy }: HowItWorksSectionProps) {
   return (
-    <section className="rounded-3xl border border-slate-800 bg-slate-950/50 p-6 shadow-inner sm:p-10">
+    <section className="rounded-3xl border border-border bg-card/50 p-6 shadow-inner sm:p-10">
       <div className="space-y-4 sm:space-y-6">
-        <h2 className="text-2xl font-semibold text-slate-50 sm:text-3xl">{copy.title}</h2>
+        <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{copy.title}</h2>
         <div className="grid gap-4 md:grid-cols-3">
           {copy.steps.map((step, index) => {
             const Icon = icons[index] ?? IconMap;
             return (
               <div
                 key={step.title}
-                className="h-full rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-emerald-300/60"
+                className="h-full rounded-2xl border border-border/80 bg-card/60 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-emerald-300/60"
               >
                 <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-200">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="text-lg font-semibold text-slate-50">{step.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-300">{step.description}</p>
+                <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{step.description}</p>
               </div>
             );
           })}

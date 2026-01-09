@@ -38,7 +38,7 @@ export function HeaderAuth() {
       </Link>
       <Link
         href="/sign-up"
-        className="rounded-lg bg-emerald-400 px-3 py-1.5 text-sm font-semibold text-slate-950 shadow-sm transition hover:bg-emerald-300"
+        className="rounded-lg bg-emerald-400 px-3 py-1.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-emerald-300"
       >
         {t.racePlanner.account.auth.create}
       </Link>

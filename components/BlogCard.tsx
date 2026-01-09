@@ -39,12 +39,12 @@ export const BlogCard = ({
     <Link
       href={href}
       className={cn(
-        "group flex h-full flex-col gap-4 overflow-hidden rounded-xl border border-slate-800 bg-slate-900/50 text-left transition hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-emerald-950/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
-        className
+        "group flex h-full flex-col gap-4 overflow-hidden rounded-xl border border-border bg-card/50 text-left transition hover:-translate-y-0.5 hover:border-emerald-700 hover:bg-emerald-950/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
+        className,
       )}
     >
       {imageSrc ? (
-        <div className="relative h-44 w-full bg-slate-950/60 sm:h-48">
+        <div className="relative h-44 w-full bg-card/60 sm:h-48">
           <Image
             src={imageSrc}
             alt={imageAlt ?? title}
@@ -57,19 +57,19 @@ export const BlogCard = ({
 
       <div className="flex h-full flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="text-lg font-semibold leading-snug text-slate-50 group-hover:text-emerald-100">
+          <h3 className="text-lg font-semibold leading-snug text-foreground group-hover:text-emerald-100">
             {title}
           </h3>
-          <span className="whitespace-nowrap text-xs text-slate-400">
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
             {formatBlogDate(date)}
           </span>
         </div>
 
-        <p className="text-sm text-slate-300">
+        <p className="text-sm text-muted-foreground">
           {buildDescription(description)}
         </p>
 
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             {readingTime ? (
               <>

@@ -38,14 +38,14 @@ export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }:
   const [secondarySrc, setSecondarySrc] = useState("/landing/secondary.png");
 
   return (
-    <section id="demo" className="space-y-6 rounded-3xl border border-slate-800 bg-slate-950/60 p-6 sm:p-10">
+    <section id="demo" className="space-y-6 rounded-3xl border border-border bg-card/60 p-6 sm:p-10">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <p className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.18em] text-emerald-200">
             <IconSparkles className="h-4 w-4" />
             {demo.title}
           </p>
-          <h2 className="text-2xl font-semibold text-slate-50 sm:text-3xl">{demo.subtitle}</h2>
+          <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{demo.subtitle}</h2>
         </div>
         <Link
           href="/race-planner"
@@ -55,18 +55,18 @@ export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }:
         </Link>
       </div>
       <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-        <div className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-5">
+        <div className="space-y-4 rounded-2xl border border-border/80 bg-card/60 p-5">
           <div className="grid gap-3 md:grid-cols-2">
             {demo.cards.map((card) => (
-              <div key={card.title} className="rounded-xl border border-slate-800/60 bg-slate-900 p-4">
-                <h3 className="text-base font-semibold text-slate-50">{card.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-300">{card.description}</p>
+              <div key={card.title} className="rounded-xl border border-border/60 bg-card p-4">
+                <h3 className="text-base font-semibold text-foreground">{card.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{card.description}</p>
               </div>
             ))}
           </div>
         </div>
         <div className="space-y-4">
-          <div className="overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 shadow-lg">
+          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/60 shadow-lg">
             <Image
               src={primarySrc}
               alt={heroImageAlt}
@@ -81,7 +81,7 @@ export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }:
               }}
             />
           </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/60 shadow-lg">
+          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/60 shadow-lg">
             <Image
               src={secondarySrc}
               alt={secondaryImageAlt}

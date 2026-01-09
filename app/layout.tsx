@@ -63,7 +63,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head />
-      <body className="min-h-screen">
+      <body className="min-h-screen bg-background text-foreground">
         <GTagLoader />
         <Analytics />
         <CookieBanner />
@@ -86,7 +86,7 @@ export default function RootLayout({
                         className="h-15 w-auto"
                       />
                     </Link>
-                    <p className="text-sm text-slate-300">
+                    <p className="text-sm text-muted-foreground">
                       Plan your aid-station timing, fueling targets, and pacing for race day.
                     </p>
                   </div>
