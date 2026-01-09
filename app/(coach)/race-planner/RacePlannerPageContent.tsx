@@ -885,7 +885,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     intake: "intake-section",
   } as const;
 
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: "aidStations" });
+  const { fields, append, replace } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const startSupplies = form.watch("startSupplies") ?? [];
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
@@ -1175,7 +1175,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
         if (!abortController.signal.aborted) {
           const localProducts = readLocalProducts();
-          setFuelProducts(mergeFuelProducts(parsed.data.products, localProducts));
+          const baseProducts = parsed.data.products.length > 0 ? parsed.data.products : defaultFuelProducts;
+          setFuelProducts(mergeFuelProducts(baseProducts, localProducts));
           setProductsStatus("success");
         }
       } catch (error) {
@@ -1789,12 +1790,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (index: number) => {
       if (!Number.isInteger(index)) return;
 
-      const totalStations = form.getValues("aidStations")?.length ?? 0;
-      if (index < 0 || index >= totalStations) return;
+      const current = form.getValues("aidStations") ?? [];
+      if (index < 0 || index >= current.length) return;
 
-      remove(index);
+      const nextStations = current.filter((_, stationIndex) => stationIndex !== index);
+      replace(nextStations);
     },
-    [form, remove]
+    [form, replace]
   );
 
   const handleSupplyDrop = useCallback(

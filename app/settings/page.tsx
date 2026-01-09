@@ -27,6 +27,12 @@ const baseButtonClass =
 const outlineButtonClass =
   "border border-border text-[hsl(var(--success))] hover:bg-muted hover:text-foreground dark:border-emerald-300 dark:text-emerald-100 dark:hover:bg-emerald-950/60";
 const primaryButtonClass = "bg-emerald-400 text-slate-950 hover:bg-emerald-300";
+const createLocalProductId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
 function ProductIcon({ className }: { className?: string }) {
   return (
@@ -205,7 +211,7 @@ export default function SettingsPage() {
           .replace(/(^-|-$)+/g, "");
         const suffix = Math.random().toString(36).slice(2, 6);
         const product: FuelProduct = {
-          id: crypto.randomUUID(),
+          id: createLocalProductId(),
           slug: slugBase ? `${slugBase}-${suffix}` : `product-${suffix}`,
           name: values.name,
           productUrl: values.productUrl ?? undefined,
@@ -248,7 +254,14 @@ export default function SettingsPage() {
     onSuccess: (product) => {
       setFormError(null);
       setFormMessage(t.productSettings.success);
-      void productsQuery.refetch();
+      if (!session?.accessToken) {
+        queryClient.setQueryData(["products", "local"], (current) => {
+          const list = Array.isArray(current) ? current : [];
+          return [product, ...list.filter((item) => item.id !== product.id)];
+        });
+      } else {
+        void productsQuery.refetch();
+      }
       reset();
       handleToggle(product);
     },
