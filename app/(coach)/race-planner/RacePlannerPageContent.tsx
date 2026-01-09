@@ -92,6 +92,17 @@ const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => 
   return Array.from(productsById.values());
 };
 
+const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => {
+  const productsById = new Map<string, FuelProduct>();
+  primary.forEach((product) => productsById.set(product.id, product));
+  secondary.forEach((product) => {
+    if (!productsById.has(product.id)) {
+      productsById.set(product.id, product);
+    }
+  });
+  return Array.from(productsById.values());
+};
+
 type StripeInterval = "day" | "week" | "month" | "year";
 
 const stripePriceResponseSchema = z.object({

@@ -13,7 +13,6 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { readStoredSession } from "../../lib/auth-storage";
-import { defaultFuelProducts } from "../../lib/default-products";
 import { readLocalProducts, upsertLocalProduct } from "../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
@@ -143,9 +142,8 @@ export default function SettingsPage() {
       const data = (await response.json().catch(() => null)) as unknown;
 
       if (!response.ok) {
-        const fallback = localProducts.length > 0 ? localProducts : defaultFuelProducts;
-        if (fallback.length > 0) {
-          return fallback;
+        if (localProducts.length > 0) {
+          return localProducts;
         }
         const message = (data as { message?: string } | null)?.message ?? t.productSettings.errors.loadFailed;
         throw new Error(message);
@@ -154,15 +152,13 @@ export default function SettingsPage() {
       const parsed = productListSchema.safeParse(data);
 
       if (!parsed.success) {
-        const fallback = localProducts.length > 0 ? localProducts : defaultFuelProducts;
-        if (fallback.length > 0) {
-          return fallback;
+        if (localProducts.length > 0) {
+          return localProducts;
         }
         throw new Error(t.productSettings.errors.loadFailed);
       }
 
-      const baseProducts = parsed.data.products.length > 0 ? parsed.data.products : defaultFuelProducts;
-      const merged = new Map(baseProducts.map((product) => [product.id, product]));
+      const merged = new Map(parsed.data.products.map((product) => [product.id, product]));
       localProducts.forEach((product) => {
         if (!merged.has(product.id)) {
           merged.set(product.id, product);
