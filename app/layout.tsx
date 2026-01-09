@@ -16,6 +16,7 @@ import { HeaderMenu } from "./header-menu";
 import { SiteFooter } from "../components/SiteFooter";
 import { CookieBanner } from "../components/CookieBanner";
 import { GTagLoader } from "./gtag-loader";
+import { ThemeToggle } from "../components/ThemeToggle";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -92,6 +93,7 @@ export default function RootLayout({
                 </div>
                 <div className="flex items-center gap-4">
                   <LanguageToggle />
+                  <ThemeToggle />
                   <HeaderAuth />
                 </div>
               </header>
