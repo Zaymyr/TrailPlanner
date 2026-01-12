@@ -222,6 +222,26 @@ export type RacePlannerTranslations = {
       fuelLabel: string;
       waterLabel: string;
       sodiumLabel: string;
+      finishSummary: {
+        title: string;
+        totalTimeLabel: string;
+        pauseNote: string;
+        avgPaceLabel: string;
+        avgSpeedLabel: string;
+        totalCarbsLabel: string;
+        totalFluidsLabel: string;
+        totalSodiumLabel: string;
+        totalGelsLabel: string;
+        totalCaloriesLabel: string;
+        elevationGainLabel: string;
+        elevationLossLabel: string;
+        detailsLabel: string;
+        groups: {
+          performance: string;
+          energy: string;
+          hydration: string;
+        };
+      };
       printView: {
         title: string;
         description: string;
