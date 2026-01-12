@@ -17,6 +17,7 @@ import { SiteFooter } from "../components/SiteFooter";
 import { CookieBanner } from "../components/CookieBanner";
 import { GTagLoader } from "./gtag-loader";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { ThemeDebugPanel } from "../components/ThemeDebugPanel";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -67,6 +68,7 @@ export default function RootLayout({
         <GTagLoader />
         <Analytics />
         <CookieBanner />
+        <ThemeDebugPanel />
         <QueryProvider>
           <I18nProvider>
             <LocalizedMetadata />
