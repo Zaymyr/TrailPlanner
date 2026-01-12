@@ -183,7 +183,10 @@ const createAidStationSchema = (validation: RacePlannerTranslations["validation"
   createSegmentPlanSchema(validation).extend({
     name: z.string().min(1, validation.required),
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
-    waterRefill: z.coerce.boolean().optional().default(true),
+    waterRefill: z
+      .preprocess((value) => normalizeWaterRefill(value), z.boolean())
+      .optional()
+      .default(true),
   });
 
 const createFormSchema = (copy: RacePlannerTranslations) =>
@@ -344,7 +347,7 @@ function buildSegments(
       ...station,
       originalIndex: index,
       kind: "aid" as const,
-      waterRefill: normalizeWaterRefill(station.waterRefill),
+      waterRefill: normalizeWaterRefill(station.waterRefill) ?? true,
     }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
@@ -442,7 +445,8 @@ function buildSegments(
 
     availableWaterMl = Math.max(0, remainingWater);
 
-    const canRefillAtArrival = station.kind === "finish" ? true : normalizeWaterRefill(station.waterRefill);
+    const canRefillAtArrival =
+      station.kind === "finish" ? true : (normalizeWaterRefill(station.waterRefill) ?? true);
     if (canRefillAtArrival && waterCapacityMl !== null) {
       availableWaterMl = waterCapacityMl;
     }
@@ -489,7 +493,10 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
   };
 }
 
-function normalizeWaterRefill(value?: boolean | string | number | null): boolean {
+function normalizeWaterRefill(value?: boolean | string | number | null): boolean | undefined {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
   if (value === false || value === "false" || value === 0 || value === "0") {
     return false;
   }
@@ -511,7 +518,7 @@ function sanitizeAidStations(
     sanitized.push({
       name: station.name,
       distanceKm: station.distanceKm,
-      waterRefill: normalizeWaterRefill(station.waterRefill),
+      waterRefill: normalizeWaterRefill(station.waterRefill) ?? true,
       ...plan,
     });
   });
