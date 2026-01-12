@@ -14,7 +14,14 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
-import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
+import {
+  BoltIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  DropletIcon,
+  GaugeIcon,
+  SparklesIcon,
+} from "./TimelineIcons";
 
 const statusToneStyles = {
   success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
@@ -70,7 +77,6 @@ type ActionPlanProps = {
   copy: RacePlannerTranslations;
   segments: Segment[];
   raceTotals: RaceTotals | null;
-  paceType: FormValues["paceType"];
   sectionId: string;
   onPrint: () => void;
   onAutomaticFill: () => void;
@@ -112,36 +118,73 @@ const formatPaceValue = (minutesPerKm: number) => {
   return `${minutes}'${seconds.toString().padStart(2, "0")}"`;
 };
 
-type FinishSummaryKpi = {
+type FinishSummaryMetric = {
   key: string;
   label: string;
   value: string;
   helper?: string | null;
 };
 
+type FinishSummaryGroup = {
+  title: string;
+  icon: ReactNode;
+  primary: FinishSummaryMetric;
+  secondary?: FinishSummaryMetric[];
+};
+
 type FinishSummaryCardProps = {
   pointIndex: number;
   title: string;
   distanceText: string;
-  totalTimeLabel: string;
-  totalTimeValue: string;
-  pauseNote?: string | null;
-  kpis: FinishSummaryKpi[];
-  details: FinishSummaryKpi[];
+  performanceGroup: FinishSummaryGroup;
+  energyGroup: FinishSummaryGroup;
+  hydrationGroup: FinishSummaryGroup;
+  details: FinishSummaryMetric[];
   detailsLabel: string;
   detailsId: string;
   isExpanded: boolean;
   onToggleDetails: () => void;
 };
 
+function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
+  return (
+    <div className="rounded-2xl bg-muted/40 p-3 shadow-sm dark:bg-slate-900/60">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-background text-foreground shadow-sm dark:bg-slate-950/70">
+          {icon}
+        </span>
+        <span>{title}</span>
+      </div>
+      <div className="mt-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+          {primary.label}
+        </p>
+        <p className="text-lg font-semibold text-foreground dark:text-slate-50">{primary.value}</p>
+        {primary.helper ? (
+          <p className="text-[11px] text-muted-foreground dark:text-slate-400">{primary.helper}</p>
+        ) : null}
+      </div>
+      {secondary?.length ? (
+        <div className="mt-2 space-y-1 text-xs text-foreground dark:text-slate-50">
+          {secondary.map((item) => (
+            <div key={item.key} className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground dark:text-slate-400">{item.label}</span>
+              <span className="font-semibold">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function FinishSummaryCard({
   pointIndex,
   title,
   distanceText,
-  totalTimeLabel,
-  totalTimeValue,
-  pauseNote,
-  kpis,
+  performanceGroup,
+  energyGroup,
+  hydrationGroup,
   details,
   detailsLabel,
   detailsId,
@@ -160,25 +203,12 @@ function FinishSummaryCard({
             <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{distanceText}</div>
           </div>
         </div>
-        <div className="rounded-xl border border-border/70 bg-background px-3 py-2 text-right shadow-sm dark:bg-slate-950/70">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
-            {totalTimeLabel}
-          </p>
-          <p className="text-lg font-semibold text-foreground dark:text-slate-50">{totalTimeValue}</p>
-          {pauseNote ? <p className="text-[11px] text-muted-foreground dark:text-slate-300">{pauseNote}</p> : null}
-        </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((kpi) => (
-          <div key={kpi.key} className="rounded-lg border border-border/70 bg-background px-3 py-2 dark:bg-slate-950/60">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
-              {kpi.label}
-            </p>
-            <p className="text-base font-semibold text-foreground dark:text-slate-50">{kpi.value}</p>
-            {kpi.helper ? <p className="text-[11px] text-muted-foreground dark:text-slate-400">{kpi.helper}</p> : null}
-          </div>
-        ))}
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <SummaryGroup {...performanceGroup} />
+        <SummaryGroup {...energyGroup} />
+        <SummaryGroup {...hydrationGroup} />
       </div>
 
       <div className="mt-4 border-t border-border/70 pt-3">
@@ -688,7 +718,6 @@ export function ActionPlan({
   copy,
   segments,
   raceTotals,
-  paceType,
   sectionId,
   onPrint,
   onAutomaticFill,
@@ -1444,21 +1473,33 @@ export function ActionPlan({
                     Number.isFinite(finishSummary.totalElevationLoss) && finishSummary.totalElevationLoss > 0
                       ? `${Math.round(finishSummary.totalElevationLoss)} ${copy.units.meter}`
                       : "—";
-                  const showPace = paceType !== "speed";
-                  const mainPaceValue = showPace
-                    ? formatPace(finishSummary.averagePaceMinPerKm)
-                    : formatSpeed(finishSummary.averageSpeedKph);
-                  const secondaryPaceValue = showPace
-                    ? formatSpeed(finishSummary.averageSpeedKph)
-                    : formatPace(finishSummary.averagePaceMinPerKm);
-
-                  const kpis: FinishSummaryKpi[] = [
-                    {
-                      key: showPace ? "avg-pace" : "avg-speed",
-                      label: showPace ? timelineCopy.finishSummary.avgPaceLabel : timelineCopy.finishSummary.avgSpeedLabel,
-                      value: mainPaceValue,
+                  const performanceGroup: FinishSummaryGroup = {
+                    title: timelineCopy.finishSummary.groups.performance,
+                    icon: <GaugeIcon className="h-4 w-4" aria-hidden />,
+                    primary: {
+                      key: "total-time",
+                      label: timelineCopy.finishSummary.totalTimeLabel,
+                      value: totalTimeValue,
+                      helper: totalPauseNote,
                     },
-                    {
+                    secondary: [
+                      {
+                        key: "avg-pace",
+                        label: timelineCopy.finishSummary.avgPaceLabel,
+                        value: formatPace(finishSummary.averagePaceMinPerKm),
+                      },
+                      {
+                        key: "avg-speed",
+                        label: timelineCopy.finishSummary.avgSpeedLabel,
+                        value: formatSpeed(finishSummary.averageSpeedKph),
+                      },
+                    ],
+                  };
+
+                  const energyGroup: FinishSummaryGroup = {
+                    title: timelineCopy.finishSummary.groups.energy,
+                    icon: <BoltIcon className="h-4 w-4" aria-hidden />,
+                    primary: {
                       key: "total-carbs",
                       label: timelineCopy.finishSummary.totalCarbsLabel,
                       value: formatOptionalValue(totalCarbs, formatCarbs),
@@ -1467,34 +1508,38 @@ export function ActionPlan({
                           ? `${Math.round(carbsPerHour)} ${copy.units.grams}/${copy.units.hourShort}`
                           : null,
                     },
-                    {
+                    secondary: [
+                      {
+                        key: "total-gels",
+                        label: timelineCopy.finishSummary.totalGelsLabel,
+                        value: formattedGels,
+                      },
+                      {
+                        key: "total-calories",
+                        label: timelineCopy.finishSummary.totalCaloriesLabel,
+                        value: formattedCalories,
+                      },
+                    ],
+                  };
+
+                  const hydrationGroup: FinishSummaryGroup = {
+                    title: timelineCopy.finishSummary.groups.hydration,
+                    icon: <DropletIcon className="h-4 w-4" aria-hidden />,
+                    primary: {
                       key: "total-fluids",
                       label: timelineCopy.finishSummary.totalFluidsLabel,
                       value: formatWater(totalWater),
                     },
-                    {
-                      key: "total-sodium",
-                      label: timelineCopy.finishSummary.totalSodiumLabel,
-                      value: formatOptionalValue(totalSodium, formatSodium),
-                    },
-                  ];
+                    secondary: [
+                      {
+                        key: "total-sodium",
+                        label: timelineCopy.finishSummary.totalSodiumLabel,
+                        value: formatOptionalValue(totalSodium, formatSodium),
+                      },
+                    ],
+                  };
 
-                  const details: FinishSummaryKpi[] = [
-                    {
-                      key: showPace ? "avg-speed" : "avg-pace",
-                      label: showPace ? timelineCopy.finishSummary.avgSpeedLabel : timelineCopy.finishSummary.avgPaceLabel,
-                      value: secondaryPaceValue,
-                    },
-                    {
-                      key: "total-gels",
-                      label: timelineCopy.finishSummary.totalGelsLabel,
-                      value: formattedGels,
-                    },
-                    {
-                      key: "total-calories",
-                      label: timelineCopy.finishSummary.totalCaloriesLabel,
-                      value: formattedCalories,
-                    },
+                  const details: FinishSummaryMetric[] = [
                     {
                       key: "elevation-gain",
                       label: timelineCopy.finishSummary.elevationGainLabel,
@@ -1513,10 +1558,9 @@ export function ActionPlan({
                         pointIndex={pointNumber}
                         title={timelineCopy.finishSummary.title}
                         distanceText={formatDistanceWithUnit(finishSummary.finishDistanceKm)}
-                        totalTimeLabel={timelineCopy.finishSummary.totalTimeLabel}
-                        totalTimeValue={totalTimeValue}
-                        pauseNote={totalPauseNote}
-                        kpis={kpis}
+                        performanceGroup={performanceGroup}
+                        energyGroup={energyGroup}
+                        hydrationGroup={hydrationGroup}
                         details={details}
                         detailsLabel={timelineCopy.finishSummary.detailsLabel}
                         detailsId={finishDetailsId}

@@ -236,6 +236,11 @@ export type RacePlannerTranslations = {
         elevationGainLabel: string;
         elevationLossLabel: string;
         detailsLabel: string;
+        groups: {
+          performance: string;
+          energy: string;
+          hydration: string;
+        };
       };
       printView: {
         title: string;

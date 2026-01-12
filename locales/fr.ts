@@ -345,6 +345,11 @@ export const fr: Translations = {
           elevationGainLabel: "Dénivelé +",
           elevationLossLabel: "Dénivelé -",
           detailsLabel: "Détails",
+          groups: {
+            performance: "Performance",
+            energy: "Énergie",
+            hydration: "Hydratation & électrolytes",
+          },
         },
         printView: {
           title: "Plan ravito imprimable",

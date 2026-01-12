@@ -335,6 +335,11 @@ export const en: Translations = {
           elevationGainLabel: "Elevation gain",
           elevationLossLabel: "Elevation loss",
           detailsLabel: "Details",
+          groups: {
+            performance: "Performance",
+            energy: "Energy",
+            hydration: "Hydration & electrolytes",
+          },
         },
         printView: {
           title: "Printable aid plan",

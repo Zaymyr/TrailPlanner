@@ -2116,7 +2116,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         copy={racePlannerCopy}
         segments={segments}
         raceTotals={raceTotals}
-        paceType={parsedValues.success ? parsedValues.data.paceType : defaultValues.paceType}
         sectionId={sectionIds.timeline}
         onPrint={handlePrint}
         onAutomaticFill={handleAutomaticFill}
