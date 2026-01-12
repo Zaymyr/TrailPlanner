@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
@@ -70,6 +70,7 @@ type ActionPlanProps = {
   copy: RacePlannerTranslations;
   segments: Segment[];
   raceTotals: RaceTotals | null;
+  paceType: FormValues["paceType"];
   sectionId: string;
   onPrint: () => void;
   onAutomaticFill: () => void;
@@ -110,6 +111,102 @@ const formatPaceValue = (minutesPerKm: number) => {
   const seconds = totalSeconds % 60;
   return `${minutes}'${seconds.toString().padStart(2, "0")}"`;
 };
+
+type FinishSummaryKpi = {
+  key: string;
+  label: string;
+  value: string;
+  helper?: string | null;
+};
+
+type FinishSummaryCardProps = {
+  pointIndex: number;
+  title: string;
+  distanceText: string;
+  totalTimeLabel: string;
+  totalTimeValue: string;
+  pauseNote?: string | null;
+  kpis: FinishSummaryKpi[];
+  details: FinishSummaryKpi[];
+  detailsLabel: string;
+  detailsId: string;
+  isExpanded: boolean;
+  onToggleDetails: () => void;
+};
+
+function FinishSummaryCard({
+  pointIndex,
+  title,
+  distanceText,
+  totalTimeLabel,
+  totalTimeValue,
+  pauseNote,
+  kpis,
+  details,
+  detailsLabel,
+  detailsId,
+  isExpanded,
+  onToggleDetails,
+}: FinishSummaryCardProps) {
+  return (
+    <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-[220px] items-start gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="space-y-1">
+            <div className="text-base font-semibold text-foreground dark:text-slate-50">{title}</div>
+            <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{distanceText}</div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border/70 bg-background px-3 py-2 text-right shadow-sm dark:bg-slate-950/70">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+            {totalTimeLabel}
+          </p>
+          <p className="text-lg font-semibold text-foreground dark:text-slate-50">{totalTimeValue}</p>
+          {pauseNote ? <p className="text-[11px] text-muted-foreground dark:text-slate-300">{pauseNote}</p> : null}
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {kpis.map((kpi) => (
+          <div key={kpi.key} className="rounded-lg border border-border/70 bg-background px-3 py-2 dark:bg-slate-950/60">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+              {kpi.label}
+            </p>
+            <p className="text-base font-semibold text-foreground dark:text-slate-50">{kpi.value}</p>
+            {kpi.helper ? <p className="text-[11px] text-muted-foreground dark:text-slate-400">{kpi.helper}</p> : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 border-t border-border/70 pt-3">
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+          aria-expanded={isExpanded}
+          aria-controls={detailsId}
+          onClick={onToggleDetails}
+        >
+          {detailsLabel}
+          {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
+        </button>
+
+        {isExpanded ? (
+          <div id={detailsId} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {details.map((detail) => (
+              <div key={detail.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
+                <span className="text-muted-foreground dark:text-slate-400">{detail.label}</span>
+                <span className="font-semibold text-foreground dark:text-slate-50">{detail.value}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
   if (segment.isFinish) return `finishPlan.${field}` as const;
@@ -591,6 +688,7 @@ export function ActionPlan({
   copy,
   segments,
   raceTotals,
+  paceType,
   sectionId,
   onPrint,
   onAutomaticFill,
@@ -618,6 +716,8 @@ export function ActionPlan({
   upgradeStatus,
 }: ActionPlanProps) {
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
+  const [isFinishDetailsOpen, setIsFinishDetailsOpen] = useState(false);
+  const finishDetailsId = useId();
   const [editorState, setEditorState] = useState<
     | null
     | {
@@ -665,6 +765,42 @@ export function ActionPlan({
   }, [favoriteProducts]);
   const renderItems = buildRenderItems(segments);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
+  const finishSummary = useMemo(() => {
+    if (segments.length === 0) return null;
+
+    const finishDistanceKm = segments[segments.length - 1]?.distanceKm ?? 0;
+    const totalPauseMinutes = segments.reduce((total, segment) => total + (segment.pauseMinutes ?? 0), 0);
+    const totalMovingMinutes = raceTotals?.durationMinutes ?? 0;
+    const totalTimeMinutes = totalMovingMinutes + totalPauseMinutes;
+    const averagePaceMinPerKm =
+      finishDistanceKm > 0 && totalTimeMinutes > 0 ? totalTimeMinutes / finishDistanceKm : null;
+    const averageSpeedKph =
+      finishDistanceKm > 0 && totalTimeMinutes > 0 ? finishDistanceKm / (totalTimeMinutes / 60) : null;
+    const totalGels = segments.reduce((total, segment) => total + (segment.gelsPlanned ?? 0), 0);
+    const totalElevationGain = segments.reduce((total, segment) => total + (segment.elevationGainM ?? 0), 0);
+    const totalElevationLoss = segments.reduce((total, segment) => total + (segment.elevationLossM ?? 0), 0);
+    const allSupplies = [...startSupplies, ...segments.flatMap((segment) => segment.supplies ?? [])];
+    const totalCalories = allSupplies.reduce((total, supply) => {
+      const product = productById[supply.productId];
+      if (!product) return total;
+      const quantity = Number.isFinite(supply.quantity) ? supply.quantity : 0;
+      if (quantity <= 0) return total;
+      return total + (product.caloriesKcal ?? 0) * quantity;
+    }, 0);
+
+    return {
+      finishDistanceKm,
+      totalPauseMinutes,
+      totalMovingMinutes,
+      totalTimeMinutes,
+      averagePaceMinPerKm,
+      averageSpeedKph,
+      totalGels,
+      totalElevationGain,
+      totalElevationLoss,
+      totalCalories,
+    };
+  }, [productById, raceTotals?.durationMinutes, segments, startSupplies]);
   const metricIcons = {
     carbs: (
       <img
@@ -1249,6 +1385,147 @@ export function ActionPlan({
                       </span>
                     </Button>
                   ) : null;
+
+                if (item.isFinish && finishSummary) {
+                  const totalTimeValue =
+                    finishSummary.totalTimeMinutes > 0 ? formatMinutes(finishSummary.totalTimeMinutes) : "—";
+                  const totalPauseNote =
+                    finishSummary.totalPauseMinutes > 0
+                      ? timelineCopy.finishSummary.pauseNote.replace(
+                          "{pause}",
+                          formatMinutes(finishSummary.totalPauseMinutes)
+                        )
+                      : null;
+                  const totalCarbs = raceTotals?.fuelGrams ?? 0;
+                  const totalWater = raceTotals?.waterMl ?? 0;
+                  const totalSodium = raceTotals?.sodiumMg ?? 0;
+                  const carbsPerHour =
+                    totalCarbs > 0 && finishSummary.totalTimeMinutes > 0
+                      ? totalCarbs / (finishSummary.totalTimeMinutes / 60)
+                      : null;
+                  const formatOptionalValue = (value: number | null, formatter: (value: number) => string) =>
+                    Number.isFinite(value) && (value ?? 0) > 0 ? formatter(value as number) : "—";
+                  const formatCarbs = (value: number) => `${Math.round(value)} ${copy.units.grams}`;
+                  const formatSodium = (value: number) => `${Math.round(value)} ${copy.units.milligrams}`;
+                  const formatWater = (value: number) => {
+                    if (!Number.isFinite(value) || value <= 0) return "—";
+                    if (value >= 1000) {
+                      const liters = value / 1000;
+                      return `${liters.toFixed(liters < 10 ? 1 : 0)} L`;
+                    }
+                    return `${Math.round(value)} ${copy.units.milliliters}`;
+                  };
+                  const formatPace = (value: number | null) => {
+                    if (!Number.isFinite(value) || (value ?? 0) <= 0) return "—";
+                    const totalSeconds = Math.round((value as number) * 60);
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    return `${minutes}:${seconds.toString().padStart(2, "0")} /${copy.units.kilometer}`;
+                  };
+                  const formatSpeed = (value: number | null) =>
+                    formatOptionalValue(value, (speed) =>
+                      `${speed.toFixed(1)} ${copy.units.kilometer}/${copy.units.hourShort}`
+                    );
+                  const formattedGels =
+                    Number.isFinite(finishSummary.totalGels) && finishSummary.totalGels > 0
+                      ? Number.isInteger(finishSummary.totalGels)
+                        ? finishSummary.totalGels.toFixed(0)
+                        : finishSummary.totalGels.toFixed(1)
+                      : "—";
+                  const formattedCalories =
+                    Number.isFinite(finishSummary.totalCalories) && finishSummary.totalCalories > 0
+                      ? `${Math.round(finishSummary.totalCalories)} kcal`
+                      : "—";
+                  const formattedElevationGain =
+                    Number.isFinite(finishSummary.totalElevationGain) && finishSummary.totalElevationGain > 0
+                      ? `${Math.round(finishSummary.totalElevationGain)} ${copy.units.meter}`
+                      : "—";
+                  const formattedElevationLoss =
+                    Number.isFinite(finishSummary.totalElevationLoss) && finishSummary.totalElevationLoss > 0
+                      ? `${Math.round(finishSummary.totalElevationLoss)} ${copy.units.meter}`
+                      : "—";
+                  const showPace = paceType !== "speed";
+                  const mainPaceValue = showPace
+                    ? formatPace(finishSummary.averagePaceMinPerKm)
+                    : formatSpeed(finishSummary.averageSpeedKph);
+                  const secondaryPaceValue = showPace
+                    ? formatSpeed(finishSummary.averageSpeedKph)
+                    : formatPace(finishSummary.averagePaceMinPerKm);
+
+                  const kpis: FinishSummaryKpi[] = [
+                    {
+                      key: showPace ? "avg-pace" : "avg-speed",
+                      label: showPace ? timelineCopy.finishSummary.avgPaceLabel : timelineCopy.finishSummary.avgSpeedLabel,
+                      value: mainPaceValue,
+                    },
+                    {
+                      key: "total-carbs",
+                      label: timelineCopy.finishSummary.totalCarbsLabel,
+                      value: formatOptionalValue(totalCarbs, formatCarbs),
+                      helper:
+                        carbsPerHour && Number.isFinite(carbsPerHour)
+                          ? `${Math.round(carbsPerHour)} ${copy.units.grams}/${copy.units.hourShort}`
+                          : null,
+                    },
+                    {
+                      key: "total-fluids",
+                      label: timelineCopy.finishSummary.totalFluidsLabel,
+                      value: formatWater(totalWater),
+                    },
+                    {
+                      key: "total-sodium",
+                      label: timelineCopy.finishSummary.totalSodiumLabel,
+                      value: formatOptionalValue(totalSodium, formatSodium),
+                    },
+                  ];
+
+                  const details: FinishSummaryKpi[] = [
+                    {
+                      key: showPace ? "avg-speed" : "avg-pace",
+                      label: showPace ? timelineCopy.finishSummary.avgSpeedLabel : timelineCopy.finishSummary.avgPaceLabel,
+                      value: secondaryPaceValue,
+                    },
+                    {
+                      key: "total-gels",
+                      label: timelineCopy.finishSummary.totalGelsLabel,
+                      value: formattedGels,
+                    },
+                    {
+                      key: "total-calories",
+                      label: timelineCopy.finishSummary.totalCaloriesLabel,
+                      value: formattedCalories,
+                    },
+                    {
+                      key: "elevation-gain",
+                      label: timelineCopy.finishSummary.elevationGainLabel,
+                      value: formattedElevationGain,
+                    },
+                    {
+                      key: "elevation-loss",
+                      label: timelineCopy.finishSummary.elevationLossLabel,
+                      value: formattedElevationLoss,
+                    },
+                  ];
+
+                  return (
+                    <div key={item.id} className="relative pl-8">
+                      <FinishSummaryCard
+                        pointIndex={pointNumber}
+                        title={timelineCopy.finishSummary.title}
+                        distanceText={formatDistanceWithUnit(finishSummary.finishDistanceKm)}
+                        totalTimeLabel={timelineCopy.finishSummary.totalTimeLabel}
+                        totalTimeValue={totalTimeValue}
+                        pauseNote={totalPauseNote}
+                        kpis={kpis}
+                        details={details}
+                        detailsLabel={timelineCopy.finishSummary.detailsLabel}
+                        detailsId={finishDetailsId}
+                        isExpanded={isFinishDetailsOpen}
+                        onToggleDetails={() => setIsFinishDetailsOpen((prev) => !prev)}
+                      />
+                    </div>
+                  );
+                }
 
                 if (isCollapsible && isCollapsed) {
                   const embarkedSupplies = summarized?.items ?? [];
