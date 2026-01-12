@@ -340,7 +340,12 @@ function buildSegments(
     );
   };
   const stationsWithIndex: (AidStation & { originalIndex?: number; kind: "aid" | "finish" })[] = values.aidStations
-    .map((station, index) => ({ ...station, originalIndex: index, kind: "aid" as const, waterRefill: station.waterRefill !== false }))
+    .map((station, index) => ({
+      ...station,
+      originalIndex: index,
+      kind: "aid" as const,
+      waterRefill: normalizeWaterRefill(station.waterRefill),
+    }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
   const checkpoints: (AidStation & {
@@ -437,7 +442,7 @@ function buildSegments(
 
     availableWaterMl = Math.max(0, remainingWater);
 
-    const canRefillAtArrival = station.kind === "finish" ? true : station.waterRefill !== false;
+    const canRefillAtArrival = station.kind === "finish" ? true : normalizeWaterRefill(station.waterRefill);
     if (canRefillAtArrival && waterCapacityMl !== null) {
       availableWaterMl = waterCapacityMl;
     }
@@ -484,6 +489,13 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
   };
 }
 
+function normalizeWaterRefill(value?: boolean | string | number | null): boolean {
+  if (value === false || value === "false" || value === 0 || value === "0") {
+    return false;
+  }
+  return true;
+}
+
 function sanitizeAidStations(
   stations?: { name?: string; distanceKm?: number; waterRefill?: boolean; pauseMinutes?: number }[]
 ): AidStation[] {
@@ -499,7 +511,7 @@ function sanitizeAidStations(
     sanitized.push({
       name: station.name,
       distanceKm: station.distanceKm,
-      waterRefill: station.waterRefill !== false,
+      waterRefill: normalizeWaterRefill(station.waterRefill),
       ...plan,
     });
   });
