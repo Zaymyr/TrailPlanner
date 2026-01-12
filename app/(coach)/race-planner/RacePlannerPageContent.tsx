@@ -493,7 +493,7 @@ function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
   };
 }
 
-function normalizeWaterRefill(value?: boolean | string | number | null): boolean | undefined {
+function normalizeWaterRefill(value?: unknown): boolean | undefined {
   if (value === null || value === undefined) {
     return undefined;
   }
