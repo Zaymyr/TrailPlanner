@@ -38,16 +38,43 @@ export type SignUpTranslations = {
 export type SignInTranslations = {
   title: string;
   description: string;
+  forgotPassword: string;
   submit: string;
   submitting: string;
   success: string;
   error: string;
 };
 
+export type PasswordResetRequestTranslations = {
+  title: string;
+  description: string;
+  submit: string;
+  submitting: string;
+  success: string;
+  error: string;
+  backToSignIn: string;
+};
+
+export type PasswordResetTranslations = {
+  title: string;
+  description: string;
+  submit: string;
+  submitting: string;
+  success: string;
+  error: string;
+  confirmPasswordLabel: string;
+  confirmPasswordPlaceholder: string;
+  mismatchError: string;
+  invalidLink: string;
+  backToSignIn: string;
+};
+
 export type AuthTranslations = {
   shared: AuthSharedTranslations;
   signUp: SignUpTranslations;
   signIn: SignInTranslations;
+  passwordResetRequest: PasswordResetRequestTranslations;
+  passwordReset: PasswordResetTranslations;
 };
 
 export type HomeHeroTranslations = {
