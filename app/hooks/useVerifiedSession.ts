@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import { clearRacePlannerStorage } from "../../lib/race-planner-storage";
 
 export type VerifiedSession = {
   id?: string;
@@ -29,6 +30,7 @@ export const useVerifiedSession = () => {
   const clearSession = useCallback(() => {
     void fetch("/api/auth/signout", { method: "POST" }).catch(() => null);
     clearStoredSession();
+    clearRacePlannerStorage();
     setSession(null);
     setIsLoading(false);
   }, []);
