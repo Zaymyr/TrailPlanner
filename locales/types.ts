@@ -128,6 +128,26 @@ export type RacePlannerTranslations = {
       ariaLabel: string;
       speedLabel: string;
       speedUnit: string;
+      tooltip: {
+        distance: string;
+        elevation: string;
+        segmentGain: string;
+        segmentLoss: string;
+        cumulativeGain: string;
+        cumulativeLoss: string;
+        time: string;
+        pace: string;
+        speed: string;
+        ravitoTitle: string;
+        waterRefill: string;
+        waterRefillYes: string;
+        waterRefillNo: string;
+        plannedGels: string;
+        plannedCarbs: string;
+        plannedCalories: string;
+        plannedSodium: string;
+        plannedWater: string;
+      };
     };
     raceInputs: {
       title: string;
