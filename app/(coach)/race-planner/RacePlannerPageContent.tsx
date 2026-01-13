@@ -2742,9 +2742,11 @@ function ElevationProfileChart({
     return () => observer.disconnect();
   }, []);
 
-  if (!profile.length || totalDistanceKm <= 0) {
-    return <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.sections.courseProfile.empty}</p>;
-  }
+  const hasProfile = profile.length > 0 && totalDistanceKm > 0;
+  const safeProfile = useMemo(
+    () => (profile.length > 0 ? profile : [{ distanceKm: 0, elevationM: 0 }]),
+    [profile]
+  );
 
   const width = Math.max(Math.round(chartWidth), 480);
   const paddingX = 20;
@@ -2752,12 +2754,12 @@ function ElevationProfileChart({
   const elevationAreaHeight = 150;
   const height = paddingY + elevationAreaHeight + paddingY;
   const elevationBottom = paddingY + elevationAreaHeight;
-  const maxElevation = Math.max(...profile.map((p) => p.elevationM));
-  const minElevation = Math.min(...profile.map((p) => p.elevationM));
+  const maxElevation = Math.max(...safeProfile.map((p) => p.elevationM));
+  const minElevation = Math.min(...safeProfile.map((p) => p.elevationM));
   const elevationRange = Math.max(maxElevation - minElevation, 1);
   const scaledMax = Math.ceil(maxElevation / 10) * 10;
   const scaledMin = Math.floor(minElevation / 10) * 10;
-  const trackDistanceKm = Math.max(totalDistanceKm, profile.at(-1)?.distanceKm ?? 0, 1);
+  const trackDistanceKm = Math.max(totalDistanceKm, safeProfile.at(-1)?.distanceKm ?? 0, 1);
 
   const xScale = useCallback(
     (distanceKm: number) =>
@@ -2772,7 +2774,7 @@ function ElevationProfileChart({
   );
 
   const enrichedProfile = useMemo<EnrichedElevationPoint[]>(() => {
-    const sorted = [...profile].sort((a, b) => a.distanceKm - b.distanceKm);
+    const sorted = [...safeProfile].sort((a, b) => a.distanceKm - b.distanceKm);
     let cumulativeGainM = 0;
     let cumulativeLossM = 0;
     return sorted.map((point, index) => {
@@ -2795,7 +2797,7 @@ function ElevationProfileChart({
         timeMinutes,
       };
     });
-  }, [baseMinutesPerKm, profile]);
+  }, [baseMinutesPerKm, safeProfile]);
 
   const getDistanceForClientX = useCallback(
     (clientX: number) => {
@@ -2815,12 +2817,12 @@ function ElevationProfileChart({
   );
 
   const getElevationAtDistance = (distanceKm: number) => {
-    if (profile.length === 0) return minElevation;
+    if (safeProfile.length === 0) return minElevation;
     const clamped = Math.min(Math.max(distanceKm, 0), totalDistanceKm);
-    const nextIndex = profile.findIndex((point) => point.distanceKm >= clamped);
-    if (nextIndex <= 0) return profile[0].elevationM;
-    const prevPoint = profile[nextIndex - 1];
-    const nextPoint = profile[nextIndex] ?? prevPoint;
+    const nextIndex = safeProfile.findIndex((point) => point.distanceKm >= clamped);
+    if (nextIndex <= 0) return safeProfile[0].elevationM;
+    const prevPoint = safeProfile[nextIndex - 1];
+    const nextPoint = safeProfile[nextIndex] ?? prevPoint;
     const ratio =
       nextPoint.distanceKm === prevPoint.distanceKm
         ? 0
@@ -2828,16 +2830,16 @@ function ElevationProfileChart({
     return prevPoint.elevationM + (nextPoint.elevationM - prevPoint.elevationM) * ratio;
   };
 
-  const path = profile
+  const path = safeProfile
     .map((point, index) => `${index === 0 ? "M" : "L"}${xScale(point.distanceKm)},${yScale(point.elevationM)}`)
     .join(" ");
 
-  const areaPath = `${path} L${xScale(profile.at(-1)?.distanceKm ?? 0)},${elevationBottom} L${xScale(
-    profile[0].distanceKm
+  const areaPath = `${path} L${xScale(safeProfile.at(-1)?.distanceKm ?? 0)},${elevationBottom} L${xScale(
+    safeProfile[0].distanceKm
   )},${elevationBottom} Z`;
 
-  const slopeSegments = profile.slice(1).map((point, index) => {
-    const prev = profile[index];
+  const slopeSegments = safeProfile.slice(1).map((point, index) => {
+    const prev = safeProfile[index];
     const deltaDistanceKm = Math.max(point.distanceKm - prev.distanceKm, 0.0001);
     const grade = (point.elevationM - prev.elevationM) / (deltaDistanceKm * 1000);
 
@@ -2953,6 +2955,10 @@ function ElevationProfileChart({
     activeDistanceKm !== null && activeDistanceKm !== undefined ? xScale(activeDistanceKm) : null;
   const cursorY =
     activeElevationM !== null && activeElevationM !== undefined ? yScale(activeElevationM) : null;
+
+  if (!hasProfile) {
+    return <p className="text-sm text-muted-foreground dark:text-slate-400">{copy.sections.courseProfile.empty}</p>;
+  }
 
   return (
     <div ref={chartContainerRef} className="relative w-full">
