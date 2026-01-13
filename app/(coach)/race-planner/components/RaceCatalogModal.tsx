@@ -118,12 +118,11 @@ export function RaceCatalogModal({
       setAdminError(null);
       setAdminMessage(copy.admin.messages.updated);
       void queryClient.invalidateQueries({ queryKey: ["race-catalog"] });
+      setUpdatingRaceId(null);
     },
     onError: (error) => {
       setAdminMessage(null);
       setAdminError(error instanceof Error ? error.message : copy.admin.errors.updateFailed);
-    },
-    onSettled: () => {
       setUpdatingRaceId(null);
     },
   });
