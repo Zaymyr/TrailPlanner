@@ -1,7 +1,8 @@
 "use client";
 
 import { useDeferredValue, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 import { z } from "zod";
 
 import type { RacePlannerTranslations } from "../../../../locales/types";
@@ -16,27 +17,32 @@ import {
   TableHeader,
   TableRow,
 } from "../../../../components/ui/table";
+import { RaceCatalogAdminForm } from "./RaceCatalogAdminForm";
 
 const raceSchema = z.object({
   id: z.string().uuid(),
-  slug: z.string(),
   name: z.string(),
+  location_text: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   distance_km: z.number(),
   elevation_gain_m: z.number(),
-  source_url: z.string().nullable().optional(),
-  image_url: z.string().nullable().optional(),
+  elevation_loss_m: z.number().nullable().optional(),
+  trace_provider: z.string().nullable().optional(),
+  trace_id: z.number().nullable().optional(),
+  external_site_url: z.string().nullable().optional(),
+  thumbnail_url: z.string().nullable().optional(),
+  gpx_storage_path: z.string().nullable().optional(),
 });
 
 const responseSchema = z.object({
   races: z.array(raceSchema),
 });
 
-type RaceCatalogEntry = z.infer<typeof raceSchema>;
-
 type RaceCatalogModalProps = {
   open: boolean;
   isSubmittingId: string | null;
+  accessToken?: string;
+  isAdmin?: boolean;
   copy: RacePlannerTranslations["raceCatalog"];
   onClose: () => void;
   onUseRace: (raceId: string) => void;
@@ -44,10 +50,23 @@ type RaceCatalogModalProps = {
 
 const formatNumber = (value: number, maximumFractionDigits = 0) =>
   new Intl.NumberFormat(undefined, { maximumFractionDigits }).format(value);
+const passthroughImageLoader = ({ src }: { src: string }) => src;
 
-export function RaceCatalogModal({ open, isSubmittingId, copy, onClose, onUseRace }: RaceCatalogModalProps) {
+export function RaceCatalogModal({
+  open,
+  isSubmittingId,
+  accessToken,
+  isAdmin = false,
+  copy,
+  onClose,
+  onUseRace,
+}: RaceCatalogModalProps) {
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search.trim());
+  const [adminError, setAdminError] = useState<string | null>(null);
+  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [updatingRaceId, setUpdatingRaceId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const query = useQuery({
     queryKey: ["race-catalog", deferredSearch],
@@ -65,6 +84,49 @@ export function RaceCatalogModal({ open, isSubmittingId, copy, onClose, onUseRac
   });
 
   const races = useMemo(() => query.data?.races ?? [], [query.data?.races]);
+  const handleAdminCreated = (message?: string) => {
+    setAdminError(null);
+    setAdminMessage(message ?? copy.admin.messages.created);
+    void queryClient.invalidateQueries({ queryKey: ["race-catalog"] });
+  };
+
+  const handleAdminError = (message?: string) => {
+    setAdminMessage(null);
+    setAdminError(message && message.length > 0 ? message : null);
+  };
+  const handleUpdateMutation = useMutation({
+    mutationFn: async ({ raceId, file }: { raceId: string; file: File }) => {
+      if (!accessToken) {
+        throw new Error(copy.admin.errors.authRequired);
+      }
+      const formData = new FormData();
+      formData.append("gpx", file);
+      const response = await fetch(`/api/race-catalog/${raceId}/gpx`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${accessToken ?? ""}`,
+        },
+        body: formData,
+      });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(payload?.message ?? copy.admin.errors.updateFailed);
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setAdminError(null);
+      setAdminMessage(copy.admin.messages.updated);
+      void queryClient.invalidateQueries({ queryKey: ["race-catalog"] });
+    },
+    onError: (error) => {
+      setAdminMessage(null);
+      setAdminError(error instanceof Error ? error.message : copy.admin.errors.updateFailed);
+    },
+    onSettled: () => {
+      setUpdatingRaceId(null);
+    },
+  });
 
   if (!open) return null;
 
@@ -83,6 +145,16 @@ export function RaceCatalogModal({ open, isSubmittingId, copy, onClose, onUseRac
             </Button>
           </CardHeader>
           <CardContent className="space-y-4">
+            {isAdmin ? (
+              <RaceCatalogAdminForm
+                accessToken={accessToken}
+                copy={copy.admin}
+                onCreated={handleAdminCreated}
+                onError={handleAdminError}
+              />
+            ) : null}
+            {isAdmin && adminMessage ? <p className="text-sm text-emerald-400">{adminMessage}</p> : null}
+            {isAdmin && adminError ? <p className="text-sm text-red-500">{adminError}</p> : null}
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
@@ -104,7 +176,6 @@ export function RaceCatalogModal({ open, isSubmittingId, copy, onClose, onUseRac
                     <TableHead>{copy.table.distance}</TableHead>
                     <TableHead>{copy.table.elevation}</TableHead>
                     <TableHead>{copy.table.location}</TableHead>
-                    <TableHead>{copy.table.link}</TableHead>
                     <TableHead>{copy.table.action}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -112,10 +183,14 @@ export function RaceCatalogModal({ open, isSubmittingId, copy, onClose, onUseRac
                   {races.map((race) => (
                     <TableRow key={race.id}>
                       <TableCell className="w-20">
-                        {race.image_url ? (
-                          <img
-                            src={race.image_url}
+                        {race.thumbnail_url ? (
+                          <Image
+                            src={race.thumbnail_url}
                             alt={race.name}
+                            width={64}
+                            height={48}
+                            loader={passthroughImageLoader}
+                            unoptimized
                             className="h-12 w-16 rounded-md object-cover"
                           />
                         ) : (
@@ -131,30 +206,60 @@ export function RaceCatalogModal({ open, isSubmittingId, copy, onClose, onUseRac
                       <TableCell>
                         {formatNumber(race.elevation_gain_m)} {copy.units.meter}
                       </TableCell>
-                      <TableCell>{race.location ?? "-"}</TableCell>
+                      <TableCell>{race.location_text ?? race.location ?? "-"}</TableCell>
                       <TableCell>
-                        {race.source_url ? (
-                          <a
-                            href={race.source_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-emerald-400 hover:text-emerald-300"
+                        <div className="flex flex-wrap gap-2">
+                          {race.trace_id ? (
+                            <a
+                              href={`https://tracedetrail.fr/fr/trace/${race.trace_id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs font-semibold text-emerald-400 hover:text-emerald-300"
+                            >
+                              {copy.table.openTrace}
+                            </a>
+                          ) : null}
+                          <Button
+                            type="button"
+                            className="h-8 px-3 text-xs"
+                            onClick={() => onUseRace(race.id)}
+                            disabled={Boolean(isSubmittingId) || !race.gpx_storage_path}
                           >
-                            {copy.table.viewLink}
-                          </a>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          className="h-8 px-3 text-xs"
-                          onClick={() => onUseRace(race.id)}
-                          disabled={Boolean(isSubmittingId)}
-                        >
-                          {isSubmittingId === race.id ? copy.using : copy.useAction}
-                        </Button>
+                            {isSubmittingId === race.id
+                              ? copy.using
+                              : race.gpx_storage_path
+                                ? copy.useAction
+                                : copy.table.noGpx}
+                          </Button>
+                          {isAdmin ? (
+                            <>
+                              <input
+                                id={`race-gpx-${race.id}`}
+                                type="file"
+                                accept=".gpx,application/gpx+xml"
+                                className="hidden"
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0];
+                                  if (!file) return;
+                                  setAdminMessage(null);
+                                  setAdminError(null);
+                                  setUpdatingRaceId(race.id);
+                                  handleUpdateMutation.mutate({ raceId: race.id, file });
+                                  event.target.value = "";
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="h-8 px-3 text-xs"
+                                onClick={() => document.getElementById(`race-gpx-${race.id}`)?.click()}
+                                disabled={updatingRaceId === race.id}
+                              >
+                                {updatingRaceId === race.id ? copy.admin.updating : copy.admin.updateAction}
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

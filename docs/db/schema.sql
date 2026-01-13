@@ -41,13 +41,31 @@ create table public.race_catalog (
   slug text not null,
   name text not null,
   location text,
+  location_text text,
+  trace_provider text,
+  trace_id bigint,
   distance_km numeric not null default 0,
   elevation_gain_m numeric not null default 0,
+  elevation_loss_m numeric not null default 0,
+  min_alt_m numeric,
+  max_alt_m numeric,
+  start_lat numeric,
+  start_lng numeric,
+  bounds_min_lat numeric,
+  bounds_min_lng numeric,
+  bounds_max_lat numeric,
+  bounds_max_lng numeric,
   source_url text,
+  external_site_url text,
   image_url text,
+  thumbnail_url text,
   gpx_path text not null,
   gpx_hash text not null,
+  gpx_storage_path text,
+  gpx_sha256 text,
   is_published boolean not null default true,
+  is_live boolean not null default true,
+  notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint race_catalog_slug_key unique (slug)
@@ -66,6 +84,9 @@ create trigger set_race_catalog_updated_at
 before update on public.race_catalog
 for each row
 execute function public.set_race_catalog_updated_at();
+
+create index race_catalog_is_published_idx on public.race_catalog(is_published);
+create index race_catalog_is_live_idx on public.race_catalog(is_live);
 
 create table public.race_catalog_aid_stations (
   id uuid primary key default gen_random_uuid(),
@@ -157,6 +178,7 @@ create table public.user_profiles (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   full_name text,
+  role text,
   age integer,
   water_bag_liters numeric,
   constraint user_profiles_age_check check (age is null or age >= 0),

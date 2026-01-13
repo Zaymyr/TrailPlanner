@@ -331,10 +331,39 @@ export type RacePlannerTranslations = {
       distance: string;
       elevation: string;
       location: string;
-      link: string;
       action: string;
-      viewLink: string;
+      openTrace: string;
+      noGpx: string;
       noImage: string;
+    };
+    admin: {
+      title: string;
+      subtitle: string;
+      addAction: string;
+      close: string;
+      submit: string;
+      creating: string;
+      updateAction: string;
+      updating: string;
+      preview: string;
+      fields: {
+        name: string;
+        location: string;
+        traceId: string;
+        externalUrl: string;
+        thumbnailUrl: string;
+      };
+      messages: {
+        created: string;
+        updated: string;
+      };
+      errors: {
+        authRequired: string;
+        createFailed: string;
+        updateFailed: string;
+        missingGpx: string;
+        invalidGpx: string;
+      };
     };
     errors: {
       authRequired: string;

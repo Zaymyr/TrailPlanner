@@ -957,7 +957,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [planName, setPlanName] = useState("");
-  const [session, setSession] = useState<{ accessToken: string; refreshToken?: string; email?: string } | null>(null);
+  const [session, setSession] = useState<{
+    accessToken: string;
+    refreshToken?: string;
+    email?: string;
+    role?: string;
+    roles?: string[];
+  } | null>(null);
   const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
   const [rightPanelTab, setRightPanelTab] = useState<"plans" | "fuel">("plans");
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
@@ -981,6 +987,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<"autoFill" | "print" | "plans" | null>(null);
+  const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -991,7 +998,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, []);
 
   const persistSession = useCallback(
-    (accessToken: string, refreshToken?: string, email?: string) => {
+    (accessToken: string, refreshToken?: string, email?: string, role?: string, roles?: string[]) => {
       if (typeof window !== "undefined") {
         window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
         if (refreshToken) {
@@ -1007,7 +1014,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         }
       }
 
-      setSession({ accessToken, refreshToken, email });
+      setSession({ accessToken, refreshToken, email, role, roles });
     },
     []
   );
@@ -1075,9 +1082,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           return;
         }
 
-        const data = (await response.json()) as { user?: { email?: string } };
+        const data = (await response.json()) as { user?: { email?: string; role?: string; roles?: string[] } };
         const email = data.user?.email ?? emailHint;
-        persistSession(accessToken, refreshToken, email ?? undefined);
+        persistSession(accessToken, refreshToken, email ?? undefined, data.user?.role, data.user?.roles);
         setAccountMessage(racePlannerCopy.account.messages.signedIn);
         await refreshSavedPlans(accessToken);
       } catch (error) {
@@ -2530,6 +2537,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         <RaceCatalogModal
           open={isRaceCatalogOpen}
           isSubmittingId={catalogSubmissionId}
+          accessToken={session?.accessToken}
+          isAdmin={Boolean(isAdmin)}
           copy={{ ...racePlannerCopy.raceCatalog, units: racePlannerCopy.units }}
           onClose={() => setIsRaceCatalogOpen(false)}
           onUseRace={handleUseCatalogRace}

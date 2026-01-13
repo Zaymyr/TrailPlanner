@@ -1,8 +1,9 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getUserEntitlements } from "../../../../lib/entitlements";
+import { parseGpx } from "../../../../lib/gpx/parseGpx";
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
 import {
   extractBearerToken,
@@ -20,17 +21,10 @@ const catalogRaceSchema = z.object({
   name: z.string(),
   distance_km: z.number(),
   elevation_gain_m: z.number(),
-  gpx_path: z.string(),
-  gpx_hash: z.string(),
+  elevation_loss_m: z.number().nullable().optional(),
+  gpx_storage_path: z.string().nullable().optional(),
+  gpx_sha256: z.string().nullable().optional(),
   updated_at: z.string(),
-});
-
-const catalogAidStationSchema = z.object({
-  name: z.string(),
-  km: z.number(),
-  water_available: z.boolean(),
-  notes: z.string().nullable().optional(),
-  order_index: z.number().optional(),
 });
 
 const planRowSchema = z.object({
@@ -47,6 +41,41 @@ const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType 
   Authorization: `Bearer ${accessToken}`,
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
+
+const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+  const R = 6371e3;
+  const φ1 = toRadians(lat1);
+  const φ2 = toRadians(lat2);
+  const Δφ = toRadians(lat2 - lat1);
+  const Δλ = toRadians(lng2 - lng1);
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
+const mapWaypointsToAidStations = (
+  points: Array<{ lat: number; lng: number; distKmCum: number }>,
+  waypoints: Array<{ lat: number; lng: number; name?: string | null; desc?: string | null }>
+) =>
+  waypoints.map((waypoint, index) => {
+    let closest = points[0];
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    points.forEach((point) => {
+      const distance = haversineDistance(point.lat, point.lng, waypoint.lat, waypoint.lng);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closest = point;
+      }
+    });
+
+    const name = waypoint.name?.trim() || waypoint.desc?.trim() || `Aid station ${index + 1}`;
+    return { name, distanceKm: Number(closest.distKmCum.toFixed(1)), waterRefill: true };
+  });
 
 export async function POST(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();
@@ -115,7 +144,7 @@ export async function POST(request: NextRequest) {
   }
 
   const catalogRaceResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedBody.data.catalogRaceId}&select=id,name,distance_km,elevation_gain_m,gpx_path,gpx_hash,updated_at&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at&limit=1`,
     {
       headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -133,29 +162,38 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Race not found." }, { status: 404 }));
   }
 
-  const catalogAidStationsResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog_aid_stations?race_id=eq.${catalogRace.id}&select=name,km,water_available,notes,order_index&order=order_index.asc`,
+  if (!catalogRace.gpx_storage_path) {
+    return withSecurityHeaders(NextResponse.json({ message: "This race has no GPX available." }, { status: 409 }));
+  }
+
+  const planId = randomUUID();
+  const planGpxPath = `${supabaseUser.id}/${planId}.gpx`;
+
+  const gpxResponse = await fetch(
+    `${supabaseService.supabaseUrl}/storage/v1/object/race-gpx/${catalogRace.gpx_storage_path}`,
     {
-      headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
+      headers: {
+        apikey: supabaseService.supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+      },
       cache: "no-store",
     }
   );
 
-  if (!catalogAidStationsResponse.ok) {
-    console.error("Unable to load catalog aid stations", await catalogAidStationsResponse.text());
-    return withSecurityHeaders(NextResponse.json({ message: "Unable to load race." }, { status: 502 }));
+  if (!gpxResponse.ok) {
+    console.error("Unable to download catalog GPX", await gpxResponse.text());
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to read race GPX." }, { status: 502 }));
   }
 
-  const catalogAidStations = z
-    .array(catalogAidStationSchema)
-    .parse(await catalogAidStationsResponse.json())
-    .map((station, index) => ({
-      ...station,
-      order_index: station.order_index ?? index,
-    }));
+  const gpxContent = await gpxResponse.text();
+  let parsedGpx;
 
-  const planId = randomUUID();
-  const planGpxPath = `${supabaseUser.id}/${planId}.gpx`;
+  try {
+    parsedGpx = parseGpx(gpxContent);
+  } catch (error) {
+    console.error("Unable to parse catalog GPX", error);
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid GPX file." }, { status: 422 }));
+  }
 
   const copyResponse = await fetch(`${supabaseService.supabaseUrl}/storage/v1/object/copy`, {
     method: "POST",
@@ -165,8 +203,8 @@ export async function POST(request: NextRequest) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      bucketId: "race-catalog-gpx",
-      sourceKey: catalogRace.gpx_path,
+      bucketId: "race-gpx",
+      sourceKey: catalogRace.gpx_storage_path,
       destinationBucket: "plan-gpx",
       destinationKey: planGpxPath,
     }),
@@ -179,22 +217,30 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const plannerAidStations = catalogAidStations.map((station) => ({
-    name: station.name,
-    distanceKm: Number(station.km),
-    waterRefill: station.water_available,
+  const elevationProfile = parsedGpx.points.map((point) => ({
+    distanceKm: Number(point.distKmCum.toFixed(2)),
+    elevationM: Number((point.ele ?? 0).toFixed(1)),
   }));
 
+  const plannerAidStations = mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints);
+
   const plannerValues = {
-    raceDistanceKm: Number(catalogRace.distance_km),
-    elevationGain: Number(catalogRace.elevation_gain_m),
+    raceDistanceKm: parsedGpx.stats.distanceKm || Number(catalogRace.distance_km),
+    elevationGain: parsedGpx.stats.gainM || Number(catalogRace.elevation_gain_m),
     aidStations: plannerAidStations,
   };
 
+  const gpxHash = catalogRace.gpx_sha256 ?? createHash("sha256").update(gpxContent).digest("hex");
+
   const planCourseStats = {
-    distanceKm: Number(catalogRace.distance_km),
-    elevationGainM: Number(catalogRace.elevation_gain_m),
-    gpxHash: catalogRace.gpx_hash,
+    distanceKm: parsedGpx.stats.distanceKm,
+    elevationGainM: parsedGpx.stats.gainM,
+    elevationLossM: parsedGpx.stats.lossM,
+    minAltM: parsedGpx.stats.minAltM,
+    maxAltM: parsedGpx.stats.maxAltM,
+    startLat: parsedGpx.stats.startLat,
+    startLng: parsedGpx.stats.startLng,
+    gpxHash,
   };
 
   const planResponse = await fetch(`${supabaseAnon.supabaseUrl}/rest/v1/race_plans`, {
@@ -207,7 +253,7 @@ export async function POST(request: NextRequest) {
       id: planId,
       name: catalogRace.name,
       planner_values: plannerValues,
-      elevation_profile: [],
+      elevation_profile: elevationProfile,
       catalog_race_id: catalogRace.id,
       catalog_race_updated_at_at_import: catalogRace.updated_at,
       plan_gpx_path: planGpxPath,
@@ -230,7 +276,7 @@ export async function POST(request: NextRequest) {
 
   const planRow = planRowSchema.parse((await planResponse.json())?.[0]);
 
-  if (catalogAidStations.length > 0) {
+  if (plannerAidStations.length > 0) {
     const insertResponse = await fetch(`${supabaseAnon.supabaseUrl}/rest/v1/plan_aid_stations`, {
       method: "POST",
       headers: {
@@ -238,13 +284,13 @@ export async function POST(request: NextRequest) {
         Prefer: "return=minimal",
       },
       body: JSON.stringify(
-        catalogAidStations.map((station) => ({
+        plannerAidStations.map((station, index) => ({
           plan_id: planId,
           name: station.name,
-          km: station.km,
-          water_available: station.water_available,
-          notes: station.notes ?? null,
-          order_index: station.order_index ?? 0,
+          km: station.distanceKm,
+          water_available: station.waterRefill ?? true,
+          notes: null,
+          order_index: index,
         }))
       ),
       cache: "no-store",
