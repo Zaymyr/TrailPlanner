@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 import { z } from "zod";
 
 import type { RacePlannerTranslations } from "../../../../locales/types";
@@ -49,6 +50,7 @@ type RaceCatalogModalProps = {
 
 const formatNumber = (value: number, maximumFractionDigits = 0) =>
   new Intl.NumberFormat(undefined, { maximumFractionDigits }).format(value);
+const passthroughImageLoader = ({ src }: { src: string }) => src;
 
 export function RaceCatalogModal({
   open,
@@ -111,10 +113,6 @@ export function RaceCatalogModal({
         throw new Error(payload?.message ?? copy.admin.errors.updateFailed);
       }
       return response.json();
-    },
-    onMutate: () => {
-      setAdminMessage(null);
-      setAdminError(null);
     },
     onSuccess: () => {
       setAdminError(null);
@@ -186,9 +184,13 @@ export function RaceCatalogModal({
                     <TableRow key={race.id}>
                       <TableCell className="w-20">
                         {race.thumbnail_url ? (
-                          <img
+                          <Image
                             src={race.thumbnail_url}
                             alt={race.name}
+                            width={64}
+                            height={48}
+                            loader={passthroughImageLoader}
+                            unoptimized
                             className="h-12 w-16 rounded-md object-cover"
                           />
                         ) : (
@@ -239,6 +241,8 @@ export function RaceCatalogModal({
                                 onChange={(event) => {
                                   const file = event.target.files?.[0];
                                   if (!file) return;
+                                  setAdminMessage(null);
+                                  setAdminError(null);
                                   setUpdatingRaceId(race.id);
                                   handleUpdateMutation.mutate({ raceId: race.id, file });
                                   event.target.value = "";
