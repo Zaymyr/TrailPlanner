@@ -38,6 +38,7 @@ import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerL
 import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
+import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
 import {
@@ -962,6 +963,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
+  const [isRaceCatalogOpen, setIsRaceCatalogOpen] = useState(false);
+  const [catalogSubmissionId, setCatalogSubmissionId] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
@@ -1609,7 +1612,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   };
 
-  const handleLoadPlan = (plan: SavedPlan) => {
+  const handleLoadPlan = (plan: SavedPlan, message: string = racePlannerCopy.account.messages.loadedPlan) => {
     const sanitizedAidStations = sanitizeAidStations(plan.plannerValues.aidStations) ?? [];
     const aidStations = sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
     const startSupplies = sanitizeSegmentPlan({ supplies: plan.plannerValues.startSupplies }).supplies ?? [];
@@ -1626,7 +1629,62 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setElevationProfile(plan.elevationProfile);
     setPlanName(plan.name);
     setActivePlanId(plan.id);
-    setAccountMessage(racePlannerCopy.account.messages.loadedPlan);
+    setAccountMessage(message);
+  };
+
+  const handleUseCatalogRace = async (raceId: string) => {
+    setAccountError(null);
+    setAccountMessage(null);
+
+    if (!session?.accessToken) {
+      setAccountError(racePlannerCopy.raceCatalog.errors.authRequired);
+      return;
+    }
+
+    setCatalogSubmissionId(raceId);
+
+    try {
+      const response = await fetch("/api/plans/from-catalog", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify({ catalogRaceId: raceId }),
+      });
+
+      const data = (await response.json().catch(() => null)) as { plan?: Record<string, unknown>; message?: string } | null;
+
+      if (response.status === 402) {
+        const message = data?.message ?? premiumCopy.planLimitReached;
+        setAccountError(message);
+        requestPremiumUpgrade(message, "plans");
+        return;
+      }
+
+      if (!response.ok || !data?.plan) {
+        setAccountError(data?.message ?? racePlannerCopy.raceCatalog.errors.createFailed);
+        return;
+      }
+
+      const parsedPlan = mapSavedPlan(data.plan);
+
+      if (!parsedPlan) {
+        setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
+        return;
+      }
+
+      setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
+      setPlanName(parsedPlan.name);
+      setActivePlanId(parsedPlan.id);
+      handleLoadPlan(parsedPlan, racePlannerCopy.raceCatalog.messages.created);
+      setIsRaceCatalogOpen(false);
+    } catch (error) {
+      console.error("Unable to create plan from catalog", error);
+      setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
+    } finally {
+      setCatalogSubmissionId(null);
+    }
   };
 
   const handleDeletePlan = async (planId: string) => {
@@ -2070,6 +2128,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 {racePlannerCopy.buttons.importGpx}
               </Button>
               <Button
+                variant="outline"
+                type="button"
+                className="h-9 px-3 text-xs"
+                onClick={() => setIsRaceCatalogOpen(true)}
+              >
+                {racePlannerCopy.buttons.chooseRace}
+              </Button>
+              <Button
                 type="button"
                 className="relative h-9 px-3 text-xs"
                 onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
@@ -2138,6 +2204,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {racePlannerCopy.buttons.importGpx}
+                </Button>
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="h-9 px-3 text-xs"
+                  onClick={() => setIsRaceCatalogOpen(true)}
+                >
+                  {racePlannerCopy.buttons.chooseRace}
                 </Button>
                 <Button
                   type="button"
@@ -2452,6 +2526,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             </div>
           </div>
         ) : null}
+
+        <RaceCatalogModal
+          open={isRaceCatalogOpen}
+          isSubmittingId={catalogSubmissionId}
+          copy={{ ...racePlannerCopy.raceCatalog, units: racePlannerCopy.units }}
+          onClose={() => setIsRaceCatalogOpen(false)}
+          onUseRace={handleUseCatalogRace}
+        />
 
         {!isDesktopApp && (
           <Button
