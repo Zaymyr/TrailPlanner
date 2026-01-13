@@ -212,9 +212,26 @@ export async function POST(request: NextRequest) {
 
   if (!copyResponse.ok) {
     console.error("Unable to copy catalog GPX", await copyResponse.text());
-    return withSecurityHeaders(
-      NextResponse.json({ message: "Unable to copy race GPX." }, { status: 502 })
+    const uploadResponse = await fetch(
+      `${supabaseService.supabaseUrl}/storage/v1/object/plan-gpx/${planGpxPath}`,
+      {
+        method: "POST",
+        headers: {
+          apikey: supabaseService.supabaseServiceRoleKey,
+          Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+          "Content-Type": "application/gpx+xml",
+          "x-upsert": "true",
+        },
+        body: gpxContent,
+      }
     );
+
+    if (!uploadResponse.ok) {
+      console.error("Unable to upload catalog GPX", await uploadResponse.text());
+      return withSecurityHeaders(
+        NextResponse.json({ message: "Unable to copy race GPX." }, { status: 502 })
+      );
+    }
   }
 
   const elevationProfile = parsedGpx.points.map((point) => ({
