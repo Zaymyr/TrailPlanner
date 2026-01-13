@@ -109,6 +109,17 @@ const createRaceSchema = z.object({
     .transform((value) => (value === "false" ? false : true)),
 });
 
+const buildSlug = (name: string) => {
+  const base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return base ? `${base}-${suffix}` : `race-${suffix}`;
+};
+
 export async function POST(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -198,6 +209,7 @@ export async function POST(request: NextRequest) {
 
   const gpxSha = createHash("sha256").update(gpxContent).digest("hex");
   const traceProvider = parsedFields.data.trace_provider ?? (parsedFields.data.trace_id ? "tracedetrail" : undefined);
+  const slug = buildSlug(raceName);
 
   const insertResponse = await fetch(`${supabaseAnon.supabaseUrl}/rest/v1/race_catalog`, {
     method: "POST",
@@ -209,6 +221,7 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({
       id: raceId,
+      slug,
       name: raceName,
       location_text: parsedFields.data.location_text ?? null,
       trace_provider: traceProvider ?? null,
