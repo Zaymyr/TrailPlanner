@@ -26,7 +26,6 @@ import type {
   Segment,
   SegmentPlan,
   StationSupply,
-  SpeedSample,
 } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
@@ -269,34 +268,6 @@ function slopeToColor(grade: number) {
   const channel = (from: number, to: number) => Math.round(from + (to - from) * t);
 
   return `rgb(${channel(start.r, end.r)}, ${channel(start.g, end.g)}, ${channel(start.b, end.b)})`;
-}
-
-function smoothSpeedSamples(samples: SpeedSample[], windowKm = 0.75): SpeedSample[] {
-  if (samples.length <= 2) return samples;
-
-  const halfWindow = windowKm / 2;
-  let left = 0;
-  let right = 0;
-  let runningSum = 0;
-
-  return samples.map((sample) => {
-    const center = sample.distanceKm;
-
-    while (left < samples.length && center - samples[left].distanceKm > halfWindow) {
-      runningSum -= samples[left].speedKph;
-      left += 1;
-    }
-
-    while (right < samples.length && samples[right].distanceKm - center <= halfWindow) {
-      runningSum += samples[right].speedKph;
-      right += 1;
-    }
-
-    const count = Math.max(right - left, 1);
-    const average = runningSum / count;
-
-    return { distanceKm: sample.distanceKm, speedKph: average };
-  });
 }
 
 function buildSegments(
@@ -2134,7 +2105,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                     defaultValues.raceDistanceKm
                   }
                   copy={racePlannerCopy}
-                  baseMinutesPerKm={baseMinutesPerKm}
                 />
               </div>
 
@@ -2641,13 +2611,11 @@ function ElevationProfileChart({
   aidStations,
   totalDistanceKm,
   copy,
-  baseMinutesPerKm,
 }: {
   profile: ElevationPoint[];
   aidStations: AidStation[];
   totalDistanceKm: number;
   copy: RacePlannerTranslations;
-  baseMinutesPerKm: number | null;
 }) {
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const [chartWidth, setChartWidth] = useState(900);
@@ -2673,12 +2641,8 @@ function ElevationProfileChart({
   const paddingX = 20;
   const paddingY = 14;
   const elevationAreaHeight = 150;
-  const speedAreaHeight = 80;
-  const verticalGap = 20;
-  const height = paddingY + elevationAreaHeight + verticalGap + speedAreaHeight + paddingY;
+  const height = paddingY + elevationAreaHeight + paddingY;
   const elevationBottom = paddingY + elevationAreaHeight;
-  const speedTop = elevationBottom + verticalGap;
-  const speedBottom = speedTop + speedAreaHeight;
   const maxElevation = Math.max(...profile.map((p) => p.elevationM));
   const minElevation = Math.min(...profile.map((p) => p.elevationM));
   const elevationRange = Math.max(maxElevation - minElevation, 1);
@@ -2728,39 +2692,11 @@ function ElevationProfileChart({
     };
   });
 
-  let cumulativeMinutes = 0;
-  const speedSamples =
-    !baseMinutesPerKm || baseMinutesPerKm <= 0
-      ? []
-      : profile.slice(1).reduce<SpeedSample[]>((samples, point, index) => {
-          const prev = profile[index];
-          const segmentKm = Math.max(point.distanceKm - prev.distanceKm, 0);
-          if (segmentKm === 0) return samples;
-
-          const minutes = adjustedSegmentMinutes(baseMinutesPerKm, segmentKm);
-          if (minutes <= 0) return samples;
-
-          cumulativeMinutes += minutes;
-          const cumulativeDistanceKm = point.distanceKm;
-          const averageSpeedKph = cumulativeDistanceKm / (cumulativeMinutes / 60);
-
-          return [...samples, { distanceKm: cumulativeDistanceKm, speedKph: averageSpeedKph }];
-        }, []);
-  const smoothedSpeedSamples = smoothSpeedSamples(speedSamples, 1.6);
-  const maxSpeedKph = smoothedSpeedSamples.length > 0 ? Math.max(...smoothedSpeedSamples.map((s) => s.speedKph)) : 0;
-  const minSpeedKph = smoothedSpeedSamples.length > 0 ? Math.min(...smoothedSpeedSamples.map((s) => s.speedKph)) : 0;
-  const speedRange = Math.max(maxSpeedKph - minSpeedKph, 1);
-  const speedYScale = (speedKph: number) =>
-    speedBottom - ((speedKph - minSpeedKph) / speedRange) * speedAreaHeight;
-  const speedPath = smoothedSpeedSamples
-    .map((sample, index) => `${index === 0 ? "M" : "L"}${xScale(sample.distanceKm)},${speedYScale(sample.speedKph)}`)
-    .join(" ");
-
   return (
     <div ref={chartContainerRef} className="w-full">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-[220px] w-full"
+        className="h-[190px] w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
       >
@@ -2801,70 +2737,6 @@ function ElevationProfileChart({
             strokeLinecap="round"
           />
         ))}
-
-        {smoothedSpeedSamples.length > 1 && speedPath && (
-          <>
-            <rect
-              x={paddingX}
-              y={speedTop - 10}
-              width={width - paddingX * 2}
-              height={speedAreaHeight + 20}
-              rx={10}
-              className="fill-slate-900/40"
-            />
-            <line
-              x1={paddingX}
-              x2={width - paddingX}
-              y1={speedBottom}
-              y2={speedBottom}
-              stroke="#0f172a"
-              strokeWidth={1}
-            />
-            <path
-              d={speedPath}
-              fill="none"
-              stroke="#22d3ee"
-              strokeWidth={2.25}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="drop-shadow-[0_1px_4px_rgba(34,211,238,0.3)]"
-            />
-            <g>
-              <rect
-                x={width - paddingX - 140}
-                y={speedTop}
-                width={120}
-                height={20}
-                rx={4}
-                className="fill-slate-900/70"
-              />
-              <text
-                x={width - paddingX - 80}
-                y={speedTop + 14}
-                className="fill-cyan-200 text-[10px]"
-                textAnchor="middle"
-              >
-                {`${copy.sections.courseProfile.speedLabel} (${copy.sections.courseProfile.speedUnit})`}
-              </text>
-            </g>
-            <text
-              x={width - paddingX}
-              y={speedYScale(maxSpeedKph) - 4}
-              className="fill-cyan-100 text-[10px]"
-              textAnchor="end"
-            >
-              {`${maxSpeedKph.toFixed(1)} ${copy.sections.courseProfile.speedUnit}`}
-            </text>
-            <text
-              x={width - paddingX}
-              y={speedYScale(minSpeedKph) + 12}
-              className="fill-cyan-100 text-[10px]"
-              textAnchor="end"
-            >
-              {`${minSpeedKph.toFixed(1)} ${copy.sections.courseProfile.speedUnit}`}
-            </text>
-          </>
-        )}
 
         {aidStations.map((station) => {
           const x = xScale(station.distanceKm);
