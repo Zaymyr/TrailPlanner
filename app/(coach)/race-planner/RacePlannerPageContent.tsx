@@ -41,6 +41,11 @@ import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
+import {
+  clearRacePlannerStorage,
+  readRacePlannerStorage,
+  writeRacePlannerStorage,
+} from "../../../lib/race-planner-storage";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -523,6 +528,24 @@ type PlannerStatePayload = {
   elevationProfile?: ElevationPoint[];
 };
 
+type PlannerStorageValues = Partial<FormValues> & { startSupplies?: StationSupply[] };
+
+const sanitizeRacePlannerStorage = (
+  payload?: { values?: Partial<FormValues>; elevationProfile?: ElevationPoint[] } | null
+): { values: Partial<FormValues>; elevationProfile: ElevationPoint[] } | null => {
+  if (!payload) return null;
+
+  const sanitizedValues = sanitizePlannerValues(payload.values);
+  const sanitizedElevationProfile = sanitizeElevationProfile(payload.elevationProfile);
+
+  if (!sanitizedValues) return null;
+
+  return {
+    values: sanitizedValues,
+    elevationProfile: sanitizedElevationProfile,
+  };
+};
+
 function decodePlannerState(xml: Document): { state: PlannerStatePayload | null; invalid: boolean } {
   const stateNode =
     xml.getElementsByTagName("trailplanner:state")[0] ?? xml.getElementsByTagName("plannerState")[0];
@@ -923,6 +946,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       window.localStorage.removeItem(SESSION_EMAIL_KEY);
     }
 
+    clearRacePlannerStorage();
     setSession(null);
     setSavedPlans([]);
     setActivePlanId(null);
@@ -1004,6 +1028,46 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
     }
   }, [verifySession]);
+
+  useEffect(() => {
+    const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
+    const sanitized = sanitizeRacePlannerStorage(storedPlanner);
+
+    if (!sanitized) {
+      clearRacePlannerStorage();
+      return;
+    }
+
+    const storedValues = sanitized.values;
+    const sanitizedAidStations = sanitizeAidStations(storedValues.aidStations) ?? [];
+    const aidStations =
+      sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
+    const startSupplies = sanitizeSegmentPlan({ supplies: storedValues.startSupplies }).supplies ?? [];
+
+    const mergedValues: FormValues = {
+      ...defaultValues,
+      ...storedValues,
+      aidStations,
+      startSupplies,
+      finishPlan: storedValues.finishPlan ?? defaultValues.finishPlan,
+    };
+
+    form.reset(mergedValues, { keepDefaultValues: true });
+    setElevationProfile(sanitized.elevationProfile);
+  }, [defaultValues, form]);
+
+  useEffect(() => {
+    const currentValues = form.getValues();
+    const sanitizedValues = sanitizePlannerValues(currentValues);
+    if (!sanitizedValues) return;
+
+    writeRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>({
+      version: 1,
+      values: sanitizedValues,
+      elevationProfile: sanitizeElevationProfile(elevationProfile),
+      updatedAt: new Date().toISOString(),
+    });
+  }, [elevationProfile, form, watchedValues]);
 
   useEffect(() => {
     if (!session?.accessToken) {
