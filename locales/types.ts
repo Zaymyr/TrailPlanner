@@ -310,9 +310,43 @@ export type RacePlannerTranslations = {
   buttons: {
     importGpx: string;
     exportGpx: string;
+    chooseRace: string;
     printPlan: string;
     autoFill: string;
     autoFillHint: string;
+  };
+  raceCatalog: {
+    title: string;
+    description: string;
+    close: string;
+    searchPlaceholder: string;
+    loading: string;
+    loadError: string;
+    empty: string;
+    useAction: string;
+    using: string;
+    table: {
+      image: string;
+      name: string;
+      distance: string;
+      elevation: string;
+      location: string;
+      link: string;
+      action: string;
+      viewLink: string;
+      noImage: string;
+    };
+    errors: {
+      authRequired: string;
+      createFailed: string;
+    };
+    messages: {
+      created: string;
+    };
+    units: {
+      kilometer: string;
+      meter: string;
+    };
   };
   account: {
     title: string;

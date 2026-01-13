@@ -405,9 +405,43 @@ export const en: Translations = {
     buttons: {
       importGpx: "Import GPX",
       exportGpx: "Export GPX",
+      chooseRace: "Choose a race",
       printPlan: "Print plan",
       autoFill: "Automatic fill",
       autoFillHint: "Automatically fills each aid station with your favorite fuel choices.",
+    },
+    raceCatalog: {
+      title: "Race catalog",
+      description: "Pick an official race course to start from a curated GPX and aid station list.",
+      close: "Close",
+      searchPlaceholder: "Search races, locations, or slugs",
+      loading: "Loading races...",
+      loadError: "Unable to load the race catalog right now.",
+      empty: "No races match your search yet.",
+      useAction: "Use",
+      using: "Using...",
+      table: {
+        image: "Image",
+        name: "Race",
+        distance: "Distance",
+        elevation: "D+",
+        location: "Location",
+        link: "Link",
+        action: "Action",
+        viewLink: "View",
+        noImage: "No image",
+      },
+      errors: {
+        authRequired: "Please sign in to use the race catalog.",
+        createFailed: "Unable to create a plan from this race.",
+      },
+      messages: {
+        created: "Catalog race loaded. Your plan is ready to customize.",
+      },
+      units: {
+        kilometer: "km",
+        meter: "m",
+      },
     },
     account: {
       title: "Save your plan",

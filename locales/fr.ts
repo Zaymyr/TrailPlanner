@@ -415,9 +415,43 @@ export const fr: Translations = {
     buttons: {
       importGpx: "Importer un GPX",
       exportGpx: "Exporter le GPX",
+      chooseRace: "Choisir une course",
       printPlan: "Imprimer le plan",
       autoFill: "Remplissage auto",
       autoFillHint: "Remplit automatiquement chaque ravito avec tes produits favoris.",
+    },
+    raceCatalog: {
+      title: "Catalogue de courses",
+      description: "Partez d'un parcours officiel avec un GPX et des ravitos préconfigurés.",
+      close: "Fermer",
+      searchPlaceholder: "Rechercher une course, une ville ou un slug",
+      loading: "Chargement des courses...",
+      loadError: "Impossible de charger le catalogue pour le moment.",
+      empty: "Aucune course ne correspond à votre recherche.",
+      useAction: "Utiliser",
+      using: "Chargement...",
+      table: {
+        image: "Image",
+        name: "Course",
+        distance: "Distance",
+        elevation: "D+",
+        location: "Lieu",
+        link: "Lien",
+        action: "Action",
+        viewLink: "Voir",
+        noImage: "Aucune image",
+      },
+      errors: {
+        authRequired: "Connectez-vous pour utiliser le catalogue de courses.",
+        createFailed: "Impossible de créer un plan à partir de cette course.",
+      },
+      messages: {
+        created: "Course chargée. Votre plan est prêt à être personnalisé.",
+      },
+      units: {
+        kilometer: "km",
+        meter: "m",
+      },
     },
     account: {
       title: "Enregistrer votre plan",
