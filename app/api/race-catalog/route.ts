@@ -228,6 +228,8 @@ export async function POST(request: NextRequest) {
       trace_id: parsedFields.data.trace_id ?? null,
       external_site_url: parsedFields.data.external_site_url ?? null,
       thumbnail_url: parsedFields.data.thumbnail_url ?? null,
+      gpx_path: storagePath,
+      gpx_hash: gpxSha,
       gpx_storage_path: storagePath,
       gpx_sha256: gpxSha,
       distance_km: parsedGpx.stats.distanceKm,
