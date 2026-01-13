@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
@@ -832,26 +833,32 @@ export function ActionPlan({
   }, [productById, raceTotals?.durationMinutes, segments, startSupplies]);
   const metricIcons = {
     carbs: (
-      <img
+      <Image
         src="/race-planner/icons/glucide.png"
         alt=""
         aria-hidden
+        width={16}
+        height={16}
         className="h-4 w-4 object-contain"
       />
     ),
     water: (
-      <img
+      <Image
         src="/race-planner/icons/water.png"
         alt=""
         aria-hidden
+        width={16}
+        height={16}
         className="h-4 w-4 object-contain"
       />
     ),
     sodium: (
-      <img
+      <Image
         src="/race-planner/icons/sodium.png"
         alt=""
         aria-hidden
+        width={16}
+        height={16}
         className="h-4 w-4 object-contain"
       />
     ),
@@ -1083,17 +1090,21 @@ export function ActionPlan({
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
                 const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
                 const pointIconLarge = item.isStart ? (
-                  <img
+                  <Image
                     src="/race-planner/icons/start.svg"
                     alt=""
                     aria-hidden
+                    width={32}
+                    height={32}
                     className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
-                  <img
+                  <Image
                     src="/race-planner/icons/ravito.svg"
                     alt=""
                     aria-hidden
+                    width={32}
+                    height={32}
                     className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : null;
