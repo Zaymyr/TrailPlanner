@@ -69,12 +69,19 @@ export type PasswordResetTranslations = {
   backToSignIn: string;
 };
 
+export type SessionExpiredTranslations = {
+  title: string;
+  description: string;
+  reconnect: string;
+};
+
 export type AuthTranslations = {
   shared: AuthSharedTranslations;
   signUp: SignUpTranslations;
   signIn: SignInTranslations;
   passwordResetRequest: PasswordResetRequestTranslations;
   passwordReset: PasswordResetTranslations;
+  sessionExpired: SessionExpiredTranslations;
 };
 
 export type HomeHeroTranslations = {

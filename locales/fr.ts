@@ -184,6 +184,11 @@ export const fr: Translations = {
       invalidLink: "Ce lien de réinitialisation est invalide ou expiré.",
       backToSignIn: "Retour à la connexion",
     },
+    sessionExpired: {
+      title: "Session expirée",
+      description: "Tu as été déconnecté après une période d’inactivité. Reconnecte-toi pour continuer.",
+      reconnect: "Se reconnecter",
+    },
   },
   racePlanner: {
     defaults: {
