@@ -59,13 +59,11 @@ export function SessionExpiredDialog() {
       }
     };
 
-    const passiveOptions = { passive: true } as const;
-
     window.addEventListener("pointerdown", markActive);
     window.addEventListener("keydown", markActive);
     window.addEventListener("mousemove", markActive);
-    window.addEventListener("touchstart", markActive, passiveOptions);
-    window.addEventListener("scroll", markActive, passiveOptions);
+    window.addEventListener("touchstart", markActive);
+    window.addEventListener("scroll", markActive);
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -84,8 +82,8 @@ export function SessionExpiredDialog() {
       window.removeEventListener("pointerdown", markActive);
       window.removeEventListener("keydown", markActive);
       window.removeEventListener("mousemove", markActive);
-      window.removeEventListener("touchstart", markActive, passiveOptions);
-      window.removeEventListener("scroll", markActive, passiveOptions);
+      window.removeEventListener("touchstart", markActive);
+      window.removeEventListener("scroll", markActive);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibility);
       window.clearInterval(interval);
