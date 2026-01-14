@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { clearStoredSession, readStoredSession } from "../../lib/auth-storage";
+import {
+  ACCESS_TOKEN_KEY,
+  REFRESH_TOKEN_KEY,
+  SESSION_EMAIL_KEY,
+  clearStoredSession,
+  readStoredSession,
+} from "../../lib/auth-storage";
 import { clearRacePlannerStorage } from "../../lib/race-planner-storage";
 
 export type VerifiedSession = {
@@ -81,6 +87,45 @@ export const useVerifiedSession = () => {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+
+    const handleFocus = () => {
+      void refresh();
+    };
+
+    const handleStorage = (event: StorageEvent) => {
+      if (
+        event.key &&
+        ![ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY].includes(event.key)
+      ) {
+        return;
+      }
+
+      const stored = readStoredSession();
+      if (!stored?.accessToken) {
+        clearSession();
+        return;
+      }
+
+      void refresh();
+    };
+
+    window.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [clearSession, refresh]);
 
   return { session, isLoading, refresh, clearSession };
 };
