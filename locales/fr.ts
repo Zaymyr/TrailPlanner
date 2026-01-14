@@ -507,6 +507,8 @@ export const fr: Translations = {
         save: "Enregistrer le plan",
         saving: "Enregistrement...",
         refresh: "Rafraîchir",
+        searchLabel: "Rechercher un plan enregistré",
+        searchPlaceholder: "Rechercher par nom de plan",
         load: "Charger",
         delete: "Supprimer",
         empty: "Aucun plan enregistré pour le moment.",

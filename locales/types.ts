@@ -404,6 +404,8 @@ export type RacePlannerTranslations = {
       save: string;
       saving: string;
       refresh: string;
+      searchLabel: string;
+      searchPlaceholder: string;
       load: string;
       delete: string;
       empty: string;

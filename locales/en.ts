@@ -497,6 +497,8 @@ export const en: Translations = {
         save: "Save plan",
         saving: "Saving...",
         refresh: "Refresh",
+        searchLabel: "Search saved plans",
+        searchPlaceholder: "Search by plan name",
         load: "Load",
         delete: "Delete",
         empty: "No saved plans yet.",
