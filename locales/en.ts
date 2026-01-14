@@ -176,6 +176,11 @@ export const en: Translations = {
       invalidLink: "This reset link is invalid or has expired.",
       backToSignIn: "Back to sign in",
     },
+    sessionExpired: {
+      title: "Session expired",
+      description: "You were signed out after being inactive. Please sign in again to continue.",
+      reconnect: "Sign in again",
+    },
   },
   racePlanner: {
     defaults: {

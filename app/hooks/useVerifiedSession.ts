@@ -35,13 +35,13 @@ export const useVerifiedSession = () => {
     setIsLoading(false);
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     const stored = readStoredSession();
 
     if (!stored?.accessToken) {
       clearSession();
-      return;
+      return false;
     }
 
     try {
@@ -55,7 +55,7 @@ export const useVerifiedSession = () => {
 
       if (!response.ok) {
         clearSession();
-        return;
+        return false;
       }
 
       const data = (await response.json().catch(() => null)) as SessionResponse | null;
@@ -70,9 +70,11 @@ export const useVerifiedSession = () => {
         roles: user?.roles,
       });
       setIsLoading(false);
+      return true;
     } catch (error) {
       console.error("Unable to verify session", error);
       clearSession();
+      return false;
     }
   }, [clearSession]);
 
