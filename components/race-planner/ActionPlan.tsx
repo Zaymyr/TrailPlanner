@@ -157,12 +157,12 @@ function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
         <span>{title}</span>
       </div>
       <div className="mt-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
           {primary.label}
         </p>
         <p className="text-lg font-semibold text-foreground dark:text-slate-50">{primary.value}</p>
         {primary.helper ? (
-          <p className="text-[11px] text-muted-foreground dark:text-slate-400">{primary.helper}</p>
+          <p className="text-xs text-muted-foreground dark:text-slate-400">{primary.helper}</p>
         ) : null}
       </div>
       {secondary?.length ? (
@@ -215,7 +215,7 @@ function FinishSummaryCard({
       <div className="mt-4 border-t border-border/70 pt-3">
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-background px-4 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
           aria-expanded={isExpanded}
           aria-controls={detailsId}
           onClick={onToggleDetails}
@@ -347,9 +347,9 @@ function SegmentCard({
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[11px] font-semibold"
+            ? "flex items-center justify-between text-xs font-semibold"
             : isCompact
-              ? "flex items-center justify-between text-[11px] font-semibold"
+              ? "flex items-center justify-between text-xs font-semibold"
               : "flex items-center justify-between text-xs font-semibold"
         }
       >
@@ -444,7 +444,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
           </span>
           <div className="flex flex-col">
             {isCompact ? (
-              <p className="text-[11px] font-semibold text-foreground dark:text-slate-200">{metric.name}</p>
+              <p className="text-xs font-semibold text-foreground dark:text-slate-200">{metric.name}</p>
             ) : (
               <>
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
@@ -503,7 +503,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
           {isCompact ? (
             <div className="relative h-2.5">
               <span
-                className="absolute top-0 -translate-x-1/2 text-[9px] font-semibold text-muted-foreground dark:text-slate-400"
+                className="absolute top-0 -translate-x-1/2 text-xs font-semibold text-muted-foreground dark:text-slate-400"
                 style={{ left: `${targetPercent}%` }}
               >
                 {compactTarget}
@@ -511,7 +511,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             </div>
           ) : null}
           {isCompact ? (
-            metric.helper ? <p className="text-[9px] font-semibold text-amber-200/80">{metric.helper}</p> : null
+            metric.helper ? <p className="text-xs font-semibold text-amber-200/80">{metric.helper}</p> : null
           ) : (
             <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-slate-200">
               <span className="font-semibold">
@@ -635,7 +635,7 @@ type EmbarkedSummaryBoxProps = {
 function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
   return (
     <div className="w-full rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5 md:max-w-[300px]">
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {items.map((item) => (
           <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
             <span className="flex items-center gap-2">
@@ -675,13 +675,13 @@ function AidStationCollapsedRow({
 }: AidStationCollapsedRowProps) {
   return (
     <div className="rounded-2xl border-2 border-blue-500/70 bg-card px-4 py-3 shadow-md dark:border-blue-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
-      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+      <div className="flex flex-wrap items-center gap-4 md:gap-5">
         <div className="relative flex shrink-0 flex-col items-center gap-2">
           {badge ? (
             badge
           ) : (
             <>
-              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
+              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-xs font-semibold text-emerald-100">
                 {pointIndex}
               </span>
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground dark:bg-slate-900/70 dark:text-slate-50">
@@ -694,10 +694,10 @@ function AidStationCollapsedRow({
             <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
           </div>
         </div>
-        <div className="min-w-0 flex-1 space-y-1 md:order-1">
+        <div className="min-w-0 flex-1 space-y-2 md:order-1">
           <div className="truncate text-sm font-semibold text-foreground dark:text-slate-50">{title}</div>
           <div className="truncate text-xs text-muted-foreground dark:text-slate-300">{metaLine}</div>
-          <div className="truncate text-[11px] text-muted-foreground dark:text-slate-400">{pauseLine}</div>
+          <div className="truncate text-xs text-muted-foreground dark:text-slate-400">{pauseLine}</div>
         </div>
         <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
           {segmentCard}
@@ -1065,7 +1065,7 @@ export function ActionPlan({
             descriptionAsTooltip
           action={
             <div className="flex items-center gap-2">
-              <Button type="button" onClick={openCreateEditor}>
+              <Button type="button" className="min-h-11" onClick={openCreateEditor}>
                 {aidStationsCopy.add}
               </Button>
               {segments.length > 0 ? (
@@ -1075,6 +1075,7 @@ export function ActionPlan({
                   onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
+                  className="min-h-11"
                 >
                   <span className="flex items-center gap-1.5" title={autoFillLocked ? "Premium feature" : undefined}>
                     {autoFillLocked ? <PremiumSparklesIcon aria-hidden /> : null}
@@ -1086,7 +1087,7 @@ export function ActionPlan({
                 <Button
                   type="button"
                   variant="outline"
-                  className="hidden sm:inline-flex"
+                  className="hidden min-h-11 sm:inline-flex"
                   onClick={exportLocked ? () => onUpgrade("print") : onPrint}
                   disabled={exportLocked && isUpgradeBusy}
                 >
@@ -1109,7 +1110,7 @@ export function ActionPlan({
             <Button
               type="button"
               variant="ghost"
-              className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+              className="min-h-11 rounded-full border border-border bg-background px-4 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
               onClick={() => setAllAidStationCollapse(false)}
               disabled={collapsibleKeys.length === 0}
             >
@@ -1118,7 +1119,7 @@ export function ActionPlan({
             <Button
               type="button"
               variant="ghost"
-              className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+              className="min-h-11 rounded-full border border-border bg-background px-4 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
               onClick={() => setAllAidStationCollapse(true)}
               disabled={collapsibleKeys.length === 0}
             >
@@ -1178,9 +1179,9 @@ export function ActionPlan({
                   <AidStationBadge step={pointNumber} variant="ravito" />
                 ) : null;
                 const metaContent = (
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <div>{metaText}</div>
-                    <div className="text-[11px] text-muted-foreground dark:text-slate-400">
+                    <div className="text-xs text-muted-foreground dark:text-slate-400">
                       {timelineCopy.pauseLabel}: {pauseMinutesValue}
                     </div>
                   </div>
@@ -1190,7 +1191,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                      className="min-h-11 min-w-11 rounded-full border border-border bg-background px-0 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
                       onClick={() => toggleAidStationCollapse(collapseKey)}
                       aria-label={toggleLabel}
                       title={toggleLabel}
@@ -1205,10 +1206,10 @@ export function ActionPlan({
 
                 const waterRefillToggle =
                   distanceFieldName && !isCollapsed && waterRefillFieldName ? (
-                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                    <label className="inline-flex min-h-11 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                        className="h-5 w-5 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
                         {...register(waterRefillFieldName)}
                       />
                       <span>{aidStationsCopy.labels.waterRefill}</span>
@@ -1244,7 +1245,7 @@ export function ActionPlan({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
+                                      className="min-h-11 min-w-11 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
                                       onClick={() => {
                                         if (quantity <= 1) {
                                           if (item.isStart) {
@@ -1268,7 +1269,7 @@ export function ActionPlan({
                                     <Button
                                       type="button"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
+                                      className="min-h-11 min-w-11 rounded-full border border-border bg-background text-muted-foreground hover:text-foreground dark:bg-slate-900/80 dark:text-slate-200 dark:hover:text-white"
                                       onClick={() => {
                                         if (item.isStart) {
                                           onStartSupplyDrop(product.id, 1);
@@ -1289,7 +1290,7 @@ export function ActionPlan({
                           <Button
                             type="button"
                             variant="outline"
-                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-background p-0 text-emerald-700 hover:bg-emerald-500/10 dark:bg-slate-950/60 dark:text-emerald-50"
+                            className="h-11 w-11 shrink-0 rounded-full border-emerald-400/50 bg-background p-0 text-emerald-700 hover:bg-emerald-500/10 dark:bg-slate-950/60 dark:text-emerald-50"
                             onClick={() =>
                               setSupplyPicker({
                                 type: item.isStart ? "start" : "aid",
@@ -1332,7 +1333,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
+                        className="min-h-11 min-w-11 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1352,7 +1353,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
+                        className="min-h-11 min-w-11 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1478,7 +1479,7 @@ export function ActionPlan({
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 w-9 rounded-full border border-red-200 bg-red-100 px-0 text-lg font-bold text-red-950 hover:bg-red-200 dark:border-red-500/50 dark:bg-red-500/10 dark:text-white dark:hover:bg-red-500/20"
+                      className="h-11 w-11 rounded-full border border-red-200 bg-red-100 px-0 text-lg font-bold text-red-950 hover:bg-red-200 dark:border-red-500/50 dark:bg-red-500/10 dark:text-white dark:hover:bg-red-500/20"
                       onClick={() => onRemoveAidStation(item.aidStationIndex as number)}
                     >
                       <span aria-hidden>×</span>
@@ -1751,23 +1752,23 @@ export function ActionPlan({
               <p className="text-sm font-semibold text-foreground dark:text-slate-50">
                 {editorState.mode === "edit" ? aidStationsCopy.title : aidStationsCopy.add}
               </p>
-              <Button variant="ghost" className="h-8 px-2" onClick={closeEditor}>
+              <Button variant="ghost" className="min-h-11 px-3" onClick={closeEditor}>
                 ✕
               </Button>
             </div>
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                <Label className="text-xs text-muted-foreground dark:text-slate-300">
                   {aidStationsCopy.labels.name}
                 </Label>
                 <Input
                   value={editorState.name}
                   onChange={(event) => updateEditorField("name", event.target.value)}
-                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
+                  className="min-h-11 border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                <Label className="text-xs text-muted-foreground dark:text-slate-300">
                   {aidStationsCopy.labels.distance}
                 </Label>
                 <Input
@@ -1776,12 +1777,12 @@ export function ActionPlan({
                   type="number"
                   step="0.5"
                   min="0"
-                  className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
+                  className="min-h-11 border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                 />
               </div>
               {editorState.mode === "edit" ? (
                 <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground dark:text-slate-300">
+                  <Label className="text-xs text-muted-foreground dark:text-slate-300">
                     {timelineCopy.pauseLabel}
                   </Label>
                   <Input
@@ -1790,17 +1791,19 @@ export function ActionPlan({
                     type="number"
                     step="1"
                     min="0"
-                    className="border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
+                    className="min-h-11 border-border bg-background text-sm font-semibold text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
                   />
                 </div>
               ) : null}
               {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
             </div>
             <div className="flex items-center justify-end gap-2">
-              <Button variant="ghost" onClick={closeEditor}>
+              <Button variant="ghost" className="min-h-11 px-4" onClick={closeEditor}>
                 Cancel
               </Button>
-              <Button onClick={handleEditorSave}>Save</Button>
+              <Button className="min-h-11 px-4" onClick={handleEditorSave}>
+                Save
+              </Button>
             </div>
           </div>
         </div>
@@ -1817,7 +1820,7 @@ export function ActionPlan({
                   {copy.sections.gels.description}
                 </p>
               </div>
-              <Button variant="ghost" className="h-8 px-2" onClick={() => setSupplyPicker(null)}>
+              <Button variant="ghost" className="min-h-11 px-3" onClick={() => setSupplyPicker(null)}>
                 ✕
               </Button>
             </div>
@@ -1826,7 +1829,7 @@ export function ActionPlan({
                 value={pickerSearch}
                 onChange={(event) => setPickerSearch(event.target.value)}
                 placeholder="Rechercher un produit..."
-                className="w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
+                className="min-h-11 w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
               />
               <p className="text-xs text-muted-foreground dark:text-slate-300">
                 {`${pickerFavorites.length}/3 favoris sélectionnés`}
@@ -1890,7 +1893,7 @@ export function ActionPlan({
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              className={`text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
+                              className={`inline-flex h-11 w-11 items-center justify-center text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
                               onClick={() => toggleFavorite(product.slug)}
                               aria-label="Favori"
                             >
@@ -1907,7 +1910,7 @@ export function ActionPlan({
                             <Button
                               type="button"
                               variant={isSelected ? "default" : "outline"}
-                              className="h-8 px-3 text-xs"
+                              className="min-h-11 px-4 text-xs"
                               onClick={() => handleSupplyToggle(product.slug)}
                             >
                               {isSelected ? "Sélectionné" : "Sélectionner"}

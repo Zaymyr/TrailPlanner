@@ -47,7 +47,7 @@ export function CommandCenter({
           id={sectionIds.pacing}
           className="border-border bg-card shadow-md md:col-span-2 dark:border-slate-800/70 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
         >
-          <CardHeader className="space-y-3 pb-3">
+          <CardHeader className="space-y-4 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-foreground dark:text-slate-100">
                 {copy.sections.raceInputs.pacingTitle}
@@ -74,7 +74,7 @@ export function CommandCenter({
                     <button
                       key={option.key}
                       type="button"
-                      className={`rounded px-3 py-1 text-xs font-semibold transition ${
+                      className={`min-h-11 rounded px-4 text-xs font-semibold transition ${
                         isActive
                           ? "bg-emerald-100 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.2)] dark:bg-emerald-500/20 dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
                           : "text-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-emerald-100"
@@ -88,14 +88,14 @@ export function CommandCenter({
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-end gap-3">
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap items-end gap-4">
               {pacingMode === "pace" ? (
                 <div className="flex flex-wrap gap-2">
                   <div className="w-[120px] space-y-1">
                     <Label
                       htmlFor="paceMinutes"
-                      className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                      className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
                     >
                       {copy.sections.raceInputs.fields.paceMinutes}
                     </Label>
@@ -118,7 +118,7 @@ export function CommandCenter({
                   <div className="w-[120px] space-y-1">
                     <Label
                       htmlFor="paceSeconds"
-                      className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                      className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
                     >
                       {copy.sections.raceInputs.fields.paceSeconds}
                     </Label>
@@ -146,7 +146,7 @@ export function CommandCenter({
                 <div className="w-[140px] space-y-1">
                   <Label
                     htmlFor="speedKph"
-                    className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                    className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
                   >
                     {copy.sections.raceInputs.fields.speedKph}
                   </Label>
@@ -176,17 +176,17 @@ export function CommandCenter({
           id={sectionIds.intake}
           className="border-border-strong bg-card shadow-md md:col-span-3 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
         >
-          <CardHeader className="pb-3">
+          <CardHeader className="space-y-2 pb-3">
             <p className="text-sm font-semibold text-foreground dark:text-slate-100">
               {copy.sections.raceInputs.nutritionTitle}
             </p>
             <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
           </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label
                 htmlFor="targetIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.targetIntakePerHour}
               </Label>
@@ -201,7 +201,7 @@ export function CommandCenter({
             <div className="space-y-1">
               <Label
                 htmlFor="waterIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.waterIntakePerHour}
               </Label>
@@ -217,7 +217,7 @@ export function CommandCenter({
             <div className="space-y-1">
               <Label
                 htmlFor="sodiumIntakePerHour"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.sodiumIntakePerHour}
               </Label>
@@ -233,7 +233,7 @@ export function CommandCenter({
             <div className="space-y-1">
               <Label
                 htmlFor="waterBagLiters"
-                className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.waterBagLiters}
               </Label>
