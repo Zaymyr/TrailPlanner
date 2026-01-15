@@ -59,7 +59,7 @@ export function CommandCenter({
               ) : null}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-400">
+              <p className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-400">
                 {copy.sections.raceInputs.fields.paceType}
               </p>
               <div className="flex items-center gap-2 rounded-md border border-border bg-background p-1 dark:border-slate-800/80 dark:bg-slate-900/80">
@@ -89,13 +89,13 @@ export function CommandCenter({
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
               {pacingMode === "pace" ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <div className="w-[120px] space-y-1">
                     <Label
                       htmlFor="paceMinutes"
-                      className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                      className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
                     >
                       {copy.sections.raceInputs.fields.paceMinutes}
                     </Label>
@@ -118,7 +118,7 @@ export function CommandCenter({
                   <div className="w-[120px] space-y-1">
                     <Label
                       htmlFor="paceSeconds"
-                      className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                      className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
                     >
                       {copy.sections.raceInputs.fields.paceSeconds}
                     </Label>
@@ -146,7 +146,7 @@ export function CommandCenter({
                 <div className="w-[140px] space-y-1">
                   <Label
                     htmlFor="speedKph"
-                    className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                    className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
                   >
                     {copy.sections.raceInputs.fields.speedKph}
                   </Label>
@@ -186,7 +186,7 @@ export function CommandCenter({
             <div className="space-y-1">
               <Label
                 htmlFor="targetIntakePerHour"
-                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.targetIntakePerHour}
               </Label>
@@ -201,7 +201,7 @@ export function CommandCenter({
             <div className="space-y-1">
               <Label
                 htmlFor="waterIntakePerHour"
-                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.waterIntakePerHour}
               </Label>
@@ -217,7 +217,7 @@ export function CommandCenter({
             <div className="space-y-1">
               <Label
                 htmlFor="sodiumIntakePerHour"
-                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.sodiumIntakePerHour}
               </Label>
@@ -233,7 +233,7 @@ export function CommandCenter({
             <div className="space-y-1">
               <Label
                 htmlFor="waterBagLiters"
-                className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                className="text-sm font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
               >
                 {copy.sections.raceInputs.fields.waterBagLiters}
               </Label>

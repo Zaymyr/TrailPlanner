@@ -574,14 +574,18 @@ export default function SettingsPage() {
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name">{t.productSettings.fields.name}</Label>
+                <Label htmlFor="name" className="text-sm font-semibold text-foreground">
+                  {t.productSettings.fields.name}
+                </Label>
                 <Input id="name" placeholder="Gel, boisson, barre..." {...register("name")} disabled={authMissing} />
                 {errors.name && <p className="text-sm text-red-600 dark:text-red-300">{errors.name.message}</p>}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="carbsGrams">{t.productSettings.fields.carbs}</Label>
+                  <Label htmlFor="carbsGrams" className="text-sm font-semibold text-foreground">
+                    {t.productSettings.fields.carbs}
+                  </Label>
                   <Input
                     id="carbsGrams"
                     type="number"
@@ -595,7 +599,9 @@ export default function SettingsPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sodiumMg">{t.productSettings.fields.sodium}</Label>
+                  <Label htmlFor="sodiumMg" className="text-sm font-semibold text-foreground">
+                    {t.productSettings.fields.sodium}
+                  </Label>
                   <Input
                     id="sodiumMg"
                     type="number"
@@ -612,7 +618,9 @@ export default function SettingsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="caloriesKcal">{t.productSettings.fields.calories}</Label>
+                  <Label htmlFor="caloriesKcal" className="text-sm font-semibold text-foreground">
+                    {t.productSettings.fields.calories}
+                  </Label>
                   <Input
                     id="caloriesKcal"
                     type="number"
@@ -626,7 +634,9 @@ export default function SettingsPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="proteinGrams">{t.productSettings.fields.protein}</Label>
+                  <Label htmlFor="proteinGrams" className="text-sm font-semibold text-foreground">
+                    {t.productSettings.fields.protein}
+                  </Label>
                   <Input
                     id="proteinGrams"
                     type="number"
@@ -643,7 +653,9 @@ export default function SettingsPage() {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="fatGrams">{t.productSettings.fields.fat}</Label>
+                  <Label htmlFor="fatGrams" className="text-sm font-semibold text-foreground">
+                    {t.productSettings.fields.fat}
+                  </Label>
                   <Input
                     id="fatGrams"
                     type="number"
@@ -659,7 +671,9 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="productUrl">{t.productSettings.fields.productUrl}</Label>
+                <Label htmlFor="productUrl" className="text-sm font-semibold text-foreground">
+                  {t.productSettings.fields.productUrl}
+                </Label>
                 <Input
                   id="productUrl"
                   placeholder="https://example.com/produit"
