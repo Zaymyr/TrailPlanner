@@ -75,15 +75,31 @@ export function RacePlannerLayout({
         <div
           className={
             isSettingsCollapsed
-              ? "relative space-y-6 xl:col-span-12"
+              ? "space-y-6 xl:col-span-11 2xl:col-span-11"
               : "space-y-6 xl:col-span-8 2xl:col-span-9"
           }
         >
-          {isSettingsCollapsed && onSettingsToggle ? (
+          {planSecondaryContent ? (
+            <div className="space-y-6 2xl:grid 2xl:grid-cols-[1.6fr,1fr] 2xl:items-start 2xl:gap-6 2xl:space-y-0">
+              <div className="space-y-6">{planContent}</div>
+              <div className="space-y-6">{planSecondaryContent}</div>
+            </div>
+          ) : (
+            <div className="space-y-6">{planContent}</div>
+          )}
+        </div>
+        <div
+          className={
+            isSettingsCollapsed
+              ? "relative xl:col-span-1 2xl:col-span-1 xl:sticky xl:top-4 xl:self-start"
+              : "relative space-y-6 xl:col-span-4 2xl:col-span-3 xl:sticky xl:top-4 xl:self-start"
+          }
+        >
+          {onSettingsToggle ? (
             <Button
               type="button"
               variant="outline"
-              className="absolute right-0 top-1/2 h-9 w-9 -translate-y-1/2 translate-x-1/2 rounded-full p-0"
+              className="absolute left-0 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full p-0"
               onClick={onSettingsToggle}
               aria-label={toggleLabel}
               title={toggleLabel}
@@ -94,35 +110,12 @@ export function RacePlannerLayout({
               <span className="sr-only">{toggleLabel}</span>
             </Button>
           ) : null}
-          {planSecondaryContent ? (
-            <div className="space-y-6 2xl:grid 2xl:grid-cols-[1.6fr,1fr] 2xl:items-start 2xl:gap-6 2xl:space-y-0">
-              <div className="space-y-6">{planContent}</div>
-              <div className="space-y-6">{planSecondaryContent}</div>
-            </div>
+          {isSettingsCollapsed ? (
+            <div className="min-h-[240px] rounded-xl border border-dashed border-border/60 bg-card/30" />
           ) : (
-            <div className="space-y-6">{planContent}</div>
+            settingsContent
           )}
         </div>
-        {isSettingsCollapsed ? null : (
-          <div className="relative space-y-6 xl:col-span-4 2xl:col-span-3 xl:sticky xl:top-4 xl:self-start">
-            {onSettingsToggle ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="absolute left-0 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full p-0"
-                onClick={onSettingsToggle}
-                aria-label={toggleLabel}
-                title={toggleLabel}
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true">
-                  <path d={toggleIconPath} fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                </svg>
-                <span className="sr-only">{toggleLabel}</span>
-              </Button>
-            ) : null}
-            {settingsContent}
-          </div>
-        )}
       </div>
     </div>
   );
