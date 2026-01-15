@@ -102,7 +102,12 @@ export const PlannerSummaryBar = memo(function PlannerSummaryBar({
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
         {onNutritionClick ? (
-          <Button type="button" variant="outline" size="sm" onClick={onNutritionClick}>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 px-3 text-xs font-semibold"
+            onClick={onNutritionClick}
+          >
             {nutritionButtonLabel}
           </Button>
         ) : null}
