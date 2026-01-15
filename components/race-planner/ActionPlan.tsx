@@ -794,6 +794,33 @@ export function ActionPlan({
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
   }, [favoriteProducts]);
   const renderItems = buildRenderItems(segments);
+  const collapsibleKeys = useMemo(() => {
+    const keys: string[] = [];
+    renderItems.forEach((item) => {
+      const nextSegment = item.upcomingSegment;
+      const isCollapsible =
+        !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
+      if (!isCollapsible) return;
+      keys.push(item.isStart ? "start" : String(item.aidStationIndex));
+    });
+    return keys;
+  }, [renderItems]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia?.("(max-width: 767px)");
+    if (!mediaQuery?.matches) return;
+    setCollapsedAidStations((current) => {
+      let updated = false;
+      const next = { ...current };
+      collapsibleKeys.forEach((key) => {
+        if (typeof next[key] === "undefined") {
+          next[key] = true;
+          updated = true;
+        }
+      });
+      return updated ? next : current;
+    });
+  }, [collapsibleKeys]);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const finishSummary = useMemo(() => {
     if (segments.length === 0) return null;
@@ -886,6 +913,19 @@ export function ActionPlan({
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
   };
+  const setAllAidStationCollapse = useCallback(
+    (collapsed: boolean) => {
+      setCollapsedAidStations((current) => {
+        if (collapsibleKeys.length === 0) return current;
+        const next = { ...current };
+        collapsibleKeys.forEach((key) => {
+          next[key] = collapsed;
+        });
+        return next;
+      });
+    },
+    [collapsibleKeys]
+  );
   const toggleAidStationCollapse = (collapseKey: string) => {
     setCollapsedAidStations((current) => ({
       ...current,
@@ -1064,6 +1104,28 @@ export function ActionPlan({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
+        {segments.length > 0 ? (
+          <div className="flex flex-wrap items-center justify-end gap-2 md:hidden">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+              onClick={() => setAllAidStationCollapse(false)}
+              disabled={collapsibleKeys.length === 0}
+            >
+              Expand all
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+              onClick={() => setAllAidStationCollapse(true)}
+              disabled={collapsibleKeys.length === 0}
+            >
+              Collapse all
+            </Button>
+          </div>
+        ) : null}
         {segments.length > 0 ? (
           <div className="relative space-y-4">
             {(() => {
