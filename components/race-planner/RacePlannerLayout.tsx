@@ -99,7 +99,7 @@ export function RacePlannerLayout({
             <Button
               type="button"
               variant="outline"
-              className="absolute left-0 top-1/2 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full p-0"
+              className="absolute left-0 top-1/2 z-20 h-9 w-9 -translate-x-1/2 -translate-y-1/2 rounded-full bg-card/95 p-0 shadow-md backdrop-blur"
               onClick={onSettingsToggle}
               aria-label={toggleLabel}
               title={toggleLabel}
