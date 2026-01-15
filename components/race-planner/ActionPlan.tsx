@@ -552,6 +552,7 @@ type AidStationHeaderRowProps = {
   title: ReactNode;
   meta?: ReactNode;
   headerActions?: ReactNode;
+  headerMiddle?: ReactNode;
   headerSummary?: Array<{
     key: string;
     label: string;
@@ -569,6 +570,7 @@ const AidStationHeaderRow = memo(function AidStationHeaderRow({
   title,
   meta,
   headerActions,
+  headerMiddle,
   headerSummary,
   finishLabel,
   isFinish,
