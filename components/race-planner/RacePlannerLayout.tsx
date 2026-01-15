@@ -12,7 +12,6 @@ type RacePlannerLayoutProps = {
   planLabel: string;
   settingsLabel: string;
   summaryBarContent?: ReactNode;
-  nutritionTrigger?: ReactNode;
   isSettingsCollapsed?: boolean;
   onSettingsToggle?: () => void;
   collapseSettingsLabel?: string;
@@ -29,7 +28,6 @@ export function RacePlannerLayout({
   planLabel,
   settingsLabel,
   summaryBarContent,
-  nutritionTrigger,
   isSettingsCollapsed = false,
   onSettingsToggle,
   collapseSettingsLabel = "Hide panel",
@@ -38,16 +36,13 @@ export function RacePlannerLayout({
 }: RacePlannerLayoutProps) {
   const toggleLabel = isSettingsCollapsed ? expandSettingsLabel : collapseSettingsLabel;
   const toggleIconPath = isSettingsCollapsed ? "m9 18 6-6-6-6" : "m15 6-6 6 6 6";
-  const hasSummaryBar = summaryBarContent || nutritionTrigger;
+  const hasSummaryBar = summaryBarContent;
   return (
     <div className={className}>
       <div className="space-y-4 md:hidden">
         {hasSummaryBar ? (
           <div className="sticky top-0 z-20 rounded-lg border border-border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">{summaryBarContent}</div>
-              {nutritionTrigger ? <div className="shrink-0">{nutritionTrigger}</div> : null}
-            </div>
+            {summaryBarContent}
           </div>
         ) : null}
 

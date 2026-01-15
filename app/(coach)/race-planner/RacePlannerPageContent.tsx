@@ -20,6 +20,7 @@ import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { MobileDrawer } from "../../../components/ui/mobile-drawer";
 import { PlannerAccountPanel, PlannerNutritionPanel, PlannerRightPanel } from "./components/PlannerRightPanel";
+import { PlannerSummaryBar } from "./components/PlannerSummaryBar";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
 import { clearRacePlannerStorage, readRacePlannerStorage, writeRacePlannerStorage } from "../../../lib/race-planner-storage";
@@ -540,6 +541,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const distanceForDuration =
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
     defaultValues.raceDistanceKm;
+  const elevationGainForSummary =
+    (parsedValues.success ? parsedValues.data.elevationGain : watchedValues?.elevationGain) ??
+    defaultValues.elevationGain;
   const projectedDurationMinutes =
     baseMinutesPerKm && Number.isFinite(distanceForDuration) && distanceForDuration > 0
       ? distanceForDuration * baseMinutesPerKm
@@ -591,40 +595,29 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [mergedFuelProducts, raceTotals]
   );
 
-  const hasSummaryValues = Boolean(pacingOverviewDuration || raceTotals);
   const summaryBarContent = (
-    <div className="space-y-1">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-        {racePlannerCopy.sections.summary.title}
-      </p>
-      {hasSummaryValues ? (
-        <div className="flex flex-wrap gap-2 text-xs font-semibold text-foreground">
-          <span className="rounded-full bg-muted px-2 py-1">
-            {racePlannerCopy.sections.summary.items.duration}:{" "}
-            {pacingOverviewDuration ? formatMinutes(pacingOverviewDuration, racePlannerCopy.units) : "—"}
-          </span>
-          <span className="rounded-full bg-muted px-2 py-1">
-            {racePlannerCopy.sections.summary.items.carbs}:{" "}
-            {raceTotals ? formatFuelAmount(raceTotals.fuelGrams) : "—"}
-          </span>
-          <span className="rounded-full bg-muted px-2 py-1">
-            {racePlannerCopy.sections.summary.items.water}:{" "}
-            {raceTotals ? formatWaterAmount(raceTotals.waterMl) : "—"}
-          </span>
-          <span className="rounded-full bg-muted px-2 py-1">
-            {racePlannerCopy.sections.summary.items.sodium}:{" "}
-            {raceTotals ? formatSodiumAmount(raceTotals.sodiumMg) : "—"}
-          </span>
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">{racePlannerCopy.sections.summary.empty}</p>
-      )}
-    </div>
-  );
-  const nutritionTrigger = (
-    <Button type="button" variant="outline" onClick={() => setIsNutritionDrawerOpen(true)}>
-      {racePlannerCopy.sections.gels.title}
-    </Button>
+    <PlannerSummaryBar
+      title={racePlannerCopy.sections.summary.title}
+      durationMinutes={pacingOverviewDuration}
+      distanceKm={distanceForDuration}
+      elevationGainM={elevationGainForSummary}
+      raceTotals={raceTotals}
+      units={racePlannerCopy.units}
+      distanceUnitLabel={racePlannerCopy.sections.timeline.distanceWithUnit}
+      labels={{
+        duration: racePlannerCopy.sections.summary.items.duration,
+        distance: racePlannerCopy.sections.raceInputs.fields.raceDistance,
+        elevation: racePlannerCopy.sections.raceInputs.fields.elevationGain,
+        carbsPerHour: racePlannerCopy.sections.raceInputs.fields.targetIntakePerHour,
+        waterPerHour: racePlannerCopy.sections.raceInputs.fields.waterIntakePerHour,
+        carbsTotal: racePlannerCopy.sections.summary.items.carbs,
+        waterTotal: racePlannerCopy.sections.summary.items.water,
+      }}
+      nutritionButtonLabel={racePlannerCopy.sections.gels.title}
+      formatFuelAmount={formatFuelAmount}
+      formatWaterAmount={formatWaterAmount}
+      onNutritionClick={() => setIsNutritionDrawerOpen(true)}
+    />
   );
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
@@ -1197,7 +1190,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
           expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
           summaryBarContent={summaryBarContent}
-          nutritionTrigger={nutritionTrigger}
         />
 
         <MobileDrawer
