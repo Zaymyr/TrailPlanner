@@ -195,7 +195,7 @@ function FinishSummaryCard({
   return (
     <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-[220px] items-start gap-3">
+        <div className="flex w-full max-w-full items-start gap-3 md:min-w-[220px]">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
             {pointIndex}
           </span>
@@ -326,7 +326,7 @@ function SegmentCard({
     <div
       className={
         isCompactChip
-          ? "flex w-[170px] flex-col gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 text-foreground shadow-sm dark:bg-slate-950/90 dark:text-slate-200"
+          ? "flex w-full max-w-full flex-col gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 text-foreground shadow-sm dark:bg-slate-950/90 dark:text-slate-200 md:w-[170px] md:max-w-[170px]"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground shadow-sm dark:bg-slate-950/50 dark:text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-border-strong bg-card px-4 py-3 text-foreground shadow-sm dark:bg-slate-950/80 dark:text-slate-100"
@@ -553,7 +553,7 @@ function AidStationHeaderRow({
     <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
         <div
-          className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
+          className={`flex w-full max-w-full items-start gap-3 md:min-w-[220px] ${onTitleClick ? "cursor-pointer" : ""}`}
           onClick={onTitleClick}
           role={onTitleClick ? "button" : undefined}
           tabIndex={onTitleClick ? 0 : undefined}
@@ -581,7 +581,7 @@ function AidStationHeaderRow({
           </div>
         </div>
         {headerMiddle ? (
-          <div className="flex w-full min-w-[240px] flex-1 justify-center">{headerMiddle}</div>
+          <div className="flex w-full max-w-full flex-1 justify-center md:min-w-[240px]">{headerMiddle}</div>
         ) : null}
         {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
@@ -611,7 +611,7 @@ function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRo
           </div>
         ) : null}
         <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-center md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
-          <div className="relative z-10 w-full max-w-[240px] self-center">{segment}</div>
+          <div className="relative z-10 w-full max-w-full self-center md:max-w-[240px]">{segment}</div>
           <div className="w-full">
             <div className="grid w-full gap-4 md:grid-cols-3">{nutritionCards}</div>
           </div>
