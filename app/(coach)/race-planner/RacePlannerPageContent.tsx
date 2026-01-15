@@ -29,10 +29,9 @@ import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types"
 import { fetchUserProfile } from "../../../lib/profile-client";
 import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
-import { CommandCenter } from "../../../components/race-planner/CommandCenter";
-import { ActionPlan } from "../../../components/race-planner/ActionPlan";
 import { PlanManager } from "../../../components/race-planner/PlanManager";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
+import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
 import {
@@ -1424,57 +1423,47 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     defaultValues.raceDistanceKm;
   const courseProfileAidStations = parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations;
   const planPrimaryContent = (
-    <div className="space-y-6">
-      {session?.accessToken && profileError ? (
-        <p className="text-sm text-amber-200">{profileError}</p>
-      ) : null}
-      <CommandCenter
-        copy={racePlannerCopy}
-        sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
-        pacing={{
-          durationMinutes: pacingOverviewDuration,
-          paceMinutes: paceMinutesValue,
-          paceSeconds: paceSecondsValue,
-          speedKph: speedKphValue,
-        }}
-        register={register}
-        onPaceChange={handlePaceUpdate}
-        onSpeedChange={handleSpeedUpdate}
-        formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
-      />
-
-      <ActionPlan
-        copy={racePlannerCopy}
-        segments={segments}
-        raceTotals={raceTotals}
-        sectionId={sectionIds.timeline}
-        onPrint={handlePrint}
-        onAutomaticFill={handleAutomaticFill}
-        onAddAidStation={handleAddAidStation}
-        onRemoveAidStation={handleRemoveAidStation}
-        register={form.register}
-        setValue={form.setValue}
-        formatDistanceWithUnit={formatDistanceWithUnit}
-        formatMinutes={(minutes) => formatMinutes(minutes, racePlannerCopy.units)}
-        formatFuelAmount={formatFuelAmount}
-        formatWaterAmount={formatWaterAmount}
-        formatSodiumAmount={formatSodiumAmount}
-        fuelProducts={fuelProductEstimates}
-        favoriteProducts={selectedProducts}
-        onFavoriteToggle={toggleProduct}
-        startSupplies={startSupplies}
-        onStartSupplyDrop={handleStartSupplyDrop}
-        onStartSupplyRemove={handleStartSupplyRemove}
-        onSupplyDrop={handleSupplyDrop}
-        onSupplyRemove={handleSupplyRemove}
-        allowAutoFill={allowAutoFill}
-        allowExport={allowExport}
-        premiumCopy={premiumCopy}
-        onUpgrade={handlePremiumFeature}
-        upgradeStatus={upgradeStatus}
-      />
-
-    </div>
+    <PlanPrimaryContent
+      profileError={profileError}
+      showProfileError={Boolean(session?.accessToken)}
+      copy={racePlannerCopy}
+      sectionIds={sectionIds}
+      pacing={{
+        durationMinutes: pacingOverviewDuration,
+        paceMinutes: paceMinutesValue,
+        paceSeconds: paceSecondsValue,
+        speedKph: speedKphValue,
+      }}
+      register={register}
+      onPaceChange={handlePaceUpdate}
+      onSpeedChange={handleSpeedUpdate}
+      formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
+      segments={segments}
+      raceTotals={raceTotals}
+      onPrint={handlePrint}
+      onAutomaticFill={handleAutomaticFill}
+      onAddAidStation={handleAddAidStation}
+      onRemoveAidStation={handleRemoveAidStation}
+      setValue={form.setValue}
+      formatDistanceWithUnit={formatDistanceWithUnit}
+      formatMinutes={(minutes) => formatMinutes(minutes, racePlannerCopy.units)}
+      formatFuelAmount={formatFuelAmount}
+      formatWaterAmount={formatWaterAmount}
+      formatSodiumAmount={formatSodiumAmount}
+      fuelProducts={fuelProductEstimates}
+      favoriteProducts={selectedProducts}
+      onFavoriteToggle={toggleProduct}
+      startSupplies={startSupplies}
+      onStartSupplyDrop={handleStartSupplyDrop}
+      onStartSupplyRemove={handleStartSupplyRemove}
+      onSupplyDrop={handleSupplyDrop}
+      onSupplyRemove={handleSupplyRemove}
+      allowAutoFill={allowAutoFill}
+      allowExport={allowExport}
+      premiumCopy={premiumCopy}
+      onUpgrade={handlePremiumFeature}
+      upgradeStatus={upgradeStatus}
+    />
   );
 
   const settingsContent = (
