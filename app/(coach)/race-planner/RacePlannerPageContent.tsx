@@ -46,6 +46,8 @@ import {
   readRacePlannerStorage,
   writeRacePlannerStorage,
 } from "../../../lib/race-planner-storage";
+import { formatClockTime, formatMinutes } from "./utils/format";
+import { minutesPerKm, paceToSpeedKph, speedToPace } from "./utils/pacing";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -228,30 +230,6 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       }
     });
 
-function minutesPerKm(values: FormValues) {
-  if (values.paceType === "speed") {
-    return 60 / values.speedKph;
-  }
-  return values.paceMinutes + values.paceSeconds / 60;
-}
-
-function paceToSpeedKph(paceMinutes: number, paceSeconds: number) {
-  const totalMinutes = paceMinutes + paceSeconds / 60;
-  if (totalMinutes <= 0) return null;
-  return 60 / totalMinutes;
-}
-
-function speedToPace(speedKph: number) {
-  if (speedKph <= 0) return null;
-  const totalMinutes = 60 / speedKph;
-  const minutes = Math.floor(totalMinutes);
-  let seconds = Math.round((totalMinutes - minutes) * 60);
-  if (seconds === 60) {
-    return { minutes: minutes + 1, seconds: 0 };
-  }
-  return { minutes, seconds };
-}
-
 function adjustedSegmentMinutes(
   baseMinutesPerKm: number,
   segmentKm: number
@@ -285,14 +263,6 @@ type ChartHoverState = {
   setPinned: (pinned: boolean) => void;
   updateFromClientX: (clientX: number) => void;
   clearHover: () => void;
-};
-
-const formatClockTime = (totalMinutes: number) => {
-  if (!Number.isFinite(totalMinutes) || totalMinutes < 0) return "00:00";
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = Math.floor(totalMinutes % 60);
-  const paddedMinutes = String(minutes).padStart(2, "0");
-  return `${hours}:${paddedMinutes}`;
 };
 
 const findNearestPointIndex = (points: ElevationPoint[], distanceKm: number) => {
@@ -768,12 +738,6 @@ function buildPlannerGpx(values: FormValues, elevationProfile: ElevationPoint[])
   ${aidStationsXml}
   ${profile.length ? `<trk>\n    <name>${escapeXml(`${distanceKm.toFixed(1)} km plan`)}</name>\n    <trkseg>\n${trackSegment}\n    </trkseg>\n  </trk>` : ""}
 </gpx>`;
-}
-
-function formatMinutes(totalMinutes: number, units: RacePlannerTranslations["units"]) {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = Math.round(totalMinutes % 60);
-  return `${hours}${units.hourShort} ${minutes.toString().padStart(2, "0")}${units.minuteShort}`;
 }
 
 function toRadians(degrees: number) {
