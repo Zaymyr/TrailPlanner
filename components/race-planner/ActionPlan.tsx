@@ -261,6 +261,18 @@ type RenderItem =
       upcomingSegment?: Segment;
     };
 
+const getCollapsibleKeys = (items: RenderItem[]) => {
+  const keys: string[] = [];
+  items.forEach((item) => {
+    const nextSegment = item.upcomingSegment;
+    const isCollapsible =
+      !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
+    if (!isCollapsible) return;
+    keys.push(item.isStart ? "start" : String(item.aidStationIndex));
+  });
+  return keys;
+};
+
 const buildRenderItems = (segments: Segment[]): RenderItem[] => {
   if (segments.length === 0) return [];
 
@@ -531,8 +543,13 @@ type AidStationHeaderRowProps = {
   badge?: ReactNode;
   title: ReactNode;
   meta?: ReactNode;
-  headerMiddle?: ReactNode;
   headerActions?: ReactNode;
+  headerSummary?: Array<{
+    key: string;
+    label: string;
+    value: string;
+    statusTone: StatusTone;
+  }>;
   finishLabel?: string;
   isFinish?: boolean;
   onTitleClick?: () => void;
@@ -543,15 +560,15 @@ function AidStationHeaderRow({
   badge,
   title,
   meta,
-  headerMiddle,
   headerActions,
+  headerSummary,
   finishLabel,
   isFinish,
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
     <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div
           className={`flex w-full max-w-full items-start gap-3 md:min-w-[220px] ${onTitleClick ? "cursor-pointer" : ""}`}
           onClick={onTitleClick}
@@ -578,11 +595,21 @@ function AidStationHeaderRow({
               <span>{title}</span>
             </div>
             {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
+            {headerSummary?.length ? (
+              <div className="mt-3 flex flex-wrap gap-2 md:hidden">
+                {headerSummary.map((item) => (
+                  <div
+                    key={item.key}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold ${statusToneStyles[item.statusTone]}`}
+                  >
+                    <span className="uppercase tracking-wide">{item.label}</span>
+                    <span className="font-semibold">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </div>
-        {headerMiddle ? (
-          <div className="flex w-full max-w-full flex-1 justify-center md:min-w-[240px]">{headerMiddle}</div>
-        ) : null}
         {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
       {isFinish ? (
@@ -745,7 +772,17 @@ export function ActionPlan({
   onUpgrade,
   upgradeStatus,
 }: ActionPlanProps) {
-  const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
+  const renderItems = useMemo(() => buildRenderItems(segments), [segments]);
+  const collapsibleKeys = useMemo(() => getCollapsibleKeys(renderItems), [renderItems]);
+  const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    const mediaQuery = window.matchMedia?.("(max-width: 767px)");
+    if (!mediaQuery?.matches) return {};
+    return getCollapsibleKeys(buildRenderItems(segments)).reduce<Record<string, boolean>>((acc, key) => {
+      acc[key] = true;
+      return acc;
+    }, {});
+  });
   const [isFinishDetailsOpen, setIsFinishDetailsOpen] = useState(false);
   const finishDetailsId = useId();
   const [editorState, setEditorState] = useState<
@@ -793,22 +830,9 @@ export function ActionPlan({
   useEffect(() => {
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
   }, [favoriteProducts]);
-  const renderItems = buildRenderItems(segments);
-  const collapsibleKeys = useMemo(() => {
-    const keys: string[] = [];
-    renderItems.forEach((item) => {
-      const nextSegment = item.upcomingSegment;
-      const isCollapsible =
-        !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
-      if (!isCollapsible) return;
-      keys.push(item.isStart ? "start" : String(item.aidStationIndex));
-    });
-    return keys;
-  }, [renderItems]);
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mediaQuery = window.matchMedia?.("(max-width: 767px)");
-    if (!mediaQuery?.matches) return;
+    const isMobile = typeof window !== "undefined" && window.matchMedia?.("(max-width: 767px)")?.matches;
+    if (!isMobile) return;
     setCollapsedAidStations((current) => {
       let updated = false;
       const next = { ...current };
@@ -1473,6 +1497,19 @@ export function ActionPlan({
                   sectionSegment && inlineMetrics.length > 0 && segmentCard ? (
                     <SectionRow segment={segmentCard} nutritionCards={nutritionCards} />
                   ) : null;
+                const headerSummary = inlineMetrics.map((metric) => ({
+                  key: metric.key,
+                  label: metric.name,
+                  value: metric.value,
+                  statusTone: metric.statusTone,
+                }));
+                const expandedDetails =
+                  suppliesDropZone || sectionContent ? (
+                    <div className="space-y-3">
+                      {suppliesDropZone}
+                      {sectionContent ? <div className="relative">{sectionContent}</div> : null}
+                    </div>
+                  ) : null;
 
                 const removeButton =
                   typeof item.aidStationIndex === "number" && !item.isFinish ? (
@@ -1706,9 +1743,9 @@ export function ActionPlan({
                         badge={aidStationBadge ?? undefined}
                         title={titleContent}
                         meta={metaContent}
+                        headerSummary={headerSummary.length > 0 ? headerSummary : undefined}
                         finishLabel={copy.defaults.finish}
                         isFinish={item.isFinish}
-                        headerMiddle={suppliesDropZone}
                         headerActions={
                           isCollapsible ? (
                             <div className="flex items-center gap-3">
@@ -1735,7 +1772,7 @@ export function ActionPlan({
                             : undefined
                         }
                       />
-                      {sectionContent ? <div className="relative">{sectionContent}</div> : null}
+                      {expandedDetails}
                     </div>
                   </div>
                 );
