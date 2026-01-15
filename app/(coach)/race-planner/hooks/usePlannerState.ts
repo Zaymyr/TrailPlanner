@@ -4,7 +4,6 @@ import { useState } from "react";
 
 type FeedbackStatus = "idle" | "submitting" | "success" | "error";
 export type PlannerMobileView = "plan" | "settings";
-export type PlannerRightPanelTab = "fuel" | "account";
 export type PlannerUpgradeReason = "autoFill" | "print" | "plans" | null;
 
 export const usePlannerState = () => {
@@ -19,7 +18,6 @@ export const usePlannerState = () => {
   const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(false);
   const [isRaceCatalogOpen, setIsRaceCatalogOpen] = useState(false);
   const [catalogSubmissionId, setCatalogSubmissionId] = useState<string | null>(null);
-  const [rightPanelTab, setRightPanelTab] = useState<PlannerRightPanelTab>("fuel");
   const [isCourseCollapsed, setIsCourseCollapsed] = useState(true);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
@@ -39,7 +37,6 @@ export const usePlannerState = () => {
       isSettingsCollapsed,
       isRaceCatalogOpen,
       catalogSubmissionId,
-      rightPanelTab,
       isCourseCollapsed,
       upgradeStatus,
       upgradeError,
@@ -58,7 +55,6 @@ export const usePlannerState = () => {
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
       setCatalogSubmissionId,
-      setRightPanelTab,
       setIsCourseCollapsed,
       setUpgradeStatus,
       setUpgradeError,
