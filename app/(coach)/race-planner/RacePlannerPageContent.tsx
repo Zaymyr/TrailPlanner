@@ -297,7 +297,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
 
     setIsDesktopApp(isElectron || Boolean(isStandalone));
-  }, []);
+  }, [setIsDesktopApp]);
+
+  const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
 
   const {
     session,
@@ -510,7 +512,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
 
-  const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
   const segments = useMemo(
     () =>
       parsedValues.success
@@ -647,7 +648,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     premiumCopy.premiumModal.popupBlocked,
     racePlannerCopy.account.errors.missingSession,
     session?.accessToken,
+    setUpgradeError,
     setUpgradeDialogOpen,
+    setUpgradeStatus,
   ]);
 
   const handlePremiumFeature = useCallback(
