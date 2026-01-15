@@ -42,6 +42,15 @@ export function RacePlannerLayout({
   return (
     <div className={className}>
       <div className="space-y-4 md:hidden">
+        {hasSummaryBar ? (
+          <div className="sticky top-0 z-20 rounded-lg border border-border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">{summaryBarContent}</div>
+              {nutritionTrigger ? <div className="shrink-0">{nutritionTrigger}</div> : null}
+            </div>
+          </div>
+        ) : null}
+
         <div className="rounded-lg border border-border bg-card p-2 dark:border-slate-800 dark:bg-slate-900/60">
           <div className="grid grid-cols-2 gap-2">
             {(
@@ -67,15 +76,6 @@ export function RacePlannerLayout({
           </div>
         </div>
 
-        {hasSummaryBar ? (
-          <div className="sticky top-0 z-20 rounded-lg border border-border bg-card/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex-1">{summaryBarContent}</div>
-              {nutritionTrigger ? <div className="shrink-0">{nutritionTrigger}</div> : null}
-            </div>
-          </div>
-        ) : null}
-
         <div className="space-y-6">
           <div className={mobileView === "plan" ? "space-y-6" : "hidden"}>
             <div className="space-y-6">{planContent}</div>
@@ -85,14 +85,14 @@ export function RacePlannerLayout({
         </div>
       </div>
 
-      <div className="hidden md:grid md:grid-cols-12 md:gap-6">
-        <div
-          className={
-            isSettingsCollapsed
-              ? "space-y-6 md:col-span-11 2xl:col-span-11"
-              : "space-y-6 md:col-span-8 2xl:col-span-9"
-          }
-        >
+      <div
+        className={
+          isSettingsCollapsed
+            ? "hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,4rem)] md:items-start md:gap-6"
+            : "hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:items-start md:gap-6"
+        }
+      >
+        <div className={isSettingsCollapsed ? "space-y-6" : "space-y-6"}>
           {planSecondaryContent ? (
             <div className="space-y-6 2xl:grid 2xl:grid-cols-[1.6fr,1fr] 2xl:items-start 2xl:gap-6 2xl:space-y-0">
               <div className="space-y-6">{planContent}</div>
@@ -105,8 +105,8 @@ export function RacePlannerLayout({
         <div
           className={
             isSettingsCollapsed
-              ? "relative md:col-span-1 2xl:col-span-1 md:sticky md:top-4 md:self-start"
-              : "relative space-y-6 md:col-span-4 2xl:col-span-3 md:sticky md:top-4 md:self-start"
+              ? "relative md:sticky md:top-4 md:self-start"
+              : "relative space-y-6 md:sticky md:top-4 md:self-start"
           }
         >
           {onSettingsToggle ? (
