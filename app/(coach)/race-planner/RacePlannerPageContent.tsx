@@ -55,6 +55,7 @@ import {
 import { buildSegments } from "./utils/segments";
 import { buildFuelProductEstimates, buildRaceTotals, type FuelProductEstimate } from "./utils/nutrition";
 import { CourseProfileSection } from "./components/CourseProfileSection";
+import { usePlannerState } from "./hooks/usePlannerState";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -296,14 +297,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
   const speedKphValue = form.watch("speedKph") ?? defaultValues.speedKph;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [importError, setImportError] = useState<string | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackSubject, setFeedbackSubject] = useState("");
-  const [feedbackDetail, setFeedbackDetail] = useState("");
-  const [feedbackStatus, setFeedbackStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
-  const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [planName, setPlanName] = useState("");
   const [session, setSession] = useState<{
     accessToken: string;
@@ -312,29 +306,59 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     role?: string;
     roles?: string[];
   } | null>(null);
-  const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
-  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(false);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
-  const [isRaceCatalogOpen, setIsRaceCatalogOpen] = useState(false);
-  const [catalogSubmissionId, setCatalogSubmissionId] = useState<string | null>(null);
   const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [fuelLoadStatus, setFuelLoadStatus] = useState<"loading" | "ready">("loading");
-  const [rightPanelTab, setRightPanelTab] = useState<"fuel" | "account">("fuel");
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
-  const [isCourseCollapsed, setIsCourseCollapsed] = useState(true);
   const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
   const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
-  const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
-  const [upgradeError, setUpgradeError] = useState<string | null>(null);
-  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
-  const [upgradeReason, setUpgradeReason] = useState<"autoFill" | "print" | "plans" | null>(null);
+  const {
+    state: {
+      importError,
+      feedbackOpen,
+      feedbackSubject,
+      feedbackDetail,
+      feedbackStatus,
+      feedbackError,
+      isDesktopApp,
+      mobileView,
+      isSettingsCollapsed,
+      isRaceCatalogOpen,
+      catalogSubmissionId,
+      rightPanelTab,
+      isCourseCollapsed,
+      upgradeStatus,
+      upgradeError,
+      upgradeDialogOpen,
+      upgradeReason,
+    },
+    actions: {
+      setImportError,
+      setFeedbackOpen,
+      setFeedbackSubject,
+      setFeedbackDetail,
+      setFeedbackStatus,
+      setFeedbackError,
+      setIsDesktopApp,
+      setMobileView,
+      setIsSettingsCollapsed,
+      setIsRaceCatalogOpen,
+      setCatalogSubmissionId,
+      setRightPanelTab,
+      setIsCourseCollapsed,
+      setUpgradeStatus,
+      setUpgradeError,
+      setUpgradeDialogOpen,
+      setUpgradeReason,
+    },
+  } = usePlannerState();
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
 
   useEffect(() => {
