@@ -131,7 +131,7 @@ const discoverMdxFiles = async (directory: string): Promise<string[]> => {
           return discoverMdxFiles(location);
         }
 
-        if (entry.isFile() && /\.mdx?$/.test(entry.name)) {
+        if (entry.isFile() && /\.mdx?$/.test(entry.name) && entry.name.toLowerCase() !== "readme.md") {
           return [location];
         }
 
