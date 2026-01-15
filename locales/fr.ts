@@ -319,6 +319,14 @@ export const fr: Translations = {
           "Vos favoris depuis Paramètres apparaissent en premier, suivis de tous les produits partagés de la base.",
         loading: "Chargement des produits énergétiques…",
         loadError: "Impossible de charger les produits. Affichage des valeurs par défaut.",
+        filters: {
+          searchPlaceholder: "Rechercher un produit...",
+          typeLabel: "Type",
+          typeAll: "Tous",
+        },
+        table: {
+          type: "Type",
+        },
         favoritesTitle: "Favoris depuis Paramètres",
         allProductsTitle: "Tous les produits énergétiques",
         empty:
@@ -678,6 +686,7 @@ export const fr: Translations = {
     },
     fields: {
       name: "Nom",
+      fuelType: "Type",
       carbs: "Glucides (g)",
       sodium: "Sodium (mg)",
       calories: "Calories (kcal)",
@@ -730,6 +739,7 @@ export const fr: Translations = {
       },
       table: {
         name: "Nom",
+        type: "Type",
         carbs: "Glucides (g)",
         sodium: "Sodium (mg)",
         calories: "Calories",

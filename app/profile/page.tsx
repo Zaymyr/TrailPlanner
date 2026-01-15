@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { FuelTypeBadge } from "../../components/products/FuelTypeBadge";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
@@ -453,6 +454,7 @@ export default function ProfilePage() {
             <TableHeader className="sticky top-0 z-10">
               <TableRow>
                 <TableHead>{t.profile.favorites.table.name}</TableHead>
+                <TableHead>{t.profile.favorites.table.type}</TableHead>
                 <TableHead>{t.profile.favorites.table.carbs}</TableHead>
                 <TableHead>{t.profile.favorites.table.sodium}</TableHead>
                 <TableHead>{t.profile.favorites.table.calories}</TableHead>
@@ -465,6 +467,9 @@ export default function ProfilePage() {
                 return (
                   <TableRow key={product.id}>
                     <TableCell className="font-semibold text-foreground">{product.name}</TableCell>
+                    <TableCell>
+                      <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
+                    </TableCell>
                     <TableCell>{product.carbsGrams} g</TableCell>
                     <TableCell>{product.sodiumMg} mg</TableCell>
                     <TableCell>{product.caloriesKcal}</TableCell>
@@ -650,8 +655,11 @@ export default function ProfilePage() {
                     key={product.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted px-3 py-2"
                   >
-                    <div>
-                      <p className="font-semibold text-foreground">{product.name}</p>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-foreground">{product.name}</p>
+                        <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {t.racePlanner.sections.gels.nutrition
                           .replace("{carbs}", product.carbsGrams.toString())

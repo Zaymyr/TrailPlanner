@@ -9,12 +9,15 @@ import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
+import { fuelTypeValues, type FuelType } from "../../lib/fuel-types";
+import { useI18n } from "../../app/i18n-provider";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
+import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import {
   BoltIcon,
   ChevronDownIcon,
@@ -745,6 +748,7 @@ export function ActionPlan({
   onUpgrade,
   upgradeStatus,
 }: ActionPlanProps) {
+  const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
   const [isFinishDetailsOpen, setIsFinishDetailsOpen] = useState(false);
   const finishDetailsId = useId();
@@ -768,8 +772,9 @@ export function ActionPlan({
   const [supplyPicker, setSupplyPicker] = useState<{ type: "start" | "aid"; index?: number } | null>(null);
   const [pickerFavorites, setPickerFavorites] = useState<string[]>([]);
   const [pickerSearch, setPickerSearch] = useState("");
+  const [pickerFuelType, setPickerFuelType] = useState<FuelType | "all">("all");
   const [pickerSort, setPickerSort] = useState<{
-    key: "name" | "carbs" | "sodium" | "calories" | "favorite";
+    key: "name" | "type" | "carbs" | "sodium" | "calories" | "favorite";
     dir: "asc" | "desc";
   }>({
     key: "favorite",
@@ -793,6 +798,15 @@ export function ActionPlan({
   useEffect(() => {
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
   }, [favoriteProducts]);
+  const filteredPickerProducts = useMemo(() => {
+    const term = pickerSearch.trim().toLowerCase();
+    return fuelProducts.filter((product) => {
+      const matchesSearch =
+        !term || product.name.toLowerCase().includes(term) || product.slug.toLowerCase().includes(term);
+      const matchesType = pickerFuelType === "all" || product.fuelType === pickerFuelType;
+      return matchesSearch && matchesType;
+    });
+  }, [fuelProducts, pickerFuelType, pickerSearch]);
   const renderItems = buildRenderItems(segments);
   const collapsibleKeys = useMemo(() => {
     const keys = new Set<string>();
@@ -1801,12 +1815,32 @@ export function ActionPlan({
               <Input
                 value={pickerSearch}
                 onChange={(event) => setPickerSearch(event.target.value)}
-                placeholder="Rechercher un produit..."
+                placeholder={copy.sections.gels.filters.searchPlaceholder}
                 className="w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
               />
-              <p className="text-xs text-muted-foreground dark:text-slate-300">
-                {`${pickerFavorites.length}/3 favoris sélectionnés`}
-              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="fuelTypeFilter" className="text-xs text-muted-foreground dark:text-slate-300">
+                    {copy.sections.gels.filters.typeLabel}
+                  </Label>
+                  <select
+                    id="fuelTypeFilter"
+                    value={pickerFuelType}
+                    onChange={(event) => setPickerFuelType(event.target.value as FuelType | "all")}
+                    className="h-9 rounded-md border border-border bg-background px-2 text-xs text-foreground shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring dark:bg-slate-900 dark:text-slate-50"
+                  >
+                    <option value="all">{copy.sections.gels.filters.typeAll}</option>
+                    {fuelTypeValues.map((value) => (
+                      <option key={value} value={value}>
+                        {getFuelTypeLabel(value, locale)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-muted-foreground dark:text-slate-300">
+                  {`${pickerFavorites.length}/3 favoris sélectionnés`}
+                </p>
+              </div>
             </div>
             <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:bg-slate-950/60">
               <table className="min-w-[720px] w-full text-left text-sm text-foreground dark:text-slate-200">
@@ -1815,6 +1849,7 @@ export function ActionPlan({
                     {[
                       { key: "favorite", label: "★" },
                       { key: "name", label: "Nom" },
+                      { key: "type", label: copy.sections.gels.table.type },
                       { key: "carbs", label: "Glucides (g)" },
                       { key: "sodium", label: "Sodium (mg)" },
                       { key: "calories", label: "Calories" },
@@ -1839,12 +1874,7 @@ export function ActionPlan({
                   </tr>
                 </thead>
                 <tbody>
-                  {fuelProducts
-                    .filter((product) => {
-                      if (!pickerSearch.trim()) return true;
-                      const term = pickerSearch.toLowerCase();
-                      return product.name.toLowerCase().includes(term) || product.slug.toLowerCase().includes(term);
-                    })
+                  {filteredPickerProducts
                     .sort((a, b) => {
                       const dir = pickerSort.dir === "asc" ? 1 : -1;
                       if (pickerSort.key === "favorite") {
@@ -1854,6 +1884,7 @@ export function ActionPlan({
                         return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
                       }
                       if (pickerSort.key === "name") return a.name.localeCompare(b.name) * dir;
+                      if (pickerSort.key === "type") return a.fuelType.localeCompare(b.fuelType) * dir;
                       if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
                       if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
                       return (a.caloriesKcal - b.caloriesKcal) * dir;
@@ -1875,6 +1906,9 @@ export function ActionPlan({
                           </td>
                           <td className="px-4 py-3">
                             <span className="font-semibold">{product.name}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
                           </td>
                           <td className="px-4 py-3">{product.carbsGrams} g</td>
                           <td className="px-4 py-3">{product.sodiumMg} mg</td>

@@ -9,6 +9,7 @@ import {
   getSupabaseServiceConfig,
 } from "../../../lib/supabase";
 import { getUserEntitlements } from "../../../lib/entitlements";
+import { defaultFuelType, fuelTypeSchema } from "../../../lib/fuel-types";
 import type { FuelProduct } from "../../../lib/product-types";
 
 const supabaseProductSchema = z.object({
@@ -16,6 +17,7 @@ const supabaseProductSchema = z.object({
   slug: z.string(),
   sku: z.string().optional().nullable(),
   name: z.string(),
+  fuel_type: fuelTypeSchema.optional().default(defaultFuelType),
   product_url: z.string().url().optional().nullable(),
   calories_kcal: z.union([z.number(), z.string()]).transform((value) => Number(value)),
   carbs_g: z.union([z.number(), z.string()]).transform((value) => Number(value)),
@@ -31,6 +33,7 @@ const productResponseSchema = z.object({
       slug: z.string(),
       sku: z.string().optional(),
       name: z.string(),
+      fuelType: fuelTypeSchema,
       productUrl: z.string().url().optional().nullable(),
       caloriesKcal: z.number(),
       carbsGrams: z.number(),
@@ -49,6 +52,7 @@ const singleProductResponseSchema = z.object({
 const createProductSchema = z.object({
   name: z.string().trim().min(1),
   sku: z.string().trim().min(1).optional(),
+  fuelType: fuelTypeSchema,
   productUrl: z
     .string()
     .trim()
@@ -67,6 +71,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   slug: row.slug,
   sku: row.sku ?? undefined,
   name: row.name,
+  fuelType: row.fuel_type ?? defaultFuelType,
   productUrl: row.product_url ?? undefined,
   caloriesKcal: Number(row.calories_kcal) || 0,
   carbsGrams: Number(row.carbs_g) || 0,
@@ -98,10 +103,20 @@ export async function GET(request: NextRequest) {
 
   const token = extractBearerToken(request.headers.get("authorization"));
   const authToken = token ?? supabaseConfig.supabaseAnonKey;
+  const fuelTypeParam = request.nextUrl.searchParams.get("fuel_type") ?? request.nextUrl.searchParams.get("fuelType");
+  const fuelTypeFilter = fuelTypeParam
+    ? fuelTypeSchema.safeParse(fuelTypeParam)
+    : null;
+
+  if (fuelTypeParam && (!fuelTypeFilter || !fuelTypeFilter.success)) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid fuel type filter." }, { status: 400 }));
+  }
+
+  const fuelTypeQuery = fuelTypeFilter?.success ? `&fuel_type=eq.${fuelTypeFilter.data}` : "";
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g${fuelTypeQuery}&order=updated_at.desc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
@@ -183,6 +198,7 @@ export async function POST(request: NextRequest) {
         slug,
         sku,
         name: parsedBody.data.name,
+        fuel_type: parsedBody.data.fuelType,
         product_url: productUrl,
         calories_kcal: parsedBody.data.caloriesKcal,
         carbs_g: parsedBody.data.carbsGrams,

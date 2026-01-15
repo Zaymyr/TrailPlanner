@@ -217,6 +217,14 @@ export type RacePlannerTranslations = {
       description: string;
       loading: string;
       loadError: string;
+      filters: {
+        searchPlaceholder: string;
+        typeLabel: string;
+        typeAll: string;
+      };
+      table: {
+        type: string;
+      };
       favoritesTitle: string;
       allProductsTitle: string;
       empty: string;
@@ -628,6 +636,7 @@ export type ProfileTranslations = {
     };
     table: {
       name: string;
+      type: string;
       carbs: string;
       sodium: string;
       calories: string;
@@ -723,6 +732,7 @@ export type ProductSettingsTranslations = {
     protein: string;
     fat: string;
     productUrl: string;
+    fuelType: string;
   };
   formTitle: string;
   formDescription: string;

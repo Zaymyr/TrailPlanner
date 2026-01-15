@@ -310,6 +310,14 @@ export const en: Translations = {
           "Your favorites from Settings appear first, followed by every shared product in the database.",
         loading: "Loading fuel products…",
         loadError: "Unable to load fuel products. Showing defaults.",
+        filters: {
+          searchPlaceholder: "Search products...",
+          typeLabel: "Fuel type",
+          typeAll: "All",
+        },
+        table: {
+          type: "Type",
+        },
         favoritesTitle: "Favorites from Settings",
         allProductsTitle: "All fuel products",
         empty: "Add your pacing and fueling targets to calculate how many servings you need.",
@@ -668,6 +676,7 @@ export const en: Translations = {
     },
     fields: {
       name: "Name",
+      fuelType: "Fuel type",
       carbs: "Carbs (g)",
       sodium: "Sodium (mg)",
       calories: "Calories (kcal)",
@@ -720,6 +729,7 @@ export const en: Translations = {
       },
       table: {
         name: "Name",
+        type: "Type",
         carbs: "Carbs (g)",
         sodium: "Sodium (mg)",
         calories: "Calories",
