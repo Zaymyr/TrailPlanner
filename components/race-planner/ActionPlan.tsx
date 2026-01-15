@@ -1044,6 +1044,27 @@ export function ActionPlan({
       })
       .filter((slug): slug is string => Boolean(slug));
   }, [productById, supplyPickerSupplies]);
+  const supplyPickerProducts = useMemo(() => {
+    return fuelProducts
+      .filter((product) => {
+        if (!pickerSearch.trim()) return true;
+        const term = pickerSearch.toLowerCase();
+        return product.name.toLowerCase().includes(term) || product.slug.toLowerCase().includes(term);
+      })
+      .sort((a, b) => {
+        const dir = pickerSort.dir === "asc" ? 1 : -1;
+        if (pickerSort.key === "favorite") {
+          const aFav = Number(pickerFavoriteSet.has(a.slug));
+          const bFav = Number(pickerFavoriteSet.has(b.slug));
+          if (aFav === bFav) return 0;
+          return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
+        }
+        if (pickerSort.key === "name") return a.name.localeCompare(b.name) * dir;
+        if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
+        if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
+        return (a.caloriesKcal - b.caloriesKcal) * dir;
+      });
+  }, [fuelProducts, pickerFavoriteSet, pickerSearch, pickerSort.dir, pickerSort.key]);
 
   const handleSupplyToggle = useCallback(
     (productSlug: string) => {
@@ -1852,7 +1873,7 @@ export function ActionPlan({
         </div>
       ) : null}
       {supplyPicker ? (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-x-hidden overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm sm:p-6">
           <div className="w-full max-w-5xl space-y-4 rounded-2xl border border-border-strong bg-card p-5 shadow-2xl dark:bg-slate-950">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1878,7 +1899,56 @@ export function ActionPlan({
                 {`${pickerFavorites.length}/3 favoris sélectionnés`}
               </p>
             </div>
-            <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:bg-slate-950/60">
+            <div className="space-y-3 sm:hidden">
+              {supplyPickerProducts.map((product) => {
+                const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
+                const isFavorite = pickerFavoriteSet.has(product.slug);
+                return (
+                  <div
+                    key={product.slug}
+                    className="rounded-xl border border-border bg-background p-4 shadow-sm dark:bg-slate-900/70"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground dark:text-slate-50">
+                          {product.name}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className={`inline-flex h-10 w-10 items-center justify-center text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
+                        onClick={() => toggleFavorite(product.slug)}
+                        aria-label="Favori"
+                      >
+                        ★
+                      </button>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-foreground dark:bg-slate-800 dark:text-slate-100">
+                        Glucides {product.carbsGrams} g
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-foreground dark:bg-slate-800 dark:text-slate-100">
+                        Sodium {product.sodiumMg} mg
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-foreground dark:bg-slate-800 dark:text-slate-100">
+                        Calories {product.caloriesKcal}
+                      </span>
+                    </div>
+                    <div className="mt-4">
+                      <Button
+                        type="button"
+                        variant={isSelected ? "default" : "outline"}
+                        className="min-h-11 w-full px-4 text-xs"
+                        onClick={() => handleSupplyToggle(product.slug)}
+                      >
+                        {isSelected ? "Sélectionné" : "Sélectionner"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="hidden max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:bg-slate-950/60 sm:block">
               <table className="min-w-[720px] w-full text-left text-sm text-foreground dark:text-slate-200">
                 <thead className="bg-muted text-xs uppercase tracking-wide text-muted-foreground dark:bg-slate-900/70 dark:text-slate-400">
                   <tr>
@@ -1909,59 +1979,40 @@ export function ActionPlan({
                   </tr>
                 </thead>
                 <tbody>
-                  {fuelProducts
-                    .filter((product) => {
-                      if (!pickerSearch.trim()) return true;
-                      const term = pickerSearch.toLowerCase();
-                      return product.name.toLowerCase().includes(term) || product.slug.toLowerCase().includes(term);
-                    })
-                    .sort((a, b) => {
-                      const dir = pickerSort.dir === "asc" ? 1 : -1;
-                      if (pickerSort.key === "favorite") {
-                        const aFav = Number(pickerFavoriteSet.has(a.slug));
-                        const bFav = Number(pickerFavoriteSet.has(b.slug));
-                        if (aFav === bFav) return 0;
-                        return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
-                      }
-                      if (pickerSort.key === "name") return a.name.localeCompare(b.name) * dir;
-                      if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
-                      if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
-                      return (a.caloriesKcal - b.caloriesKcal) * dir;
-                    })
-                    .map((product) => {
-                      const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
-                      const isFavorite = pickerFavoriteSet.has(product.slug);
-                      return (
-                        <tr key={product.slug} className="border-t border-border">
-                          <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              className={`inline-flex h-11 w-11 items-center justify-center text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
-                              onClick={() => toggleFavorite(product.slug)}
-                              aria-label="Favori"
-                            >
-                              ★
-                            </button>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="font-semibold">{product.name}</span>
-                          </td>
-                          <td className="px-4 py-3">{product.carbsGrams} g</td>
-                          <td className="px-4 py-3">{product.sodiumMg} mg</td>
-                          <td className="px-4 py-3">{product.caloriesKcal}</td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              type="button"
-                              variant={isSelected ? "default" : "outline"}
-                              className="min-h-11 px-4 text-xs"
-                              onClick={() => handleSupplyToggle(product.slug)}
-                            >
-                              {isSelected ? "Sélectionné" : "Sélectionner"}
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                  {supplyPickerProducts.map((product) => {
+                    const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
+                    const isFavorite = pickerFavoriteSet.has(product.slug);
+                    return (
+                      <tr key={product.slug} className="border-t border-border">
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            className={`inline-flex h-11 w-11 items-center justify-center text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
+                            onClick={() => toggleFavorite(product.slug)}
+                            aria-label="Favori"
+                          >
+                            ★
+                          </button>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-semibold">{product.name}</span>
+                        </td>
+                        <td className="px-4 py-3">{product.carbsGrams} g</td>
+                        <td className="px-4 py-3">{product.sodiumMg} mg</td>
+                        <td className="px-4 py-3">{product.caloriesKcal}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            type="button"
+                            variant={isSelected ? "default" : "outline"}
+                            className="min-h-11 px-4 text-xs"
+                            onClick={() => handleSupplyToggle(product.slug)}
+                          >
+                            {isSelected ? "Sélectionné" : "Sélectionner"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
