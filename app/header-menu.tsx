@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Route } from "next";
 
@@ -20,6 +20,7 @@ const buttonBaseClass =
 export function HeaderMenu() {
   const { t } = useI18n();
   const pathname = usePathname();
+  const router = useRouter();
   const { session, clearSession } = useVerifiedSession();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -90,6 +91,7 @@ export function HeaderMenu() {
   const handleSignOut = () => {
     clearSession();
     setIsOpen(false);
+    router.refresh();
   };
 
   const visibleMenuItems = menuItems.filter((item) => item.href !== "/admin" || isAdmin);

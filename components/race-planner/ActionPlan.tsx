@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import Image from "next/image";
 import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
@@ -14,7 +15,14 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
-import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "./TimelineIcons";
+import {
+  BoltIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  DropletIcon,
+  GaugeIcon,
+  SparklesIcon,
+} from "./TimelineIcons";
 
 const statusToneStyles = {
   success: "border-emerald-400/40 bg-emerald-500/20 text-emerald-50",
@@ -24,6 +32,40 @@ const statusToneStyles = {
 } as const;
 
 type StatusTone = keyof typeof statusToneStyles;
+
+const clampNumber = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+const buildGaugeRanges = (targetValue: number, maxValue: number) => {
+  const safeTarget = Math.max(targetValue, 0);
+  const safeMax = Math.max(maxValue, safeTarget);
+  const lowerWarning = safeTarget * 0.6;
+  const upperWarning = safeMax;
+  const fallbackTolerance = safeTarget * 0.1;
+  let tolerance = Math.min(safeTarget - lowerWarning, upperWarning - safeTarget);
+  if (!Number.isFinite(tolerance) || tolerance <= 0) {
+    tolerance = fallbackTolerance;
+  }
+  const gaugeMax = safeMax * 1.3;
+  let greenStart = safeTarget - tolerance;
+  let greenEnd = safeTarget + tolerance;
+  if (greenStart < 0) {
+    greenEnd = Math.min(gaugeMax, greenEnd - greenStart);
+    greenStart = 0;
+  }
+  if (greenEnd > gaugeMax) {
+    greenStart = Math.max(0, greenStart - (greenEnd - gaugeMax));
+    greenEnd = gaugeMax;
+  }
+  const upperDanger = upperWarning * 1.1;
+  return {
+    gaugeMax,
+    lowerWarning,
+    upperWarning,
+    upperDanger,
+    greenStart,
+    greenEnd,
+  };
+};
 
 type RaceTotals = {
   fuelGrams: number;
@@ -76,6 +118,126 @@ const formatPaceValue = (minutesPerKm: number) => {
   const seconds = totalSeconds % 60;
   return `${minutes}'${seconds.toString().padStart(2, "0")}"`;
 };
+
+type FinishSummaryMetric = {
+  key: string;
+  label: string;
+  value: string;
+  helper?: string | null;
+};
+
+type FinishSummaryGroup = {
+  title: string;
+  icon: ReactNode;
+  primary: FinishSummaryMetric;
+  secondary?: FinishSummaryMetric[];
+};
+
+type FinishSummaryCardProps = {
+  pointIndex: number;
+  title: string;
+  distanceText: string;
+  performanceGroup: FinishSummaryGroup;
+  energyGroup: FinishSummaryGroup;
+  hydrationGroup: FinishSummaryGroup;
+  details: FinishSummaryMetric[];
+  detailsLabel: string;
+  detailsId: string;
+  isExpanded: boolean;
+  onToggleDetails: () => void;
+};
+
+function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
+  return (
+    <div className="rounded-2xl bg-muted/40 p-3 shadow-sm dark:bg-slate-900/60">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-background text-foreground shadow-sm dark:bg-slate-950/70">
+          {icon}
+        </span>
+        <span>{title}</span>
+      </div>
+      <div className="mt-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+          {primary.label}
+        </p>
+        <p className="text-lg font-semibold text-foreground dark:text-slate-50">{primary.value}</p>
+        {primary.helper ? (
+          <p className="text-[11px] text-muted-foreground dark:text-slate-400">{primary.helper}</p>
+        ) : null}
+      </div>
+      {secondary?.length ? (
+        <div className="mt-2 space-y-1 text-xs text-foreground dark:text-slate-50">
+          {secondary.map((item) => (
+            <div key={item.key} className="flex items-center justify-between gap-2">
+              <span className="text-muted-foreground dark:text-slate-400">{item.label}</span>
+              <span className="font-semibold">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FinishSummaryCard({
+  pointIndex,
+  title,
+  distanceText,
+  performanceGroup,
+  energyGroup,
+  hydrationGroup,
+  details,
+  detailsLabel,
+  detailsId,
+  isExpanded,
+  onToggleDetails,
+}: FinishSummaryCardProps) {
+  return (
+    <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-[220px] items-start gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+            {pointIndex}
+          </span>
+          <div className="space-y-1">
+            <div className="text-base font-semibold text-foreground dark:text-slate-50">{title}</div>
+            <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{distanceText}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <SummaryGroup {...performanceGroup} />
+        <SummaryGroup {...energyGroup} />
+        <SummaryGroup {...hydrationGroup} />
+      </div>
+
+      <div className="mt-4 border-t border-border/70 pt-3">
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+          aria-expanded={isExpanded}
+          aria-controls={detailsId}
+          onClick={onToggleDetails}
+        >
+          {detailsLabel}
+          {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
+        </button>
+
+        {isExpanded ? (
+          <div id={detailsId} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {details.map((detail) => (
+              <div key={detail.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
+                <span className="text-muted-foreground dark:text-slate-400">{detail.label}</span>
+                <span className="font-semibold text-foreground dark:text-slate-50">{detail.value}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
   if (segment.isFinish) return `finishPlan.${field}` as const;
@@ -220,10 +382,9 @@ type NutritionCardProps = {
   variant?: NutritionCardVariant;
   waterCapacityMl?: number | null;
   targetLabel: string;
-  maxLabel: string;
 };
 
-function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel, maxLabel }: NutritionCardProps) {
+function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel }: NutritionCardProps) {
   const isCompact = variant === "compact";
   const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
   const compactTarget = metric.format(metric.targetValue).split(" de ")[0].split(" d'")[0];
@@ -233,17 +394,30 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
       ? waterCapacityMl
       : targetValue;
   const maxValue = Math.max(maxValueCandidate, targetValue * 1.2 || 1);
-  const scaleMax = maxValue * 1.3;
-  const cursorPercent = Math.min((metric.plannedValue / scaleMax) * 100, 100);
-  const targetPercent = Math.min((targetValue / scaleMax) * 100, 100);
-  const maxPercent = Math.min((maxValue / scaleMax) * 100, 100);
-  const cautionPercent = Math.min(targetPercent * 0.6, targetPercent);
-  const cursorToneClass =
-    cursorPercent > maxPercent
-      ? "ring-amber-300"
-      : cursorPercent >= targetPercent
-        ? "ring-emerald-300"
-        : "ring-rose-300";
+  const ranges = buildGaugeRanges(targetValue, maxValue);
+  const scaleMax = ranges.gaugeMax;
+  const cursorPercent = clampNumber((metric.plannedValue / scaleMax) * 100, 0, 100);
+  const targetPercent = clampNumber((targetValue / scaleMax) * 100, 0, 100);
+  const lowerWarningPercent = clampNumber((ranges.lowerWarning / scaleMax) * 100, 0, 100);
+  const greenStartPercent = clampNumber((ranges.greenStart / scaleMax) * 100, 0, 100);
+  const greenEndPercent = clampNumber((ranges.greenEnd / scaleMax) * 100, 0, 100);
+  const upperDangerPercent = clampNumber((ranges.upperDanger / scaleMax) * 100, 0, 100);
+  const valueToneClass =
+    metric.statusTone === "success"
+      ? "text-emerald-600 dark:text-emerald-300"
+      : metric.statusTone === "warning"
+        ? "text-amber-600 dark:text-amber-300"
+        : metric.statusTone === "danger"
+          ? "text-rose-600 dark:text-rose-300"
+          : "text-foreground dark:text-slate-50";
+  const valueMarkerToneClass =
+    metric.statusTone === "success"
+      ? "border-t-emerald-500 dark:border-t-emerald-300"
+      : metric.statusTone === "warning"
+        ? "border-t-amber-500 dark:border-t-amber-300"
+        : metric.statusTone === "danger"
+          ? "border-t-rose-500 dark:border-t-rose-300"
+          : "border-t-slate-500 dark:border-t-slate-300";
 
   return (
     <div
@@ -283,43 +457,47 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
         </div>
       </div>
       <div className={isCompact ? "mt-1.5 flex flex-col gap-1" : "mt-3 flex flex-col gap-3"}>
-        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight text-foreground dark:text-slate-50`}>
+        <p className={`${isCompact ? "text-xl" : "text-3xl"} font-extrabold leading-tight ${valueToneClass}`}>
           {isCompact ? compactValue : metric.value}
         </p>
         <div className={isCompact ? "space-y-1" : "space-y-2"}>
-          <div
-            className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:bg-slate-900 ${
-              isCompact ? "h-2" : "h-4"
-            }`}
-          >
+          <div className="relative w-full">
             <div
-              className="absolute inset-0"
-              style={{
-                background: `linear-gradient(to right,
-                  rgba(248,113,113,0.75) 0%,
-                  rgba(248,113,113,0.75) ${cautionPercent}%,
-                  rgba(251,146,60,0.75) ${cautionPercent}%,
-                  rgba(251,146,60,0.75) ${targetPercent}%,
-                  rgba(16,185,129,0.8) ${targetPercent}%,
-                  rgba(16,185,129,0.8) ${maxPercent}%,
-                  rgba(251,146,60,0.75) ${maxPercent}%,
-                  rgba(251,146,60,0.75) 100%)`,
-              }}
-              aria-hidden
-            />
+              className={`relative w-full overflow-hidden rounded-full border border-border bg-background dark:bg-slate-900 ${
+                isCompact ? "h-2" : "h-4"
+              }`}
+            >
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(to right,
+                      rgba(248,113,113,0.75) 0%,
+                      rgba(248,113,113,0.75) ${lowerWarningPercent}%,
+                      rgba(251,146,60,0.75) ${lowerWarningPercent}%,
+                      rgba(251,146,60,0.75) ${greenStartPercent}%,
+                      rgba(16,185,129,0.8) ${greenStartPercent}%,
+                      rgba(16,185,129,0.8) ${greenEndPercent}%,
+                      rgba(251,146,60,0.75) ${greenEndPercent}%,
+                      rgba(251,146,60,0.75) ${upperDangerPercent}%,
+                      rgba(248,113,113,0.75) ${upperDangerPercent}%,
+                      rgba(248,113,113,0.75) 100%)`,
+                  }}
+                  aria-hidden
+                />
+            </div>
             <span
-              className="absolute inset-y-0 w-[2px] bg-white shadow-[0_0_0_2px_rgba(15,23,42,0.85)]"
+              className={`absolute left-0 top-full mt-0.5 h-0 w-0 -translate-x-1/2 border-x-[5px] border-t-0 border-x-transparent border-b-[6px] border-b-slate-500/70 dark:border-b-slate-200/70 ${
+                isCompact ? "border-x-[4px] border-b-[5px]" : ""
+              }`}
               style={{ left: `${targetPercent}%` }}
               aria-label={targetLabel}
             />
             <span
-              className="absolute inset-y-0 w-[3px] bg-emerald-200 shadow-[0_0_0_2px_rgba(15,23,42,0.65)]"
-              style={{ left: `${maxPercent}%` }}
-              aria-label={maxLabel}
-            />
-            <span
-              className={`absolute left-0 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white ring-2 ring-offset-2 ring-offset-background dark:ring-offset-slate-900 ${cursorToneClass} shadow-[0_0_0_2px_rgba(15,23,42,0.85)]`}
+              className={`absolute left-0 bottom-full mb-0.5 h-0 w-0 -translate-x-1/2 border-x-[5px] border-b-0 border-x-transparent border-t-[6px] ${
+                isCompact ? "border-x-[4px] border-t-[5px]" : ""
+              } ${valueMarkerToneClass}`}
               style={{ left: `${cursorPercent}%` }}
+              aria-label={metric.name}
             />
           </div>
           {isCompact ? (
@@ -568,6 +746,8 @@ export function ActionPlan({
   upgradeStatus,
 }: ActionPlanProps) {
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
+  const [isFinishDetailsOpen, setIsFinishDetailsOpen] = useState(false);
+  const finishDetailsId = useId();
   const [editorState, setEditorState] = useState<
     | null
     | {
@@ -615,28 +795,70 @@ export function ActionPlan({
   }, [favoriteProducts]);
   const renderItems = buildRenderItems(segments);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
+  const finishSummary = useMemo(() => {
+    if (segments.length === 0) return null;
+
+    const finishDistanceKm = segments[segments.length - 1]?.distanceKm ?? 0;
+    const totalPauseMinutes = segments.reduce((total, segment) => total + (segment.pauseMinutes ?? 0), 0);
+    const totalMovingMinutes = raceTotals?.durationMinutes ?? 0;
+    const totalTimeMinutes = totalMovingMinutes + totalPauseMinutes;
+    const averagePaceMinPerKm =
+      finishDistanceKm > 0 && totalTimeMinutes > 0 ? totalTimeMinutes / finishDistanceKm : null;
+    const averageSpeedKph =
+      finishDistanceKm > 0 && totalTimeMinutes > 0 ? finishDistanceKm / (totalTimeMinutes / 60) : null;
+    const totalGels = segments.reduce((total, segment) => total + (segment.gelsPlanned ?? 0), 0);
+    const totalElevationGain = segments.reduce((total, segment) => total + (segment.elevationGainM ?? 0), 0);
+    const totalElevationLoss = segments.reduce((total, segment) => total + (segment.elevationLossM ?? 0), 0);
+    const allSupplies = [...startSupplies, ...segments.flatMap((segment) => segment.supplies ?? [])];
+    const totalCalories = allSupplies.reduce((total, supply) => {
+      const product = productById[supply.productId];
+      if (!product) return total;
+      const quantity = Number.isFinite(supply.quantity) ? supply.quantity : 0;
+      if (quantity <= 0) return total;
+      return total + (product.caloriesKcal ?? 0) * quantity;
+    }, 0);
+
+    return {
+      finishDistanceKm,
+      totalPauseMinutes,
+      totalMovingMinutes,
+      totalTimeMinutes,
+      averagePaceMinPerKm,
+      averageSpeedKph,
+      totalGels,
+      totalElevationGain,
+      totalElevationLoss,
+      totalCalories,
+    };
+  }, [productById, raceTotals?.durationMinutes, segments, startSupplies]);
   const metricIcons = {
     carbs: (
-      <img
+      <Image
         src="/race-planner/icons/glucide.png"
         alt=""
         aria-hidden
+        width={16}
+        height={16}
         className="h-4 w-4 object-contain"
       />
     ),
     water: (
-      <img
+      <Image
         src="/race-planner/icons/water.png"
         alt=""
         aria-hidden
+        width={16}
+        height={16}
         className="h-4 w-4 object-contain"
       />
     ),
     sodium: (
-      <img
+      <Image
         src="/race-planner/icons/sodium.png"
         alt=""
         aria-hidden
+        width={16}
+        height={16}
         className="h-4 w-4 object-contain"
       />
     ),
@@ -649,18 +871,17 @@ export function ActionPlan({
       return { label: timelineCopy.status.atTarget, tone: "neutral" as const };
     }
     const ceiling = Math.max(upperBound ?? target * 1.2, target);
-    if (planned < target) {
-      const ratio = planned / target;
-      if (ratio < 0.6) {
-        return { label: timelineCopy.status.belowTarget, tone: "danger" as const };
-      }
+    const ranges = buildGaugeRanges(target, ceiling);
+    if (planned < ranges.lowerWarning) {
+      return { label: timelineCopy.status.belowTarget, tone: "danger" as const };
+    }
+    if (planned < ranges.greenStart) {
       return { label: timelineCopy.status.belowTarget, tone: "warning" as const };
     }
-    if (planned <= ceiling) {
+    if (planned <= ranges.greenEnd) {
       return { label: timelineCopy.status.atTarget, tone: "success" as const };
     }
-    const overRatio = planned / ceiling;
-    if (overRatio <= 1.1) {
+    if (planned <= ranges.upperDanger) {
       return { label: timelineCopy.status.aboveTarget, tone: "warning" as const };
     }
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
@@ -869,17 +1090,21 @@ export function ActionPlan({
                 const isCollapsed = isCollapsible && collapseKey ? Boolean(collapsedAidStations[collapseKey]) : false;
                 const toggleLabel = isCollapsed ? timelineCopy.expandLabel : timelineCopy.collapseLabel;
                 const pointIconLarge = item.isStart ? (
-                  <img
+                  <Image
                     src="/race-planner/icons/start.svg"
                     alt=""
                     aria-hidden
+                    width={32}
+                    height={32}
                     className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : typeof item.aidStationIndex === "number" && !item.isFinish ? (
-                  <img
+                  <Image
                     src="/race-planner/icons/ravito.svg"
                     alt=""
                     aria-hidden
+                    width={32}
+                    height={32}
                     className="h-8 w-8 object-contain invert dark:invert-0"
                   />
                 ) : null;
@@ -1178,7 +1403,6 @@ export function ActionPlan({
                     variant="compact"
                     waterCapacityMl={sectionSegment?.waterCapacityMl ?? null}
                     targetLabel={timelineCopy.targetLabel}
-                    maxLabel={timelineCopy.waterCapacityLabel}
                   />
                 ));
 
@@ -1201,6 +1425,162 @@ export function ActionPlan({
                       </span>
                     </Button>
                   ) : null;
+
+                if (item.isFinish && finishSummary) {
+                  const totalTimeValue =
+                    finishSummary.totalTimeMinutes > 0 ? formatMinutes(finishSummary.totalTimeMinutes) : "—";
+                  const totalPauseNote =
+                    finishSummary.totalPauseMinutes > 0
+                      ? timelineCopy.finishSummary.pauseNote.replace(
+                          "{pause}",
+                          formatMinutes(finishSummary.totalPauseMinutes)
+                        )
+                      : null;
+                  const totalCarbs = raceTotals?.fuelGrams ?? 0;
+                  const totalWater = raceTotals?.waterMl ?? 0;
+                  const totalSodium = raceTotals?.sodiumMg ?? 0;
+                  const carbsPerHour =
+                    totalCarbs > 0 && finishSummary.totalTimeMinutes > 0
+                      ? totalCarbs / (finishSummary.totalTimeMinutes / 60)
+                      : null;
+                  const formatOptionalValue = (value: number | null, formatter: (value: number) => string) =>
+                    Number.isFinite(value) && (value ?? 0) > 0 ? formatter(value as number) : "—";
+                  const formatCarbs = (value: number) => `${Math.round(value)} ${copy.units.grams}`;
+                  const formatSodium = (value: number) => `${Math.round(value)} ${copy.units.milligrams}`;
+                  const formatWater = (value: number) => {
+                    if (!Number.isFinite(value) || value <= 0) return "—";
+                    if (value >= 1000) {
+                      const liters = value / 1000;
+                      return `${liters.toFixed(liters < 10 ? 1 : 0)} L`;
+                    }
+                    return `${Math.round(value)} ${copy.units.milliliters}`;
+                  };
+                  const formatPace = (value: number | null) => {
+                    if (!Number.isFinite(value) || (value ?? 0) <= 0) return "—";
+                    const totalSeconds = Math.round((value as number) * 60);
+                    const minutes = Math.floor(totalSeconds / 60);
+                    const seconds = totalSeconds % 60;
+                    return `${minutes}:${seconds.toString().padStart(2, "0")} /${copy.units.kilometer}`;
+                  };
+                  const formatSpeed = (value: number | null) =>
+                    formatOptionalValue(value, (speed) =>
+                      `${speed.toFixed(1)} ${copy.units.kilometer}/${copy.units.hourShort}`
+                    );
+                  const formattedGels =
+                    Number.isFinite(finishSummary.totalGels) && finishSummary.totalGels > 0
+                      ? Number.isInteger(finishSummary.totalGels)
+                        ? finishSummary.totalGels.toFixed(0)
+                        : finishSummary.totalGels.toFixed(1)
+                      : "—";
+                  const formattedCalories =
+                    Number.isFinite(finishSummary.totalCalories) && finishSummary.totalCalories > 0
+                      ? `${Math.round(finishSummary.totalCalories)} kcal`
+                      : "—";
+                  const formattedElevationGain =
+                    Number.isFinite(finishSummary.totalElevationGain) && finishSummary.totalElevationGain > 0
+                      ? `${Math.round(finishSummary.totalElevationGain)} ${copy.units.meter}`
+                      : "—";
+                  const formattedElevationLoss =
+                    Number.isFinite(finishSummary.totalElevationLoss) && finishSummary.totalElevationLoss > 0
+                      ? `${Math.round(finishSummary.totalElevationLoss)} ${copy.units.meter}`
+                      : "—";
+                  const performanceGroup: FinishSummaryGroup = {
+                    title: timelineCopy.finishSummary.groups.performance,
+                    icon: <GaugeIcon className="h-4 w-4" aria-hidden />,
+                    primary: {
+                      key: "total-time",
+                      label: timelineCopy.finishSummary.totalTimeLabel,
+                      value: totalTimeValue,
+                      helper: totalPauseNote,
+                    },
+                    secondary: [
+                      {
+                        key: "avg-pace",
+                        label: timelineCopy.finishSummary.avgPaceLabel,
+                        value: formatPace(finishSummary.averagePaceMinPerKm),
+                      },
+                      {
+                        key: "avg-speed",
+                        label: timelineCopy.finishSummary.avgSpeedLabel,
+                        value: formatSpeed(finishSummary.averageSpeedKph),
+                      },
+                    ],
+                  };
+
+                  const energyGroup: FinishSummaryGroup = {
+                    title: timelineCopy.finishSummary.groups.energy,
+                    icon: <BoltIcon className="h-4 w-4" aria-hidden />,
+                    primary: {
+                      key: "total-carbs",
+                      label: timelineCopy.finishSummary.totalCarbsLabel,
+                      value: formatOptionalValue(totalCarbs, formatCarbs),
+                      helper:
+                        carbsPerHour && Number.isFinite(carbsPerHour)
+                          ? `${Math.round(carbsPerHour)} ${copy.units.grams}/${copy.units.hourShort}`
+                          : null,
+                    },
+                    secondary: [
+                      {
+                        key: "total-gels",
+                        label: timelineCopy.finishSummary.totalGelsLabel,
+                        value: formattedGels,
+                      },
+                      {
+                        key: "total-calories",
+                        label: timelineCopy.finishSummary.totalCaloriesLabel,
+                        value: formattedCalories,
+                      },
+                    ],
+                  };
+
+                  const hydrationGroup: FinishSummaryGroup = {
+                    title: timelineCopy.finishSummary.groups.hydration,
+                    icon: <DropletIcon className="h-4 w-4" aria-hidden />,
+                    primary: {
+                      key: "total-fluids",
+                      label: timelineCopy.finishSummary.totalFluidsLabel,
+                      value: formatWater(totalWater),
+                    },
+                    secondary: [
+                      {
+                        key: "total-sodium",
+                        label: timelineCopy.finishSummary.totalSodiumLabel,
+                        value: formatOptionalValue(totalSodium, formatSodium),
+                      },
+                    ],
+                  };
+
+                  const details: FinishSummaryMetric[] = [
+                    {
+                      key: "elevation-gain",
+                      label: timelineCopy.finishSummary.elevationGainLabel,
+                      value: formattedElevationGain,
+                    },
+                    {
+                      key: "elevation-loss",
+                      label: timelineCopy.finishSummary.elevationLossLabel,
+                      value: formattedElevationLoss,
+                    },
+                  ];
+
+                  return (
+                    <div key={item.id} className="relative pl-8">
+                      <FinishSummaryCard
+                        pointIndex={pointNumber}
+                        title={timelineCopy.finishSummary.title}
+                        distanceText={formatDistanceWithUnit(finishSummary.finishDistanceKm)}
+                        performanceGroup={performanceGroup}
+                        energyGroup={energyGroup}
+                        hydrationGroup={hydrationGroup}
+                        details={details}
+                        detailsLabel={timelineCopy.finishSummary.detailsLabel}
+                        detailsId={finishDetailsId}
+                        isExpanded={isFinishDetailsOpen}
+                        onToggleDetails={() => setIsFinishDetailsOpen((prev) => !prev)}
+                      />
+                    </div>
+                  );
+                }
 
                 if (isCollapsible && isCollapsed) {
                   const embarkedSupplies = summarized?.items ?? [];

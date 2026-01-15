@@ -13,6 +13,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { readStoredSession } from "../../lib/auth-storage";
+import { readLocalProducts, upsertLocalProduct } from "../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
@@ -23,8 +24,15 @@ const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 const productDetailSchema = z.object({ product: fuelProductSchema });
 const baseButtonClass =
   "inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300";
-const outlineButtonClass = "border border-emerald-300 text-emerald-100 hover:bg-emerald-950/60";
+const outlineButtonClass =
+  "border border-border text-[hsl(var(--success))] hover:bg-muted hover:text-foreground dark:border-emerald-300 dark:text-emerald-100 dark:hover:bg-emerald-950/60";
 const primaryButtonClass = "bg-emerald-400 text-slate-950 hover:bg-emerald-300";
+const createLocalProductId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
 
 function ProductIcon({ className }: { className?: string }) {
   return (
@@ -122,21 +130,21 @@ export default function SettingsPage() {
   });
 
   const productsQuery = useQuery({
-    queryKey: ["products", session?.accessToken],
-    enabled: Boolean(session?.accessToken),
+    queryKey: ["products", session?.accessToken ?? "local"],
     queryFn: async () => {
-      if (!session?.accessToken) {
-        throw new Error(t.productSettings.errors.missingSession);
-      }
+      const localProducts = readLocalProducts();
 
       const response = await fetch("/api/products", {
-        headers: { Authorization: `Bearer ${session.accessToken}` },
+        headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
         cache: "no-store",
       });
 
       const data = (await response.json().catch(() => null)) as unknown;
 
       if (!response.ok) {
+        if (localProducts.length > 0) {
+          return localProducts;
+        }
         const message = (data as { message?: string } | null)?.message ?? t.productSettings.errors.loadFailed;
         throw new Error(message);
       }
@@ -144,10 +152,19 @@ export default function SettingsPage() {
       const parsed = productListSchema.safeParse(data);
 
       if (!parsed.success) {
+        if (localProducts.length > 0) {
+          return localProducts;
+        }
         throw new Error(t.productSettings.errors.loadFailed);
       }
 
-      return parsed.data.products;
+      const merged = new Map(parsed.data.products.map((product) => [product.id, product]));
+      localProducts.forEach((product) => {
+        if (!merged.has(product.id)) {
+          merged.set(product.id, product);
+        }
+      });
+      return Array.from(merged.values());
     },
   });
 
@@ -187,7 +204,27 @@ export default function SettingsPage() {
   const createProductMutation = useMutation({
     mutationFn: async (values: ProductFormValues) => {
       if (!session?.accessToken) {
-        throw new Error(t.productSettings.errors.missingSession);
+        const slugBase = values.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "");
+        const suffix = Math.random().toString(36).slice(2, 6);
+        const product: FuelProduct = {
+          id: createLocalProductId(),
+          slug: slugBase ? `${slugBase}-${suffix}` : `product-${suffix}`,
+          name: values.name,
+          productUrl: values.productUrl ?? undefined,
+          caloriesKcal: values.caloriesKcal,
+          carbsGrams: values.carbsGrams,
+          sodiumMg: values.sodiumMg,
+          proteinGrams: values.proteinGrams,
+          fatGrams: values.fatGrams,
+          waterMl: 0,
+        };
+
+        upsertLocalProduct(product);
+        return product;
       }
 
       const response = await fetch("/api/products", {
@@ -217,7 +254,14 @@ export default function SettingsPage() {
     onSuccess: (product) => {
       setFormError(null);
       setFormMessage(t.productSettings.success);
-      void productsQuery.refetch();
+      if (!session?.accessToken) {
+        queryClient.setQueryData(["products", "local"], (current) => {
+          const list = Array.isArray(current) ? current : [];
+          return [product, ...list.filter((item) => item.id !== product.id)];
+        });
+      } else {
+        void productsQuery.refetch();
+      }
       reset();
       handleToggle(product);
     },
@@ -321,15 +365,15 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl bg-slate-950/60 p-6 shadow-md shadow-emerald-900/20">
+    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl border border-border-strong bg-card p-6 text-foreground shadow-md shadow-emerald-900/20 dark:bg-slate-950/60">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-50">{t.productSettings.title}</h1>
+          <h1 className="text-2xl font-semibold text-foreground">{t.productSettings.title}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Link
             href="/race-planner"
-            className={`${baseButtonClass} ${outlineButtonClass} border-emerald-300/50 text-emerald-50 hover:border-emerald-200`}
+            className={`${baseButtonClass} ${outlineButtonClass} border-emerald-300/50 dark:text-emerald-50 dark:hover:border-emerald-200`}
           >
             {t.productSettings.actions.openPlanner}
           </Link>
@@ -346,7 +390,7 @@ export default function SettingsPage() {
           <CardHeader className="flex flex-col gap-3">
             <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <CardTitle className="text-lg text-slate-50">{t.productSettings.listTitle}</CardTitle>
+                <CardTitle className="text-lg">{t.productSettings.listTitle}</CardTitle>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Input
@@ -367,23 +411,21 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {authMissing && (
-              <p className="rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-200">
-                {t.productSettings.authRequired}
+              <p className="rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700 dark:text-amber-200">
+                {t.productSettings.localNotice}
               </p>
             )}
 
-            {selectionError && <p className="text-sm text-red-300">{selectionError}</p>}
+            {selectionError && <p className="text-sm text-red-600 dark:text-red-300">{selectionError}</p>}
 
-            {favoritesLoadError && <p className="text-sm text-red-300">{favoritesLoadError}</p>}
+            {favoritesLoadError && <p className="text-sm text-red-600 dark:text-red-300">{favoritesLoadError}</p>}
 
-            {productsQuery.isLoading && (
-              <p className="text-sm text-slate-400">{t.productSettings.loading}</p>
-            )}
+            {productsQuery.isLoading && <p className="text-sm text-muted-foreground">{t.productSettings.loading}</p>}
 
-            {productLoadError && <p className="text-sm text-red-300">{productLoadError}</p>}
+            {productLoadError && <p className="text-sm text-red-600 dark:text-red-300">{productLoadError}</p>}
 
             {!productsQuery.isLoading && sortedProducts.length === 0 && (
-              <p className="text-sm text-slate-400">{t.productSettings.empty}</p>
+              <p className="text-sm text-muted-foreground">{t.productSettings.empty}</p>
             )}
 
             {sortedProducts.length > 0 && (
@@ -391,7 +433,7 @@ export default function SettingsPage() {
                 <TableHeader className="sticky top-0 z-10">
                   <TableRow>
                     <TableHead className="w-24 text-center">
-                      <div className="flex items-center justify-center gap-2 text-emerald-200">
+                      <div className="flex items-center justify-center gap-2 text-[hsl(var(--success))]">
                         <ProductIcon className="h-4 w-4" />
                         <span className="text-xs font-semibold uppercase tracking-wide">
                           {t.productSettings.fields.productUrl}
@@ -466,7 +508,7 @@ export default function SettingsPage() {
                     const isSelected = selectedProducts.some((item) => item.id === product.id);
                     return (
                       <TableRow key={product.id}>
-                        <TableCell className="text-center text-emerald-200">
+                        <TableCell className="text-center text-[hsl(var(--success))]">
                           {product.productUrl ? (
                             <a
                               href={product.productUrl}
@@ -480,12 +522,12 @@ export default function SettingsPage() {
                               <span className="sr-only">{t.productSettings.fields.productUrl}</span>
                             </a>
                           ) : (
-                            <span className="inline-flex items-center justify-center rounded-full bg-slate-800/60 p-2 text-slate-400">
+                            <span className="inline-flex items-center justify-center rounded-full bg-muted p-2 text-muted-foreground">
                               <ProductIcon className="h-4 w-4" />
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="font-semibold text-slate-50">
+                        <TableCell className="font-semibold text-foreground">
                           <div className="flex flex-col gap-1">
                             <span>{product.name}</span>
                           </div>
@@ -499,15 +541,14 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => handleToggle(product)}
-                            disabled={authMissing}
                             aria-pressed={isSelected}
                             aria-label={
                               isSelected ? t.productSettings.actions.deselect : t.productSettings.actions.select
                             }
                             className={`inline-flex h-9 w-9 items-center justify-center rounded-full border border-amber-400/70 transition ${
                               isSelected
-                                ? "bg-amber-300/20 text-amber-300 hover:bg-amber-300/30"
-                                : "bg-transparent text-amber-200 hover:bg-amber-300/10"
+                                ? "bg-amber-300/30 text-amber-600 hover:bg-amber-300/40 dark:text-amber-300"
+                                : "bg-transparent text-amber-600 hover:bg-amber-200/40 dark:text-amber-200 dark:hover:bg-amber-300/10"
                             } disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300`}
                           >
                             <StarIcon filled={isSelected} className="h-4 w-4" />
@@ -527,15 +568,15 @@ export default function SettingsPage() {
 
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle className="text-lg text-slate-50">{t.productSettings.formTitle}</CardTitle>
-            <p className="text-sm text-slate-400">{t.productSettings.formDescription}</p>
+            <CardTitle className="text-lg">{t.productSettings.formTitle}</CardTitle>
+            <p className="text-sm text-muted-foreground">{t.productSettings.formDescription}</p>
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">{t.productSettings.fields.name}</Label>
                 <Input id="name" placeholder="Gel, boisson, barre..." {...register("name")} disabled={authMissing} />
-                {errors.name && <p className="text-sm text-red-300">{errors.name.message}</p>}
+                {errors.name && <p className="text-sm text-red-600 dark:text-red-300">{errors.name.message}</p>}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">
@@ -549,7 +590,9 @@ export default function SettingsPage() {
                     {...register("carbsGrams")}
                     disabled={authMissing}
                   />
-                  {errors.carbsGrams && <p className="text-sm text-red-300">{errors.carbsGrams.message}</p>}
+                  {errors.carbsGrams && (
+                    <p className="text-sm text-red-600 dark:text-red-300">{errors.carbsGrams.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sodiumMg">{t.productSettings.fields.sodium}</Label>
@@ -561,7 +604,9 @@ export default function SettingsPage() {
                     {...register("sodiumMg")}
                     disabled={authMissing}
                   />
-                  {errors.sodiumMg && <p className="text-sm text-red-300">{errors.sodiumMg.message}</p>}
+                  {errors.sodiumMg && (
+                    <p className="text-sm text-red-600 dark:text-red-300">{errors.sodiumMg.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -576,7 +621,9 @@ export default function SettingsPage() {
                     {...register("caloriesKcal")}
                     disabled={authMissing}
                   />
-                  {errors.caloriesKcal && <p className="text-sm text-red-300">{errors.caloriesKcal.message}</p>}
+                  {errors.caloriesKcal && (
+                    <p className="text-sm text-red-600 dark:text-red-300">{errors.caloriesKcal.message}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="proteinGrams">{t.productSettings.fields.protein}</Label>
@@ -588,7 +635,9 @@ export default function SettingsPage() {
                     {...register("proteinGrams")}
                     disabled={authMissing}
                   />
-                  {errors.proteinGrams && <p className="text-sm text-red-300">{errors.proteinGrams.message}</p>}
+                  {errors.proteinGrams && (
+                    <p className="text-sm text-red-600 dark:text-red-300">{errors.proteinGrams.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -603,7 +652,9 @@ export default function SettingsPage() {
                     {...register("fatGrams")}
                     disabled={authMissing}
                   />
-                  {errors.fatGrams && <p className="text-sm text-red-300">{errors.fatGrams.message}</p>}
+                  {errors.fatGrams && (
+                    <p className="text-sm text-red-600 dark:text-red-300">{errors.fatGrams.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -616,11 +667,13 @@ export default function SettingsPage() {
                   disabled={authMissing}
                   inputMode="url"
                 />
-                {errors.productUrl && <p className="text-sm text-red-300">{errors.productUrl.message}</p>}
+                {errors.productUrl && (
+                  <p className="text-sm text-red-600 dark:text-red-300">{errors.productUrl.message}</p>
+                )}
               </div>
 
-              {formError && <p className="text-sm text-red-300">{formError}</p>}
-              {formMessage && <p className="text-sm text-emerald-200">{formMessage}</p>}
+              {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
+              {formMessage && <p className="text-sm text-[hsl(var(--success))]">{formMessage}</p>}
 
               <Button
                 type="submit"
@@ -635,11 +688,11 @@ export default function SettingsPage() {
       </div>
 
       {warningDraft && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur">
-          <div className="w-full max-w-lg space-y-4 rounded-xl border border-amber-500/40 bg-slate-900 p-6 shadow-2xl">
-            <h2 className="text-lg font-semibold text-slate-50">{t.productSettings.warning.title}</h2>
-            <p className="text-sm text-slate-300">{t.productSettings.warning.description}</p>
-            <ul className="list-disc space-y-1 pl-5 text-sm text-amber-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur">
+          <div className="w-full max-w-lg space-y-4 rounded-xl border border-amber-500/40 bg-card p-6 text-foreground shadow-2xl dark:bg-slate-900">
+            <h2 className="text-lg font-semibold text-foreground">{t.productSettings.warning.title}</h2>
+            <p className="text-sm text-muted-foreground">{t.productSettings.warning.description}</p>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-amber-700 dark:text-amber-200">
               {warningDraft.zeroFields.map((field) => (
                 <li key={field}>{field}</li>
               ))}

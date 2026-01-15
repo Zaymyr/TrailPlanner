@@ -38,16 +38,50 @@ export type SignUpTranslations = {
 export type SignInTranslations = {
   title: string;
   description: string;
+  forgotPassword: string;
   submit: string;
   submitting: string;
   success: string;
   error: string;
 };
 
+export type PasswordResetRequestTranslations = {
+  title: string;
+  description: string;
+  submit: string;
+  submitting: string;
+  success: string;
+  error: string;
+  backToSignIn: string;
+};
+
+export type PasswordResetTranslations = {
+  title: string;
+  description: string;
+  submit: string;
+  submitting: string;
+  success: string;
+  error: string;
+  confirmPasswordLabel: string;
+  confirmPasswordPlaceholder: string;
+  mismatchError: string;
+  invalidLink: string;
+  backToSignIn: string;
+};
+
+export type SessionExpiredTranslations = {
+  title: string;
+  description: string;
+  reconnect: string;
+};
+
 export type AuthTranslations = {
   shared: AuthSharedTranslations;
   signUp: SignUpTranslations;
   signIn: SignInTranslations;
+  passwordResetRequest: PasswordResetRequestTranslations;
+  passwordReset: PasswordResetTranslations;
+  sessionExpired: SessionExpiredTranslations;
 };
 
 export type HomeHeroTranslations = {
@@ -101,6 +135,26 @@ export type RacePlannerTranslations = {
       ariaLabel: string;
       speedLabel: string;
       speedUnit: string;
+      tooltip: {
+        distance: string;
+        elevation: string;
+        segmentGain: string;
+        segmentLoss: string;
+        cumulativeGain: string;
+        cumulativeLoss: string;
+        time: string;
+        pace: string;
+        speed: string;
+        ravitoTitle: string;
+        waterRefill: string;
+        waterRefillYes: string;
+        waterRefillNo: string;
+        plannedGels: string;
+        plannedCarbs: string;
+        plannedCalories: string;
+        plannedSodium: string;
+        plannedWater: string;
+      };
     };
     raceInputs: {
       title: string;
@@ -172,6 +226,10 @@ export type RacePlannerTranslations = {
       settingsHint: string;
       usingCustom: string;
     };
+    layout: {
+      collapsePanel: string;
+      expandPanel: string;
+    };
     aidStations: {
       title: string;
       description: string;
@@ -222,6 +280,26 @@ export type RacePlannerTranslations = {
       fuelLabel: string;
       waterLabel: string;
       sodiumLabel: string;
+      finishSummary: {
+        title: string;
+        totalTimeLabel: string;
+        pauseNote: string;
+        avgPaceLabel: string;
+        avgSpeedLabel: string;
+        totalCarbsLabel: string;
+        totalFluidsLabel: string;
+        totalSodiumLabel: string;
+        totalGelsLabel: string;
+        totalCaloriesLabel: string;
+        elevationGainLabel: string;
+        elevationLossLabel: string;
+        detailsLabel: string;
+        groups: {
+          performance: string;
+          energy: string;
+          hydration: string;
+        };
+      };
       printView: {
         title: string;
         description: string;
@@ -243,9 +321,72 @@ export type RacePlannerTranslations = {
   buttons: {
     importGpx: string;
     exportGpx: string;
+    chooseRace: string;
     printPlan: string;
     autoFill: string;
     autoFillHint: string;
+  };
+  raceCatalog: {
+    title: string;
+    description: string;
+    close: string;
+    searchPlaceholder: string;
+    loading: string;
+    loadError: string;
+    empty: string;
+    useAction: string;
+    using: string;
+    table: {
+      image: string;
+      name: string;
+      distance: string;
+      elevation: string;
+      location: string;
+      action: string;
+      openTrace: string;
+      noGpx: string;
+      noImage: string;
+    };
+    admin: {
+      title: string;
+      subtitle: string;
+      addAction: string;
+      close: string;
+      submit: string;
+      creating: string;
+      updateAction: string;
+      updating: string;
+      preview: string;
+      fields: {
+        name: string;
+        location: string;
+        traceId: string;
+        externalUrl: string;
+        thumbnailUrl: string;
+      };
+      messages: {
+        created: string;
+        updated: string;
+      };
+      errors: {
+        authRequired: string;
+        createFailed: string;
+        updateFailed: string;
+        missingGpx: string;
+        invalidGpx: string;
+      };
+    };
+    errors: {
+      authRequired: string;
+      createFailed: string;
+    };
+    messages: {
+      created: string;
+    };
+    units: {
+      kilometer: string;
+      meter: string;
+    };
   };
   account: {
     title: string;
@@ -267,6 +408,8 @@ export type RacePlannerTranslations = {
       save: string;
       saving: string;
       refresh: string;
+      searchLabel: string;
+      searchPlaceholder: string;
       load: string;
       delete: string;
       empty: string;
@@ -545,6 +688,7 @@ export type ProductSettingsTranslations = {
   title: string;
   description: string;
   authRequired: string;
+  localNotice: string;
   signInCta: string;
   listTitle: string;
   selectionHelp: string;

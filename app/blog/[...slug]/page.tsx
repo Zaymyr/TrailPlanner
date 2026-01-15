@@ -21,17 +21,6 @@ const buildCanonicalUrl = (meta: PostMeta): string => {
 const normalizeSlugParam = (slug?: string[]): string | undefined =>
   Array.isArray(slug) && slug.length > 0 ? slug.join("/") : undefined;
 
-const findRelatedPosts = async (current: PostMeta): Promise<PostMeta[]> => {
-  const metas = await getAllPostMetadata();
-  const currentTags = new Set(current.tags.map((tag) => tag.toLowerCase()));
-
-  return metas
-    .filter((meta) => meta.slug !== current.slug)
-    .filter((meta) => meta.tags.some((tag) => currentTags.has(tag.toLowerCase())))
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 4);
-};
-
 export async function generateStaticParams() {
   const metas = await getAllPostMetadata();
 
@@ -102,8 +91,7 @@ export default async function BlogPostPage({ params }: PageProps) {
     notFound();
   }
 
-  const relatedPosts = await findRelatedPosts(post.meta);
   const canonicalUrl = buildCanonicalUrl(post.meta);
 
-  return <BlogLayout post={post} relatedPosts={relatedPosts} canonicalUrl={canonicalUrl} />;
+  return <BlogLayout post={post} canonicalUrl={canonicalUrl} />;
 }

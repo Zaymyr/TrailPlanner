@@ -15,7 +15,11 @@ create table public.race_plans (
   user_id uuid not null default auth.uid(),
   name text not null,
   planner_values jsonb not null,
-  elevation_profile jsonb not null default '[]'::jsonb
+  elevation_profile jsonb not null default '[]'::jsonb,
+  catalog_race_id uuid references public.race_catalog(id),
+  catalog_race_updated_at_at_import timestamptz,
+  plan_gpx_path text,
+  plan_course_stats jsonb not null default '{}'::jsonb
 );
 
 create or replace function public.set_race_plans_updated_at()
@@ -31,6 +35,78 @@ create trigger set_race_plans_updated_at
 before update on public.race_plans
 for each row
 execute function public.set_race_plans_updated_at();
+
+create table public.race_catalog (
+  id uuid primary key default gen_random_uuid(),
+  slug text not null,
+  name text not null,
+  location text,
+  location_text text,
+  trace_provider text,
+  trace_id bigint,
+  distance_km numeric not null default 0,
+  elevation_gain_m numeric not null default 0,
+  elevation_loss_m numeric not null default 0,
+  min_alt_m numeric,
+  max_alt_m numeric,
+  start_lat numeric,
+  start_lng numeric,
+  bounds_min_lat numeric,
+  bounds_min_lng numeric,
+  bounds_max_lat numeric,
+  bounds_max_lng numeric,
+  source_url text,
+  external_site_url text,
+  image_url text,
+  thumbnail_url text,
+  gpx_path text not null,
+  gpx_hash text not null,
+  gpx_storage_path text,
+  gpx_sha256 text,
+  is_published boolean not null default true,
+  is_live boolean not null default true,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint race_catalog_slug_key unique (slug)
+);
+
+create or replace function public.set_race_catalog_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists set_race_catalog_updated_at on public.race_catalog;
+create trigger set_race_catalog_updated_at
+before update on public.race_catalog
+for each row
+execute function public.set_race_catalog_updated_at();
+
+create index race_catalog_is_published_idx on public.race_catalog(is_published);
+create index race_catalog_is_live_idx on public.race_catalog(is_live);
+
+create table public.race_catalog_aid_stations (
+  id uuid primary key default gen_random_uuid(),
+  race_id uuid not null references public.race_catalog(id) on delete cascade,
+  name text not null,
+  km numeric not null,
+  water_available boolean not null default true,
+  notes text,
+  order_index int not null default 0
+);
+
+create table public.plan_aid_stations (
+  id uuid primary key default gen_random_uuid(),
+  plan_id uuid not null references public.race_plans(id) on delete cascade,
+  name text not null,
+  km numeric not null,
+  water_available boolean not null default true,
+  notes text,
+  order_index int not null default 0
+);
 
 create table public.products (
   id uuid primary key default gen_random_uuid(),
@@ -102,6 +178,7 @@ create table public.user_profiles (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   full_name text,
+  role text,
   age integer,
   water_bag_liters numeric,
   constraint user_profiles_age_check check (age is null or age >= 0),
@@ -160,9 +237,16 @@ before update on public.subscriptions
 for each row
 execute function public.set_subscriptions_updated_at();
 
+create index race_catalog_is_published_idx on public.race_catalog(is_published);
+create index race_catalog_aid_stations_race_order_idx on public.race_catalog_aid_stations(race_id, order_index);
+create index plan_aid_stations_plan_order_idx on public.plan_aid_stations(plan_id, order_index);
+
 -- Row level security configuration
 alter table public.app_feedback enable row level security;
 alter table public.race_plans enable row level security;
+alter table public.race_catalog enable row level security;
+alter table public.race_catalog_aid_stations enable row level security;
+alter table public.plan_aid_stations enable row level security;
 alter table public.products enable row level security;
 alter table public.affiliate_offers enable row level security;
 alter table public.affiliate_click_events enable row level security;
@@ -186,6 +270,62 @@ create policy "Users can update their race plans" on public.race_plans
 create policy "Users can delete their race plans" on public.race_plans
   for delete using (auth.uid() = user_id);
 
+-- Race catalog policies
+create policy "Published races are viewable" on public.race_catalog
+  for select using (is_published = true);
+
+create policy "Published race aid stations are viewable" on public.race_catalog_aid_stations
+  for select using (
+    exists (
+      select 1 from public.race_catalog
+      where race_catalog.id = race_catalog_aid_stations.race_id
+        and race_catalog.is_published = true
+    )
+  );
+
+create policy "Users can view their plan aid stations" on public.plan_aid_stations
+  for select using (
+    exists (
+      select 1 from public.race_plans
+      where race_plans.id = plan_aid_stations.plan_id
+        and race_plans.user_id = auth.uid()
+    )
+  );
+
+create policy "Users can insert their plan aid stations" on public.plan_aid_stations
+  for insert with check (
+    exists (
+      select 1 from public.race_plans
+      where race_plans.id = plan_aid_stations.plan_id
+        and race_plans.user_id = auth.uid()
+    )
+  );
+
+create policy "Users can update their plan aid stations" on public.plan_aid_stations
+  for update using (
+    exists (
+      select 1 from public.race_plans
+      where race_plans.id = plan_aid_stations.plan_id
+        and race_plans.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.race_plans
+      where race_plans.id = plan_aid_stations.plan_id
+        and race_plans.user_id = auth.uid()
+    )
+  );
+
+create policy "Users can delete their plan aid stations" on public.plan_aid_stations
+  for delete using (
+    exists (
+      select 1 from public.race_plans
+      where race_plans.id = plan_aid_stations.plan_id
+        and race_plans.user_id = auth.uid()
+    )
+  );
+
 -- Product policies
 create policy "Service role can manage products" on public.products
   for all
@@ -195,6 +335,10 @@ create policy "Service role can manage products" on public.products
 create policy "Authenticated can read live products" on public.products
   for select
   using ((auth.role() = 'authenticated' and is_live = true and is_archived = false) or auth.role() = 'service_role');
+
+create policy "Anon can read live products" on public.products
+  for select
+  using (auth.role() = 'anon' and is_live = true and is_archived = false);
 
 -- Affiliate offer policies
 create policy "Service role can manage affiliate offers" on public.affiliate_offers

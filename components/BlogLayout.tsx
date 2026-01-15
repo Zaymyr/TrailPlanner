@@ -1,20 +1,18 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { Route } from "next";
 import Script from "next/script";
 
-import type { CompiledPost, PostMeta } from "../lib/blog/posts";
+import type { CompiledPost } from "../lib/blog/posts";
 import { formatBlogDate } from "../lib/blog/format";
 import { RACE_PLANNER_PATH, SITE_URL } from "../app/seo";
-import { BlogCard } from "./BlogCard";
 import { Prose } from "./Prose";
 import { TagBadge } from "./TagBadge";
 import { TOC } from "./TOC";
+import { RelatedPosts } from "./blog/RelatedPosts";
 
 type BlogLayoutProps = {
   post: CompiledPost;
   canonicalUrl: string;
-  relatedPosts: PostMeta[];
 };
 
 const formatUpdatedAt = (isoDate?: string): string | undefined =>
@@ -60,7 +58,7 @@ const TagList = ({ tags }: { tags: string[] }) => {
   );
 };
 
-export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps) => {
+export const BlogLayout = ({ post, canonicalUrl }: BlogLayoutProps) => {
   const lastUpdated = formatUpdatedAt(post.meta.updatedAt);
 
   return (
@@ -145,36 +143,7 @@ export const BlogLayout = ({ post, canonicalUrl, relatedPosts }: BlogLayoutProps
         )}
       </div>
 
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold text-foreground">Related posts</h2>
-          <Link
-            href="/blog"
-            className="text-sm text-[hsl(var(--success))] hover:text-[hsl(var(--brand))] dark:text-emerald-200 dark:hover:text-emerald-100"
-          >
-            View all
-          </Link>
-        </div>
-        {relatedPosts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">More articles are on the way. Check back soon!</p>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {relatedPosts.map((related) => (
-              <BlogCard
-                key={related.slug}
-                title={related.title}
-              description={related.description}
-              href={`/blog/${related.slug}` as Route}
-              tags={related.tags}
-              date={related.date}
-              readingTime={related.readingTime}
-              imageSrc={related.image}
-              imageAlt={related.imageAlt}
-            />
-          ))}
-        </div>
-      )}
-    </section>
+      <RelatedPosts slug={post.meta.slug} />
 
       <Script
         id={`blog-json-ld-${post.meta.slug}`}

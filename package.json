@@ -8,9 +8,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "check:links": "rm -rf .tmp-scripts && tsc --pretty false --outDir .tmp-scripts --rootDir . --module ES2022 --target ES2022 --moduleResolution Bundler --esModuleInterop --resolveJsonModule --lib ES2022,DOM scripts/check-internal-links.ts && node .tmp-scripts/scripts/check-internal-links.js",
     "test": "vitest",
     "test:watch": "vitest watch",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "replace:legacy-links": "rm -rf .tmp-scripts && tsc --pretty false --outDir .tmp-scripts --rootDir . --module ES2022 --target ES2022 --moduleResolution Bundler --esModuleInterop --resolveJsonModule --lib ES2022,DOM scripts/replace-legacy-links.ts && node .tmp-scripts/scripts/replace-legacy-links.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",
