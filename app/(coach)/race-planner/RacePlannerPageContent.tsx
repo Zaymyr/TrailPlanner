@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Script from "next/script";
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
@@ -29,9 +28,9 @@ import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types"
 import { fetchUserProfile } from "../../../lib/profile-client";
 import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
-import { PlanManager } from "../../../components/race-planner/PlanManager";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
+import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
 import {
@@ -325,6 +324,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
+  const [fuelLoadStatus, setFuelLoadStatus] = useState<"loading" | "ready">("loading");
+  const [rightPanelTab, setRightPanelTab] = useState<"fuel" | "account">("fuel");
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isCourseCollapsed, setIsCourseCollapsed] = useState(true);
@@ -602,6 +603,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   useEffect(() => {
     const abortController = new AbortController();
+    setFuelLoadStatus("loading");
 
     const loadProducts = async () => {
       try {
@@ -634,6 +636,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         console.error("Unable to load fuel products", error);
         const localProducts = readLocalProducts();
         setFuelProducts(mergeFuelProducts(defaultFuelProducts, localProducts));
+      } finally {
+        if (!abortController.signal.aborted) {
+          setFuelLoadStatus("ready");
+        }
       }
     };
 
@@ -1467,32 +1473,33 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
 
   const settingsContent = (
-    <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-semibold">{racePlannerCopy.account.title}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <PlanManager
-          copy={racePlannerCopy.account}
-          planName={planName}
-          planStatus={planStatus}
-          accountMessage={accountMessage}
-          accountError={accountError}
-          savedPlans={savedPlans}
-          deletingPlanId={deletingPlanId}
-          sessionEmail={session?.email}
-          authStatus={authStatus}
-          canSavePlan={canSavePlan}
-          showPlanLimitUpsell={planLimitReached && !isPremium}
-          premiumCopy={premiumCopy}
-          onPlanNameChange={setPlanName}
-          onSavePlan={handleSavePlan}
-          onRefreshPlans={handleRefreshPlans}
-          onLoadPlan={handleLoadPlan}
-          onDeletePlan={handleDeletePlan}
-        />
-      </CardContent>
-    </Card>
+    <PlannerRightPanel
+      copy={racePlannerCopy}
+      activeTab={rightPanelTab}
+      onTabChange={setRightPanelTab}
+      fuelProducts={fuelProductEstimates}
+      favoriteProducts={selectedProducts}
+      isFuelLoading={fuelLoadStatus === "loading"}
+      planManagerProps={{
+        copy: racePlannerCopy.account,
+        planName,
+        planStatus,
+        accountMessage,
+        accountError,
+        savedPlans,
+        deletingPlanId,
+        sessionEmail: session?.email,
+        authStatus,
+        canSavePlan,
+        showPlanLimitUpsell: planLimitReached && !isPremium,
+        premiumCopy,
+        onPlanNameChange: setPlanName,
+        onSavePlan: handleSavePlan,
+        onRefreshPlans: handleRefreshPlans,
+        onLoadPlan: handleLoadPlan,
+        onDeletePlan: handleDeletePlan,
+      }}
+    />
   );
 
   return (
