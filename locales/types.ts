@@ -226,6 +226,10 @@ export type RacePlannerTranslations = {
       settingsHint: string;
       usingCustom: string;
     };
+    layout: {
+      collapsePanel: string;
+      expandPanel: string;
+    };
     aidStations: {
       title: string;
       description: string;

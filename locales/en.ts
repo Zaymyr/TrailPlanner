@@ -319,6 +319,10 @@ export const en: Translations = {
         settingsHint: "Manage your fueling products in Settings to tailor these counts.",
         usingCustom: "Using your saved fueling products from Settings.",
       },
+      layout: {
+        collapsePanel: "Hide side panel",
+        expandPanel: "Show side panel",
+      },
       aidStations: {
         title: "Aid stations",
         description: "Edit the checkpoints where you plan to refuel.",
