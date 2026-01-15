@@ -610,6 +610,9 @@ function AidStationHeaderRow({
             ) : null}
           </div>
         </div>
+        {headerMiddle ? (
+          <div className="flex w-full max-w-full flex-1 justify-center md:min-w-[240px]">{headerMiddle}</div>
+        ) : null}
         {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
       {isFinish ? (
