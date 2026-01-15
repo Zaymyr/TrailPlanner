@@ -263,7 +263,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       isSettingsCollapsed,
       isRaceCatalogOpen,
       catalogSubmissionId,
-      rightPanelTab,
       isCourseCollapsed,
       upgradeStatus,
       upgradeError,
@@ -282,7 +281,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
       setCatalogSubmissionId,
-      setRightPanelTab,
       setIsCourseCollapsed,
       setUpgradeStatus,
       setUpgradeError,
@@ -312,7 +310,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     planStatus,
     deletingPlanId,
     fuelProducts,
-    fuelLoadStatus,
     planLimitReached,
     canSavePlan,
     requestPremiumUpgrade,
@@ -1082,12 +1079,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const settingsContent = (
     <PlannerRightPanel
-      copy={racePlannerCopy}
-      activeTab={rightPanelTab}
-      onTabChange={setRightPanelTab}
-      fuelProducts={fuelProductEstimates}
-      favoriteProducts={selectedProducts}
-      isFuelLoading={fuelLoadStatus === "loading"}
       planManagerProps={{
         copy: racePlannerCopy.account,
         planName,
