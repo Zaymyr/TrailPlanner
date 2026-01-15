@@ -94,7 +94,7 @@ export function PlanManager({
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-semibold text-foreground dark:text-slate-100">{copy.plans.title}</p>
-                <Button variant="ghost" className="h-9 px-3 text-xs" onClick={onRefreshPlans}>
+                <Button variant="ghost" className="h-9 px-3 text-xs sm:text-sm" onClick={onRefreshPlans}>
                   {copy.plans.refresh}
                 </Button>
               </div>
@@ -115,18 +115,20 @@ export function PlanManager({
                       {filteredPlans.map((plan) => (
                         <div
                           key={plan.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/60"
+                          className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 sm:flex-row sm:items-center sm:justify-between"
                         >
                           <div className="space-y-1">
-                            <p className="text-sm font-semibold text-foreground dark:text-slate-50">{plan.name}</p>
+                            <p className="break-words text-sm font-semibold text-foreground dark:text-slate-50">
+                              {plan.name}
+                            </p>
                             <p className="text-xs text-muted-foreground dark:text-slate-400">
                               {copy.plans.updatedAt.replace("{date}", new Date(plan.updatedAt).toLocaleString())}
                             </p>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                             <Button
                               variant="outline"
-                              className="h-9 px-3 text-sm"
+                              className="h-9 w-full px-3 text-sm sm:w-auto"
                               onClick={() => onLoadPlan(plan)}
                               disabled={deletingPlanId === plan.id}
                             >
@@ -134,7 +136,7 @@ export function PlanManager({
                             </Button>
                             <Button
                               variant="ghost"
-                              className="h-9 px-3 text-sm text-red-300 hover:text-red-200"
+                              className="h-9 w-full px-3 text-sm text-red-300 hover:text-red-200 sm:w-auto"
                               onClick={() => onDeletePlan(plan.id)}
                               disabled={deletingPlanId === plan.id || isSaving}
                             >
