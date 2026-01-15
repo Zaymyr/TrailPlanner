@@ -18,7 +18,9 @@ import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
-import { PlannerRightPanel } from "./components/PlannerRightPanel";
+import { MobileDrawer } from "../../../components/ui/mobile-drawer";
+import { PlannerAccountPanel, PlannerNutritionPanel, PlannerRightPanel } from "./components/PlannerRightPanel";
+import { PlannerSummaryBar } from "./components/PlannerSummaryBar";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
 import { clearRacePlannerStorage, readRacePlannerStorage, writeRacePlannerStorage } from "../../../lib/race-planner-storage";
@@ -290,6 +292,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setUpgradeReason,
     },
   } = usePlannerState();
+  const [isNutritionDrawerOpen, setIsNutritionDrawerOpen] = useState(false);
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -538,6 +541,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const distanceForDuration =
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
     defaultValues.raceDistanceKm;
+  const elevationGainForSummary =
+    (parsedValues.success ? parsedValues.data.elevationGain : watchedValues?.elevationGain) ??
+    defaultValues.elevationGain;
   const projectedDurationMinutes =
     baseMinutesPerKm && Number.isFinite(distanceForDuration) && distanceForDuration > 0
       ? distanceForDuration * baseMinutesPerKm
@@ -587,6 +593,31 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const fuelProductEstimates = useMemo<FuelProductEstimate[]>(
     () => buildFuelProductEstimates(mergedFuelProducts, raceTotals),
     [mergedFuelProducts, raceTotals]
+  );
+
+  const summaryBarContent = (
+    <PlannerSummaryBar
+      title={racePlannerCopy.sections.summary.title}
+      durationMinutes={pacingOverviewDuration}
+      distanceKm={distanceForDuration}
+      elevationGainM={elevationGainForSummary}
+      raceTotals={raceTotals}
+      units={racePlannerCopy.units}
+      distanceUnitLabel={racePlannerCopy.sections.timeline.distanceWithUnit}
+      labels={{
+        duration: racePlannerCopy.sections.summary.items.duration,
+        distance: racePlannerCopy.sections.raceInputs.fields.raceDistance,
+        elevation: racePlannerCopy.sections.raceInputs.fields.elevationGain,
+        carbsPerHour: racePlannerCopy.sections.raceInputs.fields.targetIntakePerHour,
+        waterPerHour: racePlannerCopy.sections.raceInputs.fields.waterIntakePerHour,
+        carbsTotal: racePlannerCopy.sections.summary.items.carbs,
+        waterTotal: racePlannerCopy.sections.summary.items.water,
+      }}
+      nutritionButtonLabel={racePlannerCopy.sections.gels.title}
+      formatFuelAmount={formatFuelAmount}
+      formatWaterAmount={formatWaterAmount}
+      onNutritionClick={() => setIsNutritionDrawerOpen(true)}
+    />
   );
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
@@ -1080,34 +1111,43 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     />
   );
 
+  const planManagerProps = {
+    copy: racePlannerCopy.account,
+    planName,
+    planStatus,
+    accountMessage,
+    accountError,
+    savedPlans,
+    deletingPlanId,
+    sessionEmail: session?.email,
+    authStatus,
+    canSavePlan,
+    showPlanLimitUpsell: planLimitReached && !isPremium,
+    premiumCopy,
+    onPlanNameChange: setPlanName,
+    onSavePlan: handleSavePlan,
+    onRefreshPlans: handleRefreshPlans,
+    onLoadPlan: handleLoadPlan,
+    onDeletePlan: handleDeletePlan,
+  };
+
   const settingsContent = (
-    <PlannerRightPanel
-      copy={racePlannerCopy}
-      activeTab={rightPanelTab}
-      onTabChange={setRightPanelTab}
-      fuelProducts={fuelProductEstimates}
-      favoriteProducts={selectedProducts}
-      isFuelLoading={fuelLoadStatus === "loading"}
-      planManagerProps={{
-        copy: racePlannerCopy.account,
-        planName,
-        planStatus,
-        accountMessage,
-        accountError,
-        savedPlans,
-        deletingPlanId,
-        sessionEmail: session?.email,
-        authStatus,
-        canSavePlan,
-        showPlanLimitUpsell: planLimitReached && !isPremium,
-        premiumCopy,
-        onPlanNameChange: setPlanName,
-        onSavePlan: handleSavePlan,
-        onRefreshPlans: handleRefreshPlans,
-        onLoadPlan: handleLoadPlan,
-        onDeletePlan: handleDeletePlan,
-      }}
-    />
+    <>
+      <div className="md:hidden">
+        <PlannerAccountPanel copy={racePlannerCopy.account} planManagerProps={planManagerProps} />
+      </div>
+      <div className="hidden md:block">
+        <PlannerRightPanel
+          copy={racePlannerCopy}
+          activeTab={rightPanelTab}
+          onTabChange={setRightPanelTab}
+          fuelProducts={fuelProductEstimates}
+          favoriteProducts={selectedProducts}
+          isFuelLoading={fuelLoadStatus === "loading"}
+          planManagerProps={planManagerProps}
+        />
+      </div>
+    </>
   );
 
   return (
@@ -1149,7 +1189,22 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onSettingsToggle={() => setIsSettingsCollapsed((collapsed) => !collapsed)}
           collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
           expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
+          summaryBarContent={summaryBarContent}
         />
+
+        <MobileDrawer
+          open={isNutritionDrawerOpen}
+          onClose={() => setIsNutritionDrawerOpen(false)}
+          title={racePlannerCopy.sections.gels.title}
+          description={racePlannerCopy.sections.gels.description}
+        >
+          <PlannerNutritionPanel
+            copy={racePlannerCopy}
+            fuelProducts={fuelProductEstimates}
+            favoriteProducts={selectedProducts}
+            isFuelLoading={fuelLoadStatus === "loading"}
+          />
+        </MobileDrawer>
 
         {enableMobileNav ? (
           <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">
