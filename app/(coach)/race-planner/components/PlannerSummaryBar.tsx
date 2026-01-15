@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Button } from "../../../../components/ui/button";
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { RaceTotals } from "../utils/nutrition";
@@ -29,7 +29,7 @@ type PlannerSummaryBarProps = {
   onNutritionClick?: () => void;
 };
 
-export function PlannerSummaryBar({
+export const PlannerSummaryBar = memo(function PlannerSummaryBar({
   title,
   durationMinutes,
   distanceKm,
@@ -126,4 +126,4 @@ export function PlannerSummaryBar({
       </div>
     </div>
   );
-}
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
@@ -147,7 +147,7 @@ type FinishSummaryCardProps = {
   onToggleDetails: () => void;
 };
 
-function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
+const SummaryGroup = memo(function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
   return (
     <div className="rounded-2xl bg-muted/40 p-3 shadow-sm dark:bg-slate-900/60">
       <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
@@ -177,9 +177,9 @@ function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
       ) : null}
     </div>
   );
-}
+});
 
-function FinishSummaryCard({
+const FinishSummaryCard = memo(function FinishSummaryCard({
   pointIndex,
   title,
   distanceText,
@@ -237,7 +237,7 @@ function FinishSummaryCard({
       </div>
     </div>
   );
-}
+});
 
 const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
   if (segment.isFinish) return `finishPlan.${field}` as const;
@@ -324,7 +324,7 @@ type SegmentCardProps = {
   variant?: SegmentCardVariant;
 };
 
-function SegmentCard({
+const SegmentCard = memo(function SegmentCard({
   distanceText,
   timeText,
   elevationGainText,
@@ -374,7 +374,7 @@ function SegmentCard({
       {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
     </div>
   );
-}
+});
 
 type NutritionCardVariant = "default" | "compact";
 
@@ -399,7 +399,12 @@ type NutritionCardProps = {
   targetLabel: string;
 };
 
-function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLabel }: NutritionCardProps) {
+const NutritionCard = memo(function NutritionCard({
+  metric,
+  variant = "default",
+  waterCapacityMl,
+  targetLabel,
+}: NutritionCardProps) {
   const isCompact = variant === "compact";
   const compactValue = metric.value.split(" de ")[0].split(" d'")[0];
   const compactTarget = metric.format(metric.targetValue).split(" de ")[0].split(" d'")[0];
@@ -539,7 +544,7 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
       </div>
     </div>
   );
-}
+});
 
 type AidStationHeaderRowProps = {
   pointIndex: number;
@@ -558,7 +563,7 @@ type AidStationHeaderRowProps = {
   onTitleClick?: () => void;
 };
 
-function AidStationHeaderRow({
+const AidStationHeaderRow = memo(function AidStationHeaderRow({
   pointIndex,
   badge,
   title,
@@ -625,7 +630,7 @@ function AidStationHeaderRow({
       ) : null}
     </div>
   );
-}
+});
 
 type SectionRowProps = {
   segment: ReactNode;
@@ -633,7 +638,7 @@ type SectionRowProps = {
   showConnector?: boolean;
 };
 
-function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
+const SectionRow = memo(function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
   return (
     <div className="relative flex justify-center">
       <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55 lg:mx-auto lg:max-w-[1120px]">
@@ -652,7 +657,7 @@ function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRo
       </div>
     </div>
   );
-}
+});
 
 type EmbarkedSummaryItem = {
   key: string;
@@ -665,7 +670,7 @@ type EmbarkedSummaryBoxProps = {
   items: EmbarkedSummaryItem[];
 };
 
-function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
+const EmbarkedSummaryBox = memo(function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
   return (
     <div className="w-full rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5 md:max-w-[300px]">
       <div className="space-y-2">
@@ -681,7 +686,7 @@ function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
       </div>
     </div>
   );
-}
+});
 
 type AidStationCollapsedRowProps = {
   pointIndex: number;
@@ -695,7 +700,7 @@ type AidStationCollapsedRowProps = {
   actions?: ReactNode;
 };
 
-function AidStationCollapsedRow({
+const AidStationCollapsedRow = memo(function AidStationCollapsedRow({
   pointIndex,
   badge,
   title,
@@ -746,7 +751,7 @@ function AidStationCollapsedRow({
       </div>
     </div>
   );
-}
+});
 
 export function ActionPlan({
   copy,
