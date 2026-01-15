@@ -334,40 +334,43 @@ function SegmentCard({
 }: SegmentCardProps) {
   const isCompact = variant === "compact";
   const isCompactChip = variant === "compactChip";
+  const chipClassName =
+    "inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-semibold text-foreground dark:bg-slate-900/70";
   return (
     <div
       className={
         isCompactChip
-          ? "flex w-full max-w-full flex-col gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 text-foreground shadow-sm dark:bg-slate-950/90 dark:text-slate-200 md:w-[170px] md:max-w-[170px]"
+          ? "flex w-full max-w-full flex-col gap-2 rounded-xl border border-border bg-card px-2 py-2 text-foreground shadow-sm dark:bg-slate-950/90 dark:text-slate-200"
           : isCompact
             ? "flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground shadow-sm dark:bg-slate-950/50 dark:text-slate-200"
             : "flex flex-col gap-3 rounded-2xl border border-border-strong bg-card px-4 py-3 text-foreground shadow-sm dark:bg-slate-950/80 dark:text-slate-100"
       }
     >
-      <div
-        className={
-          isCompactChip
-            ? "flex items-center justify-between text-xs font-semibold"
-            : isCompact
-              ? "flex items-center justify-between text-xs font-semibold"
-              : "flex items-center justify-between text-sm font-semibold"
-        }
-      >
-        <span className="tabular-nums">{distanceText}</span>
-        <span className="tabular-nums text-red-600 dark:text-red-400">{elevationGainText}</span>
-      </div>
-      <div
-        className={
-          isCompactChip
-            ? "flex items-center justify-between text-xs font-semibold"
-            : isCompact
-              ? "flex items-center justify-between text-xs font-semibold"
-              : "flex items-center justify-between text-xs font-semibold"
-        }
-      >
-        <span className="tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
-        <span className="text-blue-600 dark:text-blue-400">{elevationLossText}</span>
-      </div>
+      {isCompactChip ? (
+        <div className="flex flex-wrap gap-2">
+          <span className={chipClassName}>{distanceText}</span>
+          <span className={`${chipClassName} text-emerald-700 dark:text-emerald-300`}>{elevationGainText}</span>
+          <span className={`${chipClassName} text-blue-700 dark:text-blue-300`}>{elevationLossText}</span>
+          <span className={`${chipClassName} text-muted-foreground dark:text-slate-300`}>{timeText}</span>
+        </div>
+      ) : (
+        <>
+          <div
+            className={
+              isCompact
+                ? "flex items-center justify-between text-xs font-semibold"
+                : "flex items-center justify-between text-sm font-semibold"
+            }
+          >
+            <span className="tabular-nums">{distanceText}</span>
+            <span className="tabular-nums text-red-600 dark:text-red-400">{elevationGainText}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs font-semibold">
+            <span className="tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
+            <span className="text-blue-600 dark:text-blue-400">{elevationLossText}</span>
+          </div>
+        </>
+      )}
       {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
     </div>
   );
@@ -570,7 +573,7 @@ function AidStationHeaderRow({
     <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div
-          className={`flex w-full max-w-full items-start gap-3 md:min-w-[220px] ${onTitleClick ? "cursor-pointer" : ""}`}
+          className={`flex w-full max-w-full items-start gap-3 md:min-w-0 ${onTitleClick ? "cursor-pointer" : ""}`}
           onClick={onTitleClick}
           role={onTitleClick ? "button" : undefined}
           tabIndex={onTitleClick ? 0 : undefined}
@@ -611,7 +614,7 @@ function AidStationHeaderRow({
           </div>
         </div>
         {headerMiddle ? (
-          <div className="flex w-full max-w-full flex-1 justify-center md:min-w-[240px]">{headerMiddle}</div>
+          <div className="flex w-full max-w-full flex-1 justify-center md:min-w-0">{headerMiddle}</div>
         ) : null}
         {headerActions ? <div className="flex items-center justify-end gap-3">{headerActions}</div> : null}
       </div>
@@ -640,8 +643,8 @@ function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRo
             <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
           </div>
         ) : null}
-        <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-center md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
-          <div className="relative z-10 w-full max-w-full self-center md:max-w-[240px]">{segment}</div>
+        <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(200px,240px)_1fr] md:items-center md:gap-4 lg:grid-cols-[minmax(220px,1fr)_1fr] lg:gap-5">
+          <div className="relative z-10 w-full max-w-full self-center">{segment}</div>
           <div className="w-full">
             <div className="grid w-full gap-4 md:grid-cols-3">{nutritionCards}</div>
           </div>
@@ -705,7 +708,7 @@ function AidStationCollapsedRow({
 }: AidStationCollapsedRowProps) {
   return (
     <div className="rounded-2xl border-2 border-blue-500/70 bg-card px-4 py-3 shadow-md dark:border-blue-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
-      <div className="flex flex-wrap items-center gap-4 md:gap-5">
+      <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center md:gap-5">
         <div className="relative flex shrink-0 flex-col items-center gap-2">
           {badge ? (
             badge
@@ -729,14 +732,14 @@ function AidStationCollapsedRow({
           <div className="truncate text-xs text-muted-foreground dark:text-slate-300">{metaLine}</div>
           <div className="truncate text-xs text-muted-foreground dark:text-slate-400">{pauseLine}</div>
         </div>
-        <div className="order-3 flex w-full justify-start md:order-2 md:w-[190px] md:justify-center lg:order-2">
+        <div className="order-3 flex w-full justify-start md:order-2 md:w-auto md:justify-center lg:order-2">
           {segmentCard}
         </div>
         <div className="order-4 w-full md:order-3 md:w-auto lg:order-3">
           <EmbarkedSummaryBox items={embarkedItems} />
         </div>
         {actions ? (
-          <div className="order-2 ml-auto flex items-center justify-end gap-3 md:order-4">
+          <div className="order-2 flex items-center justify-end gap-3 md:order-4 md:ml-auto">
             {actions}
           </div>
         ) : null}
