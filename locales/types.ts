@@ -265,6 +265,8 @@ export type RacePlannerTranslations = {
       collapsedScopeLabel: string;
       collapseLabel: string;
       expandLabel: string;
+      collapseAllLabel: string;
+      expandAllLabel: string;
       plannedLabel: string;
       targetLabel: string;
       pickupTitle: string;

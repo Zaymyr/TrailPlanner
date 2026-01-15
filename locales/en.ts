@@ -358,6 +358,8 @@ export const en: Translations = {
         collapsedScopeLabel: "Aid + following leg hidden",
         collapseLabel: "Collapse aid + leg",
         expandLabel: "Expand aid + leg",
+        collapseAllLabel: "Collapse all",
+        expandAllLabel: "Expand all",
         plannedLabel: "Planned",
         targetLabel: "Target",
         pickupTitle: "Aid station pickup",

@@ -794,6 +794,20 @@ export function ActionPlan({
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
   }, [favoriteProducts]);
   const renderItems = buildRenderItems(segments);
+  const collapsibleKeys = useMemo(() => {
+    const keys = new Set<string>();
+    renderItems.forEach((item) => {
+      if (!item.upcomingSegment) return;
+      if (item.isStart) {
+        keys.add("start");
+        return;
+      }
+      if (typeof item.aidStationIndex === "number" && !item.isFinish) {
+        keys.add(String(item.aidStationIndex));
+      }
+    });
+    return Array.from(keys);
+  }, [renderItems]);
   const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
   const finishSummary = useMemo(() => {
     if (segments.length === 0) return null;
@@ -891,6 +905,20 @@ export function ActionPlan({
       ...current,
       [collapseKey]: !current[collapseKey],
     }));
+  };
+  const hasCollapsibleAidStations = collapsibleKeys.length > 0;
+  const areAllAidStationsCollapsed = hasCollapsibleAidStations
+    ? collapsibleKeys.every((key) => collapsedAidStations[key])
+    : false;
+  const toggleAidStationsCollapseAll = () => {
+    if (!hasCollapsibleAidStations) return;
+    const nextValue = !areAllAidStationsCollapsed;
+    setCollapsedAidStations((current) =>
+      collapsibleKeys.reduce<Record<string, boolean>>((acc, key) => {
+        acc[key] = nextValue;
+        return acc;
+      }, { ...current })
+    );
   };
   const closeEditor = useCallback(() => {
     setEditorState(null);
@@ -1025,6 +1053,16 @@ export function ActionPlan({
             descriptionAsTooltip
           action={
             <div className="flex items-center gap-2">
+              {hasCollapsibleAidStations ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={toggleAidStationsCollapseAll}
+                  className="hidden sm:inline-flex"
+                >
+                  {areAllAidStationsCollapsed ? timelineCopy.expandAllLabel : timelineCopy.collapseAllLabel}
+                </Button>
+              ) : null}
               <Button type="button" onClick={openCreateEditor}>
                 {aidStationsCopy.add}
               </Button>
