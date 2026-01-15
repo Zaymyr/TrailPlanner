@@ -1,5 +1,6 @@
 import type { Locale } from "../../locales/types";
 import { getAllPostMetadata } from "../../lib/blog/posts";
+import { legacyPaths } from "../../lib/legacy-redirects";
 import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "../seo";
 
 type SitemapEntry = {
@@ -13,11 +14,7 @@ const sitemapEntries: SitemapEntry[] = [
   { path: HOME_PATH },
   { path: RACE_PLANNER_PATH },
   { path: `${RACE_PLANNER_PATH}/mobile` },
-  { path: "/trail-nutrition-planner" },
-  { path: "/ultra-trail-fueling" },
-  { path: "/ravitaillement-trail" },
-  { path: "/hydration-trail-running" },
-];
+].filter((entry) => !legacyPaths.includes(entry.path as (typeof legacyPaths)[number]));
 
 const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
 
