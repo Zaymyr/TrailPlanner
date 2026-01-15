@@ -4,16 +4,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Script from "next/script";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
-import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "../../../components/race-planner/TimelineIcons";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -62,7 +56,7 @@ import {
 } from "./utils/plan-sanitizers";
 import { buildSegments } from "./utils/segments";
 import { buildFuelProductEstimates, buildRaceTotals, type FuelProductEstimate } from "./utils/nutrition";
-import { ElevationProfileChart } from "./components/ElevationProfileChart";
+import { CourseProfileSection } from "./components/CourseProfileSection";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -79,24 +73,6 @@ const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   >
     <path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.4 8.5 8.5 0 0 1-6.6 3.1 8.38 8.38 0 0 1-5.4-1.9L3 21l1.9-4.1a8.38 8.38 0 0 1-1.9-5.4 8.5 8.5 0 0 1 3.1-6.6 8.38 8.38 0 0 1 5.4-1.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
   </svg>
-);
-
-type CardTitleWithTooltipProps = {
-  title: string;
-  description: string;
-};
-
-const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps) => (
-  <CardTitle className="flex items-center gap-2">
-    <span>{title}</span>
-    <span
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-      title={description}
-      aria-label={description}
-    >
-      ?
-    </span>
-  </CardTitle>
 );
 
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
@@ -1443,205 +1419,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     });
   }, [form, mergedFuelProducts, segments, selectedProducts]);
 
-  const courseProfileSection = (
-    <Card id={sectionIds.courseProfile} className="relative overflow-hidden">
-      <CardHeader className="space-y-0 pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitleWithTooltip
-            title={racePlannerCopy.sections.courseProfile.title}
-            description={racePlannerCopy.sections.courseProfile.description}
-          />
-          {isCourseCollapsed ? (
-            <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".gpx,application/gpx+xml"
-                className="hidden"
-                onChange={handleImportGpx}
-              />
-              <Button
-                variant="outline"
-                type="button"
-                className="h-9 px-3 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {racePlannerCopy.buttons.importGpx}
-              </Button>
-              <Button
-                variant="outline"
-                type="button"
-                className="h-9 px-3 text-xs"
-                onClick={() => setIsRaceCatalogOpen(true)}
-              >
-                {racePlannerCopy.buttons.chooseRace}
-              </Button>
-              <Button
-                type="button"
-                className="relative h-9 px-3 text-xs"
-                onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
-                variant={allowExport ? "default" : "outline"}
-              >
-                <span className="flex items-center gap-1.5" title={!allowExport ? "Premium feature" : undefined}>
-                  {!allowExport ? (
-                    <SparklesIcon
-                      className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
-                      strokeWidth={2}
-                      aria-hidden
-                    />
-                  ) : null}
-                  <span>{racePlannerCopy.buttons.exportGpx}</span>
-                </span>
-              </Button>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="raceDistanceKm" className="text-[11px] text-muted-foreground dark:text-slate-300">
-                    {racePlannerCopy.sections.raceInputs.fields.raceDistance}
-                  </Label>
-                  <Input
-                    id="raceDistanceKm"
-                    type="number"
-                    step="0.5"
-                    className="h-8 w-[110px] border-border bg-background text-xs text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                    {...register("raceDistanceKm", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="elevationGain" className="text-[11px] text-muted-foreground dark:text-slate-300">
-                    {racePlannerCopy.sections.raceInputs.fields.elevationGain}
-                  </Label>
-                  <Input
-                    id="elevationGain"
-                    type="number"
-                    min="0"
-                    step="50"
-                    className="h-8 w-[110px] border-border bg-background text-xs text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                    {...register("elevationGain", { valueAsNumber: true })}
-                  />
-                </div>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </CardHeader>
-      <CardContent className="px-4 pb-10 sm:px-6">
-        {(() => {
-          const courseControls = (
-            <div className="w-full max-w-xl space-y-4 rounded-lg border border-border bg-card p-4 dark:border-slate-800 dark:bg-slate-950/60 lg:ml-auto">
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground dark:text-slate-50">
-                  {racePlannerCopy.sections.raceInputs.courseTitle}
-                </p>
-                <p className="text-xs text-muted-foreground dark:text-slate-400">
-                  {racePlannerCopy.sections.raceInputs.description}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="outline"
-                  type="button"
-                  className="h-9 px-3 text-xs"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {racePlannerCopy.buttons.importGpx}
-                </Button>
-                <Button
-                  variant="outline"
-                  type="button"
-                  className="h-9 px-3 text-xs"
-                  onClick={() => setIsRaceCatalogOpen(true)}
-                >
-                  {racePlannerCopy.buttons.chooseRace}
-                </Button>
-                <Button
-                  type="button"
-                  className="relative h-9 px-3 text-xs"
-                  onClick={allowExport ? handleExportGpx : () => requestPremiumUpgrade(premiumCopy.exportLocked)}
-                  variant={allowExport ? "default" : "outline"}
-                >
-                  <span className="flex items-center gap-1.5" title={!allowExport ? "Premium feature" : undefined}>
-                    {!allowExport ? (
-                      <SparklesIcon
-                        className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
-                        strokeWidth={2}
-                        aria-hidden
-                      />
-                    ) : null}
-                    <span>{racePlannerCopy.buttons.exportGpx}</span>
-                  </span>
-                </Button>
-              </div>
-              {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="raceDistanceKm" className="text-xs text-muted-foreground dark:text-slate-200">
-                    {racePlannerCopy.sections.raceInputs.fields.raceDistance}
-                  </Label>
-                  <Input
-                    id="raceDistanceKm"
-                    type="number"
-                    step="0.5"
-                    className="border-border bg-background text-sm text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                    {...register("raceDistanceKm", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="elevationGain" className="text-xs text-muted-foreground dark:text-slate-200">
-                    {racePlannerCopy.sections.raceInputs.fields.elevationGain}
-                  </Label>
-                  <Input
-                    id="elevationGain"
-                    type="number"
-                    min="0"
-                    step="50"
-                    className="border-border bg-background text-sm text-foreground placeholder:text-muted-foreground dark:border-slate-800/70 dark:bg-slate-950/80 dark:text-slate-50"
-                    {...register("elevationGain", { valueAsNumber: true })}
-                  />
-                </div>
-              </div>
-            </div>
-          );
-
-          if (isCourseCollapsed) {
-            return null;
-          }
-
-          return (
-            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:gap-8">
-              <div className="min-h-[240px] w-full rounded-lg border border-border bg-card p-4 dark:border-slate-800/70 dark:bg-slate-950/40">
-                <ElevationProfileChart
-                  profile={elevationProfile}
-                  aidStations={parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations}
-                  segments={segments}
-                  totalDistanceKm={
-                    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
-                    defaultValues.raceDistanceKm
-                  }
-                  copy={racePlannerCopy}
-                  baseMinutesPerKm={baseMinutesPerKm}
-                />
-              </div>
-
-              {courseControls}
-            </div>
-          );
-        })()}
-      </CardContent>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
-        <Button
-          type="button"
-          variant="ghost"
-          className="pointer-events-auto h-10 w-10 rounded-full border border-border bg-card text-foreground shadow-md hover:bg-muted dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:hover:bg-slate-900/60"
-          aria-label={isCourseCollapsed ? "Expand course profile" : "Collapse course profile"}
-          onClick={() => setIsCourseCollapsed((prev) => !prev)}
-        >
-          {isCourseCollapsed ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
-        </Button>
-      </div>
-    </Card>
-  );
+  const totalDistanceKm =
+    (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
+    defaultValues.raceDistanceKm;
+  const courseProfileAidStations = parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations;
   const planPrimaryContent = (
     <div className="space-y-6">
       {session?.accessToken && profileError ? (
@@ -1732,7 +1513,25 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       </Script>
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
-        {courseProfileSection}
+        <CourseProfileSection
+          sectionId={sectionIds.courseProfile}
+          copy={racePlannerCopy}
+          isCollapsed={isCourseCollapsed}
+          onToggleCollapsed={() => setIsCourseCollapsed((prev) => !prev)}
+          fileInputRef={fileInputRef}
+          onImportGpx={handleImportGpx}
+          onOpenRaceCatalog={() => setIsRaceCatalogOpen(true)}
+          allowExport={allowExport}
+          onExportGpx={handleExportGpx}
+          onRequestExportUpgrade={() => requestPremiumUpgrade(premiumCopy.exportLocked)}
+          importError={importError}
+          register={register}
+          elevationProfile={elevationProfile}
+          aidStations={courseProfileAidStations}
+          segments={segments}
+          totalDistanceKm={totalDistanceKm}
+          baseMinutesPerKm={baseMinutesPerKm}
+        />
 
         <RacePlannerLayout
           className="space-y-6"
