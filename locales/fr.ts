@@ -368,6 +368,8 @@ export const fr: Translations = {
         collapsedScopeLabel: "Ravito + portion suivante repliés",
         collapseLabel: "Replier le ravito + tronçon",
         expandLabel: "Déplier le ravito + tronçon",
+        collapseAllLabel: "Tout replier",
+        expandAllLabel: "Tout déplier",
         plannedLabel: "Prévu",
         targetLabel: "Cible",
         pickupTitle: "À récupérer au ravito",
