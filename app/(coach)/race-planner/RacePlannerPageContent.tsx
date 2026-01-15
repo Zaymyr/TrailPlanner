@@ -18,7 +18,7 @@ import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
-import { MobileDrawer } from "../../../components/ui/mobile-drawer";
+import { Drawer } from "../../../components/ui/drawer";
 import { PlannerAccountPanel, PlannerNutritionPanel, PlannerRightPanel } from "./components/PlannerRightPanel";
 import { PlannerSummaryBar } from "./components/PlannerSummaryBar";
 import type { UserEntitlements } from "../../../lib/entitlements";
@@ -1192,7 +1192,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           summaryBarContent={summaryBarContent}
         />
 
-        <MobileDrawer
+        <Drawer
           open={isNutritionDrawerOpen}
           onClose={() => setIsNutritionDrawerOpen(false)}
           title={racePlannerCopy.sections.gels.title}
@@ -1204,7 +1204,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             favoriteProducts={selectedProducts}
             isFuelLoading={fuelLoadStatus === "loading"}
           />
-        </MobileDrawer>
+        </Drawer>
 
         {enableMobileNav ? (
           <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">

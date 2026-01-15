@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useId, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-type MobileDrawerProps = {
+const ANIMATION_DURATION_MS = 300;
+
+type DrawerProps = {
   open: boolean;
   onClose: () => void;
   title: string;
@@ -10,9 +12,34 @@ type MobileDrawerProps = {
   children: ReactNode;
 };
 
-export function MobileDrawer({ open, onClose, title, description, children }: MobileDrawerProps) {
+export function Drawer({ open, onClose, title, description, children }: DrawerProps) {
   const titleId = useId();
   const descriptionId = useId();
+  const [isMounted, setIsMounted] = useState(open);
+  const [isVisible, setIsVisible] = useState(open);
+  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setIsMounted(true);
+      requestAnimationFrame(() => setIsVisible(true));
+      return;
+    }
+
+    setIsVisible(false);
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+    closeTimeoutRef.current = setTimeout(() => {
+      setIsMounted(false);
+    }, ANIMATION_DURATION_MS);
+
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -41,13 +68,15 @@ export function MobileDrawer({ open, onClose, title, description, children }: Mo
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!isMounted) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:hidden" aria-hidden={!open}>
       <button
         type="button"
-        className="absolute inset-0 bg-slate-950/70"
+        className={`absolute inset-0 bg-slate-950/70 transition-opacity duration-300 ${
+          isVisible ? "opacity-100" : "opacity-0"
+        }`}
         onClick={onClose}
         aria-label="Close drawer"
       />
@@ -56,7 +85,9 @@ export function MobileDrawer({ open, onClose, title, description, children }: Mo
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className="relative w-full max-w-3xl rounded-t-3xl border border-border/70 bg-card px-5 pb-8 pt-4 shadow-2xl"
+        className={`relative w-full max-w-3xl rounded-t-3xl border border-border/70 bg-card px-5 pb-8 pt-4 shadow-2xl transition-transform duration-300 ease-out ${
+          isVisible ? "translate-y-0" : "translate-y-full"
+        }`}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
