@@ -8,7 +8,7 @@ import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 
-type PlanManagerProps = {
+export type PlanManagerProps = {
   copy: RacePlannerTranslations["account"];
   planName: string;
   planStatus: "idle" | "saving";
