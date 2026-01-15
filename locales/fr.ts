@@ -329,6 +329,10 @@ export const fr: Translations = {
         settingsHint: "Gérez vos produits d'alimentation dans Paramètres pour adapter ces calculs.",
         usingCustom: "Vos produits enregistrés depuis Paramètres sont utilisés.",
       },
+      layout: {
+        collapsePanel: "Masquer le panneau latéral",
+        expandPanel: "Afficher le panneau latéral",
+      },
       aidStations: {
         title: "Ravitaillements",
         description: "Modifiez les points où vous prévoyez de vous réapprovisionner.",

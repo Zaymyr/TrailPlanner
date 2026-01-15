@@ -965,7 +965,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     roles?: string[];
   } | null>(null);
   const [mobileView, setMobileView] = useState<"plan" | "settings">("plan");
-  const [rightPanelTab, setRightPanelTab] = useState<"plans" | "fuel">("plans");
+  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(false);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
@@ -976,8 +976,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
-  const [productsStatus, setProductsStatus] = useState<"idle" | "loading" | "error" | "success">("idle");
-  const [productsError, setProductsError] = useState<string | null>(null);
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isCourseCollapsed, setIsCourseCollapsed] = useState(true);
@@ -1255,8 +1253,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   useEffect(() => {
     const abortController = new AbortController();
-    setProductsStatus("loading");
-    setProductsError(null);
 
     const loadProducts = async () => {
       try {
@@ -1283,15 +1279,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           const localProducts = readLocalProducts();
           const baseProducts = parsed.data.products.length > 0 ? parsed.data.products : defaultFuelProducts;
           setFuelProducts(mergeFuelProducts(baseProducts, localProducts));
-          setProductsStatus("success");
         }
       } catch (error) {
         if (abortController.signal.aborted) return;
         console.error("Unable to load fuel products", error);
-        setProductsError(error instanceof Error ? error.message : racePlannerCopy.sections.gels.loadError);
         const localProducts = readLocalProducts();
         setFuelProducts(mergeFuelProducts(defaultFuelProducts, localProducts));
-        setProductsStatus("error");
       }
     };
 
@@ -1421,25 +1414,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           }))
         : [],
     [mergedFuelProducts, raceTotals]
-  );
-
-  const favoriteProductEstimates = useMemo(() => {
-    if (fuelProductEstimates.length === 0) return [];
-
-    const selectionOrder = selectedProducts.map((product) => product.id);
-    const productById = new Map(fuelProductEstimates.map((product) => [product.id, product] as const));
-
-    return selectionOrder
-      .map((id) => productById.get(id))
-      .filter((product): product is FuelProductEstimate => Boolean(product));
-  }, [fuelProductEstimates, selectedProducts]);
-
-  const otherProductEstimates = useMemo(
-    () =>
-      fuelProductEstimates.filter((product) =>
-        favoriteProductEstimates.every((favorite) => favorite.id !== product.id)
-      ),
-    [favoriteProductEstimates, fuelProductEstimates]
   );
 
   const scrollToSection = (sectionId: (typeof sectionIds)[keyof typeof sectionIds]) => {
@@ -2362,136 +2336,31 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     </div>
   );
 
-  const renderFuelProductCard = (product: FuelProductEstimate) => (
-    <div
-      key={product.id}
-      draggable
-      onDragStart={(event) => {
-        event.dataTransfer.setData("text/trailplanner-product-id", product.id);
-        event.dataTransfer.setData("text/trailplanner-product-qty", "1");
-      }}
-      className="space-y-3 rounded-lg border border-border bg-card p-3 shadow-sm transition hover:border-emerald-400/60 hover:shadow-emerald-500/10 active:translate-y-[1px] dark:border-slate-800 dark:bg-slate-900/60"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-semibold text-foreground dark:text-slate-50">{product.name}</p>
-          <p className="text-sm text-muted-foreground dark:text-slate-400">
-            {racePlannerCopy.sections.gels.nutrition
-              .replace("{carbs}", product.carbsGrams.toString())
-              .replace("{sodium}", product.sodiumMg.toString())}
-          </p>
-        </div>
-      </div>
-      <div className="flex items-center justify-between text-sm text-foreground dark:text-slate-200">
-        <p>
-          {racePlannerCopy.sections.gels.countLabel.replace(
-            "{count}",
-            Math.max(product.count, 0).toString()
-          )}
-        </p>
-        <p className="text-xs text-muted-foreground dark:text-slate-500">{product.carbsGrams} g</p>
-      </div>
-    </div>
-  );
-
   const settingsContent = (
     <Card>
       <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-base font-semibold">
-            {rightPanelTab === "plans" ? racePlannerCopy.account.title : racePlannerCopy.sections.gels.title}
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            {(
-              [
-                { key: "plans", label: racePlannerCopy.account.title },
-                { key: "fuel", label: racePlannerCopy.sections.gels.title },
-              ] satisfies { key: "plans" | "fuel"; label: string }[]
-            ).map((tab) => {
-              const isActive = rightPanelTab === tab.key;
-              return (
-                <Button
-                  key={tab.key}
-                  type="button"
-                  variant={isActive ? "default" : "outline"}
-                  className="h-9 px-3 text-sm"
-                  aria-pressed={isActive}
-                  onClick={() => setRightPanelTab(tab.key)}
-                >
-                  {tab.label}
-                </Button>
-              );
-            })}
-          </div>
-        </div>
+        <CardTitle className="text-base font-semibold">{racePlannerCopy.account.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className={rightPanelTab === "plans" ? "space-y-6" : "hidden"}>
-          <PlanManager
-            copy={racePlannerCopy.account}
-            planName={planName}
-            planStatus={planStatus}
-            accountMessage={accountMessage}
-            accountError={accountError}
-            savedPlans={savedPlans}
-            deletingPlanId={deletingPlanId}
-            sessionEmail={session?.email}
-            authStatus={authStatus}
-            canSavePlan={canSavePlan}
-            showPlanLimitUpsell={planLimitReached && !isPremium}
-            premiumCopy={premiumCopy}
-            onPlanNameChange={setPlanName}
-            onSavePlan={handleSavePlan}
-            onRefreshPlans={handleRefreshPlans}
-            onLoadPlan={handleLoadPlan}
-            onDeletePlan={handleDeletePlan}
-          />
-        </div>
-
-        <div className={rightPanelTab === "fuel" ? "space-y-6" : "hidden"}>
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-foreground dark:text-slate-100">
-                {racePlannerCopy.sections.gels.title}
-              </p>
-              <p className="text-xs text-muted-foreground dark:text-slate-400">
-                {racePlannerCopy.sections.gels.description}
-              </p>
-              {productsStatus === "loading" ? (
-                <p className="text-xs text-muted-foreground dark:text-slate-400">
-                  {racePlannerCopy.sections.gels.loading}
-                </p>
-              ) : null}
-              {productsError ? <p className="text-xs text-red-300">{productsError}</p> : null}
-            </div>
-            {fuelProductEstimates.length === 0 ? (
-              <p className="text-sm text-muted-foreground dark:text-slate-400">{racePlannerCopy.sections.gels.empty}</p>
-            ) : (
-              <div className="space-y-4">
-                {favoriteProductEstimates.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-emerald-200">
-                      {racePlannerCopy.sections.gels.favoritesTitle}
-                    </p>
-                    <div className="space-y-3">
-                      {favoriteProductEstimates.map((product) => renderFuelProductCard(product))}
-                    </div>
-                  </div>
-                ) : null}
-                {otherProductEstimates.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-300">
-                      {racePlannerCopy.sections.gels.allProductsTitle}
-                    </p>
-                    <div className="space-y-3">
-                      {otherProductEstimates.map((product) => renderFuelProductCard(product))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            )}
-          </div>
-        </div>
+        <PlanManager
+          copy={racePlannerCopy.account}
+          planName={planName}
+          planStatus={planStatus}
+          accountMessage={accountMessage}
+          accountError={accountError}
+          savedPlans={savedPlans}
+          deletingPlanId={deletingPlanId}
+          sessionEmail={session?.email}
+          authStatus={authStatus}
+          canSavePlan={canSavePlan}
+          showPlanLimitUpsell={planLimitReached && !isPremium}
+          premiumCopy={premiumCopy}
+          onPlanNameChange={setPlanName}
+          onSavePlan={handleSavePlan}
+          onRefreshPlans={handleRefreshPlans}
+          onLoadPlan={handleLoadPlan}
+          onDeletePlan={handleDeletePlan}
+        />
       </CardContent>
     </Card>
   );
@@ -2513,6 +2382,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
           settingsLabel={racePlannerCopy.account.title}
+          isSettingsCollapsed={isSettingsCollapsed}
+          onSettingsToggle={() => setIsSettingsCollapsed((collapsed) => !collapsed)}
+          collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
+          expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
         />
 
         {enableMobileNav ? (
