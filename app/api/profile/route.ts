@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../lib/supabase";
+import { defaultFuelType, fuelTypeSchema } from "../../../lib/fuel-types";
 import {
   profileResponseSchema,
   profileUpdateSchema,
@@ -14,6 +15,7 @@ const supabaseProductSchema = z.object({
   slug: z.string(),
   sku: z.string(),
   name: z.string(),
+  fuel_type: fuelTypeSchema.optional().default(defaultFuelType),
   product_url: z.string().url().optional().nullable(),
   calories_kcal: z.number(),
   carbs_g: z.number(),
@@ -46,6 +48,7 @@ const mapProduct = (row: z.infer<typeof supabaseProductSchema>) => ({
   slug: row.slug,
   sku: row.sku,
   name: row.name,
+  fuelType: row.fuel_type ?? defaultFuelType,
   productUrl: row.product_url ?? undefined,
   caloriesKcal: Number(row.calories_kcal ?? 0),
   carbsGrams: Number(row.carbs_g ?? 0),
@@ -77,7 +80,7 @@ const fetchProfile = async (supabaseUrl: string, supabaseKey: string, token: str
   const profileRow = z.array(profileRowSchema).parse(await profileResponse.json())?.[0];
 
   const favoritesResponse = await fetch(
-    `${supabaseUrl}/rest/v1/user_favorite_products?select=product_id,products(id,slug,sku,name,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g)&order=created_at.asc`,
+    `${supabaseUrl}/rest/v1/user_favorite_products?select=product_id,products(id,slug,sku,name,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g)&order=created_at.asc`,
     {
       headers: buildHeaders(supabaseKey, token, undefined),
       cache: "no-store",

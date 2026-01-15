@@ -12,7 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { FuelTypeBadge, getFuelTypeLabel } from "../../components/products/FuelTypeBadge";
 import { readStoredSession } from "../../lib/auth-storage";
+import { defaultFuelType, fuelTypeSchema, fuelTypeValues } from "../../lib/fuel-types";
 import { readLocalProducts, upsertLocalProduct } from "../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
@@ -71,7 +73,7 @@ function StarIcon({ filled, className }: { filled: boolean; className?: string }
 }
 
 export default function SettingsPage() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [session, setSession] = useState(() => readStoredSession());
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const { selectedProducts, replaceSelection } = useProductSelection();
@@ -89,6 +91,7 @@ export default function SettingsPage() {
     () =>
       z.object({
         name: z.string().trim().min(1, t.racePlanner.validation.required),
+        fuelType: fuelTypeSchema,
         carbsGrams: z.coerce.number().nonnegative({ message: t.productSettings.validation.nonNegative }),
         sodiumMg: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
         caloriesKcal: z.coerce.number().nonnegative({ message: t.racePlanner.validation.nonNegative }),
@@ -111,6 +114,15 @@ export default function SettingsPage() {
 
   type ProductFormValues = z.infer<typeof productFormSchema>;
 
+  const fuelTypeOptions = useMemo(
+    () =>
+      fuelTypeValues.map((value) => ({
+        value,
+        label: getFuelTypeLabel(value, locale),
+      })),
+    [locale]
+  );
+
   const {
     register,
     handleSubmit,
@@ -120,6 +132,7 @@ export default function SettingsPage() {
     resolver: zodResolver(productFormSchema),
     defaultValues: {
       name: "",
+      fuelType: defaultFuelType,
       carbsGrams: 25,
       sodiumMg: 85,
       caloriesKcal: 100,
@@ -214,6 +227,7 @@ export default function SettingsPage() {
           id: createLocalProductId(),
           slug: slugBase ? `${slugBase}-${suffix}` : `product-${suffix}`,
           name: values.name,
+          fuelType: values.fuelType,
           productUrl: values.productUrl ?? undefined,
           caloriesKcal: values.caloriesKcal,
           carbsGrams: values.carbsGrams,
@@ -450,6 +464,7 @@ export default function SettingsPage() {
                         {sortKey === "name" ? (sortDirection === "asc" ? "↑" : "↓") : null}
                       </button>
                     </TableHead>
+                    <TableHead>{t.productSettings.fields.fuelType}</TableHead>
                     <TableHead>
                       <button
                         type="button"
@@ -532,6 +547,9 @@ export default function SettingsPage() {
                             <span>{product.name}</span>
                           </div>
                         </TableCell>
+                        <TableCell>
+                          <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
+                        </TableCell>
                         <TableCell>{product.carbsGrams} g</TableCell>
                         <TableCell>{product.sodiumMg} mg</TableCell>
                         <TableCell>{product.caloriesKcal}</TableCell>
@@ -577,6 +595,25 @@ export default function SettingsPage() {
                 <Label htmlFor="name">{t.productSettings.fields.name}</Label>
                 <Input id="name" placeholder="Gel, boisson, barre..." {...register("name")} disabled={authMissing} />
                 {errors.name && <p className="text-sm text-red-600 dark:text-red-300">{errors.name.message}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="fuelType">{t.productSettings.fields.fuelType}</Label>
+                <select
+                  id="fuelType"
+                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                  {...register("fuelType")}
+                  disabled={authMissing}
+                >
+                  {fuelTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.fuelType && (
+                  <p className="text-sm text-red-600 dark:text-red-300">{errors.fuelType.message}</p>
+                )}
               </div>
 
               <div className="grid gap-4 md:grid-cols-2">

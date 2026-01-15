@@ -12,6 +12,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, StationSupply } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
+import { defaultFuelType } from "../../../lib/fuel-types";
 import type { FuelProduct } from "../../../lib/product-types";
 import { fetchUserProfile } from "../../../lib/profile-client";
 import { mapProductToSelection } from "../../../lib/product-preferences";
@@ -567,6 +568,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           slug: product.slug,
           sku: product.sku ?? undefined,
           name: product.name,
+          fuelType: defaultFuelType,
           productUrl: product.productUrl ?? undefined,
           caloriesKcal: product.caloriesKcal ?? 0,
           carbsGrams: product.carbsGrams,

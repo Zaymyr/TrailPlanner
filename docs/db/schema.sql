@@ -1,6 +1,16 @@
 -- Schema reference for Supabase
 create extension if not exists "pgcrypto";
 
+create type public.fuel_type as enum (
+  'gel',
+  'drink_mix',
+  'electrolyte',
+  'capsule',
+  'bar',
+  'real_food',
+  'other'
+);
+
 create table public.app_feedback (
   id bigint generated always as identity primary key,
   created_at timestamptz not null default now(),
@@ -115,6 +125,7 @@ create table public.products (
   slug text not null,
   sku text not null,
   name text not null,
+  fuel_type public.fuel_type not null default 'other',
   product_url text,
   calories_kcal numeric not null default 0,
   carbs_g numeric not null default 0,
@@ -129,6 +140,7 @@ create table public.products (
 
 create index products_slug_idx on public.products(slug);
 create index products_is_live_idx on public.products(is_live);
+create index products_fuel_type_idx on public.products(fuel_type);
 
 create or replace function public.set_products_updated_at()
 returns trigger as $$
