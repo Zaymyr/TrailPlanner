@@ -8,14 +8,11 @@ import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../../components/ui/card";
 import { PlanManager, type PlanManagerProps } from "../../../../components/race-planner/PlanManager";
 
-type PlannerRightPanelProps = {
+type PlannerNutritionPanelProps = {
   copy: RacePlannerTranslations;
-  activeTab: "fuel" | "account";
-  onTabChange: (tab: "fuel" | "account") => void;
   fuelProducts: FuelProductEstimate[];
   favoriteProducts: StoredProductPreference[];
   isFuelLoading: boolean;
-  planManagerProps: PlanManagerProps;
 };
 
 const getNutritionCopy = (copy: RacePlannerTranslations["sections"]["gels"], product: FuelProductEstimate) =>
@@ -26,15 +23,7 @@ const getNutritionCopy = (copy: RacePlannerTranslations["sections"]["gels"], pro
 const getCountCopy = (copy: RacePlannerTranslations["sections"]["gels"], product: FuelProductEstimate) =>
   copy.countLabel.replace("{count}", Math.max(product.count, 0).toString());
 
-export function PlannerRightPanel({
-  copy,
-  activeTab,
-  onTabChange,
-  fuelProducts,
-  favoriteProducts,
-  isFuelLoading,
-  planManagerProps,
-}: PlannerRightPanelProps) {
+export function PlannerNutritionPanel({ copy, fuelProducts, favoriteProducts, isFuelLoading }: PlannerNutritionPanelProps) {
   const favoriteIds = new Set(favoriteProducts.map((product) => product.id));
   const favoriteSlugs = new Set(favoriteProducts.map((product) => product.slug));
   const favoriteFuelProducts = fuelProducts.filter(
@@ -83,6 +72,82 @@ export function PlannerRightPanel({
   );
 
   return (
+    <Card>
+      <CardHeader className="space-y-2 pb-3">
+        <CardTitle className="text-base font-semibold">{gelsCopy.title}</CardTitle>
+        <p className="text-sm text-muted-foreground dark:text-slate-300">{gelsCopy.description}</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isFuelLoading ? (
+          <p className="text-sm text-muted-foreground dark:text-slate-400">{gelsCopy.loading}</p>
+        ) : fuelProducts.length === 0 ? (
+          <p className="text-sm text-muted-foreground dark:text-slate-400">{gelsCopy.empty}</p>
+        ) : (
+          <div className="space-y-4">
+            {favoriteFuelProducts.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+                  {gelsCopy.favoritesTitle}
+                </p>
+                <div className="space-y-3">{favoriteFuelProducts.map(renderFuelProduct)}</div>
+              </div>
+            ) : null}
+            {otherFuelProducts.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
+                  {favoriteFuelProducts.length > 0 ? gelsCopy.allProductsTitle : gelsCopy.title}
+                </p>
+                <div className="space-y-3">{otherFuelProducts.map(renderFuelProduct)}</div>
+              </div>
+            ) : null}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground dark:text-slate-400">{gelsCopy.settingsHint}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+type PlannerAccountPanelProps = {
+  copy: RacePlannerTranslations["account"];
+  planManagerProps: PlanManagerProps;
+};
+
+export function PlannerAccountPanel({ copy, planManagerProps }: PlannerAccountPanelProps) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">{copy.title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <PlanManager {...planManagerProps} />
+      </CardContent>
+    </Card>
+  );
+}
+
+type PlannerRightPanelProps = {
+  copy: RacePlannerTranslations;
+  activeTab: "fuel" | "account";
+  onTabChange: (tab: "fuel" | "account") => void;
+  fuelProducts: FuelProductEstimate[];
+  favoriteProducts: StoredProductPreference[];
+  isFuelLoading: boolean;
+  planManagerProps: PlanManagerProps;
+};
+
+export function PlannerRightPanel({
+  copy,
+  activeTab,
+  onTabChange,
+  fuelProducts,
+  favoriteProducts,
+  isFuelLoading,
+  planManagerProps,
+}: PlannerRightPanelProps) {
+  const gelsCopy = copy.sections.gels;
+
+  return (
     <div className="space-y-4">
       <div className="rounded-lg border border-border bg-card p-2 dark:border-slate-800 dark:bg-slate-900/60">
         <div className="grid grid-cols-2 gap-2" role="tablist" aria-label={gelsCopy.title}>
@@ -111,50 +176,16 @@ export function PlannerRightPanel({
       </div>
 
       <div className={activeTab === "fuel" ? "space-y-4" : "hidden"} role="tabpanel">
-        <Card>
-          <CardHeader className="space-y-2 pb-3">
-            <CardTitle className="text-base font-semibold">{gelsCopy.title}</CardTitle>
-            <p className="text-sm text-muted-foreground dark:text-slate-300">{gelsCopy.description}</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isFuelLoading ? (
-              <p className="text-sm text-muted-foreground dark:text-slate-400">{gelsCopy.loading}</p>
-            ) : fuelProducts.length === 0 ? (
-              <p className="text-sm text-muted-foreground dark:text-slate-400">{gelsCopy.empty}</p>
-            ) : (
-              <div className="space-y-4">
-                {favoriteFuelProducts.length > 0 ? (
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
-                      {gelsCopy.favoritesTitle}
-                    </p>
-                    <div className="space-y-3">{favoriteFuelProducts.map(renderFuelProduct)}</div>
-                  </div>
-                ) : null}
-                {otherFuelProducts.length > 0 ? (
-                  <div className="space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-slate-400">
-                      {favoriteFuelProducts.length > 0 ? gelsCopy.allProductsTitle : gelsCopy.title}
-                    </p>
-                    <div className="space-y-3">{otherFuelProducts.map(renderFuelProduct)}</div>
-                  </div>
-                ) : null}
-              </div>
-            )}
-            <p className="text-xs text-muted-foreground dark:text-slate-400">{gelsCopy.settingsHint}</p>
-          </CardContent>
-        </Card>
+        <PlannerNutritionPanel
+          copy={copy}
+          fuelProducts={fuelProducts}
+          favoriteProducts={favoriteProducts}
+          isFuelLoading={isFuelLoading}
+        />
       </div>
 
       <div className={activeTab === "account" ? "space-y-4" : "hidden"} role="tabpanel">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base font-semibold">{copy.account.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <PlanManager {...planManagerProps} />
-          </CardContent>
-        </Card>
+        <PlannerAccountPanel copy={copy.account} planManagerProps={planManagerProps} />
       </div>
     </div>
   );
