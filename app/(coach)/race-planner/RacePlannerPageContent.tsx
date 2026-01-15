@@ -1,5 +1,4 @@
 "use client";
-import { Analytics } from "@vercel/analytics/next";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
@@ -11,20 +10,9 @@ import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
-import type {
-  AidStation,
-  ElevationPoint,
-  FormValues,
-  SavedPlan,
-  Segment,
-  SegmentPlan,
-  StationSupply,
-} from "./types";
+import type { ElevationPoint, FormValues, StationSupply } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
-import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../lib/auth-storage";
-import { defaultFuelProducts } from "../../../lib/default-products";
-import { readLocalProducts } from "../../../lib/local-products";
-import { fuelProductSchema, type FuelProduct } from "../../../lib/product-types";
+import type { FuelProduct } from "../../../lib/product-types";
 import { fetchUserProfile } from "../../../lib/profile-client";
 import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
@@ -33,18 +21,10 @@ import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
-import {
-  clearRacePlannerStorage,
-  readRacePlannerStorage,
-  writeRacePlannerStorage,
-} from "../../../lib/race-planner-storage";
+import { clearRacePlannerStorage, readRacePlannerStorage, writeRacePlannerStorage } from "../../../lib/race-planner-storage";
 import { formatMinutes } from "./utils/format";
 import { minutesPerKm, paceToSpeedKph, speedToPace } from "./utils/pacing";
-import {
-  buildPlannerGpx,
-  parseGpx,
-  type ParsedGpx,
-} from "./utils/gpx";
+import { buildPlannerGpx, parseGpx } from "./utils/gpx";
 import {
   dedupeAidStations,
   sanitizeAidStations,
@@ -56,6 +36,7 @@ import { buildSegments } from "./utils/segments";
 import { buildFuelProductEstimates, buildRaceTotals, type FuelProductEstimate } from "./utils/nutrition";
 import { CourseProfileSection } from "./components/CourseProfileSection";
 import { usePlannerState } from "./hooks/usePlannerState";
+import { useRacePlan } from "./hooks/useRacePlan";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -73,19 +54,6 @@ const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M21 11.5a8.38 8.38 0 0 1-1.9 5.4 8.5 8.5 0 0 1-6.6 3.1 8.38 8.38 0 0 1-5.4-1.9L3 21l1.9-4.1a8.38 8.38 0 0 1-1.9-5.4 8.5 8.5 0 0 1 3.1-6.6 8.38 8.38 0 0 1 5.4-1.9h.5a8.48 8.48 0 0 1 8 8v.5Z" />
   </svg>
 );
-
-const productListSchema = z.object({ products: z.array(fuelProductSchema) });
-
-const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => {
-  const productsById = new Map<string, FuelProduct>();
-  primary.forEach((product) => productsById.set(product.id, product));
-  secondary.forEach((product) => {
-    if (!productsById.has(product.id)) {
-      productsById.set(product.id, product);
-    }
-  });
-  return Array.from(productsById.values());
-};
 
 type StripeInterval = "day" | "week" | "month" | "year";
 
@@ -229,26 +197,6 @@ const sanitizeRacePlannerStorage = (
   };
 };
 
-function mapSavedPlan(row: Record<string, unknown>): SavedPlan | null {
-  const id = typeof row.id === "string" ? row.id : undefined;
-  const name = typeof row.name === "string" ? row.name : undefined;
-  const updatedAt = typeof row.updated_at === "string" ? row.updated_at : new Date().toISOString();
-
-  if (!id || !name) return null;
-
-  const plannerValues = sanitizePlannerValues(row.planner_values as Partial<FormValues>) ?? {};
-  const elevationProfile = sanitizeElevationProfile(row.elevation_profile as ElevationPoint[]);
-
-  return {
-    id,
-    name,
-    updatedAt,
-    plannerValues,
-    elevationProfile,
-  };
-}
-
-
 export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
   const { t, locale } = useI18n();
   const racePlannerCopy = t.racePlanner;
@@ -298,23 +246,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const speedKphValue = form.watch("speedKph") ?? defaultValues.speedKph;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
-  const [planName, setPlanName] = useState("");
-  const [session, setSession] = useState<{
-    accessToken: string;
-    refreshToken?: string;
-    email?: string;
-    role?: string;
-    roles?: string[];
-  } | null>(null);
-  const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
-  const [accountMessage, setAccountMessage] = useState<string | null>(null);
-  const [accountError, setAccountError] = useState<string | null>(null);
-  const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
-  const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
-  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
-  const [activePlanId, setActivePlanId] = useState<string | null>(null);
-  const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
-  const [fuelLoadStatus, setFuelLoadStatus] = useState<"loading" | "ready">("loading");
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
   const [profileError, setProfileError] = useState<string | null>(null);
   const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
@@ -359,7 +290,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setUpgradeReason,
     },
   } = usePlannerState();
-  const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
 
   useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
@@ -369,117 +299,46 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setIsDesktopApp(isElectron || Boolean(isStandalone));
   }, []);
 
-  const persistSession = useCallback(
-    (accessToken: string, refreshToken?: string, email?: string, role?: string, roles?: string[]) => {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-        if (refreshToken) {
-          window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-        } else {
-          window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-        }
-
-        if (email) {
-          window.localStorage.setItem(SESSION_EMAIL_KEY, email);
-        } else {
-          window.localStorage.removeItem(SESSION_EMAIL_KEY);
-        }
-      }
-
-      setSession({ accessToken, refreshToken, email, role, roles });
+  const {
+    session,
+    planName,
+    setPlanName,
+    savedPlans,
+    accountMessage,
+    accountError,
+    authStatus,
+    planStatus,
+    deletingPlanId,
+    fuelProducts,
+    fuelLoadStatus,
+    planLimitReached,
+    canSavePlan,
+    requestPremiumUpgrade,
+    handleSavePlan,
+    handleLoadPlan,
+    handleDeletePlan,
+    handleRefreshPlans,
+    handleUseCatalogRace,
+  } = useRacePlan({
+    racePlannerCopy,
+    premiumCopy,
+    defaultValues,
+    form,
+    parsedValues,
+    elevationProfile,
+    setElevationProfile,
+    setIsRaceCatalogOpen,
+    setCatalogSubmissionId,
+    entitlements,
+    setUpgradeDialogOpen,
+    setUpgradeError,
+    setUpgradeReason,
+    onSessionCleared: () => {
+      setEntitlements(defaultEntitlements);
+      setUpgradeError(null);
     },
-    []
-  );
-
-  const clearSession = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-      window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-      window.localStorage.removeItem(SESSION_EMAIL_KEY);
-    }
-
-    clearRacePlannerStorage();
-    setSession(null);
-    setSavedPlans([]);
-    setActivePlanId(null);
-    setEntitlements(defaultEntitlements);
-    setUpgradeError(null);
-  }, []);
-
-  const refreshSavedPlans = useCallback(
-    async (accessToken: string) => {
-      try {
-        const response = await fetch("/api/plans", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          setAccountError(racePlannerCopy.account.errors.fetchFailed);
-          return;
-        }
-
-        const data = (await response.json()) as { plans?: Record<string, unknown>[] };
-        const parsedPlans = (data.plans ?? [])
-          .map((plan) => mapSavedPlan(plan))
-          .filter((plan): plan is SavedPlan => Boolean(plan));
-        setSavedPlans(parsedPlans);
-      } catch (error) {
-        console.error("Unable to fetch saved plans", error);
-        setAccountError(racePlannerCopy.account.errors.fetchFailed);
-      }
-    },
-    [racePlannerCopy.account.errors.fetchFailed]
-  );
-
-  const verifySession = useCallback(
-    async (accessToken: string, emailHint?: string, refreshToken?: string) => {
-      setAuthStatus("checking");
-      setAccountError(null);
-
-      try {
-        const response = await fetch("/api/auth/session", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            ...(refreshToken ? { "x-refresh-token": `Bearer ${refreshToken}` } : {}),
-          },
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          clearSession();
-          setAuthStatus("idle");
-          return;
-        }
-
-        const data = (await response.json()) as { user?: { email?: string; role?: string; roles?: string[] } };
-        const email = data.user?.email ?? emailHint;
-        persistSession(accessToken, refreshToken, email ?? undefined, data.user?.role, data.user?.roles);
-        setAccountMessage(racePlannerCopy.account.messages.signedIn);
-        await refreshSavedPlans(accessToken);
-      } catch (error) {
-        console.error("Unable to verify session", error);
-        clearSession();
-      } finally {
-        setAuthStatus("idle");
-      }
-    },
-    [clearSession, persistSession, racePlannerCopy.account.messages.signedIn, refreshSavedPlans]
-  );
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const storedToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
-    const storedRefresh = window.localStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
-    const storedEmail = window.localStorage.getItem(SESSION_EMAIL_KEY) ?? undefined;
-
-    if (storedToken) {
-      verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
-    }
-  }, [verifySession]);
+  });
+  const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
@@ -625,54 +484,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     };
   }, []);
 
-  useEffect(() => {
-    const abortController = new AbortController();
-    setFuelLoadStatus("loading");
-
-    const loadProducts = async () => {
-      try {
-        const response = await fetch("/api/products", {
-          headers: session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : undefined,
-          cache: "no-store",
-          signal: abortController.signal,
-        });
-
-        const data = (await response.json().catch(() => null)) as unknown;
-
-        if (!response.ok) {
-          const message = (data as { message?: string } | null)?.message ?? racePlannerCopy.sections.gels.loadError;
-          throw new Error(message);
-        }
-
-        const parsed = productListSchema.safeParse(data);
-
-        if (!parsed.success) {
-          throw new Error(racePlannerCopy.sections.gels.loadError);
-        }
-
-        if (!abortController.signal.aborted) {
-          const localProducts = readLocalProducts();
-          const baseProducts = parsed.data.products.length > 0 ? parsed.data.products : defaultFuelProducts;
-          setFuelProducts(mergeFuelProducts(baseProducts, localProducts));
-        }
-      } catch (error) {
-        if (abortController.signal.aborted) return;
-        console.error("Unable to load fuel products", error);
-        const localProducts = readLocalProducts();
-        setFuelProducts(mergeFuelProducts(defaultFuelProducts, localProducts));
-      } finally {
-        if (!abortController.signal.aborted) {
-          setFuelLoadStatus("ready");
-        }
-      }
-    };
-
-    void loadProducts();
-
-    return () => {
-      abortController.abort();
-    };
-  }, [racePlannerCopy.sections.gels.loadError, session?.accessToken]);
 
   const formattedPremiumPrice = useMemo(() => {
     if (!stripePrice) return null;
@@ -734,10 +545,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const isPremium = entitlements.isPremium;
   const allowExport = entitlements.allowExport || entitlements.isPremium;
   const allowAutoFill = entitlements.allowAutoFill || entitlements.isPremium;
-  const planLimitReached =
-    !entitlements.isPremium && Number.isFinite(entitlements.planLimit) && savedPlans.length >= entitlements.planLimit;
-  const canSavePlan =
-    entitlements.isPremium || !planLimitReached || Boolean(activePlanId) || Boolean(savedPlans.find((plan) => plan.id === activePlanId));
 
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
@@ -843,18 +650,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setUpgradeDialogOpen,
   ]);
 
-  const requestPremiumUpgrade = useCallback(
-    (message?: string, reason: "autoFill" | "print" | "plans" = "plans") => {
-      if (message) {
-        setAccountError(message);
-      }
-      setUpgradeReason(reason);
-      setUpgradeDialogOpen(true);
-      setUpgradeError(null);
-    },
-    [setAccountError, setUpgradeDialogOpen, setUpgradeError, setUpgradeReason]
-  );
-
   const handlePremiumFeature = useCallback(
     (reason: "autoFill" | "print") => {
       const message = reason === "autoFill" ? premiumCopy.autoFillLocked : premiumCopy.printLocked;
@@ -863,220 +658,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [premiumCopy.autoFillLocked, premiumCopy.printLocked, requestPremiumUpgrade]
   );
 
-  const handleSignOut = () => {
-    setAccountMessage(null);
-    setAccountError(null);
-    clearSession();
-    setPlanName("");
-  };
-
-  const handleSavePlan = async () => {
-    setAccountError(null);
-    setAccountMessage(null);
-
-    if (!session?.accessToken) {
-      setAccountError(racePlannerCopy.account.errors.missingSession);
-      return;
-    }
-
-    if (!parsedValues.success) {
-      setAccountError(racePlannerCopy.account.errors.saveFailed);
-      return;
-    }
-
-    const trimmedName = planName.trim() || racePlannerCopy.account.plans.defaultName;
-    const existingPlanByName = savedPlans.find(
-      (plan) => plan.name.trim().toLowerCase() === trimmedName.toLowerCase()
-    );
-
-    if (planLimitReached && !existingPlanByName) {
-      setAccountError(premiumCopy.planLimitReached);
-      requestPremiumUpgrade(premiumCopy.planLimitReached, "plans");
-      return;
-    }
-
-    setPlanStatus("saving");
-
-    try {
-      const sanitizedAidStations = dedupeAidStations(sanitizeAidStations(parsedValues.data.aidStations));
-      const sanitizedFinishPlan = sanitizeSegmentPlan(parsedValues.data.finishPlan);
-
-      const plannerValues: FormValues = {
-        ...parsedValues.data,
-        aidStations: sanitizedAidStations,
-        finishPlan: sanitizedFinishPlan,
-        startSupplies: sanitizeSegmentPlan({ supplies: parsedValues.data.startSupplies }).supplies ?? [],
-      };
-
-      const planIdToUpdate = existingPlanByName?.id ?? null;
-
-      const payload = {
-        name: trimmedName,
-        plannerValues,
-        elevationProfile: sanitizeElevationProfile(elevationProfile),
-      };
-
-      const response = await fetch("/api/plans", {
-        method: planIdToUpdate ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-        body: JSON.stringify(planIdToUpdate ? { ...payload, id: planIdToUpdate } : payload),
-      });
-
-      const data = (await response.json().catch(() => null)) as {
-        plan?: Record<string, unknown> | null;
-        message?: string;
-      };
-
-      if (response.status === 402) {
-        setAccountError(data?.message ?? premiumCopy.planLimitReached);
-        requestPremiumUpgrade(data?.message ?? premiumCopy.planLimitReached, "plans");
-        return;
-      }
-
-      if (!response.ok || !data?.plan) {
-        setAccountError(data?.message ?? racePlannerCopy.account.errors.saveFailed);
-        return;
-      }
-
-      const parsedPlan = mapSavedPlan(data.plan);
-
-      if (parsedPlan) {
-        setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
-        setPlanName(parsedPlan.name);
-        setActivePlanId(parsedPlan.id);
-      }
-
-      setAccountMessage(racePlannerCopy.account.messages.savedPlan);
-    } catch (error) {
-      console.error("Unable to save plan", error);
-      setAccountError(racePlannerCopy.account.errors.saveFailed);
-    } finally {
-      setPlanStatus("idle");
-    }
-  };
-
-  const handleLoadPlan = (plan: SavedPlan, message: string = racePlannerCopy.account.messages.loadedPlan) => {
-    const sanitizedAidStations = sanitizeAidStations(plan.plannerValues.aidStations) ?? [];
-    const aidStations = sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
-    const startSupplies = sanitizeSegmentPlan({ supplies: plan.plannerValues.startSupplies }).supplies ?? [];
-
-    const mergedValues: FormValues = {
-      ...defaultValues,
-      ...plan.plannerValues,
-      aidStations,
-      startSupplies,
-      finishPlan: plan.plannerValues.finishPlan ?? defaultValues.finishPlan,
-    };
-
-    form.reset(mergedValues, { keepDefaultValues: true });
-    setElevationProfile(plan.elevationProfile);
-    setPlanName(plan.name);
-    setActivePlanId(plan.id);
-    setAccountMessage(message);
-  };
-
-  const handleUseCatalogRace = async (raceId: string) => {
-    setAccountError(null);
-    setAccountMessage(null);
-
-    if (!session?.accessToken) {
-      setAccountError(racePlannerCopy.raceCatalog.errors.authRequired);
-      return;
-    }
-
-    setCatalogSubmissionId(raceId);
-
-    try {
-      const response = await fetch("/api/plans/from-catalog", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-        body: JSON.stringify({ catalogRaceId: raceId }),
-      });
-
-      const data = (await response.json().catch(() => null)) as { plan?: Record<string, unknown>; message?: string } | null;
-
-      if (response.status === 402) {
-        const message = data?.message ?? premiumCopy.planLimitReached;
-        setAccountError(message);
-        requestPremiumUpgrade(message, "plans");
-        return;
-      }
-
-      if (!response.ok || !data?.plan) {
-        setAccountError(data?.message ?? racePlannerCopy.raceCatalog.errors.createFailed);
-        return;
-      }
-
-      const parsedPlan = mapSavedPlan(data.plan);
-
-      if (!parsedPlan) {
-        setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
-        return;
-      }
-
-      setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
-      setPlanName(parsedPlan.name);
-      setActivePlanId(parsedPlan.id);
-      handleLoadPlan(parsedPlan, racePlannerCopy.raceCatalog.messages.created);
-      setIsRaceCatalogOpen(false);
-    } catch (error) {
-      console.error("Unable to create plan from catalog", error);
-      setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
-    } finally {
-      setCatalogSubmissionId(null);
-    }
-  };
-
-  const handleDeletePlan = async (planId: string) => {
-    setAccountError(null);
-    setAccountMessage(null);
-
-    if (!session?.accessToken) {
-      setAccountError(racePlannerCopy.account.errors.missingSession);
-      return;
-    }
-
-    setDeletingPlanId(planId);
-
-    try {
-      const response = await fetch("/api/plans", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.accessToken}`,
-        },
-        body: JSON.stringify({ id: planId }),
-      });
-
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
-
-      if (!response.ok) {
-        setAccountError(data?.message ?? racePlannerCopy.account.errors.deleteFailed);
-        return;
-      }
-
-      setSavedPlans((previous) => previous.filter((plan) => plan.id !== planId));
-      setAccountMessage(racePlannerCopy.account.messages.deletedPlan);
-    } catch (error) {
-      console.error("Unable to delete plan", error);
-      setAccountError(racePlannerCopy.account.errors.deleteFailed);
-    } finally {
-      setDeletingPlanId(null);
-      setActivePlanId((current) => (current === planId ? null : current));
-    }
-  };
-
-  const handleRefreshPlans = () => {
-    if (session?.accessToken) {
-      refreshSavedPlans(session.accessToken);
-    }
-  };
 
   const handleMobileImport = () => {
     focusSection(sectionIds.courseProfile, "plan");
