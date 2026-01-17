@@ -20,6 +20,7 @@ import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerL
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
+import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
 import type { UserEntitlements } from "../../../lib/entitlements";
 import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
 import { clearRacePlannerStorage, readRacePlannerStorage, writeRacePlannerStorage } from "../../../lib/race-planner-storage";
@@ -339,6 +340,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     },
   });
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
+  const isAuthed = Boolean(session?.accessToken);
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
@@ -1110,6 +1112,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       </Script>
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+        <GuestSaveBanner isAuthed={isAuthed} />
         <CourseProfileSection
           sectionId={sectionIds.courseProfile}
           copy={racePlannerCopy}
