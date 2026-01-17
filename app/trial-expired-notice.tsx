@@ -70,9 +70,10 @@ export const TrialExpiredNotice = () => {
       const result = await markTrialExpiredSeen(session.accessToken);
       const seenAt = result.trialExpiredSeenAt ?? new Date().toISOString();
 
-      queryClient.setQueryData<UserEntitlements>(["entitlements", session.accessToken], (previous) =>
-        previous ? { ...previous, trialExpiredSeenAt: seenAt } : previous
-      );
+      queryClient.setQueryData<UserEntitlements>(["entitlements", session.accessToken], (previous) => ({
+        ...(previous ?? defaultEntitlements),
+        trialExpiredSeenAt: seenAt,
+      }));
 
       return seenAt;
     } catch (error) {
