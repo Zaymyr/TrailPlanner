@@ -16,6 +16,7 @@ const COPY = {
   modalBody:
     "Ton essai Premium de 14 jours est terminé. Abonne-toi pour réactiver : export GPX, remplissage automatique des ravitos avec tes produits favoris, et impression de ton plan de course.",
   cta: "S’abonner",
+  opening: "Ouverture de la page d’abonnement…",
   later: "Plus tard",
   checkoutError: "Impossible d’ouvrir la page d’abonnement. Réessaie plus tard.",
   missingSession: "Connecte-toi pour accéder à l’abonnement Premium.",
@@ -145,6 +146,7 @@ export const TrialExpiredNotice = () => {
       <TrialExpiredBanner
         message={COPY.banner}
         ctaLabel={COPY.cta}
+        loadingLabel={COPY.opening}
         onUpgrade={handleUpgrade}
         isLoading={upgradeStatus === "opening"}
         error={upgradeError && !isModalOpen ? upgradeError : null}

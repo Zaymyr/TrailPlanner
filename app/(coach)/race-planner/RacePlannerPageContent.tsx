@@ -1252,7 +1252,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   <p className="text-lg font-semibold text-foreground dark:text-slate-50">
                     {premiumCopy.premiumModal.title}
                   </p>
-                  <p className="text-sm text-muted-foreground dark:text-slate-300">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
                     {premiumCopy.premiumModal.description}
                   </p>
                 </div>
@@ -1268,23 +1268,27 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 </Button>
               </div>
 
-              <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-50">
+              <div className="rounded-md border border-emerald-300/30 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-50">
                 <p className="font-semibold">
                   {premiumCopy.premiumModal.priceLabel}: {premiumPriceDisplay}
                 </p>
                 {upgradeReason === "plans" ? (
-                  <p className="text-xs text-emerald-100/80">{premiumCopy.planLimitReached}</p>
+                  <p className="text-xs text-emerald-600/90 dark:text-emerald-100/80">
+                    {premiumCopy.planLimitReached}
+                  </p>
                 ) : null}
               </div>
 
               <div>
-                <p className="text-sm font-semibold text-foreground dark:text-slate-100">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                   {premiumCopy.premiumModal.featuresTitle}
                 </p>
-                <ul className="mt-2 space-y-1 text-sm text-muted-foreground dark:text-slate-300">
+                <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
                   {premiumCopy.premiumModal.features.map((item) => (
                     <li key={item} className="flex items-start gap-2">
-                      <span aria-hidden className="mt-[2px] text-emerald-300">•</span>
+                      <span aria-hidden className="mt-[2px] text-emerald-600 dark:text-emerald-300">
+                        •
+                      </span>
                       <span>{item}</span>
                     </li>
                   ))}
