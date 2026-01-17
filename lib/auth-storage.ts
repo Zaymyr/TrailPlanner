@@ -24,6 +24,8 @@ export const persistSessionToStorage = ({ accessToken, refreshToken, email }: St
   } else {
     window.localStorage.removeItem(SESSION_EMAIL_KEY);
   }
+
+  window.dispatchEvent(new Event("trailplanner:session-updated"));
 };
 
 export const clearStoredSession = () => {

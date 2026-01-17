@@ -1,17 +1,16 @@
 "use client";
 
 import { z } from "zod";
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
 import { defaultFuelProducts } from "../../../../lib/default-products";
 import { readLocalProducts } from "../../../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../../../lib/product-types";
-import { clearRacePlannerStorage } from "../../../../lib/race-planner-storage";
-import { ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY } from "../../../../lib/auth-storage";
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { UserEntitlements } from "../../../../lib/entitlements";
 import type { ElevationPoint, FormValues, SavedPlan } from "../types";
+import { useVerifiedSession } from "../../../hooks/useVerifiedSession";
 import {
   dedupeAidStations,
   sanitizeAidStations,
@@ -19,14 +18,6 @@ import {
   sanitizePlannerValues,
   sanitizeSegmentPlan,
 } from "../utils/plan-sanitizers";
-
-export type RacePlannerSession = {
-  accessToken: string;
-  refreshToken?: string;
-  email?: string;
-  role?: string;
-  roles?: string[];
-};
 
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
@@ -93,17 +84,17 @@ export const useRacePlan = ({
   setUpgradeReason,
   onSessionCleared,
 }: UseRacePlanParams) => {
+  const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const [planName, setPlanName] = useState("");
-  const [session, setSession] = useState<RacePlannerSession | null>(null);
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
-  const [authStatus, setAuthStatus] = useState<"idle" | "signingIn" | "signingUp" | "checking">("idle");
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [fuelLoadStatus, setFuelLoadStatus] = useState<"loading" | "ready">("loading");
+  const authStatus: "idle" | "signingIn" | "signingUp" | "checking" = isSessionLoading ? "checking" : "idle";
 
   const planLimitReached = useMemo(
     () =>
@@ -134,42 +125,6 @@ export const useRacePlan = ({
     [setAccountError, setUpgradeDialogOpen, setUpgradeError, setUpgradeReason]
   );
 
-  const persistSession = useCallback(
-    (accessToken: string, refreshToken?: string, email?: string, role?: string, roles?: string[]) => {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
-        if (refreshToken) {
-          window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
-        } else {
-          window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-        }
-
-        if (email) {
-          window.localStorage.setItem(SESSION_EMAIL_KEY, email);
-        } else {
-          window.localStorage.removeItem(SESSION_EMAIL_KEY);
-        }
-      }
-
-      setSession({ accessToken, refreshToken, email, role, roles });
-    },
-    []
-  );
-
-  const clearSession = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
-      window.localStorage.removeItem(REFRESH_TOKEN_KEY);
-      window.localStorage.removeItem(SESSION_EMAIL_KEY);
-    }
-
-    clearRacePlannerStorage();
-    setSession(null);
-    setSavedPlans([]);
-    setActivePlanId(null);
-    onSessionCleared?.();
-  }, [onSessionCleared]);
-
   const refreshSavedPlans = useCallback(
     async (accessToken: string) => {
       try {
@@ -198,52 +153,30 @@ export const useRacePlan = ({
     [racePlannerCopy.account.errors.fetchFailed]
   );
 
-  const verifySession = useCallback(
-    async (accessToken: string, emailHint?: string, refreshToken?: string) => {
-      setAuthStatus("checking");
-      setAccountError(null);
-
-      try {
-        const response = await fetch("/api/auth/session", {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            ...(refreshToken ? { "x-refresh-token": `Bearer ${refreshToken}` } : {}),
-          },
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          clearSession();
-          setAuthStatus("idle");
-          return;
-        }
-
-        const data = (await response.json()) as { user?: { email?: string; role?: string; roles?: string[] } };
-        const email = data.user?.email ?? emailHint;
-        persistSession(accessToken, refreshToken, email ?? undefined, data.user?.role, data.user?.roles);
-        setAccountMessage(racePlannerCopy.account.messages.signedIn);
-        await refreshSavedPlans(accessToken);
-      } catch (error) {
-        console.error("Unable to verify session", error);
-        clearSession();
-      } finally {
-        setAuthStatus("idle");
-      }
-    },
-    [clearSession, persistSession, racePlannerCopy.account.messages.signedIn, refreshSavedPlans]
-  );
+  const previousTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    const accessToken = session?.accessToken ?? null;
 
-    const storedToken = window.localStorage.getItem(ACCESS_TOKEN_KEY);
-    const storedRefresh = window.localStorage.getItem(REFRESH_TOKEN_KEY) ?? undefined;
-    const storedEmail = window.localStorage.getItem(SESSION_EMAIL_KEY) ?? undefined;
-
-    if (storedToken) {
-      verifySession(storedToken, storedEmail ?? undefined, storedRefresh ?? undefined);
+    if (!accessToken) {
+      if (previousTokenRef.current) {
+        setAccountMessage(null);
+        setAccountError(null);
+        setSavedPlans([]);
+        setActivePlanId(null);
+        onSessionCleared?.();
+      }
+      previousTokenRef.current = null;
+      return;
     }
-  }, [verifySession]);
+
+    if (previousTokenRef.current !== accessToken) {
+      previousTokenRef.current = accessToken;
+      setAccountError(null);
+      setAccountMessage(racePlannerCopy.account.messages.signedIn);
+      void refreshSavedPlans(accessToken);
+    }
+  }, [onSessionCleared, racePlannerCopy.account.messages.signedIn, refreshSavedPlans, session?.accessToken]);
 
   useEffect(() => {
     const abortController = new AbortController();

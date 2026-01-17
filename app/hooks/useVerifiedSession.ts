@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import {
   ACCESS_TOKEN_KEY,
@@ -29,7 +29,16 @@ type SessionResponse = {
   };
 };
 
-export const useVerifiedSession = () => {
+type VerifiedSessionContextValue = {
+  session: VerifiedSession | null;
+  isLoading: boolean;
+  refresh: () => Promise<boolean>;
+  clearSession: () => void;
+};
+
+const VerifiedSessionContext = createContext<VerifiedSessionContextValue | null>(null);
+
+const useVerifiedSessionState = (): VerifiedSessionContextValue => {
   const [session, setSession] = useState<VerifiedSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const refreshInFlight = useRef<Promise<boolean> | null>(null);
@@ -120,11 +129,12 @@ export const useVerifiedSession = () => {
       void refresh();
     };
 
+    const handleSessionUpdated = () => {
+      void refresh();
+    };
+
     const handleStorage = (event: StorageEvent) => {
-      if (
-        event.key &&
-        ![ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY].includes(event.key)
-      ) {
+      if (event.key && ![ACCESS_TOKEN_KEY, REFRESH_TOKEN_KEY, SESSION_EMAIL_KEY].includes(event.key)) {
         return;
       }
 
@@ -140,13 +150,28 @@ export const useVerifiedSession = () => {
     window.addEventListener("visibilitychange", handleVisibility);
     window.addEventListener("focus", handleFocus);
     window.addEventListener("storage", handleStorage);
+    window.addEventListener("trailplanner:session-updated", handleSessionUpdated);
 
     return () => {
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("trailplanner:session-updated", handleSessionUpdated);
     };
   }, [clearSession, refresh]);
 
   return { session, isLoading, refresh, clearSession };
+};
+
+export const VerifiedSessionProvider = ({ children }: { children: ReactNode }) => {
+  const value = useVerifiedSessionState();
+  return <VerifiedSessionContext.Provider value={value}>{children}</VerifiedSessionContext.Provider>;
+};
+
+export const useVerifiedSession = () => {
+  const context = useContext(VerifiedSessionContext);
+  if (context) {
+    return context;
+  }
+  return useVerifiedSessionState();
 };

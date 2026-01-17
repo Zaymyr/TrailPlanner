@@ -21,6 +21,7 @@ import { ThemeDebugPanel } from "../components/ThemeDebugPanel";
 import { SessionExpiredDialog } from "./session-expired-dialog";
 import { TrialWelcomeDialog } from "./trial-welcome-dialog";
 import { TrialExpiredNotice } from "./trial-expired-notice";
+import { VerifiedSessionProvider } from "./hooks/useVerifiedSession";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -73,42 +74,44 @@ export default function RootLayout({
         <CookieBanner />
         <ThemeDebugPanel />
         <QueryProvider>
-          <I18nProvider>
-            <LocalizedMetadata />
-            <AuthCallbackHandler />
-            <SessionExpiredDialog />
-            <TrialWelcomeDialog />
-            <TrialExpiredNotice />
-            <div className="flex w-full flex-col gap-8 px-6 py-10">
-              <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-start gap-3">
-                  <HeaderMenu />
-                  <div className="space-y-1">
-                    <Link href="/" aria-label="Go to home" className="inline-flex">
-                      <Image
-                        src="/branding/logo-horizontal.png"
-                        alt="Pace Yourself"
-                        width={220}
-                        height={44}
-                        priority
-                        className="h-15 w-auto"
-                      />
-                    </Link>
-                    <p className="text-sm text-muted-foreground">
-                      Plan your aid-station timing, fueling targets, and pacing for race day.
-                    </p>
+          <VerifiedSessionProvider>
+            <I18nProvider>
+              <LocalizedMetadata />
+              <AuthCallbackHandler />
+              <SessionExpiredDialog />
+              <TrialWelcomeDialog />
+              <TrialExpiredNotice />
+              <div className="flex w-full flex-col gap-8 px-6 py-10">
+                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3">
+                    <HeaderMenu />
+                    <div className="space-y-1">
+                      <Link href="/" aria-label="Go to home" className="inline-flex">
+                        <Image
+                          src="/branding/logo-horizontal.png"
+                          alt="Pace Yourself"
+                          width={220}
+                          height={44}
+                          priority
+                          className="h-15 w-auto"
+                        />
+                      </Link>
+                      <p className="text-sm text-muted-foreground">
+                        Plan your aid-station timing, fueling targets, and pacing for race day.
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <LanguageToggle />
-                  <ThemeToggle />
-                  <HeaderAuth />
-                </div>
-              </header>
-              <main className="pb-6 sm:pb-8 lg:pb-10">{children}</main>
-              <SiteFooter />
-            </div>
-          </I18nProvider>
+                  <div className="flex items-center gap-4">
+                    <LanguageToggle />
+                    <ThemeToggle />
+                    <HeaderAuth />
+                  </div>
+                </header>
+                <main className="pb-6 sm:pb-8 lg:pb-10">{children}</main>
+                <SiteFooter />
+              </div>
+            </I18nProvider>
+          </VerifiedSessionProvider>
         </QueryProvider>
       </body>
     </html>
