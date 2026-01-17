@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../../lib/supabase";
+import { ensureTrialStatus } from "../../../../lib/trial-server";
 
 export async function GET(request: Request) {
   const supabaseConfig = getSupabaseAnonConfig();
@@ -26,6 +27,19 @@ export async function GET(request: Request) {
 
   if (!user) {
     return NextResponse.json({ message: "Unable to validate session." }, { status: 401 });
+  }
+
+  if (user.id) {
+    try {
+      await ensureTrialStatus({
+        supabaseUrl: supabaseConfig.supabaseUrl,
+        supabaseKey: supabaseConfig.supabaseAnonKey,
+        token,
+        userId: user.id,
+      });
+    } catch (error) {
+      console.error("Unable to initialize trial state", error);
+    }
   }
 
   const response = NextResponse.json({
