@@ -514,6 +514,12 @@ export const fr: Translations = {
         headerHint: "Utilisez l'en-tête pour vous connecter ou créer un compte.",
         signedInAs: "Connecté en tant que {email}",
       },
+      guestBanner: {
+        title: "Mode invité",
+        description: "Tes plans ne seront pas sauvegardés. Crée un compte pour les enregistrer et les retrouver plus tard.",
+        cta: "Créer un compte",
+        dismissLabel: "Fermer",
+      },
       plans: {
         title: "Plans enregistrés",
         nameLabel: "Nom du plan",

@@ -411,6 +411,12 @@ export type RacePlannerTranslations = {
       headerHint: string;
       signedInAs: string;
     };
+    guestBanner: {
+      title: string;
+      description: string;
+      cta: string;
+      dismissLabel: string;
+    };
     plans: {
       title: string;
       nameLabel: string;
