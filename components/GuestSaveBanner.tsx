@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
+import { useI18n } from "../app/i18n-provider";
 
 const DISMISS_KEY = "planner_guest_banner_dismissed_until";
 const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -15,6 +16,7 @@ const formatDismissUntil = () => String(Date.now() + DISMISS_DURATION_MS);
 
 export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -40,6 +42,8 @@ export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
 
   if (!isVisible) return null;
 
+  const { guestBanner } = t.racePlanner.account;
+
   return (
     <div className="relative rounded-lg border border-emerald-200/60 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950 shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-100">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -61,23 +65,20 @@ export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
             </svg>
           </span>
           <div className="space-y-1">
-            <p className="font-semibold">Mode invité</p>
-            <p className="text-emerald-900/80 dark:text-emerald-100/80">
-              Tes plans ne seront pas sauvegardés. Crée un compte pour les enregistrer et les
-              retrouver plus tard.
-            </p>
+            <p className="font-semibold">{guestBanner.title}</p>
+            <p className="text-emerald-900/80 dark:text-emerald-100/80">{guestBanner.description}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <Button type="button" className="h-9" onClick={() => router.push("/sign-up")}>
-            Créer un compte
+            {guestBanner.cta}
           </Button>
         </div>
       </div>
       <button
         type="button"
         className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-emerald-900/70 transition hover:bg-emerald-200/70 hover:text-emerald-950 dark:text-emerald-100/70 dark:hover:bg-emerald-500/20"
-        aria-label="Fermer"
+        aria-label={guestBanner.dismissLabel}
         onClick={handleDismiss}
       >
         ×

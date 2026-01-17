@@ -36,12 +36,6 @@ export function HeaderAuth() {
       >
         {t.racePlanner.account.auth.signIn}
       </Link>
-      <Link
-        href="/sign-up"
-        className="rounded-lg bg-[hsl(var(--brand))] px-3 py-1.5 text-sm font-semibold text-[hsl(var(--brand-foreground))] shadow-sm transition hover:bg-[hsl(var(--brand)/0.9)] dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300"
-      >
-        {t.racePlanner.account.auth.create}
-      </Link>
     </div>
   );
 }

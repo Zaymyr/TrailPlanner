@@ -504,6 +504,12 @@ export const en: Translations = {
       headerHint: "Use the header to sign in or create an account.",
       signedInAs: "Signed in as {email}",
     },
+      guestBanner: {
+        title: "Guest mode",
+        description: "Your plans won’t be saved. Create an account to save them and find them later.",
+        cta: "Create account",
+        dismissLabel: "Dismiss",
+      },
       plans: {
         title: "Saved plans",
         nameLabel: "Plan name",
