@@ -16,6 +16,8 @@ import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchEntitlements } from "../../lib/entitlements-client";
+import { fetchTrialStatus } from "../../lib/trial-client";
+import { isTrialActive } from "../../lib/trial";
 import { useProductSelection } from "../hooks/useProductSelection";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
@@ -148,6 +150,13 @@ export default function ProfilePage() {
       }
       return fetchEntitlements(session.accessToken);
     },
+  });
+
+  const trialStatusQuery = useQuery({
+    queryKey: ["trial-status", session?.accessToken],
+    enabled: Boolean(session?.accessToken),
+    queryFn: () => fetchTrialStatus(session?.accessToken ?? ""),
+    staleTime: 60_000,
   });
 
   const productsQuery = useQuery({
@@ -285,6 +294,32 @@ export default function ProfilePage() {
     () => formattedPremiumPrice ?? t.profile.premiumModal.priceValue,
     [formattedPremiumPrice, t.profile.premiumModal.priceValue]
   );
+
+  const trialEndsAt = trialStatusQuery.data?.trialEndsAt ?? null;
+  const trialActive = useMemo(() => isTrialActive(trialEndsAt), [trialEndsAt]);
+  const trialEndsAtLabel = useMemo(() => {
+    if (!trialActive || !trialEndsAt) return null;
+    const formatted = new Intl.DateTimeFormat(locale, { dateStyle: "long" }).format(new Date(trialEndsAt));
+    return t.profile.subscription.trialEndsAt.replace("{date}", formatted);
+  }, [locale, t.profile.subscription.trialEndsAt, trialActive, trialEndsAt]);
+
+  const subscriptionStatusLabel = useMemo(() => {
+    if (entitlementsQuery.isLoading) return t.profile.subscription.loading;
+    if (entitlementsQuery.isError) return t.profile.subscription.error;
+    if (entitlementsQuery.data?.isPremium) return t.profile.subscription.premiumStatus;
+    if (trialActive) return t.profile.subscription.trialStatus;
+    return t.profile.subscription.freeStatus;
+  }, [
+    entitlementsQuery.data?.isPremium,
+    entitlementsQuery.isError,
+    entitlementsQuery.isLoading,
+    t.profile.subscription.error,
+    t.profile.subscription.freeStatus,
+    t.profile.subscription.loading,
+    t.profile.subscription.premiumStatus,
+    t.profile.subscription.trialStatus,
+    trialActive,
+  ]);
 
   const handleUpgrade = useCallback(async () => {
     if (!session?.accessToken) {
@@ -512,15 +547,7 @@ export default function ProfilePage() {
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-lg">{t.profile.subscription.title}</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {entitlementsQuery.isLoading
-                  ? t.profile.subscription.loading
-                  : entitlementsQuery.isError
-                    ? t.profile.subscription.error
-                    : entitlementsQuery.data?.isPremium
-                      ? t.profile.subscription.premiumStatus
-                      : t.profile.subscription.freeStatus}
-              </p>
+              <p className="text-sm text-muted-foreground">{subscriptionStatusLabel}</p>
             </div>
             <Button
               type="button"
@@ -543,16 +570,14 @@ export default function ProfilePage() {
                       : "border border-border bg-card text-foreground"
                   }`}
                 >
-                  {entitlementsQuery.data.isPremium
-                    ? t.profile.subscription.premiumStatus
-                    : t.profile.subscription.freeStatus}
+                  {entitlementsQuery.data.isPremium ? t.profile.subscription.premiumStatus : subscriptionStatusLabel}
                 </span>
-                <p className="text-sm text-muted-foreground">
-                  {entitlementsQuery.data.isPremium
-                    ? t.profile.subscription.premiumStatus
-                    : t.profile.subscription.freeStatus}
-                </p>
+                <p className="text-sm text-muted-foreground">{subscriptionStatusLabel}</p>
               </div>
+            ) : null}
+
+            {!entitlementsQuery.data?.isPremium && trialActive && trialEndsAtLabel ? (
+              <p className="text-xs text-muted-foreground">{trialEndsAtLabel}</p>
             ) : null}
 
             {session?.accessToken ? (

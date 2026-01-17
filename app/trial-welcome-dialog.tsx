@@ -8,8 +8,15 @@ import { fetchTrialStatus, markTrialWelcomeSeen } from "../lib/trial-client";
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 
 const TRIAL_COPY = {
-  title: "Bienvenue !",
-  body: "Merci d'avoir créé votre compte. Vous avez accès pendant 14 jours aux fonctions Premium : export GPX, remplissage automatique des ravitos avec vos produits favoris, impression de votre plan de course. Profitez-en !",
+  title: "Bienvenue ! / Welcome!",
+  introFr: "Merci d'avoir créé votre compte. Vous avez accès pendant 14 jours aux fonctions Premium :",
+  introEn: "Thanks for creating your account. You get 14 days of Premium features:",
+  featuresFr: [
+    "Export GPX",
+    "Remplissage automatique des ravitos avec vos produits favoris",
+    "Impression de votre plan de course",
+  ],
+  featuresEn: ["GPX export", "Automatic aid-station fill with your favorite products", "Print your race plan"],
   cta: "OK",
 };
 
@@ -69,9 +76,26 @@ export function TrialWelcomeDialog() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 px-4 py-10 backdrop-blur">
       <div className="w-full max-w-lg space-y-4 rounded-lg border border-emerald-300/30 bg-card p-6 text-foreground shadow-2xl dark:bg-slate-950">
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-lg font-semibold text-foreground">{TRIAL_COPY.title}</p>
-          <p className="text-sm text-muted-foreground">{TRIAL_COPY.body}</p>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">Français</p>
+            <p className="text-sm text-muted-foreground">{TRIAL_COPY.introFr}</p>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              {TRIAL_COPY.featuresFr.map((feature) => (
+                <li key={feature}>{feature}</li>
+              ))}
+            </ul>
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground">English</p>
+            <p className="text-sm text-muted-foreground">{TRIAL_COPY.introEn}</p>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              {TRIAL_COPY.featuresEn.map((feature) => (
+                <li key={feature}>{feature}</li>
+              ))}
+            </ul>
+          </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
           <Button type="button" onClick={handleClose} disabled={isSubmitting}>

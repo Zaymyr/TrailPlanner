@@ -741,6 +741,8 @@ export const en: Translations = {
       title: "Subscription",
       premiumStatus: "Premium active",
       freeStatus: "Free plan",
+      trialStatus: "Free trial",
+      trialEndsAt: "Trial ends on {date}",
       refresh: "Refresh status",
       loading: "Checking your subscription...",
       error: "We couldn't load your subscription. Try again.",

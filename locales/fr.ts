@@ -751,6 +751,8 @@ export const fr: Translations = {
       title: "Abonnement",
       premiumStatus: "Premium actif",
       freeStatus: "Offre gratuite",
+      trialStatus: "Essai gratuit",
+      trialEndsAt: "L'essai se termine le {date}",
       refresh: "Actualiser le statut",
       loading: "Vérification de votre abonnement...",
       error: "Impossible de charger votre abonnement. Réessayez.",
