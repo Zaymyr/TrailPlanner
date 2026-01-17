@@ -91,7 +91,11 @@ export function HeaderMenu() {
   const handleSignOut = () => {
     clearSession();
     setIsOpen(false);
-    router.refresh();
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    } else {
+      router.refresh();
+    }
   };
 
   const visibleMenuItems = menuItems.filter((item) => item.href !== "/admin" || isAdmin);
