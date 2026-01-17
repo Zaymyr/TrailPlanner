@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { getSupabaseServiceConfig } from "./supabase";
+import { isTrialActive } from "./trial";
 
 type SubscriptionRow = {
   user_id: string;
@@ -9,6 +10,10 @@ type SubscriptionRow = {
   status: string | null;
   price_id: string | null;
   current_period_end: string | null;
+};
+
+type TrialRow = {
+  trial_ends_at: string | null;
 };
 
 export type UserEntitlements = {
@@ -28,6 +33,12 @@ const subscriptionRowSchema = z.array(
     status: z.string().nullable().optional(),
     price_id: z.string().nullable().optional(),
     current_period_end: z.string().nullable().optional(),
+  })
+);
+
+const trialRowSchema = z.array(
+  z.object({
+    trial_ends_at: z.string().nullable().optional(),
   })
 );
 
@@ -54,6 +65,15 @@ const getDefaultEntitlements = (): UserEntitlements => ({
   allowAutoFill: false,
 });
 
+const getPremiumEntitlements = (): UserEntitlements => ({
+  isPremium: true,
+  planLimit: Number.POSITIVE_INFINITY,
+  favoriteLimit: Number.POSITIVE_INFINITY,
+  customProductLimit: Number.POSITIVE_INFINITY,
+  allowExport: true,
+  allowAutoFill: true,
+});
+
 export const getUserEntitlements = async (userId: string): Promise<UserEntitlements> => {
   const serviceConfig = getSupabaseServiceConfig();
 
@@ -63,7 +83,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
   }
 
   try {
-    const response = await fetch(
+    const subscriptionResponse = await fetch(
       `${serviceConfig.supabaseUrl}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=user_id,stripe_customer_id,stripe_subscription_id,status,price_id,current_period_end&limit=1`,
       {
         headers: {
@@ -74,27 +94,43 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
       }
     );
 
-    if (!response.ok) {
-      console.error("Unable to load subscription for entitlements", await response.text());
+    if (!subscriptionResponse.ok) {
+      console.error("Unable to load subscription for entitlements", await subscriptionResponse.text());
       return getDefaultEntitlements();
     }
 
-    const row = subscriptionRowSchema.parse(await response.json())?.[0] as SubscriptionRow | undefined;
+    const subscriptionRow = subscriptionRowSchema.parse(await subscriptionResponse.json())?.[
+      0
+    ] as SubscriptionRow | undefined;
 
-    const active = isSubscriptionActive(row ?? null);
+    const subscriptionActive = isSubscriptionActive(subscriptionRow ?? null);
 
-    if (!active) {
+    const trialResponse = await fetch(
+      `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
+        userId
+      )}&select=trial_ends_at&limit=1`,
+      {
+        headers: {
+          apikey: serviceConfig.supabaseServiceRoleKey,
+          Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!trialResponse.ok) {
+      console.error("Unable to load trial info for entitlements", await trialResponse.text());
+      return subscriptionActive ? getPremiumEntitlements() : getDefaultEntitlements();
+    }
+
+    const trialRow = trialRowSchema.parse(await trialResponse.json())?.[0] as TrialRow | undefined;
+    const trialActive = isTrialActive(trialRow?.trial_ends_at ?? null);
+
+    if (!subscriptionActive && !trialActive) {
       return getDefaultEntitlements();
     }
 
-    return {
-      isPremium: true,
-      planLimit: Number.POSITIVE_INFINITY,
-      favoriteLimit: Number.POSITIVE_INFINITY,
-      customProductLimit: Number.POSITIVE_INFINITY,
-      allowExport: true,
-      allowAutoFill: true,
-    };
+    return getPremiumEntitlements();
   } catch (error) {
     console.error("Unexpected error while resolving entitlements", error);
     return getDefaultEntitlements();
