@@ -196,6 +196,7 @@ create table public.user_profiles (
   trial_started_at timestamptz,
   trial_ends_at timestamptz,
   trial_welcome_seen_at timestamptz,
+  trial_expired_seen_at timestamptz,
   constraint user_profiles_age_check check (age is null or age >= 0),
   constraint user_profiles_water_bag_check check (water_bag_liters is null or water_bag_liters >= 0)
 );

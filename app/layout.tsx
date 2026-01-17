@@ -20,6 +20,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { ThemeDebugPanel } from "../components/ThemeDebugPanel";
 import { SessionExpiredDialog } from "./session-expired-dialog";
 import { TrialWelcomeDialog } from "./trial-welcome-dialog";
+import { TrialExpiredNotice } from "./trial-expired-notice";
 
 const createMetadata = (locale: Locale): Metadata => {
   const { title, description } = buildLocaleMetaCopy(locale);
@@ -77,6 +78,7 @@ export default function RootLayout({
             <AuthCallbackHandler />
             <SessionExpiredDialog />
             <TrialWelcomeDialog />
+            <TrialExpiredNotice />
             <div className="flex w-full flex-col gap-8 px-6 py-10">
               <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">

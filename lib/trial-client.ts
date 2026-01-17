@@ -10,6 +10,10 @@ const trialSchema = z.object({
   }),
 });
 
+const trialExpiredSchema = z.object({
+  trialExpiredSeenAt: z.string().nullable(),
+});
+
 export const fetchTrialStatus = async (accessToken: string, signal?: AbortSignal): Promise<TrialStatus> => {
   const response = await fetch("/api/trial/status", {
     headers: {
@@ -59,4 +63,31 @@ export const markTrialWelcomeSeen = async (accessToken: string): Promise<TrialSt
   }
 
   return parsed.data.trial;
+};
+
+export const markTrialExpiredSeen = async (
+  accessToken: string
+): Promise<{ trialExpiredSeenAt: string | null }> => {
+  const response = await fetch("/api/trial/expired", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    const message = (payload as { message?: string } | null)?.message ?? "Unable to update trial status.";
+    throw new Error(message);
+  }
+
+  const parsed = trialExpiredSchema.safeParse(payload);
+
+  if (!parsed.success) {
+    console.error("Invalid trial expired response", payload);
+    return { trialExpiredSeenAt: null };
+  }
+
+  return parsed.data;
 };

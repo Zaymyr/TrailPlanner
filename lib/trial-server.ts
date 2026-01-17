@@ -156,3 +156,28 @@ export const markTrialWelcomeSeen = async (
 
   return seenAt;
 };
+
+export const markTrialExpiredSeen = async (
+  params: TrialStorageParams,
+  timestamp = new Date()
+): Promise<string> => {
+  const seenAt = timestamp.toISOString();
+  const response = await fetch(
+    `${params.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(params.userId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...buildHeaders(params.supabaseKey, params.token),
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ trial_expired_seen_at: seenAt }),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to mark trial expired as seen");
+  }
+
+  return seenAt;
+};
