@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ACCESS_TOKEN_KEY,
@@ -32,6 +32,8 @@ type SessionResponse = {
 export const useVerifiedSession = () => {
   const [session, setSession] = useState<VerifiedSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshInFlight = useRef<Promise<boolean> | null>(null);
+  const hasInitialized = useRef(false);
 
   const clearSession = useCallback(() => {
     void fetch("/api/auth/signout", { method: "POST" }).catch(() => null);
@@ -42,46 +44,65 @@ export const useVerifiedSession = () => {
   }, []);
 
   const refresh = useCallback(async (): Promise<boolean> => {
-    setIsLoading(true);
-    const stored = readStoredSession();
-
-    if (!stored?.accessToken) {
-      clearSession();
-      return false;
+    if (refreshInFlight.current) {
+      return refreshInFlight.current;
     }
 
-    try {
-      const response = await fetch("/api/auth/session", {
-        headers: {
-          Authorization: `Bearer ${stored.accessToken}`,
-          ...(stored.refreshToken ? { "x-refresh-token": `Bearer ${stored.refreshToken}` } : {}),
-        },
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        clearSession();
-        return false;
+    const task = (async () => {
+      if (!hasInitialized.current) {
+        setIsLoading(true);
       }
 
-      const data = (await response.json().catch(() => null)) as SessionResponse | null;
-      const user = data?.user;
+      try {
+        const stored = readStoredSession();
 
-      setSession({
-        id: user?.id,
-        accessToken: stored.accessToken,
-        refreshToken: stored.refreshToken,
-        email: user?.email ?? stored.email,
-        role: user?.role,
-        roles: user?.roles,
-      });
-      setIsLoading(false);
-      return true;
-    } catch (error) {
-      console.error("Unable to verify session", error);
-      clearSession();
-      return false;
-    }
+        if (!stored?.accessToken) {
+          clearSession();
+          return false;
+        }
+
+        const response = await fetch("/api/auth/session", {
+          headers: {
+            Authorization: `Bearer ${stored.accessToken}`,
+            ...(stored.refreshToken ? { "x-refresh-token": `Bearer ${stored.refreshToken}` } : {}),
+          },
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            clearSession();
+          } else {
+            setIsLoading(false);
+          }
+          return false;
+        }
+
+        const data = (await response.json().catch(() => null)) as SessionResponse | null;
+        const user = data?.user;
+
+        setSession({
+          id: user?.id,
+          accessToken: stored.accessToken,
+          refreshToken: stored.refreshToken,
+          email: user?.email ?? stored.email,
+          role: user?.role,
+          roles: user?.roles,
+        });
+        setIsLoading(false);
+        return true;
+      } catch (error) {
+        console.error("Unable to verify session", error);
+        setIsLoading(false);
+        return false;
+      } finally {
+        hasInitialized.current = true;
+        refreshInFlight.current = null;
+      }
+    })();
+
+    refreshInFlight.current = task;
+    return task;
   }, [clearSession]);
 
   useEffect(() => {
