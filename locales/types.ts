@@ -648,6 +648,8 @@ export type ProfileTranslations = {
     title: string;
     premiumStatus: string;
     freeStatus: string;
+    trialStatus: string;
+    trialEndsAt: string;
     refresh: string;
     loading: string;
     error: string;
