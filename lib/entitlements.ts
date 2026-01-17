@@ -14,6 +14,7 @@ type SubscriptionRow = {
 
 type TrialRow = {
   trial_ends_at: string | null;
+  trial_expired_seen_at: string | null;
 };
 
 export type UserEntitlements = {
@@ -23,6 +24,9 @@ export type UserEntitlements = {
   customProductLimit: number;
   allowExport: boolean;
   allowAutoFill: boolean;
+  trialEndsAt: string | null;
+  trialExpiredSeenAt: string | null;
+  subscriptionStatus: string | null;
 };
 
 const subscriptionRowSchema = z.array(
@@ -39,6 +43,7 @@ const subscriptionRowSchema = z.array(
 const trialRowSchema = z.array(
   z.object({
     trial_ends_at: z.string().nullable().optional(),
+    trial_expired_seen_at: z.string().nullable().optional(),
   })
 );
 
@@ -63,6 +68,9 @@ const getDefaultEntitlements = (): UserEntitlements => ({
   customProductLimit: 1,
   allowExport: false,
   allowAutoFill: false,
+  trialEndsAt: null,
+  trialExpiredSeenAt: null,
+  subscriptionStatus: null,
 });
 
 const getPremiumEntitlements = (): UserEntitlements => ({
@@ -72,6 +80,9 @@ const getPremiumEntitlements = (): UserEntitlements => ({
   customProductLimit: Number.POSITIVE_INFINITY,
   allowExport: true,
   allowAutoFill: true,
+  trialEndsAt: null,
+  trialExpiredSeenAt: null,
+  subscriptionStatus: null,
 });
 
 export const getUserEntitlements = async (userId: string): Promise<UserEntitlements> => {
@@ -108,7 +119,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const trialResponse = await fetch(
       `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
         userId
-      )}&select=trial_ends_at&limit=1`,
+      )}&select=trial_ends_at,trial_expired_seen_at&limit=1`,
       {
         headers: {
           apikey: serviceConfig.supabaseServiceRoleKey,
@@ -125,12 +136,25 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
 
     const trialRow = trialRowSchema.parse(await trialResponse.json())?.[0] as TrialRow | undefined;
     const trialActive = isTrialActive(trialRow?.trial_ends_at ?? null);
+    const trialEndsAt = trialRow?.trial_ends_at ?? null;
+    const trialExpiredSeenAt = trialRow?.trial_expired_seen_at ?? null;
+    const subscriptionStatus = subscriptionRow?.status ?? null;
 
     if (!subscriptionActive && !trialActive) {
-      return getDefaultEntitlements();
+      return {
+        ...getDefaultEntitlements(),
+        trialEndsAt,
+        trialExpiredSeenAt,
+        subscriptionStatus,
+      };
     }
 
-    return getPremiumEntitlements();
+    return {
+      ...getPremiumEntitlements(),
+      trialEndsAt,
+      trialExpiredSeenAt,
+      subscriptionStatus,
+    };
   } catch (error) {
     console.error("Unexpected error while resolving entitlements", error);
     return getDefaultEntitlements();
