@@ -170,8 +170,8 @@ export const VerifiedSessionProvider = ({ children }: { children: ReactNode }) =
 
 export const useVerifiedSession = () => {
   const context = useContext(VerifiedSessionContext);
-  if (context) {
-    return context;
+  if (!context) {
+    throw new Error("useVerifiedSession must be used within a VerifiedSessionProvider");
   }
-  return useVerifiedSessionState();
+  return context;
 };
