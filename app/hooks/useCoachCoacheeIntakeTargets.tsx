@@ -42,31 +42,34 @@ export const useCoachCoacheeIntakeTargets = ({
 
       return upsertCoachIntakeTargets(accessToken, payload);
     },
-    onMutate: async (payload: CoachIntakeTargetsUpsert) => {
-      const previous = queryClient.getQueryData<CoachIntakeTargets | null>(queryKey);
-      queryClient.setQueryData<CoachIntakeTargets | null>(queryKey, {
-        carbsPerHour: payload.carbsPerHour,
-        waterMlPerHour: payload.waterMlPerHour,
-        sodiumMgPerHour: payload.sodiumMgPerHour,
-      });
-      return { previous };
-    },
-    onError: (_error, _payload, context) => {
-      if (context?.previous !== undefined) {
-        queryClient.setQueryData(queryKey, context.previous);
-      }
-    },
     onSuccess: (targets) => {
       queryClient.setQueryData(queryKey, targets);
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey });
-    },
   });
+
+  const upsertTargets = async (payload: CoachIntakeTargetsUpsert) => {
+    const previous = queryClient.getState<CoachIntakeTargets | null>(queryKey).data ?? null;
+
+    queryClient.setQueryData<CoachIntakeTargets | null>(queryKey, {
+      carbsPerHour: payload.carbsPerHour,
+      waterMlPerHour: payload.waterMlPerHour,
+      sodiumMgPerHour: payload.sodiumMgPerHour,
+    });
+
+    try {
+      const result = await mutation.mutateAsync(payload);
+      return result;
+    } catch (error) {
+      queryClient.setQueryData(queryKey, previous);
+      throw error;
+    } finally {
+      void queryClient.invalidateQueries({ queryKey });
+    }
+  };
 
   return {
     ...query,
-    upsertTargets: mutation.mutateAsync,
+    upsertTargets,
     isSaving: mutation.isPending,
     saveError: mutation.error,
   };

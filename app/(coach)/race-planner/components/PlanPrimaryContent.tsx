@@ -3,7 +3,6 @@
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../../../locales/types";
-import type { CoachIntakeTargets } from "../../../../lib/coach-intake-targets";
 import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
@@ -22,7 +21,7 @@ type PlanPrimaryContentProps = {
     paceSeconds: number;
     speedKph: number;
   };
-  coachTargets?: CoachIntakeTargets | null;
+  coachManaged?: boolean;
   register: UseFormRegister<FormValues>;
   onPaceChange: (minutes: number, seconds: number) => void;
   onSpeedChange: (speedKph: number) => void;
@@ -60,7 +59,7 @@ export function PlanPrimaryContent({
   copy,
   sectionIds,
   pacing,
-  coachTargets,
+  coachManaged,
   register,
   onPaceChange,
   onSpeedChange,
@@ -98,7 +97,7 @@ export function PlanPrimaryContent({
         copy={copy}
         sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
         pacing={pacing}
-        coachTargets={coachTargets}
+        coachManaged={coachManaged}
         register={register}
         onPaceChange={onPaceChange}
         onSpeedChange={onSpeedChange}
