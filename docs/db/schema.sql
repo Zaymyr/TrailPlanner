@@ -23,6 +23,7 @@ create table public.race_plans (
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   user_id uuid not null default auth.uid(),
+  coach_id uuid references public.user_profiles(user_id),
   name text not null,
   planner_values jsonb not null,
   elevation_profile jsonb not null default '[]'::jsonb,
@@ -45,6 +46,8 @@ create trigger set_race_plans_updated_at
 before update on public.race_plans
 for each row
 execute function public.set_race_plans_updated_at();
+
+create index race_plans_coach_id_idx on public.race_plans(coach_id);
 
 create table public.race_catalog (
   id uuid primary key default gen_random_uuid(),
@@ -357,6 +360,54 @@ create policy "Users can update their race plans" on public.race_plans
 
 create policy "Users can delete their race plans" on public.race_plans
   for delete using (auth.uid() = user_id);
+
+create policy "Coaches can view their coachee race plans" on public.race_plans
+  for select using (
+    coach_id = auth.uid()
+    and exists (
+      select 1 from public.coach_coachees
+      where coach_coachees.coach_id = auth.uid()
+        and coach_coachees.coachee_id = race_plans.user_id
+    )
+  );
+
+create policy "Coaches can insert coachee race plans" on public.race_plans
+  for insert with check (
+    coach_id = auth.uid()
+    and exists (
+      select 1 from public.coach_coachees
+      where coach_coachees.coach_id = auth.uid()
+        and coach_coachees.coachee_id = race_plans.user_id
+    )
+  );
+
+create policy "Coaches can update coachee race plans" on public.race_plans
+  for update using (
+    coach_id = auth.uid()
+    and exists (
+      select 1 from public.coach_coachees
+      where coach_coachees.coach_id = auth.uid()
+        and coach_coachees.coachee_id = race_plans.user_id
+    )
+  )
+  with check (
+    coach_id = auth.uid()
+    and exists (
+      select 1 from public.coach_coachees
+      where coach_coachees.coach_id = auth.uid()
+        and coach_coachees.coachee_id = race_plans.user_id
+    )
+  );
+
+create policy "Coaches can delete coachee race plans" on public.race_plans
+  for delete using (
+    coach_id = auth.uid()
+    and exists (
+      select 1 from public.coach_coachees
+      where coach_coachees.coach_id = auth.uid()
+        and coach_coachees.coachee_id = race_plans.user_id
+    )
+  );
 
 -- Race catalog policies
 create policy "Published races are viewable" on public.race_catalog

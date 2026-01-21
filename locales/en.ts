@@ -813,6 +813,40 @@ export const en: Translations = {
       sodiumPlaceholder: "e.g. 500",
     },
   },
+  coachPlans: {
+    title: "Coachee plans",
+    description: "Create and manage saved race plans for this coachee.",
+    authRequired: "Please sign in to manage coachee plans.",
+    loading: "Loading coachee plans...",
+    loadError: "We couldn't load this coachee's plans.",
+    empty: "No plans yet.",
+    createTitle: "Create a new plan",
+    listTitle: "Saved plans",
+    listDescription: "Rename or remove the plans you've created for this coachee.",
+    updatedLabel: "Updated {date}",
+    fields: {
+      nameLabel: "Plan name",
+      namePlaceholder: "e.g. 50k strategy",
+    },
+    actions: {
+      create: "Create plan",
+      creating: "Creating...",
+      save: "Save changes",
+      saving: "Saving...",
+      delete: "Delete plan",
+      deleting: "Deleting...",
+    },
+    messages: {
+      created: "Plan created.",
+      updated: "Plan updated.",
+      deleted: "Plan deleted.",
+    },
+    errors: {
+      create: "We couldn't create the plan.",
+      update: "We couldn't update the plan.",
+      delete: "We couldn't delete the plan.",
+    },
+  },
   resourcePages: {
     "trail-nutrition-planner": {
       title: "Trail nutrition planner",
