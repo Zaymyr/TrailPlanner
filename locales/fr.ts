@@ -260,6 +260,7 @@ export const fr: Translations = {
       raceInputs: {
         title: "Paramètres de course",
         description: "Ajustez la distance, l'allure, la nutrition et importez des données GPX.",
+        coachManagedNote: "Ces cibles nutritionnelles sont gérées par votre coach et sont en lecture seule ici.",
         courseTitle: "Parcours",
         pacingTitle: "Allure & nutrition",
         nutritionTitle: "Cibles nutritionnelles",
