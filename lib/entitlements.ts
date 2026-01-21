@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { fetchCoachTierByName, type CoachTierRow } from "./coach-tiers";
 import { getSupabaseServiceConfig } from "./supabase";
 import { isTrialActive } from "./trial";
 
@@ -9,6 +10,7 @@ type SubscriptionRow = {
   stripe_subscription_id: string | null;
   status: string | null;
   price_id: string | null;
+  plan_name: string | null;
   current_period_end: string | null;
 };
 
@@ -36,6 +38,7 @@ const subscriptionRowSchema = z.array(
     stripe_subscription_id: z.string().nullable().optional(),
     status: z.string().nullable().optional(),
     price_id: z.string().nullable().optional(),
+    plan_name: z.string().nullable().optional(),
     current_period_end: z.string().nullable().optional(),
   })
 );
@@ -85,6 +88,30 @@ const getPremiumEntitlements = (): UserEntitlements => ({
   subscriptionStatus: null,
 });
 
+const getCoachTierEntitlements = (tier: CoachTierRow): UserEntitlements => ({
+  isPremium: tier.is_premium ?? true,
+  planLimit: tier.plan_limit ?? Number.POSITIVE_INFINITY,
+  favoriteLimit: tier.favorite_limit ?? Number.POSITIVE_INFINITY,
+  customProductLimit: tier.custom_product_limit ?? Number.POSITIVE_INFINITY,
+  allowExport: tier.allow_export ?? true,
+  allowAutoFill: tier.allow_auto_fill ?? true,
+  trialEndsAt: null,
+  trialExpiredSeenAt: null,
+  subscriptionStatus: null,
+});
+
+const withTrialInfo = (
+  entitlements: UserEntitlements,
+  trialEndsAt: string | null,
+  trialExpiredSeenAt: string | null,
+  subscriptionStatus: string | null
+): UserEntitlements => ({
+  ...entitlements,
+  trialEndsAt,
+  trialExpiredSeenAt,
+  subscriptionStatus,
+});
+
 export const getUserEntitlements = async (userId: string): Promise<UserEntitlements> => {
   const serviceConfig = getSupabaseServiceConfig();
 
@@ -95,7 +122,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
 
   try {
     const subscriptionResponse = await fetch(
-      `${serviceConfig.supabaseUrl}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=user_id,stripe_customer_id,stripe_subscription_id,status,price_id,current_period_end&limit=1`,
+      `${serviceConfig.supabaseUrl}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=user_id,stripe_customer_id,stripe_subscription_id,status,price_id,plan_name,current_period_end&limit=1`,
       {
         headers: {
           apikey: serviceConfig.supabaseServiceRoleKey,
@@ -115,6 +142,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     ] as SubscriptionRow | undefined;
 
     const subscriptionActive = isSubscriptionActive(subscriptionRow ?? null);
+    const subscriptionPlanName = subscriptionRow?.plan_name ?? null;
 
     const trialResponse = await fetch(
       `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
@@ -141,20 +169,17 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const subscriptionStatus = subscriptionRow?.status ?? null;
 
     if (!subscriptionActive && !trialActive) {
-      return {
-        ...getDefaultEntitlements(),
-        trialEndsAt,
-        trialExpiredSeenAt,
-        subscriptionStatus,
-      };
+      return withTrialInfo(getDefaultEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
     }
 
-    return {
-      ...getPremiumEntitlements(),
-      trialEndsAt,
-      trialExpiredSeenAt,
-      subscriptionStatus,
-    };
+    if (subscriptionActive && subscriptionPlanName) {
+      const coachTier = await fetchCoachTierByName(subscriptionPlanName);
+      if (coachTier) {
+        return withTrialInfo(getCoachTierEntitlements(coachTier), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+      }
+    }
+
+    return withTrialInfo(getPremiumEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
   } catch (error) {
     console.error("Unexpected error while resolving entitlements", error);
     return getDefaultEntitlements();

@@ -42,6 +42,7 @@ const upsertSubscription = async (params: {
   subscriptionId?: string;
   status?: string | null;
   priceId?: string | null;
+  planName?: string | null;
   currentPeriodEnd?: string | null;
 }) => {
   const serviceConfig = getSupabaseServiceConfig();
@@ -54,6 +55,7 @@ const upsertSubscription = async (params: {
     stripe_subscription_id: params.subscriptionId,
     status: params.status,
     price_id: params.priceId,
+    plan_name: params.planName,
     current_period_end: params.currentPeriodEnd,
   };
 
@@ -83,6 +85,13 @@ const handleSubscriptionEvent = async (payload: StripeSubscriptionEventData) => 
     payload.items?.data?.[0]?.price && typeof payload.items.data[0].price?.id === "string"
       ? payload.items.data[0].price?.id ?? null
       : null;
+  const planNameFromPrice =
+    payload.items?.data?.[0]?.price?.metadata && typeof payload.items.data[0].price?.metadata?.plan_name === "string"
+      ? payload.items.data[0].price.metadata.plan_name
+      : null;
+  const planNameFromSubscription =
+    payload.metadata && typeof payload.metadata.plan_name === "string" ? payload.metadata.plan_name : null;
+  const planName = planNameFromPrice ?? planNameFromSubscription;
 
   const metadataUserId =
     payload.metadata && typeof payload.metadata.user_id === "string" ? payload.metadata.user_id : null;
@@ -100,6 +109,7 @@ const handleSubscriptionEvent = async (payload: StripeSubscriptionEventData) => 
     subscriptionId,
     status,
     priceId,
+    planName,
     currentPeriodEnd: periodEnd,
   });
 };
