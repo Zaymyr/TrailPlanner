@@ -197,6 +197,9 @@ create table public.user_profiles (
   trial_ends_at timestamptz,
   trial_welcome_seen_at timestamptz,
   trial_expired_seen_at timestamptz,
+  is_coach boolean not null default false,
+  coach_tier_id uuid references public.coach_tiers(id),
+  coach_plan_name text,
   constraint user_profiles_age_check check (age is null or age >= 0),
   constraint user_profiles_water_bag_check check (water_bag_liters is null or water_bag_liters >= 0)
 );
