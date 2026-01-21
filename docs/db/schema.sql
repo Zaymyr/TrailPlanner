@@ -239,6 +239,21 @@ create table public.coach_coachees (
 create index coach_coachees_coach_id_idx on public.coach_coachees(coach_id);
 create index coach_coachees_coachee_id_idx on public.coach_coachees(coachee_id);
 
+create table public.coach_invites (
+  id uuid primary key default gen_random_uuid(),
+  coach_id uuid not null references public.user_profiles(user_id) on delete cascade,
+  invite_email text not null,
+  status text not null default 'pending',
+  created_at timestamptz not null default timezone('utc', now()),
+  accepted_at timestamptz,
+  invitee_user_id uuid references auth.users(id)
+);
+
+create index coach_invites_coach_id_idx on public.coach_invites(coach_id);
+create index coach_invites_invite_email_idx on public.coach_invites(invite_email);
+create index coach_invites_invitee_user_id_idx on public.coach_invites(invitee_user_id);
+create unique index coach_invites_coach_email_uidx on public.coach_invites(coach_id, invite_email);
+
 create table public.coach_intake_targets (
   coachee_id uuid not null references public.user_profiles(user_id) on delete cascade,
   coach_id uuid not null references public.user_profiles(user_id) on delete cascade,
@@ -323,6 +338,7 @@ alter table public.affiliate_events enable row level security;
 alter table public.user_profiles enable row level security;
 alter table public.coach_tiers enable row level security;
 alter table public.coach_coachees enable row level security;
+alter table public.coach_invites enable row level security;
 alter table public.coach_intake_targets enable row level security;
 alter table public.user_favorite_products enable row level security;
 alter table public.subscriptions enable row level security;
@@ -472,6 +488,22 @@ create policy "Coaches can update their coachees" on public.coach_coachees
   with check (coach_id = auth.uid());
 
 create policy "Coaches can delete their coachees" on public.coach_coachees
+  for delete using (coach_id = auth.uid());
+
+create policy "Coaches can read their invites" on public.coach_invites
+  for select using (coach_id = auth.uid());
+
+create policy "Invited users can read their invites" on public.coach_invites
+  for select using (lower(invite_email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+
+create policy "Coaches can insert invites" on public.coach_invites
+  for insert with check (coach_id = auth.uid());
+
+create policy "Coaches can update their invites" on public.coach_invites
+  for update using (coach_id = auth.uid())
+  with check (coach_id = auth.uid());
+
+create policy "Coaches can delete their invites" on public.coach_invites
   for delete using (coach_id = auth.uid());
 
 create policy "Coaches can read their intake targets" on public.coach_intake_targets

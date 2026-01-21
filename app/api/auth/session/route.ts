@@ -2,13 +2,115 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
-import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../../lib/supabase";
+import {
+  extractBearerToken,
+  fetchSupabaseUser,
+  getSupabaseAnonConfig,
+  getSupabaseServiceConfig,
+} from "../../../../lib/supabase";
 import { ensureTrialStatus } from "../../../../lib/trial-server";
+
+type CoachInviteRow = {
+  id: string;
+  coach_id: string;
+  invite_email: string;
+};
+
+const acceptCoachInvites = async ({
+  supabaseUrl,
+  serviceKey,
+  userId,
+  email,
+}: {
+  supabaseUrl: string;
+  serviceKey: string;
+  userId: string;
+  email: string;
+}) => {
+  const params = new URLSearchParams({
+    select: "id,coach_id,invite_email",
+    status: "neq.accepted",
+    or: `(invitee_user_id.eq.${userId},invite_email.eq.${email})`,
+  });
+
+  const response = await fetch(`${supabaseUrl}/rest/v1/coach_invites?${params.toString()}`, {
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    console.error("Unable to fetch coach invites", await response.text());
+    return;
+  }
+
+  const invites = (await response.json().catch(() => null)) as CoachInviteRow[] | null;
+
+  if (!invites?.length) {
+    return;
+  }
+
+  const coachRows = invites.map((invite) => ({
+    coach_id: invite.coach_id,
+    coachee_id: userId,
+    status: "active",
+    invited_email: invite.invite_email,
+  }));
+
+  const insertResponse = await fetch(
+    `${supabaseUrl}/rest/v1/coach_coachees?on_conflict=coach_id,coachee_id`,
+    {
+      method: "POST",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(coachRows),
+      cache: "no-store",
+    }
+  );
+
+  if (!insertResponse.ok) {
+    console.error("Unable to create coach coachee links", await insertResponse.text());
+    return;
+  }
+
+  const inviteIds = invites.map((invite) => invite.id).join(",");
+  const acceptedAt = new Date().toISOString();
+
+  const updateResponse = await fetch(
+    `${supabaseUrl}/rest/v1/coach_invites?id=in.(${inviteIds})`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        status: "accepted",
+        accepted_at: acceptedAt,
+        invitee_user_id: userId,
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (!updateResponse.ok) {
+    console.error("Unable to mark coach invites as accepted", await updateResponse.text());
+  }
+};
 
 export async function GET(request: Request) {
   const supabaseConfig = getSupabaseAnonConfig();
+  const supabaseService = getSupabaseServiceConfig();
 
-  if (!supabaseConfig) {
+  if (!supabaseConfig || !supabaseService) {
     return NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 });
   }
 
@@ -39,6 +141,19 @@ export async function GET(request: Request) {
       });
     } catch (error) {
       console.error("Unable to initialize trial state", error);
+    }
+
+    if (user.email) {
+      try {
+        await acceptCoachInvites({
+          supabaseUrl: supabaseService.supabaseUrl,
+          serviceKey: supabaseService.supabaseServiceRoleKey,
+          userId: user.id,
+          email: user.email.toLowerCase(),
+        });
+      } catch (error) {
+        console.error("Unable to accept coach invites", error);
+      }
     }
   }
 
