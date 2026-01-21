@@ -8,6 +8,7 @@ import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
+import { useCoachIntakeTargets } from "../../hooks/useCoachIntakeTargets";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, StationSupply } from "./types";
@@ -341,6 +342,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   });
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isAuthed = Boolean(session?.accessToken);
+  const { targets: coachTargets } = useCoachIntakeTargets(session?.accessToken);
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
@@ -419,6 +421,22 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     replaceSelection,
     session?.accessToken,
   ]);
+
+  useEffect(() => {
+    if (!coachTargets) {
+      return;
+    }
+
+    if (typeof coachTargets.carbsPerHour === "number") {
+      form.setValue("targetIntakePerHour", coachTargets.carbsPerHour);
+    }
+    if (typeof coachTargets.waterMlPerHour === "number") {
+      form.setValue("waterIntakePerHour", coachTargets.waterMlPerHour);
+    }
+    if (typeof coachTargets.sodiumMgPerHour === "number") {
+      form.setValue("sodiumIntakePerHour", coachTargets.sodiumMgPerHour);
+    }
+  }, [coachTargets, form]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -1049,6 +1067,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         paceSeconds: paceSecondsValue,
         speedKph: speedKphValue,
       }}
+      coachTargets={coachTargets}
       register={register}
       onPaceChange={handlePaceUpdate}
       onSpeedChange={handleSpeedUpdate}

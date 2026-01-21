@@ -159,6 +159,7 @@ export type RacePlannerTranslations = {
     raceInputs: {
       title: string;
       description: string;
+      coachManagedNote: string;
       courseTitle: string;
       pacingTitle: string;
       nutritionTitle: string;

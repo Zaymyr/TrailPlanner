@@ -251,6 +251,7 @@ export const en: Translations = {
       raceInputs: {
         title: "Race inputs",
         description: "Adjust distance, pacing, fueling and import GPX data.",
+        coachManagedNote: "Your coach manages these nutrition targets, so they are read-only here.",
         courseTitle: "Course",
         pacingTitle: "Pacing & fueling",
         nutritionTitle: "Nutrition targets",
