@@ -209,9 +209,6 @@ export default function AdminPage() {
 
       return parsed.data.user;
     },
-    onMutate: (payload) => {
-      setUpdatingUserId(payload.id);
-    },
     onSuccess: () => {
       setUserError(null);
       setUserMessage(t.admin.users.messages.updated);
@@ -472,6 +469,7 @@ export default function AdminPage() {
                               const nextRole = event.target.value as (typeof userRoleOptions)[number];
                               const currentRole = (user.role ?? "user") as (typeof userRoleOptions)[number];
                               if (nextRole === currentRole) return;
+                              setUpdatingUserId(user.id);
                               updateUserRoleMutation.mutate({ id: user.id, role: nextRole });
                             }}
                             disabled={updateUserRoleMutation.isPending && updatingUserId === user.id}
