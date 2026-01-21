@@ -31,12 +31,4 @@ export const useEffectiveIntakeTargets = (
     const isCoachManaged = Boolean(coachTargets);
 
     return { effectiveTargets, isCoachManaged };
-  }, [
-    baseTargets.carbsPerHour,
-    baseTargets.waterMlPerHour,
-    baseTargets.sodiumMgPerHour,
-    coachTargets?.carbsPerHour,
-    coachTargets?.waterMlPerHour,
-    coachTargets?.sodiumMgPerHour,
-    coachTargets ? true : false,
-  ]);
+  }, [baseTargets, coachTargets]);
