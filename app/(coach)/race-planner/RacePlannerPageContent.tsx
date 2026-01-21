@@ -9,6 +9,7 @@ import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import { useCoachIntakeTargets } from "../../hooks/useCoachIntakeTargets";
+import { useEffectiveIntakeTargets } from "../../hooks/useEffectiveIntakeTargets";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, StationSupply } from "./types";
@@ -247,6 +248,21 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
   const speedKphValue = form.watch("speedKph") ?? defaultValues.speedKph;
+  const baseIntakeTargets = useMemo(
+    () => ({
+      carbsPerHour: watchedValues.targetIntakePerHour ?? defaultValues.targetIntakePerHour,
+      waterMlPerHour: watchedValues.waterIntakePerHour ?? defaultValues.waterIntakePerHour,
+      sodiumMgPerHour: watchedValues.sodiumIntakePerHour ?? defaultValues.sodiumIntakePerHour,
+    }),
+    [
+      defaultValues.sodiumIntakePerHour,
+      defaultValues.targetIntakePerHour,
+      defaultValues.waterIntakePerHour,
+      watchedValues.sodiumIntakePerHour,
+      watchedValues.targetIntakePerHour,
+      watchedValues.waterIntakePerHour,
+    ]
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
@@ -343,6 +359,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isAuthed = Boolean(session?.accessToken);
   const { targets: coachTargets } = useCoachIntakeTargets(session?.accessToken);
+  const { effectiveTargets, isCoachManaged } = useEffectiveIntakeTargets(baseIntakeTargets, coachTargets);
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
@@ -423,20 +440,22 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   ]);
 
   useEffect(() => {
-    if (!coachTargets) {
+    if (!isCoachManaged) {
       return;
     }
 
-    if (typeof coachTargets.carbsPerHour === "number") {
-      form.setValue("targetIntakePerHour", coachTargets.carbsPerHour);
+    const currentValues = form.getValues();
+
+    if (currentValues.targetIntakePerHour !== effectiveTargets.carbsPerHour) {
+      form.setValue("targetIntakePerHour", effectiveTargets.carbsPerHour);
     }
-    if (typeof coachTargets.waterMlPerHour === "number") {
-      form.setValue("waterIntakePerHour", coachTargets.waterMlPerHour);
+    if (currentValues.waterIntakePerHour !== effectiveTargets.waterMlPerHour) {
+      form.setValue("waterIntakePerHour", effectiveTargets.waterMlPerHour);
     }
-    if (typeof coachTargets.sodiumMgPerHour === "number") {
-      form.setValue("sodiumIntakePerHour", coachTargets.sodiumMgPerHour);
+    if (currentValues.sodiumIntakePerHour !== effectiveTargets.sodiumMgPerHour) {
+      form.setValue("sodiumIntakePerHour", effectiveTargets.sodiumMgPerHour);
     }
-  }, [coachTargets, form]);
+  }, [effectiveTargets, form, isCoachManaged]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -1067,7 +1086,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         paceSeconds: paceSecondsValue,
         speedKph: speedKphValue,
       }}
-      coachTargets={coachTargets}
+      coachManaged={isCoachManaged}
       register={register}
       onPaceChange={handlePaceUpdate}
       onSpeedChange={handleSpeedUpdate}

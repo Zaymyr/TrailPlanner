@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
-import type { CoachIntakeTargets } from "../../lib/coach-intake-targets";
 import type { FormValues } from "../../app/(coach)/race-planner/types";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Input } from "../ui/input";
@@ -19,7 +18,7 @@ type CommandCenterProps = {
     paceSeconds: number;
     speedKph: number;
   };
-  coachTargets?: CoachIntakeTargets | null;
+  coachManaged?: boolean;
   register: UseFormRegister<FormValues>;
   onPaceChange: (minutes: number, seconds: number) => void;
   onSpeedChange: (speedKph: number) => void;
@@ -35,14 +34,13 @@ export function CommandCenter({
   copy,
   sectionIds,
   pacing,
-  coachTargets,
+  coachManaged = false,
   register,
   onPaceChange,
   onSpeedChange,
   formatDuration,
 }: CommandCenterProps) {
   const [pacingMode, setPacingMode] = useState<"pace" | "speed">("pace");
-  const coachManaged = Boolean(coachTargets);
 
   return (
     <div className="space-y-4">
