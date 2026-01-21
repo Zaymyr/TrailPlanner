@@ -22,7 +22,6 @@ const intakeTargetsFormSchema = z.object({
 
 type IntakeTargetsFormValues = z.infer<typeof intakeTargetsFormSchema>;
 
-const toInputValue = (value: number | null | undefined) => (typeof value === "number" ? value : "");
 const toNullableNumber = (value: unknown) => {
   if (value === "" || value === null || value === undefined) return null;
   const parsed = Number(value);
@@ -66,9 +65,9 @@ export default function CoachCoacheeIntakeTargetsPage() {
     }
 
     form.reset({
-      carbsPerHour: toInputValue(targets?.carbsPerHour),
-      waterMlPerHour: toInputValue(targets?.waterMlPerHour),
-      sodiumMgPerHour: toInputValue(targets?.sodiumMgPerHour),
+      carbsPerHour: targets?.carbsPerHour ?? null,
+      waterMlPerHour: targets?.waterMlPerHour ?? null,
+      sodiumMgPerHour: targets?.sodiumMgPerHour ?? null,
     });
   }, [form, targets]);
 
