@@ -38,6 +38,7 @@ const adminUsersSchema = z.object({
 const adminUserSchema = adminUsersSchema.shape.users.element;
 
 const userRoleOptions = ["user", "coach", "admin"] as const;
+type UserRoleOption = (typeof userRoleOptions)[number];
 
 const adminAnalyticsSchema = z.object({
   totals: z.object({
@@ -183,7 +184,7 @@ export default function AdminPage() {
   });
 
   const updateUserRoleMutation = useMutation({
-    mutationFn: async (payload: { id: string; roles: Array<(typeof userRoleOptions)[number]> }) => {
+    mutationFn: async (payload: { id: string; roles: UserRoleOption[] }) => {
       if (!accessToken) throw new Error(t.admin.users.messages.error);
 
       const response = await fetch("/api/admin/users", {
@@ -268,8 +269,8 @@ export default function AdminPage() {
     [t.admin.users.roles]
   );
 
-  const getUserRoles = (user: z.infer<typeof adminUserSchema>) => {
-    const roles = user.roles ?? (user.role ? [user.role] : []);
+  const getUserRoles = (user: z.infer<typeof adminUserSchema>): UserRoleOption[] => {
+    const roles = (user.roles ?? (user.role ? [user.role] : [])) as UserRoleOption[];
     return roles.length > 0 ? roles : ["user"];
   };
 
@@ -479,10 +480,11 @@ export default function AdminPage() {
                                   checked={isChecked}
                                   onChange={() => {
                                     const currentRoles = getUserRoles(user);
-                                    const nextRoles = isChecked
+                                    const nextRoles: UserRoleOption[] = isChecked
                                       ? currentRoles.filter((role) => role !== option)
                                       : [...currentRoles, option];
-                                    const normalizedRoles = nextRoles.length > 0 ? nextRoles : ["user"];
+                                    const normalizedRoles: UserRoleOption[] =
+                                      nextRoles.length > 0 ? nextRoles : ["user"];
                                     setUpdatingUserId(user.id);
                                     updateUserRoleMutation.mutate({ id: user.id, roles: normalizedRoles });
                                   }}
