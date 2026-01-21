@@ -43,7 +43,6 @@ export const useCoachCoacheeIntakeTargets = ({
       return upsertCoachIntakeTargets(accessToken, payload);
     },
     onMutate: async (payload: CoachIntakeTargetsUpsert) => {
-      await queryClient.cancelQueries(queryKey);
       const previous = queryClient.getQueryData<CoachIntakeTargets | null>(queryKey);
       queryClient.setQueryData<CoachIntakeTargets | null>(queryKey, {
         carbsPerHour: payload.carbsPerHour,
