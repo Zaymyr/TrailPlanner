@@ -716,6 +716,41 @@ export type CoachIntakeTargetsTranslations = {
   };
 };
 
+export type CoachPlansTranslations = {
+  title: string;
+  description: string;
+  authRequired: string;
+  loading: string;
+  loadError: string;
+  empty: string;
+  createTitle: string;
+  listTitle: string;
+  listDescription: string;
+  updatedLabel: string;
+  fields: {
+    nameLabel: string;
+    namePlaceholder: string;
+  };
+  actions: {
+    create: string;
+    creating: string;
+    save: string;
+    saving: string;
+    delete: string;
+    deleting: string;
+  };
+  messages: {
+    created: string;
+    updated: string;
+    deleted: string;
+  };
+  errors: {
+    create: string;
+    update: string;
+    delete: string;
+  };
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
@@ -734,6 +769,7 @@ export type Translations = {
   productSettings: ProductSettingsTranslations;
   profile: ProfileTranslations;
   coachIntakeTargets: CoachIntakeTargetsTranslations;
+  coachPlans: CoachPlansTranslations;
 };
 
 export type ProductSettingsTranslations = {

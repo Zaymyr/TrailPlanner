@@ -822,6 +822,40 @@ export const fr: Translations = {
       sodiumPlaceholder: "ex. 500",
     },
   },
+  coachPlans: {
+    title: "Plans du coaché",
+    description: "Créez et gérez les plans de course enregistrés pour ce coaché.",
+    authRequired: "Veuillez vous connecter pour gérer les plans de ce coaché.",
+    loading: "Chargement des plans du coaché...",
+    loadError: "Impossible de charger les plans de ce coaché.",
+    empty: "Aucun plan pour le moment.",
+    createTitle: "Créer un nouveau plan",
+    listTitle: "Plans enregistrés",
+    listDescription: "Renommez ou supprimez les plans créés pour ce coaché.",
+    updatedLabel: "Mis à jour le {date}",
+    fields: {
+      nameLabel: "Nom du plan",
+      namePlaceholder: "ex. Stratégie 50 km",
+    },
+    actions: {
+      create: "Créer le plan",
+      creating: "Création...",
+      save: "Enregistrer",
+      saving: "Enregistrement...",
+      delete: "Supprimer",
+      deleting: "Suppression...",
+    },
+    messages: {
+      created: "Plan créé.",
+      updated: "Plan mis à jour.",
+      deleted: "Plan supprimé.",
+    },
+    errors: {
+      create: "Impossible de créer le plan.",
+      update: "Impossible de mettre à jour le plan.",
+      delete: "Impossible de supprimer le plan.",
+    },
+  },
   resourcePages: {
     "trail-nutrition-planner": {
       title: "Plan nutrition trail",
