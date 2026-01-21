@@ -802,6 +802,26 @@ export const fr: Translations = {
       popupBlocked: "Impossible d'ouvrir le paiement. Autorisez les popups pour ce site et réessayez.",
     },
   },
+  coachIntakeTargets: {
+    title: "Cibles nutritionnelles du coaché",
+    description: "Définissez les ajustements horaires de nutrition pour ce coaché.",
+    helper: "Laissez un champ vide pour supprimer l'ajustement.",
+    authRequired: "Veuillez vous connecter pour mettre à jour ces cibles.",
+    loading: "Chargement des cibles du coaché...",
+    loadError: "Impossible de charger les cibles de ce coaché.",
+    save: "Enregistrer les cibles",
+    saving: "Enregistrement...",
+    success: "Cibles mises à jour.",
+    error: "Impossible d'enregistrer les cibles. Veuillez réessayer.",
+    fields: {
+      carbsLabel: "Glucides par heure (g)",
+      carbsPlaceholder: "ex. 60",
+      waterLabel: "Eau par heure (ml)",
+      waterPlaceholder: "ex. 500",
+      sodiumLabel: "Sodium par heure (mg)",
+      sodiumPlaceholder: "ex. 500",
+    },
+  },
   resourcePages: {
     "trail-nutrition-planner": {
       title: "Plan nutrition trail",

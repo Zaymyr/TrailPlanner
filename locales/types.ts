@@ -695,6 +695,27 @@ export type ProfileTranslations = {
   };
 };
 
+export type CoachIntakeTargetsTranslations = {
+  title: string;
+  description: string;
+  helper: string;
+  authRequired: string;
+  loading: string;
+  loadError: string;
+  save: string;
+  saving: string;
+  success: string;
+  error: string;
+  fields: {
+    carbsLabel: string;
+    carbsPlaceholder: string;
+    waterLabel: string;
+    waterPlaceholder: string;
+    sodiumLabel: string;
+    sodiumPlaceholder: string;
+  };
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
@@ -712,6 +733,7 @@ export type Translations = {
   admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;
   profile: ProfileTranslations;
+  coachIntakeTargets: CoachIntakeTargetsTranslations;
 };
 
 export type ProductSettingsTranslations = {

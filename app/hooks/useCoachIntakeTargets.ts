@@ -28,7 +28,7 @@ export const useCoachIntakeTargets = (accessToken?: string): CoachIntakeTargetsS
     setIsLoading(true);
     setError(null);
 
-    fetchCoachIntakeTargets(accessToken, abortController.signal)
+    fetchCoachIntakeTargets(accessToken, undefined, abortController.signal)
       .then((data) => {
         if (!abortController.signal.aborted) {
           setTargets(data);
