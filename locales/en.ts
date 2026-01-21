@@ -847,6 +847,50 @@ export const en: Translations = {
       delete: "We couldn't delete the plan.",
     },
   },
+  coachComments: {
+    title: "Coach comments",
+    description: "Share notes tied to this coachee's plan sections and aid stations.",
+    authRequired: "Please sign in to manage coach comments.",
+    loading: "Loading coach comments...",
+    loadError: "We couldn't load coach comments.",
+    empty: "No comments yet.",
+    fields: {
+      contextLabel: "Context",
+      contextPlaceholder: "Select a context",
+      bodyLabel: "Comment",
+      bodyPlaceholder: "Write a note for your coachee",
+    },
+    contextOptions: {
+      plan: "Overall plan",
+      start: "Start",
+      finish: "Finish",
+      aidStation: "Aid station {index}",
+    },
+    actions: {
+      create: "Add comment",
+      creating: "Adding...",
+      save: "Save",
+      saving: "Saving...",
+      delete: "Delete",
+      deleting: "Deleting...",
+      edit: "Edit",
+      cancel: "Cancel",
+    },
+    messages: {
+      created: "Comment added.",
+      updated: "Comment updated.",
+      deleted: "Comment removed.",
+    },
+    errors: {
+      create: "We couldn't add the comment.",
+      update: "We couldn't update the comment.",
+      delete: "We couldn't delete the comment.",
+    },
+    viewer: {
+      title: "Coach note",
+      updatedLabel: "Updated {date}",
+    },
+  },
   resourcePages: {
     "trail-nutrition-planner": {
       title: "Trail nutrition planner",

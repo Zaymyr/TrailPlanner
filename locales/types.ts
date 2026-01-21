@@ -751,6 +751,51 @@ export type CoachPlansTranslations = {
   };
 };
 
+export type CoachCommentsTranslations = {
+  title: string;
+  description: string;
+  authRequired: string;
+  loading: string;
+  loadError: string;
+  empty: string;
+  fields: {
+    contextLabel: string;
+    contextPlaceholder: string;
+    bodyLabel: string;
+    bodyPlaceholder: string;
+  };
+  contextOptions: {
+    plan: string;
+    start: string;
+    finish: string;
+    aidStation: string;
+  };
+  actions: {
+    create: string;
+    creating: string;
+    save: string;
+    saving: string;
+    delete: string;
+    deleting: string;
+    edit: string;
+    cancel: string;
+  };
+  messages: {
+    created: string;
+    updated: string;
+    deleted: string;
+  };
+  errors: {
+    create: string;
+    update: string;
+    delete: string;
+  };
+  viewer: {
+    title: string;
+    updatedLabel: string;
+  };
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
@@ -770,6 +815,7 @@ export type Translations = {
   profile: ProfileTranslations;
   coachIntakeTargets: CoachIntakeTargetsTranslations;
   coachPlans: CoachPlansTranslations;
+  coachComments: CoachCommentsTranslations;
 };
 
 export type ProductSettingsTranslations = {
