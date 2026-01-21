@@ -631,9 +631,19 @@ export const fr: Translations = {
     },
     users: {
       title: "Utilisateurs",
-      description: "Aperçu des derniers utilisateurs connectés.",
+      description: "Aperçu des utilisateurs connectés et gestion de leur rôle.",
       loadError: "Impossible de charger les utilisateurs.",
       empty: "Aucun utilisateur.",
+      messages: {
+        updated: "Rôle mis à jour.",
+        updating: "Mise à jour...",
+        error: "Impossible de mettre à jour le rôle.",
+      },
+      roles: {
+        user: "Utilisateur",
+        coach: "Coach",
+        admin: "Admin",
+      },
       table: {
         email: "Email",
         role: "Rôle",

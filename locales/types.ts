@@ -583,6 +583,16 @@ export type AdminTranslations = {
     description: string;
     loadError: string;
     empty: string;
+    messages: {
+      updated: string;
+      updating: string;
+      error: string;
+    };
+    roles: {
+      user: string;
+      coach: string;
+      admin: string;
+    };
     table: {
       email: string;
       role: string;

@@ -40,6 +40,29 @@ const mappedUsersSchema = z.object({
   ),
 });
 
+const userRoleSchema = z.enum(["user", "coach", "admin"]);
+
+const updateUserRoleSchema = z.object({
+  id: z.string().uuid(),
+  role: userRoleSchema.nullable(),
+});
+
+const singleUserSchema = z.object({
+  user: mappedUsersSchema.shape.users.element,
+});
+
+const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
+  id: user.id,
+  email: user.email,
+  createdAt: user.created_at,
+  lastSignInAt: user.last_sign_in_at ?? undefined,
+  role:
+    user.app_metadata?.role ??
+    (Array.isArray(user.app_metadata?.roles) && user.app_metadata.roles.length > 0
+      ? user.app_metadata.roles[0]
+      : undefined),
+});
+
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -96,21 +119,61 @@ export async function GET(request: NextRequest) {
       return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
     }
 
-    const mapped = users.map((user) => ({
-      id: user.id,
-      email: user.email,
-      createdAt: user.created_at,
-      lastSignInAt: user.last_sign_in_at ?? undefined,
-      role:
-        user.app_metadata?.role ??
-        (Array.isArray(user.app_metadata?.roles) && user.app_metadata.roles.length > 0
-          ? user.app_metadata.roles[0]
-          : undefined),
-    }));
+    const mapped = users.map(mapUser);
 
     return withSecurityHeaders(NextResponse.json(mappedUsersSchema.parse({ users: mapped })));
   } catch (error) {
     console.error("Unexpected error while loading admin users", error);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  const auth = await authorizeAdmin(request);
+  if ("error" in auth) return auth.error;
+
+  const parsedBody = updateUserRoleSchema.safeParse(await request.json().catch(() => ({})));
+
+  if (!parsedBody.success) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid user role payload." }, { status: 400 }));
+  }
+
+  const appMetadata = {
+    role: parsedBody.data.role,
+    roles: parsedBody.data.role ? [parsedBody.data.role] : [],
+  };
+
+  try {
+    const response = await fetch(
+      `${auth.supabaseService.supabaseUrl}/auth/v1/admin/users/${parsedBody.data.id}`,
+      {
+        method: "PUT",
+        headers: {
+          apikey: auth.supabaseService.supabaseServiceRoleKey,
+          Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ app_metadata: appMetadata }),
+        cache: "no-store",
+      }
+    );
+
+    const payload = (await response.json().catch(() => null)) as unknown;
+
+    if (!response.ok) {
+      console.error("Unable to update user role", payload);
+      return withSecurityHeaders(NextResponse.json({ message: "Unable to update user role." }, { status: 502 }));
+    }
+
+    const parsedUser = supabaseAdminUserSchema.safeParse(payload);
+
+    if (!parsedUser.success) {
+      return withSecurityHeaders(NextResponse.json({ message: "Unable to update user role." }, { status: 500 }));
+    }
+
+    return withSecurityHeaders(NextResponse.json(singleUserSchema.parse({ user: mapUser(parsedUser.data) })));
+  } catch (error) {
+    console.error("Unexpected error while updating admin user role", error);
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to update user role." }, { status: 500 }));
   }
 }

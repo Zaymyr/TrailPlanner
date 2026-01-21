@@ -621,9 +621,19 @@ export const en: Translations = {
     },
     users: {
       title: "Users",
-      description: "See who has signed in recently.",
+      description: "See who has signed in recently and adjust their access role.",
       loadError: "Unable to load users.",
       empty: "No users found.",
+      messages: {
+        updated: "User role updated.",
+        updating: "Updating...",
+        error: "Unable to update user role.",
+      },
+      roles: {
+        user: "User",
+        coach: "Coach",
+        admin: "Admin",
+      },
       table: {
         email: "Email",
         role: "Role",

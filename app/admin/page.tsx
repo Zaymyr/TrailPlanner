@@ -34,6 +34,10 @@ const adminUsersSchema = z.object({
   ),
 });
 
+const adminUserSchema = adminUsersSchema.shape.users.element;
+
+const userRoleOptions = ["user", "coach", "admin"] as const;
+
 const adminAnalyticsSchema = z.object({
   totals: z.object({
     popupOpens: z.number(),
@@ -74,6 +78,9 @@ export default function AdminPage() {
   const { session, isLoading: sessionLoading } = useVerifiedSession();
   const [productMessage, setProductMessage] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
+  const [userMessage, setUserMessage] = useState<string | null>(null);
+  const [userError, setUserError] = useState<string | null>(null);
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
 
   const accessToken = session?.accessToken;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
@@ -174,6 +181,51 @@ export default function AdminPage() {
     },
   });
 
+  const updateUserRoleMutation = useMutation({
+    mutationFn: async (payload: { id: string; role: (typeof userRoleOptions)[number] }) => {
+      if (!accessToken) throw new Error(t.admin.users.messages.error);
+
+      const response = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json().catch(() => null)) as unknown;
+
+      if (!response.ok) {
+        const message = (data as { message?: string } | null)?.message ?? t.admin.users.messages.error;
+        throw new Error(message);
+      }
+
+      const parsed = z.object({ user: adminUserSchema }).safeParse(data);
+
+      if (!parsed.success) {
+        throw new Error(t.admin.users.messages.error);
+      }
+
+      return parsed.data.user;
+    },
+    onMutate: (payload) => {
+      setUpdatingUserId(payload.id);
+    },
+    onSuccess: () => {
+      setUserError(null);
+      setUserMessage(t.admin.users.messages.updated);
+      setUpdatingUserId(null);
+      void usersQuery.refetch();
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : t.admin.users.messages.error;
+      setUserError(message);
+      setUserMessage(null);
+      setUpdatingUserId(null);
+    },
+  });
+
   const analyticsQuery = useQuery({
     queryKey: ["admin", "analytics", accessToken],
     enabled: Boolean(accessToken && isAdmin),
@@ -209,6 +261,14 @@ export default function AdminPage() {
   const analytics = analyticsQuery.data;
 
   const productStats = useMemo(() => analytics?.productStats ?? [], [analytics?.productStats]);
+  const roleLabels = useMemo(
+    () => ({
+      user: t.admin.users.roles.user,
+      coach: t.admin.users.roles.coach,
+      admin: t.admin.users.roles.admin,
+    }),
+    [t.admin.users.roles]
+  );
 
   const renderStatusPill = (product: z.infer<typeof adminProductSchema>) => {
     if (product.isArchived) {
@@ -373,6 +433,8 @@ export default function AdminPage() {
             <p className="text-sm text-slate-400">{t.admin.users.description}</p>
           </CardHeader>
           <CardContent className="space-y-4">
+            {userMessage ? <p className="text-sm text-emerald-200">{userMessage}</p> : null}
+            {userError ? <p className="text-sm text-red-300">{userError}</p> : null}
             {usersQuery.error ? (
               <p className="text-sm text-red-300">
                 {usersQuery.error instanceof Error ? usersQuery.error.message : t.admin.users.loadError}
@@ -401,7 +463,30 @@ export default function AdminPage() {
                   {userRows.map((user) => (
                     <TableRow key={user.id}>
                       <TableCell className="font-semibold text-slate-50">{user.email ?? "—"}</TableCell>
-                      <TableCell className="text-slate-200">{user.role ?? "—"}</TableCell>
+                      <TableCell className="text-slate-200">
+                        <div className="flex items-center gap-2">
+                          <select
+                            className="h-9 rounded-md border border-slate-800 bg-slate-950 px-2 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
+                            value={(user.role ?? "user") as (typeof userRoleOptions)[number]}
+                            onChange={(event) => {
+                              const nextRole = event.target.value as (typeof userRoleOptions)[number];
+                              const currentRole = (user.role ?? "user") as (typeof userRoleOptions)[number];
+                              if (nextRole === currentRole) return;
+                              updateUserRoleMutation.mutate({ id: user.id, role: nextRole });
+                            }}
+                            disabled={updateUserRoleMutation.isPending && updatingUserId === user.id}
+                          >
+                            {userRoleOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {roleLabels[option]}
+                              </option>
+                            ))}
+                          </select>
+                          {updateUserRoleMutation.isPending && updatingUserId === user.id ? (
+                            <span className="text-xs text-slate-400">{t.admin.users.messages.updating}</span>
+                          ) : null}
+                        </div>
+                      </TableCell>
                       <TableCell>{formatDate(user.createdAt)}</TableCell>
                       <TableCell>{formatDate(user.lastSignInAt)}</TableCell>
                     </TableRow>
