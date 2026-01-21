@@ -30,6 +30,7 @@ const adminUsersSchema = z.object({
       createdAt: z.string(),
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
+      roles: z.array(z.string()).optional(),
     })
   ),
 });
@@ -182,7 +183,7 @@ export default function AdminPage() {
   });
 
   const updateUserRoleMutation = useMutation({
-    mutationFn: async (payload: { id: string; role: (typeof userRoleOptions)[number] }) => {
+    mutationFn: async (payload: { id: string; roles: Array<(typeof userRoleOptions)[number]> }) => {
       if (!accessToken) throw new Error(t.admin.users.messages.error);
 
       const response = await fetch("/api/admin/users", {
@@ -266,6 +267,11 @@ export default function AdminPage() {
     }),
     [t.admin.users.roles]
   );
+
+  const getUserRoles = (user: z.infer<typeof adminUserSchema>) => {
+    const roles = user.roles ?? (user.role ? [user.role] : []);
+    return roles.length > 0 ? roles : ["user"];
+  };
 
   const renderStatusPill = (product: z.infer<typeof adminProductSchema>) => {
     if (product.isArchived) {
@@ -459,27 +465,33 @@ export default function AdminPage() {
                 <TableBody>
                   {userRows.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell className="font-semibold text-slate-50">{user.email ?? "—"}</TableCell>
+                      <TableCell className="font-semibold text-slate-100">{user.email ?? "—"}</TableCell>
                       <TableCell className="text-slate-200">
-                        <div className="flex items-center gap-2">
-                          <select
-                            className="h-9 rounded-md border border-slate-800 bg-slate-950 px-2 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-400"
-                            value={(user.role ?? "user") as (typeof userRoleOptions)[number]}
-                            onChange={(event) => {
-                              const nextRole = event.target.value as (typeof userRoleOptions)[number];
-                              const currentRole = (user.role ?? "user") as (typeof userRoleOptions)[number];
-                              if (nextRole === currentRole) return;
-                              setUpdatingUserId(user.id);
-                              updateUserRoleMutation.mutate({ id: user.id, role: nextRole });
-                            }}
-                            disabled={updateUserRoleMutation.isPending && updatingUserId === user.id}
-                          >
-                            {userRoleOptions.map((option) => (
-                              <option key={option} value={option}>
-                                {roleLabels[option]}
-                              </option>
-                            ))}
-                          </select>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {userRoleOptions.map((option) => {
+                            const activeRoles = getUserRoles(user);
+                            const isChecked = activeRoles.includes(option);
+                            return (
+                              <label key={option} className="flex items-center gap-2 text-xs text-slate-200">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-400"
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    const currentRoles = getUserRoles(user);
+                                    const nextRoles = isChecked
+                                      ? currentRoles.filter((role) => role !== option)
+                                      : [...currentRoles, option];
+                                    const normalizedRoles = nextRoles.length > 0 ? nextRoles : ["user"];
+                                    setUpdatingUserId(user.id);
+                                    updateUserRoleMutation.mutate({ id: user.id, roles: normalizedRoles });
+                                  }}
+                                  disabled={updateUserRoleMutation.isPending && updatingUserId === user.id}
+                                />
+                                <span>{roleLabels[option]}</span>
+                              </label>
+                            );
+                          })}
                           {updateUserRoleMutation.isPending && updatingUserId === user.id ? (
                             <span className="text-xs text-slate-400">{t.admin.users.messages.updating}</span>
                           ) : null}

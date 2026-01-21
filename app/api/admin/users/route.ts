@@ -36,6 +36,7 @@ const mappedUsersSchema = z.object({
       createdAt: z.string(),
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
+      roles: z.array(z.string()).optional(),
     })
   ),
 });
@@ -44,7 +45,7 @@ const userRoleSchema = z.enum(["user", "coach", "admin"]);
 
 const updateUserRoleSchema = z.object({
   id: z.string().uuid(),
-  role: userRoleSchema.nullable(),
+  roles: z.array(userRoleSchema).min(1),
 });
 
 const singleUserSchema = z.object({
@@ -56,11 +57,11 @@ const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
   email: user.email,
   createdAt: user.created_at,
   lastSignInAt: user.last_sign_in_at ?? undefined,
-  role:
-    user.app_metadata?.role ??
+  role: user.app_metadata?.role,
+  roles:
     (Array.isArray(user.app_metadata?.roles) && user.app_metadata.roles.length > 0
-      ? user.app_metadata.roles[0]
-      : undefined),
+      ? user.app_metadata.roles
+      : undefined) ?? (user.app_metadata?.role ? [user.app_metadata.role] : undefined),
 });
 
 const authorizeAdmin = async (request: NextRequest) => {
@@ -139,8 +140,8 @@ export async function PATCH(request: NextRequest) {
   }
 
   const appMetadata = {
-    role: parsedBody.data.role,
-    roles: parsedBody.data.role ? [parsedBody.data.role] : [],
+    role: parsedBody.data.roles[0] ?? null,
+    roles: parsedBody.data.roles,
   };
 
   try {

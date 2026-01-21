@@ -646,7 +646,7 @@ export const fr: Translations = {
       },
       table: {
         email: "Email",
-        role: "Rôle",
+        role: "Rôles",
         createdAt: "Créé le",
         lastSignInAt: "Dernière activité",
       },
