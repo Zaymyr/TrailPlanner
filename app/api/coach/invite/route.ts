@@ -17,6 +17,8 @@ const inviteSchema = z.object({
 
 type SupabaseSubscriptionRow = {
   plan_name: string | null;
+  status: string | null;
+  current_period_end: string | null;
 };
 
 type SupabaseCoachCoacheeRow = {
@@ -48,7 +50,7 @@ const fetchCoachSubscription = async (
   const response = await fetch(
     `${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(
       coachId
-    )}&select=plan_name&limit=1`,
+    )}&select=plan_name,status,current_period_end&limit=1`,
     {
       headers: {
         apikey: serviceKey,
@@ -65,6 +67,15 @@ const fetchCoachSubscription = async (
 
   const rows = (await response.json().catch(() => null)) as SupabaseSubscriptionRow[] | null;
   return rows?.[0] ?? null;
+};
+
+const isActiveSubscription = (subscription: SupabaseSubscriptionRow | null): boolean => {
+  if (!subscription?.plan_name) return false;
+  if (subscription.status !== "active") return false;
+  if (!subscription.current_period_end) return false;
+  const periodEnd = Date.parse(subscription.current_period_end);
+  if (Number.isNaN(periodEnd)) return false;
+  return periodEnd >= Date.now();
 };
 
 const fetchCoachInviteCount = async (
@@ -246,11 +257,11 @@ export async function POST(request: NextRequest) {
     supabaseUser.id
   );
 
-  if (!subscription?.plan_name) {
+  if (!isActiveSubscription(subscription)) {
     return withSecurityHeaders(NextResponse.json({ message: "Coach subscription required." }, { status: 403 }));
   }
 
-  const coachTier = await fetchCoachTierByName(subscription.plan_name);
+  const coachTier = await fetchCoachTierByName(subscription.plan_name ?? "");
 
   if (!coachTier) {
     return withSecurityHeaders(NextResponse.json({ message: "Coach tier not found." }, { status: 403 }));
