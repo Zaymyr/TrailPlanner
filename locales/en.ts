@@ -793,6 +793,26 @@ export const en: Translations = {
       popupBlocked: "We couldn't open checkout. Please allow popups for this site and try again.",
     },
   },
+  coachIntakeTargets: {
+    title: "Coachee intake targets",
+    description: "Set hourly nutrition overrides for this coachee.",
+    helper: "Leave a field blank to clear that override.",
+    authRequired: "Please sign in to update coachee intake targets.",
+    loading: "Loading coachee targets...",
+    loadError: "We couldn't load this coachee's targets.",
+    save: "Save targets",
+    saving: "Saving...",
+    success: "Targets updated.",
+    error: "We couldn't save the targets. Please try again.",
+    fields: {
+      carbsLabel: "Carbs per hour (g)",
+      carbsPlaceholder: "e.g. 60",
+      waterLabel: "Water per hour (ml)",
+      waterPlaceholder: "e.g. 500",
+      sodiumLabel: "Sodium per hour (mg)",
+      sodiumPlaceholder: "e.g. 500",
+    },
+  },
   resourcePages: {
     "trail-nutrition-planner": {
       title: "Trail nutrition planner",

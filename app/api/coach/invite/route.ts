@@ -331,7 +331,13 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Coach subscription required." }, { status: 403 }));
   }
 
-  const coachTier = await fetchCoachTierByName(subscription.plan_name ?? "");
+  const planName = subscription?.plan_name;
+
+  if (!planName) {
+    return withSecurityHeaders(NextResponse.json({ message: "Coach tier not found." }, { status: 403 }));
+  }
+
+  const coachTier = await fetchCoachTierByName(planName);
 
   if (!coachTier) {
     return withSecurityHeaders(NextResponse.json({ message: "Coach tier not found." }, { status: 403 }));
