@@ -1,0 +1,352 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+
+import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { fetchCoachTierByName } from "../../../../lib/coach-tiers";
+import {
+  extractBearerToken,
+  fetchSupabaseUser,
+  getSupabaseAnonConfig,
+  getSupabaseServiceConfig,
+} from "../../../../lib/supabase";
+
+const inviteSchema = z.object({
+  email: z.string().trim().email(),
+});
+
+type SupabaseSubscriptionRow = {
+  plan_name: string | null;
+};
+
+type SupabaseCoachCoacheeRow = {
+  coach_id: string;
+  coachee_id: string;
+  status: string;
+  invited_email: string | null;
+};
+
+const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType = "application/json") => ({
+  apikey: supabaseKey,
+  Authorization: `Bearer ${accessToken}`,
+  ...(contentType ? { "Content-Type": contentType } : {}),
+});
+
+const parseContentRangeCount = (contentRange: string | null): number | null => {
+  if (!contentRange) return null;
+  const total = contentRange.split("/")[1];
+  if (!total) return null;
+  const parsed = Number.parseInt(total, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const fetchCoachSubscription = async (
+  supabaseUrl: string,
+  serviceKey: string,
+  coachId: string
+): Promise<SupabaseSubscriptionRow | null> => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/subscriptions?user_id=eq.${encodeURIComponent(
+      coachId
+    )}&select=plan_name&limit=1`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    console.error("Unable to load coach subscription", await response.text());
+    return null;
+  }
+
+  const rows = (await response.json().catch(() => null)) as SupabaseSubscriptionRow[] | null;
+  return rows?.[0] ?? null;
+};
+
+const fetchCoachInviteCount = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  accessToken: string,
+  coachId: string
+): Promise<number | null> => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/coach_coachees?coach_id=eq.${encodeURIComponent(coachId)}&select=coachee_id`,
+    {
+      headers: {
+        ...buildAuthHeaders(supabaseKey, accessToken, undefined),
+        Prefer: "count=exact",
+      },
+      cache: "no-store",
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    console.error("Unable to load coach invite count", payload);
+    return null;
+  }
+
+  const countFromHeader = parseContentRangeCount(response.headers.get("content-range"));
+  if (typeof countFromHeader === "number") {
+    return countFromHeader;
+  }
+
+  return Array.isArray(payload) ? payload.length : null;
+};
+
+const fetchExistingCoachee = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  accessToken: string,
+  coachId: string,
+  coacheeId: string
+): Promise<SupabaseCoachCoacheeRow | null> => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/coach_coachees?coach_id=eq.${encodeURIComponent(
+      coachId
+    )}&coachee_id=eq.${encodeURIComponent(coacheeId)}&select=coach_id,coachee_id,status,invited_email&limit=1`,
+    {
+      headers: buildAuthHeaders(supabaseKey, accessToken, undefined),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    console.error("Unable to check existing coachee", await response.text());
+    return null;
+  }
+
+  const rows = (await response.json().catch(() => null)) as SupabaseCoachCoacheeRow[] | null;
+  return rows?.[0] ?? null;
+};
+
+const insertCoachCoachee = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  accessToken: string,
+  payload: {
+    coach_id: string;
+    coachee_id: string;
+    status: "active" | "pending";
+    invited_email?: string | null;
+  }
+): Promise<boolean> => {
+  const response = await fetch(`${supabaseUrl}/rest/v1/coach_coachees`, {
+    method: "POST",
+    headers: {
+      ...buildAuthHeaders(supabaseKey, accessToken),
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({
+      coach_id: payload.coach_id,
+      coachee_id: payload.coachee_id,
+      status: payload.status,
+      invited_email: payload.invited_email ?? null,
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    console.error("Unable to create coach invite", await response.text());
+    return false;
+  }
+
+  return true;
+};
+
+const fetchUserByEmail = async (
+  supabaseUrl: string,
+  serviceKey: string,
+  email: string
+): Promise<{ id: string; email?: string } | null> => {
+  const response = await fetch(
+    `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}&per_page=1`,
+    {
+      headers: {
+        apikey: serviceKey,
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    console.error("Unable to find user by email", payload);
+    return null;
+  }
+
+  const userSchema = z.object({
+    id: z.string().uuid(),
+    email: z.string().email().optional(),
+  });
+
+  const listSchema = z.array(userSchema);
+  const envelopeSchema = z.object({ users: listSchema });
+
+  const envelope = envelopeSchema.safeParse(payload);
+  if (envelope.success) {
+    return envelope.data.users[0] ?? null;
+  }
+
+  const list = listSchema.safeParse(payload);
+  if (list.success) {
+    return list.data[0] ?? null;
+  }
+
+  return null;
+};
+
+export async function POST(request: NextRequest) {
+  const parsedBody = inviteSchema.safeParse(await request.json().catch(() => null));
+
+  if (!parsedBody.success) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid invite payload." }, { status: 400 }));
+  }
+
+  const supabaseAnon = getSupabaseAnonConfig();
+  const supabaseService = getSupabaseServiceConfig();
+
+  if (!supabaseAnon || !supabaseService) {
+    return withSecurityHeaders(NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 }));
+  }
+
+  const token = extractBearerToken(request.headers.get("authorization"));
+
+  if (!token) {
+    return withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 }));
+  }
+
+  const supabaseUser = await fetchSupabaseUser(token, supabaseAnon);
+
+  if (!supabaseUser?.id) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
+  }
+
+  const rateLimit = checkRateLimit(`coach-invite:${supabaseUser.id}`, 6, 60_000);
+
+  if (!rateLimit.allowed) {
+    return withSecurityHeaders(
+      NextResponse.json(
+        { message: "Too many requests." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil((rateLimit.retryAfter ?? 0) / 1000)) } }
+      )
+    );
+  }
+
+  const subscription = await fetchCoachSubscription(
+    supabaseService.supabaseUrl,
+    supabaseService.supabaseServiceRoleKey,
+    supabaseUser.id
+  );
+
+  if (!subscription?.plan_name) {
+    return withSecurityHeaders(NextResponse.json({ message: "Coach subscription required." }, { status: 403 }));
+  }
+
+  const coachTier = await fetchCoachTierByName(subscription.plan_name);
+
+  if (!coachTier) {
+    return withSecurityHeaders(NextResponse.json({ message: "Coach tier not found." }, { status: 403 }));
+  }
+
+  const inviteCount = await fetchCoachInviteCount(
+    supabaseAnon.supabaseUrl,
+    supabaseAnon.supabaseAnonKey,
+    token,
+    supabaseUser.id
+  );
+
+  if (inviteCount === null) {
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to verify invite count." }, { status: 502 }));
+  }
+
+  if (inviteCount >= coachTier.invite_limit) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invite limit reached." }, { status: 403 }));
+  }
+
+  const email = parsedBody.data.email.toLowerCase();
+  const existingUser = await fetchUserByEmail(
+    supabaseService.supabaseUrl,
+    supabaseService.supabaseServiceRoleKey,
+    email
+  );
+
+  if (existingUser?.id) {
+    if (existingUser.id === supabaseUser.id) {
+      return withSecurityHeaders(NextResponse.json({ message: "Cannot invite yourself." }, { status: 400 }));
+    }
+
+    const existingInvite = await fetchExistingCoachee(
+      supabaseAnon.supabaseUrl,
+      supabaseAnon.supabaseAnonKey,
+      token,
+      supabaseUser.id,
+      existingUser.id
+    );
+
+    if (existingInvite) {
+      return withSecurityHeaders(NextResponse.json({ message: "Coachee already invited." }, { status: 409 }));
+    }
+
+    const inserted = await insertCoachCoachee(supabaseAnon.supabaseUrl, supabaseAnon.supabaseAnonKey, token, {
+      coach_id: supabaseUser.id,
+      coachee_id: existingUser.id,
+      status: "active",
+    });
+
+    if (!inserted) {
+      return withSecurityHeaders(NextResponse.json({ message: "Unable to create coach invite." }, { status: 502 }));
+    }
+
+    return withSecurityHeaders(NextResponse.json({ status: "active" }));
+  }
+
+  const adminClient = createClient(supabaseService.supabaseUrl, supabaseService.supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+
+  const inviteResponse = await adminClient.auth.admin.inviteUserByEmail(email);
+
+  if (inviteResponse.error || !inviteResponse.data.user?.id) {
+    console.error("Unable to invite user", inviteResponse.error);
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to invite user." }, { status: 502 }));
+  }
+
+  const invitedUserId = inviteResponse.data.user.id;
+
+  const existingInvite = await fetchExistingCoachee(
+    supabaseAnon.supabaseUrl,
+    supabaseAnon.supabaseAnonKey,
+    token,
+    supabaseUser.id,
+    invitedUserId
+  );
+
+  if (existingInvite) {
+    return withSecurityHeaders(NextResponse.json({ message: "Coachee already invited." }, { status: 409 }));
+  }
+
+  const inserted = await insertCoachCoachee(supabaseAnon.supabaseUrl, supabaseAnon.supabaseAnonKey, token, {
+    coach_id: supabaseUser.id,
+    coachee_id: invitedUserId,
+    status: "pending",
+    invited_email: email,
+  });
+
+  if (!inserted) {
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to create coach invite." }, { status: 502 }));
+  }
+
+  return withSecurityHeaders(NextResponse.json({ status: "pending" }));
+}
