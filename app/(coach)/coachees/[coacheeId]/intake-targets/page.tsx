@@ -15,14 +15,19 @@ import { useI18n } from "../../../../i18n-provider";
 import { useVerifiedSession } from "../../../../hooks/useVerifiedSession";
 
 const intakeTargetsFormSchema = z.object({
-  carbsPerHour: z.union([z.coerce.number().min(0), z.literal("").transform(() => null)]),
-  waterMlPerHour: z.union([z.coerce.number().min(0), z.literal("").transform(() => null)]),
-  sodiumMgPerHour: z.union([z.coerce.number().min(0), z.literal("").transform(() => null)]),
+  carbsPerHour: z.number().min(0).nullable(),
+  waterMlPerHour: z.number().min(0).nullable(),
+  sodiumMgPerHour: z.number().min(0).nullable(),
 });
 
 type IntakeTargetsFormValues = z.infer<typeof intakeTargetsFormSchema>;
 
 const toInputValue = (value: number | null | undefined) => (typeof value === "number" ? value : "");
+const toNullableNumber = (value: unknown) => {
+  if (value === "" || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 export default function CoachCoacheeIntakeTargetsPage() {
   const { t } = useI18n();
@@ -49,9 +54,9 @@ export default function CoachCoacheeIntakeTargetsPage() {
   const form = useForm<IntakeTargetsFormValues>({
     resolver: zodResolver(intakeTargetsFormSchema),
     defaultValues: {
-      carbsPerHour: "",
-      waterMlPerHour: "",
-      sodiumMgPerHour: "",
+      carbsPerHour: null,
+      waterMlPerHour: null,
+      sodiumMgPerHour: null,
     },
   });
 
@@ -121,7 +126,7 @@ export default function CoachCoacheeIntakeTargetsPage() {
                 type="number"
                 step="0.1"
                 placeholder={t.coachIntakeTargets.fields.carbsPlaceholder}
-                {...form.register("carbsPerHour")}
+                {...form.register("carbsPerHour", { setValueAs: toNullableNumber })}
               />
             </div>
             <div className="space-y-2">
@@ -131,7 +136,7 @@ export default function CoachCoacheeIntakeTargetsPage() {
                 type="number"
                 step="1"
                 placeholder={t.coachIntakeTargets.fields.waterPlaceholder}
-                {...form.register("waterMlPerHour")}
+                {...form.register("waterMlPerHour", { setValueAs: toNullableNumber })}
               />
             </div>
             <div className="space-y-2">
@@ -141,7 +146,7 @@ export default function CoachCoacheeIntakeTargetsPage() {
                 type="number"
                 step="1"
                 placeholder={t.coachIntakeTargets.fields.sodiumPlaceholder}
-                {...form.register("sodiumMgPerHour")}
+                {...form.register("sodiumMgPerHour", { setValueAs: toNullableNumber })}
               />
             </div>
             <Button type="submit" disabled={isSaving}>
