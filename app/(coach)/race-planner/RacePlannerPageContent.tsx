@@ -10,6 +10,7 @@ import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import { useCoachIntakeTargets } from "../../hooks/useCoachIntakeTargets";
 import { useEffectiveIntakeTargets } from "../../hooks/useEffectiveIntakeTargets";
+import { useCoachComments } from "../../hooks/useCoachComments";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, StationSupply } from "./types";
@@ -323,6 +324,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     planName,
     setPlanName,
     savedPlans,
+    activePlanId,
     accountMessage,
     accountError,
     authStatus,
@@ -360,6 +362,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const isAuthed = Boolean(session?.accessToken);
   const { targets: coachTargets } = useCoachIntakeTargets(session?.accessToken);
   const { effectiveTargets, isCoachManaged } = useEffectiveIntakeTargets(baseIntakeTargets, coachTargets);
+  const { data: coachComments } = useCoachComments({
+    accessToken: session?.accessToken,
+    planId: activePlanId ?? undefined,
+  });
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
@@ -1116,6 +1122,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       premiumCopy={premiumCopy}
       onUpgrade={handlePremiumFeature}
       upgradeStatus={upgradeStatus}
+      coachComments={coachComments ?? []}
+      coachCommentsCopy={t.coachComments}
     />
   );
 

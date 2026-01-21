@@ -2,9 +2,10 @@
 
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
-import type { RacePlannerTranslations } from "../../../../locales/types";
+import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../../../locales/types";
 import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
+import type { CoachComment } from "../../../../lib/coach-comments";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
 import { CommandCenter } from "../../../../components/race-planner/CommandCenter";
 import type { FormValues, Segment, StationSupply } from "../types";
@@ -51,6 +52,8 @@ type PlanPrimaryContentProps = {
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   onUpgrade: (reason: "autoFill" | "print") => void;
   upgradeStatus: "idle" | "opening";
+  coachComments: CoachComment[];
+  coachCommentsCopy: CoachCommentsTranslations;
 };
 
 export function PlanPrimaryContent({
@@ -89,6 +92,8 @@ export function PlanPrimaryContent({
   premiumCopy,
   onUpgrade,
   upgradeStatus,
+  coachComments,
+  coachCommentsCopy,
 }: PlanPrimaryContentProps) {
   return (
     <div className="space-y-6">
@@ -133,6 +138,8 @@ export function PlanPrimaryContent({
         premiumCopy={premiumCopy}
         onUpgrade={onUpgrade}
         upgradeStatus={upgradeStatus}
+        coachComments={coachComments}
+        coachCommentsCopy={coachCommentsCopy}
       />
     </div>
   );

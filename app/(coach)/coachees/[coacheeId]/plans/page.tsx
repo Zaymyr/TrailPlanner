@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../../../compone
 import { Input } from "../../../../../components/ui/input";
 import { Label } from "../../../../../components/ui/label";
 import type { CoachPlan } from "../../../../../lib/coach-plans";
+import { CoachCommentsSection } from "./CoachCommentsSection";
 import { useCoachCoacheePlans } from "../../../../hooks/useCoachCoacheePlans";
 import { useI18n } from "../../../../i18n-provider";
 import { useVerifiedSession } from "../../../../hooks/useVerifiedSession";
@@ -23,6 +24,8 @@ type PlanFormValues = z.infer<typeof planFormSchema>;
 
 type PlanRowProps = {
   plan: CoachPlan;
+  accessToken: string;
+  coacheeId: string;
   onSave: (name: string) => Promise<void>;
   onDelete: () => Promise<void>;
   isUpdating: boolean;
@@ -30,7 +33,7 @@ type PlanRowProps = {
   t: ReturnType<typeof useI18n>["t"];
 };
 
-const PlanRow = ({ plan, onSave, onDelete, isUpdating, isDeleting, t }: PlanRowProps) => {
+const PlanRow = ({ plan, accessToken, coacheeId, onSave, onDelete, isUpdating, isDeleting, t }: PlanRowProps) => {
   const form = useForm<PlanFormValues>({
     resolver: zodResolver(planFormSchema),
     defaultValues: {
@@ -50,7 +53,7 @@ const PlanRow = ({ plan, onSave, onDelete, isUpdating, isDeleting, t }: PlanRowP
           {t.coachPlans.updatedLabel.replace("{date}", new Date(plan.updatedAt).toLocaleDateString())}
         </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         <form
           className="space-y-3"
           onSubmit={form.handleSubmit(async (values) => {
@@ -70,6 +73,9 @@ const PlanRow = ({ plan, onSave, onDelete, isUpdating, isDeleting, t }: PlanRowP
             </Button>
           </div>
         </form>
+        <div className="border-t border-slate-200 pt-4">
+          <CoachCommentsSection accessToken={accessToken} coacheeId={coacheeId} plan={plan} />
+        </div>
       </CardContent>
     </Card>
   );
@@ -213,17 +219,21 @@ export default function CoachCoacheePlansPage() {
         ) : null}
 
         <div className="grid gap-4">
-          {(plans ?? []).map((plan) => (
-            <PlanRow
-              key={plan.id}
-              plan={plan}
-              t={t}
-              isUpdating={isUpdating}
-              isDeleting={isDeleting}
-              onSave={(name) => handleUpdate(plan, name)}
-              onDelete={() => handleDelete(plan)}
-            />
-          ))}
+          {coacheeId
+            ? (plans ?? []).map((plan) => (
+                <PlanRow
+                  key={plan.id}
+                  plan={plan}
+                  accessToken={session.accessToken}
+                  coacheeId={coacheeId}
+                  t={t}
+                  isUpdating={isUpdating}
+                  isDeleting={isDeleting}
+                  onSave={(name) => handleUpdate(plan, name)}
+                  onDelete={() => handleDelete(plan)}
+                />
+              ))
+            : null}
         </div>
       </section>
     </div>

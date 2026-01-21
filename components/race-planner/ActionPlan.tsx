@@ -5,8 +5,9 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
-import type { RacePlannerTranslations } from "../../locales/types";
+import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../locales/types";
 import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
+import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
 import { fuelTypeValues, type FuelType } from "../../lib/fuel-types";
@@ -18,6 +19,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
+import { CoachCommentsBlock } from "./CoachCommentsBlock";
 import {
   BoltIcon,
   ChevronDownIcon,
@@ -106,6 +108,8 @@ type ActionPlanProps = {
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   onUpgrade: (reason: "autoFill" | "print") => void;
   upgradeStatus: "idle" | "opening";
+  coachComments: CoachComment[];
+  coachCommentsCopy: CoachCommentsTranslations;
 };
 
 const parseOptionalNumber = (value: string | number) => {
@@ -747,6 +751,8 @@ export function ActionPlan({
   premiumCopy,
   onUpgrade,
   upgradeStatus,
+  coachComments,
+  coachCommentsCopy,
 }: ActionPlanProps) {
   const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
@@ -808,6 +814,17 @@ export function ActionPlan({
     });
   }, [fuelProducts, pickerFuelType, pickerSearch]);
   const renderItems = buildRenderItems(segments);
+  const commentsByContext = useMemo(() => {
+    const map = new Map<string, CoachComment[]>();
+    coachComments.forEach((comment) => {
+      const key = comment.aidStationId ?? comment.sectionId ?? "plan";
+      if (!key) return;
+      const existing = map.get(key) ?? [];
+      map.set(key, [...existing, comment]);
+    });
+    return map;
+  }, [coachComments]);
+  const planComments = commentsByContext.get("plan") ?? [];
   const collapsibleKeys = useMemo(() => {
     const keys = new Set<string>();
     renderItems.forEach((item) => {
@@ -1116,6 +1133,9 @@ export function ActionPlan({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
+        {planComments.length > 0 ? (
+          <CoachCommentsBlock comments={planComments} copy={coachCommentsCopy} />
+        ) : null}
         {segments.length > 0 ? (
           <div className="relative space-y-4">
             {(() => {
@@ -1162,6 +1182,14 @@ export function ActionPlan({
                 ) : null;
                 const titleContent = item.title;
                 const isAidStation = typeof item.aidStationIndex === "number" && !item.isFinish;
+                const commentContextKey = item.isStart
+                  ? "start"
+                  : item.isFinish
+                    ? "finish"
+                    : typeof item.aidStationIndex === "number"
+                      ? `aid-${item.aidStationIndex}`
+                      : "plan";
+                const contextComments = commentsByContext.get(commentContextKey) ?? [];
                 const aidStationBadge = item.isStart ? (
                   <AidStationBadge step={pointNumber} variant="start" />
                 ) : isAidStation ? (
@@ -1630,6 +1658,11 @@ export function ActionPlan({
                         isExpanded={isFinishDetailsOpen}
                         onToggleDetails={() => setIsFinishDetailsOpen((prev) => !prev)}
                       />
+                      {contextComments.length > 0 ? (
+                        <div className="mt-3">
+                          <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
+                        </div>
+                      ) : null}
                     </div>
                   );
                 }
@@ -1683,6 +1716,11 @@ export function ActionPlan({
                           </div>
                         }
                       />
+                      {contextComments.length > 0 ? (
+                        <div className="mt-3">
+                          <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
+                        </div>
+                      ) : null}
                     </div>
                   );
                 }
@@ -1710,20 +1748,23 @@ export function ActionPlan({
                         }
                         onTitleClick={
                           typeof item.aidStationIndex === "number"
-                            ? () =>
-                                setEditorState({
-                                  mode: "edit",
-                                  index: item.aidStationIndex as number,
-                                  name: item.title,
-                                  distance: String(item.distanceKm ?? 0),
-                                  pauseMinutes:
-                                    typeof item.checkpointSegment?.pauseMinutes === "number"
-                                      ? String(item.checkpointSegment.pauseMinutes)
-                                      : "",
-                                })
+                              ? () =>
+                                  setEditorState({
+                                    mode: "edit",
+                                    index: item.aidStationIndex as number,
+                                    name: item.title,
+                                    distance: String(item.distanceKm ?? 0),
+                                    pauseMinutes:
+                                      typeof item.checkpointSegment?.pauseMinutes === "number"
+                                        ? String(item.checkpointSegment.pauseMinutes)
+                                        : "",
+                                  })
                             : undefined
                         }
                       />
+                      {contextComments.length > 0 ? (
+                        <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
+                      ) : null}
                       {sectionContent ? <div className="relative">{sectionContent}</div> : null}
                     </div>
                   </div>

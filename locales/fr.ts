@@ -856,6 +856,50 @@ export const fr: Translations = {
       delete: "Impossible de supprimer le plan.",
     },
   },
+  coachComments: {
+    title: "Commentaires du coach",
+    description: "Partagez des notes liées aux sections du plan et aux ravitaillements.",
+    authRequired: "Veuillez vous connecter pour gérer les commentaires du coach.",
+    loading: "Chargement des commentaires du coach...",
+    loadError: "Impossible de charger les commentaires du coach.",
+    empty: "Aucun commentaire pour le moment.",
+    fields: {
+      contextLabel: "Contexte",
+      contextPlaceholder: "Sélectionnez un contexte",
+      bodyLabel: "Commentaire",
+      bodyPlaceholder: "Écrivez une note pour votre athlète",
+    },
+    contextOptions: {
+      plan: "Plan global",
+      start: "Départ",
+      finish: "Arrivée",
+      aidStation: "Ravitaillement {index}",
+    },
+    actions: {
+      create: "Ajouter un commentaire",
+      creating: "Ajout...",
+      save: "Enregistrer",
+      saving: "Enregistrement...",
+      delete: "Supprimer",
+      deleting: "Suppression...",
+      edit: "Modifier",
+      cancel: "Annuler",
+    },
+    messages: {
+      created: "Commentaire ajouté.",
+      updated: "Commentaire mis à jour.",
+      deleted: "Commentaire supprimé.",
+    },
+    errors: {
+      create: "Impossible d'ajouter le commentaire.",
+      update: "Impossible de mettre à jour le commentaire.",
+      delete: "Impossible de supprimer le commentaire.",
+    },
+    viewer: {
+      title: "Note du coach",
+      updatedLabel: "Mis à jour {date}",
+    },
+  },
   resourcePages: {
     "trail-nutrition-planner": {
       title: "Plan nutrition trail",

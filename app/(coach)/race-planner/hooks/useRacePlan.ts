@@ -467,6 +467,7 @@ export const useRacePlan = ({
     planName,
     setPlanName,
     savedPlans,
+    activePlanId,
     accountMessage,
     accountError,
     authStatus,
