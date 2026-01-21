@@ -5,6 +5,7 @@ import { getSupabaseServiceConfig } from "./supabase";
 const coachTierRowSchema = z.array(
   z.object({
     name: z.string(),
+    invite_limit: z.number(),
     plan_limit: z.number().nullable().optional(),
     favorite_limit: z.number().nullable().optional(),
     custom_product_limit: z.number().nullable().optional(),
@@ -28,7 +29,7 @@ export const fetchCoachTierByName = async (planName: string): Promise<CoachTierR
     const response = await fetch(
       `${serviceConfig.supabaseUrl}/rest/v1/coach_tiers?name=eq.${encodeURIComponent(
         planName
-      )}&select=name,plan_limit,favorite_limit,custom_product_limit,allow_export,allow_auto_fill,is_premium&limit=1`,
+      )}&select=name,invite_limit,plan_limit,favorite_limit,custom_product_limit,allow_export,allow_auto_fill,is_premium&limit=1`,
       {
         headers: {
           apikey: serviceConfig.supabaseServiceRoleKey,
