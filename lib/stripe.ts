@@ -72,7 +72,7 @@ export type StripeSubscriptionEventData = {
   current_period_end?: number;
   items?: {
     data?: Array<{
-      price?: { id?: string } | null;
+      price?: { id?: string; metadata?: Record<string, unknown> } | null;
     }>;
   };
   metadata?: Record<string, unknown>;

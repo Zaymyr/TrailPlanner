@@ -232,6 +232,7 @@ create table public.subscriptions (
   stripe_subscription_id text,
   status text,
   price_id text,
+  plan_name text,
   current_period_end timestamptz,
   updated_at timestamptz not null default timezone('utc', now())
 );
