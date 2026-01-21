@@ -28,6 +28,14 @@ type SupabaseCoachCoacheeRow = {
   invited_email: string | null;
 };
 
+type SupabaseCoachInviteRow = {
+  id: string;
+  coach_id: string;
+  invite_email: string;
+  status: string;
+  invitee_user_id: string | null;
+};
+
 const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType = "application/json") => ({
   apikey: supabaseKey,
   Authorization: `Bearer ${accessToken}`,
@@ -85,7 +93,7 @@ const fetchCoachInviteCount = async (
   coachId: string
 ): Promise<number | null> => {
   const response = await fetch(
-    `${supabaseUrl}/rest/v1/coach_coachees?coach_id=eq.${encodeURIComponent(coachId)}&select=coachee_id`,
+    `${supabaseUrl}/rest/v1/coach_invites?coach_id=eq.${encodeURIComponent(coachId)}&select=id`,
     {
       headers: {
         ...buildAuthHeaders(supabaseKey, accessToken, undefined),
@@ -108,6 +116,32 @@ const fetchCoachInviteCount = async (
   }
 
   return Array.isArray(payload) ? payload.length : null;
+};
+
+const fetchExistingInvite = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  accessToken: string,
+  coachId: string,
+  email: string
+): Promise<SupabaseCoachInviteRow | null> => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/coach_invites?coach_id=eq.${encodeURIComponent(
+      coachId
+    )}&invite_email=eq.${encodeURIComponent(email)}&select=id,coach_id,invite_email,status,invitee_user_id&limit=1`,
+    {
+      headers: buildAuthHeaders(supabaseKey, accessToken, undefined),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    console.error("Unable to check existing invite", await response.text());
+    return null;
+  }
+
+  const rows = (await response.json().catch(() => null)) as SupabaseCoachInviteRow[] | null;
+  return rows?.[0] ?? null;
 };
 
 const fetchExistingCoachee = async (
@@ -134,6 +168,42 @@ const fetchExistingCoachee = async (
 
   const rows = (await response.json().catch(() => null)) as SupabaseCoachCoacheeRow[] | null;
   return rows?.[0] ?? null;
+};
+
+const insertCoachInvite = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  accessToken: string,
+  payload: {
+    coach_id: string;
+    invite_email: string;
+    status: "pending" | "accepted";
+    invitee_user_id?: string | null;
+    accepted_at?: string | null;
+  }
+): Promise<boolean> => {
+  const response = await fetch(`${supabaseUrl}/rest/v1/coach_invites`, {
+    method: "POST",
+    headers: {
+      ...buildAuthHeaders(supabaseKey, accessToken),
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({
+      coach_id: payload.coach_id,
+      invite_email: payload.invite_email,
+      status: payload.status,
+      invitee_user_id: payload.invitee_user_id ?? null,
+      accepted_at: payload.accepted_at ?? null,
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    console.error("Unable to create coach invite", await response.text());
+    return false;
+  }
+
+  return true;
 };
 
 const insertCoachCoachee = async (
@@ -283,6 +353,18 @@ export async function POST(request: NextRequest) {
   }
 
   const email = parsedBody.data.email.toLowerCase();
+  const existingInvite = await fetchExistingInvite(
+    supabaseAnon.supabaseUrl,
+    supabaseAnon.supabaseAnonKey,
+    token,
+    supabaseUser.id,
+    email
+  );
+
+  if (existingInvite) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invite already sent." }, { status: 409 }));
+  }
+
   const existingUser = await fetchUserByEmail(
     supabaseService.supabaseUrl,
     supabaseService.supabaseServiceRoleKey,
@@ -294,7 +376,7 @@ export async function POST(request: NextRequest) {
       return withSecurityHeaders(NextResponse.json({ message: "Cannot invite yourself." }, { status: 400 }));
     }
 
-    const existingInvite = await fetchExistingCoachee(
+    const existingCoachee = await fetchExistingCoachee(
       supabaseAnon.supabaseUrl,
       supabaseAnon.supabaseAnonKey,
       token,
@@ -302,14 +384,32 @@ export async function POST(request: NextRequest) {
       existingUser.id
     );
 
-    if (existingInvite) {
+    if (existingCoachee) {
       return withSecurityHeaders(NextResponse.json({ message: "Coachee already invited." }, { status: 409 }));
+    }
+
+    const inviteInserted = await insertCoachInvite(
+      supabaseAnon.supabaseUrl,
+      supabaseAnon.supabaseAnonKey,
+      token,
+      {
+        coach_id: supabaseUser.id,
+        invite_email: email,
+        status: "accepted",
+        invitee_user_id: existingUser.id,
+        accepted_at: new Date().toISOString(),
+      }
+    );
+
+    if (!inviteInserted) {
+      return withSecurityHeaders(NextResponse.json({ message: "Unable to create coach invite." }, { status: 502 }));
     }
 
     const inserted = await insertCoachCoachee(supabaseAnon.supabaseUrl, supabaseAnon.supabaseAnonKey, token, {
       coach_id: supabaseUser.id,
       coachee_id: existingUser.id,
       status: "active",
+      invited_email: email,
     });
 
     if (!inserted) {
@@ -336,26 +436,19 @@ export async function POST(request: NextRequest) {
 
   const invitedUserId = inviteResponse.data.user.id;
 
-  const existingInvite = await fetchExistingCoachee(
+  const inviteInserted = await insertCoachInvite(
     supabaseAnon.supabaseUrl,
     supabaseAnon.supabaseAnonKey,
     token,
-    supabaseUser.id,
-    invitedUserId
+    {
+      coach_id: supabaseUser.id,
+      invite_email: email,
+      status: "pending",
+      invitee_user_id: invitedUserId,
+    }
   );
 
-  if (existingInvite) {
-    return withSecurityHeaders(NextResponse.json({ message: "Coachee already invited." }, { status: 409 }));
-  }
-
-  const inserted = await insertCoachCoachee(supabaseAnon.supabaseUrl, supabaseAnon.supabaseAnonKey, token, {
-    coach_id: supabaseUser.id,
-    coachee_id: invitedUserId,
-    status: "pending",
-    invited_email: email,
-  });
-
-  if (!inserted) {
+  if (!inviteInserted) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to create coach invite." }, { status: 502 }));
   }
 
