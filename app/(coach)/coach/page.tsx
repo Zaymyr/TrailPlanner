@@ -154,7 +154,9 @@ export default function CoachDashboardPage() {
         <InviteForm
           onInvite={async (payload) => inviteMutation.mutateAsync(payload)}
           isSubmitting={inviteMutation.isPending}
-          errorMessage={inviteMutation.error ? inviteMutation.error.message : null}
+          errorMessage={
+            inviteMutation.error instanceof Error ? inviteMutation.error.message : null
+          }
           copy={t.coachDashboard.inviteForm}
         />
         <InviteList
