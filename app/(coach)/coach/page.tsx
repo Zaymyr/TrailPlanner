@@ -82,8 +82,7 @@ export default function CoachDashboardPage() {
       if (!accessToken) {
         return {};
       }
-      await queryClient.cancelQueries({ queryKey: dashboardQueryKey(accessToken) });
-      const previousDashboard = queryClient.getQueryData<CoachDashboard>(dashboardQueryKey(accessToken));
+      const previousDashboard = queryClient.getState<CoachDashboard>(dashboardQueryKey(accessToken)).data;
       if (previousDashboard) {
         queryClient.setQueryData<CoachDashboard>(dashboardQueryKey(accessToken), {
           ...previousDashboard,
