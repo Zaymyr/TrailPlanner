@@ -814,6 +814,69 @@ export type CoachCommentsTranslations = {
   };
 };
 
+export type CoachDashboardTranslations = {
+  title: string;
+  description: string;
+  authRequired: string;
+  loading: string;
+  loadError: string;
+  tier: {
+    title: string;
+    description: string;
+    planLabel: string;
+    noActivePlan: string;
+    inviteLimitLabel: string;
+    invitesUsedLabel: string;
+    seatsRemainingLabel: string;
+    loading: string;
+    error: string;
+  };
+  inviteForm: {
+    title: string;
+    description: string;
+    emailLabel: string;
+    emailPlaceholder: string;
+    submit: string;
+    submitting: string;
+    success: string;
+  };
+  invites: {
+    title: string;
+    description: string;
+    empty: string;
+    loading: string;
+    error: string;
+    columns: {
+      email: string;
+      status: string;
+      sentAt: string;
+    };
+    status: {
+      pending: string;
+      accepted: string;
+      canceled: string;
+    };
+  };
+  coachees: {
+    title: string;
+    description: string;
+    empty: string;
+    loading: string;
+    error: string;
+    unknownName: string;
+    columns: {
+      name: string;
+      status: string;
+      age: string;
+      added: string;
+    };
+    status: {
+      active: string;
+      pending: string;
+    };
+  };
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   racePlanner: RacePlannerTranslations;
@@ -834,6 +897,7 @@ export type Translations = {
   coachIntakeTargets: CoachIntakeTargetsTranslations;
   coachPlans: CoachPlansTranslations;
   coachComments: CoachCommentsTranslations;
+  coachDashboard: CoachDashboardTranslations;
 };
 
 export type ProductSettingsTranslations = {
