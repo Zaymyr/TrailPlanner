@@ -561,8 +561,8 @@ create policy "Users can update their profile" on public.user_profiles
   for update using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy "Coaches can read their coachees" on public.coach_coachees
-  for select using (coach_id = auth.uid());
+create policy "Coaches and coachees can read their relationships" on public.coach_coachees
+  for select using (coach_id = auth.uid() or coachee_id = auth.uid());
 
 create policy "Coaches can insert their coachees" on public.coach_coachees
   for insert with check (coach_id = auth.uid());
