@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { CoacheeList } from "../../../components/coach/CoacheeList";
@@ -20,6 +21,8 @@ const coacheesQueryKey = (accessToken?: string) => ["coach-coachees", accessToke
 export default function CoachDashboardPage() {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+  const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const accessToken = session?.accessToken;
 
@@ -58,7 +61,7 @@ export default function CoachDashboardPage() {
     },
   });
 
-  const resendInviteMutation = useMutation<void, Error, { id: string }>({
+  const resendInviteMutation = useMutation<void, { id: string }>({
     mutationFn: async ({ id }) => {
       if (!accessToken) {
         throw new Error("Missing access token");
@@ -70,45 +73,50 @@ export default function CoachDashboardPage() {
     },
   });
 
-  const cancelInviteMutation = useMutation<
-    void,
-    Error,
-    { id: string },
-    { previousDashboard?: CoachDashboard }
-  >({
+  const cancelInviteMutation = useMutation<void, { id: string }>({
     mutationFn: async ({ id }) => {
       if (!accessToken) {
         throw new Error("Missing access token");
       }
       await cancelCoachInvite(accessToken, id);
     },
-    onMutate: async ({ id }) => {
-      if (!accessToken) {
-        return {};
-      }
-      await queryClient.cancelQueries({ queryKey: dashboardQueryKey(accessToken) });
-      const previousDashboard = queryClient.getQueryData<CoachDashboard>(dashboardQueryKey(accessToken));
-      if (previousDashboard) {
-        queryClient.setQueryData<CoachDashboard>(dashboardQueryKey(accessToken), {
-          ...previousDashboard,
-          invites: previousDashboard.invites.filter((invite) => invite.id !== id),
-        });
-      }
-      return { previousDashboard };
-    },
-    onError: (_error, _variables, context) => {
-      if (context?.previousDashboard && accessToken) {
-        queryClient.setQueryData(dashboardQueryKey(accessToken), context.previousDashboard);
-      }
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: dashboardQueryKey(accessToken) });
-    },
   });
 
+  const handleCancelInvite = async (inviteId: string) => {
+    if (!accessToken) {
+      throw new Error("Missing access token");
+    }
+    const previousDashboard = queryClient.getState<CoachDashboard>(dashboardQueryKey(accessToken)).data ?? null;
+    if (previousDashboard) {
+      queryClient.setQueryData<CoachDashboard>(dashboardQueryKey(accessToken), {
+        ...previousDashboard,
+        invites: previousDashboard.invites.filter((invite) => invite.id !== inviteId),
+      });
+    }
+    setCancelingInviteId(inviteId);
+    try {
+      await cancelInviteMutation.mutateAsync({ id: inviteId });
+    } catch (error) {
+      if (previousDashboard) {
+        queryClient.setQueryData(dashboardQueryKey(accessToken), previousDashboard);
+      }
+      throw error;
+    } finally {
+      setCancelingInviteId(null);
+      void queryClient.invalidateQueries({ queryKey: dashboardQueryKey(accessToken) });
+    }
+  };
+
+  const handleResendInvite = async (inviteId: string) => {
+    setResendingInviteId(inviteId);
+    try {
+      await resendInviteMutation.mutateAsync({ id: inviteId });
+    } finally {
+      setResendingInviteId(null);
+    }
+  };
+
   const actionError = resendInviteMutation.error ?? cancelInviteMutation.error;
-  const resendingInviteId = resendInviteMutation.isPending ? resendInviteMutation.variables?.id : null;
-  const cancelingInviteId = cancelInviteMutation.isPending ? cancelInviteMutation.variables?.id : null;
 
   if (isSessionLoading) {
     return (
@@ -137,7 +145,7 @@ export default function CoachDashboardPage() {
       <TierCard
         dashboard={dashboardQuery.data}
         isLoading={dashboardQuery.isLoading}
-        error={dashboardQuery.error}
+        error={dashboardQuery.error instanceof Error ? dashboardQuery.error : null}
         labels={t.profile.subscription.coachTiers.labels}
         copy={t.coachDashboard.tier}
       />
@@ -146,16 +154,18 @@ export default function CoachDashboardPage() {
         <InviteForm
           onInvite={async (payload) => inviteMutation.mutateAsync(payload)}
           isSubmitting={inviteMutation.isPending}
-          errorMessage={inviteMutation.error ? inviteMutation.error.message : null}
+          errorMessage={
+            inviteMutation.error instanceof Error ? inviteMutation.error.message : null
+          }
           copy={t.coachDashboard.inviteForm}
         />
         <InviteList
           invites={dashboardQuery.data?.invites ?? []}
           isLoading={dashboardQuery.isLoading}
-          error={dashboardQuery.error}
+          error={dashboardQuery.error instanceof Error ? dashboardQuery.error : null}
           actionError={actionError?.message ?? null}
-          onResend={async (inviteId) => resendInviteMutation.mutateAsync({ id: inviteId })}
-          onCancel={async (inviteId) => cancelInviteMutation.mutateAsync({ id: inviteId })}
+          onResend={handleResendInvite}
+          onCancel={handleCancelInvite}
           resendingInviteId={resendingInviteId}
           cancelingInviteId={cancelingInviteId}
           copy={t.coachDashboard.invites}
@@ -166,7 +176,7 @@ export default function CoachDashboardPage() {
       <CoacheeList
         coachees={coacheesQuery.data ?? []}
         isLoading={coacheesQuery.isLoading}
-        error={coacheesQuery.error}
+        error={coacheesQuery.error instanceof Error ? coacheesQuery.error : null}
         copy={t.coachDashboard.coachees}
         locale={locale}
       />
