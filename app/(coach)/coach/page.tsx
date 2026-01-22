@@ -25,22 +25,22 @@ export default function CoachDashboardPage() {
 
   const dashboardQuery = useQuery<CoachDashboard>({
     queryKey: dashboardQueryKey(accessToken),
-    queryFn: ({ signal }) => {
+    queryFn: () => {
       if (!accessToken) {
         return Promise.reject(new Error("Missing access token"));
       }
-      return fetchCoachDashboard(accessToken, signal);
+      return fetchCoachDashboard(accessToken);
     },
     enabled: Boolean(accessToken),
   });
 
   const coacheesQuery = useQuery<CoachCoachee[]>({
     queryKey: coacheesQueryKey(accessToken),
-    queryFn: ({ signal }) => {
+    queryFn: () => {
       if (!accessToken) {
         return Promise.reject(new Error("Missing access token"));
       }
-      return fetchCoachCoachees(accessToken, signal);
+      return fetchCoachCoachees(accessToken);
     },
     enabled: Boolean(accessToken),
   });
