@@ -12,8 +12,16 @@ const coachProfileSchema = z.array(
   })
 );
 
+const coachSubscriptionProfileSchema = z.array(
+  z.object({
+    coach_tier_id: z.string().nullable().optional(),
+    subscription_status: z.string().nullable().optional(),
+  })
+);
+
 const coachTierSchema = z.array(
   z.object({
+    name: z.string().optional(),
     invite_limit: z.union([z.number(), z.string()]).transform((value) => Number(value)),
   })
 );
@@ -65,33 +73,71 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const profileResponse = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
-        supabaseUser.id
-      )}&select=is_coach,coach_plan_name&limit=1`,
-      {
-        headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, accessToken),
-        cache: "no-store",
-      }
-    );
+    const [coachProfileResponse, profileResponse] = await Promise.all([
+      fetch(
+        `${supabaseConfig.supabaseUrl}/rest/v1/coach_profiles?user_id=eq.${encodeURIComponent(
+          supabaseUser.id
+        )}&select=coach_tier_id,subscription_status&limit=1`,
+        {
+          headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, accessToken),
+          cache: "no-store",
+        }
+      ),
+      fetch(
+        `${supabaseConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
+          supabaseUser.id
+        )}&select=is_coach,coach_plan_name&limit=1`,
+        {
+          headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, accessToken),
+          cache: "no-store",
+        }
+      ),
+    ]);
 
     if (!profileResponse.ok) {
       return withSecurityHeaders(NextResponse.json({ message: "Unable to load coach summary." }, { status: 502 }));
     }
 
     const profileRows = coachProfileSchema.safeParse(await profileResponse.json());
+    const coachProfileRows = coachProfileResponse.ok
+      ? coachSubscriptionProfileSchema.safeParse(await coachProfileResponse.json())
+      : null;
 
     if (!profileRows.success) {
       return withSecurityHeaders(NextResponse.json({ message: "Unable to load coach summary." }, { status: 500 }));
     }
 
     const profileRow = profileRows.data?.[0];
-    const isCoach = Boolean(profileRow?.is_coach);
-    const planName = isCoach ? profileRow?.coach_plan_name ?? null : null;
+    const fallbackIsCoach = Boolean(profileRow?.is_coach);
+    const fallbackPlanName = fallbackIsCoach ? profileRow?.coach_plan_name ?? null : null;
+    const coachProfileRow = coachProfileRows?.success ? coachProfileRows.data?.[0] : null;
+    const normalizedStatus = coachProfileRow?.subscription_status?.toLowerCase() ?? null;
+    const isCoachFromSubscription = normalizedStatus === "active" || normalizedStatus === "trialing";
+    const coachTierId = isCoachFromSubscription ? coachProfileRow?.coach_tier_id ?? null : null;
+    const isCoach = isCoachFromSubscription || fallbackIsCoach;
+    let planName = isCoachFromSubscription ? null : fallbackPlanName;
 
     let inviteLimit: number | null = null;
 
-    if (planName) {
+    if (coachTierId) {
+      const tierResponse = await fetch(
+        `${supabaseConfig.supabaseUrl}/rest/v1/coach_tiers?id=eq.${encodeURIComponent(
+          coachTierId
+        )}&select=name,invite_limit&limit=1`,
+        {
+          headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, accessToken),
+          cache: "no-store",
+        }
+      );
+
+      if (tierResponse.ok) {
+        const parsedTier = coachTierSchema.safeParse(await tierResponse.json());
+        if (parsedTier.success) {
+          inviteLimit = parsedTier.data?.[0]?.invite_limit ?? null;
+          planName = parsedTier.data?.[0]?.name ?? planName;
+        }
+      }
+    } else if (planName) {
       const tierResponse = await fetch(
         `${supabaseConfig.supabaseUrl}/rest/v1/coach_tiers?name=eq.${encodeURIComponent(
           planName
