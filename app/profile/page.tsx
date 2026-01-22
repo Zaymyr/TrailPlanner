@@ -17,6 +17,7 @@ import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchEntitlements } from "../../lib/entitlements-client";
 import { fetchCoachTiers } from "../../lib/coach-tiers-client";
+import { fetchCoachSummary } from "../../lib/coach-summary-client";
 import { fetchTrialStatus } from "../../lib/trial-client";
 import { isTrialActive } from "../../lib/trial";
 import { useProductSelection } from "../hooks/useProductSelection";
@@ -162,6 +163,19 @@ export default function ProfilePage() {
       }
 
       return fetchCoachTiers(session.accessToken);
+    },
+    staleTime: 60_000,
+  });
+
+  const coachSummaryQuery = useQuery({
+    queryKey: ["coach-summary", session?.accessToken],
+    enabled: Boolean(session?.accessToken),
+    queryFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error(t.profile.authRequired);
+      }
+
+      return fetchCoachSummary(session.accessToken);
     },
     staleTime: 60_000,
   });
@@ -336,6 +350,30 @@ export default function ProfilePage() {
   ]);
 
   const coachTierLabels = t.profile.subscription.coachTiers.labels;
+  const coachPlanName = coachSummaryQuery.data?.planName ?? null;
+  const isCoach = coachSummaryQuery.data?.isCoach === true;
+  const showCoachSummary = isCoach;
+  const coachSummaryLoading = showCoachSummary ? coachSummaryQuery.isLoading : coachTiersQuery.isLoading;
+  const coachSummaryError = showCoachSummary ? coachSummaryQuery.isError : coachTiersQuery.isError;
+  const coachPlanLabel = useMemo(() => {
+    if (!coachPlanName) return t.profile.subscription.coachTiers.noActivePlan;
+    return coachTierLabels[coachPlanName as keyof typeof coachTierLabels] ?? coachPlanName.toUpperCase();
+  }, [coachPlanName, coachTierLabels, t.profile.subscription.coachTiers.noActivePlan]);
+  const inviteUsageLabel = useMemo(() => {
+    if (!coachSummaryQuery.data) return null;
+    const count = coachSummaryQuery.data.inviteCount;
+    const limit = coachSummaryQuery.data.inviteLimit;
+    if (typeof limit === "number") {
+      return t.profile.subscription.coachTiers.inviteUsageLabel
+        .replace("{count}", count.toString())
+        .replace("{limit}", limit.toString());
+    }
+    return t.profile.subscription.coachTiers.inviteCountLabel.replace("{count}", count.toString());
+  }, [
+    coachSummaryQuery.data,
+    t.profile.subscription.coachTiers.inviteCountLabel,
+    t.profile.subscription.coachTiers.inviteUsageLabel,
+  ]);
 
   const handleUpgrade = useCallback(async () => {
     if (!session?.accessToken) {
@@ -599,16 +637,34 @@ export default function ProfilePage() {
             {session?.accessToken ? (
               <div className="space-y-2 rounded-md border border-border bg-muted/40 px-3 py-2">
                 <div className="space-y-1">
-                  <p className="text-sm font-semibold text-foreground">{t.profile.subscription.coachTiers.title}</p>
-                  <p className="text-xs text-muted-foreground">{t.profile.subscription.coachTiers.description}</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {isCoach ? t.profile.subscription.coachTiers.activeTitle : t.profile.subscription.coachTiers.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {isCoach
+                      ? t.profile.subscription.coachTiers.activeDescription
+                      : t.profile.subscription.coachTiers.description}
+                  </p>
                 </div>
-                {coachTiersQuery.isLoading ? (
+                {coachSummaryLoading ? (
                   <p className="text-xs text-muted-foreground">{t.profile.subscription.coachTiers.loading}</p>
                 ) : null}
-                {coachTiersQuery.isError ? (
+                {coachSummaryError ? (
                   <p className="text-xs text-red-600 dark:text-red-300">{t.profile.subscription.coachTiers.error}</p>
                 ) : null}
-                {coachTiersQuery.data && coachTiersQuery.data.length > 0 ? (
+                {showCoachSummary ? (
+                  <div className="space-y-1 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">
+                        {t.profile.subscription.coachTiers.activePlanLabel}
+                      </span>
+                      <span className="font-medium text-foreground">{coachPlanLabel}</span>
+                    </div>
+                    {inviteUsageLabel ? (
+                      <p className="text-xs text-muted-foreground">{inviteUsageLabel}</p>
+                    ) : null}
+                  </div>
+                ) : coachTiersQuery.data && coachTiersQuery.data.length > 0 ? (
                   <ul className="divide-y divide-border/60">
                     {coachTiersQuery.data.map((tier) => {
                       const label =
