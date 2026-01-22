@@ -45,7 +45,7 @@ export default function CoachDashboardPage() {
     enabled: Boolean(accessToken),
   });
 
-  const inviteMutation = useMutation<void, Error, { email: string }>({
+  const inviteMutation = useMutation<void, { email: string }>({
     mutationFn: async (payload: { email: string }) => {
       if (!accessToken) {
         throw new Error("Missing access token");
