@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { CoacheeList } from "../../../components/coach/CoacheeList";
@@ -20,6 +21,8 @@ const coacheesQueryKey = (accessToken?: string) => ["coach-coachees", accessToke
 export default function CoachDashboardPage() {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
+  const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
+  const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const accessToken = session?.accessToken;
 
@@ -90,6 +93,7 @@ export default function CoachDashboardPage() {
         invites: previousDashboard.invites.filter((invite) => invite.id !== inviteId),
       });
     }
+    setCancelingInviteId(inviteId);
     try {
       await cancelInviteMutation.mutateAsync({ id: inviteId });
     } catch (error) {
@@ -98,13 +102,21 @@ export default function CoachDashboardPage() {
       }
       throw error;
     } finally {
+      setCancelingInviteId(null);
       void queryClient.invalidateQueries({ queryKey: dashboardQueryKey(accessToken) });
     }
   };
 
+  const handleResendInvite = async (inviteId: string) => {
+    setResendingInviteId(inviteId);
+    try {
+      await resendInviteMutation.mutateAsync({ id: inviteId });
+    } finally {
+      setResendingInviteId(null);
+    }
+  };
+
   const actionError = resendInviteMutation.error ?? cancelInviteMutation.error;
-  const resendingInviteId = resendInviteMutation.isPending ? resendInviteMutation.variables?.id : null;
-  const cancelingInviteId = cancelInviteMutation.isPending ? cancelInviteMutation.variables?.id : null;
 
   if (isSessionLoading) {
     return (
@@ -150,7 +162,7 @@ export default function CoachDashboardPage() {
           isLoading={dashboardQuery.isLoading}
           error={dashboardQuery.error}
           actionError={actionError?.message ?? null}
-          onResend={async (inviteId) => resendInviteMutation.mutateAsync({ id: inviteId })}
+          onResend={handleResendInvite}
           onCancel={handleCancelInvite}
           resendingInviteId={resendingInviteId}
           cancelingInviteId={cancelingInviteId}
