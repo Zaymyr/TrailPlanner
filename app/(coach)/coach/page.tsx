@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { CoacheeList } from "../../../components/coach/CoacheeList";
@@ -20,6 +21,7 @@ const coacheesQueryKey = (accessToken?: string) => ["coach-coachees", accessToke
 export default function CoachDashboardPage() {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
+  const previousDashboardRef = useRef<CoachDashboard | null>(null);
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const accessToken = session?.accessToken;
 
@@ -83,21 +85,21 @@ export default function CoachDashboardPage() {
         return {};
       }
       const previousDashboard = queryClient.getState<CoachDashboard>(dashboardQueryKey(accessToken)).data;
+      previousDashboardRef.current = previousDashboard ?? null;
       if (previousDashboard) {
         queryClient.setQueryData<CoachDashboard>(dashboardQueryKey(accessToken), {
           ...previousDashboard,
           invites: previousDashboard.invites.filter((invite) => invite.id !== id),
         });
       }
-      return { previousDashboard };
     },
-    onError: (_error, _variables, context) => {
-      const typedContext = context as { previousDashboard?: CoachDashboard } | undefined;
-      if (typedContext?.previousDashboard && accessToken) {
-        queryClient.setQueryData(dashboardQueryKey(accessToken), typedContext.previousDashboard);
+    onError: () => {
+      if (previousDashboardRef.current && accessToken) {
+        queryClient.setQueryData(dashboardQueryKey(accessToken), previousDashboardRef.current);
       }
     },
     onSettled: () => {
+      previousDashboardRef.current = null;
       void queryClient.invalidateQueries({ queryKey: dashboardQueryKey(accessToken) });
     },
   });
