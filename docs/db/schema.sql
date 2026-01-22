@@ -275,6 +275,7 @@ create table public.coach_invites (
   invite_email text not null,
   status text not null default 'pending',
   created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
   accepted_at timestamptz,
   invitee_user_id uuid references auth.users(id)
 );
@@ -282,7 +283,22 @@ create table public.coach_invites (
 create index coach_invites_coach_id_idx on public.coach_invites(coach_id);
 create index coach_invites_invite_email_idx on public.coach_invites(invite_email);
 create index coach_invites_invitee_user_id_idx on public.coach_invites(invitee_user_id);
-create unique index coach_invites_coach_email_uidx on public.coach_invites(coach_id, invite_email);
+create unique index coach_invites_coach_email_uidx on public.coach_invites(coach_id, invite_email)
+  where status <> 'canceled';
+
+create or replace function public.set_coach_invites_updated_at()
+returns trigger as $$
+begin
+  new.updated_at = timezone('utc', now());
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists set_coach_invites_updated_at on public.coach_invites;
+create trigger set_coach_invites_updated_at
+before update on public.coach_invites
+for each row
+execute function public.set_coach_invites_updated_at();
 
 create table public.coach_intake_targets (
   coachee_id uuid not null references public.user_profiles(user_id) on delete cascade,
@@ -606,7 +622,10 @@ create policy "Coaches can read their invites" on public.coach_invites
   for select using (coach_id = auth.uid());
 
 create policy "Invited users can read their invites" on public.coach_invites
-  for select using (lower(invite_email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+  for select using (
+    lower(invite_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    or invitee_user_id = auth.uid()
+  );
 
 create policy "Coaches can insert invites" on public.coach_invites
   for insert with check (coach_id = auth.uid());
