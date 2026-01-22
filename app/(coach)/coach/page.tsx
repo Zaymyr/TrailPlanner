@@ -145,7 +145,7 @@ export default function CoachDashboardPage() {
       <TierCard
         dashboard={dashboardQuery.data}
         isLoading={dashboardQuery.isLoading}
-        error={dashboardQuery.error}
+        error={dashboardQuery.error instanceof Error ? dashboardQuery.error : null}
         labels={t.profile.subscription.coachTiers.labels}
         copy={t.coachDashboard.tier}
       />
@@ -160,7 +160,7 @@ export default function CoachDashboardPage() {
         <InviteList
           invites={dashboardQuery.data?.invites ?? []}
           isLoading={dashboardQuery.isLoading}
-          error={dashboardQuery.error}
+          error={dashboardQuery.error instanceof Error ? dashboardQuery.error : null}
           actionError={actionError?.message ?? null}
           onResend={handleResendInvite}
           onCancel={handleCancelInvite}
@@ -174,7 +174,7 @@ export default function CoachDashboardPage() {
       <CoacheeList
         coachees={coacheesQuery.data ?? []}
         isLoading={coacheesQuery.isLoading}
-        error={coacheesQuery.error}
+        error={coacheesQuery.error instanceof Error ? coacheesQuery.error : null}
         copy={t.coachDashboard.coachees}
         locale={locale}
       />
