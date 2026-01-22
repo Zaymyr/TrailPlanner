@@ -15,6 +15,7 @@ const coachCoacheeRowSchema = z.array(
   z.object({
     coach_id: z.string(),
     coachee_id: z.string(),
+    status: z.string(),
   })
 );
 
@@ -48,7 +49,9 @@ const ensureCoachCoacheeLink = async (
   const response = await fetch(
     `${supabaseUrl}/rest/v1/coach_coachees?coach_id=eq.${encodeURIComponent(
       coachId
-    )}&coachee_id=eq.${encodeURIComponent(coacheeId)}&select=coach_id,coachee_id&limit=1`,
+    )}&coachee_id=eq.${encodeURIComponent(
+      coacheeId
+    )}&status=eq.active&select=coach_id,coachee_id,status&limit=1`,
     {
       headers: buildAuthHeaders(supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -61,7 +64,7 @@ const ensureCoachCoacheeLink = async (
   }
 
   const rows = coachCoacheeRowSchema.parse(await response.json());
-  return rows.length > 0;
+  return rows.length > 0 && rows[0]?.status === "active";
 };
 
 const mapPlanRow = (row: z.infer<typeof planRowSchema>[number]) => ({
@@ -299,6 +302,7 @@ export async function PUT(request: Request) {
           name: parsedBody.data.name,
           planner_values: parsedBody.data.plannerValues,
           elevation_profile: parsedBody.data.elevationProfile,
+          coach_id: user.id,
         }),
       }
     );

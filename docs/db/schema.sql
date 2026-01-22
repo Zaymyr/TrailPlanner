@@ -445,6 +445,7 @@ create policy "Coaches can view their coachee race plans" on public.race_plans
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
+        and coach_coachees.status = 'active'
     )
   );
 
@@ -455,6 +456,7 @@ create policy "Coaches can insert coachee race plans" on public.race_plans
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
+        and coach_coachees.status = 'active'
     )
   );
 
@@ -465,6 +467,7 @@ create policy "Coaches can update coachee race plans" on public.race_plans
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
+        and coach_coachees.status = 'active'
     )
   )
   with check (
@@ -473,6 +476,7 @@ create policy "Coaches can update coachee race plans" on public.race_plans
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
+        and coach_coachees.status = 'active'
     )
   );
 
@@ -483,6 +487,7 @@ create policy "Coaches can delete coachee race plans" on public.race_plans
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
+        and coach_coachees.status = 'active'
     )
   );
 
