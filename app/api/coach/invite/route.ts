@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
 import { coachInviteCreateSchema, coachInviteResponseSchema } from "../../../../lib/coach-invites";
