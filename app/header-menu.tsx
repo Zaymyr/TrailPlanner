@@ -26,6 +26,7 @@ export function HeaderMenu() {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
+  const isCoach = session?.role === "coach" || session?.roles?.includes("coach");
 
   const menuItems: MenuItem[] = useMemo(
     () => [
@@ -33,6 +34,11 @@ export function HeaderMenu() {
         label: t.navigation.racePlanner,
         href: "/race-planner",
         active: pathname === "/race-planner",
+      },
+      {
+        label: t.navigation.coach,
+        href: "/coach",
+        active: pathname === "/coach",
       },
       {
         label: t.navigation.blog,
@@ -55,8 +61,26 @@ export function HeaderMenu() {
         active: pathname === "/admin",
       },
     ],
-    [pathname, t.navigation.admin, t.navigation.blog, t.navigation.profile, t.navigation.racePlanner, t.navigation.settings]
+    [
+      pathname,
+      t.navigation.admin,
+      t.navigation.blog,
+      t.navigation.coach,
+      t.navigation.profile,
+      t.navigation.racePlanner,
+      t.navigation.settings,
+    ]
   );
+
+  const visibleMenuItems = menuItems.filter((item) => {
+    if (item.href === "/admin") {
+      return isAdmin;
+    }
+    if (item.href === "/coach") {
+      return isCoach;
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (!isOpen) {
@@ -97,8 +121,6 @@ export function HeaderMenu() {
       router.refresh();
     }
   };
-
-  const visibleMenuItems = menuItems.filter((item) => item.href !== "/admin" || isAdmin);
 
   return (
     <div className="relative" ref={menuRef}>

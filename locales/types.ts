@@ -947,6 +947,7 @@ export type Translations = {
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
     racePlanner: string;
+    coach: string;
     blog: string;
     settings: string;
     admin: string;

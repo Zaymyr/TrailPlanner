@@ -225,6 +225,12 @@ create table public.coach_tiers (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   invite_limit integer not null,
+  plan_limit integer,
+  favorite_limit integer,
+  custom_product_limit integer,
+  allow_export boolean,
+  allow_auto_fill boolean,
+  is_premium boolean,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   constraint coach_tiers_name_key unique (name)
