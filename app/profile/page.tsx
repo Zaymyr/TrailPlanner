@@ -16,6 +16,7 @@ import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchEntitlements } from "../../lib/entitlements-client";
+import { fetchCoachTiers } from "../../lib/coach-tiers-client";
 import { fetchTrialStatus } from "../../lib/trial-client";
 import { isTrialActive } from "../../lib/trial";
 import { useProductSelection } from "../hooks/useProductSelection";
@@ -150,6 +151,19 @@ export default function ProfilePage() {
       }
       return fetchEntitlements(session.accessToken);
     },
+  });
+
+  const coachTiersQuery = useQuery({
+    queryKey: ["coach-tiers", session?.accessToken],
+    enabled: Boolean(session?.accessToken),
+    queryFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error(t.profile.authRequired);
+      }
+
+      return fetchCoachTiers(session.accessToken);
+    },
+    staleTime: 60_000,
   });
 
   const trialStatusQuery = useQuery({
@@ -320,6 +334,8 @@ export default function ProfilePage() {
     t.profile.subscription.trialStatus,
     trialActive,
   ]);
+
+  const coachTierLabels = t.profile.subscription.coachTiers.labels;
 
   const handleUpgrade = useCallback(async () => {
     if (!session?.accessToken) {
@@ -578,6 +594,40 @@ export default function ProfilePage() {
 
             {!entitlementsQuery.data?.isPremium && trialActive && trialEndsAtLabel ? (
               <p className="text-xs text-muted-foreground">{trialEndsAtLabel}</p>
+            ) : null}
+
+            {session?.accessToken ? (
+              <div className="space-y-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-foreground">{t.profile.subscription.coachTiers.title}</p>
+                  <p className="text-xs text-muted-foreground">{t.profile.subscription.coachTiers.description}</p>
+                </div>
+                {coachTiersQuery.isLoading ? (
+                  <p className="text-xs text-muted-foreground">{t.profile.subscription.coachTiers.loading}</p>
+                ) : null}
+                {coachTiersQuery.isError ? (
+                  <p className="text-xs text-red-600 dark:text-red-300">{t.profile.subscription.coachTiers.error}</p>
+                ) : null}
+                {coachTiersQuery.data && coachTiersQuery.data.length > 0 ? (
+                  <ul className="divide-y divide-border/60">
+                    {coachTiersQuery.data.map((tier) => {
+                      const label =
+                        coachTierLabels[tier.name as keyof typeof coachTierLabels] ?? tier.name.toUpperCase();
+                      return (
+                        <li key={tier.name} className="flex items-center justify-between py-1 text-sm">
+                          <span className="font-medium text-foreground">{label}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {t.profile.subscription.coachTiers.inviteLimitLabel.replace(
+                              "{count}",
+                              tier.inviteLimit.toString()
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : null}
+              </div>
             ) : null}
 
             {session?.accessToken ? (

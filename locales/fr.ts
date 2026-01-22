@@ -777,6 +777,18 @@ export const fr: Translations = {
       unsubscribeCta: "Se désabonner",
       checkoutError: "Impossible de lancer le paiement. Réessayez.",
       portalError: "Impossible d'ouvrir la gestion de facturation. Réessayez.",
+      coachTiers: {
+        title: "Paliers coach",
+        description: "Limites d'invitations pour chaque offre coach.",
+        loading: "Chargement des paliers coach...",
+        error: "Impossible de charger les paliers coach.",
+        inviteLimitLabel: "{count} invitations",
+        labels: {
+          starter: "Débutant",
+          pro: "Pro",
+          elite: "Élite",
+        },
+      },
       unsubscribeConfirm: {
         title: "Voulez-vous annuler votre abonnement ?",
         description: "En annulant, vous repasserez sur l'offre gratuite à la fin de la période en cours.",

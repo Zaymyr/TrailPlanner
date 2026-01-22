@@ -767,6 +767,18 @@ export const en: Translations = {
       unsubscribeCta: "Unsubscribe",
       checkoutError: "We couldn't start checkout. Please try again.",
       portalError: "We couldn't open billing settings. Please try again.",
+      coachTiers: {
+        title: "Coach tiers",
+        description: "Invite limits for each coach plan.",
+        loading: "Loading coach tiers...",
+        error: "We couldn't load coach tiers.",
+        inviteLimitLabel: "{count} invite slots",
+        labels: {
+          starter: "Starter",
+          pro: "Pro",
+          elite: "Elite",
+        },
+      },
       unsubscribeConfirm: {
         title: "Do you want to cancel your subscription?",
         description:
