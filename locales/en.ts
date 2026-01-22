@@ -770,8 +770,14 @@ export const en: Translations = {
       coachTiers: {
         title: "Coach tiers",
         description: "Invite limits for each coach plan.",
+        activeTitle: "Active coach plan",
+        activeDescription: "Your current coach plan and invite usage.",
+        activePlanLabel: "Plan",
+        noActivePlan: "No active coach plan",
         loading: "Loading coach tiers...",
         error: "We couldn't load coach tiers.",
+        inviteCountLabel: "{count} invites sent",
+        inviteUsageLabel: "{count} of {limit} invites used",
         inviteLimitLabel: "{count} invite slots",
         labels: {
           starter: "Starter",

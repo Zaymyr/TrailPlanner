@@ -780,8 +780,14 @@ export const fr: Translations = {
       coachTiers: {
         title: "Paliers coach",
         description: "Limites d'invitations pour chaque offre coach.",
+        activeTitle: "Formule coach active",
+        activeDescription: "Votre formule coach actuelle et vos invitations utilisées.",
+        activePlanLabel: "Formule",
+        noActivePlan: "Aucune formule coach active",
         loading: "Chargement des paliers coach...",
         error: "Impossible de charger les paliers coach.",
+        inviteCountLabel: "{count} invitations envoyées",
+        inviteUsageLabel: "{count} sur {limit} invitations utilisées",
         inviteLimitLabel: "{count} invitations",
         labels: {
           starter: "Débutant",

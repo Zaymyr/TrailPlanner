@@ -677,8 +677,14 @@ export type ProfileTranslations = {
     coachTiers: {
       title: string;
       description: string;
+      activeTitle: string;
+      activeDescription: string;
+      activePlanLabel: string;
+      noActivePlan: string;
       loading: string;
       error: string;
+      inviteCountLabel: string;
+      inviteUsageLabel: string;
       inviteLimitLabel: string;
       labels: {
         starter: string;
