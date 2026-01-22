@@ -794,6 +794,11 @@ export const en: Translations = {
         cancel: "Keep Premium",
       },
     },
+    coachRelationship: {
+      title: "Coach relationship",
+      pending: "Invited by coach",
+      active: "Active coach relationship",
+    },
     premiumModal: {
       title: "Upgrade to Premium",
       description: "Unlock unlimited plans, exports, automatic fill, and unlimited custom products.",

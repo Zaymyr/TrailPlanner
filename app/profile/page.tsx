@@ -18,6 +18,7 @@ import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { fetchEntitlements } from "../../lib/entitlements-client";
 import { fetchCoachTiers } from "../../lib/coach-tiers-client";
 import { fetchCoachSummary } from "../../lib/coach-summary-client";
+import { fetchCoachRelationshipStatus } from "../../lib/coach-relationship-client";
 import { fetchTrialStatus } from "../../lib/trial-client";
 import { isTrialActive } from "../../lib/trial";
 import { useProductSelection } from "../hooks/useProductSelection";
@@ -176,6 +177,19 @@ export default function ProfilePage() {
       }
 
       return fetchCoachSummary(session.accessToken);
+    },
+    staleTime: 60_000,
+  });
+
+  const coachRelationshipQuery = useQuery({
+    queryKey: ["coach-relationship", session?.accessToken],
+    enabled: Boolean(session?.accessToken),
+    queryFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error(t.profile.authRequired);
+      }
+
+      return fetchCoachRelationshipStatus(session.accessToken);
     },
     staleTime: 60_000,
   });
@@ -355,6 +369,13 @@ export default function ProfilePage() {
   const showCoachSummary = isCoach;
   const coachSummaryLoading = showCoachSummary ? coachSummaryQuery.isLoading : coachTiersQuery.isLoading;
   const coachSummaryError = showCoachSummary ? coachSummaryQuery.isError : coachTiersQuery.isError;
+  const coachRelationshipStatus = coachRelationshipQuery.data ?? null;
+  const coachRelationshipLabel = useMemo(() => {
+    if (coachRelationshipStatus === "pending") return t.profile.coachRelationship.pending;
+    if (coachRelationshipStatus === "active") return t.profile.coachRelationship.active;
+    return null;
+  }, [coachRelationshipStatus, t.profile.coachRelationship.active, t.profile.coachRelationship.pending]);
+  const showCoachRelationship = Boolean(coachRelationshipLabel);
   const coachPlanLabel = useMemo(() => {
     if (!coachPlanName) return t.profile.subscription.coachTiers.noActivePlan;
     return coachTierLabels[coachPlanName as keyof typeof coachTierLabels] ?? coachPlanName.toUpperCase();
@@ -683,6 +704,13 @@ export default function ProfilePage() {
                     })}
                   </ul>
                 ) : null}
+              </div>
+            ) : null}
+
+            {session?.accessToken && showCoachRelationship ? (
+              <div className="space-y-1 rounded-md border border-border bg-muted/40 px-3 py-2">
+                <p className="text-sm font-semibold text-foreground">{t.profile.coachRelationship.title}</p>
+                <p className="text-xs text-muted-foreground">{coachRelationshipLabel}</p>
               </div>
             ) : null}
 

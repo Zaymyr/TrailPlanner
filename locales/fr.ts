@@ -802,7 +802,12 @@ export const fr: Translations = {
         confirm: "Oui, je comprends",
         cancel: "Garder Premium",
       },
-  },
+    },
+    coachRelationship: {
+      title: "Relation avec le coach",
+      pending: "Invité par un coach",
+      active: "Relation coach active",
+    },
   premiumModal: {
     title: "Passer en Premium",
     description: "Débloquez les plans illimités, les exports, le remplissage automatique et des produits personnalisés illimités.",
