@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { fetchCoachTierByName, type CoachTierRow } from "./coach-tiers";
+import { fetchCoachTierById, fetchCoachTierByName, type CoachTierRow } from "./coach-tiers";
 import { getSupabaseServiceConfig } from "./supabase";
 import { isTrialActive } from "./trial";
 
@@ -19,6 +19,11 @@ type TrialRow = {
   trial_expired_seen_at: string | null;
   is_coach?: boolean | null;
   coach_plan_name?: string | null;
+};
+
+type CoachProfileRow = {
+  coach_tier_id: string | null;
+  subscription_status: string | null;
 };
 
 export type UserEntitlements = {
@@ -51,6 +56,13 @@ const trialRowSchema = z.array(
     trial_expired_seen_at: z.string().nullable().optional(),
     is_coach: z.boolean().nullable().optional(),
     coach_plan_name: z.string().nullable().optional(),
+  })
+);
+
+const coachProfileSchema = z.array(
+  z.object({
+    coach_tier_id: z.string().nullable().optional(),
+    subscription_status: z.string().nullable().optional(),
   })
 );
 
@@ -148,31 +160,63 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const subscriptionActive = isSubscriptionActive(subscriptionRow ?? null);
     const subscriptionPlanName = subscriptionRow?.plan_name ?? null;
 
-    const trialResponse = await fetch(
-      `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
-        userId
-      )}&select=trial_ends_at,trial_expired_seen_at,is_coach,coach_plan_name&limit=1`,
-      {
-        headers: {
-          apikey: serviceConfig.supabaseServiceRoleKey,
-          Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
-        },
-        cache: "no-store",
-      }
-    );
+    const [trialResponse, coachProfileResponse] = await Promise.all([
+      fetch(
+        `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
+          userId
+        )}&select=trial_ends_at,trial_expired_seen_at,is_coach,coach_plan_name&limit=1`,
+        {
+          headers: {
+            apikey: serviceConfig.supabaseServiceRoleKey,
+            Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+          },
+          cache: "no-store",
+        }
+      ),
+      fetch(
+        `${serviceConfig.supabaseUrl}/rest/v1/coach_profiles?user_id=eq.${encodeURIComponent(
+          userId
+        )}&select=coach_tier_id,subscription_status&limit=1`,
+        {
+          headers: {
+            apikey: serviceConfig.supabaseServiceRoleKey,
+            Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+          },
+          cache: "no-store",
+        }
+      ),
+    ]);
 
     if (!trialResponse.ok) {
       console.error("Unable to load trial info for entitlements", await trialResponse.text());
       return subscriptionActive ? getPremiumEntitlements() : getDefaultEntitlements();
     }
 
+    if (!coachProfileResponse.ok) {
+      console.error("Unable to load coach profile for entitlements", await coachProfileResponse.text());
+    }
+
     const trialRow = trialRowSchema.parse(await trialResponse.json())?.[0] as TrialRow | undefined;
+    const coachProfileRow = coachProfileResponse.ok
+      ? (coachProfileSchema.parse(await coachProfileResponse.json())?.[0] as CoachProfileRow | undefined)
+      : undefined;
     const trialActive = isTrialActive(trialRow?.trial_ends_at ?? null);
     const trialEndsAt = trialRow?.trial_ends_at ?? null;
     const trialExpiredSeenAt = trialRow?.trial_expired_seen_at ?? null;
-    const subscriptionStatus = subscriptionRow?.status ?? null;
+    const coachProfileStatus = coachProfileRow?.subscription_status ?? null;
+    const subscriptionStatus = coachProfileStatus ?? subscriptionRow?.status ?? null;
     const isCoach = Boolean(trialRow?.is_coach);
     const coachPlanName = isCoach ? trialRow?.coach_plan_name ?? null : null;
+    const normalizedCoachStatus = coachProfileStatus?.toLowerCase() ?? null;
+    const coachProfileEligible = normalizedCoachStatus === "active" || normalizedCoachStatus === "trialing";
+    const coachProfileTierId = coachProfileEligible ? coachProfileRow?.coach_tier_id ?? null : null;
+
+    if (coachProfileTierId) {
+      const coachTier = await fetchCoachTierById(coachProfileTierId);
+      if (coachTier) {
+        return withTrialInfo(getCoachTierEntitlements(coachTier), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+      }
+    }
 
     if (!isCoach && subscriptionActive && subscriptionPlanName) {
       const coachTier = await fetchCoachTierByName(subscriptionPlanName);
