@@ -37,15 +37,13 @@ describe("POST /api/coach/invite", () => {
 
   it("enforces the invite limit", async () => {
     const mockFetch = vi.mocked(fetch);
-    const future = new Date(Date.now() + 60_000).toISOString();
 
     mockFetch
       .mockResolvedValueOnce(
         buildJsonResponse([
           {
-            plan_name: "pro",
-            status: "active",
-            current_period_end: future,
+            coach_tier_id: "tier-id",
+            subscription_status: "active",
           },
         ])
       )
@@ -60,15 +58,13 @@ describe("POST /api/coach/invite", () => {
 
   it("creates an active invite for existing users", async () => {
     const mockFetch = vi.mocked(fetch);
-    const future = new Date(Date.now() + 60_000).toISOString();
 
     mockFetch
       .mockResolvedValueOnce(
         buildJsonResponse([
           {
-            plan_name: "pro",
-            status: "active",
-            current_period_end: future,
+            coach_tier_id: "tier-id",
+            subscription_status: "active",
           },
         ])
       )
@@ -76,7 +72,7 @@ describe("POST /api/coach/invite", () => {
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse({ users: [{ id: "coachee-id", email: "invitee@example.com" }] }))
       .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(buildJsonResponse(null, { status: 201 }))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "invite-id" }], { status: 201 }))
       .mockResolvedValueOnce(buildJsonResponse(null, { status: 201 }));
 
     const response = await POST(inviteRequest("invitee@example.com"));
@@ -104,22 +100,21 @@ describe("POST /api/coach/invite", () => {
 
   it("creates a pending invite for new users", async () => {
     const mockFetch = vi.mocked(fetch);
-    const future = new Date(Date.now() + 60_000).toISOString();
 
     mockFetch
       .mockResolvedValueOnce(
         buildJsonResponse([
           {
-            plan_name: "pro",
-            status: "active",
-            current_period_end: future,
+            coach_tier_id: "tier-id",
+            subscription_status: "active",
           },
         ])
       )
       .mockResolvedValueOnce(buildJsonResponse([], { headers: { "content-range": "0-0/0" } }))
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse({ users: [] }))
-      .mockResolvedValueOnce(buildJsonResponse(null, { status: 201 }));
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "invite-id" }], { status: 201 }))
+      .mockResolvedValueOnce(buildJsonResponse(null, { status: 204 }));
 
     const response = await POST(inviteRequest("newuser@example.com"));
     const payload = await response.json();
@@ -133,7 +128,33 @@ describe("POST /api/coach/invite", () => {
     expect(inviteCall).toBeDefined();
     const inviteBody = JSON.parse(inviteCall?.[1]?.body as string);
     expect(inviteBody.status).toBe("pending");
-    expect(inviteBody.invitee_user_id).toBe("invited-user-id");
+    expect(inviteBody.invitee_user_id).toBeNull();
+
+    const updateInviteCall = mockFetch.mock.calls.find(
+      ([url, init]) => String(url).includes("/rest/v1/coach_invites") && init?.method === "PATCH"
+    );
+    expect(updateInviteCall).toBeDefined();
+    const updateBody = JSON.parse(updateInviteCall?.[1]?.body as string);
+    expect(updateBody.invitee_user_id).toBe("invited-user-id");
+  });
+
+  it("rejects coaches without an active subscription", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch.mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          coach_tier_id: "tier-id",
+          subscription_status: "canceled",
+        },
+      ])
+    );
+
+    const response = await POST(inviteRequest("invitee@example.com"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(payload).toEqual({ message: "Coach subscription required." });
   });
 });
 
@@ -145,7 +166,7 @@ vi.mock("../../../../lib/supabase", () => ({
 }));
 
 vi.mock("../../../../lib/coach-tiers", () => ({
-  fetchCoachTierByName: () => Promise.resolve({ invite_limit: 1 }),
+  fetchCoachTierById: () => Promise.resolve({ invite_limit: 1 }),
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
