@@ -49,7 +49,8 @@ const buildContextOptions = (base: ContextOption[], plan: CoachPlan, label: stri
   return [...base, ...aidLabels];
 };
 
-const formatContextKey = (comment: CoachComment) => comment.aidStationId ?? comment.sectionId ?? "plan";
+const formatContextKey = (comment: CoachComment) =>
+  comment.targetType === "plan" ? "plan" : comment.targetId;
 
 const CoachCommentItem = ({
   comment,
@@ -193,15 +194,16 @@ export const CoachCommentsSection = ({ accessToken, coacheeId, plan }: CoachComm
 
   const handleCreate = async (values: CommentFormValues) => {
     setStatusMessage(null);
-    const aidStationId = values.context.startsWith("aid-") ? values.context : null;
-    const sectionId = aidStationId ? null : values.context;
+    const isAidStation = values.context.startsWith("aid-");
+    const targetType = values.context === "plan" ? "plan" : isAidStation ? "aid-station" : "section";
+    const targetId = values.context === "plan" ? "plan" : values.context;
 
     try {
       await createComment({
         coacheeId,
         planId: plan.id,
-        sectionId,
-        aidStationId,
+        targetType,
+        targetId,
         body: values.body,
       });
       form.reset({ context: values.context, body: "" });
@@ -218,8 +220,8 @@ export const CoachCommentsSection = ({ accessToken, coacheeId, plan }: CoachComm
         id: comment.id,
         coacheeId,
         planId: plan.id,
-        sectionId: comment.sectionId,
-        aidStationId: comment.aidStationId,
+        targetType: comment.targetType,
+        targetId: comment.targetId,
         body,
       });
       setStatusMessage(t.coachComments.messages.updated);

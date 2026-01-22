@@ -11,6 +11,7 @@ import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
 import { fuelTypeValues, type FuelType } from "../../lib/fuel-types";
+import { useCoachComments } from "../../app/hooks/useCoachComments";
 import { useI18n } from "../../app/i18n-provider";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
@@ -19,7 +20,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
-import { CoachCommentsBlock } from "./CoachCommentsBlock";
+import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
 import {
   BoltIcon,
   ChevronDownIcon,
@@ -108,8 +109,13 @@ type ActionPlanProps = {
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   onUpgrade: (reason: "autoFill" | "print") => void;
   upgradeStatus: "idle" | "opening";
-  coachComments: CoachComment[];
   coachCommentsCopy: CoachCommentsTranslations;
+  coachCommentsContext?: {
+    accessToken?: string;
+    planId?: string;
+    coacheeId?: string;
+    canEdit?: boolean;
+  };
 };
 
 const parseOptionalNumber = (value: string | number) => {
@@ -751,8 +757,8 @@ export function ActionPlan({
   premiumCopy,
   onUpgrade,
   upgradeStatus,
-  coachComments,
   coachCommentsCopy,
+  coachCommentsContext,
 }: ActionPlanProps) {
   const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
@@ -814,10 +820,26 @@ export function ActionPlan({
     });
   }, [fuelProducts, pickerFuelType, pickerSearch]);
   const renderItems = buildRenderItems(segments);
+  const {
+    data: coachCommentsData,
+    createComment,
+    updateComment,
+    deleteComment,
+    isCreating: isCoachCommentCreating,
+    isUpdating: isCoachCommentUpdating,
+    isDeleting: isCoachCommentDeleting,
+    createError: coachCommentCreateError,
+    updateError: coachCommentUpdateError,
+    deleteError: coachCommentDeleteError,
+  } = useCoachComments({
+    accessToken: coachCommentsContext?.accessToken,
+    planId: coachCommentsContext?.planId,
+  });
+  const coachComments = coachCommentsData ?? [];
   const commentsByContext = useMemo(() => {
     const map = new Map<string, CoachComment[]>();
     coachComments.forEach((comment) => {
-      const key = comment.aidStationId ?? comment.sectionId ?? "plan";
+      const key = comment.targetType === "plan" ? "plan" : comment.targetId;
       if (!key) return;
       const existing = map.get(key) ?? [];
       map.set(key, [...existing, comment]);
@@ -825,6 +847,89 @@ export function ActionPlan({
     return map;
   }, [coachComments]);
   const planComments = commentsByContext.get("plan") ?? [];
+  const commentContextOptions = useMemo(() => {
+    const baseOptions = [
+      {
+        targetType: "plan" as const,
+        targetId: "plan",
+        label: coachCommentsCopy.contextOptions.plan,
+      },
+      {
+        targetType: "section" as const,
+        targetId: "start",
+        label: coachCommentsCopy.contextOptions.start,
+      },
+      {
+        targetType: "section" as const,
+        targetId: "finish",
+        label: coachCommentsCopy.contextOptions.finish,
+      },
+    ];
+    const aidStationOptions = new Map<number, { targetType: "aid-station"; targetId: string; label: string }>();
+    renderItems.forEach((item) => {
+      if (typeof item.aidStationIndex !== "number" || item.isFinish) return;
+      const index = item.aidStationIndex;
+      if (aidStationOptions.has(index)) return;
+      const labelBase = coachCommentsCopy.contextOptions.aidStation.replace("{index}", String(index + 1));
+      const label = item.title ? `${labelBase} · ${item.title}` : labelBase;
+      aidStationOptions.set(index, {
+        targetType: "aid-station",
+        targetId: `aid-${index}`,
+        label,
+      });
+    });
+    return [...baseOptions, ...Array.from(aidStationOptions.values())];
+  }, [
+    coachCommentsCopy.contextOptions.aidStation,
+    coachCommentsCopy.contextOptions.finish,
+    coachCommentsCopy.contextOptions.plan,
+    coachCommentsCopy.contextOptions.start,
+    renderItems,
+  ]);
+  const canEditCoachComments = Boolean(
+    coachCommentsContext?.canEdit &&
+      coachCommentsContext?.accessToken &&
+      coachCommentsContext?.planId &&
+      coachCommentsContext?.coacheeId
+  );
+  const handleCreateCoachComment = useCallback(
+    async (payload: { targetType: CoachComment["targetType"]; targetId: string; body: string }) => {
+      if (!coachCommentsContext?.coacheeId || !coachCommentsContext?.planId) return;
+      await createComment({
+        coacheeId: coachCommentsContext.coacheeId,
+        planId: coachCommentsContext.planId,
+        targetType: payload.targetType,
+        targetId: payload.targetId,
+        body: payload.body,
+      });
+    },
+    [coachCommentsContext?.coacheeId, coachCommentsContext?.planId, createComment]
+  );
+  const handleUpdateCoachComment = useCallback(
+    async (payload: { id: string; targetType: CoachComment["targetType"]; targetId: string; body: string }) => {
+      if (!coachCommentsContext?.coacheeId || !coachCommentsContext?.planId) return;
+      await updateComment({
+        id: payload.id,
+        coacheeId: coachCommentsContext.coacheeId,
+        planId: coachCommentsContext.planId,
+        targetType: payload.targetType,
+        targetId: payload.targetId,
+        body: payload.body,
+      });
+    },
+    [coachCommentsContext?.coacheeId, coachCommentsContext?.planId, updateComment]
+  );
+  const handleDeleteCoachComment = useCallback(
+    async (commentId: string) => {
+      if (!coachCommentsContext?.coacheeId || !coachCommentsContext?.planId) return;
+      await deleteComment({
+        id: commentId,
+        coacheeId: coachCommentsContext.coacheeId,
+        planId: coachCommentsContext.planId,
+      });
+    },
+    [coachCommentsContext?.coacheeId, coachCommentsContext?.planId, deleteComment]
+  );
   const collapsibleKeys = useMemo(() => {
     const keys = new Set<string>();
     renderItems.forEach((item) => {
@@ -1133,6 +1238,22 @@ export function ActionPlan({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
+        {canEditCoachComments ? (
+          <CommentsPanel
+            comments={coachComments}
+            copy={coachCommentsCopy}
+            contextOptions={commentContextOptions}
+            onCreate={handleCreateCoachComment}
+            onUpdate={handleUpdateCoachComment}
+            onDelete={handleDeleteCoachComment}
+            isCreating={isCoachCommentCreating}
+            isUpdating={isCoachCommentUpdating}
+            isDeleting={isCoachCommentDeleting}
+            createError={coachCommentCreateError}
+            updateError={coachCommentUpdateError}
+            deleteError={coachCommentDeleteError}
+          />
+        ) : null}
         {planComments.length > 0 ? (
           <CoachCommentsBlock comments={planComments} copy={coachCommentsCopy} />
         ) : null}

@@ -64,7 +64,7 @@ export const createCoachComment = async (accessToken: string, payload: CoachComm
 export const updateCoachComment = async (accessToken: string, payload: CoachCommentUpdate): Promise<CoachComment> => {
   const parsedPayload = coachCommentUpdateSchema.parse(payload);
   const response = await fetch("/api/coach/comments", {
-    method: "PUT",
+    method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",

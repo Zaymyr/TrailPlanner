@@ -21,6 +21,8 @@ const coachCommentRowSchema = z.array(
     coach_id: z.string(),
     coachee_id: z.string(),
     plan_id: z.string(),
+    target_type: z.string(),
+    target_id: z.string(),
     section_id: z.string().nullable(),
     aid_station_id: z.string().nullable(),
     body: z.string(),
@@ -67,11 +69,18 @@ const mapCommentRow = (row: z.infer<typeof coachCommentRowSchema>[number]) => ({
   coachId: row.coach_id,
   coacheeId: row.coachee_id,
   planId: row.plan_id,
-  sectionId: row.section_id,
-  aidStationId: row.aid_station_id,
+  targetType: row.target_type,
+  targetId: row.target_id,
   body: row.body,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+});
+
+const buildTargetColumns = (targetType: string, targetId: string) => ({
+  target_type: targetType,
+  target_id: targetId,
+  section_id: targetType === "section" ? targetId : null,
+  aid_station_id: targetType === "aid-station" ? targetId : null,
 });
 
 export async function GET(request: Request) {
@@ -115,7 +124,7 @@ export async function GET(request: Request) {
     }
 
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/coach_comments?select=id,coach_id,coachee_id,plan_id,section_id,aid_station_id,body,created_at,updated_at&plan_id=eq.${encodeURIComponent(
+      `${supabaseConfig.supabaseUrl}/rest/v1/coach_comments?select=id,coach_id,coachee_id,plan_id,target_type,target_id,section_id,aid_station_id,body,created_at,updated_at&plan_id=eq.${encodeURIComponent(
         parsedQuery.data.planId
       )}&order=updated_at.desc`,
       {
@@ -199,8 +208,7 @@ export async function POST(request: Request) {
         coach_id: user.id,
         coachee_id: parsedBody.data.coacheeId,
         plan_id: parsedBody.data.planId,
-        section_id: parsedBody.data.sectionId ?? null,
-        aid_station_id: parsedBody.data.aidStationId ?? null,
+        ...buildTargetColumns(parsedBody.data.targetType, parsedBody.data.targetId),
         body: parsedBody.data.body,
       }),
     });
@@ -225,7 +233,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PATCH(request: Request) {
   const supabaseConfig = getSupabaseAnonConfig();
 
   if (!supabaseConfig) {
@@ -284,8 +292,7 @@ export async function PUT(request: Request) {
           Prefer: "return=representation",
         },
         body: JSON.stringify({
-          section_id: parsedBody.data.sectionId ?? null,
-          aid_station_id: parsedBody.data.aidStationId ?? null,
+          ...buildTargetColumns(parsedBody.data.targetType, parsedBody.data.targetId),
           body: parsedBody.data.body,
         }),
       }

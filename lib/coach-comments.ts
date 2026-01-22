@@ -1,12 +1,14 @@
 import { z } from "zod";
 
+export const coachCommentTargetTypeSchema = z.enum(["plan", "section", "aid-station"]);
+
 export const coachCommentSchema = z.object({
   id: z.string().uuid(),
   coachId: z.string().uuid(),
   coacheeId: z.string().uuid(),
   planId: z.string().uuid(),
-  sectionId: z.string().nullable(),
-  aidStationId: z.string().nullable(),
+  targetType: coachCommentTargetTypeSchema,
+  targetId: z.string().trim().min(1),
   body: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -22,30 +24,22 @@ export const coachCommentResponseSchema = z.object({
   comment: coachCommentSchema,
 });
 
-export const coachCommentCreateSchema = z
-  .object({
-    coacheeId: z.string().uuid(),
-    planId: z.string().uuid(),
-    sectionId: z.string().trim().min(1).nullable().optional(),
-    aidStationId: z.string().trim().min(1).nullable().optional(),
-    body: z.string().trim().min(1),
-  })
-  .refine((value) => Boolean(value.sectionId || value.aidStationId), {
-    message: "Comment must include a section or aid station.",
-  });
+export const coachCommentCreateSchema = z.object({
+  coacheeId: z.string().uuid(),
+  planId: z.string().uuid(),
+  targetType: coachCommentTargetTypeSchema,
+  targetId: z.string().trim().min(1),
+  body: z.string().trim().min(1),
+});
 
-export const coachCommentUpdateSchema = z
-  .object({
-    id: z.string().uuid(),
-    coacheeId: z.string().uuid(),
-    planId: z.string().uuid(),
-    sectionId: z.string().trim().min(1).nullable().optional(),
-    aidStationId: z.string().trim().min(1).nullable().optional(),
-    body: z.string().trim().min(1),
-  })
-  .refine((value) => Boolean(value.sectionId || value.aidStationId), {
-    message: "Comment must include a section or aid station.",
-  });
+export const coachCommentUpdateSchema = z.object({
+  id: z.string().uuid(),
+  coacheeId: z.string().uuid(),
+  planId: z.string().uuid(),
+  targetType: coachCommentTargetTypeSchema,
+  targetId: z.string().trim().min(1),
+  body: z.string().trim().min(1),
+});
 
 export const coachCommentDeleteSchema = z.object({
   id: z.string().uuid(),

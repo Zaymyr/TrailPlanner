@@ -333,6 +333,8 @@ create table public.coach_comments (
   coach_id uuid not null references public.user_profiles(user_id) on delete cascade,
   coachee_id uuid not null references public.user_profiles(user_id) on delete cascade,
   plan_id uuid not null references public.race_plans(id) on delete cascade,
+  target_type text not null default 'plan',
+  target_id text not null default 'plan',
   section_id text,
   aid_station_id text,
   body text not null,
