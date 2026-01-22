@@ -163,7 +163,7 @@ export default function CoachDashboardPage() {
           invites={dashboardQuery.data?.invites ?? []}
           isLoading={dashboardQuery.isLoading}
           error={dashboardQuery.error instanceof Error ? dashboardQuery.error : null}
-          actionError={actionError?.message ?? null}
+          actionError={actionError instanceof Error ? actionError.message : null}
           onResend={handleResendInvite}
           onCancel={handleCancelInvite}
           resendingInviteId={resendingInviteId}
