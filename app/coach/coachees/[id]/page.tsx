@@ -33,7 +33,7 @@ export default function CoachCoacheeDetailPage() {
     return typeof value === "string" ? value : value?.[0];
   }, [params]);
 
-  const detailQuery = useQuery<CoachCoacheeDetail, Error>({
+  const detailQuery = useQuery<CoachCoacheeDetail>({
     queryKey: detailQueryKey(session?.accessToken, coacheeId),
     queryFn: () => {
       if (!session?.accessToken || !coacheeId) {
@@ -184,7 +184,9 @@ export default function CoachCoacheeDetailPage() {
           <CoacheeOverrideEditor
             defaultValues={overrideDefaults}
             isSaving={overrideMutation.isPending}
-            onSubmit={overrideMutation.mutateAsync}
+            onSubmit={async (values) => {
+              await overrideMutation.mutateAsync(values);
+            }}
             copy={t.coachCoacheeDetail.override}
             successMessage={saveMessage}
             errorMessage={overrideMutation.error ? t.coachCoacheeDetail.override.error : null}
@@ -203,7 +205,12 @@ export default function CoachCoacheeDetailPage() {
           {removeMutation.error ? (
             <p className="text-sm text-red-600">{t.coachCoacheeDetail.actions.error}</p>
           ) : null}
-          <Button type="button" variant="destructive" disabled={!detail || removeMutation.isPending} onClick={handleRemove}>
+          <Button
+            type="button"
+            disabled={!detail || removeMutation.isPending}
+            onClick={handleRemove}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
             {removeMutation.isPending ? t.coachCoacheeDetail.actions.removing : t.coachCoacheeDetail.actions.remove}
           </Button>
         </CardContent>

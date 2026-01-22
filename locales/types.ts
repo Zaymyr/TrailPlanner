@@ -700,6 +700,11 @@ export type ProfileTranslations = {
       cancel: string;
     };
   };
+  coachRelationship: {
+    title: string;
+    pending: string;
+    active: string;
+  };
   premiumModal: {
     title: string;
     description: string;

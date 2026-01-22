@@ -836,6 +836,9 @@ export function ActionPlan({
     planId: coachCommentsContext?.planId,
   });
   const coachComments = useMemo(() => coachCommentsData ?? [], [coachCommentsData]);
+  const coachCommentCreateErrorSafe = coachCommentCreateError instanceof Error ? coachCommentCreateError : null;
+  const coachCommentUpdateErrorSafe = coachCommentUpdateError instanceof Error ? coachCommentUpdateError : null;
+  const coachCommentDeleteErrorSafe = coachCommentDeleteError instanceof Error ? coachCommentDeleteError : null;
   const commentsByContext = useMemo(() => {
     const map = new Map<string, CoachComment[]>();
     coachComments.forEach((comment) => {
@@ -1249,9 +1252,9 @@ export function ActionPlan({
             isCreating={isCoachCommentCreating}
             isUpdating={isCoachCommentUpdating}
             isDeleting={isCoachCommentDeleting}
-            createError={coachCommentCreateError}
-            updateError={coachCommentUpdateError}
-            deleteError={coachCommentDeleteError}
+            createError={coachCommentCreateErrorSafe}
+            updateError={coachCommentUpdateErrorSafe}
+            deleteError={coachCommentDeleteErrorSafe}
           />
         ) : null}
         {planComments.length > 0 ? (

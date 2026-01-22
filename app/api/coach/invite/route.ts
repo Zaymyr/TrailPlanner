@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
-import { coachInviteCreateSchema, coachInviteResponseSchema } from "../../../../lib/coach-invites";
+import {
+  coachInviteCreateSchema,
+  coachInviteResponseSchema,
+  coachInviteUserEnvelopeSchema,
+  coachInviteUserListSchema,
+} from "../../../../lib/coach-invites";
 import { fetchCoachTierById } from "../../../../lib/coach-tiers";
 import {
   extractBearerToken,
@@ -291,20 +296,12 @@ const fetchUserByEmail = async (
     return null;
   }
 
-  const userSchema = z.object({
-    id: z.string().uuid(),
-    email: z.string().email().optional(),
-  });
-
-  const listSchema = z.array(userSchema);
-  const envelopeSchema = z.object({ users: listSchema });
-
-  const envelope = envelopeSchema.safeParse(payload);
+  const envelope = coachInviteUserEnvelopeSchema.safeParse(payload);
   if (envelope.success) {
     return envelope.data.users[0] ?? null;
   }
 
-  const list = listSchema.safeParse(payload);
+  const list = coachInviteUserListSchema.safeParse(payload);
   if (list.success) {
     return list.data[0] ?? null;
   }
