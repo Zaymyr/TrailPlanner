@@ -17,6 +17,8 @@ type SubscriptionRow = {
 type TrialRow = {
   trial_ends_at: string | null;
   trial_expired_seen_at: string | null;
+  is_coach?: boolean | null;
+  coach_plan_name?: string | null;
 };
 
 export type UserEntitlements = {
@@ -47,6 +49,8 @@ const trialRowSchema = z.array(
   z.object({
     trial_ends_at: z.string().nullable().optional(),
     trial_expired_seen_at: z.string().nullable().optional(),
+    is_coach: z.boolean().nullable().optional(),
+    coach_plan_name: z.string().nullable().optional(),
   })
 );
 
@@ -147,7 +151,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const trialResponse = await fetch(
       `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
         userId
-      )}&select=trial_ends_at,trial_expired_seen_at&limit=1`,
+      )}&select=trial_ends_at,trial_expired_seen_at,is_coach,coach_plan_name&limit=1`,
       {
         headers: {
           apikey: serviceConfig.supabaseServiceRoleKey,
@@ -167,16 +171,29 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const trialEndsAt = trialRow?.trial_ends_at ?? null;
     const trialExpiredSeenAt = trialRow?.trial_expired_seen_at ?? null;
     const subscriptionStatus = subscriptionRow?.status ?? null;
+    const isCoach = Boolean(trialRow?.is_coach);
+    const coachPlanName = isCoach ? trialRow?.coach_plan_name ?? null : null;
 
-    if (!subscriptionActive && !trialActive) {
-      return withTrialInfo(getDefaultEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
-    }
-
-    if (subscriptionActive && subscriptionPlanName) {
+    if (!isCoach && subscriptionActive && subscriptionPlanName) {
       const coachTier = await fetchCoachTierByName(subscriptionPlanName);
       if (coachTier) {
         return withTrialInfo(getCoachTierEntitlements(coachTier), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
       }
+    }
+
+    if (coachPlanName) {
+      const coachTier = await fetchCoachTierByName(coachPlanName);
+      if (coachTier) {
+        return withTrialInfo(getCoachTierEntitlements(coachTier), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+      }
+    }
+
+    if (isCoach) {
+      return withTrialInfo(getDefaultEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+    }
+
+    if (!subscriptionActive && !trialActive) {
+      return withTrialInfo(getDefaultEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
     }
 
     return withTrialInfo(getPremiumEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
