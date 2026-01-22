@@ -77,7 +77,8 @@ export default function CoachDashboardPage() {
       }
       await cancelCoachInvite(accessToken, id);
     },
-    onMutate: async ({ id }) => {
+    onMutate: async (variables: { id: string }) => {
+      const { id } = variables;
       if (!accessToken) {
         return {};
       }
