@@ -189,7 +189,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     }
 
     if (isCoach) {
-      return withTrialInfo(getDefaultEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+      return withTrialInfo(getPremiumEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
     }
 
     if (!subscriptionActive && !trialActive) {
