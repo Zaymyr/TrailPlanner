@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { coachInviteCreateSchema, coachInviteResponseSchema } from "../../../../lib/coach-invites";
 import { fetchCoachTierById } from "../../../../lib/coach-tiers";
 import {
   extractBearerToken,
@@ -10,10 +10,6 @@ import {
   getSupabaseAnonConfig,
   getSupabaseServiceConfig,
 } from "../../../../lib/supabase";
-
-const inviteSchema = z.object({
-  email: z.string().trim().email(),
-});
 
 type SupabaseCoachProfileRow = {
   coach_tier_id: string | null;
@@ -317,7 +313,7 @@ const fetchUserByEmail = async (
 };
 
 export async function POST(request: NextRequest) {
-  const parsedBody = inviteSchema.safeParse(await request.json().catch(() => null));
+  const parsedBody = coachInviteCreateSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid invite payload." }, { status: 400 }));
@@ -457,7 +453,7 @@ export async function POST(request: NextRequest) {
       return withSecurityHeaders(NextResponse.json({ message: "Unable to create coach invite." }, { status: 502 }));
     }
 
-    return withSecurityHeaders(NextResponse.json({ status: "active" }));
+    return withSecurityHeaders(NextResponse.json(coachInviteResponseSchema.parse({ status: "active" })));
   }
 
   const inviteInserted = await insertCoachInvite(
@@ -509,5 +505,5 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to create coach invite." }, { status: 502 }));
   }
 
-  return withSecurityHeaders(NextResponse.json({ status: "pending" }));
+  return withSecurityHeaders(NextResponse.json(coachInviteResponseSchema.parse({ status: "pending" })));
 }
