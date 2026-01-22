@@ -959,11 +959,20 @@ export const fr: Translations = {
         email: "Email",
         status: "Statut",
         sentAt: "Envoyée",
+        actions: "Actions",
       },
       status: {
         pending: "En attente",
         accepted: "Acceptée",
         canceled: "Annulée",
+      },
+      actions: {
+        resend: "Renvoyer",
+        resending: "Renvoi...",
+        cancel: "Annuler",
+        canceling: "Annulation...",
+        confirmCancel: "Annuler cette invitation ?",
+        unavailable: "—",
       },
     },
     coachees: {

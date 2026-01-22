@@ -950,11 +950,20 @@ export const en: Translations = {
         email: "Email",
         status: "Status",
         sentAt: "Sent",
+        actions: "Actions",
       },
       status: {
         pending: "Pending",
         accepted: "Accepted",
         canceled: "Canceled",
+      },
+      actions: {
+        resend: "Resend",
+        resending: "Resending...",
+        cancel: "Cancel",
+        canceling: "Canceling...",
+        confirmCancel: "Cancel this invite?",
+        unavailable: "—",
       },
     },
     coachees: {

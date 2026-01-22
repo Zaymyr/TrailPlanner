@@ -850,11 +850,20 @@ export type CoachDashboardTranslations = {
       email: string;
       status: string;
       sentAt: string;
+      actions: string;
     };
     status: {
       pending: string;
       accepted: string;
       canceled: string;
+    };
+    actions: {
+      resend: string;
+      resending: string;
+      cancel: string;
+      canceling: string;
+      confirmCancel: string;
+      unavailable: string;
     };
   };
   coachees: {
