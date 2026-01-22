@@ -58,7 +58,7 @@ export default function CoachDashboardPage() {
     },
   });
 
-  const resendInviteMutation = useMutation<void, Error, { id: string }>({
+  const resendInviteMutation = useMutation<void, { id: string }>({
     mutationFn: async ({ id }) => {
       if (!accessToken) {
         throw new Error("Missing access token");
@@ -70,12 +70,7 @@ export default function CoachDashboardPage() {
     },
   });
 
-  const cancelInviteMutation = useMutation<
-    void,
-    Error,
-    { id: string },
-    { previousDashboard?: CoachDashboard }
-  >({
+  const cancelInviteMutation = useMutation<void, { id: string }>({
     mutationFn: async ({ id }) => {
       if (!accessToken) {
         throw new Error("Missing access token");
@@ -97,8 +92,9 @@ export default function CoachDashboardPage() {
       return { previousDashboard };
     },
     onError: (_error, _variables, context) => {
-      if (context?.previousDashboard && accessToken) {
-        queryClient.setQueryData(dashboardQueryKey(accessToken), context.previousDashboard);
+      const typedContext = context as { previousDashboard?: CoachDashboard } | undefined;
+      if (typedContext?.previousDashboard && accessToken) {
+        queryClient.setQueryData(dashboardQueryKey(accessToken), typedContext.previousDashboard);
       }
     },
     onSettled: () => {
