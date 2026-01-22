@@ -23,7 +23,7 @@ export default function CoachDashboardPage() {
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const accessToken = session?.accessToken;
 
-  const dashboardQuery = useQuery<CoachDashboard, Error>({
+  const dashboardQuery = useQuery<CoachDashboard>({
     queryKey: dashboardQueryKey(accessToken),
     queryFn: ({ signal }) => {
       if (!accessToken) {
@@ -34,7 +34,7 @@ export default function CoachDashboardPage() {
     enabled: Boolean(accessToken),
   });
 
-  const coacheesQuery = useQuery<CoachCoachee[], Error>({
+  const coacheesQuery = useQuery<CoachCoachee[]>({
     queryKey: coacheesQueryKey(accessToken),
     queryFn: ({ signal }) => {
       if (!accessToken) {

@@ -835,7 +835,7 @@ export function ActionPlan({
     accessToken: coachCommentsContext?.accessToken,
     planId: coachCommentsContext?.planId,
   });
-  const coachComments = coachCommentsData ?? [];
+  const coachComments = useMemo(() => coachCommentsData ?? [], [coachCommentsData]);
   const commentsByContext = useMemo(() => {
     const map = new Map<string, CoachComment[]>();
     coachComments.forEach((comment) => {
