@@ -674,6 +674,18 @@ export type ProfileTranslations = {
     unsubscribeCta: string;
     checkoutError: string;
     portalError: string;
+    coachTiers: {
+      title: string;
+      description: string;
+      loading: string;
+      error: string;
+      inviteLimitLabel: string;
+      labels: {
+        starter: string;
+        pro: string;
+        elite: string;
+      };
+    };
     unsubscribeConfirm: {
       title: string;
       description: string;

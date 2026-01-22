@@ -88,7 +88,12 @@ const CoachCommentItem = ({
           </p>
         </div>
         {!isEditing ? (
-          <Button type="button" variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-8 px-3 text-xs"
+            onClick={() => setIsEditing(true)}
+          >
             {copy.actions.edit}
           </Button>
         ) : null}
