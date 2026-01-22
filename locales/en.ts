@@ -113,6 +113,7 @@ export const en: Translations = {
   },
   navigation: {
     racePlanner: "Race planner",
+    coach: "Coach",
     blog: "Blog",
     settings: "Nutrition list",
     profile: "Profile",

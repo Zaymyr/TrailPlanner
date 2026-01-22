@@ -122,6 +122,7 @@ export const fr: Translations = {
   },
   navigation: {
     racePlanner: "Planificateur de course",
+    coach: "Coach",
     blog: "Blog",
     settings: "Liste nutrition",
     profile: "Profil",
