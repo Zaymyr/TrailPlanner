@@ -23,11 +23,16 @@ const commentFormSchema = z.object({
 
 const buildContextValue = (targetType: CoachComment["targetType"], targetId: string) => `${targetType}:${targetId}`;
 
-const parseContextValue = (value: string) => {
+const isCoachCommentTargetType = (value: string): value is CoachComment["targetType"] =>
+  value === "plan" || value === "section" || value === "aid-station";
+
+const parseContextValue = (
+  value: string
+): { targetType: CoachComment["targetType"]; targetId: string } | null => {
   const [targetType, ...rest] = value.split(":");
   const targetId = rest.join(":");
   if (!targetType || !targetId) return null;
-  if (targetType !== "plan" && targetType !== "section" && targetType !== "aid-station") return null;
+  if (!isCoachCommentTargetType(targetType)) return null;
   return { targetType, targetId };
 };
 
