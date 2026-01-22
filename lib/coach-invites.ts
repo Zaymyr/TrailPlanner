@@ -12,6 +12,21 @@ export const coachInviteActionResponseSchema = z.object({
   status: z.enum(["pending", "canceled"]),
 });
 
+const coachInviteSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  status: z.string(),
+  createdAt: z.string(),
+  acceptedAt: z.string().nullable(),
+  inviteeUserId: z.string().uuid().nullable(),
+});
+
+export const coachInvitesResponseSchema = z.object({
+  invites: z.array(coachInviteSchema),
+});
+
 export type CoachInviteCreate = z.infer<typeof coachInviteCreateSchema>;
 export type CoachInviteResponse = z.infer<typeof coachInviteResponseSchema>;
 export type CoachInviteActionResponse = z.infer<typeof coachInviteActionResponseSchema>;
+export type CoachInvite = z.infer<typeof coachInviteSchema>;
+export type CoachInvitesResponse = z.infer<typeof coachInvitesResponseSchema>;
