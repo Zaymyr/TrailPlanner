@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import type { CoachCoachee } from "../../lib/coach-coachees";
@@ -45,7 +47,9 @@ export function CoacheeList({ coachees, isLoading, error, copy, locale }: Coache
                     <TableRow key={coachee.id}>
                       <TableCell className="font-medium text-slate-900">
                         <div className="space-y-1">
-                          <p>{name}</p>
+                          <Link className="hover:underline" href={`/coach/coachees/${coachee.id}`}>
+                            {name}
+                          </Link>
                           {coachee.invitedEmail ? (
                             <p className="text-xs text-slate-500">{coachee.invitedEmail}</p>
                           ) : null}

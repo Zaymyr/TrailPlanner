@@ -873,7 +873,55 @@ export type CoachDashboardTranslations = {
     status: {
       active: string;
       pending: string;
+      disabled: string;
     };
+  };
+};
+
+export type CoachCoacheeDetailTranslations = {
+  title: string;
+  description: string;
+  authRequired: string;
+  loading: string;
+  loadError: string;
+  unknownName: string;
+  profile: {
+    title: string;
+    fields: {
+      name: string;
+      status: string;
+      age: string;
+      waterBag: string;
+      email: string;
+    };
+  };
+  override: {
+    title: string;
+    description: string;
+    helper: string;
+    latestLabel: string;
+    latestEmpty: string;
+    save: string;
+    saving: string;
+    success: string;
+    error: string;
+    fields: {
+      carbsLabel: string;
+      carbsPlaceholder: string;
+      waterLabel: string;
+      waterPlaceholder: string;
+      sodiumLabel: string;
+      sodiumPlaceholder: string;
+    };
+  };
+  actions: {
+    title: string;
+    description: string;
+    remove: string;
+    removing: string;
+    confirm: string;
+    success: string;
+    error: string;
   };
 };
 
@@ -898,6 +946,7 @@ export type Translations = {
   coachPlans: CoachPlansTranslations;
   coachComments: CoachCommentsTranslations;
   coachDashboard: CoachDashboardTranslations;
+  coachCoacheeDetail: CoachCoacheeDetailTranslations;
 };
 
 export type ProductSettingsTranslations = {
