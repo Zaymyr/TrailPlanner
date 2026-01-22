@@ -10,7 +10,7 @@ import type { CoachCoachee } from "../../../lib/coach-coachees";
 import { fetchCoachCoachees } from "../../../lib/coach-coachees-client";
 import type { CoachDashboard } from "../../../lib/coach-dashboard";
 import { fetchCoachDashboard } from "../../../lib/coach-dashboard-client";
-import { createCoachInvite } from "../../../lib/coach-invites-client";
+import { cancelCoachInvite, createCoachInvite, resendCoachInvite } from "../../../lib/coach-invites-client";
 import { useI18n } from "../../i18n-provider";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 
@@ -58,6 +58,58 @@ export default function CoachDashboardPage() {
     },
   });
 
+  const resendInviteMutation = useMutation<void, Error, { id: string }>({
+    mutationFn: async ({ id }) => {
+      if (!accessToken) {
+        throw new Error("Missing access token");
+      }
+      await resendCoachInvite(accessToken, id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: dashboardQueryKey(accessToken) });
+    },
+  });
+
+  const cancelInviteMutation = useMutation<
+    void,
+    Error,
+    { id: string },
+    { previousDashboard?: CoachDashboard }
+  >({
+    mutationFn: async ({ id }) => {
+      if (!accessToken) {
+        throw new Error("Missing access token");
+      }
+      await cancelCoachInvite(accessToken, id);
+    },
+    onMutate: async ({ id }) => {
+      if (!accessToken) {
+        return {};
+      }
+      await queryClient.cancelQueries({ queryKey: dashboardQueryKey(accessToken) });
+      const previousDashboard = queryClient.getQueryData<CoachDashboard>(dashboardQueryKey(accessToken));
+      if (previousDashboard) {
+        queryClient.setQueryData<CoachDashboard>(dashboardQueryKey(accessToken), {
+          ...previousDashboard,
+          invites: previousDashboard.invites.filter((invite) => invite.id !== id),
+        });
+      }
+      return { previousDashboard };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previousDashboard && accessToken) {
+        queryClient.setQueryData(dashboardQueryKey(accessToken), context.previousDashboard);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: dashboardQueryKey(accessToken) });
+    },
+  });
+
+  const actionError = resendInviteMutation.error ?? cancelInviteMutation.error;
+  const resendingInviteId = resendInviteMutation.isPending ? resendInviteMutation.variables?.id : null;
+  const cancelingInviteId = cancelInviteMutation.isPending ? cancelInviteMutation.variables?.id : null;
+
   if (isSessionLoading) {
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-10">
@@ -101,6 +153,11 @@ export default function CoachDashboardPage() {
           invites={dashboardQuery.data?.invites ?? []}
           isLoading={dashboardQuery.isLoading}
           error={dashboardQuery.error}
+          actionError={actionError?.message ?? null}
+          onResend={async (inviteId) => resendInviteMutation.mutateAsync({ id: inviteId })}
+          onCancel={async (inviteId) => cancelInviteMutation.mutateAsync({ id: inviteId })}
+          resendingInviteId={resendingInviteId}
+          cancelingInviteId={cancelingInviteId}
           copy={t.coachDashboard.invites}
           locale={locale}
         />
