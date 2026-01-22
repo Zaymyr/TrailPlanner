@@ -35,11 +35,11 @@ export default function CoachCoacheeDetailPage() {
 
   const detailQuery = useQuery<CoachCoacheeDetail, Error>({
     queryKey: detailQueryKey(session?.accessToken, coacheeId),
-    queryFn: ({ signal }) => {
+    queryFn: () => {
       if (!session?.accessToken || !coacheeId) {
         return Promise.reject(new Error("Missing access token"));
       }
-      return fetchCoachCoacheeDetail(session.accessToken, coacheeId, signal);
+      return fetchCoachCoacheeDetail(session.accessToken, coacheeId);
     },
     enabled: Boolean(session?.accessToken && coacheeId),
   });

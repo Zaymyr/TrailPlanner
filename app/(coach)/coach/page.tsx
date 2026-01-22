@@ -23,29 +23,29 @@ export default function CoachDashboardPage() {
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const accessToken = session?.accessToken;
 
-  const dashboardQuery = useQuery<CoachDashboard, Error>({
+  const dashboardQuery = useQuery<CoachDashboard>({
     queryKey: dashboardQueryKey(accessToken),
-    queryFn: ({ signal }) => {
+    queryFn: () => {
       if (!accessToken) {
         return Promise.reject(new Error("Missing access token"));
       }
-      return fetchCoachDashboard(accessToken, signal);
+      return fetchCoachDashboard(accessToken);
     },
     enabled: Boolean(accessToken),
   });
 
-  const coacheesQuery = useQuery<CoachCoachee[], Error>({
+  const coacheesQuery = useQuery<CoachCoachee[]>({
     queryKey: coacheesQueryKey(accessToken),
-    queryFn: ({ signal }) => {
+    queryFn: () => {
       if (!accessToken) {
         return Promise.reject(new Error("Missing access token"));
       }
-      return fetchCoachCoachees(accessToken, signal);
+      return fetchCoachCoachees(accessToken);
     },
     enabled: Boolean(accessToken),
   });
 
-  const inviteMutation = useMutation<void, Error, { email: string }>({
+  const inviteMutation = useMutation<void, { email: string }>({
     mutationFn: async (payload: { email: string }) => {
       if (!accessToken) {
         throw new Error("Missing access token");
