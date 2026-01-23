@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Script from "next/script";
+import { useSearchParams } from "next/navigation";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
@@ -10,6 +11,7 @@ import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import { useCoachIntakeTargets } from "../../hooks/useCoachIntakeTargets";
 import { useEffectiveIntakeTargets } from "../../hooks/useEffectiveIntakeTargets";
+import { useCoachCoachees } from "../../hooks/useCoachCoachees";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, StationSupply } from "./types";
@@ -234,6 +236,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     mode: "onChange",
   });
   const { register } = form;
+  const searchParams = useSearchParams();
+  const [selectedCoacheeId, setSelectedCoacheeId] = useState<string | null>(null);
+  const queryPlanIdRef = useRef<string | null>(null);
+  const initializedQueryRef = useRef(false);
 
   const sectionIds = {
     timeline: "race-timeline",
@@ -309,6 +315,23 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   } = usePlannerState();
 
   useEffect(() => {
+    if (initializedQueryRef.current) return;
+
+    const coacheeIdParam = searchParams?.get("coacheeId");
+    const planIdParam = searchParams?.get("planId");
+
+    if (coacheeIdParam) {
+      setSelectedCoacheeId(coacheeIdParam);
+    }
+
+    if (planIdParam) {
+      queryPlanIdRef.current = planIdParam;
+    }
+
+    initializedQueryRef.current = true;
+  }, [searchParams]);
+
+  useEffect(() => {
     const userAgent = typeof navigator !== "undefined" ? navigator.userAgent.toLowerCase() : "";
     const isElectron = userAgent.includes("electron");
     const isStandalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
@@ -352,18 +375,58 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setUpgradeDialogOpen,
     setUpgradeError,
     setUpgradeReason,
+    coachCoacheeId: selectedCoacheeId,
     onSessionCleared: () => {
       setEntitlements(defaultEntitlements);
       setUpgradeError(null);
     },
   });
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
+  const isCoach = Boolean(isAdmin || session?.role === "coach" || session?.roles?.includes("coach"));
   const isAuthed = Boolean(session?.accessToken);
+  const { coachees, isLoading: isCoacheesLoading, error: coacheesError } = useCoachCoachees({
+    accessToken: session?.accessToken,
+    enabled: isCoach,
+  });
   const { targets: coachTargets } = useCoachIntakeTargets(session?.accessToken);
   const { effectiveTargets, isCoachManaged } = useEffectiveIntakeTargets(baseIntakeTargets, coachTargets);
   const canEditCoachComments = Boolean(
     isAdmin || session?.role === "coach" || session?.roles?.includes("coach")
   );
+  const planOwnerOptions = useMemo(() => {
+    if (!isCoach) {
+      return [];
+    }
+
+    const ownerOptions = [
+      { value: "self", label: racePlannerCopy.account.coach.myPlans },
+      ...coachees.map((coachee) => ({
+        value: coachee.id,
+        label:
+          coachee.fullName ??
+          coachee.invitedEmail ??
+          t.coachDashboard.coachees.unknownName,
+      })),
+    ];
+
+    return ownerOptions;
+  }, [coachees, isCoach, racePlannerCopy.account.coach.myPlans, t.coachDashboard.coachees.unknownName]);
+  const selectedPlanOwnerValue = selectedCoacheeId ?? "self";
+  const handlePlanOwnerChange = useCallback((value: string) => {
+    setSelectedCoacheeId(value === "self" ? null : value);
+  }, []);
+  const coachCommentsCoacheeId = isCoach && selectedCoacheeId ? selectedCoacheeId : session?.id;
+
+  useEffect(() => {
+    if (!queryPlanIdRef.current) return;
+
+    const matchedPlan = savedPlans.find((plan) => plan.id === queryPlanIdRef.current);
+
+    if (matchedPlan) {
+      handleLoadPlan(matchedPlan);
+      queryPlanIdRef.current = null;
+    }
+  }, [handleLoadPlan, savedPlans]);
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
@@ -1124,7 +1187,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       coachCommentsContext={{
         accessToken: session?.accessToken,
         planId: activePlanId ?? undefined,
-        coacheeId: session?.id,
+        coacheeId: coachCommentsCoacheeId,
         canEdit: canEditCoachComments,
       }}
     />
@@ -1145,6 +1208,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         canSavePlan,
         showPlanLimitUpsell: planLimitReached && !isPremium,
         premiumCopy,
+        planOwnerSelector: isCoach
+          ? {
+              label: racePlannerCopy.account.coach.planOwnerLabel,
+              helper: racePlannerCopy.account.coach.planOwnerHelper,
+              options: planOwnerOptions,
+              value: selectedPlanOwnerValue,
+              isLoading: isCoacheesLoading,
+              errorMessage: coacheesError ? racePlannerCopy.account.coach.loadError : null,
+              onChange: handlePlanOwnerChange,
+            }
+          : undefined,
         onPlanNameChange: setPlanName,
         onSavePlan: handleSavePlan,
         onRefreshPlans: handleRefreshPlans,

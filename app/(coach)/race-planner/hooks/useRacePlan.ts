@@ -35,12 +35,20 @@ const mergeFuelProducts = (primary: FuelProduct[], secondary: FuelProduct[]) => 
 const mapSavedPlan = (row: Record<string, unknown>): SavedPlan | null => {
   const id = typeof row.id === "string" ? row.id : undefined;
   const name = typeof row.name === "string" ? row.name : undefined;
-  const updatedAt = typeof row.updated_at === "string" ? row.updated_at : new Date().toISOString();
+  const updatedAt =
+    typeof row.updated_at === "string"
+      ? row.updated_at
+      : typeof row.updatedAt === "string"
+        ? row.updatedAt
+        : new Date().toISOString();
 
   if (!id || !name) return null;
 
-  const plannerValues = sanitizePlannerValues(row.planner_values as Partial<FormValues>) ?? {};
-  const elevationProfile = sanitizeElevationProfile(row.elevation_profile as ElevationPoint[]);
+  const plannerValues =
+    sanitizePlannerValues((row.planner_values ?? row.plannerValues) as Partial<FormValues>) ?? {};
+  const elevationProfile = sanitizeElevationProfile(
+    (row.elevation_profile ?? row.elevationProfile) as ElevationPoint[]
+  );
 
   return {
     id,
@@ -65,6 +73,7 @@ type UseRacePlanParams = {
   setUpgradeDialogOpen: (open: boolean) => void;
   setUpgradeError: (message: string | null) => void;
   setUpgradeReason: (reason: "autoFill" | "print" | "plans") => void;
+  coachCoacheeId?: string | null;
   onSessionCleared?: () => void;
 };
 
@@ -82,6 +91,7 @@ export const useRacePlan = ({
   setUpgradeDialogOpen,
   setUpgradeError,
   setUpgradeReason,
+  coachCoacheeId,
   onSessionCleared,
 }: UseRacePlanParams) => {
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
@@ -95,23 +105,35 @@ export const useRacePlan = ({
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [fuelLoadStatus, setFuelLoadStatus] = useState<"loading" | "ready">("loading");
   const authStatus: "idle" | "signingIn" | "signingUp" | "checking" = isSessionLoading ? "checking" : "idle";
+  const isCoach =
+    session?.role === "coach" || session?.roles?.includes("coach") || session?.role === "admin";
+  const resolvedCoachCoacheeId = coachCoacheeId?.trim() ? coachCoacheeId.trim() : null;
+  const isCoachPlanMode = Boolean(isCoach && resolvedCoachCoacheeId);
 
-  const planLimitReached = useMemo(
-    () =>
+  const planLimitReached = useMemo(() => {
+    if (isCoachPlanMode) {
+      return false;
+    }
+
+    return (
       !entitlements.isPremium &&
       Number.isFinite(entitlements.planLimit) &&
-      savedPlans.length >= entitlements.planLimit,
-    [entitlements.isPremium, entitlements.planLimit, savedPlans.length]
-  );
+      savedPlans.length >= entitlements.planLimit
+    );
+  }, [entitlements.isPremium, entitlements.planLimit, isCoachPlanMode, savedPlans.length]);
 
-  const canSavePlan = useMemo(
-    () =>
+  const canSavePlan = useMemo(() => {
+    if (isCoachPlanMode) {
+      return true;
+    }
+
+    return (
       entitlements.isPremium ||
       !planLimitReached ||
       Boolean(activePlanId) ||
-      Boolean(savedPlans.find((plan) => plan.id === activePlanId)),
-    [activePlanId, entitlements.isPremium, planLimitReached, savedPlans]
-  );
+      Boolean(savedPlans.find((plan) => plan.id === activePlanId))
+    );
+  }, [activePlanId, entitlements.isPremium, isCoachPlanMode, planLimitReached, savedPlans]);
 
   const requestPremiumUpgrade = useCallback(
     (message?: string, reason: "autoFill" | "print" | "plans" = "plans") => {
@@ -127,8 +149,16 @@ export const useRacePlan = ({
 
   const refreshSavedPlans = useCallback(
     async (accessToken: string) => {
+      if (isCoachPlanMode && !resolvedCoachCoacheeId) {
+        setSavedPlans([]);
+        return;
+      }
+
       try {
-        const response = await fetch("/api/plans", {
+        const endpoint = isCoachPlanMode
+          ? `/api/coach/plans?coacheeId=${encodeURIComponent(resolvedCoachCoacheeId ?? "")}`
+          : "/api/plans";
+        const response = await fetch(endpoint, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
@@ -150,33 +180,45 @@ export const useRacePlan = ({
         setAccountError(racePlannerCopy.account.errors.fetchFailed);
       }
     },
-    [racePlannerCopy.account.errors.fetchFailed]
+    [isCoachPlanMode, racePlannerCopy.account.errors.fetchFailed, resolvedCoachCoacheeId]
   );
 
-  const previousTokenRef = useRef<string | null>(null);
+  const previousContextRef = useRef<string | null>(null);
 
   useEffect(() => {
     const accessToken = session?.accessToken ?? null;
+    const contextKey = `${accessToken ?? "anon"}:${isCoachPlanMode ? resolvedCoachCoacheeId : "self"}`;
 
     if (!accessToken) {
-      if (previousTokenRef.current) {
+      if (previousContextRef.current) {
         setAccountMessage(null);
         setAccountError(null);
         setSavedPlans([]);
         setActivePlanId(null);
+        setPlanName("");
         onSessionCleared?.();
       }
-      previousTokenRef.current = null;
+      previousContextRef.current = null;
       return;
     }
 
-    if (previousTokenRef.current !== accessToken) {
-      previousTokenRef.current = accessToken;
+    if (previousContextRef.current !== contextKey) {
+      previousContextRef.current = contextKey;
       setAccountError(null);
       setAccountMessage(racePlannerCopy.account.messages.signedIn);
+      setSavedPlans([]);
+      setActivePlanId(null);
+      setPlanName("");
       void refreshSavedPlans(accessToken);
     }
-  }, [onSessionCleared, racePlannerCopy.account.messages.signedIn, refreshSavedPlans, session?.accessToken]);
+  }, [
+    isCoachPlanMode,
+    onSessionCleared,
+    racePlannerCopy.account.messages.signedIn,
+    refreshSavedPlans,
+    resolvedCoachCoacheeId,
+    session?.accessToken,
+  ]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -297,13 +339,22 @@ export const useRacePlan = ({
         elevationProfile: sanitizeElevationProfile(elevationProfile),
       };
 
-      const response = await fetch("/api/plans", {
+      const endpoint = isCoachPlanMode ? "/api/coach/plans" : "/api/plans";
+      const response = await fetch(endpoint, {
         method: planIdToUpdate ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.accessToken}`,
         },
-        body: JSON.stringify(planIdToUpdate ? { ...payload, id: planIdToUpdate } : payload),
+        body: JSON.stringify(
+          planIdToUpdate
+            ? {
+                ...payload,
+                id: planIdToUpdate,
+                ...(isCoachPlanMode ? { coacheeId: resolvedCoachCoacheeId } : {}),
+              }
+            : { ...payload, ...(isCoachPlanMode ? { coacheeId: resolvedCoachCoacheeId } : {}) }
+        ),
       });
 
       const data = (await response.json().catch(() => null)) as {
@@ -339,6 +390,7 @@ export const useRacePlan = ({
     }
   }, [
     elevationProfile,
+    isCoachPlanMode,
     parsedValues,
     planLimitReached,
     planName,
@@ -348,6 +400,7 @@ export const useRacePlan = ({
     racePlannerCopy.account.messages.savedPlan,
     racePlannerCopy.account.plans.defaultName,
     requestPremiumUpgrade,
+    resolvedCoachCoacheeId,
     savedPlans,
     session?.accessToken,
   ]);
@@ -364,13 +417,14 @@ export const useRacePlan = ({
     setDeletingPlanId(planId);
 
     try {
-      const response = await fetch("/api/plans", {
+      const endpoint = isCoachPlanMode ? "/api/coach/plans" : "/api/plans";
+      const response = await fetch(endpoint, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.accessToken}`,
         },
-        body: JSON.stringify({ id: planId }),
+        body: JSON.stringify(isCoachPlanMode ? { id: planId, coacheeId: resolvedCoachCoacheeId } : { id: planId }),
       });
 
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -389,7 +443,14 @@ export const useRacePlan = ({
       setDeletingPlanId(null);
       setActivePlanId((current) => (current === planId ? null : current));
     }
-  }, [racePlannerCopy.account.errors.deleteFailed, racePlannerCopy.account.errors.missingSession, racePlannerCopy.account.messages.deletedPlan, session?.accessToken]);
+  }, [
+    isCoachPlanMode,
+    racePlannerCopy.account.errors.deleteFailed,
+    racePlannerCopy.account.errors.missingSession,
+    racePlannerCopy.account.messages.deletedPlan,
+    resolvedCoachCoacheeId,
+    session?.accessToken,
+  ]);
 
   const handleRefreshPlans = useCallback(() => {
     if (session?.accessToken) {

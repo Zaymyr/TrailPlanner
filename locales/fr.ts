@@ -536,6 +536,12 @@ export const fr: Translations = {
         empty: "Aucun plan enregistré pour le moment.",
         updatedAt: "Mis à jour le {date}",
       },
+      coach: {
+        planOwnerLabel: "Propriétaire du plan",
+        planOwnerHelper: "Basculez entre vos plans et ceux de vos coachés.",
+        myPlans: "Mes plans",
+        loadError: "Impossible de charger les coachés.",
+      },
       messages: {
         accountCreated: "Compte créé. Vous êtes connecté !",
         signedIn: "Connexion réussie.",
@@ -1036,6 +1042,15 @@ export const fr: Translations = {
         sodiumLabel: "Sodium par heure (mg)",
         sodiumPlaceholder: "ex. 500",
       },
+    },
+    plans: {
+      title: "Plans",
+      description: "Ouvrez et modifiez les plans créés pour ce coaché.",
+      empty: "Aucun plan enregistré pour le moment.",
+      loading: "Chargement des plans...",
+      loadError: "Impossible de charger les plans de ce coaché.",
+      updatedLabel: "Mis à jour le {date}",
+      openPlanner: "Ouvrir dans le planificateur",
     },
     actions: {
       title: "Actions",
