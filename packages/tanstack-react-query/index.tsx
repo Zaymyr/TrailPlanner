@@ -189,9 +189,13 @@ export function useQueryClient(): QueryClient {
 export function useQuery<TData>(options: QueryOptions<TData>) {
   const client = useQueryClient();
   const enabled = options.enabled !== false;
-  const key = useMemo(() => options.queryKey, [options.queryKey]);
+  const keyHash = useMemo(() => JSON.stringify(options.queryKey), [options.queryKey]);
+  const key = useMemo(() => options.queryKey, [keyHash]);
   const [state, setState] = useState<QueryState<TData>>(() => client.getState<TData>(key));
   const staleTime = options.staleTime ?? 0;
+  const queryFnRef = useRef(options.queryFn);
+  const onSuccessRef = useRef(options.onSuccess);
+  const onErrorRef = useRef(options.onError);
 
   useEffect(() => {
     return client.subscribe<TData>(key, (nextState) => {
@@ -199,14 +203,26 @@ export function useQuery<TData>(options: QueryOptions<TData>) {
     });
   }, [client, key]);
 
+  useEffect(() => {
+    queryFnRef.current = options.queryFn;
+  }, [options.queryFn]);
+
+  useEffect(() => {
+    onSuccessRef.current = options.onSuccess;
+  }, [options.onSuccess]);
+
+  useEffect(() => {
+    onErrorRef.current = options.onError;
+  }, [options.onError]);
+
   const runQuery = useCallback(() => {
     void client.fetchQuery<TData>({
       queryKey: key,
-      queryFn: options.queryFn,
-      onSuccess: options.onSuccess,
-      onError: options.onError,
+      queryFn: queryFnRef.current,
+      onSuccess: onSuccessRef.current,
+      onError: onErrorRef.current,
     });
-  }, [client, key, options.onError, options.onSuccess, options.queryFn]);
+  }, [client, key]);
 
   useEffect(() => {
     if (!enabled) return;
