@@ -36,9 +36,19 @@ const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType 
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
-const findExistingPlanByName = async (supabaseUrl: string, supabaseKey: string, token: string, name: string) => {
+const findExistingPlanByName = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  token: string,
+  userId: string,
+  name: string
+) => {
   const response = await fetch(
-    `${supabaseUrl}/rest/v1/race_plans?name=eq.${encodeURIComponent(name)}&select=id,name,created_at,updated_at,planner_values,elevation_profile&limit=1`,
+    `${supabaseUrl}/rest/v1/race_plans?name=eq.${encodeURIComponent(
+      name
+    )}&user_id=eq.${encodeURIComponent(
+      userId
+    )}&select=id,name,created_at,updated_at,planner_values,elevation_profile&limit=1`,
     {
       headers: buildAuthHeaders(supabaseKey, token, undefined),
       cache: "no-store",
@@ -69,8 +79,16 @@ export async function GET(request: Request) {
   }
 
   try {
+    const supabaseUser = await fetchSupabaseUser(token, supabaseConfig);
+
+    if (!supabaseUser?.id) {
+      return NextResponse.json({ message: "Invalid session." }, { status: 401 });
+    }
+
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?select=id,name,created_at,updated_at,planner_values,elevation_profile&order=updated_at.desc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${encodeURIComponent(
+        supabaseUser.id
+      )}&select=id,name,created_at,updated_at,planner_values,elevation_profile&order=updated_at.desc`,
       {
         headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token, undefined),
         cache: "no-store",
@@ -120,7 +138,9 @@ export async function POST(request: Request) {
 
   if (Number.isFinite(entitlements.planLimit)) {
     const existingPlansResponse = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?select=id&limit=${entitlements.planLimit}`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${encodeURIComponent(
+        supabaseUser.id
+      )}&select=id&limit=${entitlements.planLimit}`,
       {
         headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token, undefined),
         cache: "no-store",
@@ -144,6 +164,7 @@ export async function POST(request: Request) {
       supabaseConfig.supabaseUrl,
       supabaseConfig.supabaseAnonKey,
       token,
+      supabaseUser.id,
       parsedBody.data.name
     );
 
@@ -200,18 +221,29 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const response = await fetch(`${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${parsedBody.data.id}`, {
-      method: "PATCH",
-      headers: {
-        ...buildAuthHeaders(supabaseConfig.supabaseAnonKey, token),
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
-        name: parsedBody.data.name,
-        planner_values: parsedBody.data.plannerValues,
-        elevation_profile: parsedBody.data.elevationProfile,
-      }),
-    });
+    const supabaseUser = await fetchSupabaseUser(token, supabaseConfig);
+
+    if (!supabaseUser?.id) {
+      return NextResponse.json({ message: "Invalid session." }, { status: 401 });
+    }
+
+    const response = await fetch(
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(
+        parsedBody.data.id
+      )}&user_id=eq.${encodeURIComponent(supabaseUser.id)}`,
+      {
+        method: "PATCH",
+        headers: {
+          ...buildAuthHeaders(supabaseConfig.supabaseAnonKey, token),
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          name: parsedBody.data.name,
+          planner_values: parsedBody.data.plannerValues,
+          elevation_profile: parsedBody.data.elevationProfile,
+        }),
+      }
+    );
 
     const result = (await response.json().catch(() => null)) as SupabasePlanRow[] | null;
 
@@ -248,8 +280,16 @@ export async function DELETE(request: Request) {
   }
 
   try {
+    const supabaseUser = await fetchSupabaseUser(token, supabaseConfig);
+
+    if (!supabaseUser?.id) {
+      return NextResponse.json({ message: "Invalid session." }, { status: 401 });
+    }
+
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${parsedBody.data.id}`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(
+        parsedBody.data.id
+      )}&user_id=eq.${encodeURIComponent(supabaseUser.id)}`,
       {
         method: "DELETE",
         headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token),
