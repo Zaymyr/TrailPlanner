@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
 import {
@@ -8,7 +9,7 @@ import {
   coachInviteUserEnvelopeSchema,
   coachInviteUserListSchema,
 } from "../../../../lib/coach-invites";
-import { fetchCoachTierById } from "../../../../lib/coach-tiers";
+import { fetchCoachTierById, fetchCoachTierByName } from "../../../../lib/coach-tiers";
 import {
   extractBearerToken,
   fetchSupabaseUser,
@@ -19,6 +20,11 @@ import {
 type SupabaseCoachProfileRow = {
   coach_tier_id: string | null;
   subscription_status: string | null;
+};
+
+type SupabaseUserProfileRow = {
+  is_coach: boolean | null;
+  coach_plan_name: string | null;
 };
 
 type SupabaseCoachCoacheeRow = {
@@ -41,6 +47,20 @@ const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType 
   Authorization: `Bearer ${accessToken}`,
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
+
+const coachProfileSchema = z.array(
+  z.object({
+    coach_tier_id: z.string().uuid().nullable().optional(),
+    subscription_status: z.string().nullable().optional(),
+  })
+);
+
+const userProfileSchema = z.array(
+  z.object({
+    is_coach: z.boolean().nullable().optional(),
+    coach_plan_name: z.string().nullable().optional(),
+  })
+);
 
 const parseContentRangeCount = (contentRange: string | null): number | null => {
   if (!contentRange) return null;
@@ -71,8 +91,43 @@ const fetchCoachProfile = async (
     return undefined;
   }
 
-  const rows = (await response.json().catch(() => null)) as SupabaseCoachProfileRow[] | null;
-  return rows?.[0] ?? null;
+  const rows = coachProfileSchema.safeParse(await response.json().catch(() => null));
+  if (!rows.success) {
+    console.error("Unexpected coach profile payload", rows.error);
+    return undefined;
+  }
+
+  return rows.data?.[0] ?? null;
+};
+
+const fetchUserProfile = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  accessToken: string,
+  coachId: string
+): Promise<SupabaseUserProfileRow | null | undefined> => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
+      coachId
+    )}&select=is_coach,coach_plan_name&limit=1`,
+    {
+      headers: buildAuthHeaders(supabaseKey, accessToken, undefined),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    console.error("Unable to load user profile", await response.text());
+    return undefined;
+  }
+
+  const rows = userProfileSchema.safeParse(await response.json().catch(() => null));
+  if (!rows.success) {
+    console.error("Unexpected user profile payload", rows.error);
+    return undefined;
+  }
+
+  return rows.data?.[0] ?? null;
 };
 
 const isActiveSubscription = (coachProfile: SupabaseCoachProfileRow | null): boolean => {
@@ -346,26 +401,32 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const coachProfile = await fetchCoachProfile(
-    supabaseAnon.supabaseUrl,
-    supabaseAnon.supabaseAnonKey,
-    token,
-    supabaseUser.id
-  );
+  const [coachProfile, profileRow] = await Promise.all([
+    fetchCoachProfile(supabaseAnon.supabaseUrl, supabaseAnon.supabaseAnonKey, token, supabaseUser.id),
+    fetchUserProfile(supabaseAnon.supabaseUrl, supabaseAnon.supabaseAnonKey, token, supabaseUser.id),
+  ]);
 
-  if (coachProfile === undefined) {
+  if (coachProfile === undefined || profileRow === undefined) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to verify subscription." }, { status: 502 }));
   }
 
-  if (!isActiveSubscription(coachProfile)) {
+  const isCoachFromSubscription = isActiveSubscription(coachProfile);
+  const isCoachFallback = Boolean(profileRow?.is_coach);
+
+  if (!isCoachFromSubscription && !isCoachFallback) {
     return withSecurityHeaders(NextResponse.json({ message: "Coach subscription required." }, { status: 403 }));
   }
 
-  if (!coachProfile?.coach_tier_id) {
-    return withSecurityHeaders(NextResponse.json({ message: "Coach tier not found." }, { status: 403 }));
+  const coachPlanName = isCoachFallback ? profileRow?.coach_plan_name ?? null : null;
+  let coachTier = null;
+
+  if (isCoachFromSubscription && coachProfile?.coach_tier_id) {
+    coachTier = await fetchCoachTierById(coachProfile.coach_tier_id);
   }
 
-  const coachTier = await fetchCoachTierById(coachProfile.coach_tier_id);
+  if (!coachTier && coachPlanName) {
+    coachTier = await fetchCoachTierByName(coachPlanName);
+  }
 
   if (!coachTier) {
     return withSecurityHeaders(NextResponse.json({ message: "Coach tier not found." }, { status: 403 }));
