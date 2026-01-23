@@ -369,13 +369,18 @@ export default function ProfilePage() {
   const showCoachSummary = isCoach;
   const coachSummaryLoading = showCoachSummary ? coachSummaryQuery.isLoading : coachTiersQuery.isLoading;
   const coachSummaryError = showCoachSummary ? coachSummaryQuery.isError : coachTiersQuery.isError;
-  const coachRelationshipStatus = coachRelationshipQuery.data ?? null;
+  const coachRelationshipStatus = coachRelationshipQuery.data?.status ?? null;
+  const coachContact = coachRelationshipQuery.data?.coach ?? null;
   const coachRelationshipLabel = useMemo(() => {
     if (coachRelationshipStatus === "pending") return t.profile.coachRelationship.pending;
     if (coachRelationshipStatus === "active") return t.profile.coachRelationship.active;
     return null;
   }, [coachRelationshipStatus, t.profile.coachRelationship.active, t.profile.coachRelationship.pending]);
   const showCoachRelationship = Boolean(coachRelationshipLabel);
+  const showCoachRelationshipOnly = !isCoach;
+  const coachNameLabel = coachContact?.fullName ?? t.profile.coachRelationship.unknownCoach;
+  const coachEmailLabel = coachContact?.email ?? t.profile.coachRelationship.unknownEmail;
+  const showCoachPremiumNote = showCoachRelationshipOnly && coachRelationshipStatus === "active";
   const coachPlanLabel = useMemo(() => {
     if (!coachPlanName) return t.profile.subscription.coachTiers.noActivePlan;
     return coachTierLabels[coachPlanName as keyof typeof coachTierLabels] ?? coachPlanName.toUpperCase();
@@ -655,7 +660,7 @@ export default function ProfilePage() {
               <p className="text-xs text-muted-foreground">{trialEndsAtLabel}</p>
             ) : null}
 
-            {session?.accessToken ? (
+            {session?.accessToken && !showCoachRelationshipOnly ? (
               <div className="space-y-2 rounded-md border border-border bg-muted/40 px-3 py-2">
                 <div className="space-y-1">
                   <p className="text-sm font-semibold text-foreground">
@@ -711,10 +716,23 @@ export default function ProfilePage() {
               <div className="space-y-1 rounded-md border border-border bg-muted/40 px-3 py-2">
                 <p className="text-sm font-semibold text-foreground">{t.profile.coachRelationship.title}</p>
                 <p className="text-xs text-muted-foreground">{coachRelationshipLabel}</p>
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <p>
+                    <span className="font-semibold text-foreground">{t.profile.coachRelationship.coachNameLabel}</span>{" "}
+                    {coachNameLabel}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-foreground">{t.profile.coachRelationship.coachEmailLabel}</span>{" "}
+                    {coachEmailLabel}
+                  </p>
+                  {showCoachPremiumNote ? (
+                    <p className="text-emerald-700 dark:text-emerald-300">{t.profile.coachRelationship.premiumNote}</p>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
-            {session?.accessToken ? (
+            {session?.accessToken && !showCoachRelationshipOnly ? (
               <div className="flex flex-wrap gap-3">
                 <Button
                   type="button"

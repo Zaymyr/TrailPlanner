@@ -1,9 +1,9 @@
-import { coachRelationshipResponseSchema, type CoachRelationshipStatus } from "./coach-relationship";
+import { coachRelationshipResponseSchema, type CoachRelationship } from "./coach-relationship";
 
 export const fetchCoachRelationshipStatus = async (
   accessToken: string,
   signal?: AbortSignal
-): Promise<CoachRelationshipStatus> => {
+): Promise<CoachRelationship> => {
   const response = await fetch("/api/coach/relationship", {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -25,5 +25,5 @@ export const fetchCoachRelationshipStatus = async (
     throw new Error("Invalid coach relationship response");
   }
 
-  return parsed.data.status;
+  return parsed.data;
 };
