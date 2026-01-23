@@ -50,15 +50,15 @@ const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType 
 
 const coachProfileSchema = z.array(
   z.object({
-    coach_tier_id: z.string().uuid().nullable().optional(),
-    subscription_status: z.string().nullable().optional(),
+    coach_tier_id: z.string().uuid().nullable(),
+    subscription_status: z.string().nullable(),
   })
 );
 
 const userProfileSchema = z.array(
   z.object({
-    is_coach: z.boolean().nullable().optional(),
-    coach_plan_name: z.string().nullable().optional(),
+    is_coach: z.boolean().nullable(),
+    coach_plan_name: z.string().nullable(),
   })
 );
 
