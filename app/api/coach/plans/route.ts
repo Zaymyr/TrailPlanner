@@ -132,7 +132,7 @@ export async function GET(request: Request) {
     const response = await fetch(
       `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?select=id,name,updated_at,planner_values,elevation_profile&user_id=eq.${encodeURIComponent(
         coacheeId
-      )}&coach_id=eq.${encodeURIComponent(user.id)}&order=updated_at.desc`,
+      )}&order=updated_at.desc`,
       {
         headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token, undefined),
         cache: "no-store",
@@ -291,7 +291,7 @@ export async function PUT(request: Request) {
     const response = await fetch(
       `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(
         parsedBody.data.id
-      )}&user_id=eq.${encodeURIComponent(parsedBody.data.coacheeId)}&coach_id=eq.${encodeURIComponent(user.id)}`,
+      )}&user_id=eq.${encodeURIComponent(parsedBody.data.coacheeId)}`,
       {
         method: "PATCH",
         headers: {
@@ -380,7 +380,7 @@ export async function DELETE(request: Request) {
     const response = await fetch(
       `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(
         parsedBody.data.id
-      )}&user_id=eq.${encodeURIComponent(parsedBody.data.coacheeId)}&coach_id=eq.${encodeURIComponent(user.id)}`,
+      )}&user_id=eq.${encodeURIComponent(parsedBody.data.coacheeId)}`,
       {
         method: "DELETE",
         headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token),

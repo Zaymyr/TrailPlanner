@@ -448,8 +448,7 @@ create policy "Users can delete their race plans" on public.race_plans
 
 create policy "Coaches can view their coachee race plans" on public.race_plans
   for select using (
-    coach_id = auth.uid()
-    and exists (
+    exists (
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
@@ -470,8 +469,7 @@ create policy "Coaches can insert coachee race plans" on public.race_plans
 
 create policy "Coaches can update coachee race plans" on public.race_plans
   for update using (
-    coach_id = auth.uid()
-    and exists (
+    exists (
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
@@ -479,8 +477,7 @@ create policy "Coaches can update coachee race plans" on public.race_plans
     )
   )
   with check (
-    coach_id = auth.uid()
-    and exists (
+    exists (
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
@@ -490,8 +487,7 @@ create policy "Coaches can update coachee race plans" on public.race_plans
 
 create policy "Coaches can delete coachee race plans" on public.race_plans
   for delete using (
-    coach_id = auth.uid()
-    and exists (
+    exists (
       select 1 from public.coach_coachees
       where coach_coachees.coach_id = auth.uid()
         and coach_coachees.coachee_id = race_plans.user_id
@@ -694,7 +690,6 @@ create policy "Coaches can manage coach comments" on public.coach_comments
       from public.race_plans
       where race_plans.id = coach_comments.plan_id
         and race_plans.user_id = coach_comments.coachee_id
-        and race_plans.coach_id = auth.uid()
     )
   )
   with check (
@@ -710,7 +705,6 @@ create policy "Coaches can manage coach comments" on public.coach_comments
       from public.race_plans
       where race_plans.id = coach_comments.plan_id
         and race_plans.user_id = coach_comments.coachee_id
-        and race_plans.coach_id = auth.uid()
     )
   );
 

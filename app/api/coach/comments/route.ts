@@ -41,14 +41,13 @@ const ensureCoachCoacheePlanAccess = async (
   supabaseUrl: string,
   supabaseAnonKey: string,
   token: string,
-  coachId: string,
   coacheeId: string,
   planId: string
 ): Promise<boolean> => {
   const response = await fetch(
     `${supabaseUrl}/rest/v1/race_plans?select=id&limit=1&id=eq.${encodeURIComponent(
       planId
-    )}&user_id=eq.${encodeURIComponent(coacheeId)}&coach_id=eq.${encodeURIComponent(coachId)}`,
+    )}&user_id=eq.${encodeURIComponent(coacheeId)}`,
     {
       headers: buildAuthHeaders(supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -189,7 +188,6 @@ export async function POST(request: Request) {
       supabaseConfig.supabaseUrl,
       supabaseConfig.supabaseAnonKey,
       token,
-      user.id,
       parsedBody.data.coacheeId,
       parsedBody.data.planId
     );
@@ -274,7 +272,6 @@ export async function PATCH(request: Request) {
       supabaseConfig.supabaseUrl,
       supabaseConfig.supabaseAnonKey,
       token,
-      user.id,
       parsedBody.data.coacheeId,
       parsedBody.data.planId
     );
@@ -361,7 +358,6 @@ export async function DELETE(request: Request) {
       supabaseConfig.supabaseUrl,
       supabaseConfig.supabaseAnonKey,
       token,
-      user.id,
       parsedBody.data.coacheeId,
       parsedBody.data.planId
     );
