@@ -154,7 +154,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     },
   });
 
-  const inviteResponse = await adminClient.auth.admin.inviteUserByEmail(invite.invite_email);
+  const inviteResponse = await adminClient.auth.admin.inviteUserByEmail(invite.invite_email, {
+    redirectTo: `${request.nextUrl.origin}/reset-password`,
+  });
 
   if (inviteResponse.error || !inviteResponse.data.user?.id) {
     console.error("Unable to resend invite", inviteResponse.error);

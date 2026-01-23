@@ -537,7 +537,9 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  const inviteResponse = await adminClient.auth.admin.inviteUserByEmail(email);
+  const inviteResponse = await adminClient.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${request.nextUrl.origin}/reset-password`,
+  });
 
   if (inviteResponse.error || !inviteResponse.data.user?.id) {
     console.error("Unable to invite user", inviteResponse.error);

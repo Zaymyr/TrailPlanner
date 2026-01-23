@@ -40,8 +40,10 @@ const parseResetTokens = (): ResetTokens | null => {
   const accessToken = params.get("access_token");
   const refreshToken = params.get("refresh_token") ?? undefined;
   const type = params.get("type");
+  const isInviteLink = type === "invite";
+  const isRecoveryLink = type === "recovery";
 
-  if (!accessToken || type !== "recovery") {
+  if (!accessToken || (!isRecoveryLink && !isInviteLink)) {
     return null;
   }
 
