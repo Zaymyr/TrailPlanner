@@ -111,11 +111,13 @@ export default function ResetPasswordPage() {
 
       const sessionData = (await sessionResponse.json().catch(() => null)) as {
         user?: { email?: string };
+        access_token?: string;
+        refresh_token?: string;
       } | null;
 
       persistSessionToStorage({
-        accessToken: resetTokens.accessToken,
-        refreshToken: resetTokens.refreshToken,
+        accessToken: sessionData?.access_token ?? resetTokens.accessToken,
+        refreshToken: sessionData?.refresh_token ?? resetTokens.refreshToken,
         email: sessionData?.user?.email,
       });
 

@@ -10,6 +10,8 @@ type SessionResponse = {
   user?: {
     email?: string;
   };
+  access_token?: string;
+  refresh_token?: string;
 };
 
 type Status = {
@@ -73,9 +75,11 @@ export default function AuthCallbackPage() {
         if (response.ok) {
           const data = (await response.json().catch(() => null)) as SessionResponse | null;
           const email = data?.user?.email;
+          const updatedAccessToken = data?.access_token ?? accessToken;
+          const updatedRefreshToken = data?.refresh_token ?? refreshToken;
 
-          if (email) {
-            persistSessionToStorage({ accessToken, refreshToken, email });
+          if (email || data?.access_token || data?.refresh_token) {
+            persistSessionToStorage({ accessToken: updatedAccessToken, refreshToken: updatedRefreshToken, email });
           }
         }
       } catch (error) {
