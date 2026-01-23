@@ -16,8 +16,10 @@ export function AuthCallbackHandler() {
 
     const params = new URLSearchParams(hash.replace(/^#/, ""));
     const accessToken = params.get("access_token");
+    const type = params.get("type");
 
     if (!accessToken) return;
+    if (type === "invite" || type === "recovery" || window.location.pathname === "/reset-password") return;
 
     const refreshToken = params.get("refresh_token") ?? undefined;
     const email = params.get("email") ?? undefined;
