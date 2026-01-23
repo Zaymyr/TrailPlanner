@@ -206,7 +206,7 @@ describe("POST /api/coach/invite", () => {
     const mockFetch = vi.mocked(fetch);
     const mockFetchCoachTierByName = vi.mocked(fetchCoachTierByName);
 
-    mockFetchCoachTierByName.mockResolvedValueOnce({ invite_limit: 1 });
+    mockFetchCoachTierByName.mockResolvedValueOnce({ name: "starter", invite_limit: 1 });
 
     mockFetch
       .mockResolvedValueOnce(
@@ -244,8 +244,8 @@ vi.mock("../../../../lib/supabase", () => ({
 }));
 
 vi.mock("../../../../lib/coach-tiers", () => ({
-  fetchCoachTierById: vi.fn(() => Promise.resolve({ invite_limit: 1 })),
-  fetchCoachTierByName: vi.fn(() => Promise.resolve({ invite_limit: 1 })),
+  fetchCoachTierById: vi.fn(() => Promise.resolve({ name: "starter", invite_limit: 1 })),
+  fetchCoachTierByName: vi.fn(() => Promise.resolve({ name: "starter", invite_limit: 1 })),
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
