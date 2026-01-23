@@ -73,7 +73,7 @@ describe("POST /api/coach/invite", () => {
     expect(payload).toEqual({ message: "Invite limit reached." });
   });
 
-  it("creates an active invite for existing users", async () => {
+  it("creates a pending invite for existing users", async () => {
     const mockFetch = vi.mocked(fetch);
 
     mockFetch
@@ -100,29 +100,28 @@ describe("POST /api/coach/invite", () => {
       )
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([{ id: "invite-id" }], { status: 201 }))
-      .mockResolvedValueOnce(buildJsonResponse(null, { status: 201 }));
+      .mockResolvedValueOnce(buildJsonResponse(null, { status: 200 }));
 
     const response = await POST(inviteRequest("invitee@example.com"));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload).toEqual({ status: "active" });
+    expect(payload).toEqual({ status: "pending" });
 
     const inviteCall = mockFetch.mock.calls.find(
       ([url, init]) => String(url).includes("/rest/v1/coach_invites") && init?.method === "POST"
     );
     expect(inviteCall).toBeDefined();
     const inviteBody = JSON.parse(inviteCall?.[1]?.body as string);
-    expect(inviteBody.status).toBe("accepted");
+    expect(inviteBody.status).toBe("pending");
     expect(inviteBody.invitee_user_id).toBe("22222222-2222-2222-2222-222222222222");
 
-    const coacheeCall = mockFetch.mock.calls.find(
-      ([url, init]) => String(url).includes("/rest/v1/coach_coachees") && init?.method === "POST"
+    const recoverCall = mockFetch.mock.calls.find(
+      ([url, init]) => String(url).includes("/auth/v1/recover") && init?.method === "POST"
     );
-    expect(coacheeCall).toBeDefined();
-    const coacheeBody = JSON.parse(coacheeCall?.[1]?.body as string);
-    expect(coacheeBody.status).toBe("active");
-    expect(coacheeBody.coachee_id).toBe("22222222-2222-2222-2222-222222222222");
+    expect(recoverCall).toBeDefined();
+    const recoverBody = JSON.parse(recoverCall?.[1]?.body as string);
+    expect(recoverBody).toEqual({ email: "invitee@example.com", redirect_to: "http://localhost/reset-password" });
   });
 
   it("creates a pending invite for new users", async () => {
