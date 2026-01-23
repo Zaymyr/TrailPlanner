@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 
+import { fetchCoachTierByName } from "../../../../lib/coach-tiers";
 import { POST } from "./route";
 
 const mockSupabaseConfig = {
@@ -47,6 +48,14 @@ describe("POST /api/coach/invite", () => {
           },
         ])
       )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            is_coach: false,
+            coach_plan_name: null,
+          },
+        ])
+      )
       .mockResolvedValueOnce(buildJsonResponse([], { headers: { "content-range": "0-0/2" } }));
 
     const response = await POST(inviteRequest("invitee@example.com"));
@@ -65,6 +74,14 @@ describe("POST /api/coach/invite", () => {
           {
             coach_tier_id: "tier-id",
             subscription_status: "active",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            is_coach: false,
+            coach_plan_name: null,
           },
         ])
       )
@@ -110,6 +127,14 @@ describe("POST /api/coach/invite", () => {
           },
         ])
       )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            is_coach: false,
+            coach_plan_name: null,
+          },
+        ])
+      )
       .mockResolvedValueOnce(buildJsonResponse([], { headers: { "content-range": "0-0/0" } }))
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse({ users: [] }))
@@ -149,12 +174,53 @@ describe("POST /api/coach/invite", () => {
         },
       ])
     );
+    mockFetch.mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          is_coach: false,
+          coach_plan_name: null,
+        },
+      ])
+    );
 
     const response = await POST(inviteRequest("invitee@example.com"));
     const payload = await response.json();
 
     expect(response.status).toBe(403);
     expect(payload).toEqual({ message: "Coach subscription required." });
+  });
+
+  it("allows coaches flagged on their profile even without an active subscription", async () => {
+    const mockFetch = vi.mocked(fetch);
+    const mockFetchCoachTierByName = vi.mocked(fetchCoachTierByName);
+
+    mockFetchCoachTierByName.mockResolvedValueOnce({ invite_limit: 1 });
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            coach_tier_id: null,
+            subscription_status: "canceled",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            is_coach: true,
+            coach_plan_name: "starter",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(buildJsonResponse([], { headers: { "content-range": "0-0/1" } }));
+
+    const response = await POST(inviteRequest("invitee@example.com"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(payload).toEqual({ message: "Invite limit reached." });
+    expect(mockFetchCoachTierByName).toHaveBeenCalledWith("starter");
   });
 });
 
@@ -167,6 +233,7 @@ vi.mock("../../../../lib/supabase", () => ({
 
 vi.mock("../../../../lib/coach-tiers", () => ({
   fetchCoachTierById: () => Promise.resolve({ invite_limit: 1 }),
+  fetchCoachTierByName: () => Promise.resolve({ invite_limit: 1 }),
 }));
 
 vi.mock("@supabase/supabase-js", () => ({
