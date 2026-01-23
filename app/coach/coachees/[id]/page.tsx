@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { CoacheeOverrideEditor, type CoacheeOverrideFormValues } from "../../../../components/coach/CoacheeOverrideEditor";
@@ -13,6 +13,7 @@ import {
   fetchCoachCoacheeDetail,
 } from "../../../../lib/coach-coachee-details-client";
 import type { CoachCoacheeDetail } from "../../../../lib/coach-coachee-details";
+import { useCoachCoacheePlans } from "../../../hooks/useCoachCoacheePlans";
 import { useI18n } from "../../../i18n-provider";
 import { useVerifiedSession } from "../../../hooks/useVerifiedSession";
 
@@ -23,6 +24,7 @@ const formatStatus = (status: string, labels: Record<string, string>) => labels[
 export default function CoachCoacheeDetailPage() {
   const { t, locale } = useI18n();
   const params = useParams();
+  const router = useRouter();
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const queryClient = useQueryClient();
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -42,6 +44,14 @@ export default function CoachCoacheeDetailPage() {
       return fetchCoachCoacheeDetail(session.accessToken, coacheeId);
     },
     enabled: Boolean(session?.accessToken && coacheeId),
+  });
+  const {
+    data: coacheePlans,
+    isLoading: isPlansLoading,
+    error: plansError,
+  } = useCoachCoacheePlans({
+    accessToken: session?.accessToken,
+    coacheeId,
   });
 
   const overrideMutation = useMutation({
@@ -192,6 +202,50 @@ export default function CoachCoacheeDetailPage() {
             errorMessage={overrideMutation.error ? t.coachCoacheeDetail.override.error : null}
             disabled={!detail}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg text-slate-900">{t.coachCoacheeDetail.plans.title}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-slate-600">{t.coachCoacheeDetail.plans.description}</p>
+          {isPlansLoading ? <p className="text-sm text-slate-500">{t.coachCoacheeDetail.plans.loading}</p> : null}
+          {plansError ? <p className="text-sm text-red-600">{t.coachCoacheeDetail.plans.loadError}</p> : null}
+          {!isPlansLoading && !plansError && (coacheePlans?.length ?? 0) === 0 ? (
+            <p className="text-sm text-slate-500">{t.coachCoacheeDetail.plans.empty}</p>
+          ) : null}
+          <div className="space-y-3">
+            {(coacheePlans ?? []).map((plan) => (
+              <div
+                key={plan.id}
+                className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3 text-sm text-slate-700"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">{plan.name}</p>
+                  <p className="text-xs text-slate-500">
+                    {t.coachCoacheeDetail.plans.updatedLabel.replace(
+                      "{date}",
+                      new Date(plan.updatedAt).toLocaleDateString(locale)
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (!coacheeId) return;
+                      router.push(`/race-planner?coacheeId=${coacheeId}&planId=${plan.id}`);
+                    }}
+                  >
+                    {t.coachCoacheeDetail.plans.openPlanner}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

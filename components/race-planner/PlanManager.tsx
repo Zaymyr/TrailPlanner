@@ -21,6 +21,15 @@ export type PlanManagerProps = {
   canSavePlan: boolean;
   showPlanLimitUpsell: boolean;
   premiumCopy: RacePlannerTranslations["account"]["premium"];
+  planOwnerSelector?: {
+    label: string;
+    helper?: string;
+    options: { value: string; label: string }[];
+    value: string;
+    isLoading?: boolean;
+    errorMessage?: string | null;
+    onChange: (value: string) => void;
+  };
   onPlanNameChange: (name: string) => void;
   onSavePlan: () => void;
   onRefreshPlans: () => void;
@@ -41,6 +50,7 @@ export function PlanManager({
   canSavePlan,
   showPlanLimitUpsell,
   premiumCopy,
+  planOwnerSelector,
   onPlanNameChange,
   onSavePlan,
   onRefreshPlans,
@@ -64,6 +74,30 @@ export function PlanManager({
         {sessionEmail ? (
           <div className="space-y-4">
             <div className="space-y-2">
+              {planOwnerSelector ? (
+                <div className="space-y-2">
+                  <Label htmlFor="plan-owner">{planOwnerSelector.label}</Label>
+                  <select
+                    id="plan-owner"
+                    value={planOwnerSelector.value}
+                    onChange={(event) => planOwnerSelector.onChange(event.target.value)}
+                    disabled={planOwnerSelector.isLoading}
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                  >
+                    {planOwnerSelector.options.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {planOwnerSelector.helper ? (
+                    <p className="text-xs text-muted-foreground dark:text-slate-400">{planOwnerSelector.helper}</p>
+                  ) : null}
+                  {planOwnerSelector.errorMessage ? (
+                    <p className="text-xs text-red-400">{planOwnerSelector.errorMessage}</p>
+                  ) : null}
+                </div>
+              ) : null}
               <Label htmlFor="plan-name">{copy.plans.nameLabel}</Label>
               <Input
                 id="plan-name"

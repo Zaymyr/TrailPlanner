@@ -1,5 +1,10 @@
-import { RacePlannerPageContent } from "./RacePlannerPageContent"
+import { Suspense } from "react";
+import { RacePlannerPageContent } from "./RacePlannerPageContent";
 
 export default function RacePlannerPage() {
-  return <RacePlannerPageContent />
+  return (
+    <Suspense fallback={null}>
+      <RacePlannerPageContent />
+    </Suspense>
+  );
 }

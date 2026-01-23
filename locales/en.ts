@@ -526,6 +526,12 @@ export const en: Translations = {
         empty: "No saved plans yet.",
         updatedAt: "Updated {date}",
       },
+      coach: {
+        planOwnerLabel: "Plan owner",
+        planOwnerHelper: "Switch between your plans and coachee plans.",
+        myPlans: "My plans",
+        loadError: "Unable to load coachees.",
+      },
       messages: {
         accountCreated: "Account created. You're signed in!",
         signedIn: "Signed in successfully.",
@@ -1027,6 +1033,15 @@ export const en: Translations = {
         sodiumLabel: "Sodium per hour (mg)",
         sodiumPlaceholder: "e.g. 500",
       },
+    },
+    plans: {
+      title: "Plans",
+      description: "Open and edit the plans you've created for this coachee.",
+      empty: "No plans saved yet.",
+      loading: "Loading plans...",
+      loadError: "We couldn't load plans for this coachee.",
+      updatedLabel: "Updated {date}",
+      openPlanner: "Open in planner",
     },
     actions: {
       title: "Actions",

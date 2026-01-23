@@ -432,6 +432,12 @@ export type RacePlannerTranslations = {
       empty: string;
       updatedAt: string;
     };
+    coach: {
+      planOwnerLabel: string;
+      planOwnerHelper: string;
+      myPlans: string;
+      loadError: string;
+    };
     messages: {
       accountCreated: string;
       signedIn: string;
@@ -932,6 +938,15 @@ export type CoachCoacheeDetailTranslations = {
       sodiumLabel: string;
       sodiumPlaceholder: string;
     };
+  };
+  plans: {
+    title: string;
+    description: string;
+    empty: string;
+    loading: string;
+    loadError: string;
+    updatedLabel: string;
+    openPlanner: string;
   };
   actions: {
     title: string;

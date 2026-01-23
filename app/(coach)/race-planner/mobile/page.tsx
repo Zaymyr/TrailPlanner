@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { RacePlannerPageContent } from "../RacePlannerPageContent";
 
 export default function RacePlannerMobilePage() {
-  return <RacePlannerPageContent enableMobileNav />;
+  return (
+    <Suspense fallback={null}>
+      <RacePlannerPageContent enableMobileNav />
+    </Suspense>
+  );
 }
