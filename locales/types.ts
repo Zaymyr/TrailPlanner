@@ -704,6 +704,11 @@ export type ProfileTranslations = {
     title: string;
     pending: string;
     active: string;
+    coachNameLabel: string;
+    coachEmailLabel: string;
+    premiumNote: string;
+    unknownCoach: string;
+    unknownEmail: string;
   };
   premiumModal: {
     title: string;

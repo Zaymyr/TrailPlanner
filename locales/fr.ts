@@ -808,6 +808,11 @@ export const fr: Translations = {
       title: "Relation avec le coach",
       pending: "Invité par un coach",
       active: "Relation coach active",
+      coachNameLabel: "Nom du coach :",
+      coachEmailLabel: "Email du coach :",
+      premiumNote: "Premium actif grâce à votre coach.",
+      unknownCoach: "Coach inconnu",
+      unknownEmail: "Email inconnu",
     },
   premiumModal: {
     title: "Passer en Premium",

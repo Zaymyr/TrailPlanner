@@ -799,6 +799,11 @@ export const en: Translations = {
       title: "Coach relationship",
       pending: "Invited by coach",
       active: "Active coach relationship",
+      coachNameLabel: "Coach name:",
+      coachEmailLabel: "Coach email:",
+      premiumNote: "Premium active thanks to your coach.",
+      unknownCoach: "Unknown coach",
+      unknownEmail: "Unknown email",
     },
     premiumModal: {
       title: "Upgrade to Premium",
