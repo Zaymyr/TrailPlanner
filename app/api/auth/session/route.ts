@@ -10,6 +10,12 @@ import {
 } from "../../../../lib/supabase";
 import { ensureTrialStatus } from "../../../../lib/trial-server";
 
+type RefreshTokenPayload = {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+};
+
 type CoachInviteRow = {
   id: string;
   coach_id: string;
@@ -116,16 +122,36 @@ export async function GET(request: Request) {
 
   const cookieStore = cookies();
 
-  const token =
+  let accessToken =
     extractBearerToken(request.headers.get("authorization")) ?? cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
-  const refreshToken =
+  let refreshToken =
     extractBearerToken(request.headers.get("x-refresh-token")) ?? cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
 
-  if (!token) {
+  if (!accessToken) {
     return NextResponse.json({ message: "Missing access token." }, { status: 401 });
   }
 
-  const user = await fetchSupabaseUser(token, supabaseConfig);
+  let user = await fetchSupabaseUser(accessToken, supabaseConfig);
+
+  if (!user && refreshToken) {
+    const refreshResponse = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseConfig.supabaseAnonKey,
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store",
+    });
+
+    const refreshData = (await refreshResponse.json().catch(() => null)) as RefreshTokenPayload | null;
+
+    if (refreshResponse.ok && refreshData?.access_token) {
+      accessToken = refreshData.access_token;
+      refreshToken = refreshData.refresh_token ?? refreshToken;
+      user = await fetchSupabaseUser(accessToken, supabaseConfig);
+    }
+  }
 
   if (!user) {
     return NextResponse.json({ message: "Unable to validate session." }, { status: 401 });
@@ -136,7 +162,7 @@ export async function GET(request: Request) {
       await ensureTrialStatus({
         supabaseUrl: supabaseConfig.supabaseUrl,
         supabaseKey: supabaseConfig.supabaseAnonKey,
-        token,
+        token: accessToken,
         userId: user.id,
       });
     } catch (error) {
@@ -164,11 +190,13 @@ export async function GET(request: Request) {
       role: user.role,
       roles: user.roles,
     },
+    access_token: accessToken,
+    refresh_token: refreshToken ?? undefined,
   });
 
   const isSecure = process.env.NODE_ENV === "production";
 
-  response.cookies.set(ACCESS_TOKEN_COOKIE, token, {
+  response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
     httpOnly: true,
     sameSite: "lax",
     secure: isSecure,

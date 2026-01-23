@@ -7,6 +7,7 @@ import {
   REFRESH_TOKEN_KEY,
   SESSION_EMAIL_KEY,
   clearStoredSession,
+  persistSessionToStorage,
   readStoredSession,
 } from "../../lib/auth-storage";
 import { clearRacePlannerStorage } from "../../lib/race-planner-storage";
@@ -27,6 +28,8 @@ type SessionResponse = {
     role?: string;
     roles?: string[];
   };
+  access_token?: string;
+  refresh_token?: string;
 };
 
 type VerifiedSessionContextValue = {
@@ -89,11 +92,24 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
 
         const data = (await response.json().catch(() => null)) as SessionResponse | null;
         const user = data?.user;
+        const nextAccessToken = data?.access_token ?? stored.accessToken;
+        const nextRefreshToken = data?.refresh_token ?? stored.refreshToken;
+
+        if (
+          (data?.access_token && data.access_token !== stored.accessToken) ||
+          (data?.refresh_token && data.refresh_token !== stored.refreshToken)
+        ) {
+          persistSessionToStorage({
+            accessToken: nextAccessToken,
+            refreshToken: nextRefreshToken,
+            email: user?.email ?? stored.email,
+          });
+        }
 
         setSession({
           id: user?.id,
-          accessToken: stored.accessToken,
-          refreshToken: stored.refreshToken,
+          accessToken: nextAccessToken,
+          refreshToken: nextRefreshToken,
           email: user?.email ?? stored.email,
           role: user?.role,
           roles: user?.roles,
@@ -152,11 +168,16 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
     window.addEventListener("storage", handleStorage);
     window.addEventListener("trailplanner:session-updated", handleSessionUpdated);
 
+    const refreshInterval = window.setInterval(() => {
+      void refresh();
+    }, 30 * 60 * 1000);
+
     return () => {
       window.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("trailplanner:session-updated", handleSessionUpdated);
+      window.clearInterval(refreshInterval);
     };
   }, [clearSession, refresh]);
 
