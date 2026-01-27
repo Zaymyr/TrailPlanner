@@ -368,6 +368,17 @@ export default function ProfilePage() {
   const coachTierLabels = t.profile.subscription.coachTiers.labels;
   const coachPlanName = coachSummaryQuery.data?.planName ?? null;
   const isCoach = coachSummaryQuery.data?.isCoach === true;
+  const premiumSourceLabel = useMemo(() => {
+    if (!entitlementsQuery.data?.isPremium || isCoach) return null;
+    if (trialActive) return t.profile.subscription.premiumSourceTrial;
+    return t.profile.subscription.premiumSourceSubscription;
+  }, [
+    entitlementsQuery.data?.isPremium,
+    isCoach,
+    t.profile.subscription.premiumSourceSubscription,
+    t.profile.subscription.premiumSourceTrial,
+    trialActive,
+  ]);
   const showCoachSummary = isCoach;
   const coachSummaryLoading = showCoachSummary ? coachSummaryQuery.isLoading : coachTiersQuery.isLoading;
   const coachSummaryError = showCoachSummary ? coachSummaryQuery.isError : coachTiersQuery.isError;
@@ -644,6 +655,13 @@ export default function ProfilePage() {
 
             {!entitlementsQuery.data?.isPremium && trialActive && trialEndsAtLabel ? (
               <p className="text-xs text-muted-foreground">{trialEndsAtLabel}</p>
+            ) : null}
+
+            {premiumSourceLabel ? (
+              <p className="text-xs text-muted-foreground">
+                {t.profile.subscription.premiumSourceLabel}:{" "}
+                <span className="font-semibold text-foreground">{premiumSourceLabel}</span>
+              </p>
             ) : null}
 
             {session?.accessToken && !showCoachRelationshipOnly ? (

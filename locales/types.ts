@@ -673,6 +673,9 @@ export type ProfileTranslations = {
     freeStatus: string;
     trialStatus: string;
     trialEndsAt: string;
+    premiumSourceLabel: string;
+    premiumSourceTrial: string;
+    premiumSourceSubscription: string;
     refresh: string;
     loading: string;
     error: string;
