@@ -89,9 +89,9 @@ export function CoacheeList({
                         {coachee.status === "disabled" && onReactivate ? (
                           <Button
                             type="button"
-                            size="sm"
                             onClick={() => onReactivate(coachee.id)}
                             disabled={isReactivating}
+                            className="h-8 px-3 text-xs"
                           >
                             {isReactivating ? copy.actions.reactivating : copy.actions.reactivate}
                           </Button>
