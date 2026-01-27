@@ -89,7 +89,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         supabaseUser.id
       )}&coachee_id=eq.${encodeURIComponent(
         coacheeId
-      )}&select=status,invited_email,coachee:coachee_id(full_name,age,water_bag_liters)&limit=1`,
+      )}&status=eq.active&select=status,invited_email,coachee:coachee_id(full_name,age,water_bag_liters)&limit=1`,
       {
         headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, accessToken),
         cache: "no-store",

@@ -47,7 +47,9 @@ const ensureCoachCoacheeLink = async (
   const response = await fetch(
     `${supabaseUrl}/rest/v1/coach_coachees?coach_id=eq.${encodeURIComponent(
       coachId
-    )}&coachee_id=eq.${encodeURIComponent(coacheeId)}&select=coach_id,coachee_id&limit=1`,
+    )}&coachee_id=eq.${encodeURIComponent(
+      coacheeId
+    )}&status=eq.active&select=coach_id,coachee_id&limit=1`,
     {
       headers: {
         apikey: supabaseAnonKey,
@@ -66,16 +68,46 @@ const ensureCoachCoacheeLink = async (
   return rows.length > 0;
 };
 
-const fetchTargets = async (
+const fetchActiveCoachForCoachee = async (
   supabaseUrl: string,
   supabaseAnonKey: string,
   token: string,
   coacheeId: string
+): Promise<string | null> => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/coach_coachees?coachee_id=eq.${encodeURIComponent(
+      coacheeId
+    )}&status=eq.active&select=coach_id,coachee_id&order=created_at.desc&limit=1`,
+    {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    console.error("Unable to load active coach relationship", await response.text());
+    return null;
+  }
+
+  const rows = coachCoacheeRowSchema.parse(await response.json());
+  return rows[0]?.coach_id ?? null;
+};
+
+const fetchTargets = async (
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+  token: string,
+  coacheeId: string,
+  coachId?: string | null
 ): Promise<{ ok: boolean; targets: { carbsPerHour: number | null; waterMlPerHour: number | null; sodiumMgPerHour: number | null } | null }> => {
+  const coachFilter = coachId ? `&coach_id=eq.${encodeURIComponent(coachId)}` : "";
   const response = await fetch(
     `${supabaseUrl}/rest/v1/coach_intake_targets?select=carbs_per_hour,water_ml_per_hour,sodium_mg_per_hour,updated_at&coachee_id=eq.${encodeURIComponent(
       coacheeId
-    )}&order=updated_at.desc&limit=1`,
+    )}${coachFilter}&order=updated_at.desc&limit=1`,
     {
       headers: {
         apikey: supabaseAnonKey,
@@ -147,6 +179,7 @@ export async function GET(request: Request) {
     }
 
     const coacheeId = parsedQuery.data.coacheeId ?? user.id;
+    let coachId: string | null = null;
 
     if (coacheeId !== user.id) {
       const canAccess = await ensureCoachCoacheeLink(
@@ -160,13 +193,26 @@ export async function GET(request: Request) {
       if (!canAccess) {
         return withSecurityHeaders(NextResponse.json({ message: "Not authorized." }, { status: 403 }));
       }
+      coachId = user.id;
+    } else {
+      coachId = await fetchActiveCoachForCoachee(
+        supabaseConfig.supabaseUrl,
+        supabaseConfig.supabaseAnonKey,
+        token,
+        coacheeId
+      );
+
+      if (!coachId) {
+        return withSecurityHeaders(NextResponse.json(coachIntakeTargetsResponseSchema.parse({ targets: null })));
+      }
     }
 
     const result = await fetchTargets(
       supabaseConfig.supabaseUrl,
       supabaseConfig.supabaseAnonKey,
       token,
-      coacheeId
+      coacheeId,
+      coachId
     );
 
     if (!result.ok) {

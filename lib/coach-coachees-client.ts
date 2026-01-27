@@ -24,3 +24,19 @@ export const fetchCoachCoachees = async (accessToken: string, signal?: AbortSign
 
   return parsed.data.coachees;
 };
+
+export const reactivateCoachCoachee = async (accessToken: string, coacheeId: string): Promise<void> => {
+  const response = await fetch(`/api/coach/coachees/${coacheeId}/reactivate`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    const message = (payload as { message?: string } | null)?.message ?? "Unable to reactivate coachee.";
+    throw new Error(message);
+  }
+};

@@ -994,11 +994,17 @@ export const en: Translations = {
         status: "Status",
         age: "Age",
         added: "Added",
+        actions: "Actions",
       },
       status: {
         active: "Active",
         pending: "Pending",
         disabled: "Disabled",
+      },
+      actions: {
+        reactivate: "Reactivate",
+        reactivating: "Reactivating...",
+        unavailable: "—",
       },
     },
   },

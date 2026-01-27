@@ -84,6 +84,7 @@ export default function CoachCoacheeDetailPage() {
     onSuccess: async () => {
       setRemoveMessage(t.coachCoacheeDetail.actions.success);
       await queryClient.invalidateQueries({ queryKey: detailQueryKey(session?.accessToken, coacheeId) });
+      router.push("/coach");
     },
     onError: () => {
       setRemoveMessage(null);
