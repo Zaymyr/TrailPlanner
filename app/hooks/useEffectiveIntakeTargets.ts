@@ -13,6 +13,14 @@ export type IntakeTargets = {
 const resolveNumber = (value: number | null | undefined) =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
 
+const hasCoachOverrides = (coachTargets?: CoachIntakeTargets | null): boolean =>
+  Boolean(
+    coachTargets &&
+      [coachTargets.carbsPerHour, coachTargets.waterMlPerHour, coachTargets.sodiumMgPerHour].some(
+        (value) => typeof value === "number" && Number.isFinite(value)
+      )
+  );
+
 export const resolveEffectiveIntakeTargets = (
   baseTargets: IntakeTargets,
   coachTargets?: CoachIntakeTargets | null
@@ -28,7 +36,7 @@ export const useEffectiveIntakeTargets = (
 ): { effectiveTargets: IntakeTargets; isCoachManaged: boolean } =>
   useMemo(() => {
     const effectiveTargets = resolveEffectiveIntakeTargets(baseTargets, coachTargets);
-    const isCoachManaged = Boolean(coachTargets);
+    const isCoachManaged = hasCoachOverrides(coachTargets);
 
     return { effectiveTargets, isCoachManaged };
   }, [baseTargets, coachTargets]);
