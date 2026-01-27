@@ -107,7 +107,7 @@ export default function ResetPasswordPage() {
       const sessionResponse = await fetch("/api/auth/session", {
         headers: {
           Authorization: `Bearer ${resetTokens.accessToken}`,
-          ...(resetTokens.refreshToken ? { "x-refresh-token": resetTokens.refreshToken } : {}),
+          ...(resetTokens.refreshToken ? { "x-refresh-token": `Bearer ${resetTokens.refreshToken}` } : {}),
         },
       });
 
@@ -124,6 +124,10 @@ export default function ResetPasswordPage() {
       });
 
       setFormMessage(t.auth.passwordReset.success);
+      if (typeof window !== "undefined") {
+        window.location.assign("/race-planner");
+        return;
+      }
       router.push("/race-planner");
       router.refresh();
     } catch (error) {
