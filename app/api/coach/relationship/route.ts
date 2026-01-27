@@ -12,6 +12,7 @@ import {
 
 const coachCoacheeRowSchema = z.array(
   z.object({
+    coach_id: z.string(),
     status: z.string(),
     created_at: z.string(),
     coach: z
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
       fetch(
         `${supabaseConfig.supabaseUrl}/rest/v1/coach_coachees?coachee_id=eq.${encodeURIComponent(
           supabaseUser.id
-        )}&select=status,created_at,coach:coach_id(user_id,full_name)&order=created_at.desc&limit=1`,
+        )}&select=coach_id,status,created_at,coach:coach_id(user_id,full_name)&order=created_at.desc&limit=1`,
         {
           headers: {
             apikey: supabaseConfig.supabaseAnonKey,
@@ -126,7 +127,7 @@ export async function GET(request: NextRequest) {
     const relationship = relationshipRows.data[0] ?? null;
     const invite = inviteRows.data[0] ?? null;
     const status = normalizeRelationshipStatus(relationship?.status ?? null) ?? (invite ? "pending" : null);
-    const coachId = relationship?.coach?.user_id ?? invite?.coach_id ?? null;
+    const coachId = relationship?.coach_id ?? relationship?.coach?.user_id ?? invite?.coach_id ?? null;
     let coachName = relationship?.coach?.full_name ?? null;
 
     let coachEmail: string | null = null;
