@@ -318,8 +318,9 @@ const fetchUserByEmail = async (
   serviceKey: string,
   email: string
 ): Promise<{ id: string; email?: string } | null> => {
+  const normalizedEmail = email.toLowerCase();
   const response = await fetch(
-    `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}&per_page=1`,
+    `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(normalizedEmail)}&per_page=100`,
     {
       headers: {
         apikey: serviceKey,
@@ -338,12 +339,16 @@ const fetchUserByEmail = async (
 
   const envelope = coachInviteUserEnvelopeSchema.safeParse(payload);
   if (envelope.success) {
-    return envelope.data.users[0] ?? null;
+    const matchedUser = envelope.data.users.find(
+      (user) => user.email?.toLowerCase() === normalizedEmail
+    );
+    return matchedUser ?? null;
   }
 
   const list = coachInviteUserListSchema.safeParse(payload);
   if (list.success) {
-    return list.data[0] ?? null;
+    const matchedUser = list.data.find((user) => user.email?.toLowerCase() === normalizedEmail);
+    return matchedUser ?? null;
   }
 
   return null;
