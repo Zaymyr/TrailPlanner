@@ -42,6 +42,12 @@ const authUserSchema = z.object({
   email: z.string().email().optional(),
 });
 
+const normalizeRelationshipStatus = (status: string | null): "pending" | "active" | null => {
+  if (status === "pending") return "pending";
+  if (status === "active" || status === "accepted") return "active";
+  return null;
+};
+
 export async function GET(request: NextRequest) {
   const supabaseConfig = getSupabaseAnonConfig();
 
@@ -119,7 +125,7 @@ export async function GET(request: NextRequest) {
 
     const relationship = relationshipRows.data[0] ?? null;
     const invite = inviteRows.data[0] ?? null;
-    const status = relationship?.status ?? (invite ? "pending" : null);
+    const status = normalizeRelationshipStatus(relationship?.status ?? null) ?? (invite ? "pending" : null);
     const coachId = relationship?.coach?.user_id ?? invite?.coach_id ?? null;
     let coachName = relationship?.coach?.full_name ?? null;
 
