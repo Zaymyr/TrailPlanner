@@ -692,6 +692,7 @@ export type ProfileTranslations = {
       inviteCountLabel: string;
       inviteUsageLabel: string;
       inviteLimitLabel: string;
+      manageCoachCta: string;
       labels: {
         starter: string;
         pro: string;

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useRouter } from "next/navigation";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -86,6 +87,7 @@ export default function ProfilePage() {
   const queryClient = useQueryClient();
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const { replaceSelection } = useProductSelection();
+  const router = useRouter();
   const [favoriteProducts, setFavoriteProducts] = useState<FuelProduct[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -385,22 +387,6 @@ export default function ProfilePage() {
     if (!coachPlanName) return t.profile.subscription.coachTiers.noActivePlan;
     return coachTierLabels[coachPlanName as keyof typeof coachTierLabels] ?? coachPlanName.toUpperCase();
   }, [coachPlanName, coachTierLabels, t.profile.subscription.coachTiers.noActivePlan]);
-  const inviteUsageLabel = useMemo(() => {
-    if (!coachSummaryQuery.data) return null;
-    const count = coachSummaryQuery.data.inviteCount;
-    const limit = coachSummaryQuery.data.inviteLimit;
-    if (typeof limit === "number") {
-      return t.profile.subscription.coachTiers.inviteUsageLabel
-        .replace("{count}", count.toString())
-        .replace("{limit}", limit.toString());
-    }
-    return t.profile.subscription.coachTiers.inviteCountLabel.replace("{count}", count.toString());
-  }, [
-    coachSummaryQuery.data,
-    t.profile.subscription.coachTiers.inviteCountLabel,
-    t.profile.subscription.coachTiers.inviteUsageLabel,
-  ]);
-
   const handleUpgrade = useCallback(async () => {
     if (!session?.accessToken) {
       setUpgradeError(t.profile.authRequired);
@@ -686,9 +672,14 @@ export default function ProfilePage() {
                       </span>
                       <span className="font-medium text-foreground">{coachPlanLabel}</span>
                     </div>
-                    {inviteUsageLabel ? (
-                      <p className="text-xs text-muted-foreground">{inviteUsageLabel}</p>
-                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push("/coach")}
+                      className="w-fit"
+                    >
+                      {t.profile.subscription.coachTiers.manageCoachCta}
+                    </Button>
                   </div>
                 ) : coachTiersQuery.data && coachTiersQuery.data.length > 0 ? (
                   <ul className="divide-y divide-border/60">
