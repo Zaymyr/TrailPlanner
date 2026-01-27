@@ -47,7 +47,9 @@ const ensureCoachCoacheeLink = async (
   const response = await fetch(
     `${supabaseUrl}/rest/v1/coach_coachees?coach_id=eq.${encodeURIComponent(
       coachId
-    )}&coachee_id=eq.${encodeURIComponent(coacheeId)}&select=coach_id,coachee_id&limit=1`,
+    )}&coachee_id=eq.${encodeURIComponent(
+      coacheeId
+    )}&status=eq.active&select=coach_id,coachee_id&limit=1`,
     {
       headers: {
         apikey: supabaseAnonKey,

@@ -1003,11 +1003,17 @@ export const fr: Translations = {
         status: "Statut",
         age: "Âge",
         added: "Ajouté",
+        actions: "Actions",
       },
       status: {
         active: "Actif",
         pending: "En attente",
         disabled: "Désactivé",
+      },
+      actions: {
+        reactivate: "Réactiver",
+        reactivating: "Réactivation...",
+        unavailable: "—",
       },
     },
   },

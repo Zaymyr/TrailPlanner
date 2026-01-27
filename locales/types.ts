@@ -898,11 +898,17 @@ export type CoachDashboardTranslations = {
       status: string;
       age: string;
       added: string;
+      actions: string;
     };
     status: {
       active: string;
       pending: string;
       disabled: string;
+    };
+    actions: {
+      reactivate: string;
+      reactivating: string;
+      unavailable: string;
     };
   };
 };

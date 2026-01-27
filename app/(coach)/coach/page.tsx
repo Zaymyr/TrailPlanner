@@ -8,7 +8,7 @@ import { InviteForm } from "../../../components/coach/InviteForm";
 import { InviteList } from "../../../components/coach/InviteList";
 import { TierCard } from "../../../components/coach/TierCard";
 import type { CoachCoachee } from "../../../lib/coach-coachees";
-import { fetchCoachCoachees } from "../../../lib/coach-coachees-client";
+import { fetchCoachCoachees, reactivateCoachCoachee } from "../../../lib/coach-coachees-client";
 import type { CoachDashboard } from "../../../lib/coach-dashboard";
 import { fetchCoachDashboard } from "../../../lib/coach-dashboard-client";
 import { cancelCoachInvite, createCoachInvite, resendCoachInvite } from "../../../lib/coach-invites-client";
@@ -23,6 +23,7 @@ export default function CoachDashboardPage() {
   const queryClient = useQueryClient();
   const [resendingInviteId, setResendingInviteId] = useState<string | null>(null);
   const [cancelingInviteId, setCancelingInviteId] = useState<string | null>(null);
+  const [reactivatingCoacheeId, setReactivatingCoacheeId] = useState<string | null>(null);
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const accessToken = session?.accessToken;
 
@@ -82,6 +83,18 @@ export default function CoachDashboardPage() {
     },
   });
 
+  const reactivateCoacheeMutation = useMutation<void, { id: string }>({
+    mutationFn: async ({ id }) => {
+      if (!accessToken) {
+        throw new Error("Missing access token");
+      }
+      await reactivateCoachCoachee(accessToken, id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: coacheesQueryKey(accessToken) });
+    },
+  });
+
   const handleCancelInvite = async (inviteId: string) => {
     if (!accessToken) {
       throw new Error("Missing access token");
@@ -113,6 +126,15 @@ export default function CoachDashboardPage() {
       await resendInviteMutation.mutateAsync({ id: inviteId });
     } finally {
       setResendingInviteId(null);
+    }
+  };
+
+  const handleReactivateCoachee = async (coacheeId: string) => {
+    setReactivatingCoacheeId(coacheeId);
+    try {
+      await reactivateCoacheeMutation.mutateAsync({ id: coacheeId });
+    } finally {
+      setReactivatingCoacheeId(null);
     }
   };
 
@@ -177,6 +199,9 @@ export default function CoachDashboardPage() {
         coachees={coacheesQuery.data ?? []}
         isLoading={coacheesQuery.isLoading}
         error={coacheesQuery.error instanceof Error ? coacheesQuery.error : null}
+        actionError={reactivateCoacheeMutation.error instanceof Error ? reactivateCoacheeMutation.error.message : null}
+        onReactivate={handleReactivateCoachee}
+        reactivatingId={reactivatingCoacheeId}
         copy={t.coachDashboard.coachees}
         locale={locale}
       />
