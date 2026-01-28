@@ -276,28 +276,40 @@ export default function AdminPage() {
 
   const renderStatusPill = (product: z.infer<typeof adminProductSchema>) => {
     if (product.isArchived) {
-      return <span className={`${basePillClass} bg-slate-800 text-slate-100`}>{t.admin.products.status.archived}</span>;
+      return (
+        <span className={`${basePillClass} bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-100`}>
+          {t.admin.products.status.archived}
+        </span>
+      );
     }
     if (product.isLive) {
-      return <span className={`${basePillClass} bg-emerald-400/20 text-emerald-200`}>{t.admin.products.status.live}</span>;
+      return (
+        <span className={`${basePillClass} bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200`}>
+          {t.admin.products.status.live}
+        </span>
+      );
     }
-    return <span className={`${basePillClass} bg-amber-400/20 text-amber-200`}>{t.admin.products.status.draft}</span>;
+    return (
+      <span className={`${basePillClass} bg-amber-100 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200`}>
+        {t.admin.products.status.draft}
+      </span>
+    );
   };
 
   if (sessionLoading) {
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
-        <h1 className="text-2xl font-semibold text-slate-50">{t.admin.title}</h1>
-        <p className="text-sm text-slate-300">{t.admin.access.checking}</p>
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
+        <p className="text-sm text-slate-600 dark:text-slate-300">{t.admin.access.checking}</p>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
-        <h1 className="text-2xl font-semibold text-slate-50">{t.admin.title}</h1>
-        <p className="text-sm text-slate-300">{t.admin.access.signIn}</p>
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
+        <p className="text-sm text-slate-600 dark:text-slate-300">{t.admin.access.signIn}</p>
         <div>
           <Link href="/sign-in">
             <Button>{t.admin.access.signInCta}</Button>
@@ -309,11 +321,11 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
-        <h1 className="text-2xl font-semibold text-slate-50">{t.admin.title}</h1>
-        <p className="text-sm text-amber-200">{t.admin.access.forbidden}</p>
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
+        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
+        <p className="text-sm text-amber-700 dark:text-amber-200">{t.admin.access.forbidden}</p>
         <div className="flex items-center gap-3">
-          <Link href="/race-planner" className="text-emerald-200 underline-offset-4 hover:underline">
+          <Link href="/race-planner" className="text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200">
             {t.homeHero.cta}
           </Link>
         </div>
@@ -322,17 +334,17 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/70 p-6 shadow-lg">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-50">{t.admin.title}</h1>
-          <p className="text-sm text-slate-300">{t.admin.description}</p>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
+          <p className="text-sm text-slate-600 dark:text-slate-300">{t.admin.description}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/race-planner" className="text-emerald-200 underline-offset-4 hover:underline">
+          <Link href="/race-planner" className="text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200">
             {t.homeHero.cta}
           </Link>
-          <Link href="/settings" className="text-emerald-200 underline-offset-4 hover:underline">
+          <Link href="/settings" className="text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200">
             {t.navigation.settings}
           </Link>
         </div>
@@ -341,13 +353,13 @@ export default function AdminPage() {
       <div className="flex flex-col gap-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg text-slate-50">{t.admin.products.title}</CardTitle>
-            <p className="text-sm text-slate-400">{t.admin.products.description}</p>
+            <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.products.title}</CardTitle>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.products.description}</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            {productMessage ? <p className="text-sm text-emerald-200">{productMessage}</p> : null}
+            {productMessage ? <p className="text-sm text-emerald-700 dark:text-emerald-200">{productMessage}</p> : null}
             {productError || productsQuery.error ? (
-              <p className="text-sm text-red-300">
+              <p className="text-sm text-red-600 dark:text-red-300">
                 {productError ??
                   (productsQuery.error instanceof Error
                     ? productsQuery.error.message
@@ -356,29 +368,35 @@ export default function AdminPage() {
             ) : null}
 
             {isLoading && productRows.length === 0 ? (
-              <p className="text-sm text-slate-400">{t.admin.access.checking}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.access.checking}</p>
             ) : null}
 
             {!isLoading && productRows.length === 0 ? (
-              <p className="text-sm text-slate-400">{t.admin.products.empty}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.products.empty}</p>
             ) : null}
 
             {productRows.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t.admin.products.table.name}</TableHead>
-                    <TableHead>{t.admin.products.table.status}</TableHead>
-                    <TableHead>{t.admin.products.table.updated}</TableHead>
-                    <TableHead className="text-right">{t.admin.products.table.actions}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.name}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.status}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.updated}</TableHead>
+                    <TableHead className="text-right text-slate-600 dark:text-slate-300">
+                      {t.admin.products.table.actions}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {productRows.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-semibold text-slate-50">{product.name}</TableCell>
+                      <TableCell className="font-semibold text-slate-900 dark:text-slate-50">
+                        {product.name}
+                      </TableCell>
                       <TableCell>{renderStatusPill(product)}</TableCell>
-                      <TableCell>{formatDate(product.updatedAt)}</TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {formatDate(product.updatedAt)}
+                      </TableCell>
                       <TableCell className="flex justify-end gap-2">
                         <Button
                           className="h-9 px-3 text-sm"
@@ -433,50 +451,57 @@ export default function AdminPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg text-slate-50">{t.admin.users.title}</CardTitle>
-            <p className="text-sm text-slate-400">{t.admin.users.description}</p>
+            <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.users.title}</CardTitle>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.users.description}</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            {userMessage ? <p className="text-sm text-emerald-200">{userMessage}</p> : null}
-            {userError ? <p className="text-sm text-red-300">{userError}</p> : null}
+            {userMessage ? <p className="text-sm text-emerald-700 dark:text-emerald-200">{userMessage}</p> : null}
+            {userError ? <p className="text-sm text-red-600 dark:text-red-300">{userError}</p> : null}
             {usersQuery.error ? (
-              <p className="text-sm text-red-300">
+              <p className="text-sm text-red-600 dark:text-red-300">
                 {usersQuery.error instanceof Error ? usersQuery.error.message : t.admin.users.loadError}
               </p>
             ) : null}
 
             {isLoading && userRows.length === 0 ? (
-              <p className="text-sm text-slate-400">{t.admin.access.checking}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.access.checking}</p>
             ) : null}
 
             {!isLoading && userRows.length === 0 ? (
-              <p className="text-sm text-slate-400">{t.admin.users.empty}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.users.empty}</p>
             ) : null}
 
             {userRows.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t.admin.users.table.email}</TableHead>
-                    <TableHead>{t.admin.users.table.role}</TableHead>
-                    <TableHead>{t.admin.users.table.createdAt}</TableHead>
-                    <TableHead>{t.admin.users.table.lastSignInAt}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.email}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.role}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.createdAt}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">
+                      {t.admin.users.table.lastSignInAt}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {userRows.map((user) => (
                     <TableRow key={user.id}>
-                      <TableCell className="font-semibold text-slate-100">{user.email ?? "—"}</TableCell>
-                      <TableCell className="text-slate-200">
+                      <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
+                        {user.email ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
                         <div className="flex flex-wrap items-center gap-3">
                           {userRoleOptions.map((option) => {
                             const activeRoles = getUserRoles(user);
                             const isChecked = activeRoles.includes(option);
                             return (
-                              <label key={option} className="flex items-center gap-2 text-xs text-slate-200">
+                              <label
+                                key={option}
+                                className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-200"
+                              >
                                 <input
                                   type="checkbox"
-                                  className="h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-400"
+                                  className="h-4 w-4 rounded border-slate-300 bg-white text-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-emerald-400"
                                   checked={isChecked}
                                   onChange={() => {
                                     const currentRoles = getUserRoles(user);
@@ -495,12 +520,18 @@ export default function AdminPage() {
                             );
                           })}
                           {updateUserRoleMutation.isPending && updatingUserId === user.id ? (
-                            <span className="text-xs text-slate-400">{t.admin.users.messages.updating}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">
+                              {t.admin.users.messages.updating}
+                            </span>
                           ) : null}
                         </div>
                       </TableCell>
-                      <TableCell>{formatDate(user.createdAt)}</TableCell>
-                      <TableCell>{formatDate(user.lastSignInAt)}</TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {formatDate(user.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {formatDate(user.lastSignInAt)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -512,42 +543,57 @@ export default function AdminPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg text-slate-50">{t.admin.analytics.title}</CardTitle>
-          <p className="text-sm text-slate-400">{t.admin.analytics.description}</p>
+          <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.analytics.title}</CardTitle>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.analytics.description}</p>
         </CardHeader>
         <CardContent className="space-y-4">
           {analyticsQuery.error ? (
-            <p className="text-sm text-red-300">
+            <p className="text-sm text-red-600 dark:text-red-300">
               {analyticsQuery.error instanceof Error ? analyticsQuery.error.message : t.admin.analytics.loadError}
             </p>
           ) : null}
 
           {analytics ? (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-                <p className="text-sm text-slate-400">{t.admin.analytics.totals.popupOpens}</p>
-                <p className="text-2xl font-semibold text-slate-50">{analytics.totals.popupOpens}</p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {t.admin.analytics.totals.popupOpens}
+                </p>
+                <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
+                  {analytics.totals.popupOpens}
+                </p>
               </div>
-              <div className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-                <p className="text-sm text-slate-400">{t.admin.analytics.totals.clicks}</p>
-                <p className="text-2xl font-semibold text-slate-50">{analytics.totals.clicks}</p>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  {t.admin.analytics.totals.clicks}
+                </p>
+                <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
+                  {analytics.totals.clicks}
+                </p>
               </div>
             </div>
           ) : null}
 
           {productStats.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-200">{t.admin.analytics.statsTitle}</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {t.admin.analytics.statsTitle}
+              </p>
               <div className="grid gap-2 md:grid-cols-2">
                 {productStats.map((stat) => (
-                  <div key={stat.productId} className="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                  <div
+                    key={stat.productId}
+                    className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900/50"
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-slate-50">{stat.productName ?? stat.productId}</p>
-                      <span className="text-xs text-slate-400">
+                      <p className="font-semibold text-slate-900 dark:text-slate-50">
+                        {stat.productName ?? stat.productId}
+                      </p>
+                      <span className="text-xs text-slate-600 dark:text-slate-400">
                         {t.admin.analytics.totals.popupOpens}: {stat.popupOpens}
                       </span>
                     </div>
-                    <p className="text-xs text-emerald-200">
+                    <p className="text-xs text-emerald-700 dark:text-emerald-200">
                       {t.admin.analytics.totals.clicks}: {stat.clicks}
                     </p>
                   </div>
@@ -557,30 +603,52 @@ export default function AdminPage() {
           ) : null}
 
           {analytics && analytics.recentEvents.length === 0 ? (
-            <p className="text-sm text-slate-400">{t.admin.analytics.empty}</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.analytics.empty}</p>
           ) : null}
 
           {analytics && analytics.recentEvents.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-200">{t.admin.analytics.eventsTitle}</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {t.admin.analytics.eventsTitle}
+              </p>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t.admin.analytics.table.product}</TableHead>
-                    <TableHead>{t.admin.analytics.table.eventType}</TableHead>
-                    <TableHead>{t.admin.analytics.table.country}</TableHead>
-                    <TableHead>{t.admin.analytics.table.merchant}</TableHead>
-                    <TableHead>{t.admin.analytics.table.timestamp}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">
+                      {t.admin.analytics.table.product}
+                    </TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">
+                      {t.admin.analytics.table.eventType}
+                    </TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">
+                      {t.admin.analytics.table.country}
+                    </TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">
+                      {t.admin.analytics.table.merchant}
+                    </TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">
+                      {t.admin.analytics.table.timestamp}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {analytics.recentEvents.map((event) => (
                     <TableRow key={event.id}>
-                      <TableCell className="font-semibold text-slate-50">{event.productName ?? event.productId}</TableCell>
-                      <TableCell className="capitalize text-slate-200">{event.eventType.replace("_", " ")}</TableCell>
-                      <TableCell>{event.countryCode ?? "—"}</TableCell>
-                      <TableCell>{event.merchant ?? "—"}</TableCell>
-                      <TableCell>{formatDate(event.occurredAt)}</TableCell>
+                      <TableCell className="font-semibold text-slate-900 dark:text-slate-50">
+                        {event.productName ?? event.productId}
+                      </TableCell>
+                      <TableCell className="capitalize text-slate-700 dark:text-slate-200">
+                        {event.eventType.replace("_", " ")}
+                      </TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {event.countryCode ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {event.merchant ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {formatDate(event.occurredAt)}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
