@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { legacyPaths, legacyRedirectMap } from "./lib/legacy-redirects";
 
 export const config = {
-  matcher: legacyPaths.map((path) => `${path}/:path*`),
+  matcher: ["/((?!_next|api|sitemap.xml|robots.txt|favicon.ico|.*\\..*).*)"],
 };
 
 export function middleware(request: NextRequest) {
