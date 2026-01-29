@@ -2,5 +2,18 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "pace-yourself.com"
+        }
+      ],
+      "destination": "https://trailplanner.app/:path*",
+      "permanent": true
+    }
+  ]
 }
