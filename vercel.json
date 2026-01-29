@@ -9,10 +9,21 @@
       "has": [
         {
           "type": "host",
-          "value": "pace-yourself.com"
+          "value": "trailplanner.app"
         }
       ],
-      "destination": "https://trailplanner.app/:path*",
+      "destination": "https://pace-yourself.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "trail-planner.vercel.app"
+        }
+      ],
+      "destination": "https://pace-yourself.com/:path*",
       "permanent": true
     }
   ]

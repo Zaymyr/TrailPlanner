@@ -5,7 +5,7 @@ import { legacyRedirectMap, legacyPaths } from "../lib/legacy-redirects.js";
 const repoRoot = path.resolve(process.cwd());
 const contentRoot = path.join(repoRoot, "content", "blog");
 const shouldWrite = process.argv.includes("--write");
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://trailplanner.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pace-yourself.com";
 
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

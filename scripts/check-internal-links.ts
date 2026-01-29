@@ -5,7 +5,7 @@ import { legacyRedirectMap, legacyPaths } from "../lib/legacy-redirects.js";
 
 const repoRoot = path.resolve(process.cwd());
 const contentRoot = path.join(repoRoot, "content", "blog");
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://trailplanner.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pace-yourself.com";
 
 const legacyPathSet = new Set<string>(legacyPaths);
 const blogSlugSet = new Set<string>(blogIndex.map((entry) => entry.slug));

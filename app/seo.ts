@@ -1,7 +1,7 @@
 import type { Locale } from "../locales/types";
 import { translations } from "../locales";
 
-const DEFAULT_SITE_URL = "https://trailplanner.app";
+const DEFAULT_SITE_URL = "https://pace-yourself.com";
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? DEFAULT_SITE_URL;
 export const HOME_PATH = "/";
