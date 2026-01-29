@@ -11,7 +11,8 @@ const buildPostUrl = (canonical: string | undefined, slug: string) => {
   }
 
   if (canonical.startsWith("http")) {
-    return canonical;
+    const canonicalUrl = new URL(canonical);
+    return toAbsoluteUrl(`${canonicalUrl.pathname}${canonicalUrl.search}`);
   }
 
   return toAbsoluteUrl(canonical);
