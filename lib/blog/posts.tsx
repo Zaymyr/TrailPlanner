@@ -34,6 +34,7 @@ export type PostMeta = {
   updatedAt?: string;
   tags: string[];
   canonical?: string;
+  canonicalPath: string;
   image?: string;
   imageAlt?: string;
   readingTime: ReadingTime;
@@ -80,7 +81,27 @@ export const getAllTags = async (): Promise<TagSummary[]> => {
 
 export const getPostBySlug = async (slug: string): Promise<CompiledPost | undefined> => {
   const posts = await discoverPosts();
-  return posts.find((post) => post.meta.slug === slug);
+  const canonicalPath = `/blog/${slug}`;
+
+  return posts.find((post) => post.meta.slug === slug || post.meta.canonicalPath === canonicalPath);
+};
+
+export const normalizeCanonicalPath = (canonical: string | undefined, slug: string): string => {
+  const fallback = `/blog/${slug}`;
+
+  if (!canonical) {
+    return fallback;
+  }
+
+  const rawPath = canonical.startsWith("http")
+    ? (() => {
+        const canonicalUrl = new URL(canonical);
+        return `${canonicalUrl.pathname}${canonicalUrl.search}`;
+      })()
+    : canonical;
+  const withLeadingSlash = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+
+  return withLeadingSlash.startsWith("/blog/") ? withLeadingSlash : fallback;
 };
 
 export const aggregateTags = (metas: PostMeta[]): TagSummary[] => {
@@ -181,6 +202,7 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
     updatedAt: frontmatter.updatedAt,
     tags,
     canonical: frontmatter.canonical,
+    canonicalPath: normalizeCanonicalPath(frontmatter.canonical, slug),
     image,
     imageAlt,
     readingTime,

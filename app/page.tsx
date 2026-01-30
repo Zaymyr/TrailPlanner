@@ -5,6 +5,7 @@ type FeaturedGuideCard = {
   slug: string;
   title: string;
   excerpt: string;
+  canonicalPath: string;
 };
 
 const buildExcerpt = (description?: string): string =>
@@ -17,6 +18,7 @@ const selectFeaturedGuides = async (): Promise<FeaturedGuideCard[]> => {
     slug: post.slug,
     title: post.title,
     excerpt: buildExcerpt(post.description),
+    canonicalPath: post.canonicalPath,
   }));
 };
 

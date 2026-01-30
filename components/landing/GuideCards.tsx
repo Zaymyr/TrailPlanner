@@ -6,6 +6,7 @@ type GuideCard = {
   slug: string;
   title: string;
   excerpt: string;
+  canonicalPath: string;
 };
 
 type GuideCardsProps = {
@@ -30,7 +31,7 @@ export function GuideCards({ cardsHeading, cardCta, guides }: GuideCardsProps) {
         {guides.map((guide) => (
           <Link
             key={guide.slug}
-            href={`/blog/${guide.slug}`}
+            href={guide.canonicalPath}
             className="group relative flex h-full flex-col justify-between gap-4 rounded-2xl border border-border bg-card/70 p-5 transition hover:-translate-y-0.5 hover:border-emerald-300/70 hover:bg-card"
           >
             <div className="space-y-2">
