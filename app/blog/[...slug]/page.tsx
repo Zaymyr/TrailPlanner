@@ -13,19 +13,26 @@ type PageProps = {
 
 export const dynamic = "force-static";
 
-const buildCanonicalUrl = (meta: PostMeta): string => {
-  const canonical = meta.canonical ?? `/blog/${meta.slug}`;
-  return canonical.startsWith("http") ? canonical : new URL(canonical, SITE_URL).toString();
-};
+const buildCanonicalUrl = (meta: PostMeta): string => new URL(meta.canonicalPath, SITE_URL).toString();
 
 const normalizeSlugParam = (slug?: string[]): string | undefined =>
   Array.isArray(slug) && slug.length > 0 ? slug.join("/") : undefined;
 
 export async function generateStaticParams() {
   const metas = await getAllPostMetadata();
+  const slugSet = new Set<string>();
 
-  return metas.map((meta) => ({
-    slug: meta.slug.split("/"),
+  metas.forEach((meta) => {
+    const canonicalSlug = meta.canonicalPath.replace(/^\/blog\//, "");
+    slugSet.add(canonicalSlug);
+
+    if (meta.slug !== canonicalSlug) {
+      slugSet.add(meta.slug);
+    }
+  });
+
+  return Array.from(slugSet).map((slug) => ({
+    slug: slug.split("/"),
   }));
 }
 

@@ -5,19 +5,6 @@ import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "./seo";
 
 const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
 
-const buildPostUrl = (canonical: string | undefined, slug: string) => {
-  if (!canonical) {
-    return toAbsoluteUrl(`/blog/${slug}`);
-  }
-
-  if (canonical.startsWith("http")) {
-    const canonicalUrl = new URL(canonical);
-    return toAbsoluteUrl(`${canonicalUrl.pathname}${canonicalUrl.search}`);
-  }
-
-  return toAbsoluteUrl(canonical);
-};
-
 export const dynamic = "force-static";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -30,10 +17,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: toAbsoluteUrl("/blog") },
   ];
 
-  const blogEntries: MetadataRoute.Sitemap = posts.map((post) => ({
-    url: buildPostUrl(post.canonical, post.slug),
-    lastModified: post.updatedAt ?? post.date ?? undefined,
-  }));
+  const seenUrls = new Set<string>();
+  const blogEntries: MetadataRoute.Sitemap = [];
+
+  posts.forEach((post) => {
+    const url = toAbsoluteUrl(post.canonicalPath);
+    if (seenUrls.has(url)) {
+      return;
+    }
+
+    seenUrls.add(url);
+    blogEntries.push({
+      url,
+      lastModified: post.updatedAt ?? post.date ?? undefined,
+    });
+  });
 
   return [...staticEntries, ...blogEntries];
 }

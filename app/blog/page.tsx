@@ -146,7 +146,7 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
               key={post.meta.slug}
               title={post.meta.title}
               description={buildExcerpt(post.meta.description)}
-              href={`/blog/${post.meta.slug}` as Route}
+              href={post.meta.canonicalPath as Route}
               tags={post.meta.tags}
               date={post.meta.date}
               readingTime={post.meta.readingTime}

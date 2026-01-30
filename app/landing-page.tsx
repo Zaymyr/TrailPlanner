@@ -11,6 +11,7 @@ type FeaturedGuideCard = {
   slug: string;
   title: string;
   excerpt: string;
+  canonicalPath: string;
 };
 
 type LandingPageProps = {
