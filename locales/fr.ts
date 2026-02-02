@@ -454,6 +454,27 @@ export const fr: Translations = {
         },
       },
     },
+    segments: {
+      toggle: {
+        show: "Afficher le découpage",
+        hide: "Masquer le découpage",
+      },
+      actions: {
+        addMarker: "+ Marqueur",
+        autoSegment: "Découpage auto",
+      },
+      granularity: {
+        coarse: "Grossier",
+        medium: "Moyen",
+        fine: "Fin",
+      },
+      markerTypes: {
+        climb: "Montée",
+        descent: "Descente",
+        flat: "Plat",
+        custom: "Personnalisé",
+      },
+    },
     buttons: {
       importGpx: "Importer un GPX",
       exportGpx: "Exporter le GPX",

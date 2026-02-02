@@ -2,16 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import type { RacePlannerTranslations } from "../../locales/types";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-
-const markerTypes = [
-  { value: "climb", label: "Montée" },
-  { value: "descent", label: "Descente" },
-  { value: "flat", label: "Plat" },
-  { value: "custom", label: "Personnalisé" },
-];
 
 type AddMarkerPayload = {
   distanceKm: number;
@@ -24,9 +18,16 @@ type AddMarkerModalProps = {
   onClose: () => void;
   onConfirm: (payload: AddMarkerPayload) => void;
   title?: string;
+  copy: RacePlannerTranslations["segments"];
 };
 
-export function AddMarkerModal({ open, onClose, onConfirm, title }: AddMarkerModalProps) {
+export function AddMarkerModal({ open, onClose, onConfirm, title, copy }: AddMarkerModalProps) {
+  const markerTypes = [
+    { value: "climb", label: copy.markerTypes.climb },
+    { value: "descent", label: copy.markerTypes.descent },
+    { value: "flat", label: copy.markerTypes.flat },
+    { value: "custom", label: copy.markerTypes.custom },
+  ];
   const [distanceKm, setDistanceKm] = useState("0");
   const [markerType, setMarkerType] = useState(markerTypes[0]?.value ?? "climb");
   const [label, setLabel] = useState("");
