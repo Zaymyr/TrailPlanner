@@ -16,6 +16,7 @@ import {
   sanitizeAidStations,
   sanitizeElevationProfile,
   sanitizePlannerValues,
+  sanitizeSectionSegments,
   sanitizeSegmentPlan,
 } from "../utils/plan-sanitizers";
 
@@ -329,6 +330,7 @@ export const useRacePlan = ({
         aidStations: sanitizedAidStations,
         finishPlan: sanitizedFinishPlan,
         startSupplies: sanitizeSegmentPlan({ supplies: parsedValues.data.startSupplies }).supplies ?? [],
+        sectionSegments: sanitizeSectionSegments(parsedValues.data.sectionSegments),
       };
 
       const planIdToUpdate = existingPlanByName?.id ?? null;

@@ -142,6 +142,12 @@ const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation
       .optional(),
   });
 
+const createSectionSegmentSchema = (validation: RacePlannerTranslations["validation"]) =>
+  createSegmentPlanSchema(validation).extend({
+    segmentKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
+    label: z.string().optional(),
+  });
+
 const createAidStationSchema = (validation: RacePlannerTranslations["validation"]) =>
   createSegmentPlanSchema(validation).extend({
     name: z.string().min(1, validation.required),
@@ -168,6 +174,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       startSupplies: createSegmentPlanSchema(copy.validation).shape.supplies.optional(),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
+      sectionSegments: z.record(z.array(createSectionSegmentSchema(copy.validation))).optional(),
     })
     .superRefine((values, ctx) => {
       if (values.paceType === "pace" && values.paceMinutes === 0 && values.paceSeconds === 0) {
