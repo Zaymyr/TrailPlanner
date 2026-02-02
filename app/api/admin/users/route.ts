@@ -37,6 +37,15 @@ const mappedUsersSchema = z.object({
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
       roles: z.array(z.string()).optional(),
+      premiumGrant: z
+        .object({
+          startsAt: z.string(),
+          initialDurationDays: z.number(),
+          remainingDurationDays: z.number(),
+          reason: z.string(),
+        })
+        .nullable()
+        .optional(),
     })
   ),
 });
@@ -63,6 +72,37 @@ const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
       ? user.app_metadata.roles
       : undefined) ?? (user.app_metadata?.role ? [user.app_metadata.role] : undefined),
 });
+
+const premiumGrantRowSchema = z.object({
+  user_id: z.string().uuid(),
+  starts_at: z.string(),
+  initial_duration_days: z.number(),
+  reason: z.string(),
+});
+
+const buildPremiumGrant = (grant: z.infer<typeof premiumGrantRowSchema>, now: Date) => {
+  const startsAt = new Date(grant.starts_at);
+
+  if (Number.isNaN(startsAt.getTime()) || grant.initial_duration_days <= 0) {
+    return null;
+  }
+
+  const endsAt = new Date(startsAt.getTime() + grant.initial_duration_days * 24 * 60 * 60 * 1000);
+  const isActive = now >= startsAt && now <= endsAt;
+
+  const remainingDurationDays = Math.max(
+    0,
+    Math.ceil((endsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+  );
+
+  return {
+    startsAt: grant.starts_at,
+    initialDurationDays: grant.initial_duration_days,
+    remainingDurationDays,
+    reason: grant.reason,
+    isActive,
+  };
+};
 
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
@@ -121,8 +161,54 @@ export async function GET(request: NextRequest) {
     }
 
     const mapped = users.map(mapUser);
+    const userIds = mapped.map((user) => user.id);
+    let grantsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.premiumGrant>>();
 
-    return withSecurityHeaders(NextResponse.json(mappedUsersSchema.parse({ users: mapped })));
+    if (userIds.length > 0) {
+      const grantsResponse = await fetch(
+        `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${userIds.join(
+          ","
+        )})&select=user_id,starts_at,initial_duration_days,reason&order=starts_at.desc`,
+        {
+          headers: {
+            apikey: auth.supabaseService.supabaseServiceRoleKey,
+            Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+      const grantsPayload = (await grantsResponse.json().catch(() => null)) as unknown;
+
+      if (grantsResponse.ok) {
+        const parsedGrants = z.array(premiumGrantRowSchema).safeParse(grantsPayload);
+
+        if (parsedGrants.success) {
+          const now = new Date();
+          grantsByUserId = new Map();
+
+          for (const grant of parsedGrants.data) {
+            if (grantsByUserId.has(grant.user_id)) continue;
+            const mappedGrant = buildPremiumGrant(grant, now);
+            if (mappedGrant?.isActive) {
+              const { isActive, ...payload } = mappedGrant;
+              grantsByUserId.set(grant.user_id, payload);
+            }
+          }
+        } else {
+          console.warn("Unable to parse premium grants payload", parsedGrants.error.flatten().fieldErrors);
+        }
+      } else {
+        console.error("Unable to load premium grants", grantsPayload);
+      }
+    }
+
+    const mappedWithGrants = mapped.map((user) => ({
+      ...user,
+      premiumGrant: grantsByUserId.get(user.id) ?? null,
+    }));
+
+    return withSecurityHeaders(NextResponse.json(mappedUsersSchema.parse({ users: mappedWithGrants })));
   } catch (error) {
     console.error("Unexpected error while loading admin users", error);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));

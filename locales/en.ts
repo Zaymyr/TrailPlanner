@@ -646,6 +646,13 @@ export const en: Translations = {
         role: "Roles",
         createdAt: "Created",
         lastSignInAt: "Last active",
+        premium: "Premium grant",
+      },
+      premium: {
+        starts: "Starts:",
+        duration: "Duration:",
+        remaining: "Remaining:",
+        reason: "Reason:",
       },
     },
     analytics: {

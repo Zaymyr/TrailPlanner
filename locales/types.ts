@@ -604,6 +604,13 @@ export type AdminTranslations = {
       role: string;
       createdAt: string;
       lastSignInAt: string;
+      premium: string;
+    };
+    premium: {
+      starts: string;
+      duration: string;
+      remaining: string;
+      reason: string;
     };
   };
   analytics: {
