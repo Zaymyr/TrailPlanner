@@ -31,6 +31,15 @@ const adminUsersSchema = z.object({
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
       roles: z.array(z.string()).optional(),
+      premiumGrant: z
+        .object({
+          startsAt: z.string(),
+          initialDurationDays: z.number(),
+          remainingDurationDays: z.number(),
+          reason: z.string(),
+        })
+        .nullable()
+        .optional(),
     })
   ),
 });
@@ -73,6 +82,11 @@ const formatDate = (value?: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString();
+};
+
+const formatDuration = (days?: number) => {
+  if (days === undefined || Number.isNaN(days)) return "—";
+  return `${days}d`;
 };
 
 export default function AdminPage() {
@@ -481,6 +495,9 @@ export default function AdminPage() {
                     <TableHead className="text-slate-600 dark:text-slate-300">
                       {t.admin.users.table.lastSignInAt}
                     </TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">
+                      {t.admin.users.table.premium}
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -531,6 +548,30 @@ export default function AdminPage() {
                       </TableCell>
                       <TableCell className="text-slate-700 dark:text-slate-200">
                         {formatDate(user.lastSignInAt)}
+                      </TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {user.premiumGrant ? (
+                          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                            <div>
+                              <span className="font-semibold">{t.admin.users.premium.starts}</span>{" "}
+                              {formatDate(user.premiumGrant.startsAt)}
+                            </div>
+                            <div>
+                              <span className="font-semibold">{t.admin.users.premium.duration}</span>{" "}
+                              {formatDuration(user.premiumGrant.initialDurationDays)}
+                            </div>
+                            <div>
+                              <span className="font-semibold">{t.admin.users.premium.remaining}</span>{" "}
+                              {formatDuration(user.premiumGrant.remainingDurationDays)}
+                            </div>
+                            <div>
+                              <span className="font-semibold">{t.admin.users.premium.reason}</span>{" "}
+                              {user.premiumGrant.reason}
+                            </div>
+                          </div>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
