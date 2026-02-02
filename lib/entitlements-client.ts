@@ -13,6 +13,15 @@ const entitlementsResponseSchema = z.object({
     trialEndsAt: z.string().nullable().optional(),
     trialExpiredSeenAt: z.string().nullable().optional(),
     subscriptionStatus: z.string().nullable().optional(),
+    premiumGrant: z
+      .object({
+        startsAt: z.string(),
+        initialDurationDays: z.number(),
+        remainingDurationDays: z.number(),
+        reason: z.string(),
+      })
+      .nullable()
+      .optional(),
   }),
 });
 
@@ -50,6 +59,7 @@ export const fetchEntitlements = async (accessToken: string, signal?: AbortSigna
     trialEndsAt: parsed.data.entitlements.trialEndsAt ?? null,
     trialExpiredSeenAt: parsed.data.entitlements.trialExpiredSeenAt ?? null,
     subscriptionStatus: parsed.data.entitlements.subscriptionStatus ?? null,
+    premiumGrant: parsed.data.entitlements.premiumGrant ?? null,
   };
 
   return normalized;
@@ -65,4 +75,5 @@ export const defaultEntitlements: UserEntitlements = {
   trialEndsAt: null,
   trialExpiredSeenAt: null,
   subscriptionStatus: null,
+  premiumGrant: null,
 };

@@ -1,12 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
@@ -46,6 +58,17 @@ const adminUsersSchema = z.object({
 
 const adminUserSchema = adminUsersSchema.shape.users.element;
 
+const premiumGrantResponseSchema = z.object({
+  premiumGrant: z
+    .object({
+      startsAt: z.string(),
+      initialDurationDays: z.number(),
+      remainingDurationDays: z.number(),
+      reason: z.string(),
+    })
+    .nullable(),
+});
+
 const userRoleOptions = ["user", "coach", "admin"] as const;
 type UserRoleOption = (typeof userRoleOptions)[number];
 
@@ -77,6 +100,17 @@ const adminAnalyticsSchema = z.object({
 
 const basePillClass = "rounded-full px-3 py-1 text-xs font-semibold";
 
+const premiumGrantFormSchema = z.object({
+  startsAt: z
+    .string()
+    .min(1)
+    .refine((value) => !Number.isNaN(new Date(value).getTime()), "Invalid date"),
+  initialDurationDays: z.coerce.number().int().positive(),
+  reason: z.string().min(1),
+});
+
+type PremiumGrantFormValues = z.infer<typeof premiumGrantFormSchema>;
+
 const formatDate = (value?: string) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -89,17 +123,66 @@ const formatDuration = (days?: number) => {
   return `${days}d`;
 };
 
+const formatDateTimeLocal = (date: Date) => {
+  const pad = (value: number) => value.toString().padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}`;
+};
+
 export default function AdminPage() {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const { session, isLoading: sessionLoading } = useVerifiedSession();
   const [productMessage, setProductMessage] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
   const [userMessage, setUserMessage] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
+  const [premiumDialogUser, setPremiumDialogUser] = useState<z.infer<typeof adminUserSchema> | null>(null);
 
   const accessToken = session?.accessToken;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
+
+  const premiumReasonOptions = useMemo(
+    () => [
+      { value: "trial_extension", label: t.admin.users.premium.reasons.trialExtension },
+      { value: "support", label: t.admin.users.premium.reasons.support },
+      { value: "marketing", label: t.admin.users.premium.reasons.marketing },
+      { value: "partner", label: t.admin.users.premium.reasons.partner },
+      { value: "other", label: t.admin.users.premium.reasons.other },
+    ],
+    [t.admin.users.premium.reasons]
+  );
+
+  const premiumForm = useForm<PremiumGrantFormValues>({
+    resolver: zodResolver(premiumGrantFormSchema),
+    defaultValues: {
+      startsAt: formatDateTimeLocal(new Date()),
+      initialDurationDays: 30,
+      reason: premiumReasonOptions[0]?.value ?? "",
+    },
+  });
+
+  useEffect(() => {
+    if (!premiumDialogOpen) {
+      premiumForm.reset({
+        startsAt: formatDateTimeLocal(new Date()),
+        initialDurationDays: 30,
+        reason: premiumReasonOptions[0]?.value ?? "",
+      });
+      return;
+    }
+
+    if (premiumDialogUser) {
+      premiumForm.reset({
+        startsAt: formatDateTimeLocal(new Date()),
+        initialDurationDays: 30,
+        reason: premiumReasonOptions[0]?.value ?? "",
+      });
+    }
+  }, [premiumDialogOpen, premiumDialogUser, premiumForm, premiumReasonOptions]);
 
   const productsQuery = useQuery({
     queryKey: ["admin", "products", accessToken],
@@ -239,6 +322,49 @@ export default function AdminPage() {
     },
   });
 
+  const createPremiumGrantMutation = useMutation({
+    mutationFn: async (payload: { userId: string; startsAt: string; initialDurationDays: number; reason: string }) => {
+      if (!accessToken) throw new Error(t.admin.users.premium.messages.error);
+
+      const response = await fetch("/api/admin/premium", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json().catch(() => null)) as unknown;
+
+      if (!response.ok) {
+        const message = (data as { message?: string } | null)?.message ?? t.admin.users.premium.messages.error;
+        throw new Error(message);
+      }
+
+      const parsed = premiumGrantResponseSchema.safeParse(data);
+
+      if (!parsed.success) {
+        throw new Error(t.admin.users.premium.messages.error);
+      }
+
+      return parsed.data.premiumGrant;
+    },
+    onSuccess: () => {
+      setUserError(null);
+      setUserMessage(t.admin.users.premium.messages.created);
+      setPremiumDialogOpen(false);
+      setPremiumDialogUser(null);
+      if (accessToken) {
+        void queryClient.invalidateQueries({ queryKey: ["admin", "users", accessToken] });
+      }
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : t.admin.users.premium.messages.error;
+      setUserError(message);
+    },
+  });
+
   const analyticsQuery = useQuery({
     queryKey: ["admin", "analytics", accessToken],
     enabled: Boolean(accessToken && isAdmin),
@@ -282,6 +408,24 @@ export default function AdminPage() {
     }),
     [t.admin.users.roles]
   );
+
+  const handlePremiumSubmit = premiumForm.handleSubmit((values) => {
+    if (!premiumDialogUser) return;
+
+    const startsAt = new Date(values.startsAt);
+
+    if (Number.isNaN(startsAt.getTime())) {
+      premiumForm.setError("startsAt", { message: t.admin.users.premium.form.errors.invalidDate });
+      return;
+    }
+
+    createPremiumGrantMutation.mutate({
+      userId: premiumDialogUser.id,
+      startsAt: startsAt.toISOString(),
+      initialDurationDays: values.initialDurationDays,
+      reason: values.reason,
+    });
+  });
 
   const getUserRoles = (user: z.infer<typeof adminUserSchema>): UserRoleOption[] => {
     const roles = (user.roles ?? (user.role ? [user.role] : [])) as UserRoleOption[];
@@ -550,28 +694,42 @@ export default function AdminPage() {
                         {formatDate(user.lastSignInAt)}
                       </TableCell>
                       <TableCell className="text-slate-700 dark:text-slate-200">
-                        {user.premiumGrant ? (
-                          <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.starts}</span>{" "}
-                              {formatDate(user.premiumGrant.startsAt)}
+                        <div className="space-y-2">
+                          {user.premiumGrant ? (
+                            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                              <div>
+                                <span className="font-semibold">{t.admin.users.premium.starts}</span>{" "}
+                                {formatDate(user.premiumGrant.startsAt)}
+                              </div>
+                              <div>
+                                <span className="font-semibold">{t.admin.users.premium.duration}</span>{" "}
+                                {formatDuration(user.premiumGrant.initialDurationDays)}
+                              </div>
+                              <div>
+                                <span className="font-semibold">{t.admin.users.premium.remaining}</span>{" "}
+                                {formatDuration(user.premiumGrant.remainingDurationDays)}
+                              </div>
+                              <div>
+                                <span className="font-semibold">{t.admin.users.premium.reason}</span>{" "}
+                                {user.premiumGrant.reason}
+                              </div>
                             </div>
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.duration}</span>{" "}
-                              {formatDuration(user.premiumGrant.initialDurationDays)}
-                            </div>
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.remaining}</span>{" "}
-                              {formatDuration(user.premiumGrant.remainingDurationDays)}
-                            </div>
-                            <div>
-                              <span className="font-semibold">{t.admin.users.premium.reason}</span>{" "}
-                              {user.premiumGrant.reason}
-                            </div>
-                          </div>
-                        ) : (
-                          "—"
-                        )}
+                          ) : (
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{t.admin.users.premium.empty}</p>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-8 px-3 text-xs"
+                            onClick={() => {
+                              setPremiumDialogUser(user);
+                              setPremiumDialogOpen(true);
+                            }}
+                            disabled={createPremiumGrantMutation.isPending}
+                          >
+                            {t.admin.users.premium.action}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -580,6 +738,93 @@ export default function AdminPage() {
             ) : null}
           </CardContent>
         </Card>
+
+        <Dialog
+          open={premiumDialogOpen}
+          onOpenChange={(open) => {
+            setPremiumDialogOpen(open);
+            if (!open) {
+              setPremiumDialogUser(null);
+              premiumForm.reset({
+                startsAt: formatDateTimeLocal(new Date()),
+                initialDurationDays: 30,
+                reason: premiumReasonOptions[0]?.value ?? "",
+              });
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{t.admin.users.premium.form.title}</DialogTitle>
+              <DialogDescription>{t.admin.users.premium.form.description}</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handlePremiumSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="premium-starts-at">{t.admin.users.premium.form.startsAtLabel}</Label>
+                <Input
+                  id="premium-starts-at"
+                  type="datetime-local"
+                  {...premiumForm.register("startsAt")}
+                />
+                {premiumForm.formState.errors.startsAt ? (
+                  <p className="text-xs text-red-600 dark:text-red-300">
+                    {premiumForm.formState.errors.startsAt.message}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="premium-duration">{t.admin.users.premium.form.durationLabel}</Label>
+                <Input
+                  id="premium-duration"
+                  type="number"
+                  min="1"
+                  {...premiumForm.register("initialDurationDays", { valueAsNumber: true })}
+                />
+                {premiumForm.formState.errors.initialDurationDays ? (
+                  <p className="text-xs text-red-600 dark:text-red-300">
+                    {premiumForm.formState.errors.initialDurationDays.message}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="premium-reason">{t.admin.users.premium.form.reasonLabel}</Label>
+                <select
+                  id="premium-reason"
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  {...premiumForm.register("reason")}
+                >
+                  {premiumReasonOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {premiumForm.formState.errors.reason ? (
+                  <p className="text-xs text-red-600 dark:text-red-300">
+                    {premiumForm.formState.errors.reason.message}
+                  </p>
+                ) : null}
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setPremiumDialogOpen(false);
+                    setPremiumDialogUser(null);
+                  }}
+                >
+                  {t.admin.users.premium.form.cancel}
+                </Button>
+                <Button type="submit" disabled={createPremiumGrantMutation.isPending}>
+                  {createPremiumGrantMutation.isPending
+                    ? t.admin.users.premium.form.submitting
+                    : t.admin.users.premium.form.submit}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <Card>
