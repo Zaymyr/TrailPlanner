@@ -327,6 +327,27 @@ export type RacePlannerTranslations = {
           pickup: string;
         };
       };
+      printViewV2: {
+        title: string;
+        defaultRaceName: string;
+        exportLabel: string;
+        strategyCarbs: string;
+        strategyWater: string;
+        strategySodium: string;
+        reminder: string;
+        segmentDistance: string;
+        segmentTimeLabel: string;
+        etaLabel: string;
+        duringLabel: string;
+        pickupLabel: string;
+        carbsLabel: string;
+        waterLabel: string;
+        sodiumLabel: string;
+        perHourLabel: string;
+        fillFlasks: string;
+        estimateGels: string;
+        deltaSuffix: string;
+      };
     };
   };
   buttons: {

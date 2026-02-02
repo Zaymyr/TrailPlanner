@@ -43,6 +43,7 @@ import { buildFuelProductEstimates, buildRaceTotals, type FuelProductEstimate } 
 import { CourseProfileSection } from "./components/CourseProfileSection";
 import { usePlannerState } from "./hooks/usePlannerState";
 import { useRacePlan } from "./hooks/useRacePlan";
+import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -237,6 +238,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   });
   const { register } = form;
   const searchParams = useSearchParams();
+  const printLayout = searchParams?.get("printLayout");
+  const usePrintLayoutV2 = printLayout === "v2";
   const [selectedCoacheeId, setSelectedCoacheeId] = useState<string | null>(null);
   const queryPlanIdRef = useRef<string | null>(null);
   const initializedQueryRef = useRef(false);
@@ -650,6 +653,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const isPremium = entitlements.isPremium;
   const allowExport = entitlements.allowExport || entitlements.isPremium;
   const allowAutoFill = entitlements.allowAutoFill || entitlements.isPremium;
+  const printableRaceName = planName?.trim()
+    ? planName.trim()
+    : racePlannerCopy.sections.timeline.printViewV2.defaultRaceName;
+  const exportDate = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(new Date()),
+    [locale]
+  );
 
   const formatDistanceWithUnit = (value: number) =>
     `${value.toFixed(1)} ${racePlannerCopy.sections.timeline.distanceWithUnit}`;
@@ -1444,112 +1459,125 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       </div>
 
       {segments.length > 0 ? (
-        <div className="hidden rounded-lg border border-slate-300 bg-white p-4 text-slate-900 shadow-sm print:block">
-          <div className="mb-3">
-            <p className="text-sm font-semibold">{racePlannerCopy.sections.timeline.printView.title}</p>
-            <p className="text-xs text-slate-600">{racePlannerCopy.sections.timeline.printView.description}</p>
-          </div>
-          <div className="overflow-hidden rounded-md border border-slate-200">
-            <table className="min-w-full border-collapse text-xs leading-6">
-              <thead className="bg-slate-50 text-slate-900">
-                <tr>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">#</th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.from}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.checkpoint}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.distance}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.segment}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.eta}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.segmentTime}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.fuel}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.water}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.sodium}
-                  </th>
-                  <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
-                    {racePlannerCopy.sections.timeline.printView.columns.pickup}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {segments.map((segment, index) => {
-                  const rowBorder = index === segments.length - 1 ? "" : "border-b border-slate-200";
-                  return (
-                    <tr key={`${segment.checkpoint}-print-${segment.distanceKm}`} className="align-top">
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>{index + 1}</td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        <div className="font-semibold">{segment.from}</div>
-                        <div className="text-[10px] text-slate-600">
-                          {formatDistanceWithUnit(segment.startDistanceKm)}
-                        </div>
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2`}>
-                        <div className="font-semibold">{segment.checkpoint}</div>
-                        <div className="text-[10px] text-slate-600">
-                          {racePlannerCopy.sections.timeline.segmentLabel.replace(
+        usePrintLayoutV2 ? (
+          <PrintablePlanV2
+            segments={segments}
+            raceName={printableRaceName}
+            exportDate={exportDate}
+            strategy={baseIntakeTargets}
+            products={mergedFuelProducts}
+            copy={racePlannerCopy}
+            locale={locale}
+            formatDistanceWithUnit={formatDistanceWithUnit}
+          />
+        ) : (
+          <div className="hidden rounded-lg border border-slate-300 bg-white p-4 text-slate-900 shadow-sm print:block">
+            <div className="mb-3">
+              <p className="text-sm font-semibold">{racePlannerCopy.sections.timeline.printView.title}</p>
+              <p className="text-xs text-slate-600">{racePlannerCopy.sections.timeline.printView.description}</p>
+            </div>
+            <div className="overflow-hidden rounded-md border border-slate-200">
+              <table className="min-w-full border-collapse text-xs leading-6">
+                <thead className="bg-slate-50 text-slate-900">
+                  <tr>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">#</th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.from}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.checkpoint}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.distance}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.segment}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.eta}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.segmentTime}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.fuel}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.water}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.sodium}
+                    </th>
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-semibold">
+                      {racePlannerCopy.sections.timeline.printView.columns.pickup}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {segments.map((segment, index) => {
+                    const rowBorder = index === segments.length - 1 ? "" : "border-b border-slate-200";
+                    return (
+                      <tr key={`${segment.checkpoint}-print-${segment.distanceKm}`} className="align-top">
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>{index + 1}</td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          <div className="font-semibold">{segment.from}</div>
+                          <div className="text-[10px] text-slate-600">
+                            {formatDistanceWithUnit(segment.startDistanceKm)}
+                          </div>
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2`}>
+                          <div className="font-semibold">{segment.checkpoint}</div>
+                          <div className="text-[10px] text-slate-600">
+                            {racePlannerCopy.sections.timeline.segmentLabel.replace(
+                              "{distance}",
+                              segment.segmentKm.toFixed(1)
+                            )}
+                          </div>
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          {formatDistanceWithUnit(segment.distanceKm)}
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          {racePlannerCopy.sections.timeline.segmentDistanceBetween.replace(
                             "{distance}",
                             segment.segmentKm.toFixed(1)
                           )}
-                        </div>
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {formatDistanceWithUnit(segment.distanceKm)}
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {racePlannerCopy.sections.timeline.segmentDistanceBetween.replace(
-                          "{distance}",
-                          segment.segmentKm.toFixed(1)
-                        )}
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {formatMinutes(segment.segmentMinutes, racePlannerCopy.units)}
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        <div>{formatFuelAmount(segment.plannedFuelGrams)}</div>
-                        <div className="text-[10px] text-slate-600">
-                          {racePlannerCopy.sections.timeline.targetLabel}: {formatFuelAmount(segment.targetFuelGrams)}
-                        </div>
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        <div>{formatWaterAmount(segment.plannedWaterMl)}</div>
-                        <div className="text-[10px] text-slate-600">
-                          {racePlannerCopy.sections.timeline.targetLabel}: {formatWaterAmount(segment.targetWaterMl)}
-                        </div>
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        <div>{formatSodiumAmount(segment.plannedSodiumMg)}</div>
-                        <div className="text-[10px] text-slate-600">
-                          {racePlannerCopy.sections.timeline.targetLabel}: {formatSodiumAmount(segment.targetSodiumMg)}
-                        </div>
-                      </td>
-                      <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
-                        {segment.isFinish ? "–" : segment.pickupGels ?? "–"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          {formatMinutes(segment.etaMinutes, racePlannerCopy.units)}
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          {formatMinutes(segment.segmentMinutes, racePlannerCopy.units)}
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          <div>{formatFuelAmount(segment.plannedFuelGrams)}</div>
+                          <div className="text-[10px] text-slate-600">
+                            {racePlannerCopy.sections.timeline.targetLabel}: {formatFuelAmount(segment.targetFuelGrams)}
+                          </div>
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          <div>{formatWaterAmount(segment.plannedWaterMl)}</div>
+                          <div className="text-[10px] text-slate-600">
+                            {racePlannerCopy.sections.timeline.targetLabel}: {formatWaterAmount(segment.targetWaterMl)}
+                          </div>
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          <div>{formatSodiumAmount(segment.plannedSodiumMg)}</div>
+                          <div className="text-[10px] text-slate-600">
+                            {racePlannerCopy.sections.timeline.targetLabel}: {formatSodiumAmount(segment.targetSodiumMg)}
+                          </div>
+                        </td>
+                        <td className={`${rowBorder} px-3 py-2 text-slate-700`}>
+                          {segment.isFinish ? "–" : segment.pickupGels ?? "–"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )
       ) : null}
 
     </>
