@@ -646,7 +646,7 @@ export const en: Translations = {
         role: "Roles",
         createdAt: "Created",
         lastSignInAt: "Last active",
-        premium: "Premium grant",
+        premium: "Premium access",
       },
       premium: {
         starts: "Starts:",
@@ -654,10 +654,23 @@ export const en: Translations = {
         remaining: "Remaining:",
         reason: "Reason:",
         action: "Grant premium",
-        empty: "No premium grant.",
+        empty: "No premium access.",
+        subscription: {
+          label: "Subscription:",
+          ends: "Renews:",
+        },
+        trial: {
+          label: "Trial ends:",
+          remaining: "Trial remaining:",
+        },
+        revoke: {
+          action: "Revoke grant",
+          loading: "Revoking...",
+        },
         messages: {
           created: "Premium grant created.",
-          error: "Unable to create premium grant.",
+          revoked: "Premium grant revoked.",
+          error: "Unable to update premium access.",
         },
         form: {
           title: "Grant premium access",

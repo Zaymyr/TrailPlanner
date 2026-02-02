@@ -39,10 +39,25 @@ const mappedUsersSchema = z.object({
       roles: z.array(z.string()).optional(),
       premiumGrant: z
         .object({
+          id: z.string(),
           startsAt: z.string(),
           initialDurationDays: z.number(),
           remainingDurationDays: z.number(),
           reason: z.string(),
+        })
+        .nullable()
+        .optional(),
+      trial: z
+        .object({
+          endsAt: z.string(),
+          remainingDays: z.number(),
+        })
+        .nullable()
+        .optional(),
+      subscription: z
+        .object({
+          status: z.string(),
+          currentPeriodEnd: z.string().nullable().optional(),
         })
         .nullable()
         .optional(),
@@ -74,10 +89,12 @@ const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
 });
 
 const premiumGrantRowSchema = z.object({
+  id: z.string().uuid(),
   user_id: z.string().uuid(),
   starts_at: z.string(),
   initial_duration_days: z.number(),
   reason: z.string(),
+  ends_at: z.string().nullable().optional(),
 });
 
 const buildPremiumGrant = (grant: z.infer<typeof premiumGrantRowSchema>, now: Date) => {
@@ -87,8 +104,11 @@ const buildPremiumGrant = (grant: z.infer<typeof premiumGrantRowSchema>, now: Da
     return null;
   }
 
-  const endsAt = new Date(startsAt.getTime() + grant.initial_duration_days * 24 * 60 * 60 * 1000);
-  const isActive = now >= startsAt && now <= endsAt;
+  const defaultEndsAt = new Date(startsAt.getTime() + grant.initial_duration_days * 24 * 60 * 60 * 1000);
+  const explicitEndsAt = grant.ends_at ? new Date(grant.ends_at) : null;
+  const endsAt =
+    explicitEndsAt && Number.isFinite(explicitEndsAt.getTime()) ? explicitEndsAt : defaultEndsAt;
+  const isActive = now >= startsAt && now < endsAt;
 
   const remainingDurationDays = Math.max(
     0,
@@ -96,12 +116,42 @@ const buildPremiumGrant = (grant: z.infer<typeof premiumGrantRowSchema>, now: Da
   );
 
   return {
+    id: grant.id,
     startsAt: grant.starts_at,
     initialDurationDays: grant.initial_duration_days,
     remainingDurationDays,
     reason: grant.reason,
     isActive,
   };
+};
+
+const trialRowSchema = z.object({
+  user_id: z.string().uuid(),
+  trial_ends_at: z.string().nullable().optional(),
+});
+
+const subscriptionRowSchema = z.object({
+  user_id: z.string().uuid(),
+  status: z.string().nullable().optional(),
+  current_period_end: z.string().nullable().optional(),
+});
+
+const buildTrial = (trial: z.infer<typeof trialRowSchema>, now: Date) => {
+  if (!trial.trial_ends_at) return null;
+  const endsAt = new Date(trial.trial_ends_at);
+  if (!Number.isFinite(endsAt.getTime()) || endsAt.getTime() <= now.getTime()) return null;
+  const remainingDays = Math.max(0, Math.ceil((endsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)));
+  return { endsAt: trial.trial_ends_at, remainingDays };
+};
+
+const isSubscriptionActive = (subscription: z.infer<typeof subscriptionRowSchema> | null) => {
+  if (!subscription?.status) return false;
+  const normalizedStatus = subscription.status.toLowerCase();
+  const isActiveStatus = normalizedStatus === "active" || normalizedStatus === "trialing";
+  if (!isActiveStatus) return false;
+  if (!subscription.current_period_end) return true;
+  const periodEnd = new Date(subscription.current_period_end);
+  return Number.isFinite(periodEnd.getTime()) ? periodEnd.getTime() > Date.now() : false;
 };
 
 const authorizeAdmin = async (request: NextRequest) => {
@@ -137,12 +187,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(`${auth.supabaseService.supabaseUrl}/auth/v1/admin/users?per_page=50`, {
-        headers: {
-          apikey: auth.supabaseService.supabaseServiceRoleKey,
-          Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
-        },
-        cache: "no-store",
-      });
+      headers: {
+        apikey: auth.supabaseService.supabaseServiceRoleKey,
+        Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+      },
+      cache: "no-store",
+    });
 
     const payload = (await response.json().catch(() => null)) as unknown;
 
@@ -163,22 +213,57 @@ export async function GET(request: NextRequest) {
     const mapped = users.map(mapUser);
     const userIds = mapped.map((user) => user.id);
     let grantsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.premiumGrant>>();
+    let trialsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.trial>>();
+    let subscriptionsByUserId = new Map<
+      string,
+      z.infer<typeof mappedUsersSchema.shape.users.element.shape.subscription>
+    >();
 
     if (userIds.length > 0) {
-      const grantsResponse = await fetch(
-        `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${userIds.join(
-          ","
-        )})&select=user_id,starts_at,initial_duration_days,reason&order=starts_at.desc`,
-        {
-          headers: {
-            apikey: auth.supabaseService.supabaseServiceRoleKey,
-            Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
-          },
-          cache: "no-store",
-        }
-      );
+      const [grantsResponse, trialsResponse, subscriptionsResponse] = await Promise.all([
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${userIds.join(
+            ","
+          )})&select=id,user_id,starts_at,initial_duration_days,reason,ends_at&order=starts_at.desc`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
+            ","
+          )})&select=user_id,trial_ends_at`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${userIds.join(
+            ","
+          )})&select=user_id,status,current_period_end`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
+      ]);
 
-      const grantsPayload = (await grantsResponse.json().catch(() => null)) as unknown;
+      const [grantsPayload, trialsPayload, subscriptionsPayload] = await Promise.all([
+        grantsResponse.json().catch(() => null),
+        trialsResponse.json().catch(() => null),
+        subscriptionsResponse.json().catch(() => null),
+      ]);
 
       if (grantsResponse.ok) {
         const parsedGrants = z.array(premiumGrantRowSchema).safeParse(grantsPayload);
@@ -201,11 +286,55 @@ export async function GET(request: NextRequest) {
       } else {
         console.error("Unable to load premium grants", grantsPayload);
       }
+
+      if (trialsResponse.ok) {
+        const parsedTrials = z.array(trialRowSchema).safeParse(trialsPayload);
+
+        if (parsedTrials.success) {
+          const now = new Date();
+          trialsByUserId = new Map();
+
+          for (const trial of parsedTrials.data) {
+            if (trialsByUserId.has(trial.user_id)) continue;
+            const mappedTrial = buildTrial(trial, now);
+            if (mappedTrial) {
+              trialsByUserId.set(trial.user_id, mappedTrial);
+            }
+          }
+        } else {
+          console.warn("Unable to parse trial payload", parsedTrials.error.flatten().fieldErrors);
+        }
+      } else {
+        console.error("Unable to load trial payload", trialsPayload);
+      }
+
+      if (subscriptionsResponse.ok) {
+        const parsedSubscriptions = z.array(subscriptionRowSchema).safeParse(subscriptionsPayload);
+
+        if (parsedSubscriptions.success) {
+          subscriptionsByUserId = new Map();
+
+          for (const subscription of parsedSubscriptions.data) {
+            if (subscriptionsByUserId.has(subscription.user_id)) continue;
+            if (!isSubscriptionActive(subscription)) continue;
+            subscriptionsByUserId.set(subscription.user_id, {
+              status: subscription.status ?? "active",
+              currentPeriodEnd: subscription.current_period_end ?? null,
+            });
+          }
+        } else {
+          console.warn("Unable to parse subscription payload", parsedSubscriptions.error.flatten().fieldErrors);
+        }
+      } else {
+        console.error("Unable to load subscription payload", subscriptionsPayload);
+      }
     }
 
     const mappedWithGrants = mapped.map((user) => ({
       ...user,
       premiumGrant: grantsByUserId.get(user.id) ?? null,
+      trial: trialsByUserId.get(user.id) ?? null,
+      subscription: subscriptionsByUserId.get(user.id) ?? null,
     }));
 
     return withSecurityHeaders(NextResponse.json(mappedUsersSchema.parse({ users: mappedWithGrants })));

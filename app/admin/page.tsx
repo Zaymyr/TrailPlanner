@@ -45,10 +45,25 @@ const adminUsersSchema = z.object({
       roles: z.array(z.string()).optional(),
       premiumGrant: z
         .object({
+          id: z.string(),
           startsAt: z.string(),
           initialDurationDays: z.number(),
           remainingDurationDays: z.number(),
           reason: z.string(),
+        })
+        .nullable()
+        .optional(),
+      trial: z
+        .object({
+          endsAt: z.string(),
+          remainingDays: z.number(),
+        })
+        .nullable()
+        .optional(),
+      subscription: z
+        .object({
+          status: z.string(),
+          currentPeriodEnd: z.string().nullable().optional(),
         })
         .nullable()
         .optional(),
@@ -61,6 +76,7 @@ const adminUserSchema = adminUsersSchema.shape.users.element;
 const premiumGrantResponseSchema = z.object({
   premiumGrant: z
     .object({
+      id: z.string(),
       startsAt: z.string(),
       initialDurationDays: z.number(),
       remainingDurationDays: z.number(),
@@ -123,6 +139,11 @@ const formatDuration = (days?: number) => {
   return `${days}d`;
 };
 
+const formatStatus = (value?: string) => {
+  if (!value) return "—";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+};
+
 const formatDateTimeLocal = (date: Date) => {
   const pad = (value: number) => value.toString().padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
@@ -139,6 +160,7 @@ export default function AdminPage() {
   const [userMessage, setUserMessage] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
+  const [revokingGrantId, setRevokingGrantId] = useState<string | null>(null);
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [premiumDialogUser, setPremiumDialogUser] = useState<z.infer<typeof adminUserSchema> | null>(null);
 
@@ -362,6 +384,49 @@ export default function AdminPage() {
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.admin.users.premium.messages.error;
       setUserError(message);
+    },
+  });
+
+  const revokePremiumGrantMutation = useMutation({
+    mutationFn: async (payload: { id: string }) => {
+      if (!accessToken) throw new Error(t.admin.users.premium.messages.error);
+
+      const response = await fetch("/api/admin/premium", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json().catch(() => null)) as unknown;
+
+      if (!response.ok) {
+        const message = (data as { message?: string } | null)?.message ?? t.admin.users.premium.messages.error;
+        throw new Error(message);
+      }
+
+      const parsed = premiumGrantResponseSchema.safeParse(data);
+
+      if (!parsed.success) {
+        throw new Error(t.admin.users.premium.messages.error);
+      }
+
+      return parsed.data.premiumGrant;
+    },
+    onSuccess: () => {
+      setUserError(null);
+      setUserMessage(t.admin.users.premium.messages.revoked);
+      setRevokingGrantId(null);
+      if (accessToken) {
+        void queryClient.invalidateQueries({ queryKey: ["admin", "users", accessToken] });
+      }
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : t.admin.users.premium.messages.error;
+      setUserError(message);
+      setRevokingGrantId(null);
     },
   });
 
@@ -695,6 +760,32 @@ export default function AdminPage() {
                       </TableCell>
                       <TableCell className="text-slate-700 dark:text-slate-200">
                         <div className="space-y-2">
+                          {user.subscription ? (
+                            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                              <div>
+                                <span className="font-semibold">{t.admin.users.premium.subscription.label}</span>{" "}
+                                {formatStatus(user.subscription.status)}
+                              </div>
+                              {user.subscription.currentPeriodEnd ? (
+                                <div>
+                                  <span className="font-semibold">{t.admin.users.premium.subscription.ends}</span>{" "}
+                                  {formatDate(user.subscription.currentPeriodEnd)}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          {user.trial ? (
+                            <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                              <div>
+                                <span className="font-semibold">{t.admin.users.premium.trial.label}</span>{" "}
+                                {formatDate(user.trial.endsAt)}
+                              </div>
+                              <div>
+                                <span className="font-semibold">{t.admin.users.premium.trial.remaining}</span>{" "}
+                                {formatDuration(user.trial.remainingDays)}
+                              </div>
+                            </div>
+                          ) : null}
                           {user.premiumGrant ? (
                             <div className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                               <div>
@@ -713,10 +804,30 @@ export default function AdminPage() {
                                 <span className="font-semibold">{t.admin.users.premium.reason}</span>{" "}
                                 {user.premiumGrant.reason}
                               </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-8 px-2 text-xs text-red-600 hover:text-red-600"
+                                onClick={() => {
+                                  if (!user.premiumGrant) return;
+                                  setRevokingGrantId(user.premiumGrant.id);
+                                  revokePremiumGrantMutation.mutate({ id: user.premiumGrant.id });
+                                }}
+                                disabled={
+                                  revokePremiumGrantMutation.isPending && revokingGrantId === user.premiumGrant.id
+                                }
+                              >
+                                {revokePremiumGrantMutation.isPending && revokingGrantId === user.premiumGrant.id
+                                  ? t.admin.users.premium.revoke.loading
+                                  : t.admin.users.premium.revoke.action}
+                              </Button>
                             </div>
-                          ) : (
-                            <p className="text-xs text-slate-500 dark:text-slate-400">{t.admin.users.premium.empty}</p>
-                          )}
+                          ) : null}
+                          {!user.premiumGrant && !user.trial && !user.subscription ? (
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {t.admin.users.premium.empty}
+                            </p>
+                          ) : null}
                           <Button
                             type="button"
                             variant="outline"

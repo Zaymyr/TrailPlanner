@@ -664,10 +664,23 @@ export const fr: Translations = {
         remaining: "Restant :",
         reason: "Motif :",
         action: "Accorder Premium",
-        empty: "Aucune attribution Premium.",
+        empty: "Aucun accès Premium.",
+        subscription: {
+          label: "Abonnement :",
+          ends: "Renouvelle :",
+        },
+        trial: {
+          label: "Fin d'essai :",
+          remaining: "Essai restant :",
+        },
+        revoke: {
+          action: "Révoquer l'attribution",
+          loading: "Révocation...",
+        },
         messages: {
           created: "Attribution Premium créée.",
-          error: "Impossible de créer l'attribution Premium.",
+          revoked: "Attribution Premium révoquée.",
+          error: "Impossible de mettre à jour l'accès Premium.",
         },
         form: {
           title: "Accorder l'accès Premium",
