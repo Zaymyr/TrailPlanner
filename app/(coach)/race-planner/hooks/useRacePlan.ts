@@ -325,12 +325,16 @@ export const useRacePlan = ({
       const sanitizedAidStations = dedupeAidStations(sanitizeAidStations(parsedValues.data.aidStations));
       const sanitizedFinishPlan = sanitizeSegmentPlan(parsedValues.data.finishPlan);
 
+      const sanitizedSectionSegments = sanitizeSectionSegments(
+        parsedValues.data.segments ?? parsedValues.data.sectionSegments
+      );
       const plannerValues: FormValues = {
         ...parsedValues.data,
         aidStations: sanitizedAidStations,
         finishPlan: sanitizedFinishPlan,
         startSupplies: sanitizeSegmentPlan({ supplies: parsedValues.data.startSupplies }).supplies ?? [],
-        sectionSegments: sanitizeSectionSegments(parsedValues.data.sectionSegments),
+        segments: sanitizedSectionSegments,
+        sectionSegments: sanitizedSectionSegments,
       };
 
       const planIdToUpdate = existingPlanByName?.id ?? null;

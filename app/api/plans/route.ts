@@ -4,9 +4,15 @@ import { z } from "zod";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../lib/supabase";
 import { getUserEntitlements } from "../../../lib/entitlements";
 
+const plannerValuesSchema = z
+  .object({
+    segments: z.record(z.array(z.unknown())).optional(),
+  })
+  .passthrough();
+
 const basePlanSchema = z.object({
   name: z.string().trim().min(1, "Plan name is required"),
-  plannerValues: z.record(z.unknown()),
+  plannerValues: plannerValuesSchema,
   elevationProfile: z
     .array(
       z.object({

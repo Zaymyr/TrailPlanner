@@ -1,3 +1,4 @@
+import { buildSectionKey } from "./section-segments";
 import type { AidStation, ElevationPoint, FormValues, SectionSegment, SegmentPlan, StationSupply } from "../types";
 
 export function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
@@ -73,6 +74,31 @@ export function sanitizeSectionSegments(sectionSegments?: unknown): Record<strin
   return Object.fromEntries(sanitizedEntries);
 }
 
+export function buildImplicitSectionSegments(
+  raceDistanceKm: number | undefined,
+  aidStations: AidStation[]
+): Record<string, SectionSegment[]> | undefined {
+  if (!raceDistanceKm || !Number.isFinite(raceDistanceKm) || raceDistanceKm <= 0) return undefined;
+
+  const checkpoints = [
+    0,
+    ...aidStations
+      .map((station) => station.distanceKm)
+      .filter((distanceKm) => Number.isFinite(distanceKm) && distanceKm > 0 && distanceKm < raceDistanceKm)
+      .sort((a, b) => a - b),
+    raceDistanceKm,
+  ];
+
+  const sectionSegments = checkpoints.slice(1).reduce<Record<string, SectionSegment[]>>((acc, distance, index) => {
+    const start = checkpoints[index] ?? 0;
+    const segmentKm = Math.max(0, distance - start);
+    acc[buildSectionKey(index)] = [{ segmentKm }];
+    return acc;
+  }, {});
+
+  return Object.keys(sectionSegments).length > 0 ? sectionSegments : undefined;
+}
+
 export function sanitizeAidStations(
   stations?: { name?: string; distanceKm?: number; waterRefill?: boolean; pauseMinutes?: number }[]
 ): AidStation[] {
@@ -113,7 +139,9 @@ export function sanitizePlannerValues(values?: Partial<FormValues>): Partial<For
   const aidStations = sanitizeAidStations(values.aidStations);
   const finishPlan = sanitizeSegmentPlan(values.finishPlan);
   const startSupplies = sanitizeSegmentPlan({ supplies: values.startSupplies }).supplies;
-  const sectionSegments = sanitizeSectionSegments(values.sectionSegments);
+  const sectionSegments =
+    sanitizeSectionSegments(values.segments ?? values.sectionSegments) ??
+    buildImplicitSectionSegments(values.raceDistanceKm, aidStations);
   const waterBagLiters =
     typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters) && values.waterBagLiters >= 0
       ? values.waterBagLiters
@@ -126,6 +154,7 @@ export function sanitizePlannerValues(values?: Partial<FormValues>): Partial<For
     startSupplies,
     aidStations,
     finishPlan,
+    segments: sectionSegments,
     sectionSegments,
   };
 }

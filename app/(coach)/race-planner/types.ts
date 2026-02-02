@@ -33,6 +33,7 @@ export type FormValues = {
   startSupplies?: StationSupply[];
   aidStations: AidStation[];
   finishPlan?: SegmentPlan;
+  segments?: Record<string, SectionSegment[]>;
   sectionSegments?: Record<string, SectionSegment[]>;
 };
 

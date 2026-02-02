@@ -27,12 +27,18 @@ const catalogRaceSchema = z.object({
   updated_at: z.string(),
 });
 
+const plannerValuesSchema = z
+  .object({
+    segments: z.record(z.array(z.unknown())).optional(),
+  })
+  .passthrough();
+
 const planRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
-  planner_values: z.record(z.unknown()),
+  planner_values: plannerValuesSchema,
   elevation_profile: z.array(z.unknown()).optional().default([]),
 });
 

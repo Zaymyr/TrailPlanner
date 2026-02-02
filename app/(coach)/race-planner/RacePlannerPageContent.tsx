@@ -174,6 +174,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       startSupplies: createSegmentPlanSchema(copy.validation).shape.supplies.optional(),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
+      segments: z.record(z.array(createSectionSegmentSchema(copy.validation))).optional(),
       sectionSegments: z.record(z.array(createSectionSegmentSchema(copy.validation))).optional(),
     })
     .superRefine((values, ctx) => {

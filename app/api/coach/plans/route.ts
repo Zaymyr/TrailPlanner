@@ -23,12 +23,18 @@ const coachPlansQuerySchema = z.object({
   coacheeId: z.string().uuid(),
 });
 
+const plannerValuesSchema = z
+  .object({
+    segments: z.record(z.array(z.unknown())).optional(),
+  })
+  .passthrough();
+
 const planRowSchema = z.array(
   z.object({
     id: z.string(),
     name: z.string(),
     updated_at: z.string(),
-    planner_values: z.record(z.unknown()),
+    planner_values: plannerValuesSchema,
     elevation_profile: z.array(z.unknown()),
   })
 );
