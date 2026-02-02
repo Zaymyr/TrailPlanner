@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 
 import type { LandingPageTranslations } from "../../locales/types";
@@ -31,7 +32,7 @@ export function GuideCards({ cardsHeading, cardCta, guides }: GuideCardsProps) {
         {guides.map((guide) => (
           <Link
             key={guide.slug}
-            href={guide.canonicalPath}
+            href={guide.canonicalPath as Route}
             className="group relative flex h-full flex-col justify-between gap-4 rounded-2xl border border-border bg-card/70 p-5 transition hover:-translate-y-0.5 hover:border-emerald-300/70 hover:bg-card"
           >
             <div className="space-y-2">
