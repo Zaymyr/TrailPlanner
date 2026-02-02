@@ -66,7 +66,7 @@ export function buildPlannerGpx(values: FormValues, elevationProfile: ElevationP
   const safeFinishPlan = sanitizeSegmentPlan(values.finishPlan);
   const distanceKm = Number.isFinite(values.raceDistanceKm) ? values.raceDistanceKm : 0;
   const profile = elevationProfile.length > 0 ? elevationProfile : buildFlatElevationProfile(distanceKm);
-  const safeSectionSegments = sanitizeSectionSegments(values.sectionSegments);
+  const safeSectionSegments = sanitizeSectionSegments(values.segments ?? values.sectionSegments);
   const plannerState = encodePlannerState(
     { ...values, aidStations: safeAidStations, finishPlan: safeFinishPlan, sectionSegments: safeSectionSegments },
     profile
