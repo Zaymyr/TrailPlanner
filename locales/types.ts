@@ -613,8 +613,21 @@ export type AdminTranslations = {
       reason: string;
       action: string;
       empty: string;
+      subscription: {
+        label: string;
+        ends: string;
+      };
+      trial: {
+        label: string;
+        remaining: string;
+      };
+      revoke: {
+        action: string;
+        loading: string;
+      };
       messages: {
         created: string;
+        revoked: string;
         error: string;
       };
       form: {

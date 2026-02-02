@@ -80,6 +80,7 @@ const premiumGrantRowSchema = z.array(
     starts_at: z.string(),
     initial_duration_days: z.number(),
     reason: z.string(),
+    ends_at: z.string().nullable().optional(),
   })
 );
 
@@ -158,8 +159,11 @@ const buildPremiumGrant = (
     return null;
   }
 
-  const endsAt = new Date(startsAt.getTime() + grant.initial_duration_days * 24 * 60 * 60 * 1000);
-  const isActive = now >= startsAt && now <= endsAt;
+  const defaultEndsAt = new Date(startsAt.getTime() + grant.initial_duration_days * 24 * 60 * 60 * 1000);
+  const explicitEndsAt = grant.ends_at ? new Date(grant.ends_at) : null;
+  const endsAt =
+    explicitEndsAt && Number.isFinite(explicitEndsAt.getTime()) ? explicitEndsAt : defaultEndsAt;
+  const isActive = now >= startsAt && now < endsAt;
 
   if (!isActive) return null;
 
@@ -234,9 +238,9 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
         }
       ),
       fetch(
-        `${serviceConfig.supabaseUrl}/rest/v1/premium_grants?user_id=eq.${encodeURIComponent(
-          userId
-        )}&select=user_id,starts_at,initial_duration_days,reason&order=starts_at.desc`,
+    `${serviceConfig.supabaseUrl}/rest/v1/premium_grants?user_id=eq.${encodeURIComponent(
+      userId
+    )}&select=user_id,starts_at,initial_duration_days,reason,ends_at&order=starts_at.desc`,
         {
           headers: {
             apikey: serviceConfig.supabaseServiceRoleKey,
