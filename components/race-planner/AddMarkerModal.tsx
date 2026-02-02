@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import { Button } from "../ui/button";
@@ -22,12 +22,15 @@ type AddMarkerModalProps = {
 };
 
 export function AddMarkerModal({ open, onClose, onConfirm, title, copy }: AddMarkerModalProps) {
-  const markerTypes = [
-    { value: "climb", label: copy.markerTypes.climb },
-    { value: "descent", label: copy.markerTypes.descent },
-    { value: "flat", label: copy.markerTypes.flat },
-    { value: "custom", label: copy.markerTypes.custom },
-  ];
+  const markerTypes = useMemo(
+    () => [
+      { value: "climb", label: copy.markerTypes.climb },
+      { value: "descent", label: copy.markerTypes.descent },
+      { value: "flat", label: copy.markerTypes.flat },
+      { value: "custom", label: copy.markerTypes.custom },
+    ],
+    [copy.markerTypes]
+  );
   const [distanceKm, setDistanceKm] = useState("0");
   const [markerType, setMarkerType] = useState(markerTypes[0]?.value ?? "climb");
   const [label, setLabel] = useState("");
@@ -38,7 +41,7 @@ export function AddMarkerModal({ open, onClose, onConfirm, title, copy }: AddMar
       setMarkerType(markerTypes[0]?.value ?? "climb");
       setLabel("");
     }
-  }, [open]);
+  }, [markerTypes, open]);
 
   if (!open) return null;
 
