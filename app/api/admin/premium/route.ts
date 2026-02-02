@@ -146,9 +146,11 @@ export async function GET(request: NextRequest) {
         return withSecurityHeaders(NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: null })));
       }
 
-      const { isActive, ...payload } = grant;
+      const { isActive, ...premiumGrantPayload } = grant;
 
-      return withSecurityHeaders(NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: payload })));
+      return withSecurityHeaders(
+        NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: premiumGrantPayload }))
+      );
     }
 
     const response = await fetch(
@@ -180,8 +182,8 @@ export async function GET(request: NextRequest) {
       if (grantsByUserId.has(grant.user_id)) continue;
       const mappedGrant = buildPremiumGrant(grant, now);
       if (mappedGrant?.isActive) {
-        const { isActive, ...payload } = mappedGrant;
-        grantsByUserId.set(grant.user_id, payload);
+        const { isActive, ...premiumGrantPayload } = mappedGrant;
+        grantsByUserId.set(grant.user_id, premiumGrantPayload);
       }
     }
 
@@ -251,9 +253,11 @@ export async function POST(request: NextRequest) {
       return withSecurityHeaders(NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: null })));
     }
 
-    const { isActive, ...payload } = mappedGrant;
+    const { isActive, ...premiumGrantPayload } = mappedGrant;
 
-    return withSecurityHeaders(NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: payload })));
+    return withSecurityHeaders(
+      NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: premiumGrantPayload }))
+    );
   } catch (error) {
     console.error("Unexpected error while creating premium grant", error);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to create premium grant." }, { status: 500 }));
@@ -319,9 +323,11 @@ export async function PATCH(request: NextRequest) {
       return withSecurityHeaders(NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: null })));
     }
 
-    const { isActive, ...payload } = mappedGrant;
+    const { isActive, ...premiumGrantPayload } = mappedGrant;
 
-    return withSecurityHeaders(NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: payload })));
+    return withSecurityHeaders(
+      NextResponse.json(premiumGrantEnvelopeSchema.parse({ premiumGrant: premiumGrantPayload }))
+    );
   } catch (error) {
     console.error("Unexpected error while updating premium grant", error);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to update premium grant." }, { status: 500 }));
