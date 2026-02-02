@@ -1637,9 +1637,7 @@ export function ActionPlan({
                     ? [
                         {
                           id: `${item.id}-segment`,
-                          label:
-                            sectionSegment.label ??
-                            `${sectionSegment.from ?? item.title} → ${sectionSegment.checkpoint}`,
+                          label: `${sectionSegment.from ?? item.title} → ${sectionSegment.checkpoint}`,
                           distanceKm: sectionSegment.segmentKm,
                           elevationGainM: sectionSegment.elevationGainM ?? 0,
                           elevationLossM: sectionSegment.elevationLossM ?? 0,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import { Button } from "../ui/button";
@@ -14,18 +14,21 @@ type AutoSegmentModalProps = {
 };
 
 export function AutoSegmentModal({ open, onClose, onConfirm, title, copy }: AutoSegmentModalProps) {
-  const granularityOptions = [
-    { value: 1, label: copy.granularity.coarse },
-    { value: 0.5, label: copy.granularity.medium },
-    { value: 0.25, label: copy.granularity.fine },
-  ];
+  const granularityOptions = useMemo(
+    () => [
+      { value: 1, label: copy.granularity.coarse },
+      { value: 0.5, label: copy.granularity.medium },
+      { value: 0.25, label: copy.granularity.fine },
+    ],
+    [copy.granularity.coarse, copy.granularity.fine, copy.granularity.medium]
+  );
   const [granularityKm, setGranularityKm] = useState(granularityOptions[1]?.value ?? 0.5);
 
   useEffect(() => {
     if (open) {
       setGranularityKm(granularityOptions[1]?.value ?? 0.5);
     }
-  }, [open]);
+  }, [granularityOptions, open]);
 
   if (!open) return null;
 
