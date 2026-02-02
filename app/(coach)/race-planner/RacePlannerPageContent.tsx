@@ -36,6 +36,7 @@ import {
   sanitizeAidStations,
   sanitizeElevationProfile,
   sanitizePlannerValues,
+  sanitizeSectionSegments,
   sanitizeSegmentPlan,
 } from "./utils/plan-sanitizers";
 import { buildSegments } from "./utils/segments";
@@ -626,6 +627,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [formattedPremiumPrice, premiumCopy.premiumModal.priceValue]
   );
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
+  const sanitizedSectionSegments = useMemo(
+    () =>
+      parsedValues.success
+        ? parsedValues.data.sectionSegments
+        : sanitizeSectionSegments(watchedValues?.sectionSegments),
+    [parsedValues, watchedValues?.sectionSegments]
+  );
 
   const segments = useMemo(
     () =>
@@ -1182,7 +1190,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       onSpeedChange={handleSpeedUpdate}
       formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
       segments={segments}
-      sectionSegments={watchedValues?.sectionSegments}
+      sectionSegments={sanitizedSectionSegments}
       elevationProfile={elevationProfile}
       baseMinutesPerKm={baseMinutesPerKm}
       raceTotals={raceTotals}
