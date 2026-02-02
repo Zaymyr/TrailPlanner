@@ -2,23 +2,23 @@
 
 import { useEffect, useState } from "react";
 
+import type { RacePlannerTranslations } from "../../locales/types";
 import { Button } from "../ui/button";
-
-const granularityOptions = [
-  { value: 0.25, label: "250 m" },
-  { value: 0.5, label: "500 m" },
-  { value: 1, label: "1 km" },
-  { value: 2, label: "2 km" },
-];
 
 type AutoSegmentModalProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: (granularityKm: number) => void;
   title?: string;
+  copy: RacePlannerTranslations["segments"];
 };
 
-export function AutoSegmentModal({ open, onClose, onConfirm, title }: AutoSegmentModalProps) {
+export function AutoSegmentModal({ open, onClose, onConfirm, title, copy }: AutoSegmentModalProps) {
+  const granularityOptions = [
+    { value: 1, label: copy.granularity.coarse },
+    { value: 0.5, label: copy.granularity.medium },
+    { value: 0.25, label: copy.granularity.fine },
+  ];
   const [granularityKm, setGranularityKm] = useState(granularityOptions[1]?.value ?? 0.5);
 
   useEffect(() => {

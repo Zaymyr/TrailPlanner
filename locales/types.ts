@@ -350,6 +350,27 @@ export type RacePlannerTranslations = {
       };
     };
   };
+  segments: {
+    toggle: {
+      show: string;
+      hide: string;
+    };
+    actions: {
+      addMarker: string;
+      autoSegment: string;
+    };
+    granularity: {
+      coarse: string;
+      medium: string;
+      fine: string;
+    };
+    markerTypes: {
+      climb: string;
+      descent: string;
+      flat: string;
+      custom: string;
+    };
+  };
   buttons: {
     importGpx: string;
     exportGpx: string;

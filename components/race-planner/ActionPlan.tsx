@@ -811,6 +811,7 @@ export function ActionPlan({
   });
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
+  const segmentCopy = copy.segments;
   const openCreateEditor = () =>
     setEditorState({
       mode: "create",
@@ -1649,7 +1650,9 @@ export function ActionPlan({
                 const segmentToggleKey = isAidStation ? String(item.aidStationIndex) : null;
                 const isSegmentsExpanded =
                   segmentToggleKey && segmentListItems.length > 0 ? Boolean(expandedSegments[segmentToggleKey]) : false;
-                const segmentToggleLabel = isSegmentsExpanded ? "Masquer le découpage" : "Afficher le découpage";
+                const segmentToggleLabel = isSegmentsExpanded ? segmentCopy.toggle.hide : segmentCopy.toggle.show;
+                const markerTitlePrefix = segmentCopy.actions.addMarker.replace(/^\+\s*/, "");
+                const autoSegmentTitlePrefix = segmentCopy.actions.autoSegment;
                 const segmentToggleButton =
                   segmentToggleKey && segmentListItems.length > 0 ? (
                     <Button
@@ -1677,11 +1680,11 @@ export function ActionPlan({
                           setSegmentModalState({
                             type: "marker",
                             aidStationIndex: item.aidStationIndex as number,
-                            title: `Marqueur · ${item.title}`,
+                            title: `${markerTitlePrefix} · ${item.title}`,
                           })
                         }
                       >
-                        + Marqueur
+                        {segmentCopy.actions.addMarker}
                       </Button>
                       <Button
                         type="button"
@@ -1691,11 +1694,11 @@ export function ActionPlan({
                           setSegmentModalState({
                             type: "auto",
                             aidStationIndex: item.aidStationIndex as number,
-                            title: `Découpage auto · ${item.title}`,
+                            title: `${autoSegmentTitlePrefix} · ${item.title}`,
                           })
                         }
                       >
-                        Découpage auto
+                        {segmentCopy.actions.autoSegment}
                       </Button>
                     </div>
                   ) : null;
@@ -2001,12 +2004,14 @@ export function ActionPlan({
       <AutoSegmentModal
         open={segmentModalState?.type === "auto"}
         title={segmentModalState?.type === "auto" ? segmentModalState.title : undefined}
+        copy={segmentCopy}
         onClose={() => setSegmentModalState(null)}
         onConfirm={() => setSegmentModalState(null)}
       />
       <AddMarkerModal
         open={segmentModalState?.type === "marker"}
         title={segmentModalState?.type === "marker" ? segmentModalState.title : undefined}
+        copy={segmentCopy}
         onClose={() => setSegmentModalState(null)}
         onConfirm={() => setSegmentModalState(null)}
       />

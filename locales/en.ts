@@ -444,6 +444,27 @@ export const en: Translations = {
         },
       },
     },
+    segments: {
+      toggle: {
+        show: "Show splits",
+        hide: "Hide splits",
+      },
+      actions: {
+        addMarker: "+ Marker",
+        autoSegment: "Auto split",
+      },
+      granularity: {
+        coarse: "Coarse",
+        medium: "Medium",
+        fine: "Fine",
+      },
+      markerTypes: {
+        climb: "Climb",
+        descent: "Descent",
+        flat: "Flat",
+        custom: "Custom",
+      },
+    },
     buttons: {
       importGpx: "Import GPX",
       exportGpx: "Export GPX",
