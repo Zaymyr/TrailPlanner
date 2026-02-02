@@ -1182,6 +1182,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       onSpeedChange={handleSpeedUpdate}
       formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
       segments={segments}
+      sectionSegments={watchedValues?.sectionSegments}
+      elevationProfile={elevationProfile}
+      baseMinutesPerKm={baseMinutesPerKm}
       raceTotals={raceTotals}
       onPrint={handlePrint}
       onAutomaticFill={handleAutomaticFill}
