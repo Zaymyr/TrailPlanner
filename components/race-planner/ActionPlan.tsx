@@ -6,7 +6,16 @@ import type { ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../locales/types";
-import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
+import type {
+  ElevationPoint,
+  FormValues,
+  SectionSegment,
+  Segment,
+  SegmentPlan,
+  StationSupply,
+} from "../../app/(coach)/race-planner/types";
+import { autoSegmentSection, computeSegmentStats, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
+import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
 import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
@@ -86,6 +95,9 @@ type RaceTotals = {
 type ActionPlanProps = {
   copy: RacePlannerTranslations;
   segments: Segment[];
+  sectionSegments?: Record<string, SectionSegment[]>;
+  elevationProfile: ElevationPoint[];
+  baseMinutesPerKm: number | null;
   raceTotals: RaceTotals | null;
   sectionId: string;
   onPrint: () => void;
@@ -275,6 +287,7 @@ type RenderItem =
       pickupGels?: number;
       checkpointSegment?: Segment;
       upcomingSegment?: Segment;
+      upcomingSegmentIndex?: number;
     };
 
 const buildRenderItems = (segments: Segment[]): RenderItem[] => {
@@ -290,6 +303,7 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
     etaMinutes: 0,
     isStart: true,
     upcomingSegment: startSegment,
+    upcomingSegmentIndex: 0,
   });
 
   segments.forEach((segment, index) => {
@@ -303,6 +317,7 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
       pickupGels: segment.pickupGels,
       checkpointSegment: segment,
       upcomingSegment: segments[index + 1],
+      upcomingSegmentIndex: index + 1,
     });
   });
 
@@ -734,6 +749,9 @@ function AidStationCollapsedRow({
 export function ActionPlan({
   copy,
   segments,
+  sectionSegments,
+  elevationProfile,
+  baseMinutesPerKm,
   raceTotals,
   sectionId,
   onPrint,
@@ -773,11 +791,17 @@ export function ActionPlan({
     | {
         type: "auto";
         aidStationIndex: number;
+        sectionIndex: number;
+        startDistanceKm: number;
+        endDistanceKm: number;
         title: string;
       }
     | {
         type: "marker";
         aidStationIndex: number;
+        sectionIndex: number;
+        startDistanceKm: number;
+        endDistanceKm: number;
         title: string;
       }
   >(null);
@@ -812,6 +836,17 @@ export function ActionPlan({
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const segmentCopy = copy.segments;
+  const sortedElevationProfile = useMemo(
+    () => [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm),
+    [elevationProfile]
+  );
+  const paceModel = useMemo(
+    () =>
+      typeof baseMinutesPerKm === "number" && Number.isFinite(baseMinutesPerKm) && baseMinutesPerKm > 0
+        ? { secondsPerKm: baseMinutesPerKm * 60 }
+        : undefined,
+    [baseMinutesPerKm]
+  );
   const openCreateEditor = () =>
     setEditorState({
       mode: "create",
@@ -825,6 +860,196 @@ export function ActionPlan({
   }, []);
   const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
   const pickerFavoriteSet = useMemo(() => new Set(pickerFavorites), [pickerFavorites]);
+  const sectionSegmentsMap = useMemo(() => sectionSegments ?? {}, [sectionSegments]);
+  const getElevationAtDistance = useCallback(
+    (distanceKm: number) => {
+      if (sortedElevationProfile.length === 0) return 0;
+      if (distanceKm <= sortedElevationProfile[0].distanceKm) return sortedElevationProfile[0].elevationM;
+      const last = sortedElevationProfile[sortedElevationProfile.length - 1];
+      if (!last || distanceKm >= last.distanceKm) return last?.elevationM ?? 0;
+      const nextIndex = sortedElevationProfile.findIndex((point) => point.distanceKm >= distanceKm);
+      if (nextIndex <= 0) return sortedElevationProfile[0].elevationM;
+      const prevPoint = sortedElevationProfile[nextIndex - 1];
+      const nextPoint = sortedElevationProfile[nextIndex] ?? prevPoint;
+      const ratio =
+        nextPoint.distanceKm === prevPoint.distanceKm
+          ? 0
+          : (distanceKm - prevPoint.distanceKm) / (nextPoint.distanceKm - prevPoint.distanceKm);
+      return prevPoint.elevationM + (nextPoint.elevationM - prevPoint.elevationM) * ratio;
+    },
+    [sortedElevationProfile]
+  );
+  const buildSectionSamples = useCallback(
+    (startKm: number, endKm: number) => {
+      if (sortedElevationProfile.length === 0) return [];
+      const sorted = sortedElevationProfile;
+      const clampedStart = Math.min(startKm, endKm);
+      const clampedEnd = Math.max(startKm, endKm);
+      const points = [
+        { distanceKm: clampedStart, elevationM: getElevationAtDistance(clampedStart) },
+        ...sorted.filter((point) => point.distanceKm > clampedStart && point.distanceKm < clampedEnd),
+        { distanceKm: clampedEnd, elevationM: getElevationAtDistance(clampedEnd) },
+      ];
+      return points.sort((a, b) => a.distanceKm - b.distanceKm);
+    },
+    [getElevationAtDistance, sortedElevationProfile]
+  );
+  const normalizeSectionSegments = useCallback((segmentsToNormalize: SectionSegment[], totalKm: number) => {
+    if (!segmentsToNormalize.length) return [];
+    const sanitized = segmentsToNormalize
+      .map((segment) => ({
+        ...segment,
+        segmentKm: Math.max(0, Number(segment.segmentKm.toFixed(3))),
+      }))
+      .filter((segment) => segment.segmentKm > 0);
+    if (sanitized.length === 0) return [];
+    if (!Number.isFinite(totalKm) || totalKm <= 0) return sanitized;
+    const currentTotal = sanitized.reduce((sum, segment) => sum + segment.segmentKm, 0);
+    const delta = Number((totalKm - currentTotal).toFixed(3));
+    if (Math.abs(delta) < 0.01) return sanitized;
+    const lastIndex = sanitized.length - 1;
+    const lastSegment = sanitized[lastIndex];
+    const adjustedKm = Math.max(0.01, Number((lastSegment.segmentKm + delta).toFixed(3)));
+    sanitized[lastIndex] = { ...lastSegment, segmentKm: adjustedKm };
+    return sanitized;
+  }, []);
+  const updateSectionSegments = useCallback(
+    (sectionIndex: number, segmentsToUpdate: SectionSegment[]) => {
+      const sectionKey = buildSectionKey(sectionIndex);
+      const nextSections = {
+        ...sectionSegmentsMap,
+        [sectionKey]: segmentsToUpdate,
+      };
+      setValue("sectionSegments", nextSections, { shouldDirty: true, shouldValidate: true });
+      setValue("segments", nextSections, { shouldDirty: true, shouldValidate: true });
+    },
+    [sectionSegmentsMap, setValue]
+  );
+  const buildGranularitySegments = useCallback((totalKm: number, granularityKm: number) => {
+    if (!Number.isFinite(totalKm) || totalKm <= 0) return [];
+    const safeGranularity = Number.isFinite(granularityKm) && granularityKm > 0 ? granularityKm : totalKm;
+    const segments: SectionSegment[] = [];
+    let remaining = totalKm;
+    while (remaining > 0) {
+      const segmentKm = Math.min(safeGranularity, remaining);
+      segments.push({ segmentKm: Number(segmentKm.toFixed(3)) });
+      remaining = Number((remaining - segmentKm).toFixed(3));
+      if (segments.length > 500) break;
+    }
+    return segments;
+  }, []);
+  const splitSectionSegments = useCallback(
+    (segmentsToSplit: SectionSegment[], splitKm: number, label?: string) => {
+      if (segmentsToSplit.length === 0) return [];
+      if (!Number.isFinite(splitKm) || splitKm <= 0) return segmentsToSplit;
+      const totalKm = segmentsToSplit.reduce((sum, segment) => sum + segment.segmentKm, 0);
+      if (splitKm >= totalKm) return segmentsToSplit;
+
+      let remaining = splitKm;
+      const result: SectionSegment[] = [];
+
+      segmentsToSplit.forEach((segment, index) => {
+        if (remaining <= 0) {
+          result.push(segment);
+          return;
+        }
+
+        if (remaining < segment.segmentKm) {
+          const firstKm = Number(remaining.toFixed(3));
+          const secondKm = Number((segment.segmentKm - firstKm).toFixed(3));
+          if (firstKm > 0) {
+            result.push({ ...segment, segmentKm: firstKm });
+          }
+          if (secondKm > 0) {
+            result.push({
+              ...segment,
+              segmentKm: secondKm,
+              ...(label ? { label } : {}),
+            });
+          }
+          remaining = 0;
+          return;
+        }
+
+        result.push(segment);
+        remaining = Number((remaining - segment.segmentKm).toFixed(3));
+        if (remaining === 0 && index < segmentsToSplit.length - 1) {
+          return;
+        }
+      });
+
+      return result;
+    },
+    []
+  );
+  const handleAutoSegmentConfirm = useCallback(
+    (granularityKm: number) => {
+      if (!segmentModalState || segmentModalState.type !== "auto") return;
+      const totalKm = Math.max(0, segmentModalState.endDistanceKm - segmentModalState.startDistanceKm);
+      if (!Number.isFinite(totalKm) || totalKm <= 0) {
+        setSegmentModalState(null);
+        return;
+      }
+
+      const presetByGranularity: Record<number, SegmentPreset> = {
+        1: "grossier",
+        0.5: "moyen",
+        0.25: "fin",
+      };
+      const preset = presetByGranularity[granularityKm] ?? "moyen";
+      const samples = buildSectionSamples(segmentModalState.startDistanceKm, segmentModalState.endDistanceKm);
+      const autoSegments =
+        samples.length > 1 ? autoSegmentSection(samples, preset) : [];
+      const fallbackSegments = autoSegments.length > 0 ? autoSegments : buildGranularitySegments(totalKm, granularityKm);
+      const normalized = normalizeSectionSegments(fallbackSegments, totalKm);
+
+      if (normalized.length > 0) {
+        updateSectionSegments(segmentModalState.sectionIndex, normalized);
+      }
+      setSegmentModalState(null);
+    },
+    [
+      buildGranularitySegments,
+      buildSectionSamples,
+      normalizeSectionSegments,
+      segmentModalState,
+      updateSectionSegments,
+    ]
+  );
+  const handleAddMarkerConfirm = useCallback(
+    (payload: { distanceKm: number; type: string; label: string }) => {
+      if (!segmentModalState || segmentModalState.type !== "marker") return;
+      const totalKm = Math.max(0, segmentModalState.endDistanceKm - segmentModalState.startDistanceKm);
+      if (!Number.isFinite(totalKm) || totalKm <= 0) {
+        setSegmentModalState(null);
+        return;
+      }
+
+      const splitKm = clampNumber(payload.distanceKm, 0, totalKm);
+      if (splitKm <= 0 || splitKm >= totalKm) {
+        setSegmentModalState(null);
+        return;
+      }
+
+      const sectionKey = buildSectionKey(segmentModalState.sectionIndex);
+      const currentSegments = normalizeSectionSegments(
+        sectionSegmentsMap[sectionKey] ?? [{ segmentKm: totalKm }],
+        totalKm
+      );
+      const trimmedLabel = payload.label.trim();
+      const markerLabel = trimmedLabel || payload.type || "custom";
+      const updated = splitSectionSegments(currentSegments, splitKm, markerLabel);
+      updateSectionSegments(segmentModalState.sectionIndex, normalizeSectionSegments(updated, totalKm));
+      setSegmentModalState(null);
+    },
+    [
+      normalizeSectionSegments,
+      sectionSegmentsMap,
+      segmentModalState,
+      splitSectionSegments,
+      updateSectionSegments,
+    ]
+  );
   useEffect(() => {
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
   }, [favoriteProducts]);
@@ -1632,18 +1857,54 @@ export function ActionPlan({
                   sectionSegment && inlineMetrics.length > 0 && segmentCard ? (
                     <SectionRow segment={segmentCard} nutritionCards={nutritionCards} />
                   ) : null;
+                const upcomingSegmentIndex =
+                  typeof item.upcomingSegmentIndex === "number" && item.upcomingSegmentIndex >= 0
+                    ? item.upcomingSegmentIndex
+                    : null;
+                const sectionKey = upcomingSegmentIndex !== null ? buildSectionKey(upcomingSegmentIndex) : null;
+                const resolvedSectionSegments =
+                  sectionSegment && sectionKey
+                    ? normalizeSectionSegments(
+                        sectionSegmentsMap[sectionKey] ?? [{ segmentKm: sectionSegment.segmentKm }],
+                        sectionSegment.segmentKm
+                      )
+                    : [];
+                const segmentLabelLookup = {
+                  climb: segmentCopy.markerTypes.climb,
+                  descent: segmentCopy.markerTypes.descent,
+                  flat: segmentCopy.markerTypes.flat,
+                  custom: segmentCopy.markerTypes.custom,
+                };
                 const segmentListItems =
                   isAidStation && sectionSegment
-                    ? [
-                        {
-                          id: `${item.id}-segment`,
-                          label: `${sectionSegment.from ?? item.title} → ${sectionSegment.checkpoint}`,
-                          distanceKm: sectionSegment.segmentKm,
-                          elevationGainM: sectionSegment.elevationGainM ?? 0,
-                          elevationLossM: sectionSegment.elevationLossM ?? 0,
-                          etaMinutes: sectionSegment.segmentMinutes,
-                        },
-                      ]
+                    ? resolvedSectionSegments.map((segment, index) => {
+                        const startDistanceKm =
+                          sectionSegment.startDistanceKm +
+                          resolvedSectionSegments.slice(0, index).reduce((sum, item) => sum + item.segmentKm, 0);
+                        const endDistanceKm = startDistanceKm + segment.segmentKm;
+                        const stats = computeSegmentStats(
+                          {
+                            ...segment,
+                            startDistanceKm,
+                            endDistanceKm,
+                          },
+                          sortedElevationProfile,
+                          paceModel
+                        );
+                        const rawLabel = segment.label?.trim();
+                        const resolvedLabel =
+                          rawLabel && rawLabel in segmentLabelLookup
+                            ? segmentLabelLookup[rawLabel as keyof typeof segmentLabelLookup]
+                            : rawLabel || timelineCopy.segmentLabel.replace("{distance}", stats.distKm.toFixed(1));
+                        return {
+                          id: `${item.id}-segment-${index}`,
+                          label: resolvedLabel,
+                          distanceKm: stats.distKm,
+                          elevationGainM: stats.dPlus,
+                          elevationLossM: stats.dMinus,
+                          etaMinutes: stats.etaSeconds / 60,
+                        };
+                      })
                     : [];
                 const segmentToggleKey = isAidStation ? String(item.aidStationIndex) : null;
                 const isSegmentsExpanded =
@@ -1678,6 +1939,9 @@ export function ActionPlan({
                           setSegmentModalState({
                             type: "marker",
                             aidStationIndex: item.aidStationIndex as number,
+                            sectionIndex: upcomingSegmentIndex as number,
+                            startDistanceKm: sectionSegment?.startDistanceKm ?? 0,
+                            endDistanceKm: sectionSegment?.distanceKm ?? 0,
                             title: `${markerTitlePrefix} · ${item.title}`,
                           })
                         }
@@ -1692,6 +1956,9 @@ export function ActionPlan({
                           setSegmentModalState({
                             type: "auto",
                             aidStationIndex: item.aidStationIndex as number,
+                            sectionIndex: upcomingSegmentIndex as number,
+                            startDistanceKm: sectionSegment?.startDistanceKm ?? 0,
+                            endDistanceKm: sectionSegment?.distanceKm ?? 0,
                             title: `${autoSegmentTitlePrefix} · ${item.title}`,
                           })
                         }
@@ -2004,14 +2271,14 @@ export function ActionPlan({
         title={segmentModalState?.type === "auto" ? segmentModalState.title : undefined}
         copy={segmentCopy}
         onClose={() => setSegmentModalState(null)}
-        onConfirm={() => setSegmentModalState(null)}
+        onConfirm={handleAutoSegmentConfirm}
       />
       <AddMarkerModal
         open={segmentModalState?.type === "marker"}
         title={segmentModalState?.type === "marker" ? segmentModalState.title : undefined}
         copy={segmentCopy}
         onClose={() => setSegmentModalState(null)}
-        onConfirm={() => setSegmentModalState(null)}
+        onConfirm={handleAddMarkerConfirm}
       />
       {editorState ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
