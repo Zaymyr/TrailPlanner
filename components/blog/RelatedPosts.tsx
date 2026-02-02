@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import Link from "next/link";
 
 import { getRelatedPosts } from "../../content/blog/index-helpers";
@@ -29,7 +30,7 @@ export const RelatedPosts = ({ slug, limit = 4, title = "À lire aussi" }: Relat
         {relatedPosts.map((post) => (
           <Link
             key={post.slug}
-            href={buildBlogCanonicalPath(post.slug)}
+            href={buildBlogCanonicalPath(post.slug) as Route}
             className="group flex h-full flex-col justify-between rounded-xl border border-border/80 bg-card/60 p-4 transition hover:border-[hsl(var(--brand))]"
           >
             <div className="space-y-3">
