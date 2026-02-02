@@ -19,8 +19,11 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
+import { AddMarkerModal } from "./AddMarkerModal";
+import { AutoSegmentModal } from "./AutoSegmentModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
+import { SegmentsList } from "./SegmentsList";
 import {
   BoltIcon,
   ChevronDownIcon,
@@ -762,8 +765,22 @@ export function ActionPlan({
 }: ActionPlanProps) {
   const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
+  const [expandedSegments, setExpandedSegments] = useState<Record<string, boolean>>({});
   const [isFinishDetailsOpen, setIsFinishDetailsOpen] = useState(false);
   const finishDetailsId = useId();
+  const [segmentModalState, setSegmentModalState] = useState<
+    | null
+    | {
+        type: "auto";
+        aidStationIndex: number;
+        title: string;
+      }
+    | {
+        type: "marker";
+        aidStationIndex: number;
+        title: string;
+      }
+  >(null);
   const [editorState, setEditorState] = useState<
     | null
     | {
@@ -1614,6 +1631,74 @@ export function ActionPlan({
                   sectionSegment && inlineMetrics.length > 0 && segmentCard ? (
                     <SectionRow segment={segmentCard} nutritionCards={nutritionCards} />
                   ) : null;
+                const segmentListItems =
+                  isAidStation && sectionSegment
+                    ? [
+                        {
+                          id: `${item.id}-segment`,
+                          label:
+                            sectionSegment.label ??
+                            `${sectionSegment.from ?? item.title} → ${sectionSegment.checkpoint}`,
+                          distanceKm: sectionSegment.segmentKm,
+                          elevationGainM: sectionSegment.elevationGainM ?? 0,
+                          elevationLossM: sectionSegment.elevationLossM ?? 0,
+                          etaMinutes: sectionSegment.segmentMinutes,
+                        },
+                      ]
+                    : [];
+                const segmentToggleKey = isAidStation ? String(item.aidStationIndex) : null;
+                const isSegmentsExpanded =
+                  segmentToggleKey && segmentListItems.length > 0 ? Boolean(expandedSegments[segmentToggleKey]) : false;
+                const segmentToggleLabel = isSegmentsExpanded ? "Masquer le découpage" : "Afficher le découpage";
+                const segmentToggleButton =
+                  segmentToggleKey && segmentListItems.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                      onClick={() =>
+                        setExpandedSegments((prev) => ({
+                          ...prev,
+                          [segmentToggleKey]: !isSegmentsExpanded,
+                        }))
+                      }
+                    >
+                      {segmentToggleLabel}
+                    </Button>
+                  ) : null;
+                const segmentActions =
+                  isSegmentsExpanded && segmentListItems.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 rounded-full px-3 text-xs"
+                        onClick={() =>
+                          setSegmentModalState({
+                            type: "marker",
+                            aidStationIndex: item.aidStationIndex as number,
+                            title: `Marqueur · ${item.title}`,
+                          })
+                        }
+                      >
+                        + Marqueur
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 rounded-full px-3 text-xs"
+                        onClick={() =>
+                          setSegmentModalState({
+                            type: "auto",
+                            aidStationIndex: item.aidStationIndex as number,
+                            title: `Découpage auto · ${item.title}`,
+                          })
+                        }
+                      >
+                        Découpage auto
+                      </Button>
+                    </div>
+                  ) : null;
 
                 const removeButton =
                   typeof item.aidStationIndex === "number" && !item.isFinish ? (
@@ -1886,6 +1971,20 @@ export function ActionPlan({
                             : undefined
                         }
                       />
+                      {isAidStation ? (
+                        <div className="flex flex-wrap items-center gap-2">{segmentToggleButton}</div>
+                      ) : null}
+                      {isSegmentsExpanded && segmentListItems.length > 0 ? (
+                        <div className="space-y-3 rounded-2xl border border-border/40 bg-muted/30 p-3 shadow-sm dark:bg-slate-900/40">
+                          <SegmentsList
+                            segments={segmentListItems}
+                            formatDistance={formatDistanceWithUnit}
+                            formatMinutes={formatMinutes}
+                            etaLabel={timelineCopy.etaLabel}
+                          />
+                          {segmentActions}
+                        </div>
+                      ) : null}
                       {contextComments.length > 0 ? (
                         <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
                       ) : null}
@@ -1899,6 +1998,18 @@ export function ActionPlan({
         ) : null}
         </CardContent>
       </Card>
+      <AutoSegmentModal
+        open={segmentModalState?.type === "auto"}
+        title={segmentModalState?.type === "auto" ? segmentModalState.title : undefined}
+        onClose={() => setSegmentModalState(null)}
+        onConfirm={() => setSegmentModalState(null)}
+      />
+      <AddMarkerModal
+        open={segmentModalState?.type === "marker"}
+        title={segmentModalState?.type === "marker" ? segmentModalState.title : undefined}
+        onClose={() => setSegmentModalState(null)}
+        onConfirm={() => setSegmentModalState(null)}
+      />
       {editorState ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md space-y-4 rounded-2xl border border-border-strong bg-card p-5 shadow-2xl dark:bg-slate-950">
