@@ -36,6 +36,14 @@ export type UserEntitlements = {
   trialEndsAt: string | null;
   trialExpiredSeenAt: string | null;
   subscriptionStatus: string | null;
+  premiumGrant: PremiumGrant | null;
+};
+
+export type PremiumGrant = {
+  startsAt: string;
+  initialDurationDays: number;
+  remainingDurationDays: number;
+  reason: string;
 };
 
 const subscriptionRowSchema = z.array(
@@ -66,6 +74,15 @@ const coachProfileSchema = z.array(
   })
 );
 
+const premiumGrantRowSchema = z.array(
+  z.object({
+    user_id: z.string().uuid(),
+    starts_at: z.string(),
+    initial_duration_days: z.number(),
+    reason: z.string(),
+  })
+);
+
 const isSubscriptionActive = (subscription: SubscriptionRow | null): boolean => {
   if (!subscription?.status) return false;
 
@@ -90,6 +107,7 @@ const getDefaultEntitlements = (): UserEntitlements => ({
   trialEndsAt: null,
   trialExpiredSeenAt: null,
   subscriptionStatus: null,
+  premiumGrant: null,
 });
 
 const getPremiumEntitlements = (): UserEntitlements => ({
@@ -102,6 +120,7 @@ const getPremiumEntitlements = (): UserEntitlements => ({
   trialEndsAt: null,
   trialExpiredSeenAt: null,
   subscriptionStatus: null,
+  premiumGrant: null,
 });
 
 const getCoachTierEntitlements = (tier: CoachTierRow): UserEntitlements => ({
@@ -114,6 +133,7 @@ const getCoachTierEntitlements = (tier: CoachTierRow): UserEntitlements => ({
   trialEndsAt: null,
   trialExpiredSeenAt: null,
   subscriptionStatus: null,
+  premiumGrant: null,
 });
 
 const withTrialInfo = (
@@ -127,6 +147,34 @@ const withTrialInfo = (
   trialExpiredSeenAt,
   subscriptionStatus,
 });
+
+const buildPremiumGrant = (
+  grant: z.infer<typeof premiumGrantRowSchema>[number],
+  now: Date
+): PremiumGrant | null => {
+  const startsAt = new Date(grant.starts_at);
+
+  if (Number.isNaN(startsAt.getTime()) || grant.initial_duration_days <= 0) {
+    return null;
+  }
+
+  const endsAt = new Date(startsAt.getTime() + grant.initial_duration_days * 24 * 60 * 60 * 1000);
+  const isActive = now >= startsAt && now <= endsAt;
+
+  if (!isActive) return null;
+
+  const remainingDurationDays = Math.max(
+    0,
+    Math.ceil((endsAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
+  );
+
+  return {
+    startsAt: grant.starts_at,
+    initialDurationDays: grant.initial_duration_days,
+    remainingDurationDays,
+    reason: grant.reason,
+  };
+};
 
 export const getUserEntitlements = async (userId: string): Promise<UserEntitlements> => {
   const serviceConfig = getSupabaseServiceConfig();
@@ -160,7 +208,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const subscriptionActive = isSubscriptionActive(subscriptionRow ?? null);
     const subscriptionPlanName = subscriptionRow?.plan_name ?? null;
 
-    const [trialResponse, coachProfileResponse] = await Promise.all([
+    const [trialResponse, coachProfileResponse, premiumGrantResponse] = await Promise.all([
       fetch(
         `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
           userId
@@ -185,6 +233,18 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
           cache: "no-store",
         }
       ),
+      fetch(
+        `${serviceConfig.supabaseUrl}/rest/v1/premium_grants?user_id=eq.${encodeURIComponent(
+          userId
+        )}&select=user_id,starts_at,initial_duration_days,reason&order=starts_at.desc`,
+        {
+          headers: {
+            apikey: serviceConfig.supabaseServiceRoleKey,
+            Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+          },
+          cache: "no-store",
+        }
+      ),
     ]);
 
     if (!trialResponse.ok) {
@@ -200,6 +260,13 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const coachProfileRow = coachProfileResponse.ok
       ? (coachProfileSchema.parse(await coachProfileResponse.json())?.[0] as CoachProfileRow | undefined)
       : undefined;
+    const premiumGrantRows = premiumGrantResponse.ok
+      ? premiumGrantRowSchema.parse(await premiumGrantResponse.json())
+      : [];
+    const now = new Date();
+    const premiumGrant = premiumGrantRows
+      .map((row) => buildPremiumGrant(row, now))
+      .find((row): row is PremiumGrant => Boolean(row));
     const trialActive = isTrialActive(trialRow?.trial_ends_at ?? null);
     const trialEndsAt = trialRow?.trial_ends_at ?? null;
     const trialExpiredSeenAt = trialRow?.trial_expired_seen_at ?? null;
@@ -211,36 +278,51 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const coachProfileEligible = normalizedCoachStatus === "active" || normalizedCoachStatus === "trialing";
     const coachProfileTierId = coachProfileEligible ? coachProfileRow?.coach_tier_id ?? null : null;
 
+    let entitlements: UserEntitlements | null = null;
+
     if (coachProfileTierId) {
       const coachTier = await fetchCoachTierById(coachProfileTierId);
       if (coachTier) {
-        return withTrialInfo(getCoachTierEntitlements(coachTier), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+        entitlements = getCoachTierEntitlements(coachTier);
       }
     }
 
-    if (!isCoach && subscriptionActive && subscriptionPlanName) {
+    if (!entitlements && !isCoach && subscriptionActive && subscriptionPlanName) {
       const coachTier = await fetchCoachTierByName(subscriptionPlanName);
       if (coachTier) {
-        return withTrialInfo(getCoachTierEntitlements(coachTier), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+        entitlements = getCoachTierEntitlements(coachTier);
       }
     }
 
-    if (coachPlanName) {
+    if (!entitlements && coachPlanName) {
       const coachTier = await fetchCoachTierByName(coachPlanName);
       if (coachTier) {
-        return withTrialInfo(getCoachTierEntitlements(coachTier), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+        entitlements = getCoachTierEntitlements(coachTier);
       }
     }
 
-    if (isCoach) {
-      return withTrialInfo(getPremiumEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+    if (!entitlements && isCoach) {
+      entitlements = getPremiumEntitlements();
     }
 
-    if (!subscriptionActive && !trialActive) {
-      return withTrialInfo(getDefaultEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+    if (!entitlements && !subscriptionActive && !trialActive) {
+      entitlements = getDefaultEntitlements();
     }
 
-    return withTrialInfo(getPremiumEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+    if (!entitlements) {
+      entitlements = getPremiumEntitlements();
+    }
+
+    let normalized = withTrialInfo(entitlements, trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+
+    if (premiumGrant && !normalized.isPremium) {
+      normalized = withTrialInfo(getPremiumEntitlements(), trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
+    }
+
+    return {
+      ...normalized,
+      premiumGrant,
+    };
   } catch (error) {
     console.error("Unexpected error while resolving entitlements", error);
     return getDefaultEntitlements();

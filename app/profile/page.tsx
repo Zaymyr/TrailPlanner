@@ -379,6 +379,14 @@ export default function ProfilePage() {
     t.profile.subscription.premiumSourceTrial,
     trialActive,
   ]);
+  const premiumGrant = entitlementsQuery.data?.premiumGrant ?? null;
+  const premiumGrantStartLabel = useMemo(() => {
+    if (!premiumGrant?.startsAt) return null;
+    const formatted = new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(
+      new Date(premiumGrant.startsAt)
+    );
+    return formatted;
+  }, [locale, premiumGrant?.startsAt]);
   const showCoachSummary = isCoach;
   const coachSummaryLoading = showCoachSummary ? coachSummaryQuery.isLoading : coachTiersQuery.isLoading;
   const coachSummaryError = showCoachSummary ? coachSummaryQuery.isError : coachTiersQuery.isError;
@@ -662,6 +670,29 @@ export default function ProfilePage() {
                 {t.profile.subscription.premiumSourceLabel}:{" "}
                 <span className="font-semibold text-foreground">{premiumSourceLabel}</span>
               </p>
+            ) : null}
+
+            {premiumGrant ? (
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>
+                  <span className="font-semibold text-foreground">
+                    {t.profile.subscription.premiumGrant.startsAt}
+                  </span>{" "}
+                  {premiumGrantStartLabel ?? "—"}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    {t.profile.subscription.premiumGrant.initialDuration}
+                  </span>{" "}
+                  {premiumGrant.initialDurationDays}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    {t.profile.subscription.premiumGrant.remainingDuration}
+                  </span>{" "}
+                  {premiumGrant.remainingDurationDays}
+                </p>
+              </div>
             ) : null}
 
             {session?.accessToken && !showCoachRelationshipOnly ? (

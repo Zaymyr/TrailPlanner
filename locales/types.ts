@@ -611,6 +611,32 @@ export type AdminTranslations = {
       duration: string;
       remaining: string;
       reason: string;
+      action: string;
+      empty: string;
+      messages: {
+        created: string;
+        error: string;
+      };
+      form: {
+        title: string;
+        description: string;
+        startsAtLabel: string;
+        durationLabel: string;
+        reasonLabel: string;
+        submit: string;
+        submitting: string;
+        cancel: string;
+        errors: {
+          invalidDate: string;
+        };
+      };
+      reasons: {
+        trialExtension: string;
+        support: string;
+        marketing: string;
+        partner: string;
+        other: string;
+      };
     };
   };
   analytics: {
@@ -683,6 +709,11 @@ export type ProfileTranslations = {
     premiumSourceLabel: string;
     premiumSourceTrial: string;
     premiumSourceSubscription: string;
+    premiumGrant: {
+      startsAt: string;
+      initialDuration: string;
+      remainingDuration: string;
+    };
     refresh: string;
     loading: string;
     error: string;

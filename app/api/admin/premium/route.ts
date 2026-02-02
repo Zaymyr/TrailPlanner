@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { withSecurityHeaders } from "../../../../lib/http";
+import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
 import {
   extractBearerToken,
   fetchSupabaseUser,
@@ -198,6 +198,15 @@ export async function POST(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
+  const rateLimit = checkRateLimit(`admin-premium:${auth.supabaseUser?.id ?? "unknown"}`);
+  if (!rateLimit.allowed) {
+    const response = NextResponse.json({ message: "Too many premium grant requests." }, { status: 429 });
+    if (rateLimit.retryAfter) {
+      response.headers.set("Retry-After", Math.ceil(rateLimit.retryAfter / 1000).toString());
+    }
+    return withSecurityHeaders(response);
+  }
+
   const parsedBody = grantPayloadSchema.safeParse(await request.json().catch(() => ({})));
 
   if (!parsedBody.success) {
@@ -254,6 +263,15 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
+
+  const rateLimit = checkRateLimit(`admin-premium:${auth.supabaseUser?.id ?? "unknown"}`);
+  if (!rateLimit.allowed) {
+    const response = NextResponse.json({ message: "Too many premium grant requests." }, { status: 429 });
+    if (rateLimit.retryAfter) {
+      response.headers.set("Retry-After", Math.ceil(rateLimit.retryAfter / 1000).toString());
+    }
+    return withSecurityHeaders(response);
+  }
 
   const parsedBody = grantUpdateSchema.safeParse(await request.json().catch(() => ({})));
 
