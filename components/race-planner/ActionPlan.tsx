@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
 import type { ReactNode, SVGProps } from "react";
-import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
+import type { Path, UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../locales/types";
 import type {
@@ -17,6 +17,7 @@ import type {
 import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
 import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
+import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
 import { SubSectionElevationChart } from "../../app/(coach)/race-planner/components/SubSectionElevationChart";
 import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
@@ -1001,7 +1002,7 @@ export function ActionPlan({
     }: {
       basePaceMinutesPerKm: number;
       paceAdjustmentMinutesPerKm?: number;
-      fieldName: string | null;
+      fieldName: Path<FormValues> | null;
       isDisabled: boolean;
       tooltip?: string;
     }) => {
@@ -2076,7 +2077,7 @@ export function ActionPlan({
                           const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
                           runningStartKm = endDistanceKm;
                           const segmentPaceFieldName = sectionKey
-                            ? `sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm`
+                            ? (`sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm` as Path<FormValues>)
                             : null;
                           const paceControl =
                             hasBasePace && segmentPaceFieldName
