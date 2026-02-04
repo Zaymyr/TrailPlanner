@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 
+import { Button } from "../ui/button";
 import { ArrowRightIcon, Clock3Icon } from "./TimelineIcons";
 
 export type SegmentListItem = {
@@ -12,6 +13,7 @@ export type SegmentListItem = {
   elevationLossM?: number | null;
   etaMinutes: number;
   icon?: ReactNode;
+  segmentIndex?: number;
 };
 
 type SegmentsListProps = {
@@ -19,6 +21,8 @@ type SegmentsListProps = {
   formatDistance: (value: number) => string;
   formatMinutes: (value: number) => string;
   etaLabel?: string;
+  deleteLabel?: string;
+  onDelete?: (segmentIndex: number) => void;
 };
 
 export function SegmentsList({
@@ -26,6 +30,8 @@ export function SegmentsList({
   formatDistance,
   formatMinutes,
   etaLabel = "ETA",
+  deleteLabel,
+  onDelete,
 }: SegmentsListProps) {
   if (segments.length === 0) {
     return <p className="text-xs text-muted-foreground">Aucun segment pour le moment.</p>;
@@ -47,13 +53,27 @@ export function SegmentsList({
               <p className="text-[11px] text-muted-foreground">{formatDistance(segment.distanceKm)}</p>
             </div>
           </div>
-          <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
-            <span>{`D+ ${Math.round(segment.elevationGainM ?? 0)}`}</span>
-            <span>{`D- ${Math.round(segment.elevationLossM ?? 0)}`}</span>
-            <span className="inline-flex items-center gap-1">
-              <Clock3Icon className="h-3.5 w-3.5" aria-hidden />
-              {etaLabel}: {formatMinutes(segment.etaMinutes)}
-            </span>
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-4">
+              <span>{`D+ ${Math.round(segment.elevationGainM ?? 0)}`}</span>
+              <span>{`D- ${Math.round(segment.elevationLossM ?? 0)}`}</span>
+              <span className="inline-flex items-center gap-1">
+                <Clock3Icon className="h-3.5 w-3.5" aria-hidden />
+                {etaLabel}: {formatMinutes(segment.etaMinutes)}
+              </span>
+            </div>
+            {onDelete && typeof segment.segmentIndex === "number" ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-7 px-2 text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-200 dark:hover:text-rose-100"
+                onClick={() => onDelete(segment.segmentIndex)}
+                aria-label={deleteLabel ? `${deleteLabel} ${segment.label}` : undefined}
+                title={deleteLabel ? `${deleteLabel} ${segment.label}` : undefined}
+              >
+                {deleteLabel ?? "Supprimer"}
+              </Button>
+            ) : null}
           </div>
         </li>
       ))}

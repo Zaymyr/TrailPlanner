@@ -14,8 +14,10 @@ import type {
   SegmentPlan,
   StationSupply,
 } from "../../app/(coach)/race-planner/types";
-import { autoSegmentSection, computeSegmentStats, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
+import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
+import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
+import { ElevationSectionChart } from "../../app/(coach)/race-planner/components/ElevationSectionChart";
 import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
@@ -625,33 +627,6 @@ function AidStationHeaderRow({
   );
 }
 
-type SectionRowProps = {
-  segment: ReactNode;
-  nutritionCards: ReactNode;
-  showConnector?: boolean;
-};
-
-function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
-  return (
-    <div className="relative flex justify-center">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55 lg:mx-auto lg:max-w-[1120px]">
-        {showConnector ? (
-          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
-            <div className="h-full w-[2px] bg-emerald-500/70" />
-            <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
-          </div>
-        ) : null}
-        <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-center md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
-          <div className="relative z-10 w-full max-w-[240px] self-center">{segment}</div>
-          <div className="w-full">
-            <div className="grid w-full gap-4 md:grid-cols-3">{nutritionCards}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 type EmbarkedSummaryItem = {
   key: string;
   label: string;
@@ -914,16 +889,31 @@ export function ActionPlan({
     return sanitized;
   }, []);
   const updateSectionSegments = useCallback(
-    (sectionIndex: number, segmentsToUpdate: SectionSegment[]) => {
+    (sectionIndex: number, segmentsToUpdate?: SectionSegment[] | null) => {
       const sectionKey = buildSectionKey(sectionIndex);
-      const nextSections = {
-        ...sectionSegmentsMap,
-        [sectionKey]: segmentsToUpdate,
-      };
+      const nextSections = { ...sectionSegmentsMap };
+
+      if (!segmentsToUpdate || segmentsToUpdate.length === 0) {
+        delete nextSections[sectionKey];
+      } else {
+        nextSections[sectionKey] = segmentsToUpdate;
+      }
+
       setValue("sectionSegments", nextSections, { shouldDirty: true, shouldValidate: true });
       setValue("segments", nextSections, { shouldDirty: true, shouldValidate: true });
     },
     [sectionSegmentsMap, setValue]
+  );
+  const handleDeleteSubSection = useCallback(
+    (sectionIndex: number, segmentIndex: number, totalKm: number) => {
+      const sectionKey = buildSectionKey(sectionIndex);
+      const storedSegments = sectionSegmentsMap[sectionKey] ?? [];
+      const normalized = normalizeSectionSegments(storedSegments, totalKm);
+      const nextSegments = normalized.filter((_, index) => index !== segmentIndex);
+      const rebalanced = normalizeSectionSegments(nextSegments, totalKm);
+      updateSectionSegments(sectionIndex, rebalanced.length > 0 ? rebalanced : null);
+    },
+    [normalizeSectionSegments, sectionSegmentsMap, updateSectionSegments]
   );
   const buildGranularitySegments = useCallback((totalKm: number, granularityKm: number) => {
     if (!Number.isFinite(totalKm) || totalKm <= 0) return [];
@@ -1692,6 +1682,47 @@ export function ActionPlan({
                   ) : null;
 
                 const sectionSegment = nextSegment;
+                const upcomingSegmentIndex =
+                  typeof item.upcomingSegmentIndex === "number" && item.upcomingSegmentIndex >= 0
+                    ? item.upcomingSegmentIndex
+                    : null;
+                const sectionKey = upcomingSegmentIndex !== null ? buildSectionKey(upcomingSegmentIndex) : null;
+                const storedSectionSegments = sectionKey ? sectionSegmentsMap[sectionKey] ?? null : null;
+                const resolvedSectionSegments =
+                  sectionSegment && sectionKey
+                    ? normalizeSectionSegments(
+                        storedSectionSegments ?? [{ segmentKm: sectionSegment.segmentKm }],
+                        sectionSegment.segmentKm
+                      )
+                    : [];
+                const hasStoredSubSections = Boolean(storedSectionSegments && storedSectionSegments.length > 0);
+                const sectionStats =
+                  sectionSegment && resolvedSectionSegments.length > 0
+                    ? recomputeSectionFromSubSections({
+                        segments: resolvedSectionSegments,
+                        startDistanceKm: sectionSegment.startDistanceKm,
+                        elevationProfile: sortedElevationProfile,
+                        paceModel,
+                      })
+                    : null;
+                const sectionTotals = hasStoredSubSections && sectionStats ? sectionStats.totals : null;
+                const sectionSummaryDistanceKm = sectionTotals?.distanceKm ?? sectionSegment?.segmentKm ?? 0;
+                const sectionSummaryMinutes =
+                  sectionTotals?.etaSeconds !== undefined
+                    ? sectionTotals.etaSeconds / 60
+                    : sectionSegment?.segmentMinutes ?? 0;
+                const sectionSummaryGain = sectionTotals?.dPlus ?? sectionSegment?.elevationGainM ?? 0;
+                const sectionSummaryLoss = sectionTotals?.dMinus ?? sectionSegment?.elevationLossM ?? 0;
+                const sectionProfile =
+                  sectionSegment && sectionSummaryDistanceKm > 0
+                    ? buildSectionSamples(sectionSegment.startDistanceKm, sectionSegment.distanceKm).map((point) => ({
+                        distanceKm: Number((point.distanceKm - sectionSegment.startDistanceKm).toFixed(3)),
+                        elevationM: point.elevationM,
+                      }))
+                    : [];
+                const sectionProfileDistanceKm = sectionSegment
+                  ? Math.max(0, sectionSegment.distanceKm - sectionSegment.startDistanceKm)
+                  : 0;
                 const plannedFuel = summarized?.totals.carbs ?? 0;
                 const plannedSodium = summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
@@ -1705,9 +1736,14 @@ export function ActionPlan({
                     : 0;
                 const paceMinutesPerKm =
                   basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
+                const isPaceAdjustmentDisabled = hasStoredSubSections;
+                const paceAdjustmentTooltip = isPaceAdjustmentDisabled ? segmentCopy.paceAdjustmentDisabled : undefined;
                 const paceAdjustmentControl =
                   sectionSegment && paceAdjustmentFieldName ? (
-                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50">
+                    <div
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50"
+                      title={paceAdjustmentTooltip}
+                    >
                       <input
                         type="hidden"
                         {...register(paceAdjustmentFieldName, {
@@ -1717,7 +1753,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
+                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1726,6 +1762,8 @@ export function ActionPlan({
                             shouldTouch: true,
                           });
                         }}
+                        disabled={isPaceAdjustmentDisabled}
+                        title={paceAdjustmentTooltip}
                       >
                         –
                       </Button>
@@ -1737,7 +1775,7 @@ export function ActionPlan({
                       <Button
                         type="button"
                         variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
+                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
                         onClick={() => {
                           const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
                           const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
@@ -1746,6 +1784,8 @@ export function ActionPlan({
                             shouldTouch: true,
                           });
                         }}
+                        disabled={isPaceAdjustmentDisabled}
+                        title={paceAdjustmentTooltip}
                       >
                         +
                       </Button>
@@ -1832,13 +1872,13 @@ export function ActionPlan({
                 });
 
                 const segmentCard =
-                  sectionSegment && inlineMetrics.length > 0 ? (
+                  sectionSegment ? (
                     <SegmentCard
-                      variant="compactChip"
-                      distanceText={`${sectionSegment.segmentKm.toFixed(1)} km`}
-                      timeText={formatMinutes(sectionSegment.segmentMinutes)}
-                      elevationGainText={`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}
-                      elevationLossText={`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}
+                      variant="compact"
+                      distanceText={`${sectionSummaryDistanceKm.toFixed(1)} km`}
+                      timeText={formatMinutes(sectionSummaryMinutes)}
+                      elevationGainText={`${Math.round(sectionSummaryGain)} D+`}
+                      elevationLossText={`${Math.round(sectionSummaryLoss)} D-`}
                       paceControl={paceAdjustmentControl}
                     />
                   ) : null;
@@ -1853,22 +1893,6 @@ export function ActionPlan({
                   />
                 ));
 
-                const sectionContent =
-                  sectionSegment && inlineMetrics.length > 0 && segmentCard ? (
-                    <SectionRow segment={segmentCard} nutritionCards={nutritionCards} />
-                  ) : null;
-                const upcomingSegmentIndex =
-                  typeof item.upcomingSegmentIndex === "number" && item.upcomingSegmentIndex >= 0
-                    ? item.upcomingSegmentIndex
-                    : null;
-                const sectionKey = upcomingSegmentIndex !== null ? buildSectionKey(upcomingSegmentIndex) : null;
-                const resolvedSectionSegments =
-                  sectionSegment && sectionKey
-                    ? normalizeSectionSegments(
-                        sectionSegmentsMap[sectionKey] ?? [{ segmentKm: sectionSegment.segmentKm }],
-                        sectionSegment.segmentKm
-                      )
-                    : [];
                 const segmentLabelLookup = {
                   climb: segmentCopy.markerTypes.climb,
                   descent: segmentCopy.markerTypes.descent,
@@ -1878,31 +1902,24 @@ export function ActionPlan({
                 const segmentListItems =
                   isAidStation && sectionSegment
                     ? resolvedSectionSegments.map((segment, index) => {
-                        const startDistanceKm =
-                          sectionSegment.startDistanceKm +
-                          resolvedSectionSegments.slice(0, index).reduce((sum, item) => sum + item.segmentKm, 0);
-                        const endDistanceKm = startDistanceKm + segment.segmentKm;
-                        const stats = computeSegmentStats(
-                          {
-                            ...segment,
-                            startDistanceKm,
-                            endDistanceKm,
-                          },
-                          sortedElevationProfile,
-                          paceModel
-                        );
+                        const stats = sectionStats?.segmentStats[index];
                         const rawLabel = segment.label?.trim();
                         const resolvedLabel =
                           rawLabel && rawLabel in segmentLabelLookup
                             ? segmentLabelLookup[rawLabel as keyof typeof segmentLabelLookup]
-                            : rawLabel || timelineCopy.segmentLabel.replace("{distance}", stats.distKm.toFixed(1));
+                            : rawLabel ||
+                              timelineCopy.segmentLabel.replace(
+                                "{distance}",
+                                (stats?.distKm ?? segment.segmentKm).toFixed(1)
+                              );
                         return {
                           id: `${item.id}-segment-${index}`,
                           label: resolvedLabel,
-                          distanceKm: stats.distKm,
-                          elevationGainM: stats.dPlus,
-                          elevationLossM: stats.dMinus,
-                          etaMinutes: stats.etaSeconds / 60,
+                          distanceKm: stats?.distKm ?? segment.segmentKm,
+                          elevationGainM: stats?.dPlus ?? 0,
+                          elevationLossM: stats?.dMinus ?? 0,
+                          etaMinutes: (stats?.etaSeconds ?? 0) / 60,
+                          segmentIndex: index,
                         };
                       })
                     : [];
@@ -1965,6 +1982,52 @@ export function ActionPlan({
                       >
                         {segmentCopy.actions.autoSegment}
                       </Button>
+                    </div>
+                  ) : null;
+                const sectionBlock =
+                  sectionSegment && segmentCard ? (
+                    <div className="relative rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55">
+                      <div className="grid gap-4 md:grid-cols-[minmax(220px,260px)_1fr] md:items-start">
+                        <div className="w-full max-w-[260px]">{segmentCard}</div>
+                        <div className="w-full">
+                          <ElevationSectionChart
+                            profile={sectionProfile}
+                            totalDistanceKm={sectionProfileDistanceKm}
+                            copy={copy}
+                            baseMinutesPerKm={baseMinutesPerKm}
+                          />
+                        </div>
+                      </div>
+                      {nutritionCards.length > 0 ? (
+                        <div className="mt-4 grid gap-3 md:grid-cols-3">{nutritionCards}</div>
+                      ) : null}
+                      <div className="mt-4 space-y-3">
+                        {segmentToggleButton ? (
+                          <div className="flex flex-wrap items-center gap-2">{segmentToggleButton}</div>
+                        ) : null}
+                        {isSegmentsExpanded && segmentListItems.length > 0 ? (
+                          <div className="space-y-3 rounded-xl border border-border/40 bg-muted/30 p-3 shadow-sm dark:bg-slate-900/40">
+                            <SegmentsList
+                              segments={segmentListItems}
+                              formatDistance={formatDistanceWithUnit}
+                              formatMinutes={formatMinutes}
+                              etaLabel={timelineCopy.etaLabel}
+                              deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
+                              onDelete={
+                                hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
+                                  ? (segmentIndex) =>
+                                      handleDeleteSubSection(
+                                        upcomingSegmentIndex,
+                                        segmentIndex,
+                                        sectionSegment.segmentKm
+                                      )
+                                  : undefined
+                              }
+                            />
+                            {segmentActions}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   ) : null;
 
@@ -2239,24 +2302,10 @@ export function ActionPlan({
                             : undefined
                         }
                       />
-                      {isAidStation ? (
-                        <div className="flex flex-wrap items-center gap-2">{segmentToggleButton}</div>
-                      ) : null}
-                      {isSegmentsExpanded && segmentListItems.length > 0 ? (
-                        <div className="space-y-3 rounded-2xl border border-border/40 bg-muted/30 p-3 shadow-sm dark:bg-slate-900/40">
-                          <SegmentsList
-                            segments={segmentListItems}
-                            formatDistance={formatDistanceWithUnit}
-                            formatMinutes={formatMinutes}
-                            etaLabel={timelineCopy.etaLabel}
-                          />
-                          {segmentActions}
-                        </div>
-                      ) : null}
                       {contextComments.length > 0 ? (
                         <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
                       ) : null}
-                      {sectionContent ? <div className="relative">{sectionContent}</div> : null}
+                      {sectionBlock ? <div className="relative">{sectionBlock}</div> : null}
                     </div>
                   </div>
                 );

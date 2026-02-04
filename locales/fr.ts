@@ -233,6 +233,7 @@ export const fr: Translations = {
         description:
           "Élévation par distance avec les ravitos mis en évidence. Importez un fichier GPX pour remplir le profil.",
         empty: "Importez un fichier GPX pour voir le profil d'élévation.",
+        sectionEmpty: "Données insuffisantes pour afficher ce profil de segment.",
         axisLabel: "Distance (km)",
         ariaLabel: "Profil d'élévation de la course",
         speedLabel: "Vitesse ajustée",
@@ -462,6 +463,7 @@ export const fr: Translations = {
       actions: {
         addMarker: "+ Marqueur",
         autoSegment: "Découpage auto",
+        delete: "Supprimer le segment",
       },
       granularity: {
         coarse: "Grossier",
@@ -474,6 +476,7 @@ export const fr: Translations = {
         flat: "Plat",
         custom: "Personnalisé",
       },
+      paceAdjustmentDisabled: "Contrôlé par les sous-segments.",
     },
     buttons: {
       importGpx: "Importer un GPX",
