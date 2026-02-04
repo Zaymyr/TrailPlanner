@@ -309,6 +309,11 @@ export function computeSegmentStats(
   const sectionSamples = sliceSamples(sorted, startDistance, endDistance);
   const { dPlus, dMinus } = computeElevationDelta(sectionSamples);
 
+  const paceAdjustmentMinutesPerKm =
+    typeof segment.paceAdjustmentMinutesPerKm === "number" && Number.isFinite(segment.paceAdjustmentMinutesPerKm)
+      ? segment.paceAdjustmentMinutesPerKm
+      : 0;
+  const paceAdjustmentSecondsPerKm = paceAdjustmentMinutesPerKm * 60;
   const estimatedSeconds = paceModel?.estimateSeconds?.({ distKm, dPlus, dMinus });
   const baseSecondsPerKm =
     typeof paceModel?.secondsPerKm === "number" && Number.isFinite(paceModel.secondsPerKm)
@@ -316,11 +321,14 @@ export function computeSegmentStats(
       : typeof paceModel?.speedKph === "number" && paceModel.speedKph > 0
         ? 3600 / paceModel.speedKph
         : null;
+  const adjustedSecondsPerKm =
+    baseSecondsPerKm !== null ? Math.max(0, baseSecondsPerKm + paceAdjustmentSecondsPerKm) : null;
+  const adjustmentSeconds = paceAdjustmentSecondsPerKm !== 0 ? distKm * paceAdjustmentSecondsPerKm : 0;
   const etaSeconds =
     typeof estimatedSeconds === "number" && Number.isFinite(estimatedSeconds)
-      ? estimatedSeconds
-      : baseSecondsPerKm !== null
-        ? distKm * baseSecondsPerKm
+      ? Math.max(0, estimatedSeconds + adjustmentSeconds)
+      : adjustedSecondsPerKm !== null
+        ? distKm * adjustedSecondsPerKm
         : 0;
 
   return {
