@@ -34,7 +34,6 @@ import { AddMarkerModal } from "./AddMarkerModal";
 import { AutoSegmentModal } from "./AutoSegmentModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
-import { SegmentsList } from "./SegmentsList";
 import {
   BoltIcon,
   ChevronDownIcon,
@@ -633,6 +632,86 @@ type EmbarkedSummaryItem = {
   value: string;
   dotClassName: string;
 };
+
+type SubSectionRowProps = {
+  label: string;
+  distanceKm: number;
+  elevationGainM?: number | null;
+  elevationLossM?: number | null;
+  etaMinutes: number;
+  etaLabel: string;
+  formatDistance: (value: number) => string;
+  formatMinutes: (value: number) => string;
+  chartProfile: ElevationPoint[];
+  chartDistanceKm: number;
+  copy: RacePlannerTranslations;
+  baseMinutesPerKm: number | null;
+  deleteLabel?: string;
+  segmentIndex?: number;
+  onDelete?: (segmentIndex: number) => void;
+};
+
+function SubSectionRow({
+  label,
+  distanceKm,
+  elevationGainM,
+  elevationLossM,
+  etaMinutes,
+  etaLabel,
+  formatDistance,
+  formatMinutes,
+  chartProfile,
+  chartDistanceKm,
+  copy,
+  baseMinutesPerKm,
+  deleteLabel,
+  segmentIndex,
+  onDelete,
+}: SubSectionRowProps) {
+  const canDelete = onDelete && typeof segmentIndex === "number";
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/40 px-3 py-2 text-sm text-foreground shadow-sm dark:bg-slate-900/40">
+      <div className="flex min-w-[240px] items-center gap-3">
+        <div className="h-[72px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border bg-background p-1 shadow-sm dark:bg-slate-950/70">
+          <div className="origin-top-left scale-[0.4]">
+            <ElevationSectionChart
+              profile={chartProfile}
+              totalDistanceKm={chartDistanceKm}
+              copy={copy}
+              baseMinutesPerKm={baseMinutesPerKm}
+            />
+          </div>
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-sm font-semibold text-foreground dark:text-slate-50">{label}</p>
+          <p className="text-[11px] text-muted-foreground">{formatDistance(distanceKm)}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+        <div className="flex items-center gap-4">
+          <span>{`D+ ${Math.round(elevationGainM ?? 0)}`}</span>
+          <span>{`D- ${Math.round(elevationLossM ?? 0)}`}</span>
+          <span>
+            {etaLabel}: {formatMinutes(etaMinutes)}
+          </span>
+        </div>
+        {canDelete ? (
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-7 px-2 text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-200 dark:hover:text-rose-100"
+            onClick={() => onDelete(segmentIndex as number)}
+            aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+            title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+          >
+            {deleteLabel ?? "Supprimer"}
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 type EmbarkedSummaryBoxProps = {
   items: EmbarkedSummaryItem[];
@@ -1713,16 +1792,6 @@ export function ActionPlan({
                     : sectionSegment?.segmentMinutes ?? 0;
                 const sectionSummaryGain = sectionTotals?.dPlus ?? sectionSegment?.elevationGainM ?? 0;
                 const sectionSummaryLoss = sectionTotals?.dMinus ?? sectionSegment?.elevationLossM ?? 0;
-                const sectionProfile =
-                  sectionSegment && sectionSummaryDistanceKm > 0
-                    ? buildSectionSamples(sectionSegment.startDistanceKm, sectionSegment.distanceKm).map((point) => ({
-                        distanceKm: Number((point.distanceKm - sectionSegment.startDistanceKm).toFixed(3)),
-                        elevationM: point.elevationM,
-                      }))
-                    : [];
-                const sectionProfileDistanceKm = sectionSegment
-                  ? Math.max(0, sectionSegment.distanceKm - sectionSegment.startDistanceKm)
-                  : 0;
                 const plannedFuel = summarized?.totals.carbs ?? 0;
                 const plannedSodium = summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
@@ -1901,27 +1970,40 @@ export function ActionPlan({
                 };
                 const segmentListItems =
                   isAidStation && sectionSegment
-                    ? resolvedSectionSegments.map((segment, index) => {
-                        const stats = sectionStats?.segmentStats[index];
-                        const rawLabel = segment.label?.trim();
-                        const resolvedLabel =
-                          rawLabel && rawLabel in segmentLabelLookup
-                            ? segmentLabelLookup[rawLabel as keyof typeof segmentLabelLookup]
-                            : rawLabel ||
-                              timelineCopy.segmentLabel.replace(
-                                "{distance}",
-                                (stats?.distKm ?? segment.segmentKm).toFixed(1)
-                              );
-                        return {
-                          id: `${item.id}-segment-${index}`,
-                          label: resolvedLabel,
-                          distanceKm: stats?.distKm ?? segment.segmentKm,
-                          elevationGainM: stats?.dPlus ?? 0,
-                          elevationLossM: stats?.dMinus ?? 0,
-                          etaMinutes: (stats?.etaSeconds ?? 0) / 60,
-                          segmentIndex: index,
-                        };
-                      })
+                    ? (() => {
+                        let runningStartKm = sectionSegment.startDistanceKm;
+                        return resolvedSectionSegments.map((segment, index) => {
+                          const stats = sectionStats?.segmentStats[index];
+                          const rawLabel = segment.label?.trim();
+                          const resolvedLabel =
+                            rawLabel && rawLabel in segmentLabelLookup
+                              ? segmentLabelLookup[rawLabel as keyof typeof segmentLabelLookup]
+                              : rawLabel ||
+                                timelineCopy.segmentLabel.replace(
+                                  "{distance}",
+                                  (stats?.distKm ?? segment.segmentKm).toFixed(1)
+                                );
+                          const startDistanceKm = runningStartKm;
+                          const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
+                          runningStartKm = endDistanceKm;
+                          const chartProfile = buildSectionSamples(startDistanceKm, endDistanceKm).map((point) => ({
+                            distanceKm: Number((point.distanceKm - startDistanceKm).toFixed(3)),
+                            elevationM: point.elevationM,
+                          }));
+                          const chartDistanceKm = Math.max(0, endDistanceKm - startDistanceKm);
+                          return {
+                            id: `${item.id}-segment-${index}`,
+                            label: resolvedLabel,
+                            distanceKm: stats?.distKm ?? segment.segmentKm,
+                            elevationGainM: stats?.dPlus ?? 0,
+                            elevationLossM: stats?.dMinus ?? 0,
+                            etaMinutes: (stats?.etaSeconds ?? 0) / 60,
+                            segmentIndex: index,
+                            chartProfile,
+                            chartDistanceKm,
+                          };
+                        });
+                      })()
                     : [];
                 const segmentToggleKey = isAidStation ? String(item.aidStationIndex) : null;
                 const isSegmentsExpanded =
@@ -1987,47 +2069,10 @@ export function ActionPlan({
                 const sectionBlock =
                   sectionSegment && segmentCard ? (
                     <div className="relative rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55">
-                      <div className="grid gap-4 md:grid-cols-[minmax(220px,260px)_1fr] md:items-start">
-                        <div className="w-full max-w-[260px]">{segmentCard}</div>
-                        <div className="w-full">
-                          <ElevationSectionChart
-                            profile={sectionProfile}
-                            totalDistanceKm={sectionProfileDistanceKm}
-                            copy={copy}
-                            baseMinutesPerKm={baseMinutesPerKm}
-                          />
-                        </div>
-                      </div>
+                      <div className="w-full max-w-[260px]">{segmentCard}</div>
                       {nutritionCards.length > 0 ? (
                         <div className="mt-4 grid gap-3 md:grid-cols-3">{nutritionCards}</div>
                       ) : null}
-                      <div className="mt-4 space-y-3">
-                        {segmentToggleButton ? (
-                          <div className="flex flex-wrap items-center gap-2">{segmentToggleButton}</div>
-                        ) : null}
-                        {isSegmentsExpanded && segmentListItems.length > 0 ? (
-                          <div className="space-y-3 rounded-xl border border-border/40 bg-muted/30 p-3 shadow-sm dark:bg-slate-900/40">
-                            <SegmentsList
-                              segments={segmentListItems}
-                              formatDistance={formatDistanceWithUnit}
-                              formatMinutes={formatMinutes}
-                              etaLabel={timelineCopy.etaLabel}
-                              deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
-                              onDelete={
-                                hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
-                                  ? (segmentIndex) =>
-                                      handleDeleteSubSection(
-                                        upcomingSegmentIndex,
-                                        segmentIndex,
-                                        sectionSegment.segmentKm
-                                      )
-                                  : undefined
-                              }
-                            />
-                            {segmentActions}
-                          </div>
-                        ) : null}
-                      </div>
                     </div>
                   ) : null;
 
@@ -2306,6 +2351,45 @@ export function ActionPlan({
                         <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
                       ) : null}
                       {sectionBlock ? <div className="relative">{sectionBlock}</div> : null}
+                      {segmentToggleButton ? (
+                        <div className="flex flex-wrap items-center gap-2">{segmentToggleButton}</div>
+                      ) : null}
+                      {isSegmentsExpanded && segmentListItems.length > 0 ? (
+                        <div className="ml-6 space-y-3 border-l border-border/40 pl-4">
+                          <div className="space-y-2">
+                            {segmentListItems.map((segment) => (
+                              <SubSectionRow
+                                key={segment.id}
+                                label={segment.label}
+                                distanceKm={segment.distanceKm}
+                                elevationGainM={segment.elevationGainM}
+                                elevationLossM={segment.elevationLossM}
+                                etaMinutes={segment.etaMinutes}
+                                etaLabel={timelineCopy.etaLabel}
+                                formatDistance={formatDistanceWithUnit}
+                                formatMinutes={formatMinutes}
+                                chartProfile={segment.chartProfile}
+                                chartDistanceKm={segment.chartDistanceKm}
+                                copy={copy}
+                                baseMinutesPerKm={baseMinutesPerKm}
+                                deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
+                                segmentIndex={segment.segmentIndex}
+                                onDelete={
+                                  hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
+                                    ? (segmentIndex) =>
+                                        handleDeleteSubSection(
+                                          upcomingSegmentIndex,
+                                          segmentIndex,
+                                          sectionSegment.segmentKm
+                                        )
+                                    : undefined
+                                }
+                              />
+                            ))}
+                          </div>
+                          {segmentActions}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );
