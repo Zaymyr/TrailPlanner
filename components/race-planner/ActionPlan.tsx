@@ -17,8 +17,7 @@ import type {
 import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
 import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
-import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
-import { ElevationSectionChart } from "../../app/(coach)/race-planner/components/ElevationSectionChart";
+import { SubSectionElevationChart } from "../../app/(coach)/race-planner/components/SubSectionElevationChart";
 import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
@@ -663,8 +662,9 @@ type SubSectionRowProps = {
   etaLabel: string;
   formatDistance: (value: number) => string;
   formatMinutes: (value: number) => string;
-  chartProfile: ElevationPoint[];
-  chartDistanceKm: number;
+  elevationProfile: ElevationPoint[];
+  startDistanceKm: number;
+  endDistanceKm: number;
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
   deleteLabel?: string;
@@ -681,8 +681,9 @@ function SubSectionRow({
   etaLabel,
   formatDistance,
   formatMinutes,
-  chartProfile,
-  chartDistanceKm,
+  elevationProfile,
+  startDistanceKm,
+  endDistanceKm,
   copy,
   baseMinutesPerKm,
   deleteLabel,
@@ -719,9 +720,10 @@ function SubSectionRow({
           />
         </div>
         <div className="rounded-lg border border-border bg-background p-2 shadow-sm dark:bg-slate-950/70">
-          <ElevationSectionChart
-            profile={chartProfile}
-            totalDistanceKm={chartDistanceKm}
+          <SubSectionElevationChart
+            elevationProfile={elevationProfile}
+            startDistanceKm={startDistanceKm}
+            endDistanceKm={endDistanceKm}
             copy={copy}
             baseMinutesPerKm={baseMinutesPerKm}
           />
@@ -2013,15 +2015,6 @@ export function ActionPlan({
                           const startDistanceKm = runningStartKm;
                           const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
                           runningStartKm = endDistanceKm;
-                          const chartProfile = getElevationSlice(
-                            sortedElevationProfile,
-                            startDistanceKm,
-                            endDistanceKm
-                          ).map((point) => ({
-                            distanceKm: Number((point.distanceKm - startDistanceKm).toFixed(3)),
-                            elevationM: point.elevationM,
-                          }));
-                          const chartDistanceKm = Math.max(0, endDistanceKm - startDistanceKm);
                           return {
                             id: `${item.id}-segment-${index}`,
                             label: resolvedLabel,
@@ -2030,8 +2023,8 @@ export function ActionPlan({
                             elevationLossM: stats?.dMinus ?? 0,
                             etaMinutes: (stats?.etaSeconds ?? 0) / 60,
                             segmentIndex: index,
-                            chartProfile,
-                            chartDistanceKm,
+                            startDistanceKm,
+                            endDistanceKm,
                           };
                         });
                       })()
@@ -2118,8 +2111,9 @@ export function ActionPlan({
                                 etaLabel={timelineCopy.etaLabel}
                                 formatDistance={formatDistanceWithUnit}
                                 formatMinutes={formatMinutes}
-                                chartProfile={segment.chartProfile}
-                                chartDistanceKm={segment.chartDistanceKm}
+                                elevationProfile={sortedElevationProfile}
+                                startDistanceKm={segment.startDistanceKm}
+                                endDistanceKm={segment.endDistanceKm}
                                 copy={copy}
                                 baseMinutesPerKm={baseMinutesPerKm}
                                 deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}

@@ -34,3 +34,16 @@ export const getElevationSlice = (
   ];
   return points.sort(sortByDistance);
 };
+
+export const getElevationSliceXY = (
+  profile: ElevationPoint[],
+  startDistanceKm: number,
+  endDistanceKm: number
+) => {
+  const sliceStart = Math.min(startDistanceKm, endDistanceKm);
+  const points = getElevationSlice(profile, startDistanceKm, endDistanceKm);
+  return {
+    x: points.map((point) => Number((point.distanceKm - sliceStart).toFixed(3))),
+    y: points.map((point) => point.elevationM),
+  };
+};
