@@ -454,6 +454,16 @@ export const en: Translations = {
         addMarker: "+ Marker",
         autoSegment: "Auto split",
         delete: "Delete split",
+        edit: "Edit split",
+      },
+      editModal: {
+        title: "Edit split",
+        description: "Adjust the distance or label for this split.",
+        distanceLabel: "Distance (km)",
+        labelLabel: "Label",
+        labelPlaceholder: "Ex: exposed climb",
+        cancel: "Cancel",
+        save: "Save",
       },
       granularity: {
         coarse: "Coarse",

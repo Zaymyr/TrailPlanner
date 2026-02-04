@@ -464,6 +464,16 @@ export const fr: Translations = {
         addMarker: "+ Marqueur",
         autoSegment: "Découpage auto",
         delete: "Supprimer le segment",
+        edit: "Modifier le segment",
+      },
+      editModal: {
+        title: "Modifier le segment",
+        description: "Ajustez la distance ou le libellé de ce segment.",
+        distanceLabel: "Distance (km)",
+        labelLabel: "Libellé",
+        labelPlaceholder: "Ex : montée exposée",
+        cancel: "Annuler",
+        save: "Enregistrer",
       },
       granularity: {
         coarse: "Grossier",
