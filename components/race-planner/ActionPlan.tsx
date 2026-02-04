@@ -668,6 +668,7 @@ type SubSectionRowProps = {
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
   deleteLabel?: string;
+  paceControl?: ReactNode;
   segmentIndex?: number;
   onDelete?: (segmentIndex: number) => void;
 };
@@ -687,6 +688,7 @@ function SubSectionRow({
   copy,
   baseMinutesPerKm,
   deleteLabel,
+  paceControl,
   segmentIndex,
   onDelete,
 }: SubSectionRowProps) {
@@ -717,6 +719,7 @@ function SubSectionRow({
             timeText={`${etaLabel}: ${formatMinutes(etaMinutes)}`}
             elevationGainText={`D+ ${Math.round(elevationGainM ?? 0)}`}
             elevationLossText={`D- ${Math.round(elevationLossM ?? 0)}`}
+            paceControl={paceControl}
           />
         </div>
         <div className="rounded-lg border border-border bg-background p-2 shadow-sm dark:bg-slate-950/70">
@@ -960,6 +963,78 @@ export function ActionPlan({
         ? { secondsPerKm: baseMinutesPerKm * 60 }
         : undefined,
     [baseMinutesPerKm]
+  );
+  const renderPaceAdjustmentControl = useCallback(
+    ({
+      basePaceMinutesPerKm,
+      paceAdjustmentMinutesPerKm,
+      fieldName,
+      isDisabled,
+      tooltip,
+    }: {
+      basePaceMinutesPerKm: number;
+      paceAdjustmentMinutesPerKm?: number;
+      fieldName: string | null;
+      isDisabled: boolean;
+      tooltip?: string;
+    }) => {
+      if (!fieldName) return null;
+      const adjustmentStep = 0.25;
+      const paceMinutesPerKm = basePaceMinutesPerKm + (paceAdjustmentMinutesPerKm ?? 0);
+      return (
+        <div
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50"
+          title={tooltip}
+        >
+          <input
+            type="hidden"
+            {...register(fieldName, {
+              setValueAs: parseOptionalNumber,
+            })}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
+            onClick={() => {
+              const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
+              const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
+              setValue(fieldName, nextValue, {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+            }}
+            disabled={isDisabled}
+            title={tooltip}
+          >
+            –
+          </Button>
+          <div className="flex items-baseline gap-1 px-1">
+            <span className="text-[13px] font-semibold text-foreground tabular-nums dark:text-slate-50">
+              {formatPaceValue(paceMinutesPerKm)}
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
+            onClick={() => {
+              const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
+              const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
+              setValue(fieldName, nextValue, {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+            }}
+            disabled={isDisabled}
+            title={tooltip}
+          >
+            +
+          </Button>
+        </div>
+      );
+    },
+    [register, setValue]
   );
   const openCreateEditor = () =>
     setEditorState({
@@ -1827,68 +1902,22 @@ export function ActionPlan({
                 const paceAdjustmentFieldName = sectionSegment
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
                   : null;
-                const adjustmentStep = 0.25;
                 const basePaceMinutesPerKm =
                   sectionSegment && sectionSegment.segmentKm > 0
                     ? sectionSegment.estimatedSegmentMinutes / sectionSegment.segmentKm
                     : 0;
-                const paceMinutesPerKm =
-                  basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
                 const isPaceAdjustmentDisabled = hasStoredSubSections;
                 const paceAdjustmentTooltip = isPaceAdjustmentDisabled ? segmentCopy.paceAdjustmentDisabled : undefined;
                 const paceAdjustmentControl =
-                  sectionSegment && paceAdjustmentFieldName ? (
-                    <div
-                      className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50"
-                      title={paceAdjustmentTooltip}
-                    >
-                      <input
-                        type="hidden"
-                        {...register(paceAdjustmentFieldName, {
-                          setValueAs: parseOptionalNumber,
-                        })}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
-                        onClick={() => {
-                          const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
-                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
-                          setValue(paceAdjustmentFieldName, nextValue, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          });
-                        }}
-                        disabled={isPaceAdjustmentDisabled}
-                        title={paceAdjustmentTooltip}
-                      >
-                        –
-                      </Button>
-                      <div className="flex items-baseline gap-1 px-1">
-                        <span className="text-[13px] font-semibold text-foreground tabular-nums dark:text-slate-50">
-                          {formatPaceValue(paceMinutesPerKm)}
-                        </span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
-                        onClick={() => {
-                          const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
-                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
-                          setValue(paceAdjustmentFieldName, nextValue, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          });
-                        }}
-                        disabled={isPaceAdjustmentDisabled}
-                        title={paceAdjustmentTooltip}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  ) : null;
+                  sectionSegment && paceAdjustmentFieldName
+                    ? renderPaceAdjustmentControl({
+                        basePaceMinutesPerKm,
+                        paceAdjustmentMinutesPerKm: sectionSegment?.paceAdjustmentMinutesPerKm,
+                        fieldName: paceAdjustmentFieldName,
+                        isDisabled: isPaceAdjustmentDisabled,
+                        tooltip: paceAdjustmentTooltip,
+                      })
+                    : null;
                 const metrics = sectionSegment
                   ? [
                       {
@@ -2001,6 +2030,10 @@ export function ActionPlan({
                   isAidStation && sectionSegment
                     ? (() => {
                         let runningStartKm = sectionSegment.startDistanceKm;
+                        const hasBasePace =
+                          typeof baseMinutesPerKm === "number" &&
+                          Number.isFinite(baseMinutesPerKm) &&
+                          baseMinutesPerKm > 0;
                         return resolvedSectionSegments.map((segment, index) => {
                           const stats = sectionStats?.segmentStats[index];
                           const rawLabel = segment.label?.trim();
@@ -2015,6 +2048,18 @@ export function ActionPlan({
                           const startDistanceKm = runningStartKm;
                           const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
                           runningStartKm = endDistanceKm;
+                          const segmentPaceFieldName = sectionKey
+                            ? `sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm`
+                            : null;
+                          const paceControl =
+                            hasBasePace && segmentPaceFieldName
+                              ? renderPaceAdjustmentControl({
+                                  basePaceMinutesPerKm: baseMinutesPerKm as number,
+                                  paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm,
+                                  fieldName: segmentPaceFieldName,
+                                  isDisabled: false,
+                                })
+                              : null;
                           return {
                             id: `${item.id}-segment-${index}`,
                             label: resolvedLabel,
@@ -2022,6 +2067,8 @@ export function ActionPlan({
                             elevationGainM: stats?.dPlus ?? 0,
                             elevationLossM: stats?.dMinus ?? 0,
                             etaMinutes: (stats?.etaSeconds ?? 0) / 60,
+                            paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm,
+                            paceControl,
                             segmentIndex: index,
                             startDistanceKm,
                             endDistanceKm,
@@ -2117,6 +2164,7 @@ export function ActionPlan({
                                 copy={copy}
                                 baseMinutesPerKm={baseMinutesPerKm}
                                 deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
+                                paceControl={segment.paceControl}
                                 segmentIndex={segment.segmentIndex}
                                 onDelete={
                                   hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
