@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
-import type { ReactNode } from "react";
+import type { ReactNode, SVGProps } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../locales/types";
@@ -49,6 +49,25 @@ const statusToneStyles = {
   danger: "border-rose-400/40 bg-rose-500/20 text-rose-50",
   neutral: "border-slate-400/40 bg-slate-600/20 text-slate-50",
 } as const;
+
+const Trash2 = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+);
 
 type StatusTone = keyof typeof statusToneStyles;
 
@@ -693,6 +712,14 @@ function SubSectionRow({
   onDelete,
 }: SubSectionRowProps) {
   const canDelete = onDelete && typeof segmentIndex === "number";
+  const handleDelete = useCallback(() => {
+    if (!canDelete) return;
+    const confirmMessage = deleteLabel ? `${deleteLabel}?` : "Supprimer ce segment ?";
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    onDelete(segmentIndex as number);
+  }, [canDelete, deleteLabel, onDelete, segmentIndex]);
 
   return (
     <Card className="border-border/40 bg-muted/40 shadow-sm dark:bg-slate-900/40">
@@ -704,12 +731,12 @@ function SubSectionRow({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-7 px-2 text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-200 dark:hover:text-rose-100"
-                onClick={() => onDelete(segmentIndex as number)}
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-200"
+                onClick={handleDelete}
                 aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
                 title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
               >
-                {deleteLabel ?? "Supprimer"}
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
               </Button>
             ) : null}
           </div>
