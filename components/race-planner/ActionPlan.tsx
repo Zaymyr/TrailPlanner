@@ -984,15 +984,13 @@ export function ActionPlan({
     [sectionSegmentsMap, setValue]
   );
   const handleDeleteSubSection = useCallback(
-    (sectionIndex: number, segmentIndex: number, totalKm: number) => {
+    (sectionIndex: number, segmentIndex: number) => {
       const sectionKey = buildSectionKey(sectionIndex);
       const storedSegments = sectionSegmentsMap[sectionKey] ?? [];
-      const normalized = normalizeSectionSegments(storedSegments, totalKm);
-      const nextSegments = normalized.filter((_, index) => index !== segmentIndex);
-      const rebalanced = normalizeSectionSegments(nextSegments, totalKm);
-      updateSectionSegments(sectionIndex, rebalanced.length > 0 ? rebalanced : null);
+      const nextSegments = storedSegments.filter((_, index) => index !== segmentIndex);
+      updateSectionSegments(sectionIndex, nextSegments.length ? nextSegments : null);
     },
-    [normalizeSectionSegments, sectionSegmentsMap, updateSectionSegments]
+    [sectionSegmentsMap, updateSectionSegments]
   );
   const buildGranularitySegments = useCallback((totalKm: number, granularityKm: number) => {
     if (!Number.isFinite(totalKm) || totalKm <= 0) return [];
@@ -2377,11 +2375,7 @@ export function ActionPlan({
                                 onDelete={
                                   hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
                                     ? (segmentIndex) =>
-                                        handleDeleteSubSection(
-                                          upcomingSegmentIndex,
-                                          segmentIndex,
-                                          sectionSegment.segmentKm
-                                        )
+                                        handleDeleteSubSection(upcomingSegmentIndex, segmentIndex)
                                     : undefined
                                 }
                               />
