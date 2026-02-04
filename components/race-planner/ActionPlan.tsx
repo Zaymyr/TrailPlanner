@@ -571,6 +571,47 @@ type AidStationHeaderRowProps = {
   onTitleClick?: () => void;
 };
 
+type AidStationHeaderProps = {
+  pointIndex: number;
+  badge?: ReactNode;
+  title: ReactNode;
+  meta?: ReactNode;
+  onTitleClick?: () => void;
+};
+
+function AidStationHeader({ pointIndex, badge, title, meta, onTitleClick }: AidStationHeaderProps) {
+  return (
+    <div
+      className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
+      onClick={onTitleClick}
+      role={onTitleClick ? "button" : undefined}
+      tabIndex={onTitleClick ? 0 : undefined}
+      onKeyDown={
+        onTitleClick
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onTitleClick();
+              }
+            }
+          : undefined
+      }
+    >
+      {badge ?? (
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
+          {pointIndex}
+        </span>
+      )}
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-slate-50">
+          <span>{title}</span>
+        </div>
+        {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function AidStationHeaderRow({
   pointIndex,
   badge,
@@ -585,34 +626,13 @@ function AidStationHeaderRow({
   return (
     <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
-        <div
-          className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
-          onClick={onTitleClick}
-          role={onTitleClick ? "button" : undefined}
-          tabIndex={onTitleClick ? 0 : undefined}
-          onKeyDown={
-            onTitleClick
-              ? (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onTitleClick();
-                  }
-                }
-              : undefined
-          }
-        >
-          {badge ?? (
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
-              {pointIndex}
-            </span>
-          )}
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-slate-50">
-              <span>{title}</span>
-            </div>
-            {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
-          </div>
-        </div>
+        <AidStationHeader
+          pointIndex={pointIndex}
+          badge={badge}
+          title={title}
+          meta={meta}
+          onTitleClick={onTitleClick}
+        />
         {headerMiddle ? (
           <div className="flex w-full min-w-[240px] flex-1 justify-center">{headerMiddle}</div>
         ) : null}
@@ -652,6 +672,44 @@ type SubSectionRowProps = {
   onDelete?: (segmentIndex: number) => void;
 };
 
+type SubSectionSummaryProps = {
+  label: string;
+  distanceKm: number;
+  elevationGainM?: number | null;
+  elevationLossM?: number | null;
+  etaMinutes: number;
+  etaLabel: string;
+  formatDistance: (value: number) => string;
+  formatMinutes: (value: number) => string;
+};
+
+function SubSectionSummary({
+  label,
+  distanceKm,
+  elevationGainM,
+  elevationLossM,
+  etaMinutes,
+  etaLabel,
+  formatDistance,
+  formatMinutes,
+}: SubSectionSummaryProps) {
+  return (
+    <div className="flex min-w-[200px] flex-1 flex-wrap items-center justify-between gap-3">
+      <div className="space-y-0.5">
+        <p className="text-sm font-semibold text-foreground dark:text-slate-50">{label}</p>
+        <p className="text-[11px] text-muted-foreground">{formatDistance(distanceKm)}</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
+        <span>{`D+ ${Math.round(elevationGainM ?? 0)}`}</span>
+        <span>{`D- ${Math.round(elevationLossM ?? 0)}`}</span>
+        <span>
+          {etaLabel}: {formatMinutes(etaMinutes)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function SubSectionRow({
   label,
   distanceKm,
@@ -673,7 +731,7 @@ function SubSectionRow({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/40 px-3 py-2 text-sm text-foreground shadow-sm dark:bg-slate-900/40">
-      <div className="flex min-w-[240px] items-center gap-3">
+      <div className="flex min-w-[120px] items-center gap-3">
         <div className="h-[72px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border bg-background p-1 shadow-sm dark:bg-slate-950/70">
           <div className="origin-top-left scale-[0.4]">
             <ElevationSectionChart
@@ -684,19 +742,18 @@ function SubSectionRow({
             />
           </div>
         </div>
-        <div className="space-y-0.5">
-          <p className="text-sm font-semibold text-foreground dark:text-slate-50">{label}</p>
-          <p className="text-[11px] text-muted-foreground">{formatDistance(distanceKm)}</p>
-        </div>
       </div>
-      <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-        <div className="flex items-center gap-4">
-          <span>{`D+ ${Math.round(elevationGainM ?? 0)}`}</span>
-          <span>{`D- ${Math.round(elevationLossM ?? 0)}`}</span>
-          <span>
-            {etaLabel}: {formatMinutes(etaMinutes)}
-          </span>
-        </div>
+      <div className="flex flex-1 flex-wrap items-center justify-between gap-3">
+        <SubSectionSummary
+          label={label}
+          distanceKm={distanceKm}
+          elevationGainM={elevationGainM}
+          elevationLossM={elevationLossM}
+          etaMinutes={etaMinutes}
+          etaLabel={etaLabel}
+          formatDistance={formatDistance}
+          formatMinutes={formatMinutes}
+        />
         {canDelete ? (
           <Button
             type="button"
@@ -747,6 +804,46 @@ type AidStationCollapsedRowProps = {
   embarkedItems: EmbarkedSummaryItem[];
   actions?: ReactNode;
 };
+
+type BetweenAidStationSectionProps = {
+  sectionSummary: ReactNode;
+  nutritionCards: ReactNode[];
+  toggleButton?: ReactNode;
+  subSections?: ReactNode;
+  subSectionActions?: ReactNode;
+  showSubSections?: boolean;
+};
+
+function BetweenAidStationSection({
+  sectionSummary,
+  nutritionCards,
+  toggleButton,
+  subSections,
+  subSectionActions,
+  showSubSections,
+}: BetweenAidStationSectionProps) {
+  return (
+    <div className="relative pl-4 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/40">
+      <div className="rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start">
+          <div className="w-full max-w-[260px]">{sectionSummary}</div>
+          {nutritionCards.length > 0 ? (
+            <div className="grid flex-1 gap-3 md:grid-cols-3">{nutritionCards}</div>
+          ) : null}
+        </div>
+        {toggleButton ? <div className="mt-4 flex flex-wrap items-center gap-2">{toggleButton}</div> : null}
+        {showSubSections ? (
+          <div className="mt-4 space-y-3">
+            <div className="relative space-y-2 pl-8 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/30">
+              {subSections}
+            </div>
+            {subSectionActions}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function AidStationCollapsedRow({
   pointIndex,
@@ -2042,12 +2139,44 @@ export function ActionPlan({
                   ) : null;
                 const sectionBlock =
                   sectionSegment && segmentCard ? (
-                    <div className="relative rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55">
-                      <div className="w-full max-w-[260px]">{segmentCard}</div>
-                      {nutritionCards.length > 0 ? (
-                        <div className="mt-4 grid gap-3 md:grid-cols-3">{nutritionCards}</div>
-                      ) : null}
-                    </div>
+                    <BetweenAidStationSection
+                      sectionSummary={segmentCard}
+                      nutritionCards={nutritionCards}
+                      toggleButton={segmentToggleButton}
+                      showSubSections={isSegmentsExpanded && segmentListItems.length > 0}
+                      subSections={
+                        isSegmentsExpanded && segmentListItems.length > 0 ? (
+                          <>
+                            {segmentListItems.map((segment) => (
+                              <SubSectionRow
+                                key={segment.id}
+                                label={segment.label}
+                                distanceKm={segment.distanceKm}
+                                elevationGainM={segment.elevationGainM}
+                                elevationLossM={segment.elevationLossM}
+                                etaMinutes={segment.etaMinutes}
+                                etaLabel={timelineCopy.etaLabel}
+                                formatDistance={formatDistanceWithUnit}
+                                formatMinutes={formatMinutes}
+                                chartProfile={segment.chartProfile}
+                                chartDistanceKm={segment.chartDistanceKm}
+                                copy={copy}
+                                baseMinutesPerKm={baseMinutesPerKm}
+                                deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
+                                segmentIndex={segment.segmentIndex}
+                                onDelete={
+                                  hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
+                                    ? (segmentIndex) =>
+                                        handleDeleteSubSection(upcomingSegmentIndex, segmentIndex)
+                                    : undefined
+                                }
+                              />
+                            ))}
+                          </>
+                        ) : null
+                      }
+                      subSectionActions={isSegmentsExpanded && segmentListItems.length > 0 ? segmentActions : null}
+                    />
                   ) : null;
 
                 const removeButton =
@@ -2325,41 +2454,6 @@ export function ActionPlan({
                         <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
                       ) : null}
                       {sectionBlock ? <div className="relative">{sectionBlock}</div> : null}
-                      {segmentToggleButton ? (
-                        <div className="flex flex-wrap items-center gap-2">{segmentToggleButton}</div>
-                      ) : null}
-                      {isSegmentsExpanded && segmentListItems.length > 0 ? (
-                        <div className="ml-6 space-y-3 border-l border-border/40 pl-4">
-                          <div className="space-y-2">
-                            {segmentListItems.map((segment) => (
-                              <SubSectionRow
-                                key={segment.id}
-                                label={segment.label}
-                                distanceKm={segment.distanceKm}
-                                elevationGainM={segment.elevationGainM}
-                                elevationLossM={segment.elevationLossM}
-                                etaMinutes={segment.etaMinutes}
-                                etaLabel={timelineCopy.etaLabel}
-                                formatDistance={formatDistanceWithUnit}
-                                formatMinutes={formatMinutes}
-                                chartProfile={segment.chartProfile}
-                                chartDistanceKm={segment.chartDistanceKm}
-                                copy={copy}
-                                baseMinutesPerKm={baseMinutesPerKm}
-                                deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
-                                segmentIndex={segment.segmentIndex}
-                                onDelete={
-                                  hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
-                                    ? (segmentIndex) =>
-                                        handleDeleteSubSection(upcomingSegmentIndex, segmentIndex)
-                                    : undefined
-                                }
-                              />
-                            ))}
-                          </div>
-                          {segmentActions}
-                        </div>
-                      ) : null}
                     </div>
                   </div>
                 );
