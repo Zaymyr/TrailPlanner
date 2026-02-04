@@ -2064,6 +2064,7 @@ export function ActionPlan({
                           typeof baseMinutesPerKm === "number" &&
                           Number.isFinite(baseMinutesPerKm) &&
                           baseMinutesPerKm > 0;
+                        const fallbackPaceControl = !hasStoredSubSections ? paceAdjustmentControl : null;
                         return resolvedSectionSegments.map((segment, index) => {
                           const stats = sectionStats?.segmentStats[index];
                           const rawLabel = segment.label?.trim();
@@ -2082,14 +2083,15 @@ export function ActionPlan({
                             ? (`sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm` as Path<FormValues>)
                             : null;
                           const paceControl =
-                            hasBasePace && segmentPaceFieldName
+                            fallbackPaceControl ??
+                            (hasBasePace && segmentPaceFieldName
                               ? renderPaceAdjustmentControl({
                                   basePaceMinutesPerKm: baseMinutesPerKm as number,
                                   paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm,
                                   fieldName: segmentPaceFieldName,
                                   isDisabled: false,
                                 })
-                              : null;
+                              : null);
                           return {
                             id: `${item.id}-segment-${index}`,
                             label: resolvedLabel,
