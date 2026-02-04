@@ -732,7 +732,7 @@ function SubSectionRow({
               <Button
                 type="button"
                 variant="ghost"
-                className="h-7 w-7 p-0 text-muted-foreground hover:text-rose-600 dark:text-slate-400 dark:hover:text-rose-200"
+                className="h-8 w-8 rounded-full border border-rose-200 bg-rose-50 p-0 text-rose-700 shadow-sm hover:bg-rose-100 hover:text-rose-800 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-100 dark:hover:bg-rose-500/20"
                 onClick={handleDelete}
                 aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
                 title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
@@ -1931,9 +1931,11 @@ export function ActionPlan({
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
                   : null;
                 const basePaceMinutesPerKm =
-                  sectionSegment && sectionSegment.segmentKm > 0
-                    ? sectionSegment.estimatedSegmentMinutes / sectionSegment.segmentKm
-                    : 0;
+                  sectionTotals && sectionTotals.distanceKm > 0
+                    ? sectionTotals.etaSeconds / 60 / sectionTotals.distanceKm
+                    : sectionSegment && sectionSegment.segmentKm > 0
+                      ? sectionSegment.estimatedSegmentMinutes / sectionSegment.segmentKm
+                      : 0;
                 const isPaceAdjustmentDisabled = hasStoredSubSections;
                 const paceAdjustmentTooltip = isPaceAdjustmentDisabled ? segmentCopy.paceAdjustmentDisabled : undefined;
                 const paceAdjustmentControl =
