@@ -935,7 +935,7 @@ export function ActionPlan({
     | null
     | {
         type: "auto";
-        aidStationIndex: number;
+        aidStationIndex?: number | null;
         sectionIndex: number;
         startDistanceKm: number;
         endDistanceKm: number;
@@ -943,7 +943,7 @@ export function ActionPlan({
       }
     | {
         type: "marker";
-        aidStationIndex: number;
+        aidStationIndex?: number | null;
         sectionIndex: number;
         startDistanceKm: number;
         endDistanceKm: number;
@@ -2056,8 +2056,9 @@ export function ActionPlan({
                   flat: segmentCopy.markerTypes.flat,
                   custom: segmentCopy.markerTypes.custom,
                 };
+                const canSplitSection = (item.isStart || isAidStation) && sectionSegment;
                 const segmentListItems =
-                  isAidStation && sectionSegment
+                  canSplitSection
                     ? (() => {
                         let runningStartKm = sectionSegment.startDistanceKm;
                         const hasBasePace =
@@ -2108,7 +2109,7 @@ export function ActionPlan({
                         });
                       })()
                     : [];
-                const segmentToggleKey = isAidStation ? String(item.aidStationIndex) : null;
+                const segmentToggleKey = item.isStart ? "start" : isAidStation ? String(item.aidStationIndex) : null;
                 const isSegmentsExpanded =
                   segmentToggleKey && segmentListItems.length > 0 ? Boolean(expandedSegments[segmentToggleKey]) : false;
                 const segmentToggleLabel = isSegmentsExpanded ? segmentCopy.toggle.hide : segmentCopy.toggle.show;
@@ -2140,7 +2141,7 @@ export function ActionPlan({
                         onClick={() =>
                           setSegmentModalState({
                             type: "marker",
-                            aidStationIndex: item.aidStationIndex as number,
+                            aidStationIndex: item.isStart ? null : (item.aidStationIndex as number),
                             sectionIndex: upcomingSegmentIndex as number,
                             startDistanceKm: sectionSegment?.startDistanceKm ?? 0,
                             endDistanceKm: sectionSegment?.distanceKm ?? 0,
@@ -2157,7 +2158,7 @@ export function ActionPlan({
                         onClick={() =>
                           setSegmentModalState({
                             type: "auto",
-                            aidStationIndex: item.aidStationIndex as number,
+                            aidStationIndex: item.isStart ? null : (item.aidStationIndex as number),
                             sectionIndex: upcomingSegmentIndex as number,
                             startDistanceKm: sectionSegment?.startDistanceKm ?? 0,
                             endDistanceKm: sectionSegment?.distanceKm ?? 0,
