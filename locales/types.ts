@@ -131,6 +131,7 @@ export type RacePlannerTranslations = {
       title: string;
       description: string;
       empty: string;
+      sectionEmpty: string;
       axisLabel: string;
       ariaLabel: string;
       speedLabel: string;
@@ -349,6 +350,39 @@ export type RacePlannerTranslations = {
         deltaSuffix: string;
       };
     };
+  };
+  segments: {
+    toggle: {
+      show: string;
+      hide: string;
+    };
+    actions: {
+      addMarker: string;
+      autoSegment: string;
+      delete: string;
+      edit: string;
+    };
+    editModal: {
+      title: string;
+      description: string;
+      distanceLabel: string;
+      labelLabel: string;
+      labelPlaceholder: string;
+      cancel: string;
+      save: string;
+    };
+    granularity: {
+      coarse: string;
+      medium: string;
+      fine: string;
+    };
+    markerTypes: {
+      climb: string;
+      descent: string;
+      flat: string;
+      custom: string;
+    };
+    paceAdjustmentDisabled: string;
   };
   buttons: {
     importGpx: string;

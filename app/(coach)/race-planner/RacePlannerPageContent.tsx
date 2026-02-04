@@ -36,6 +36,7 @@ import {
   sanitizeAidStations,
   sanitizeElevationProfile,
   sanitizePlannerValues,
+  sanitizeSectionSegments,
   sanitizeSegmentPlan,
 } from "./utils/plan-sanitizers";
 import { buildSegments } from "./utils/segments";
@@ -142,6 +143,12 @@ const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation
       .optional(),
   });
 
+const createSectionSegmentSchema = (validation: RacePlannerTranslations["validation"]) =>
+  createSegmentPlanSchema(validation).extend({
+    segmentKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
+    label: z.string().optional(),
+  });
+
 const createAidStationSchema = (validation: RacePlannerTranslations["validation"]) =>
   createSegmentPlanSchema(validation).extend({
     name: z.string().min(1, validation.required),
@@ -168,6 +175,8 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       startSupplies: createSegmentPlanSchema(copy.validation).shape.supplies.optional(),
       aidStations: z.array(createAidStationSchema(copy.validation)).min(1, copy.validation.aidStationMin),
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
+      segments: z.record(z.array(createSectionSegmentSchema(copy.validation))).optional(),
+      sectionSegments: z.record(z.array(createSectionSegmentSchema(copy.validation))).optional(),
     })
     .superRefine((values, ctx) => {
       if (values.paceType === "pace" && values.paceMinutes === 0 && values.paceSeconds === 0) {
@@ -618,6 +627,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     [formattedPremiumPrice, premiumCopy.premiumModal.priceValue]
   );
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
+  const sanitizedSectionSegments = useMemo(
+    () =>
+      parsedValues.success
+        ? parsedValues.data.sectionSegments
+        : sanitizeSectionSegments(watchedValues?.sectionSegments),
+    [parsedValues, watchedValues?.sectionSegments]
+  );
 
   const segments = useMemo(
     () =>
@@ -1174,6 +1190,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       onSpeedChange={handleSpeedUpdate}
       formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
       segments={segments}
+      sectionSegments={sanitizedSectionSegments}
+      elevationProfile={elevationProfile}
+      baseMinutesPerKm={baseMinutesPerKm}
       raceTotals={raceTotals}
       onPrint={handlePrint}
       onAutomaticFill={handleAutomaticFill}

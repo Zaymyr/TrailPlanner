@@ -233,6 +233,7 @@ export const fr: Translations = {
         description:
           "Élévation par distance avec les ravitos mis en évidence. Importez un fichier GPX pour remplir le profil.",
         empty: "Importez un fichier GPX pour voir le profil d'élévation.",
+        sectionEmpty: "Données insuffisantes pour afficher ce profil de segment.",
         axisLabel: "Distance (km)",
         ariaLabel: "Profil d'élévation de la course",
         speedLabel: "Vitesse ajustée",
@@ -453,6 +454,39 @@ export const fr: Translations = {
           deltaSuffix: "vs objectif",
         },
       },
+    },
+    segments: {
+      toggle: {
+        show: "Afficher le découpage",
+        hide: "Masquer le découpage",
+      },
+      actions: {
+        addMarker: "+ Marqueur",
+        autoSegment: "Découpage auto",
+        delete: "Supprimer le segment",
+        edit: "Modifier le segment",
+      },
+      editModal: {
+        title: "Modifier le segment",
+        description: "Ajustez la distance ou le libellé de ce segment.",
+        distanceLabel: "Distance (km)",
+        labelLabel: "Libellé",
+        labelPlaceholder: "Ex : montée exposée",
+        cancel: "Annuler",
+        save: "Enregistrer",
+      },
+      granularity: {
+        coarse: "Grossier",
+        medium: "Moyen",
+        fine: "Fin",
+      },
+      markerTypes: {
+        climb: "Montée",
+        descent: "Descente",
+        flat: "Plat",
+        custom: "Personnalisé",
+      },
+      paceAdjustmentDisabled: "Contrôlé par les sous-segments.",
     },
     buttons: {
       importGpx: "Importer un GPX",

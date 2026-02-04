@@ -1,4 +1,5 @@
-import type { AidStation, ElevationPoint, FormValues, SegmentPlan, StationSupply } from "../types";
+import { buildSectionKey } from "./section-segments";
+import type { AidStation, ElevationPoint, FormValues, SectionSegment, SegmentPlan, StationSupply } from "../types";
 
 export function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
   if (!plan || typeof plan !== "object") return {};
@@ -33,6 +34,69 @@ export function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
     ...(pickupGels !== undefined ? { pickupGels } : {}),
     ...(supplies.length ? { supplies } : {}),
   };
+}
+
+export function sanitizeSectionSegments(sectionSegments?: unknown): Record<string, SectionSegment[]> | undefined {
+  if (!sectionSegments || typeof sectionSegments !== "object") return undefined;
+
+  const sanitizedEntries = Object.entries(sectionSegments as Record<string, unknown>)
+    .map(([key, segments]) => {
+      if (!Array.isArray(segments)) return null;
+
+      const sanitizedSegments = segments
+        .map((segment) => {
+          if (!segment || typeof segment !== "object") return null;
+          const segmentKm =
+            typeof segment.segmentKm === "number" && Number.isFinite(segment.segmentKm) && segment.segmentKm >= 0
+              ? segment.segmentKm
+              : null;
+          if (segmentKm === null) return null;
+
+          const label = typeof segment.label === "string" ? segment.label : undefined;
+          const plan = sanitizeSegmentPlan(segment);
+
+          return {
+            segmentKm,
+            ...(label ? { label } : {}),
+            ...plan,
+          };
+        })
+        .filter((segment): segment is SectionSegment => Boolean(segment));
+
+      if (sanitizedSegments.length === 0) return null;
+
+      return [key, sanitizedSegments] as const;
+    })
+    .filter((entry): entry is readonly [string, SectionSegment[]] => Boolean(entry));
+
+  if (sanitizedEntries.length === 0) return undefined;
+
+  return Object.fromEntries(sanitizedEntries);
+}
+
+export function buildImplicitSectionSegments(
+  raceDistanceKm: number | undefined,
+  aidStations: AidStation[]
+): Record<string, SectionSegment[]> | undefined {
+  if (!raceDistanceKm || !Number.isFinite(raceDistanceKm) || raceDistanceKm <= 0) return undefined;
+
+  const checkpoints = [
+    0,
+    ...aidStations
+      .map((station) => station.distanceKm)
+      .filter((distanceKm) => Number.isFinite(distanceKm) && distanceKm > 0 && distanceKm < raceDistanceKm)
+      .sort((a, b) => a - b),
+    raceDistanceKm,
+  ];
+
+  const sectionSegments = checkpoints.slice(1).reduce<Record<string, SectionSegment[]>>((acc, distance, index) => {
+    const start = checkpoints[index] ?? 0;
+    const segmentKm = Math.max(0, distance - start);
+    acc[buildSectionKey(index)] = [{ segmentKm }];
+    return acc;
+  }, {});
+
+  return Object.keys(sectionSegments).length > 0 ? sectionSegments : undefined;
 }
 
 export function sanitizeAidStations(
@@ -75,6 +139,9 @@ export function sanitizePlannerValues(values?: Partial<FormValues>): Partial<For
   const aidStations = sanitizeAidStations(values.aidStations);
   const finishPlan = sanitizeSegmentPlan(values.finishPlan);
   const startSupplies = sanitizeSegmentPlan({ supplies: values.startSupplies }).supplies;
+  const sectionSegments =
+    sanitizeSectionSegments(values.segments ?? values.sectionSegments) ??
+    buildImplicitSectionSegments(values.raceDistanceKm, aidStations);
   const waterBagLiters =
     typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters) && values.waterBagLiters >= 0
       ? values.waterBagLiters
@@ -87,6 +154,8 @@ export function sanitizePlannerValues(values?: Partial<FormValues>): Partial<For
     startSupplies,
     aidStations,
     finishPlan,
+    segments: sectionSegments,
+    sectionSegments,
   };
 }
 

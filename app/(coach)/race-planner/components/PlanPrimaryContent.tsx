@@ -7,7 +7,7 @@ import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
 import { CommandCenter } from "../../../../components/race-planner/CommandCenter";
-import type { FormValues, Segment, StationSupply } from "../types";
+import type { ElevationPoint, FormValues, SectionSegment, Segment, StationSupply } from "../types";
 import type { RaceTotals } from "../utils/nutrition";
 
 type PlanPrimaryContentProps = {
@@ -27,6 +27,9 @@ type PlanPrimaryContentProps = {
   onSpeedChange: (speedKph: number) => void;
   formatDuration: (totalMinutes: number) => string;
   segments: Segment[];
+  sectionSegments?: Record<string, SectionSegment[]>;
+  elevationProfile: ElevationPoint[];
+  baseMinutesPerKm: number | null;
   raceTotals: RaceTotals | null;
   onPrint: () => void;
   onAutomaticFill: () => void;
@@ -72,6 +75,9 @@ export function PlanPrimaryContent({
   onSpeedChange,
   formatDuration,
   segments,
+  sectionSegments,
+  elevationProfile,
+  baseMinutesPerKm,
   raceTotals,
   onPrint,
   onAutomaticFill,
@@ -116,6 +122,9 @@ export function PlanPrimaryContent({
       <ActionPlan
         copy={copy}
         segments={segments}
+        sectionSegments={sectionSegments}
+        elevationProfile={elevationProfile}
+        baseMinutesPerKm={baseMinutesPerKm}
         raceTotals={raceTotals}
         sectionId={sectionIds.timeline}
         onPrint={onPrint}

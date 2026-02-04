@@ -224,6 +224,7 @@ export const en: Translations = {
         title: "Course profile",
         description: "Elevation by distance with aid stations highlighted. Import a GPX file to populate the profile.",
         empty: "Import a GPX file to see the elevation profile.",
+        sectionEmpty: "Not enough data to render this section profile.",
         axisLabel: "Distance (km)",
         ariaLabel: "Course elevation profile",
         speedLabel: "Adjusted speed",
@@ -443,6 +444,39 @@ export const en: Translations = {
           deltaSuffix: "vs target",
         },
       },
+    },
+    segments: {
+      toggle: {
+        show: "Show splits",
+        hide: "Hide splits",
+      },
+      actions: {
+        addMarker: "+ Marker",
+        autoSegment: "Auto split",
+        delete: "Delete split",
+        edit: "Edit split",
+      },
+      editModal: {
+        title: "Edit split",
+        description: "Adjust the distance or label for this split.",
+        distanceLabel: "Distance (km)",
+        labelLabel: "Label",
+        labelPlaceholder: "Ex: exposed climb",
+        cancel: "Cancel",
+        save: "Save",
+      },
+      granularity: {
+        coarse: "Coarse",
+        medium: "Medium",
+        fine: "Fine",
+      },
+      markerTypes: {
+        climb: "Climb",
+        descent: "Descent",
+        flat: "Flat",
+        custom: "Custom",
+      },
+      paceAdjustmentDisabled: "Controlled by subsections.",
     },
     buttons: {
       importGpx: "Import GPX",

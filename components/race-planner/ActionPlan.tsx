@@ -2,11 +2,23 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
-import type { ReactNode } from "react";
-import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
+import type { ReactNode, SVGProps } from "react";
+import type { Path, UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../locales/types";
-import type { FormValues, Segment, SegmentPlan, StationSupply } from "../../app/(coach)/race-planner/types";
+import type {
+  ElevationPoint,
+  FormValues,
+  SectionSegment,
+  Segment,
+  SegmentPlan,
+  StationSupply,
+} from "../../app/(coach)/race-planner/types";
+import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
+import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
+import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
+import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
+import { SubSectionElevationChart } from "../../app/(coach)/race-planner/components/SubSectionElevationChart";
 import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
@@ -19,6 +31,9 @@ import { SectionHeader } from "../ui/SectionHeader";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
+import { AddMarkerModal } from "./AddMarkerModal";
+import { AutoSegmentModal } from "./AutoSegmentModal";
+import { EditSubSectionModal } from "./EditSubSectionModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
 import {
@@ -36,6 +51,41 @@ const statusToneStyles = {
   danger: "border-rose-400/40 bg-rose-500/20 text-rose-50",
   neutral: "border-slate-400/40 bg-slate-600/20 text-slate-50",
 } as const;
+
+const Trash2 = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+);
+
+const Pencil = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M17 3a2.8 2.8 0 1 1 4 4L7 21H3v-4L17 3z" />
+    <path d="M16 5l3 3" />
+  </svg>
+);
 
 type StatusTone = keyof typeof statusToneStyles;
 
@@ -83,6 +133,9 @@ type RaceTotals = {
 type ActionPlanProps = {
   copy: RacePlannerTranslations;
   segments: Segment[];
+  sectionSegments?: Record<string, SectionSegment[]>;
+  elevationProfile: ElevationPoint[];
+  baseMinutesPerKm: number | null;
   raceTotals: RaceTotals | null;
   sectionId: string;
   onPrint: () => void;
@@ -272,6 +325,7 @@ type RenderItem =
       pickupGels?: number;
       checkpointSegment?: Segment;
       upcomingSegment?: Segment;
+      upcomingSegmentIndex?: number;
     };
 
 const buildRenderItems = (segments: Segment[]): RenderItem[] => {
@@ -287,6 +341,7 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
     etaMinutes: 0,
     isStart: true,
     upcomingSegment: startSegment,
+    upcomingSegmentIndex: 0,
   });
 
   segments.forEach((segment, index) => {
@@ -300,6 +355,7 @@ const buildRenderItems = (segments: Segment[]): RenderItem[] => {
       pickupGels: segment.pickupGels,
       checkpointSegment: segment,
       upcomingSegment: segments[index + 1],
+      upcomingSegmentIndex: index + 1,
     });
   });
 
@@ -551,6 +607,47 @@ type AidStationHeaderRowProps = {
   onTitleClick?: () => void;
 };
 
+type AidStationHeaderProps = {
+  pointIndex: number;
+  badge?: ReactNode;
+  title: ReactNode;
+  meta?: ReactNode;
+  onTitleClick?: () => void;
+};
+
+function AidStationHeader({ pointIndex, badge, title, meta, onTitleClick }: AidStationHeaderProps) {
+  return (
+    <div
+      className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
+      onClick={onTitleClick}
+      role={onTitleClick ? "button" : undefined}
+      tabIndex={onTitleClick ? 0 : undefined}
+      onKeyDown={
+        onTitleClick
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onTitleClick();
+              }
+            }
+          : undefined
+      }
+    >
+      {badge ?? (
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
+          {pointIndex}
+        </span>
+      )}
+      <div className="min-w-0 space-y-1">
+        <div className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-slate-50">
+          <span>{title}</span>
+        </div>
+        {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 function AidStationHeaderRow({
   pointIndex,
   badge,
@@ -565,34 +662,13 @@ function AidStationHeaderRow({
   return (
     <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
-        <div
-          className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-pointer" : ""}`}
-          onClick={onTitleClick}
-          role={onTitleClick ? "button" : undefined}
-          tabIndex={onTitleClick ? 0 : undefined}
-          onKeyDown={
-            onTitleClick
-              ? (event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    onTitleClick();
-                  }
-                }
-              : undefined
-          }
-        >
-          {badge ?? (
-            <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
-              {pointIndex}
-            </span>
-          )}
-          <div className="min-w-0 space-y-1">
-            <div className="flex items-center gap-2 text-base font-semibold text-foreground dark:text-slate-50">
-              <span>{title}</span>
-            </div>
-            {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
-          </div>
-        </div>
+        <AidStationHeader
+          pointIndex={pointIndex}
+          badge={badge}
+          title={title}
+          meta={meta}
+          onTitleClick={onTitleClick}
+        />
         {headerMiddle ? (
           <div className="flex w-full min-w-[240px] flex-1 justify-center">{headerMiddle}</div>
         ) : null}
@@ -607,39 +683,126 @@ function AidStationHeaderRow({
   );
 }
 
-type SectionRowProps = {
-  segment: ReactNode;
-  nutritionCards: ReactNode;
-  showConnector?: boolean;
-};
-
-function SectionRow({ segment, nutritionCards, showConnector = true }: SectionRowProps) {
-  return (
-    <div className="relative flex justify-center">
-      <div className="relative z-10 -mt-3 w-full rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55 lg:mx-auto lg:max-w-[1120px]">
-        {showConnector ? (
-          <div className="pointer-events-none absolute bottom-3 left-[116px] top-3 z-0 hidden flex-col items-center md:flex">
-            <div className="h-full w-[2px] bg-emerald-500/70" />
-            <div className="-mt-1 h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-500/80" />
-          </div>
-        ) : null}
-        <div className="grid gap-3 md:grid-cols-[minmax(200px,240px)_1fr] md:items-center md:gap-4 lg:grid-cols-[240px_1fr] lg:gap-5">
-          <div className="relative z-10 w-full max-w-[240px] self-center">{segment}</div>
-          <div className="w-full">
-            <div className="grid w-full gap-4 md:grid-cols-3">{nutritionCards}</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 type EmbarkedSummaryItem = {
   key: string;
   label: string;
   value: string;
   dotClassName: string;
 };
+
+type SubSectionRowProps = {
+  label: string;
+  distanceKm: number;
+  elevationGainM?: number | null;
+  elevationLossM?: number | null;
+  etaMinutes: number;
+  etaLabel: string;
+  formatDistance: (value: number) => string;
+  formatMinutes: (value: number) => string;
+  elevationProfile: ElevationPoint[];
+  startDistanceKm: number;
+  endDistanceKm: number;
+  copy: RacePlannerTranslations;
+  baseMinutesPerKm: number | null;
+  deleteLabel?: string;
+  editLabel?: string;
+  paceControl?: ReactNode;
+  segmentIndex?: number;
+  onDelete?: (segmentIndex: number) => void;
+  onEdit?: (segmentIndex: number) => void;
+};
+
+function SubSectionRow({
+  label,
+  distanceKm,
+  elevationGainM,
+  elevationLossM,
+  etaMinutes,
+  etaLabel,
+  formatDistance,
+  formatMinutes,
+  elevationProfile,
+  startDistanceKm,
+  endDistanceKm,
+  copy,
+  baseMinutesPerKm,
+  deleteLabel,
+  editLabel,
+  paceControl,
+  segmentIndex,
+  onDelete,
+  onEdit,
+}: SubSectionRowProps) {
+  const canDelete = onDelete && typeof segmentIndex === "number";
+  const canEdit = onEdit && typeof segmentIndex === "number";
+  const handleDelete = useCallback(() => {
+    if (!canDelete) return;
+    const confirmMessage = deleteLabel ? `${deleteLabel}?` : "Supprimer ce segment ?";
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    onDelete(segmentIndex as number);
+  }, [canDelete, deleteLabel, onDelete, segmentIndex]);
+  const handleEdit = useCallback(() => {
+    if (!canEdit) return;
+    onEdit(segmentIndex as number);
+  }, [canEdit, onEdit, segmentIndex]);
+
+  return (
+    <Card className="border-border/40 bg-muted/40 shadow-sm dark:bg-slate-900/40">
+      <CardContent className="grid gap-4 p-3 text-sm text-foreground md:grid-cols-[260px_1fr]">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground dark:text-slate-50">{label}</p>
+            <div className="flex items-center gap-2">
+              {canEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full border border-border bg-background p-0 text-foreground shadow-sm hover:bg-muted dark:bg-slate-950/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                  onClick={handleEdit}
+                  aria-label={editLabel ? `${editLabel} ${label}` : undefined}
+                  title={editLabel ? `${editLabel} ${label}` : undefined}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              ) : null}
+              {canDelete ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full border border-rose-200 bg-rose-50 p-0 text-rose-700 shadow-sm hover:bg-rose-100 hover:text-rose-800 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-100 dark:hover:bg-rose-500/20"
+                  onClick={handleDelete}
+                  aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+                  title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              ) : null}
+            </div>
+          </div>
+          <SegmentCard
+            variant="compact"
+            distanceText={formatDistance(distanceKm)}
+            timeText={`${etaLabel}: ${formatMinutes(etaMinutes)}`}
+            elevationGainText={`D+ ${Math.round(elevationGainM ?? 0)}`}
+            elevationLossText={`D- ${Math.round(elevationLossM ?? 0)}`}
+            paceControl={paceControl}
+          />
+        </div>
+        <div className="rounded-lg border border-border bg-background p-2 shadow-sm dark:bg-slate-950/70">
+          <SubSectionElevationChart
+            elevationProfile={elevationProfile}
+            startDistanceKm={startDistanceKm}
+            endDistanceKm={endDistanceKm}
+            copy={copy}
+            baseMinutesPerKm={baseMinutesPerKm}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 type EmbarkedSummaryBoxProps = {
   items: EmbarkedSummaryItem[];
@@ -674,6 +837,46 @@ type AidStationCollapsedRowProps = {
   embarkedItems: EmbarkedSummaryItem[];
   actions?: ReactNode;
 };
+
+type BetweenAidStationSectionProps = {
+  sectionSummary: ReactNode;
+  nutritionCards: ReactNode[];
+  toggleButton?: ReactNode;
+  subSections?: ReactNode;
+  subSectionActions?: ReactNode;
+  showSubSections?: boolean;
+};
+
+function BetweenAidStationSection({
+  sectionSummary,
+  nutritionCards,
+  toggleButton,
+  subSections,
+  subSectionActions,
+  showSubSections,
+}: BetweenAidStationSectionProps) {
+  return (
+    <div className="relative pl-4 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/40">
+      <div className="rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start">
+          <div className="w-full max-w-[260px]">{sectionSummary}</div>
+          {nutritionCards.length > 0 ? (
+            <div className="grid flex-1 gap-3 md:grid-cols-3">{nutritionCards}</div>
+          ) : null}
+        </div>
+        {toggleButton ? <div className="mt-4 flex flex-wrap items-center gap-2">{toggleButton}</div> : null}
+        {showSubSections ? (
+          <div className="mt-4 space-y-3">
+            <div className="relative space-y-2 pl-8 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/30">
+              {subSections}
+            </div>
+            {subSectionActions}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function AidStationCollapsedRow({
   pointIndex,
@@ -731,6 +934,9 @@ function AidStationCollapsedRow({
 export function ActionPlan({
   copy,
   segments,
+  sectionSegments,
+  elevationProfile,
+  baseMinutesPerKm,
   raceTotals,
   sectionId,
   onPrint,
@@ -762,8 +968,37 @@ export function ActionPlan({
 }: ActionPlanProps) {
   const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
+  const [expandedSegments, setExpandedSegments] = useState<Record<string, boolean>>({});
   const [isFinishDetailsOpen, setIsFinishDetailsOpen] = useState(false);
   const finishDetailsId = useId();
+  const [segmentModalState, setSegmentModalState] = useState<
+    | null
+    | {
+        type: "auto";
+        aidStationIndex?: number | null;
+        sectionIndex: number;
+        startDistanceKm: number;
+        endDistanceKm: number;
+        title: string;
+      }
+    | {
+        type: "marker";
+        aidStationIndex?: number | null;
+        sectionIndex: number;
+        startDistanceKm: number;
+        endDistanceKm: number;
+        title: string;
+      }
+    | {
+        type: "edit";
+        sectionIndex: number;
+        segmentIndex: number;
+        totalKm: number;
+        segmentKm: number;
+        label: string;
+        title: string;
+      }
+  >(null);
   const [editorState, setEditorState] = useState<
     | null
     | {
@@ -794,6 +1029,90 @@ export function ActionPlan({
   });
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
+  const segmentCopy = copy.segments;
+  const sortedElevationProfile = useMemo(
+    () => [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm),
+    [elevationProfile]
+  );
+  const paceModel = useMemo(
+    () =>
+      typeof baseMinutesPerKm === "number" && Number.isFinite(baseMinutesPerKm) && baseMinutesPerKm > 0
+        ? { secondsPerKm: baseMinutesPerKm * 60 }
+        : undefined,
+    [baseMinutesPerKm]
+  );
+  const renderPaceAdjustmentControl = useCallback(
+    ({
+      basePaceMinutesPerKm,
+      paceAdjustmentMinutesPerKm,
+      fieldName,
+      isDisabled,
+      tooltip,
+    }: {
+      basePaceMinutesPerKm: number;
+      paceAdjustmentMinutesPerKm?: number;
+      fieldName: Path<FormValues> | null;
+      isDisabled: boolean;
+      tooltip?: string;
+    }) => {
+      if (!fieldName) return null;
+      const adjustmentStep = 0.25;
+      const paceMinutesPerKm = basePaceMinutesPerKm + (paceAdjustmentMinutesPerKm ?? 0);
+      return (
+        <div
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50"
+          title={tooltip}
+        >
+          <input
+            type="hidden"
+            {...register(fieldName, {
+              setValueAs: parseOptionalNumber,
+            })}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
+            onClick={() => {
+              const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
+              const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
+              setValue(fieldName, nextValue, {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+            }}
+            disabled={isDisabled}
+            title={tooltip}
+          >
+            –
+          </Button>
+          <div className="flex items-baseline gap-1 px-1">
+            <span className="text-[13px] font-semibold text-foreground tabular-nums dark:text-slate-50">
+              {formatPaceValue(paceMinutesPerKm)}
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
+            onClick={() => {
+              const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
+              const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
+              setValue(fieldName, nextValue, {
+                shouldDirty: true,
+                shouldTouch: true,
+              });
+            }}
+            disabled={isDisabled}
+            title={tooltip}
+          >
+            +
+          </Button>
+        </div>
+      );
+    },
+    [register, setValue]
+  );
   const openCreateEditor = () =>
     setEditorState({
       mode: "create",
@@ -807,6 +1126,207 @@ export function ActionPlan({
   }, []);
   const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
   const pickerFavoriteSet = useMemo(() => new Set(pickerFavorites), [pickerFavorites]);
+  const sectionSegmentsMap = useMemo(() => sectionSegments ?? {}, [sectionSegments]);
+  const buildSectionSamples = useCallback(
+    (startKm: number, endKm: number) => getElevationSlice(sortedElevationProfile, startKm, endKm),
+    [sortedElevationProfile]
+  );
+  const normalizeSectionSegments = useCallback((segmentsToNormalize: SectionSegment[], totalKm: number) => {
+    if (!segmentsToNormalize.length) return [];
+    const sanitized = segmentsToNormalize
+      .map((segment) => ({
+        ...segment,
+        segmentKm: Math.max(0, Number(segment.segmentKm.toFixed(3))),
+      }))
+      .filter((segment) => segment.segmentKm > 0);
+    if (sanitized.length === 0) return [];
+    if (!Number.isFinite(totalKm) || totalKm <= 0) return sanitized;
+    const currentTotal = sanitized.reduce((sum, segment) => sum + segment.segmentKm, 0);
+    const delta = Number((totalKm - currentTotal).toFixed(3));
+    if (Math.abs(delta) < 0.01) return sanitized;
+    const lastIndex = sanitized.length - 1;
+    const lastSegment = sanitized[lastIndex];
+    const adjustedKm = Math.max(0.01, Number((lastSegment.segmentKm + delta).toFixed(3)));
+    sanitized[lastIndex] = { ...lastSegment, segmentKm: adjustedKm };
+    return sanitized;
+  }, []);
+  const updateSectionSegments = useCallback(
+    (sectionIndex: number, segmentsToUpdate?: SectionSegment[] | null) => {
+      const sectionKey = buildSectionKey(sectionIndex);
+      const nextSections = { ...sectionSegmentsMap };
+
+      if (!segmentsToUpdate || segmentsToUpdate.length === 0) {
+        delete nextSections[sectionKey];
+      } else {
+        nextSections[sectionKey] = segmentsToUpdate;
+      }
+
+      setValue("sectionSegments", nextSections, { shouldDirty: true, shouldValidate: true });
+      setValue("segments", nextSections, { shouldDirty: true, shouldValidate: true });
+    },
+    [sectionSegmentsMap, setValue]
+  );
+  const handleDeleteSubSection = useCallback(
+    (sectionIndex: number, segmentIndex: number) => {
+      const sectionKey = buildSectionKey(sectionIndex);
+      const storedSegments = sectionSegmentsMap[sectionKey] ?? [];
+      const nextSegments = storedSegments.filter((_, index) => index !== segmentIndex);
+      updateSectionSegments(sectionIndex, nextSegments.length ? nextSegments : null);
+    },
+    [sectionSegmentsMap, updateSectionSegments]
+  );
+  const buildGranularitySegments = useCallback((totalKm: number, granularityKm: number) => {
+    if (!Number.isFinite(totalKm) || totalKm <= 0) return [];
+    const safeGranularity = Number.isFinite(granularityKm) && granularityKm > 0 ? granularityKm : totalKm;
+    const segments: SectionSegment[] = [];
+    let remaining = totalKm;
+    while (remaining > 0) {
+      const segmentKm = Math.min(safeGranularity, remaining);
+      segments.push({ segmentKm: Number(segmentKm.toFixed(3)) });
+      remaining = Number((remaining - segmentKm).toFixed(3));
+      if (segments.length > 500) break;
+    }
+    return segments;
+  }, []);
+  const splitSectionSegments = useCallback(
+    (segmentsToSplit: SectionSegment[], splitKm: number, label?: string) => {
+      if (segmentsToSplit.length === 0) return [];
+      if (!Number.isFinite(splitKm) || splitKm <= 0) return segmentsToSplit;
+      const totalKm = segmentsToSplit.reduce((sum, segment) => sum + segment.segmentKm, 0);
+      if (splitKm >= totalKm) return segmentsToSplit;
+
+      let remaining = splitKm;
+      const result: SectionSegment[] = [];
+
+      segmentsToSplit.forEach((segment, index) => {
+        if (remaining <= 0) {
+          result.push(segment);
+          return;
+        }
+
+        if (remaining < segment.segmentKm) {
+          const firstKm = Number(remaining.toFixed(3));
+          const secondKm = Number((segment.segmentKm - firstKm).toFixed(3));
+          if (firstKm > 0) {
+            result.push({ ...segment, segmentKm: firstKm });
+          }
+          if (secondKm > 0) {
+            result.push({
+              ...segment,
+              segmentKm: secondKm,
+              ...(label ? { label } : {}),
+            });
+          }
+          remaining = 0;
+          return;
+        }
+
+        result.push(segment);
+        remaining = Number((remaining - segment.segmentKm).toFixed(3));
+        if (remaining === 0 && index < segmentsToSplit.length - 1) {
+          return;
+        }
+      });
+
+      return result;
+    },
+    []
+  );
+  const handleAutoSegmentConfirm = useCallback(
+    (granularityKm: number) => {
+      if (!segmentModalState || segmentModalState.type !== "auto") return;
+      const totalKm = Math.max(0, segmentModalState.endDistanceKm - segmentModalState.startDistanceKm);
+      if (!Number.isFinite(totalKm) || totalKm <= 0) {
+        setSegmentModalState(null);
+        return;
+      }
+
+      const presetByGranularity: Record<number, SegmentPreset> = {
+        1: "grossier",
+        0.5: "moyen",
+        0.25: "fin",
+      };
+      const preset = presetByGranularity[granularityKm] ?? "moyen";
+      const samples = buildSectionSamples(segmentModalState.startDistanceKm, segmentModalState.endDistanceKm);
+      const autoSegments =
+        samples.length > 1 ? autoSegmentSection(samples, preset) : [];
+      const fallbackSegments = autoSegments.length > 0 ? autoSegments : buildGranularitySegments(totalKm, granularityKm);
+      const normalized = normalizeSectionSegments(fallbackSegments, totalKm);
+
+      if (normalized.length > 0) {
+        updateSectionSegments(segmentModalState.sectionIndex, normalized);
+      }
+      setSegmentModalState(null);
+    },
+    [
+      buildGranularitySegments,
+      buildSectionSamples,
+      normalizeSectionSegments,
+      segmentModalState,
+      updateSectionSegments,
+    ]
+  );
+  const handleAddMarkerConfirm = useCallback(
+    (payload: { distanceKm: number; type: string; label: string }) => {
+      if (!segmentModalState || segmentModalState.type !== "marker") return;
+      const totalKm = Math.max(0, segmentModalState.endDistanceKm - segmentModalState.startDistanceKm);
+      if (!Number.isFinite(totalKm) || totalKm <= 0) {
+        setSegmentModalState(null);
+        return;
+      }
+
+      const splitKm = clampNumber(payload.distanceKm, 0, totalKm);
+      if (splitKm <= 0 || splitKm >= totalKm) {
+        setSegmentModalState(null);
+        return;
+      }
+
+      const sectionKey = buildSectionKey(segmentModalState.sectionIndex);
+      const currentSegments = normalizeSectionSegments(
+        sectionSegmentsMap[sectionKey] ?? [{ segmentKm: totalKm }],
+        totalKm
+      );
+      const trimmedLabel = payload.label.trim();
+      const markerLabel = trimmedLabel || payload.type || "custom";
+      const updated = splitSectionSegments(currentSegments, splitKm, markerLabel);
+      updateSectionSegments(segmentModalState.sectionIndex, normalizeSectionSegments(updated, totalKm));
+      setSegmentModalState(null);
+    },
+    [
+      normalizeSectionSegments,
+      sectionSegmentsMap,
+      segmentModalState,
+      splitSectionSegments,
+      updateSectionSegments,
+    ]
+  );
+  const handleEditSubSectionConfirm = useCallback(
+    (payload: { segmentKm: number; label: string }) => {
+      if (!segmentModalState || segmentModalState.type !== "edit") return;
+      const sectionKey = buildSectionKey(segmentModalState.sectionIndex);
+      const currentSegments = sectionSegmentsMap[sectionKey];
+      if (!currentSegments || !currentSegments[segmentModalState.segmentIndex]) {
+        setSegmentModalState(null);
+        return;
+      }
+      const clampedKm = clampNumber(payload.segmentKm, 0.01, segmentModalState.totalKm);
+      const nextSegments = currentSegments.map((segment, index) =>
+        index === segmentModalState.segmentIndex
+          ? {
+              ...segment,
+              segmentKm: clampedKm,
+              label: payload.label.trim() || undefined,
+            }
+          : segment
+      );
+      updateSectionSegments(
+        segmentModalState.sectionIndex,
+        normalizeSectionSegments(nextSegments, segmentModalState.totalKm)
+      );
+      setSegmentModalState(null);
+    },
+    [normalizeSectionSegments, sectionSegmentsMap, segmentModalState, updateSectionSegments]
+  );
   useEffect(() => {
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
   }, [favoriteProducts]);
@@ -1449,65 +1969,61 @@ export function ActionPlan({
                   ) : null;
 
                 const sectionSegment = nextSegment;
+                const upcomingSegmentIndex =
+                  typeof item.upcomingSegmentIndex === "number" && item.upcomingSegmentIndex >= 0
+                    ? item.upcomingSegmentIndex
+                    : null;
+                const sectionKey = upcomingSegmentIndex !== null ? buildSectionKey(upcomingSegmentIndex) : null;
+                const storedSectionSegments = sectionKey ? sectionSegmentsMap[sectionKey] ?? null : null;
+                const resolvedSectionSegments =
+                  sectionSegment && sectionKey
+                    ? normalizeSectionSegments(
+                        storedSectionSegments ?? [{ segmentKm: sectionSegment.segmentKm }],
+                        sectionSegment.segmentKm
+                      )
+                    : [];
+                const hasStoredSubSections = Boolean(storedSectionSegments && storedSectionSegments.length > 0);
+                const sectionStats =
+                  sectionSegment && resolvedSectionSegments.length > 0
+                    ? recomputeSectionFromSubSections({
+                        segments: resolvedSectionSegments,
+                        startDistanceKm: sectionSegment.startDistanceKm,
+                        elevationProfile: sortedElevationProfile,
+                        paceModel,
+                      })
+                    : null;
+                const sectionTotals = hasStoredSubSections && sectionStats ? sectionStats.totals : null;
+                const sectionSummaryDistanceKm = sectionTotals?.distanceKm ?? sectionSegment?.segmentKm ?? 0;
+                const sectionSummaryMinutes =
+                  sectionTotals?.etaSeconds !== undefined
+                    ? sectionTotals.etaSeconds / 60
+                    : sectionSegment?.segmentMinutes ?? 0;
+                const sectionSummaryGain = sectionTotals?.dPlus ?? sectionSegment?.elevationGainM ?? 0;
+                const sectionSummaryLoss = sectionTotals?.dMinus ?? sectionSegment?.elevationLossM ?? 0;
                 const plannedFuel = summarized?.totals.carbs ?? 0;
                 const plannedSodium = summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
                 const paceAdjustmentFieldName = sectionSegment
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
                   : null;
-                const adjustmentStep = 0.25;
                 const basePaceMinutesPerKm =
-                  sectionSegment && sectionSegment.segmentKm > 0
-                    ? sectionSegment.estimatedSegmentMinutes / sectionSegment.segmentKm
-                    : 0;
-                const paceMinutesPerKm =
-                  basePaceMinutesPerKm + (sectionSegment?.paceAdjustmentMinutesPerKm ?? 0);
+                  sectionTotals && sectionTotals.distanceKm > 0
+                    ? sectionTotals.etaSeconds / 60 / sectionTotals.distanceKm
+                    : sectionSegment && sectionSegment.segmentKm > 0
+                      ? sectionSegment.estimatedSegmentMinutes / sectionSegment.segmentKm
+                      : 0;
+                const isPaceAdjustmentDisabled = hasStoredSubSections;
+                const paceAdjustmentTooltip = isPaceAdjustmentDisabled ? segmentCopy.paceAdjustmentDisabled : undefined;
                 const paceAdjustmentControl =
-                  sectionSegment && paceAdjustmentFieldName ? (
-                    <div className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50">
-                      <input
-                        type="hidden"
-                        {...register(paceAdjustmentFieldName, {
-                          setValueAs: parseOptionalNumber,
-                        })}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
-                        onClick={() => {
-                          const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
-                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
-                          setValue(paceAdjustmentFieldName, nextValue, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          });
-                        }}
-                      >
-                        –
-                      </Button>
-                      <div className="flex items-baseline gap-1 px-1">
-                        <span className="text-[13px] font-semibold text-foreground tabular-nums dark:text-slate-50">
-                          {formatPaceValue(paceMinutesPerKm)}
-                        </span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground dark:text-slate-200 dark:hover:text-white"
-                        onClick={() => {
-                          const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
-                          const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
-                          setValue(paceAdjustmentFieldName, nextValue, {
-                            shouldDirty: true,
-                            shouldTouch: true,
-                          });
-                        }}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  ) : null;
+                  sectionSegment && paceAdjustmentFieldName
+                    ? renderPaceAdjustmentControl({
+                        basePaceMinutesPerKm,
+                        paceAdjustmentMinutesPerKm: sectionSegment?.paceAdjustmentMinutesPerKm,
+                        fieldName: paceAdjustmentFieldName,
+                        isDisabled: isPaceAdjustmentDisabled,
+                        tooltip: paceAdjustmentTooltip,
+                      })
+                    : null;
                 const metrics = sectionSegment
                   ? [
                       {
@@ -1589,13 +2105,13 @@ export function ActionPlan({
                 });
 
                 const segmentCard =
-                  sectionSegment && inlineMetrics.length > 0 ? (
+                  sectionSegment ? (
                     <SegmentCard
-                      variant="compactChip"
-                      distanceText={`${sectionSegment.segmentKm.toFixed(1)} km`}
-                      timeText={formatMinutes(sectionSegment.segmentMinutes)}
-                      elevationGainText={`${Math.round(sectionSegment.elevationGainM ?? 0)} D+`}
-                      elevationLossText={`${Math.round(sectionSegment.elevationLossM ?? 0)} D-`}
+                      variant="compact"
+                      distanceText={`${sectionSummaryDistanceKm.toFixed(1)} km`}
+                      timeText={formatMinutes(sectionSummaryMinutes)}
+                      elevationGainText={`${Math.round(sectionSummaryGain)} D+`}
+                      elevationLossText={`${Math.round(sectionSummaryLoss)} D-`}
                       paceControl={paceAdjustmentControl}
                     />
                   ) : null;
@@ -1610,9 +2126,186 @@ export function ActionPlan({
                   />
                 ));
 
-                const sectionContent =
-                  sectionSegment && inlineMetrics.length > 0 && segmentCard ? (
-                    <SectionRow segment={segmentCard} nutritionCards={nutritionCards} />
+                const segmentLabelLookup = {
+                  climb: segmentCopy.markerTypes.climb,
+                  descent: segmentCopy.markerTypes.descent,
+                  flat: segmentCopy.markerTypes.flat,
+                  custom: segmentCopy.markerTypes.custom,
+                };
+                const canSplitSection = (item.isStart || isAidStation) && sectionSegment;
+                const segmentListItems =
+                  canSplitSection
+                    ? (() => {
+                        let runningStartKm = sectionSegment.startDistanceKm;
+                        const hasBasePace =
+                          typeof baseMinutesPerKm === "number" &&
+                          Number.isFinite(baseMinutesPerKm) &&
+                          baseMinutesPerKm > 0;
+                        const fallbackPaceControl = !hasStoredSubSections ? paceAdjustmentControl : null;
+                        return resolvedSectionSegments.map((segment, index) => {
+                          const stats = sectionStats?.segmentStats[index];
+                          const rawLabel = segment.label?.trim();
+                          const resolvedLabel =
+                            rawLabel && rawLabel in segmentLabelLookup
+                              ? segmentLabelLookup[rawLabel as keyof typeof segmentLabelLookup]
+                              : rawLabel ||
+                                timelineCopy.segmentLabel.replace(
+                                  "{distance}",
+                                  (stats?.distKm ?? segment.segmentKm).toFixed(1)
+                                );
+                          const startDistanceKm = runningStartKm;
+                          const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
+                          runningStartKm = endDistanceKm;
+                          const segmentPaceFieldName = sectionKey
+                            ? (`sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm` as Path<FormValues>)
+                            : null;
+                          const paceControl =
+                            fallbackPaceControl ??
+                            (hasBasePace && segmentPaceFieldName
+                              ? renderPaceAdjustmentControl({
+                                  basePaceMinutesPerKm: baseMinutesPerKm as number,
+                                  paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm,
+                                  fieldName: segmentPaceFieldName,
+                                  isDisabled: false,
+                                })
+                              : null);
+                          return {
+                            id: `${item.id}-segment-${index}`,
+                            label: resolvedLabel,
+                            distanceKm: stats?.distKm ?? segment.segmentKm,
+                            elevationGainM: stats?.dPlus ?? 0,
+                            elevationLossM: stats?.dMinus ?? 0,
+                            etaMinutes: (stats?.etaSeconds ?? 0) / 60,
+                            paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm,
+                            paceControl,
+                            segmentIndex: index,
+                            startDistanceKm,
+                            endDistanceKm,
+                          };
+                        });
+                      })()
+                    : [];
+                const segmentToggleKey = item.isStart ? "start" : isAidStation ? String(item.aidStationIndex) : null;
+                const isSegmentsExpanded =
+                  segmentToggleKey && segmentListItems.length > 0 ? Boolean(expandedSegments[segmentToggleKey]) : false;
+                const segmentToggleLabel = isSegmentsExpanded ? segmentCopy.toggle.hide : segmentCopy.toggle.show;
+                const markerTitlePrefix = segmentCopy.actions.addMarker.replace(/^\+\s*/, "");
+                const autoSegmentTitlePrefix = segmentCopy.actions.autoSegment;
+                const segmentToggleButton =
+                  segmentToggleKey && segmentListItems.length > 0 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                      onClick={() =>
+                        setExpandedSegments((prev) => ({
+                          ...prev,
+                          [segmentToggleKey]: !isSegmentsExpanded,
+                        }))
+                      }
+                    >
+                      {segmentToggleLabel}
+                    </Button>
+                  ) : null;
+                const segmentActions =
+                  isSegmentsExpanded && segmentListItems.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 rounded-full px-3 text-xs"
+                        onClick={() =>
+                          setSegmentModalState({
+                            type: "marker",
+                            aidStationIndex: item.isStart ? null : (item.aidStationIndex as number),
+                            sectionIndex: upcomingSegmentIndex as number,
+                            startDistanceKm: sectionSegment?.startDistanceKm ?? 0,
+                            endDistanceKm: sectionSegment?.distanceKm ?? 0,
+                            title: `${markerTitlePrefix} · ${item.title}`,
+                          })
+                        }
+                      >
+                        {segmentCopy.actions.addMarker}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 rounded-full px-3 text-xs"
+                        onClick={() =>
+                          setSegmentModalState({
+                            type: "auto",
+                            aidStationIndex: item.isStart ? null : (item.aidStationIndex as number),
+                            sectionIndex: upcomingSegmentIndex as number,
+                            startDistanceKm: sectionSegment?.startDistanceKm ?? 0,
+                            endDistanceKm: sectionSegment?.distanceKm ?? 0,
+                            title: `${autoSegmentTitlePrefix} · ${item.title}`,
+                          })
+                        }
+                      >
+                        {segmentCopy.actions.autoSegment}
+                      </Button>
+                    </div>
+                  ) : null;
+                const sectionBlock =
+                  sectionSegment && segmentCard ? (
+                    <BetweenAidStationSection
+                      sectionSummary={segmentCard}
+                      nutritionCards={nutritionCards}
+                      toggleButton={segmentToggleButton}
+                      showSubSections={isSegmentsExpanded && segmentListItems.length > 0}
+                      subSections={
+                        isSegmentsExpanded && segmentListItems.length > 0 ? (
+                          <>
+                            {segmentListItems.map((segment) => (
+                              <SubSectionRow
+                                key={segment.id}
+                                label={segment.label}
+                                distanceKm={segment.distanceKm}
+                                elevationGainM={segment.elevationGainM}
+                                elevationLossM={segment.elevationLossM}
+                                etaMinutes={segment.etaMinutes}
+                                etaLabel={timelineCopy.etaLabel}
+                                formatDistance={formatDistanceWithUnit}
+                                formatMinutes={formatMinutes}
+                                elevationProfile={sortedElevationProfile}
+                                startDistanceKm={segment.startDistanceKm}
+                                endDistanceKm={segment.endDistanceKm}
+                                copy={copy}
+                                baseMinutesPerKm={baseMinutesPerKm}
+                                deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
+                                editLabel={hasStoredSubSections ? segmentCopy.actions.edit : undefined}
+                                paceControl={segment.paceControl}
+                                segmentIndex={segment.segmentIndex}
+                                onDelete={
+                                  hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
+                                    ? (segmentIndex) =>
+                                        handleDeleteSubSection(upcomingSegmentIndex, segmentIndex)
+                                    : undefined
+                                }
+                                onEdit={
+                                  hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
+                                    ? (segmentIndex) => {
+                                        const segmentToEdit = storedSectionSegments?.[segmentIndex];
+                                        if (!segmentToEdit) return;
+                                        setSegmentModalState({
+                                          type: "edit",
+                                          sectionIndex: upcomingSegmentIndex,
+                                          segmentIndex,
+                                          totalKm: sectionSegment.segmentKm,
+                                          segmentKm: segmentToEdit.segmentKm,
+                                          label: segmentToEdit.label ?? "",
+                                          title: `${segmentCopy.actions.edit} · ${item.title}`,
+                                        });
+                                      }
+                                    : undefined
+                                }
+                              />
+                            ))}
+                          </>
+                        ) : null
+                      }
+                      subSectionActions={isSegmentsExpanded && segmentListItems.length > 0 ? segmentActions : null}
+                    />
                   ) : null;
 
                 const removeButton =
@@ -1889,7 +2582,7 @@ export function ActionPlan({
                       {contextComments.length > 0 ? (
                         <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
                       ) : null}
-                      {sectionContent ? <div className="relative">{sectionContent}</div> : null}
+                      {sectionBlock ? <div className="relative">{sectionBlock}</div> : null}
                     </div>
                   </div>
                 );
@@ -1899,6 +2592,30 @@ export function ActionPlan({
         ) : null}
         </CardContent>
       </Card>
+      <AutoSegmentModal
+        open={segmentModalState?.type === "auto"}
+        title={segmentModalState?.type === "auto" ? segmentModalState.title : undefined}
+        copy={segmentCopy}
+        onClose={() => setSegmentModalState(null)}
+        onConfirm={handleAutoSegmentConfirm}
+      />
+      <AddMarkerModal
+        open={segmentModalState?.type === "marker"}
+        title={segmentModalState?.type === "marker" ? segmentModalState.title : undefined}
+        copy={segmentCopy}
+        onClose={() => setSegmentModalState(null)}
+        onConfirm={handleAddMarkerConfirm}
+      />
+      <EditSubSectionModal
+        open={segmentModalState?.type === "edit"}
+        title={segmentModalState?.type === "edit" ? segmentModalState.title : undefined}
+        copy={segmentCopy}
+        initialDistanceKm={segmentModalState?.type === "edit" ? segmentModalState.segmentKm : 0}
+        initialLabel={segmentModalState?.type === "edit" ? segmentModalState.label : ""}
+        maxDistanceKm={segmentModalState?.type === "edit" ? segmentModalState.totalKm : undefined}
+        onClose={() => setSegmentModalState(null)}
+        onConfirm={handleEditSubSectionConfirm}
+      />
       {editorState ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md space-y-4 rounded-2xl border border-border-strong bg-card p-5 shadow-2xl dark:bg-slate-950">

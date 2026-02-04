@@ -12,6 +12,11 @@ export type SegmentPlan = {
   supplies?: StationSupply[];
 };
 
+export type SectionSegment = SegmentPlan & {
+  segmentKm: number;
+  label?: string;
+};
+
 export type AidStation = { name: string; distanceKm: number; waterRefill?: boolean } & SegmentPlan;
 
 export type FormValues = {
@@ -28,6 +33,8 @@ export type FormValues = {
   startSupplies?: StationSupply[];
   aidStations: AidStation[];
   finishPlan?: SegmentPlan;
+  segments?: Record<string, SectionSegment[]>;
+  sectionSegments?: Record<string, SectionSegment[]>;
 };
 
 export type Segment = {

@@ -5,6 +5,7 @@ import {
   sanitizeAidStations,
   sanitizeElevationProfile,
   sanitizePlannerValues,
+  sanitizeSectionSegments,
   sanitizeSegmentPlan,
 } from "./plan-sanitizers";
 
@@ -65,7 +66,11 @@ export function buildPlannerGpx(values: FormValues, elevationProfile: ElevationP
   const safeFinishPlan = sanitizeSegmentPlan(values.finishPlan);
   const distanceKm = Number.isFinite(values.raceDistanceKm) ? values.raceDistanceKm : 0;
   const profile = elevationProfile.length > 0 ? elevationProfile : buildFlatElevationProfile(distanceKm);
-  const plannerState = encodePlannerState({ ...values, aidStations: safeAidStations, finishPlan: safeFinishPlan }, profile);
+  const safeSectionSegments = sanitizeSectionSegments(values.segments ?? values.sectionSegments);
+  const plannerState = encodePlannerState(
+    { ...values, aidStations: safeAidStations, finishPlan: safeFinishPlan, sectionSegments: safeSectionSegments },
+    profile
+  );
 
   const escapeXml = (text: string) => text.replace(/[&<>"']/g, (char) => {
     switch (char) {
