@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
 import type { ReactNode, SVGProps } from "react";
-import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
+import type { Path, UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../locales/types";
 import type {
@@ -1001,7 +1001,7 @@ export function ActionPlan({
     }: {
       basePaceMinutesPerKm: number;
       paceAdjustmentMinutesPerKm?: number;
-      fieldName: string | null;
+      fieldName: Path<FormValues> | null;
       isDisabled: boolean;
       tooltip?: string;
     }) => {
