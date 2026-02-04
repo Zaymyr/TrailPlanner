@@ -672,44 +672,6 @@ type SubSectionRowProps = {
   onDelete?: (segmentIndex: number) => void;
 };
 
-type SubSectionSummaryProps = {
-  label: string;
-  distanceKm: number;
-  elevationGainM?: number | null;
-  elevationLossM?: number | null;
-  etaMinutes: number;
-  etaLabel: string;
-  formatDistance: (value: number) => string;
-  formatMinutes: (value: number) => string;
-};
-
-function SubSectionSummary({
-  label,
-  distanceKm,
-  elevationGainM,
-  elevationLossM,
-  etaMinutes,
-  etaLabel,
-  formatDistance,
-  formatMinutes,
-}: SubSectionSummaryProps) {
-  return (
-    <div className="flex min-w-[200px] flex-1 flex-wrap items-center justify-between gap-3">
-      <div className="space-y-0.5">
-        <p className="text-sm font-semibold text-foreground dark:text-slate-50">{label}</p>
-        <p className="text-[11px] text-muted-foreground">{formatDistance(distanceKm)}</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-4 text-[11px] text-muted-foreground">
-        <span>{`D+ ${Math.round(elevationGainM ?? 0)}`}</span>
-        <span>{`D- ${Math.round(elevationLossM ?? 0)}`}</span>
-        <span>
-          {etaLabel}: {formatMinutes(etaMinutes)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function SubSectionRow({
   label,
   distanceKm,
@@ -730,44 +692,42 @@ function SubSectionRow({
   const canDelete = onDelete && typeof segmentIndex === "number";
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/40 px-3 py-2 text-sm text-foreground shadow-sm dark:bg-slate-900/40">
-      <div className="flex min-w-[120px] items-center gap-3">
-        <div className="h-[72px] w-[120px] shrink-0 overflow-hidden rounded-lg border border-border bg-background p-1 shadow-sm dark:bg-slate-950/70">
-          <div className="origin-top-left scale-[0.4]">
-            <ElevationSectionChart
-              profile={chartProfile}
-              totalDistanceKm={chartDistanceKm}
-              copy={copy}
-              baseMinutesPerKm={baseMinutesPerKm}
-            />
+    <Card className="border-border/40 bg-muted/40 shadow-sm dark:bg-slate-900/40">
+      <CardContent className="grid gap-4 p-3 text-sm text-foreground md:grid-cols-[260px_1fr]">
+        <div className="space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground dark:text-slate-50">{label}</p>
+            {canDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-7 px-2 text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-200 dark:hover:text-rose-100"
+                onClick={() => onDelete(segmentIndex as number)}
+                aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+                title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+              >
+                {deleteLabel ?? "Supprimer"}
+              </Button>
+            ) : null}
           </div>
+          <SegmentCard
+            variant="compact"
+            distanceText={formatDistance(distanceKm)}
+            timeText={`${etaLabel}: ${formatMinutes(etaMinutes)}`}
+            elevationGainText={`D+ ${Math.round(elevationGainM ?? 0)}`}
+            elevationLossText={`D- ${Math.round(elevationLossM ?? 0)}`}
+          />
         </div>
-      </div>
-      <div className="flex flex-1 flex-wrap items-center justify-between gap-3">
-        <SubSectionSummary
-          label={label}
-          distanceKm={distanceKm}
-          elevationGainM={elevationGainM}
-          elevationLossM={elevationLossM}
-          etaMinutes={etaMinutes}
-          etaLabel={etaLabel}
-          formatDistance={formatDistance}
-          formatMinutes={formatMinutes}
-        />
-        {canDelete ? (
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-7 px-2 text-[11px] font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-200 dark:hover:text-rose-100"
-            onClick={() => onDelete(segmentIndex as number)}
-            aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
-            title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
-          >
-            {deleteLabel ?? "Supprimer"}
-          </Button>
-        ) : null}
-      </div>
-    </div>
+        <div className="rounded-lg border border-border bg-background p-2 shadow-sm dark:bg-slate-950/70">
+          <ElevationSectionChart
+            profile={chartProfile}
+            totalDistanceKm={chartDistanceKm}
+            copy={copy}
+            baseMinutesPerKm={baseMinutesPerKm}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
