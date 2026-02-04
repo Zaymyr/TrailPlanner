@@ -17,6 +17,7 @@ import type {
 import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
 import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
+import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
 import { ElevationSectionChart } from "../../app/(coach)/race-planner/components/ElevationSectionChart";
 import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
@@ -915,38 +916,9 @@ export function ActionPlan({
   const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
   const pickerFavoriteSet = useMemo(() => new Set(pickerFavorites), [pickerFavorites]);
   const sectionSegmentsMap = useMemo(() => sectionSegments ?? {}, [sectionSegments]);
-  const getElevationAtDistance = useCallback(
-    (distanceKm: number) => {
-      if (sortedElevationProfile.length === 0) return 0;
-      if (distanceKm <= sortedElevationProfile[0].distanceKm) return sortedElevationProfile[0].elevationM;
-      const last = sortedElevationProfile[sortedElevationProfile.length - 1];
-      if (!last || distanceKm >= last.distanceKm) return last?.elevationM ?? 0;
-      const nextIndex = sortedElevationProfile.findIndex((point) => point.distanceKm >= distanceKm);
-      if (nextIndex <= 0) return sortedElevationProfile[0].elevationM;
-      const prevPoint = sortedElevationProfile[nextIndex - 1];
-      const nextPoint = sortedElevationProfile[nextIndex] ?? prevPoint;
-      const ratio =
-        nextPoint.distanceKm === prevPoint.distanceKm
-          ? 0
-          : (distanceKm - prevPoint.distanceKm) / (nextPoint.distanceKm - prevPoint.distanceKm);
-      return prevPoint.elevationM + (nextPoint.elevationM - prevPoint.elevationM) * ratio;
-    },
-    [sortedElevationProfile]
-  );
   const buildSectionSamples = useCallback(
-    (startKm: number, endKm: number) => {
-      if (sortedElevationProfile.length === 0) return [];
-      const sorted = sortedElevationProfile;
-      const clampedStart = Math.min(startKm, endKm);
-      const clampedEnd = Math.max(startKm, endKm);
-      const points = [
-        { distanceKm: clampedStart, elevationM: getElevationAtDistance(clampedStart) },
-        ...sorted.filter((point) => point.distanceKm > clampedStart && point.distanceKm < clampedEnd),
-        { distanceKm: clampedEnd, elevationM: getElevationAtDistance(clampedEnd) },
-      ];
-      return points.sort((a, b) => a.distanceKm - b.distanceKm);
-    },
-    [getElevationAtDistance, sortedElevationProfile]
+    (startKm: number, endKm: number) => getElevationSlice(sortedElevationProfile, startKm, endKm),
+    [sortedElevationProfile]
   );
   const normalizeSectionSegments = useCallback((segmentsToNormalize: SectionSegment[], totalKm: number) => {
     if (!segmentsToNormalize.length) return [];
@@ -1984,7 +1956,11 @@ export function ActionPlan({
                           const startDistanceKm = runningStartKm;
                           const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
                           runningStartKm = endDistanceKm;
-                          const chartProfile = buildSectionSamples(startDistanceKm, endDistanceKm).map((point) => ({
+                          const chartProfile = getElevationSlice(
+                            sortedElevationProfile,
+                            startDistanceKm,
+                            endDistanceKm
+                          ).map((point) => ({
                             distanceKm: Number((point.distanceKm - startDistanceKm).toFixed(3)),
                             elevationM: point.elevationM,
                           }));
