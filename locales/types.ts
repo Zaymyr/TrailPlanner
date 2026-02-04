@@ -131,6 +131,7 @@ export type RacePlannerTranslations = {
       title: string;
       description: string;
       empty: string;
+      sectionEmpty: string;
       axisLabel: string;
       ariaLabel: string;
       speedLabel: string;
@@ -358,6 +359,7 @@ export type RacePlannerTranslations = {
     actions: {
       addMarker: string;
       autoSegment: string;
+      delete: string;
     };
     granularity: {
       coarse: string;
@@ -370,6 +372,7 @@ export type RacePlannerTranslations = {
       flat: string;
       custom: string;
     };
+    paceAdjustmentDisabled: string;
   };
   buttons: {
     importGpx: string;
