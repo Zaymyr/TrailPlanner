@@ -360,6 +360,16 @@ export type RacePlannerTranslations = {
       addMarker: string;
       autoSegment: string;
       delete: string;
+      edit: string;
+    };
+    editModal: {
+      title: string;
+      description: string;
+      distanceLabel: string;
+      labelLabel: string;
+      labelPlaceholder: string;
+      cancel: string;
+      save: string;
     };
     granularity: {
       coarse: string;

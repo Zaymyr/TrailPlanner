@@ -33,6 +33,7 @@ import { Label } from "../ui/label";
 import { AidStationBadge } from "./AidStationBadge";
 import { AddMarkerModal } from "./AddMarkerModal";
 import { AutoSegmentModal } from "./AutoSegmentModal";
+import { EditSubSectionModal } from "./EditSubSectionModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
 import {
@@ -67,6 +68,22 @@ const Trash2 = (props: SVGProps<SVGSVGElement>) => (
     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
     <path d="M10 11v6" />
     <path d="M14 11v6" />
+  </svg>
+);
+
+const Pencil = (props: SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M17 3a2.8 2.8 0 1 1 4 4L7 21H3v-4L17 3z" />
+    <path d="M16 5l3 3" />
   </svg>
 );
 
@@ -688,9 +705,11 @@ type SubSectionRowProps = {
   copy: RacePlannerTranslations;
   baseMinutesPerKm: number | null;
   deleteLabel?: string;
+  editLabel?: string;
   paceControl?: ReactNode;
   segmentIndex?: number;
   onDelete?: (segmentIndex: number) => void;
+  onEdit?: (segmentIndex: number) => void;
 };
 
 function SubSectionRow({
@@ -708,11 +727,14 @@ function SubSectionRow({
   copy,
   baseMinutesPerKm,
   deleteLabel,
+  editLabel,
   paceControl,
   segmentIndex,
   onDelete,
+  onEdit,
 }: SubSectionRowProps) {
   const canDelete = onDelete && typeof segmentIndex === "number";
+  const canEdit = onEdit && typeof segmentIndex === "number";
   const handleDelete = useCallback(() => {
     if (!canDelete) return;
     const confirmMessage = deleteLabel ? `${deleteLabel}?` : "Supprimer ce segment ?";
@@ -721,6 +743,10 @@ function SubSectionRow({
     }
     onDelete(segmentIndex as number);
   }, [canDelete, deleteLabel, onDelete, segmentIndex]);
+  const handleEdit = useCallback(() => {
+    if (!canEdit) return;
+    onEdit(segmentIndex as number);
+  }, [canEdit, onEdit, segmentIndex]);
 
   return (
     <Card className="border-border/40 bg-muted/40 shadow-sm dark:bg-slate-900/40">
@@ -728,18 +754,32 @@ function SubSectionRow({
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-semibold text-foreground dark:text-slate-50">{label}</p>
-            {canDelete ? (
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-8 w-8 rounded-full border border-rose-200 bg-rose-50 p-0 text-rose-700 shadow-sm hover:bg-rose-100 hover:text-rose-800 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-100 dark:hover:bg-rose-500/20"
-                onClick={handleDelete}
-                aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
-                title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {canEdit ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full border border-border bg-background p-0 text-foreground shadow-sm hover:bg-muted dark:bg-slate-950/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
+                  onClick={handleEdit}
+                  aria-label={editLabel ? `${editLabel} ${label}` : undefined}
+                  title={editLabel ? `${editLabel} ${label}` : undefined}
+                >
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              ) : null}
+              {canDelete ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-8 w-8 rounded-full border border-rose-200 bg-rose-50 p-0 text-rose-700 shadow-sm hover:bg-rose-100 hover:text-rose-800 dark:border-rose-500/50 dark:bg-rose-500/10 dark:text-rose-100 dark:hover:bg-rose-500/20"
+                  onClick={handleDelete}
+                  aria-label={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+                  title={deleteLabel ? `${deleteLabel} ${label}` : undefined}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              ) : null}
+            </div>
           </div>
           <SegmentCard
             variant="compact"
@@ -947,6 +987,15 @@ export function ActionPlan({
         sectionIndex: number;
         startDistanceKm: number;
         endDistanceKm: number;
+        title: string;
+      }
+    | {
+        type: "edit";
+        sectionIndex: number;
+        segmentIndex: number;
+        totalKm: number;
+        segmentKm: number;
+        label: string;
         title: string;
       }
   >(null);
@@ -1250,6 +1299,33 @@ export function ActionPlan({
       splitSectionSegments,
       updateSectionSegments,
     ]
+  );
+  const handleEditSubSectionConfirm = useCallback(
+    (payload: { segmentKm: number; label: string }) => {
+      if (!segmentModalState || segmentModalState.type !== "edit") return;
+      const sectionKey = buildSectionKey(segmentModalState.sectionIndex);
+      const currentSegments = sectionSegmentsMap[sectionKey];
+      if (!currentSegments || !currentSegments[segmentModalState.segmentIndex]) {
+        setSegmentModalState(null);
+        return;
+      }
+      const clampedKm = clampNumber(payload.segmentKm, 0.01, segmentModalState.totalKm);
+      const nextSegments = currentSegments.map((segment, index) =>
+        index === segmentModalState.segmentIndex
+          ? {
+              ...segment,
+              segmentKm: clampedKm,
+              label: payload.label.trim() || undefined,
+            }
+          : segment
+      );
+      updateSectionSegments(
+        segmentModalState.sectionIndex,
+        normalizeSectionSegments(nextSegments, segmentModalState.totalKm)
+      );
+      setSegmentModalState(null);
+    },
+    [normalizeSectionSegments, sectionSegmentsMap, segmentModalState, updateSectionSegments]
   );
   useEffect(() => {
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
@@ -2197,12 +2273,30 @@ export function ActionPlan({
                                 copy={copy}
                                 baseMinutesPerKm={baseMinutesPerKm}
                                 deleteLabel={hasStoredSubSections ? segmentCopy.actions.delete : undefined}
+                                editLabel={hasStoredSubSections ? segmentCopy.actions.edit : undefined}
                                 paceControl={segment.paceControl}
                                 segmentIndex={segment.segmentIndex}
                                 onDelete={
                                   hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
                                     ? (segmentIndex) =>
                                         handleDeleteSubSection(upcomingSegmentIndex, segmentIndex)
+                                    : undefined
+                                }
+                                onEdit={
+                                  hasStoredSubSections && typeof upcomingSegmentIndex === "number" && sectionSegment
+                                    ? (segmentIndex) => {
+                                        const segmentToEdit = storedSectionSegments?.[segmentIndex];
+                                        if (!segmentToEdit) return;
+                                        setSegmentModalState({
+                                          type: "edit",
+                                          sectionIndex: upcomingSegmentIndex,
+                                          segmentIndex,
+                                          totalKm: sectionSegment.segmentKm,
+                                          segmentKm: segmentToEdit.segmentKm,
+                                          label: segmentToEdit.label ?? "",
+                                          title: `${segmentCopy.actions.edit} · ${item.title}`,
+                                        });
+                                      }
                                     : undefined
                                 }
                               />
@@ -2511,6 +2605,16 @@ export function ActionPlan({
         copy={segmentCopy}
         onClose={() => setSegmentModalState(null)}
         onConfirm={handleAddMarkerConfirm}
+      />
+      <EditSubSectionModal
+        open={segmentModalState?.type === "edit"}
+        title={segmentModalState?.type === "edit" ? segmentModalState.title : undefined}
+        copy={segmentCopy}
+        initialDistanceKm={segmentModalState?.type === "edit" ? segmentModalState.segmentKm : 0}
+        initialLabel={segmentModalState?.type === "edit" ? segmentModalState.label : ""}
+        maxDistanceKm={segmentModalState?.type === "edit" ? segmentModalState.totalKm : undefined}
+        onClose={() => setSegmentModalState(null)}
+        onConfirm={handleEditSubSectionConfirm}
       />
       {editorState ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
