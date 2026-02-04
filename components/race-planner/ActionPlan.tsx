@@ -17,6 +17,7 @@ import type {
 import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
 import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
+import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
 import { SubSectionElevationChart } from "../../app/(coach)/race-planner/components/SubSectionElevationChart";
 import type { CoachComment } from "../../lib/coach-comments";
 import type { FuelProduct } from "../../lib/product-types";
