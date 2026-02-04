@@ -2077,7 +2077,7 @@ export function ActionPlan({
                           const endDistanceKm = Number((startDistanceKm + segment.segmentKm).toFixed(3));
                           runningStartKm = endDistanceKm;
                           const segmentPaceFieldName = sectionKey
-                            ? `sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm`
+                            ? (`sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm` as Path<FormValues>)
                             : null;
                           const paceControl =
                             hasBasePace && segmentPaceFieldName
