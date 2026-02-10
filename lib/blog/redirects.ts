@@ -11,6 +11,8 @@ export const blogSlugRedirects = {
   "60g-par-heure": "60g-glucide-par-heure",
   "quoi-manger-trail-50k": "nutrition-trail-30-50-km",
   "trail-des-templier": "trail-des-templiers",
+  "soduim-heure": "sodium-par-heure",
+  "probl-mes-digestifs-ultra": "problemes-digestifs-ultra",
 } as const;
 
 export const getCanonicalBlogSlug = (slug: string): string =>
