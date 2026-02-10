@@ -62,6 +62,28 @@ export const blogIndex: BlogPostIndexEntry[] = [
     level: "beginner",
   },
   {
+    slug: "sodium-par-heure",
+    title: "Faut-il prendre des électrolytes en trail ? Combien de sodium par heure ?",
+    topics: ["trail", "hydration", "electrolytes", "sodium"],
+    level: "intermediate",
+    related: ["hydration-for-trail-running", "quelle-nutrition-pour-un-trail"],
+  },
+  {
+    slug: "problemes-digestifs-ultra",
+    title: "Comment éviter les problèmes digestifs (nausées, diarrhée) en trail et ultra",
+    topics: ["nutrition", "digestion", "trail", "ultra-trail"],
+    level: "intermediate",
+    related: ["quelle-nutrition-pour-un-trail", "sodium-par-heure"],
+  },
+  {
+    slug: "trail-de-nuit-nutrition-cafeine-froid",
+    title: "Trail de nuit : comment gérer nutrition, caféine et froid ?",
+    topics: ["trail", "nutrition", "night-running", "caffeine", "sodium"],
+    level: "advanced",
+    related: ["quelle-nutrition-pour-un-trail", "sodium-par-heure", "problemes-digestifs-ultra"],
+    updatedAt: "2026-02-10T00:00:00.000Z",
+  },
+  {
     slug: "trail-des-templier",
     title: "Trail des Templiers : guide (vraiment utile) pour découvrir une course mythique, technique et chargée d’émotion",
     topics: ["trail", "race", "preparation", "nutrition"],
