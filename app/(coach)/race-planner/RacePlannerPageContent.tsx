@@ -248,7 +248,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { register } = form;
   const searchParams = useSearchParams();
   const printLayout = searchParams?.get("printLayout");
-  const usePrintLayoutV2 = printLayout === "v2";
+  const usePrintLayoutV2 = printLayout !== "classic";
   const [selectedCoacheeId, setSelectedCoacheeId] = useState<string | null>(null);
   const queryPlanIdRef = useRef<string | null>(null);
   const initializedQueryRef = useRef(false);

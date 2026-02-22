@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
+import Link from 'next/link';
 import React from 'react';
 import { compileMDX } from 'next-mdx-remote/rsc';
 import { cache, type ReactElement, type ReactNode } from 'react';
@@ -191,6 +192,7 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
     components: {
       h2: createHeadingComponent('h2', renderingSlugger),
       h3: createHeadingComponent('h3', renderingSlugger),
+      Link,
     },
   });
 
