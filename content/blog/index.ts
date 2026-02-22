@@ -76,6 +76,14 @@ export const blogIndex: BlogPostIndexEntry[] = [
     related: ["quelle-nutrition-pour-un-trail", "sodium-par-heure"],
   },
   {
+    slug: "estimer-temps-trail-dplus",
+    title: "Comment estimer son temps en trail avec D+ (et éviter les plans irréalistes)",
+    topics: ["trail", "pacing", "denivele", "nutrition", "hydration"],
+    level: "beginner",
+    related: ["quelle-nutrition-pour-un-trail", "60g-par-heure", "ravitaillement-trail"],
+    updatedAt: "2026-02-22T00:00:00.000Z",
+  },
+  {
     slug: "trail-de-nuit-nutrition-cafeine-froid",
     title: "Trail de nuit : comment gérer nutrition, caféine et froid ?",
     topics: ["trail", "nutrition", "night-running", "caffeine", "sodium"],
