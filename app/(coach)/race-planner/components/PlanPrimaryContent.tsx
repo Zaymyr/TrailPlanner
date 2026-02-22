@@ -31,7 +31,6 @@ type PlanPrimaryContentProps = {
   elevationProfile: ElevationPoint[];
   baseMinutesPerKm: number | null;
   raceTotals: RaceTotals | null;
-  onPrint: () => void;
   onPrintAssistance: () => void;
   onAutomaticFill: () => void;
   onAddAidStation: (station: { name: string; distanceKm: number }) => void;
@@ -80,7 +79,6 @@ export function PlanPrimaryContent({
   elevationProfile,
   baseMinutesPerKm,
   raceTotals,
-  onPrint,
   onPrintAssistance,
   onAutomaticFill,
   onAddAidStation,
@@ -129,7 +127,6 @@ export function PlanPrimaryContent({
         baseMinutesPerKm={baseMinutesPerKm}
         raceTotals={raceTotals}
         sectionId={sectionIds.timeline}
-        onPrint={onPrint}
         onPrintAssistance={onPrintAssistance}
         onAutomaticFill={onAutomaticFill}
         onAddAidStation={onAddAidStation}

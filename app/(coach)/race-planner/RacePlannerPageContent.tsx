@@ -935,11 +935,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     URL.revokeObjectURL(url);
   };
 
-  const handlePrint = () => {
-    if (typeof window === "undefined") return;
-    window.print();
-  };
-
   const handlePrintAssistance = () => {
     if (typeof window === "undefined") return;
     window.open("/race-planner/print/assistance", "_blank", "noopener,noreferrer");
@@ -1199,7 +1194,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       elevationProfile={elevationProfile}
       baseMinutesPerKm={baseMinutesPerKm}
       raceTotals={raceTotals}
-      onPrint={handlePrint}
       onPrintAssistance={handlePrintAssistance}
       onAutomaticFill={handleAutomaticFill}
       onAddAidStation={handleAddAidStation}

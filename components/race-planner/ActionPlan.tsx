@@ -138,7 +138,6 @@ type ActionPlanProps = {
   baseMinutesPerKm: number | null;
   raceTotals: RaceTotals | null;
   sectionId: string;
-  onPrint: () => void;
   onPrintAssistance: () => void;
   onAutomaticFill: () => void;
   onAddAidStation: (station: { name: string; distanceKm: number }) => void;
@@ -940,7 +939,6 @@ export function ActionPlan({
   baseMinutesPerKm,
   raceTotals,
   sectionId,
-  onPrint,
   onPrintAssistance,
   onAutomaticFill,
   onAddAidStation,
@@ -1742,32 +1740,18 @@ export function ActionPlan({
                 </Button>
               ) : null}
               {segments.length > 0 ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="hidden sm:inline-flex"
-                    onClick={exportLocked ? () => onUpgrade("print") : onPrint}
-                    disabled={exportLocked && isUpgradeBusy}
-                  >
-                    <span className="flex items-center gap-1.5" title={exportLocked ? "Premium feature" : undefined}>
-                      {exportLocked ? <PremiumSparklesIcon aria-hidden /> : null}
-                      <span>{copy.buttons.printPlan} (Runner)</span>
-                    </span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="hidden sm:inline-flex"
-                    onClick={exportLocked ? () => onUpgrade("print") : onPrintAssistance}
-                    disabled={exportLocked && isUpgradeBusy}
-                  >
-                    <span className="flex items-center gap-1.5" title={exportLocked ? "Premium feature" : undefined}>
-                      {exportLocked ? <PremiumSparklesIcon aria-hidden /> : null}
-                      <span>Assistance (condensed)</span>
-                    </span>
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="hidden sm:inline-flex"
+                  onClick={exportLocked ? () => onUpgrade("print") : onPrintAssistance}
+                  disabled={exportLocked && isUpgradeBusy}
+                >
+                  <span className="flex items-center gap-1.5" title={exportLocked ? "Premium feature" : undefined}>
+                    {exportLocked ? <PremiumSparklesIcon aria-hidden /> : null}
+                    <span>{copy.buttons.printPlan}</span>
+                  </span>
+                </Button>
               ) : null}
             </div>
           }
