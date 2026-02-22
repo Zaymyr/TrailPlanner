@@ -940,6 +940,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     window.print();
   };
 
+  const handlePrintAssistance = () => {
+    if (typeof window === "undefined") return;
+    window.open("/race-planner/print/assistance", "_blank", "noopener,noreferrer");
+  };
+
   const handleSubmitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -1195,6 +1200,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       baseMinutesPerKm={baseMinutesPerKm}
       raceTotals={raceTotals}
       onPrint={handlePrint}
+      onPrintAssistance={handlePrintAssistance}
       onAutomaticFill={handleAutomaticFill}
       onAddAidStation={handleAddAidStation}
       onRemoveAidStation={handleRemoveAidStation}

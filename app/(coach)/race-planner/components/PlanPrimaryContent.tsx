@@ -32,6 +32,7 @@ type PlanPrimaryContentProps = {
   baseMinutesPerKm: number | null;
   raceTotals: RaceTotals | null;
   onPrint: () => void;
+  onPrintAssistance: () => void;
   onAutomaticFill: () => void;
   onAddAidStation: (station: { name: string; distanceKm: number }) => void;
   onRemoveAidStation: (index: number) => void;
@@ -80,6 +81,7 @@ export function PlanPrimaryContent({
   baseMinutesPerKm,
   raceTotals,
   onPrint,
+  onPrintAssistance,
   onAutomaticFill,
   onAddAidStation,
   onRemoveAidStation,
@@ -128,6 +130,7 @@ export function PlanPrimaryContent({
         raceTotals={raceTotals}
         sectionId={sectionIds.timeline}
         onPrint={onPrint}
+        onPrintAssistance={onPrintAssistance}
         onAutomaticFill={onAutomaticFill}
         onAddAidStation={onAddAidStation}
         onRemoveAidStation={onRemoveAidStation}
