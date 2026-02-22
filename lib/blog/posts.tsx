@@ -1,10 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { evaluate } from '@mdx-js/mdx';
 import matter from 'gray-matter';
-import Link from 'next/link';
 import React from 'react';
-import { compileMDX } from 'next-mdx-remote/rsc';
 import { cache, type ReactElement, type ReactNode } from 'react';
+import * as runtime from 'react/jsx-runtime';
 
 export const BLOG_DIRECTORY = path.join(process.cwd(), 'content', 'blog');
 const WORDS_PER_MINUTE = 225;
@@ -184,17 +185,10 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
   const headings = extractHeadings(parsed.content, headingSlugger);
   const renderingSlugger = createHeadingSlugger();
 
-  const { content } = await compileMDX({
-    source: parsed.content,
-    options: {
-      parseFrontmatter: false,
-    },
-    components: {
-      h2: createHeadingComponent('h2', renderingSlugger),
-      h3: createHeadingComponent('h3', renderingSlugger),
-      Link,
-    },
-  });
+  const content = await renderMdxContent(parsed.content, {
+    h2: createHeadingComponent('h2', renderingSlugger),
+    h3: createHeadingComponent('h3', renderingSlugger),
+  }, filePath);
 
   const meta: PostMeta = {
     slug,
@@ -211,6 +205,26 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
   };
 
   return { meta, content, body: parsed.content, headings };
+};
+
+const patchMdxImports = (source: string): string =>
+  source
+    .replace(/import\s+Link\s+from\s+['"]next\/link(?:\.js)?['"];?\n?/g, '')
+    .replace(/<\/?Link\b/g, (match) => match.replace('Link', 'a'));
+
+const renderMdxContent = async (
+  source: string,
+  components: Record<string, React.ComponentType<any>>,
+  filePath: string,
+): Promise<ReactElement> => {
+  const evaluated = (await evaluate(patchMdxImports(source), {
+    ...runtime,
+    baseUrl: pathToFileURL(filePath),
+    useMDXComponents: () => components,
+  })) as { default: React.ComponentType<{ components?: typeof components }> };
+  const Content = evaluated.default;
+
+  return <Content components={components} />;
 };
 
 const sanitizeTags = (tags?: unknown): string[] => {
