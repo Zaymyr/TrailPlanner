@@ -81,7 +81,7 @@ export default function RootLayout({
               <SessionExpiredDialog />
               <TrialWelcomeDialog />
               <TrialExpiredNotice />
-              <div className="flex w-full flex-col gap-8 px-6 py-10">
+              <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 lg:gap-8 lg:py-10">
                 <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3">
                     <HeaderMenu />
@@ -93,7 +93,7 @@ export default function RootLayout({
                           width={220}
                           height={44}
                           priority
-                          className="h-15 w-auto"
+                          className="h-10 w-auto sm:h-15"
                         />
                       </Link>
                       <p className="text-sm text-muted-foreground">

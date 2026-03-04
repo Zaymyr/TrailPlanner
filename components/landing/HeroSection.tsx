@@ -47,7 +47,7 @@ export function HeroSection({ hero }: HeroSectionProps) {
   const [heroSrc, setHeroSrc] = useState("/landing/hero.png");
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/80 to-background p-8 shadow-2xl sm:p-12">
+    <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/80 to-background p-4 shadow-2xl sm:p-8 lg:p-12">
       <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-emerald-500/10 blur-3xl" aria-hidden />
       <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
         <div className="relative space-y-6">

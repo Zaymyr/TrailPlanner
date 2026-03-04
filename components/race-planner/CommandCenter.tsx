@@ -93,8 +93,8 @@ export function CommandCenter({
           <CardContent className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
               {pacingMode === "pace" ? (
-                <div className="flex flex-wrap gap-2">
-                  <div className="w-[120px] space-y-1">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <div className="w-full space-y-1 sm:w-[120px]">
                     <Label
                       htmlFor="paceMinutes"
                       className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
@@ -117,7 +117,7 @@ export function CommandCenter({
                       })}
                     />
                   </div>
-                  <div className="w-[120px] space-y-1">
+                  <div className="w-full space-y-1 sm:w-[120px]">
                     <Label
                       htmlFor="paceSeconds"
                       className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
@@ -145,7 +145,7 @@ export function CommandCenter({
               ) : null}
 
               {pacingMode === "speed" ? (
-                <div className="w-[140px] space-y-1">
+                <div className="w-full space-y-1 sm:w-[140px]">
                   <Label
                     htmlFor="speedKph"
                     className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
