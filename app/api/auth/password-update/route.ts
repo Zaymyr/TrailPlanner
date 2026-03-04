@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { extractBearerToken, getSupabaseAnonConfig } from "../../../../lib/supabase";
 
 const passwordUpdateSchema = z.object({
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
   }
 
   const rateLimitKey = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const rateLimit = checkRateLimit(`auth-update:${rateLimitKey}`, 6, 60_000);
+  const rateLimit = await checkRateLimitAsync(`auth-update:${rateLimitKey}`, 6, 60_000);
 
   if (!rateLimit.allowed) {
     return withSecurityHeaders(

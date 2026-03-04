@@ -15,7 +15,7 @@ export function buildSegments(
   elevationProfile: ElevationPoint[]
 ): Segment[] {
   const gelCarbs = defaultFuelProducts[0]?.carbsGrams ?? 25;
-  const minPerKm = minutesPerKm(values);
+  const minPerKm = minutesPerKm(values) ?? 0;
   const sortedElevationProfile = [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm);
   const trackDistanceKm = Math.max(values.raceDistanceKm, sortedElevationProfile.at(-1)?.distanceKm ?? 0);
   const getElevationAtDistance = (distanceKm: number) => {
