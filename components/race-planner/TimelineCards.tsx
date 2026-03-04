@@ -152,7 +152,7 @@ export function TimelineSegmentCard({
           </div>
         </div>
 
-        <div className="grid flex-1 gap-3 md:w-[360px] md:flex-none md:grid-cols-1">
+        <div className="grid flex-1 gap-3 md:max-w-[400px] md:grid-cols-1">
           {metrics.map((metric) => (
             <SegmentMetricCard key={metric.key} metric={metric} />
           ))}
@@ -180,7 +180,7 @@ export function TimelinePointCard({
     <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div
-          className={`flex min-w-[220px] items-start gap-3 ${onTitleClick ? "cursor-text" : ""}`}
+          className={`flex min-w-0 items-start gap-3 sm:min-w-[220px] ${onTitleClick ? "cursor-text" : ""}`}
           onClick={onTitleClick}
           role={onTitleClick ? "button" : undefined}
           tabIndex={onTitleClick ? 0 : undefined}
@@ -210,7 +210,7 @@ export function TimelinePointCard({
             {meta ? <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{meta}</div> : null}
           </div>
         </div>
-        {headerMiddle ? <div className="flex min-w-[240px] flex-1">{headerMiddle}</div> : null}
+        {headerMiddle ? <div className="flex min-w-0 flex-1 sm:min-w-[240px]">{headerMiddle}</div> : null}
         {headerActions ? <div className="flex items-center gap-3">{headerActions}</div> : null}
       </div>
 

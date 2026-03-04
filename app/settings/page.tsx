@@ -379,7 +379,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl border border-border-strong bg-card p-6 text-foreground shadow-md shadow-emerald-900/20 dark:bg-slate-950/60">
+    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl border border-border-strong bg-card p-3 text-foreground shadow-md shadow-emerald-900/20 sm:p-6 dark:bg-slate-950/60">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{t.productSettings.title}</h1>
