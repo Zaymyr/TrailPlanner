@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { getStripeConfig, postStripeForm } from "../../../../lib/stripe";
 import { getSupabaseAnonConfig, getSupabaseServiceConfig, extractBearerToken, fetchSupabaseUser } from "../../../../lib/supabase";
 
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
   }
 
-  const rateLimit = checkRateLimit(`stripe:checkout:${user.id}`, 5, 60_000);
+  const rateLimit = await checkRateLimitAsync(`stripe:checkout:${user.id}`, 5, 60_000);
 
   if (!rateLimit.allowed) {
     return withSecurityHeaders(

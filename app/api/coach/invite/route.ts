@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
+import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import {
   coachInviteCreateSchema,
   coachInviteResponseSchema,
@@ -380,7 +380,7 @@ export async function POST(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
   }
 
-  const rateLimit = checkRateLimit(`coach-invite:${supabaseUser.id}`, 6, 60_000);
+  const rateLimit = await checkRateLimitAsync(`coach-invite:${supabaseUser.id}`, 6, 60_000);
 
   if (!rateLimit.allowed) {
     return withSecurityHeaders(

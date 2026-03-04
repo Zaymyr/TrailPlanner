@@ -30,6 +30,14 @@ describe("minutesPerKm", () => {
 
     expect(minutes).toBeCloseTo(5);
   });
+
+  it("returns null when speedKph is zero", () => {
+    expect(minutesPerKm({ ...baseValues, paceType: "speed", speedKph: 0 })).toBeNull();
+  });
+
+  it("returns null when speedKph is negative", () => {
+    expect(minutesPerKm({ ...baseValues, paceType: "speed", speedKph: -5 })).toBeNull();
+  });
 });
 
 describe("formatMinutes", () => {

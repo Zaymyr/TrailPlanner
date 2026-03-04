@@ -131,7 +131,6 @@ export const useRacePlan = ({
     return (
       entitlements.isPremium ||
       !planLimitReached ||
-      Boolean(activePlanId) ||
       Boolean(savedPlans.find((plan) => plan.id === activePlanId))
     );
   }, [activePlanId, entitlements.isPremium, isCoachPlanMode, planLimitReached, savedPlans]);

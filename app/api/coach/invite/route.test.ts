@@ -236,6 +236,14 @@ describe("POST /api/coach/invite", () => {
   });
 });
 
+vi.mock("../../../../lib/http", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../../lib/http")>();
+  return {
+    ...original,
+    checkRateLimitAsync: () => Promise.resolve({ allowed: true, remaining: 10 }),
+  };
+});
+
 vi.mock("../../../../lib/supabase", () => ({
   getSupabaseAnonConfig: () => mockSupabaseConfig,
   getSupabaseServiceConfig: () => mockServiceConfig,

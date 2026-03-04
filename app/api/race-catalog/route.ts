@@ -47,10 +47,13 @@ export async function GET(request: NextRequest) {
   }
 
   const search = parsedQuery.data.search;
+  // Strip SQL ILIKE wildcards (%, _) and PostgREST wildcard (*) from user input
+  // to prevent unintended pattern matching.
+  const sanitizeSearch = (value: string) => value.replace(/[%_*\\]/g, "");
   const filter = search
-    ? `&or=(name.ilike.*${encodeURIComponent(search)}*,location_text.ilike.*${encodeURIComponent(
-        search
-      )}*,location.ilike.*${encodeURIComponent(search)}*)`
+    ? `&or=(name.ilike.*${encodeURIComponent(sanitizeSearch(search))}*,location_text.ilike.*${encodeURIComponent(
+        sanitizeSearch(search)
+      )}*,location.ilike.*${encodeURIComponent(sanitizeSearch(search))}*)`
     : "";
 
   try {

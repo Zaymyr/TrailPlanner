@@ -1,7 +1,8 @@
 import type { FormValues } from "../types";
 
-export function minutesPerKm(values: FormValues) {
+export function minutesPerKm(values: FormValues): number | null {
   if (values.paceType === "speed") {
+    if (values.speedKph <= 0) return null;
     return 60 / values.speedKph;
   }
   return values.paceMinutes + values.paceSeconds / 60;
