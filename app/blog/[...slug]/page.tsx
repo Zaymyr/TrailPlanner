@@ -87,6 +87,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
+// Mapping slug d'article → UUID dans race_catalog
+// Permet de pré-charger la course dans le planner depuis un article de blog
+const CATALOG_RACE_MAP: Record<string, string> = {
+  "marathon-mont-blanc-preparation": "0037b73c-b638-4fd9-80a9-34fdb3a4e97d",
+};
+
 export default async function BlogPostPage({ params }: PageProps) {
   const slug = normalizeSlugParam(params.slug);
   if (!slug) {
@@ -99,6 +105,18 @@ export default async function BlogPostPage({ params }: PageProps) {
   }
 
   const canonicalUrl = buildCanonicalUrl(post.meta);
+  const catalogRaceId = CATALOG_RACE_MAP[post.meta.slug];
 
-  return <BlogLayout post={post} canonicalUrl={canonicalUrl} />;
+  // Détection simple de la langue : titre contenant des caractères accentués
+  const isFrench = /[àâéèêëîïôùûü]/i.test(post.meta.title);
+  const locale = isFrench ? "fr" : "en";
+
+  return (
+    <BlogLayout
+      post={post}
+      canonicalUrl={canonicalUrl}
+      catalogRaceId={catalogRaceId}
+      locale={locale}
+    />
+  );
 }

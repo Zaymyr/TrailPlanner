@@ -251,6 +251,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const usePrintLayoutV2 = printLayout !== "classic";
   const [selectedCoacheeId, setSelectedCoacheeId] = useState<string | null>(null);
   const queryPlanIdRef = useRef<string | null>(null);
+  const queryCatalogRaceIdRef = useRef<string | null>(null);
   const initializedQueryRef = useRef(false);
 
   const sectionIds = {
@@ -331,6 +332,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     const coacheeIdParam = searchParams?.get("coacheeId");
     const planIdParam = searchParams?.get("planId");
+    const catalogRaceIdParam = searchParams?.get("catalogRaceId");
 
     if (coacheeIdParam) {
       setSelectedCoacheeId(coacheeIdParam);
@@ -338,6 +340,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     if (planIdParam) {
       queryPlanIdRef.current = planIdParam;
+    }
+
+    if (catalogRaceIdParam) {
+      queryCatalogRaceIdRef.current = catalogRaceIdParam;
     }
 
     initializedQueryRef.current = true;
@@ -439,6 +445,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       queryPlanIdRef.current = null;
     }
   }, [handleLoadPlan, savedPlans]);
+
+  useEffect(() => {
+    if (!queryCatalogRaceIdRef.current) return;
+    if (!session?.accessToken) return;
+
+    const raceId = queryCatalogRaceIdRef.current;
+    queryCatalogRaceIdRef.current = null; // consommer une seule fois
+    void handleUseCatalogRace(raceId);
+  }, [session?.accessToken, handleUseCatalogRace]);
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();

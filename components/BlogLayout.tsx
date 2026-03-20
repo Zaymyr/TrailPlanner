@@ -9,10 +9,15 @@ import { Prose } from "./Prose";
 import { TagBadge } from "./TagBadge";
 import { TOC } from "./TOC";
 import { RelatedPosts } from "./blog/RelatedPosts";
+import { BlogCatalogCta } from "./BlogCatalogCta";
 
 type BlogLayoutProps = {
   post: CompiledPost;
   canonicalUrl: string;
+  /** UUID race_catalog pour pré-charger la course dans le planner (optionnel). */
+  catalogRaceId?: string;
+  /** Langue de l'article. Défaut : "en". */
+  locale?: "fr" | "en";
 };
 
 const formatUpdatedAt = (isoDate?: string): string | undefined =>
@@ -44,6 +49,37 @@ const buildJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
   },
 });
 
+const inlineCtaCopy = {
+  fr: {
+    body: "Besoin d'un plan de ravitaillement sur mesure ? Notre planificateur calcule le timing des ravitos et tes objectifs nutritionnels en quelques minutes.",
+    link: "Créer mon plan de course →",
+  },
+  en: {
+    body: "Looking for a tailored fueling plan? Our race planner helps you calculate aid-station timing and nutrition targets in minutes.",
+    link: "Build your race plan →",
+  },
+};
+
+const headerCtaCopy = {
+  fr: "Planifier ma course",
+  en: "Plan your next race",
+};
+
+const readingCopy = {
+  fr: {
+    published: "Publié le",
+    updated: "Mis à jour le",
+    read: "min de lecture",
+    words: "mots",
+  },
+  en: {
+    published: "Published",
+    updated: "Last updated",
+    read: "min read",
+    words: "words",
+  },
+};
+
 const TagList = ({ tags }: { tags: string[] }) => {
   if (tags.length === 0) {
     return <TagBadge label="Untagged" variant="muted" />;
@@ -58,8 +94,11 @@ const TagList = ({ tags }: { tags: string[] }) => {
   );
 };
 
-export const BlogLayout = ({ post, canonicalUrl }: BlogLayoutProps) => {
+export const BlogLayout = ({ post, canonicalUrl, catalogRaceId, locale = "en" }: BlogLayoutProps) => {
   const lastUpdated = formatUpdatedAt(post.meta.updatedAt);
+  const cta = inlineCtaCopy[locale];
+  const headerCta = headerCtaCopy[locale];
+  const reading = readingCopy[locale];
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-12 sm:px-6 lg:px-8">
@@ -74,25 +113,25 @@ export const BlogLayout = ({ post, canonicalUrl }: BlogLayoutProps) => {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-          <span>Published {formatBlogDate(post.meta.date)}</span>
+          <span>{reading.published} {formatBlogDate(post.meta.date)}</span>
           {lastUpdated && (
             <>
               <span aria-hidden="true">•</span>
-              <span>Last updated {lastUpdated}</span>
+              <span>{reading.updated} {lastUpdated}</span>
             </>
           )}
           <span aria-hidden="true">•</span>
-          <span>{post.meta.readingTime.minutes} min read</span>
+          <span>{post.meta.readingTime.minutes} {reading.read}</span>
           <span aria-hidden="true">•</span>
-          <span>{post.meta.readingTime.words} words</span>
+          <span>{post.meta.readingTime.words} {reading.words}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <TagList tags={post.meta.tags} />
           <Link
-            href={RACE_PLANNER_PATH}
+            href={catalogRaceId ? `${RACE_PLANNER_PATH}?catalogRaceId=${catalogRaceId}` : RACE_PLANNER_PATH}
             className="inline-flex items-center justify-center rounded-md border border-[hsl(var(--brand))] bg-[hsl(var(--brand))] px-4 py-2 text-sm font-semibold text-[hsl(var(--brand-foreground))] transition hover:bg-[hsl(var(--brand)/0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--brand))] dark:border-emerald-400/70 dark:bg-emerald-500 dark:text-foreground dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-300"
           >
-            Plan your next race
+            {headerCta}
           </Link>
         </div>
 
@@ -123,15 +162,12 @@ export const BlogLayout = ({ post, canonicalUrl }: BlogLayoutProps) => {
           <Prose>{post.content}</Prose>
 
           <div className="rounded-xl border border-border bg-card/50 p-5 text-sm text-muted-foreground">
-            <p>
-              Looking for a tailored fueling plan? Our race planner helps you calculate aid-station timing and
-              nutrition targets in minutes.
-            </p>
+            <p>{cta.body}</p>
             <Link
-              href={RACE_PLANNER_PATH}
+              href={catalogRaceId ? `${RACE_PLANNER_PATH}?catalogRaceId=${catalogRaceId}` : RACE_PLANNER_PATH}
               className="mt-3 inline-flex items-center gap-2 text-[hsl(var(--success))] hover:text-[hsl(var(--brand))] dark:text-emerald-200 dark:hover:text-emerald-100"
             >
-              Build your race plan →
+              {cta.link}
             </Link>
           </div>
         </div>
@@ -144,6 +180,8 @@ export const BlogLayout = ({ post, canonicalUrl }: BlogLayoutProps) => {
       </div>
 
       <RelatedPosts slug={post.meta.slug} />
+
+      <BlogCatalogCta catalogRaceId={catalogRaceId} locale={locale} />
 
       <Script
         id={`blog-json-ld-${post.meta.slug}`}
