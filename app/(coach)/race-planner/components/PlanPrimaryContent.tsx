@@ -14,6 +14,7 @@ type PlanPrimaryContentProps = {
   profileError: string | null;
   showProfileError: boolean;
   copy: RacePlannerTranslations;
+  raceName?: string;
   sectionIds: { pacing: string; intake: string; timeline: string };
   pacing: {
     durationMinutes: number | null;
@@ -67,6 +68,7 @@ export function PlanPrimaryContent({
   profileError,
   showProfileError,
   copy,
+  raceName,
   sectionIds,
   pacing,
   coachManaged,
@@ -121,6 +123,7 @@ export function PlanPrimaryContent({
 
       <ActionPlan
         copy={copy}
+        raceName={raceName}
         segments={segments}
         sectionSegments={sectionSegments}
         elevationProfile={elevationProfile}

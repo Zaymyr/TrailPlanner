@@ -132,6 +132,7 @@ type RaceTotals = {
 
 type ActionPlanProps = {
   copy: RacePlannerTranslations;
+  raceName?: string;
   segments: Segment[];
   sectionSegments?: Record<string, SectionSegment[]>;
   elevationProfile: ElevationPoint[];
@@ -933,6 +934,7 @@ function AidStationCollapsedRow({
 
 export function ActionPlan({
   copy,
+  raceName,
   segments,
   sectionSegments,
   elevationProfile,
@@ -1706,6 +1708,9 @@ export function ActionPlan({
     <>
       <Card id={sectionId}>
         <CardHeader className="space-y-3">
+          {raceName ? (
+            <h2 className="text-base font-semibold text-foreground dark:text-slate-100 truncate">{raceName}</h2>
+          ) : null}
           <SectionHeader
             title={timelineCopy.title}
             description={timelineCopy.description}

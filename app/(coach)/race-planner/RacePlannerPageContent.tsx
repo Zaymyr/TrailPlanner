@@ -1202,6 +1202,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       profileError={profileError}
       showProfileError={Boolean(session?.accessToken)}
       copy={racePlannerCopy}
+      raceName={planName || undefined}
       sectionIds={sectionIds}
       pacing={{
         durationMinutes: pacingOverviewDuration,
