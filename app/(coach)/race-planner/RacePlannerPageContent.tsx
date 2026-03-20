@@ -344,6 +344,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     if (catalogRaceIdParam) {
       queryCatalogRaceIdRef.current = catalogRaceIdParam;
+      sessionStorage.setItem("pendingCatalogRaceId", catalogRaceIdParam);
     }
 
     initializedQueryRef.current = true;
@@ -447,11 +448,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, [handleLoadPlan, savedPlans]);
 
   useEffect(() => {
-    if (!queryCatalogRaceIdRef.current) return;
     if (!session?.accessToken) return;
 
-    const raceId = queryCatalogRaceIdRef.current;
+    const raceId =
+      queryCatalogRaceIdRef.current ?? sessionStorage.getItem("pendingCatalogRaceId");
+    if (!raceId) return;
+
     queryCatalogRaceIdRef.current = null; // consommer une seule fois
+    sessionStorage.removeItem("pendingCatalogRaceId");
     void handleUseCatalogRace(raceId);
   }, [session?.accessToken, handleUseCatalogRace]);
 
