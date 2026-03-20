@@ -190,7 +190,7 @@ export function CommandCenter({
             ) : null}
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label
                 htmlFor="targetIntakePerHour"
                 className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
@@ -207,7 +207,7 @@ export function CommandCenter({
                 {...register("targetIntakePerHour", { valueAsNumber: true })}
               />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label
                 htmlFor="waterIntakePerHour"
                 className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
@@ -225,7 +225,7 @@ export function CommandCenter({
                 {...register("waterIntakePerHour", { valueAsNumber: true })}
               />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label
                 htmlFor="sodiumIntakePerHour"
                 className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
@@ -243,7 +243,7 @@ export function CommandCenter({
                 {...register("sodiumIntakePerHour", { valueAsNumber: true })}
               />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <Label
                 htmlFor="waterBagLiters"
                 className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
