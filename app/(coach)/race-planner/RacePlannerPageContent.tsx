@@ -380,6 +380,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     handleDeletePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
+    handleLoadCatalogRacePreview,
   } = useRacePlan({
     racePlannerCopy,
     premiumCopy,
@@ -448,16 +449,21 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   }, [handleLoadPlan, savedPlans]);
 
   useEffect(() => {
-    if (!session?.accessToken) return;
+    if (authStatus === "checking") return; // wait for session check to complete
 
     const raceId =
       queryCatalogRaceIdRef.current ?? sessionStorage.getItem("pendingCatalogRaceId");
     if (!raceId) return;
 
-    queryCatalogRaceIdRef.current = null; // consommer une seule fois
+    queryCatalogRaceIdRef.current = null;
     sessionStorage.removeItem("pendingCatalogRaceId");
-    void handleUseCatalogRace(raceId);
-  }, [session?.accessToken, handleUseCatalogRace]);
+
+    if (session?.accessToken) {
+      void handleUseCatalogRace(raceId); // authenticated: save plan to DB
+    } else {
+      void handleLoadCatalogRacePreview(raceId); // anonymous: load into form only
+    }
+  }, [authStatus, session?.accessToken, handleUseCatalogRace, handleLoadCatalogRacePreview]);
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();

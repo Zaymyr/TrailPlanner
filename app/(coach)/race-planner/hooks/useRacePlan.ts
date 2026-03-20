@@ -528,6 +528,60 @@ export const useRacePlan = ({
     setIsRaceCatalogOpen,
   ]);
 
+  const handleLoadCatalogRacePreview = useCallback(async (raceId: string) => {
+    setAccountError(null);
+    setAccountMessage(null);
+    setCatalogSubmissionId(raceId);
+
+    try {
+      const response = await fetch("/api/plans/from-catalog-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ catalogRaceId: raceId }),
+      });
+
+      const data = (await response.json().catch(() => null)) as {
+        name?: string;
+        plannerValues?: Record<string, unknown>;
+        elevationProfile?: unknown[];
+        message?: string;
+      } | null;
+
+      if (!response.ok || !data?.name) {
+        setAccountError(data?.message ?? racePlannerCopy.raceCatalog.errors.createFailed);
+        return;
+      }
+
+      const syntheticPlan = {
+        id: crypto.randomUUID(),
+        name: data.name,
+        updatedAt: new Date().toISOString(),
+        planner_values: data.plannerValues ?? {},
+        elevation_profile: data.elevationProfile ?? [],
+      };
+
+      const parsedPlan = mapSavedPlan(syntheticPlan);
+      if (!parsedPlan) {
+        setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
+        return;
+      }
+
+      handleLoadPlan(parsedPlan, racePlannerCopy.raceCatalog.messages.created);
+      setIsRaceCatalogOpen(false);
+    } catch (error) {
+      console.error("Unable to preview catalog race", error);
+      setAccountError(racePlannerCopy.raceCatalog.errors.createFailed);
+    } finally {
+      setCatalogSubmissionId(null);
+    }
+  }, [
+    handleLoadPlan,
+    racePlannerCopy.raceCatalog.errors.createFailed,
+    racePlannerCopy.raceCatalog.messages.created,
+    setCatalogSubmissionId,
+    setIsRaceCatalogOpen,
+  ]);
+
   return {
     session,
     planName,
@@ -549,5 +603,6 @@ export const useRacePlan = ({
     handleDeletePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
+    handleLoadCatalogRacePreview,
   };
 };
