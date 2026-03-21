@@ -7,12 +7,12 @@ import type { OnboardingTranslations } from "../../locales/types";
 // Maps each step index to an existing element ID in the DOM.
 // null = no spotlight (card stays centered).
 const STEP_TARGET_IDS: (string | null)[] = [
-  null,                    // Step 0: Welcome – no specific element
-  "course-profile",        // Step 1: Import GPX / Browse races buttons
-  "pacing-section",        // Step 2: Pace & nutrition inputs
-  "onboarding-add-ravito", // Step 3: "Add an aid station" button
-  "race-timeline",         // Step 4: Timeline where products are assigned
-  "onboarding-account",    // Step 5: Save plan / account section
+  null,                     // Step 0: Welcome – no specific element
+  "course-profile",         // Step 1: Import GPX / Browse races buttons
+  "pacing-section",         // Step 2: Pace & nutrition inputs
+  "onboarding-add-ravito",  // Step 3: "Add an aid station" button
+  "onboarding-supply-btn",  // Step 4: "+" supply button on the first station
+  "onboarding-account",     // Step 5: Save plan / account section
 ];
 
 const PADDING = 8;   // px of breathing room around the spotlight
@@ -83,9 +83,11 @@ export function OnboardingOverlay({ open, step, copy, onClose, onNext, onPreviou
   const spotW = targetRect ? targetRect.width + PADDING * 2 : 0;
   const spotH = targetRect ? targetRect.height + PADDING * 2 : 0;
 
-  // Card positioning: prefer below the spotlight, fallback to above, clamp to viewport
+  // Card positioning: prefer above when target is in lower half, below otherwise.
+  // Always clamp so the card stays fully within the viewport.
   let cardStyle: React.CSSProperties;
   const effectiveCardW = Math.min(CARD_W, vpW - MARGIN * 2);
+  const estimatedCardH = 260;
 
   if (!targetRect) {
     cardStyle = {
@@ -96,23 +98,29 @@ export function OnboardingOverlay({ open, step, copy, onClose, onNext, onPreviou
       width: effectiveCardW,
     };
   } else {
-    const spaceBelow = vpH - (spotY + spotH);
+    const spotBottom = spotY + spotH;
+    const spotMidY = spotY + spotH / 2;
+    const spaceBelow = vpH - spotBottom;
     const spaceAbove = spotY;
-    const estimatedCardH = 220;
 
     let top: number;
-    if (spaceBelow >= estimatedCardH + CARD_GAP) {
-      top = spotY + spotH + CARD_GAP;
-    } else if (spaceAbove >= estimatedCardH + CARD_GAP) {
-      top = spotY - estimatedCardH - CARD_GAP;
+    if (spotMidY > vpH / 2) {
+      // Target in lower half — prefer showing card above
+      top = spaceAbove >= estimatedCardH + CARD_GAP
+        ? spotY - estimatedCardH - CARD_GAP
+        : spotBottom + CARD_GAP;
     } else {
-      // Not enough room above or below — clamp into view
-      top = Math.max(MARGIN, Math.min(spotY + spotH + CARD_GAP, vpH - estimatedCardH - MARGIN));
+      // Target in upper half — prefer showing card below
+      top = spaceBelow >= estimatedCardH + CARD_GAP
+        ? spotBottom + CARD_GAP
+        : spotY - estimatedCardH - CARD_GAP;
     }
 
+    // Final clamp: keep card within viewport regardless of decision above
+    top = Math.max(MARGIN, Math.min(top, vpH - estimatedCardH - MARGIN));
+
     // Align left edge with target, clamped to viewport
-    const rawLeft = spotX;
-    const left = Math.max(MARGIN, Math.min(rawLeft, vpW - effectiveCardW - MARGIN));
+    const left = Math.max(MARGIN, Math.min(spotX, vpW - effectiveCardW - MARGIN));
 
     cardStyle = { position: "fixed", top, left, width: effectiveCardW };
   }
