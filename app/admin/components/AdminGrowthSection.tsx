@@ -4,13 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
-import { type AdminGrowthResponse, adminGrowthResponseSchema } from "../../api/admin/growth/route";
+import { type AdminGrowthResponse, adminGrowthResponseSchema } from "../../api/admin/growth/schema";
 import { type AdminTranslations } from "../../../locales/types";
 
 type GrowthTranslations = AdminTranslations["growth"];
 
 type Props = {
-  accessToken: string | null;
+  accessToken: string | null | undefined;
   t: GrowthTranslations;
 };
 
