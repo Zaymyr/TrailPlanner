@@ -69,7 +69,7 @@ export function PlanManager({
   }, [normalizedSearch, savedPlans]);
 
   return (
-    <Card>
+    <Card id="onboarding-account">
       <CardContent className="space-y-4 pt-6">
         {sessionEmail ? (
           <div className="space-y-4">
