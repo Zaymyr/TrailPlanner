@@ -25,8 +25,8 @@ export function OnboardingOverlay({ open, step, copy, onClose, onNext, onPreviou
     .replace("{total}", String(totalSteps));
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-slate-950/70 px-4 pt-8 pointer-events-none">
-      <div className="relative w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900/90 pointer-events-auto">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 px-4 pb-6">
+      <div className="relative w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900/90">
         {/* Header row */}
         <div className="mb-4 flex items-center justify-between pr-8">
           <span className="text-xs font-medium text-muted-foreground">{stepLabel}</span>

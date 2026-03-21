@@ -57,6 +57,13 @@ button {
   font: inherit;
 }
 
+.tutorial-highlight {
+  outline: 3px solid hsl(var(--primary));
+  outline-offset: 3px;
+  border-radius: 8px;
+  transition: outline 0.2s ease;
+}
+
 @media print {
   :root {
     color-scheme: light;
