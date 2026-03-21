@@ -1722,7 +1722,7 @@ export function ActionPlan({
                   {areAllAidStationsCollapsed ? timelineCopy.expandAllLabel : timelineCopy.collapseAllLabel}
                 </Button>
               ) : null}
-              <Button type="button" onClick={openCreateEditor}>
+              <Button id="onboarding-add-aid-btn" type="button" onClick={openCreateEditor}>
                 {aidStationsCopy.add}
               </Button>
               {segments.length > 0 ? (

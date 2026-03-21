@@ -394,6 +394,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     if (onboardingStep > 0) setOnboardingStep(onboardingStep - 1);
   }, [onboardingStep, setOnboardingStep]);
 
+  // Which element ID to spotlight per tutorial step (null = no specific target)
+  const onboardingTargetId: string | null = onboardingOpen
+    ? ([
+        null,                       // Step 0: Welcome
+        sectionIds.courseProfile,   // Step 1: Course profile
+        sectionIds.pacing,          // Step 2: Pacing & nutrition
+        "onboarding-add-aid-btn",   // Step 3: Add aid station button
+        sectionIds.timeline,        // Step 4: Products / timeline
+        null,                       // Step 5: Save plan
+      ][onboardingStep] ?? null)
+    : null;
+
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
 
   const {
@@ -1472,6 +1484,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           open={onboardingOpen}
           step={onboardingStep}
           copy={racePlannerCopy.onboarding}
+          targetId={onboardingTargetId}
           onClose={handleCloseOnboarding}
           onNext={handleNextOnboarding}
           onPrevious={handlePreviousOnboarding}
