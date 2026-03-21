@@ -119,8 +119,9 @@ export function OnboardingOverlay({ open, step, copy, onClose, onNext, onPreviou
     // Final clamp: keep card within viewport regardless of decision above
     top = Math.max(MARGIN, Math.min(top, vpH - estimatedCardH - MARGIN));
 
-    // Align left edge with target, clamped to viewport
-    const left = Math.max(MARGIN, Math.min(spotX, vpW - effectiveCardW - MARGIN));
+    // Center card horizontally on the spotlight, clamped to viewport
+    const spotMidX = spotX + spotW / 2;
+    const left = Math.max(MARGIN, Math.min(spotMidX - effectiveCardW / 2, vpW - effectiveCardW - MARGIN));
 
     cardStyle = { position: "fixed", top, left, width: effectiveCardW };
   }
