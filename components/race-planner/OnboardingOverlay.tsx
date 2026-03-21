@@ -66,12 +66,17 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
       const target = findVisible(targetId);
       if (!target) return;
 
-      // Scroll so the element sits PAD + 8 px below the viewport top,
-      // leaving room for the spotlight ring (-PAD offset) to be fully visible.
-      const SCROLL_MARGIN = PAD + 8;
+      // Only scroll if the element is not already comfortably visible.
+      // When scrolling is needed, center the element in the viewport so users
+      // retain context and the spotlight ring stays fully in view.
       const rectBefore = target.getBoundingClientRect();
-      const scrollTarget = Math.max(0, window.scrollY + rectBefore.top - SCROLL_MARGIN);
-      window.scrollTo({ top: scrollTarget, behavior: "smooth" });
+      const VISIBLE_PADDING = 100; // px from top/bottom edge to count as "in view"
+      const isInViewport =
+        rectBefore.top >= VISIBLE_PADDING &&
+        rectBefore.bottom <= window.innerHeight - VISIBLE_PADDING;
+      if (!isInViewport) {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
 
       // Only measure the rect AFTER the scroll animation has settled,
       // and re-query to pick up the visible instance at the new scroll position.
@@ -193,7 +198,7 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
         <rect
           width="100%"
           height="100%"
-          fill="rgba(15, 23, 42, 0.78)"
+          fill="rgba(15, 23, 42, 0.38)"
           mask={spotlight ? "url(#tutorial-spotlight-mask)" : undefined}
         />
       </svg>
