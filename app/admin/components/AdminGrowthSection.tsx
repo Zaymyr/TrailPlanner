@@ -10,7 +10,7 @@ import { type AdminTranslations } from "../../../locales/types";
 type GrowthTranslations = AdminTranslations["growth"];
 
 type Props = {
-  accessToken: string | null;
+  accessToken: string | null | undefined;
   t: GrowthTranslations;
 };
 
