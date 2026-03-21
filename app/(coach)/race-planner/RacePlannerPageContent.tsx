@@ -394,40 +394,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     if (onboardingStep > 0) setOnboardingStep(onboardingStep - 1);
   }, [onboardingStep, setOnboardingStep]);
 
-  // Map each tutorial step to a target element ID (null = no specific target)
-  const onboardingTargetIds = [
-    null,                         // Step 0: Welcome
-    sectionIds.courseProfile,     // Step 1: Course profile
-    sectionIds.pacing,            // Step 2: Pacing & nutrition
-    "onboarding-add-aid-btn",     // Step 3: Add aid station button
-    sectionIds.timeline,          // Step 4: Products / timeline
-    null,                         // Step 5: Save plan
-  ] as const;
-
-  useEffect(() => {
-    const removeHighlights = () => {
-      document.querySelectorAll(".tutorial-highlight").forEach((el) => {
-        el.classList.remove("tutorial-highlight");
-      });
-    };
-
-    if (!onboardingOpen) {
-      removeHighlights();
-      return;
-    }
-
-    removeHighlights();
-
-    const targetId = onboardingTargetIds[onboardingStep] ?? null;
-    if (!targetId) return;
-
-    const target = document.getElementById(targetId);
-    if (!target) return;
-
-    target.classList.add("tutorial-highlight");
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboardingOpen, onboardingStep]);
+  // Which element ID to spotlight per tutorial step (null = no specific target)
+  const onboardingTargetId: string | null = onboardingOpen
+    ? ([
+        null,                       // Step 0: Welcome
+        sectionIds.courseProfile,   // Step 1: Course profile
+        sectionIds.pacing,          // Step 2: Pacing & nutrition
+        "onboarding-add-aid-btn",   // Step 3: Add aid station button
+        sectionIds.timeline,        // Step 4: Products / timeline
+        null,                       // Step 5: Save plan
+      ][onboardingStep] ?? null)
+    : null;
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
 
@@ -1507,6 +1484,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           open={onboardingOpen}
           step={onboardingStep}
           copy={racePlannerCopy.onboarding}
+          targetId={onboardingTargetId}
           onClose={handleCloseOnboarding}
           onNext={handleNextOnboarding}
           onPrevious={handlePreviousOnboarding}
