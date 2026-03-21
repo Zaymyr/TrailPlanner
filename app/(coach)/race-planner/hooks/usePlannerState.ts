@@ -23,6 +23,8 @@ export const usePlannerState = () => {
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<PlannerUpgradeReason>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingStep, setOnboardingStep] = useState(0);
 
   return {
     state: {
@@ -42,6 +44,8 @@ export const usePlannerState = () => {
       upgradeError,
       upgradeDialogOpen,
       upgradeReason,
+      onboardingOpen,
+      onboardingStep,
     },
     actions: {
       setImportError,
@@ -60,6 +64,8 @@ export const usePlannerState = () => {
       setUpgradeError,
       setUpgradeDialogOpen,
       setUpgradeReason,
+      setOnboardingOpen,
+      setOnboardingStep,
     },
   };
 };

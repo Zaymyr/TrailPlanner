@@ -545,6 +545,29 @@ export type RacePlannerTranslations = {
     pacing: string;
     intake: string;
   };
+  onboarding: OnboardingTranslations;
+};
+
+export type OnboardingStep = {
+  title: string;
+  description: string;
+};
+
+export type OnboardingTranslations = {
+  openLabel: string;
+  closeLabel: string;
+  stepOf: string;
+  next: string;
+  previous: string;
+  finish: string;
+  steps: [
+    OnboardingStep,
+    OnboardingStep,
+    OnboardingStep,
+    OnboardingStep,
+    OnboardingStep,
+    OnboardingStep,
+  ];
 };
 
 export type LandingPageTranslations = {
