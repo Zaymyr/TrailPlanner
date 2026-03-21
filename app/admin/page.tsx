@@ -22,6 +22,7 @@ import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
+import AdminGrowthSection from "./components/AdminGrowthSection";
 
 const adminProductSchema = z.object({
   id: z.string(),
@@ -937,6 +938,8 @@ export default function AdminPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      <AdminGrowthSection accessToken={accessToken} t={t.admin.growth} />
 
       <Card>
         <CardHeader>

@@ -749,6 +749,37 @@ export type AdminTranslations = {
       timestamp: string;
     };
   };
+  growth: {
+    title: string;
+    description: string;
+    loadError: string;
+    totals: {
+      users: string;
+      usersWithProfile: string;
+      usersWithPlan: string;
+      activeSubscriptions: string;
+      premiumGrants: string;
+    };
+    signupsByMonthTitle: string;
+    signupsByDayTitle: string;
+    userTableTitle: string;
+    userTable: {
+      email: string;
+      createdAt: string;
+      lastSignInAt: string;
+      plans: string;
+      profile: string;
+      status: string;
+    };
+    statusLabels: {
+      premium: string;
+      grant: string;
+      active: string;
+      profileOnly: string;
+      inactive: string;
+      admin: string;
+    };
+  };
 };
 
 export type ProfileTranslations = {
