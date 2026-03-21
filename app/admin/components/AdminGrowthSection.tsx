@@ -22,12 +22,7 @@ const formatDate = (value: string | null): string => {
 };
 
 const isActiveSubscription = (row: AdminGrowthResponse["userRows"][number]): boolean => {
-  if (!row.subscriptionStatus) return false;
-  const normalized = row.subscriptionStatus.toLowerCase();
-  if (normalized !== "active" && normalized !== "trialing") return false;
-  if (!row.subscriptionPeriodEnd) return true;
-  const end = new Date(row.subscriptionPeriodEnd);
-  return Number.isFinite(end.getTime()) ? end.getTime() > Date.now() : false;
+  return row.subscriptionStatus !== null && row.subscriptionStatus !== undefined;
 };
 
 type StatusKey = "admin" | "premium" | "grant" | "active" | "profileOnly" | "inactive";

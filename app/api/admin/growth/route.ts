@@ -68,13 +68,8 @@ const rpcDayRowSchema = z.object({
   count: z.union([z.number(), z.string()]).transform((v) => Number(v)),
 });
 
-const isSubscriptionActive = (status: string | null | undefined, periodEnd: string | null | undefined): boolean => {
-  if (!status) return false;
-  const normalized = status.toLowerCase();
-  if (normalized !== "active" && normalized !== "trialing") return false;
-  if (!periodEnd) return true;
-  const end = new Date(periodEnd);
-  return Number.isFinite(end.getTime()) ? end.getTime() > Date.now() : false;
+const isSubscriptionActive = (status: string | null | undefined): boolean => {
+  return Boolean(status);
 };
 
 const callRpc = async (
@@ -158,7 +153,7 @@ export async function GET(request: NextRequest) {
       usersWithPlan: userRows.filter((r) => r.planCount > 0).length,
       usersWithProfile: userRows.filter((r) => r.hasProfile).length,
       activeSubscriptions: userRows.filter((r) =>
-        isSubscriptionActive(r.subscriptionStatus, r.subscriptionPeriodEnd)
+        isSubscriptionActive(r.subscriptionStatus)
       ).length,
       premiumGrants: userRows.filter((r) => r.grantReason !== null).length,
     };

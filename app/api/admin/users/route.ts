@@ -145,13 +145,7 @@ const buildTrial = (trial: z.infer<typeof trialRowSchema>, now: Date) => {
 };
 
 const isSubscriptionActive = (subscription: z.infer<typeof subscriptionRowSchema> | null) => {
-  if (!subscription?.status) return false;
-  const normalizedStatus = subscription.status.toLowerCase();
-  const isActiveStatus = normalizedStatus === "active" || normalizedStatus === "trialing";
-  if (!isActiveStatus) return false;
-  if (!subscription.current_period_end) return true;
-  const periodEnd = new Date(subscription.current_period_end);
-  return Number.isFinite(periodEnd.getTime()) ? periodEnd.getTime() > Date.now() : false;
+  return Boolean(subscription?.status);
 };
 
 const authorizeAdmin = async (request: NextRequest) => {
