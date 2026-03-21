@@ -56,13 +56,14 @@ export function OnboardingOverlay({ open, step, copy, onClose, onNext, onPreviou
       return;
     }
 
-    // Scroll the target into view, then capture its rect once the scroll settles
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Scroll instantly so the element is at its final position before we measure.
+    // Smooth scrolling causes the rect to be captured mid-animation, offsetting the spotlight.
+    el.scrollIntoView({ behavior: "instant", block: "center" });
     const timer = setTimeout(() => {
       const rect = el.getBoundingClientRect();
       // Guard: if the rect is zero the element is still hidden — fall back to centered card
       setTargetRect(rect.width > 0 || rect.height > 0 ? rect : null);
-    }, 500);
+    }, 50);
     return () => clearTimeout(timer);
   }, [open, step]);
 
