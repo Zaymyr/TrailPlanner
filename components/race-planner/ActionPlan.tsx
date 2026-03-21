@@ -1879,6 +1879,7 @@ export function ActionPlan({
                 const suppliesDropZone =
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
+                      id={item.isStart ? "onboarding-start-supply-zone" : undefined}
                       className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {

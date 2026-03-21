@@ -10,11 +10,12 @@ const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 type GuestSaveBannerProps = {
   isAuthed: boolean;
+  forceShow?: boolean;
 };
 
 const formatDismissUntil = () => String(Date.now() + DISMISS_DURATION_MS);
 
-export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
+export function GuestSaveBanner({ isAuthed, forceShow = false }: GuestSaveBannerProps) {
   const router = useRouter();
   const { t } = useI18n();
   const [isVisible, setIsVisible] = useState(false);
@@ -40,7 +41,7 @@ export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
     setIsVisible(false);
   };
 
-  if (!isVisible) return null;
+  if (!isVisible && !forceShow) return null;
 
   const { guestBanner } = t.racePlanner.account;
 

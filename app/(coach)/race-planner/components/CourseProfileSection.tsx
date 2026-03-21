@@ -86,6 +86,7 @@ export const CourseProfileSection = ({
               className="hidden"
               onChange={onImportGpx}
             />
+            <div id="onboarding-course-btns" className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               type="button"
@@ -97,6 +98,7 @@ export const CourseProfileSection = ({
             <Button variant="outline" type="button" className="h-9 px-3 text-xs" onClick={onOpenRaceCatalog}>
               {copy.buttons.chooseRace}
             </Button>
+            </div>
             <Button
               type="button"
               className="relative h-9 px-3 text-xs"
@@ -157,17 +159,19 @@ export const CourseProfileSection = ({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="outline"
-                type="button"
-                className="h-9 px-3 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {copy.buttons.importGpx}
-              </Button>
-              <Button variant="outline" type="button" className="h-9 px-3 text-xs" onClick={onOpenRaceCatalog}>
-                {copy.buttons.chooseRace}
-              </Button>
+              <div id="onboarding-course-btns" className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="h-9 px-3 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {copy.buttons.importGpx}
+                </Button>
+                <Button variant="outline" type="button" className="h-9 px-3 text-xs" onClick={onOpenRaceCatalog}>
+                  {copy.buttons.chooseRace}
+                </Button>
+              </div>
               <Button
                 type="button"
                 className="relative h-9 px-3 text-xs"
