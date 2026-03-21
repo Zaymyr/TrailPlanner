@@ -18,7 +18,7 @@ type Props = {
 };
 
 const PAD = 12;           // padding around the spotlight cutout
-const Y_OFFSET = -12;     // nudge spotlight upward to compensate for layout offset
+const Y_OFFSET = -24;     // nudge spotlight upward to compensate for layout offset
 const MODAL_H = 290;      // approximate modal height for positioning
 const GAP = 18;           // gap between spotlight and modal card
 const SETTLE_MS = 430;    // time to wait for smooth-scroll to finish
