@@ -45,7 +45,7 @@ export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
   const { guestBanner } = t.racePlanner.account;
 
   return (
-    <div className="relative rounded-lg border border-emerald-200/60 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950 shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-100">
+    <div id="onboarding-create-account" className="relative rounded-lg border border-emerald-200/60 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950 shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-100">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-200/70 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-100">
@@ -70,7 +70,7 @@ export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <Button id="onboarding-create-account" type="button" className="h-9" onClick={() => router.push("/sign-up")}>
+          <Button type="button" className="h-9" onClick={() => router.push("/sign-up")}>
             {guestBanner.cta}
           </Button>
         </div>
