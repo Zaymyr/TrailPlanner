@@ -66,8 +66,12 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
       const target = findVisible(targetId);
       if (!target) return;
 
-      // scrollIntoView handles any scroll container (window or nested div)
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Scroll so the element sits PAD + 8 px below the viewport top,
+      // leaving room for the spotlight ring (-PAD offset) to be fully visible.
+      const SCROLL_MARGIN = PAD + 8;
+      const rectBefore = target.getBoundingClientRect();
+      const scrollTarget = Math.max(0, window.scrollY + rectBefore.top - SCROLL_MARGIN);
+      window.scrollTo({ top: scrollTarget, behavior: "smooth" });
 
       // Only measure the rect AFTER the scroll animation has settled,
       // and re-query to pick up the visible instance at the new scroll position.

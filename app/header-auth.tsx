@@ -31,6 +31,7 @@ export function HeaderAuth() {
   return (
     <div className="flex items-center gap-2">
       <Link
+        id="header-sign-in"
         href="/sign-in"
         className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-[hsl(var(--success))] transition hover:border-[hsl(var(--brand))] hover:text-foreground dark:border-emerald-300/40 dark:text-emerald-100 dark:hover:border-emerald-200 dark:hover:text-emerald-50"
       >

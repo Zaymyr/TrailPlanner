@@ -10,7 +10,7 @@ type PlannerRightPanelProps = {
 export function PlannerRightPanel({ planManagerProps }: PlannerRightPanelProps) {
   return (
     <div className="space-y-4">
-      <Card id="save-plan-section">
+      <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base font-semibold">{planManagerProps.copy.title}</CardTitle>
         </CardHeader>

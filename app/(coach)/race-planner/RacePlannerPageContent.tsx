@@ -260,7 +260,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     courseProfile: "course-profile",
     pacing: "pacing-section",
     intake: "intake-section",
-    savePlan: "save-plan-section",
   } as const;
 
   const { fields, append, replace } = useFieldArray({ control: form.control, name: "aidStations" });
@@ -372,20 +371,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   }, [setOnboardingOpen]);
 
-  // Step 5 targets the settings panel; all other steps target plan content.
-  const SAVE_PLAN_STEP = 5;
-
-  // Prepare the layout so the target element is visible for the given step.
+  // Keep the plan tab active throughout the tutorial.
+  // Step 5 targets the site header sign-in button which is always visible.
   const applyOnboardingLayout = useCallback(
-    (step: number) => {
-      if (step === SAVE_PLAN_STEP) {
-        setMobileView("settings");
-        setIsSettingsCollapsed(false); // ensure the right panel is not collapsed
-      } else {
-        setMobileView("plan");
-      }
+    (_step: number) => {
+      setMobileView("plan");
     },
-    [setMobileView, setIsSettingsCollapsed],
+    [setMobileView],
   );
 
   const handleOpenOnboarding = useCallback(() => {
@@ -426,7 +418,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         sectionIds.pacing,          // Step 2: Pacing & nutrition
         "onboarding-add-aid-btn",   // Step 3: Add aid station button
         sectionIds.timeline,        // Step 4: Products / timeline
-        sectionIds.savePlan,        // Step 5: Save plan
+        "header-sign-in",           // Step 5: Sign-in / create account button
       ][onboardingStep] ?? null)
     : null;
 
