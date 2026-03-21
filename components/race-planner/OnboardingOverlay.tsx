@@ -48,15 +48,33 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
         return;
       }
 
-      const target = document.getElementById(targetId);
+      // RacePlannerLayout renders the same content in both a mobile div
+      // (xl:hidden) and a desktop div (hidden xl:grid), giving each target
+      // element two DOM nodes with the same id.  getElementById always returns
+      // the first one, which is the mobile node – hidden on desktop via its
+      // parent's xl:hidden class – so getBoundingClientRect() returns zeros.
+      // We therefore query *all* matching nodes and pick the first visible one.
+      const findVisible = (id: string): Element | null => {
+        const nodes = document.querySelectorAll(`[id="${id}"]`);
+        for (const node of Array.from(nodes)) {
+          const r = node.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) return node;
+        }
+        return null;
+      };
+
+      const target = findVisible(targetId);
       if (!target) return;
 
       // scrollIntoView handles any scroll container (window or nested div)
       target.scrollIntoView({ behavior: "smooth", block: "start" });
 
-      // Only measure the rect AFTER the scroll animation has settled
+      // Only measure the rect AFTER the scroll animation has settled,
+      // and re-query to pick up the visible instance at the new scroll position.
       timer = setTimeout(() => {
-        const r = target.getBoundingClientRect();
+        const visible = findVisible(targetId);
+        if (!visible) return;
+        const r = visible.getBoundingClientRect();
         setSpotlight({ x: r.x, y: r.y, width: r.width, height: r.height });
       }, SETTLE_MS);
     });
@@ -180,7 +198,7 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
       {spotlight ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed z-50 rounded-lg ring-2 ring-primary ring-offset-1 ring-offset-transparent"
+          className="pointer-events-none fixed z-50 rounded-lg tutorial-spotlight-ring"
           style={{
             left: spotlight.x - PAD,
             top: spotlight.y - PAD,
