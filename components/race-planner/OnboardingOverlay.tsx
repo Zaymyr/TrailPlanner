@@ -46,17 +46,23 @@ export function OnboardingOverlay({ open, step, copy, onClose, onNext, onPreviou
       return;
     }
 
-    const el = document.getElementById(id);
+    // The layout renders content twice (mobile + desktop containers with the same IDs).
+    // getElementById returns the first match, which may be inside a display:none container.
+    // querySelectorAll + offsetParent check finds the actually-visible element instead.
+    const candidates = Array.from(document.querySelectorAll<HTMLElement>(`#${id}`));
+    const el = candidates.find((c) => c.offsetParent !== null) ?? candidates[0] ?? null;
     if (!el) {
       setTargetRect(null);
       return;
     }
 
-    // Scroll the target into view, then capture its rect
-    el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    // Scroll the target into view, then capture its rect once the scroll settles
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
     const timer = setTimeout(() => {
-      setTargetRect(el.getBoundingClientRect());
-    }, 300);
+      const rect = el.getBoundingClientRect();
+      // Guard: if the rect is zero the element is still hidden — fall back to centered card
+      setTargetRect(rect.width > 0 || rect.height > 0 ? rect : null);
+    }, 500);
     return () => clearTimeout(timer);
   }, [open, step]);
 
