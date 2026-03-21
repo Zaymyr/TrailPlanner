@@ -415,7 +415,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     ? ([
         null,                       // Step 0: Welcome
         sectionIds.courseProfile,   // Step 1: Course profile
-        sectionIds.pacing,          // Step 2: Pacing & nutrition
+        "pacing-nutrition-section",  // Step 2: Pacing + nutrition cards together
         "onboarding-add-aid-btn",   // Step 3: Add aid station button
         sectionIds.timeline,        // Step 4: Products / timeline
         "header-sign-in",           // Step 5: Sign-in / create account button

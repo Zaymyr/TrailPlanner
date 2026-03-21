@@ -44,7 +44,7 @@ export function CommandCenter({
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-5">
+      <div id="pacing-nutrition-section" className="grid gap-3 md:grid-cols-5">
         <Card
           id={sectionIds.pacing}
           className="border-border bg-card shadow-md md:col-span-2 dark:border-slate-800/70 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
