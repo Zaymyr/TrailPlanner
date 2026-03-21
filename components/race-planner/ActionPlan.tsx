@@ -1949,6 +1949,7 @@ export function ActionPlan({
                         <div className="flex items-center gap-2">
                           {waterRefillToggle}
                           <Button
+                            id={item.isStart ? "onboarding-open-products-btn" : undefined}
                             type="button"
                             variant="outline"
                             className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-background p-0 text-emerald-700 hover:bg-emerald-500/10 dark:bg-slate-950/60 dark:text-emerald-50"

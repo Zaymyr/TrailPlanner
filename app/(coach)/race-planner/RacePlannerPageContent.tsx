@@ -371,10 +371,20 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   }, [setOnboardingOpen]);
 
+  // Keep the plan tab active throughout the tutorial.
+  // Step 5 targets the site header sign-in button which is always visible.
+  const applyOnboardingLayout = useCallback(
+    (_step: number) => {
+      setMobileView("plan");
+    },
+    [setMobileView],
+  );
+
   const handleOpenOnboarding = useCallback(() => {
+    applyOnboardingLayout(0);
     setOnboardingStep(0);
     setOnboardingOpen(true);
-  }, [setOnboardingStep, setOnboardingOpen]);
+  }, [applyOnboardingLayout, setOnboardingStep, setOnboardingOpen]);
 
   const handleCloseOnboarding = useCallback(() => {
     setOnboardingOpen(false);
@@ -384,25 +394,31 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const handleNextOnboarding = useCallback(() => {
     const totalSteps = racePlannerCopy.onboarding.steps.length;
     if (onboardingStep < totalSteps - 1) {
-      setOnboardingStep(onboardingStep + 1);
+      const nextStep = onboardingStep + 1;
+      applyOnboardingLayout(nextStep);
+      setOnboardingStep(nextStep);
     } else {
       handleCloseOnboarding();
     }
-  }, [onboardingStep, racePlannerCopy.onboarding.steps.length, setOnboardingStep, handleCloseOnboarding]);
+  }, [onboardingStep, racePlannerCopy.onboarding.steps.length, applyOnboardingLayout, setOnboardingStep, handleCloseOnboarding]);
 
   const handlePreviousOnboarding = useCallback(() => {
-    if (onboardingStep > 0) setOnboardingStep(onboardingStep - 1);
-  }, [onboardingStep, setOnboardingStep]);
+    if (onboardingStep > 0) {
+      const prevStep = onboardingStep - 1;
+      applyOnboardingLayout(prevStep);
+      setOnboardingStep(prevStep);
+    }
+  }, [onboardingStep, applyOnboardingLayout, setOnboardingStep]);
 
   // Which element ID to spotlight per tutorial step (null = no specific target)
   const onboardingTargetId: string | null = onboardingOpen
     ? ([
         null,                       // Step 0: Welcome
         sectionIds.courseProfile,   // Step 1: Course profile
-        sectionIds.pacing,          // Step 2: Pacing & nutrition
+        "pacing-nutrition-section",  // Step 2: Pacing + nutrition cards together
         "onboarding-add-aid-btn",   // Step 3: Add aid station button
-        sectionIds.timeline,        // Step 4: Products / timeline
-        null,                       // Step 5: Save plan
+        "onboarding-open-products-btn", // Step 4: "+" button to open product picker
+        "onboarding-create-account-btn", // Step 5: "Créer un compte" in guest banner
       ][onboardingStep] ?? null)
     : null;
 
