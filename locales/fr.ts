@@ -654,6 +654,46 @@ export const fr: Translations = {
       pacing: "Allure & effort",
       intake: "Apports",
     },
+    onboarding: {
+      openLabel: "Ouvrir le tutoriel",
+      closeLabel: "Fermer le tutoriel",
+      stepOf: "Étape {current} sur {total}",
+      next: "Suivant",
+      previous: "Précédent",
+      finish: "Compris !",
+      steps: [
+        {
+          title: "Bienvenue sur Pace Yourself 👋",
+          description:
+            "Ce tutoriel rapide vous explique comment planifier votre nutrition et votre allure en quelques étapes simples.",
+        },
+        {
+          title: "Configurer votre parcours",
+          description:
+            "Cliquez sur « Importer un GPX » pour charger un fichier GPX et placer vos ravitaillements automatiquement, ou cliquez sur « Parcourir les courses » pour choisir dans notre catalogue.",
+        },
+        {
+          title: "Allure & cibles nutritionnelles",
+          description:
+            "Choisissez le type d'allure (min/km ou km/h), saisissez votre allure, puis définissez vos cibles horaires en glucides (g/h), eau (ml/h) et sodium (mg/h). L'application calcule tout par segment automatiquement.",
+        },
+        {
+          title: "Ajouter des ravitaillements",
+          description:
+            "Dans la section Timeline ci-dessous, cliquez sur « Ajouter un ravito » pour indiquer vos points de ravitaillement. Renseignez la distance et cochez « Eau disponible » si le ravito propose de l'eau.",
+        },
+        {
+          title: "Ajouter des produits",
+          description:
+            "Ouvrez le panneau produits pour sélectionner les gels, barres et boissons que vous emporterez. Les quantités se calculent automatiquement selon vos cibles. Vous pouvez aussi affecter des produits à chaque ravito.",
+        },
+        {
+          title: "Enregistrer votre plan",
+          description:
+            "Créez un compte gratuit pour sauvegarder plusieurs plans, les recharger à tout moment et débloquer les fonctionnalités premium comme le remplissage auto et les fiches de course imprimables. Les coachs peuvent aussi partager leurs plans avec leurs athlètes.",
+        },
+      ],
+    },
   },
   admin: {
     title: "Admin",

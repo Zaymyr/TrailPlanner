@@ -644,6 +644,46 @@ export const en: Translations = {
       pacing: "Pace & effort",
       intake: "Intake",
     },
+    onboarding: {
+      openLabel: "Open tutorial",
+      closeLabel: "Close tutorial",
+      stepOf: "Step {current} of {total}",
+      next: "Next",
+      previous: "Previous",
+      finish: "Got it!",
+      steps: [
+        {
+          title: "Welcome to Pace Yourself 👋",
+          description:
+            "This quick tutorial will show you how to plan your race nutrition and pacing in a few easy steps.",
+        },
+        {
+          title: "Set up your course",
+          description:
+            'Click "Import GPX" to load a GPX file from your device and auto-place aid stations along your route, or click "Browse races" to pick from our race catalog.',
+        },
+        {
+          title: "Pace & nutrition targets",
+          description:
+            "Choose your pace type (min/km or km/h), enter your pace, then set your hourly targets for carbs (g/h), water (ml/h), and sodium (mg/h). The app calculates everything per segment automatically.",
+        },
+        {
+          title: "Add aid stations (ravitos)",
+          description:
+            'In the Timeline section below, click "Add an aid station" to mark where refuelling points are. Enter the distance and tick "Water available" if the station has water.',
+        },
+        {
+          title: "Add products & fuels",
+          description:
+            "Open the products panel to select the gels, bars, and drinks you will carry. Quantities are updated automatically based on your targets. You can also assign specific products to each aid station.",
+        },
+        {
+          title: "Save your plan",
+          description:
+            "Create a free account to save multiple plans, load them any time, and unlock premium features like auto-fill and printable race sheets. Coaches can also share plans with their athletes.",
+        },
+      ],
+    },
   },
   admin: {
     title: "Admin",

@@ -44,6 +44,7 @@ import { buildFuelProductEstimates, buildRaceTotals, type FuelProductEstimate } 
 import { CourseProfileSection } from "./components/CourseProfileSection";
 import { usePlannerState } from "./hooks/usePlannerState";
 import { useRacePlan } from "./hooks/useRacePlan";
+import { OnboardingOverlay } from "../../../components/race-planner/OnboardingOverlay";
 import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -306,6 +307,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       upgradeError,
       upgradeDialogOpen,
       upgradeReason,
+      onboardingOpen,
+      onboardingStep,
     },
     actions: {
       setImportError,
@@ -324,6 +327,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setUpgradeError,
       setUpgradeDialogOpen,
       setUpgradeReason,
+      setOnboardingOpen,
+      setOnboardingStep,
     },
   } = usePlannerState();
 
@@ -356,6 +361,38 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     setIsDesktopApp(isElectron || Boolean(isStandalone));
   }, [setIsDesktopApp]);
+
+  const ONBOARDING_KEY = "trailplanner.onboardingSeen";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!localStorage.getItem(ONBOARDING_KEY)) {
+      setOnboardingOpen(true);
+    }
+  }, [setOnboardingOpen]);
+
+  const handleOpenOnboarding = useCallback(() => {
+    setOnboardingStep(0);
+    setOnboardingOpen(true);
+  }, [setOnboardingStep, setOnboardingOpen]);
+
+  const handleCloseOnboarding = useCallback(() => {
+    setOnboardingOpen(false);
+    localStorage.setItem(ONBOARDING_KEY, "1");
+  }, [setOnboardingOpen]);
+
+  const handleNextOnboarding = useCallback(() => {
+    const totalSteps = racePlannerCopy.onboarding.steps.length;
+    if (onboardingStep < totalSteps - 1) {
+      setOnboardingStep(onboardingStep + 1);
+    } else {
+      handleCloseOnboarding();
+    }
+  }, [onboardingStep, racePlannerCopy.onboarding.steps.length, setOnboardingStep, handleCloseOnboarding]);
+
+  const handlePreviousOnboarding = useCallback(() => {
+    if (onboardingStep > 0) setOnboardingStep(onboardingStep - 1);
+  }, [onboardingStep, setOnboardingStep]);
 
   const parsedValues = useMemo(() => formSchema.safeParse(watchedValues), [formSchema, watchedValues]);
 
@@ -1351,6 +1388,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         {!isDesktopApp && (
           <Button
             type="button"
+            variant="outline"
+            className={`fixed ${enableMobileNav ? "bottom-[136px]" : "bottom-20"} left-6 z-20 inline-flex h-12 w-12 rounded-full shadow-lg`}
+            aria-label={racePlannerCopy.onboarding.openLabel}
+            onClick={handleOpenOnboarding}
+          >
+            <span className="text-lg font-bold leading-none">?</span>
+          </Button>
+        )}
+
+        {!isDesktopApp && (
+          <Button
+            type="button"
             className={`fixed ${feedbackButtonOffsetClass} left-6 z-20 inline-flex h-12 w-12 rounded-full shadow-lg`}
             aria-label={racePlannerCopy.sections.summary.feedback.open}
             onClick={openFeedbackForm}
@@ -1418,6 +1467,15 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
             </div>
           </div>
         )}
+
+        <OnboardingOverlay
+          open={onboardingOpen}
+          step={onboardingStep}
+          copy={racePlannerCopy.onboarding}
+          onClose={handleCloseOnboarding}
+          onNext={handleNextOnboarding}
+          onPrevious={handlePreviousOnboarding}
+        />
 
         {upgradeDialogOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur">
