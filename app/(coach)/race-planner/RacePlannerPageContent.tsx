@@ -413,11 +413,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   // Which element ID to spotlight per tutorial step (null = no specific target)
   const onboardingTargetId: string | null = onboardingOpen
     ? ([
-        null,                       // Step 0: Welcome
-        sectionIds.courseProfile,   // Step 1: Course profile
-        "pacing-nutrition-section",  // Step 2: Pacing + nutrition cards together
-        "onboarding-add-aid-btn",   // Step 3: Add aid station button
-        "onboarding-open-products-btn", // Step 4: "+" button to open product picker
+        null,                         // Step 0: Welcome
+        "onboarding-course-btns",     // Step 1: Import GPX + Browse race buttons
+        "pacing-nutrition-section",   // Step 2: Pacing + nutrition cards together
+        "onboarding-add-aid-btn",     // Step 3: Add aid station button
+        "onboarding-start-supply-zone", // Step 4: Supply drop zone in the start row
         "onboarding-create-account-btn", // Step 5: "Créer un compte" in guest banner
       ][onboardingStep] ?? null)
     : null;
@@ -1349,7 +1349,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       </Script>
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
-        <GuestSaveBanner isAuthed={isAuthed} />
+        <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
         <CourseProfileSection
           sectionId={sectionIds.courseProfile}
           copy={racePlannerCopy}
