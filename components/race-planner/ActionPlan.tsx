@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactNode, SVGProps } from "react";
 import type { Path, UseFormRegister, UseFormSetValue } from "react-hook-form";
 
@@ -2696,6 +2697,19 @@ export function ActionPlan({
               <Button variant="ghost" className="h-8 px-2" onClick={() => setSupplyPicker(null)}>
                 ✕
               </Button>
+            </div>
+            <div>
+              <Link
+                href="/settings"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm font-medium text-foreground transition hover:bg-muted dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                Créer un nouveau produit
+              </Link>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Input
