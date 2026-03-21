@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { Button } from "../../components/ui/button";
+import { TabsList } from "../../components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import {
   Dialog,
@@ -162,6 +163,7 @@ export default function AdminPage() {
   const [userError, setUserError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [revokingGrantId, setRevokingGrantId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("products");
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [premiumDialogUser, setPremiumDialogUser] = useState<z.infer<typeof adminUserSchema> | null>(null);
 
@@ -574,7 +576,18 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-6">
+      <TabsList
+        tabs={[
+          { id: "products", label: t.admin.products.title },
+          { id: "users", label: t.admin.users.title },
+          { id: "growth", label: t.admin.growth.title },
+          { id: "analytics", label: t.admin.analytics.title },
+        ]}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+
+      {activeTab === "products" && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.products.title}</CardTitle>
@@ -672,7 +685,10 @@ export default function AdminPage() {
             ) : null}
           </CardContent>
         </Card>
+      )}
 
+      {activeTab === "users" && (
+        <>
         <Card>
           <CardHeader>
             <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.users.title}</CardTitle>
@@ -937,13 +953,17 @@ export default function AdminPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+        </>
+      )}
 
-      <AdminGrowthSection accessToken={accessToken} t={t.admin.growth} />
+      {activeTab === "growth" && (
+        <AdminGrowthSection accessToken={accessToken} t={t.admin.growth} />
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.analytics.title}</CardTitle>
+      {activeTab === "analytics" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.analytics.title}</CardTitle>
           <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.analytics.description}</p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1056,7 +1076,8 @@ export default function AdminPage() {
             </div>
           ) : null}
         </CardContent>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }
