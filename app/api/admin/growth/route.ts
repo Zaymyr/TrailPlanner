@@ -9,6 +9,7 @@ import {
   getSupabaseServiceConfig,
   isAdminUser,
 } from "../../../../lib/supabase";
+import { adminGrowthResponseSchema } from "./schema";
 
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
@@ -66,34 +67,6 @@ const rpcDayRowSchema = z.object({
   day: z.string(),
   count: z.union([z.number(), z.string()]).transform((v) => Number(v)),
 });
-
-export const adminGrowthResponseSchema = z.object({
-  userRows: z.array(
-    z.object({
-      userId: z.string(),
-      email: z.string().nullable(),
-      createdAt: z.string(),
-      lastSignInAt: z.string().nullable(),
-      planCount: z.number(),
-      hasProfile: z.boolean(),
-      subscriptionStatus: z.string().nullable(),
-      subscriptionPeriodEnd: z.string().nullable(),
-      grantReason: z.string().nullable(),
-      isAdmin: z.boolean(),
-    })
-  ),
-  signupsByMonth: z.array(z.object({ month: z.string(), count: z.number() })),
-  signupsByDay: z.array(z.object({ day: z.string(), count: z.number() })),
-  totals: z.object({
-    users: z.number(),
-    usersWithPlan: z.number(),
-    usersWithProfile: z.number(),
-    activeSubscriptions: z.number(),
-    premiumGrants: z.number(),
-  }),
-});
-
-export type AdminGrowthResponse = z.infer<typeof adminGrowthResponseSchema>;
 
 const isSubscriptionActive = (status: string | null | undefined, periodEnd: string | null | undefined): boolean => {
   if (!status) return false;
