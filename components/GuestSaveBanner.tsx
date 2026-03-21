@@ -70,7 +70,7 @@ export function GuestSaveBanner({ isAuthed }: GuestSaveBannerProps) {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <Button type="button" className="h-9" onClick={() => router.push("/sign-up")}>
+          <Button id="onboarding-create-account" type="button" className="h-9" onClick={() => router.push("/sign-up")}>
             {guestBanner.cta}
           </Button>
         </div>

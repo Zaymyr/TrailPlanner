@@ -7,18 +7,18 @@ import type { OnboardingTranslations } from "../../locales/types";
 // Maps each step index to an existing element ID in the DOM.
 // null = no spotlight (card stays centered).
 const STEP_TARGET_IDS: (string | null)[] = [
-  null,                     // Step 0: Welcome – no specific element
-  "course-profile",         // Step 1: Import GPX / Browse races buttons
-  "pacing-section",         // Step 2: Pace & nutrition inputs
-  "onboarding-add-ravito",  // Step 3: "Add an aid station" button
-  "onboarding-supply-btn",  // Step 4: "+" supply button on the first station
-  "onboarding-account",     // Step 5: Save plan / account section
+  null,                          // Step 0: Welcome – no specific element
+  "course-profile",              // Step 1: Import GPX / Browse races buttons
+  "pacing-section",              // Step 2: Pace & nutrition inputs
+  "onboarding-add-ravito",       // Step 3: "Add an aid station" button
+  "onboarding-supply-btn",       // Step 4: "+" supply button on the first station
+  "onboarding-create-account",   // Step 5: "Créer un compte" button in the guest banner
 ];
 
-const PADDING = 8;   // px of breathing room around the spotlight
-const CARD_W = 380;  // max width of the tooltip card
-const CARD_GAP = 14; // gap between spotlight and card
-const MARGIN = 16;   // min distance from viewport edges
+const PADDING = 8;  // px of breathing room around the spotlight
+const CARD_W = 380; // max width of the tooltip card
+const CARD_GAP = 8; // gap between spotlight and card
+const MARGIN = 16;  // min distance from viewport edges
 
 type Props = {
   open: boolean;
