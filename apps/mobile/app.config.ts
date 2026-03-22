@@ -3,7 +3,7 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Pace Yourself',
-  slug: 'pace-yourself',
+  slug: 'pace-yourself-app',
   owner: 'pace-yourself',
   scheme: 'paceyourself',
   version: '1.0.0',
