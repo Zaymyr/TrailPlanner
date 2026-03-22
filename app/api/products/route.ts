@@ -24,6 +24,7 @@ const supabaseProductSchema = z.object({
   sodium_mg: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
   protein_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
   fat_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
+  created_by: z.string().uuid().optional().nullable(),
 });
 
 const productResponseSchema = z.object({
@@ -41,6 +42,7 @@ const productResponseSchema = z.object({
       proteinGrams: z.number(),
       fatGrams: z.number(),
       waterMl: z.number().optional(),
+      createdBy: z.string().uuid().optional().nullable(),
     })
   ),
 });
@@ -79,6 +81,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   proteinGrams: Number(row.protein_g) || 0,
   fatGrams: Number(row.fat_g) || 0,
   waterMl: 0,
+  createdBy: row.created_by ?? undefined,
 });
 
 const buildSlug = (name: string) => {
@@ -107,16 +110,31 @@ export async function GET(request: NextRequest) {
   const fuelTypeFilter = fuelTypeParam
     ? fuelTypeSchema.safeParse(fuelTypeParam)
     : null;
+  const mineParam = request.nextUrl.searchParams.get("mine");
 
   if (fuelTypeParam && (!fuelTypeFilter || !fuelTypeFilter.success)) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid fuel type filter." }, { status: 400 }));
   }
 
+  if (mineParam === "true" && !token) {
+    return withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 }));
+  }
+
+  let createdByUserId: string | null = null;
+  if (mineParam === "true" && token) {
+    const supabaseUser = await fetchSupabaseUser(token, supabaseConfig);
+    if (!supabaseUser) {
+      return withSecurityHeaders(NextResponse.json({ message: "Unauthorized." }, { status: 401 }));
+    }
+    createdByUserId = supabaseUser.id;
+  }
+
   const fuelTypeQuery = fuelTypeFilter?.success ? `&fuel_type=eq.${fuelTypeFilter.data}` : "";
+  const createdByQuery = createdByUserId ? `&created_by=eq.${createdByUserId}` : "";
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g${fuelTypeQuery}&order=updated_at.desc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by${fuelTypeQuery}${createdByQuery}&order=updated_at.desc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
@@ -207,6 +225,7 @@ export async function POST(request: NextRequest) {
         fat_g: parsedBody.data.fatGrams,
         is_live: true,
         is_archived: false,
+        created_by: supabaseUser.id,
       }),
     });
 
