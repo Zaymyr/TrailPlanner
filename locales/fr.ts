@@ -948,6 +948,7 @@ export const fr: Translations = {
       select: "Choisir pour le planner",
       deselect: "Retirer du planner",
       openPlanner: "Retour au plan de course",
+      favoriteColumn: "Favori",
     },
     validation: {
       invalidUrl: "Lien invalide. Ajoutez un lien commençant par http ou https.",

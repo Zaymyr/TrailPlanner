@@ -1251,6 +1251,7 @@ export type ProductSettingsTranslations = {
     select: string;
     deselect: string;
     openPlanner: string;
+    favoriteColumn: string;
   };
   validation: {
     invalidUrl: string;
