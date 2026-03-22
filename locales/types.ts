@@ -818,11 +818,18 @@ export type AdminTranslations = {
       thumbnailUrl: string;
       isLive: string;
       gpxFile: string;
+      replaceGpx: string;
+      replaceImage: string;
     };
     preview: string;
     creating: string;
     addTitle: string;
     editTitle: string;
+    gpxSection: string;
+    imageSection: string;
+    currentThumbnail: string;
+    uploadingGpx: string;
+    uploadingImage: string;
     messages: {
       created: string;
       updated: string;
@@ -836,6 +843,10 @@ export type AdminTranslations = {
       invalidGpx: string;
       missingGpx: string;
       confirmDelete: string;
+      gpxUploadFailed: string;
+      imageUploadFailed: string;
+      imageTooLarge: string;
+      imageInvalidType: string;
     };
   };
 };

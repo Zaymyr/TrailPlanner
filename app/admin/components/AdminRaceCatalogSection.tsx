@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +24,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import type { AdminTranslations } from "../../../locales/types";
 
 const basePillClass = "rounded-full px-3 py-1 text-xs font-semibold";
+
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 const raceRowSchema = z.object({
   id: z.string().uuid(),
@@ -82,11 +86,21 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [editRace, setEditRace] = useState<RaceRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // GPX upload state for add form
-  const [gpxFile, setGpxFile] = useState<File | null>(null);
-  const [gpxPreview, setGpxPreview] = useState<ParsedPreview | null>(null);
-  const [gpxParseError, setGpxParseError] = useState<string | null>(null);
+  // Add form GPX state
+  const [addGpxFile, setAddGpxFile] = useState<File | null>(null);
+  const [addGpxPreview, setAddGpxPreview] = useState<ParsedPreview | null>(null);
+  const [addGpxError, setAddGpxError] = useState<string | null>(null);
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+
+  // Edit dialog file states
+  const [editGpxFile, setEditGpxFile] = useState<File | null>(null);
+  const [editGpxPreview, setEditGpxPreview] = useState<ParsedPreview | null>(null);
+  const [editGpxError, setEditGpxError] = useState<string | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const [editImageError, setEditImageError] = useState<string | null>(null);
+  const [isUploadingGpx, setIsUploadingGpx] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const racesQuery = useQuery({
     queryKey: ["admin", "race-catalog", accessToken],
@@ -192,8 +206,134 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       thumbnail_url: race.thumbnail_url ?? "",
       is_live: race.is_live,
     });
+    setEditGpxFile(null);
+    setEditGpxPreview(null);
+    setEditGpxError(null);
+    setEditImageFile(null);
+    setEditImagePreview(null);
+    setEditImageError(null);
     setMessage(null);
     setError(null);
+  };
+
+  const handleCloseEdit = () => {
+    setEditRace(null);
+    setEditGpxFile(null);
+    setEditGpxPreview(null);
+    setEditGpxError(null);
+    setEditImageFile(null);
+    setEditImagePreview(null);
+    setEditImageError(null);
+  };
+
+  // GPX file change for add form
+  const handleAddGpxChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAddGpxFile(file);
+    setAddGpxError(null);
+    try {
+      const content = await file.text();
+      const parsed = parseGpx(content);
+      setAddGpxPreview({ distanceKm: parsed.stats.distanceKm, gainM: parsed.stats.gainM, lossM: parsed.stats.lossM });
+      if (!addForm.getValues("name") && parsed.name) {
+        addForm.setValue("name", parsed.name, { shouldDirty: true });
+      }
+    } catch {
+      setAddGpxPreview(null);
+      setAddGpxError(t.errors.invalidGpx);
+    }
+  };
+
+  // GPX file change for edit form
+  const handleEditGpxChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setEditGpxFile(file);
+    setEditGpxError(null);
+    try {
+      const content = await file.text();
+      const parsed = parseGpx(content);
+      setEditGpxPreview({ distanceKm: parsed.stats.distanceKm, gainM: parsed.stats.gainM, lossM: parsed.stats.lossM });
+    } catch {
+      setEditGpxPreview(null);
+      setEditGpxError(t.errors.invalidGpx);
+    }
+  };
+
+  // Image file change for edit form
+  const handleEditImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setEditImageError(null);
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setEditImageError(t.errors.imageInvalidType);
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setEditImageError(t.errors.imageTooLarge);
+      return;
+    }
+
+    setEditImageFile(file);
+    const objectUrl = URL.createObjectURL(file);
+    setEditImagePreview(objectUrl);
+  };
+
+  const handleUploadGpx = async () => {
+    if (!editRace || !editGpxFile) return;
+    setIsUploadingGpx(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("gpx", editGpxFile);
+      const response = await fetch(`/api/race-catalog/${editRace.id}/gpx`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) throw new Error(data?.message ?? t.errors.gpxUploadFailed);
+      setMessage(t.messages.updated);
+      setEditGpxFile(null);
+      setEditGpxPreview(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.errors.gpxUploadFailed);
+    } finally {
+      setIsUploadingGpx(false);
+    }
+  };
+
+  const handleUploadImage = async () => {
+    if (!editRace || !editImageFile) return;
+    setIsUploadingImage(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", editImageFile);
+      const response = await fetch(`/api/race-catalog/${editRace.id}/thumbnail`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string; thumbnail_url?: string } | null;
+      if (!response.ok) throw new Error(data?.message ?? t.errors.imageUploadFailed);
+      setMessage(t.messages.updated);
+      setEditImageFile(null);
+      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+      setEditImagePreview(null);
+      // Update the local race state so the current thumbnail refreshes
+      if (data?.thumbnail_url && editRace) {
+        setEditRace({ ...editRace, thumbnail_url: data.thumbnail_url });
+      }
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.errors.imageUploadFailed);
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleEditSubmit = editForm.handleSubmit((values) => {
@@ -201,34 +341,16 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     updateMutation.mutate({ id: editRace.id, ...values });
   });
 
-  const handleGpxChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setGpxFile(file);
-    setGpxParseError(null);
-    try {
-      const content = await file.text();
-      const parsed = parseGpx(content);
-      setGpxPreview({ distanceKm: parsed.stats.distanceKm, gainM: parsed.stats.gainM, lossM: parsed.stats.lossM });
-      if (!addForm.getValues("name") && parsed.name) {
-        addForm.setValue("name", parsed.name, { shouldDirty: true });
-      }
-    } catch {
-      setGpxPreview(null);
-      setGpxParseError(t.errors.invalidGpx);
-    }
-  };
-
   const handleAddSubmit = addForm.handleSubmit(async (values) => {
-    if (!gpxFile) {
-      setGpxParseError(t.errors.missingGpx);
+    if (!addGpxFile) {
+      setAddGpxError(t.errors.missingGpx);
       return;
     }
     setIsSubmittingAdd(true);
     setError(null);
     try {
       const formData = new FormData();
-      formData.append("gpx", gpxFile);
+      formData.append("gpx", addGpxFile);
       if (values.name) formData.append("name", values.name);
       if (values.location_text) formData.append("location_text", values.location_text);
       if (values.trace_id) formData.append("trace_id", values.trace_id);
@@ -242,15 +364,13 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
         body: formData,
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) {
-        throw new Error(data?.message ?? t.errors.createFailed);
-      }
+      if (!response.ok) throw new Error(data?.message ?? t.errors.createFailed);
       setMessage(t.messages.created);
       setError(null);
       setAddOpen(false);
       addForm.reset();
-      setGpxFile(null);
-      setGpxPreview(null);
+      setAddGpxFile(null);
+      setAddGpxPreview(null);
       void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
     } catch (err) {
       setError(err instanceof Error ? err.message : t.errors.createFailed);
@@ -278,7 +398,14 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
             <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.title}</CardTitle>
             <p className="text-sm text-slate-600 dark:text-slate-400">{t.description}</p>
           </div>
-          <Button className="h-9 px-4 text-sm" onClick={() => { setAddOpen(true); setMessage(null); setError(null); }}>
+          <Button
+            className="h-9 px-4 text-sm"
+            onClick={() => {
+              setAddOpen(true);
+              setMessage(null);
+              setError(null);
+            }}
+          >
             {t.actions.add}
           </Button>
         </div>
@@ -323,7 +450,21 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
             <TableBody>
               {filteredRaces.map((race) => (
                 <TableRow key={race.id}>
-                  <TableCell className="font-semibold text-slate-900 dark:text-slate-50">{race.name}</TableCell>
+                  <TableCell className="font-semibold text-slate-900 dark:text-slate-50">
+                    <div className="flex items-center gap-2">
+                      {race.thumbnail_url ? (
+                        <Image
+                          src={race.thumbnail_url}
+                          alt={race.name}
+                          width={32}
+                          height={32}
+                          className="h-8 w-8 rounded object-cover"
+                          unoptimized
+                        />
+                      ) : null}
+                      {race.name}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-slate-700 dark:text-slate-200">
                     {race.location_text ?? race.location ?? "—"}
                   </TableCell>
@@ -335,21 +476,21 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   </TableCell>
                   <TableCell>
                     {race.is_live ? (
-                      <span className={`${basePillClass} bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200`}>
+                      <span
+                        className={`${basePillClass} bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200`}
+                      >
                         {t.status.live}
                       </span>
                     ) : (
-                      <span className={`${basePillClass} bg-amber-100 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200`}>
+                      <span
+                        className={`${basePillClass} bg-amber-100 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200`}
+                      >
                         {t.status.draft}
                       </span>
                     )}
                   </TableCell>
                   <TableCell className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      className="h-8 px-3 text-xs"
-                      onClick={() => handleOpenEdit(race)}
-                    >
+                    <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => handleOpenEdit(race)}>
                       {t.actions.edit}
                     </Button>
                     <Button
@@ -376,8 +517,19 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
         ) : null}
       </CardContent>
 
-      {/* Add dialog */}
-      <Dialog open={addOpen} onOpenChange={(open) => { setAddOpen(open); if (!open) { addForm.reset(); setGpxFile(null); setGpxPreview(null); setGpxParseError(null); } }}>
+      {/* ── Add dialog ── */}
+      <Dialog
+        open={addOpen}
+        onOpenChange={(open) => {
+          setAddOpen(open);
+          if (!open) {
+            addForm.reset();
+            setAddGpxFile(null);
+            setAddGpxPreview(null);
+            setAddGpxError(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{t.addTitle}</DialogTitle>
@@ -401,18 +553,27 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 <Label className="text-xs">{t.fields.externalUrl}</Label>
                 <Input className="h-9 text-sm" {...addForm.register("external_site_url")} />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">{t.fields.thumbnailUrl}</Label>
-                <Input className="h-9 text-sm" {...addForm.register("thumbnail_url")} />
+                <Input className="h-9 text-sm" placeholder="https://…" {...addForm.register("thumbnail_url")} />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">{t.fields.gpxFile}</Label>
                 <Input
                   type="file"
                   accept=".gpx,application/gpx+xml"
                   className="h-9 text-sm"
-                  onChange={handleGpxChange}
+                  onChange={handleAddGpxChange}
                 />
+                {addGpxPreview ? (
+                  <p className="text-xs text-muted-foreground">
+                    {t.preview}
+                    <span className="ml-2">{addGpxPreview.distanceKm.toFixed(1)} km</span>
+                    <span className="ml-2">D+ {Math.round(addGpxPreview.gainM)} m</span>
+                    <span className="ml-2">D- {Math.round(addGpxPreview.lossM)} m</span>
+                  </p>
+                ) : null}
+                {addGpxError ? <p className="text-xs text-red-500">{addGpxError}</p> : null}
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -423,15 +584,6 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
               />
               {t.fields.isLive}
             </label>
-            {gpxPreview ? (
-              <p className="text-xs text-muted-foreground">
-                {t.preview}
-                <span className="ml-2">{gpxPreview.distanceKm.toFixed(1)} km</span>
-                <span className="ml-2">D+ {Math.round(gpxPreview.gainM)} m</span>
-                <span className="ml-2">D- {Math.round(gpxPreview.lossM)} m</span>
-              </p>
-            ) : null}
-            {gpxParseError ? <p className="text-xs text-red-500">{gpxParseError}</p> : null}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
                 {t.actions.cancel}
@@ -444,56 +596,152 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
         </DialogContent>
       </Dialog>
 
-      {/* Edit dialog */}
-      <Dialog open={editRace !== null} onOpenChange={(open) => { if (!open) setEditRace(null); }}>
-        <DialogContent className="max-w-lg">
+      {/* ── Edit dialog ── */}
+      <Dialog open={editRace !== null} onOpenChange={(open) => { if (!open) handleCloseEdit(); }}>
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.editTitle}</DialogTitle>
             <DialogDescription>{editRace?.name}</DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleEditSubmit} className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <Label className="text-xs">{t.fields.name}</Label>
-                <Input className="h-9 text-sm" {...editForm.register("name")} />
-                {editForm.formState.errors.name ? (
-                  <p className="text-xs text-red-500">{editForm.formState.errors.name.message}</p>
+          <div className="space-y-6">
+            {/* Metadata form */}
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.name}</Label>
+                  <Input className="h-9 text-sm" {...editForm.register("name")} />
+                  {editForm.formState.errors.name ? (
+                    <p className="text-xs text-red-500">{editForm.formState.errors.name.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.location}</Label>
+                  <Input className="h-9 text-sm" {...editForm.register("location_text")} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.traceId}</Label>
+                  <Input className="h-9 text-sm" {...editForm.register("trace_id")} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.externalUrl}</Label>
+                  <Input className="h-9 text-sm" {...editForm.register("external_site_url")} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">{t.fields.thumbnailUrl}</Label>
+                  <Input className="h-9 text-sm" placeholder="https://…" {...editForm.register("thumbnail_url")} />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 bg-white text-emerald-500 dark:border-slate-700 dark:bg-slate-950"
+                  {...editForm.register("is_live")}
+                />
+                {t.fields.isLive}
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={handleCloseEdit}>
+                  {t.actions.cancel}
+                </Button>
+                <Button type="submit" disabled={updateMutation.isPending}>
+                  {updateMutation.isPending ? t.actions.saving : t.actions.save}
+                </Button>
+              </div>
+            </form>
+
+            <hr className="border-slate-200 dark:border-slate-800" />
+
+            {/* GPX replacement */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {t.gpxSection}
+                {editRace?.gpx_storage_path ? (
+                  <span className="ml-2 text-xs font-normal text-emerald-600 dark:text-emerald-400">✓</span>
                 ) : null}
-              </div>
+              </p>
               <div className="space-y-1">
-                <Label className="text-xs">{t.fields.location}</Label>
-                <Input className="h-9 text-sm" {...editForm.register("location_text")} />
+                <Label className="text-xs">{t.fields.replaceGpx}</Label>
+                <Input
+                  type="file"
+                  accept=".gpx,application/gpx+xml"
+                  className="h-9 text-sm"
+                  onChange={handleEditGpxChange}
+                />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t.fields.traceId}</Label>
-                <Input className="h-9 text-sm" {...editForm.register("trace_id")} />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t.fields.externalUrl}</Label>
-                <Input className="h-9 text-sm" {...editForm.register("external_site_url")} />
-              </div>
-              <div className="space-y-1 sm:col-span-2">
-                <Label className="text-xs">{t.fields.thumbnailUrl}</Label>
-                <Input className="h-9 text-sm" {...editForm.register("thumbnail_url")} />
-              </div>
+              {editGpxPreview ? (
+                <p className="text-xs text-muted-foreground">
+                  {t.preview}
+                  <span className="ml-2">{editGpxPreview.distanceKm.toFixed(1)} km</span>
+                  <span className="ml-2">D+ {Math.round(editGpxPreview.gainM)} m</span>
+                  <span className="ml-2">D- {Math.round(editGpxPreview.lossM)} m</span>
+                </p>
+              ) : null}
+              {editGpxError ? <p className="text-xs text-red-500">{editGpxError}</p> : null}
+              {editGpxFile ? (
+                <Button
+                  type="button"
+                  className="h-8 px-4 text-xs"
+                  disabled={isUploadingGpx || Boolean(editGpxError)}
+                  onClick={() => void handleUploadGpx()}
+                >
+                  {isUploadingGpx ? t.uploadingGpx : t.actions.save}
+                </Button>
+              ) : null}
             </div>
-            <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 bg-white text-emerald-500 dark:border-slate-700 dark:bg-slate-950"
-                {...editForm.register("is_live")}
-              />
-              {t.fields.isLive}
-            </label>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditRace(null)}>
-                {t.actions.cancel}
-              </Button>
-              <Button type="submit" disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? t.actions.saving : t.actions.save}
-              </Button>
-            </DialogFooter>
-          </form>
+
+            <hr className="border-slate-200 dark:border-slate-800" />
+
+            {/* Image replacement */}
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t.imageSection}</p>
+              {editRace?.thumbnail_url && !editImagePreview ? (
+                <div className="space-y-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t.currentThumbnail}</p>
+                  <Image
+                    src={editRace.thumbnail_url}
+                    alt={editRace.name}
+                    width={120}
+                    height={80}
+                    className="h-20 w-auto rounded border border-slate-200 object-cover dark:border-slate-700"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+              {editImagePreview ? (
+                <div className="space-y-1">
+                  <Image
+                    src={editImagePreview}
+                    alt="preview"
+                    width={120}
+                    height={80}
+                    className="h-20 w-auto rounded border border-slate-200 object-cover dark:border-slate-700"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+              <div className="space-y-1">
+                <Label className="text-xs">{t.fields.replaceImage}</Label>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  className="h-9 text-sm"
+                  onChange={handleEditImageChange}
+                />
+                <p className="text-xs text-slate-400">JPEG, PNG, WebP, AVIF — max 5 MB</p>
+              </div>
+              {editImageError ? <p className="text-xs text-red-500">{editImageError}</p> : null}
+              {editImageFile && !editImageError ? (
+                <Button
+                  type="button"
+                  className="h-8 px-4 text-xs"
+                  disabled={isUploadingImage}
+                  onClick={() => void handleUploadImage()}
+                >
+                  {isUploadingImage ? t.uploadingImage : t.actions.save}
+                </Button>
+              ) : null}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Card>
