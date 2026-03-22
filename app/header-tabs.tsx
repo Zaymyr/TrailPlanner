@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import type { Route } from "next";
 
@@ -17,8 +17,7 @@ type TabItem = {
 export function HeaderTabs() {
   const { t } = useI18n();
   const pathname = usePathname();
-  const { session, clearSession } = useVerifiedSession();
-  const router = useRouter();
+  const { session } = useVerifiedSession();
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isCoach = session?.role === "coach" || session?.roles?.includes("coach");
@@ -73,15 +72,6 @@ export function HeaderTabs() {
     return true;
   });
 
-  const handleSignOut = () => {
-    clearSession();
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    } else {
-      router.refresh();
-    }
-  };
-
   return (
     <nav aria-label={t.navigation.menuLabel} className="flex items-center gap-1">
       {visibleTabs.map((item) => (
@@ -97,15 +87,6 @@ export function HeaderTabs() {
           {item.label}
         </Link>
       ))}
-      {session ? (
-        <button
-          type="button"
-          className="rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground dark:text-emerald-100 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50"
-          onClick={handleSignOut}
-        >
-          {t.racePlanner.account.auth.signOut}
-        </button>
-      ) : null}
     </nav>
   );
 }
