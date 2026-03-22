@@ -938,6 +938,7 @@ export const en: Translations = {
       select: "Select for planner",
       deselect: "Remove from planner",
       openPlanner: "Back to race planner",
+      favoriteColumn: "Favorite",
     },
     validation: {
       invalidUrl: "Invalid link. Please use a URL starting with http or https.",
