@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode, SVGProps } from "react";
@@ -839,6 +839,51 @@ type AidStationCollapsedRowProps = {
   actions?: ReactNode;
 };
 
+function PaceStepButton({
+  children,
+  onClick,
+  disabled,
+  title,
+  className,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}) {
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clear = () => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+  };
+
+  const handlePointerDown = () => {
+    if (disabled) return;
+    onClick();
+    timeoutRef.current = setTimeout(() => {
+      intervalRef.current = setInterval(onClick, 80);
+    }, 400);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      className={className}
+      disabled={disabled}
+      title={title}
+      onPointerDown={handlePointerDown}
+      onPointerUp={clear}
+      onPointerLeave={clear}
+    >
+      {children}
+    </Button>
+  );
+}
+
 type BetweenAidStationSectionProps = {
   sectionSummary: ReactNode;
   nutritionCards: ReactNode[];
@@ -1057,8 +1102,13 @@ export function ActionPlan({
       tooltip?: string;
     }) => {
       if (!fieldName) return null;
-      const adjustmentStep = 0.25;
+      const adjustmentStep = 5 / 60;
       const paceMinutesPerKm = basePaceMinutesPerKm + (paceAdjustmentMinutesPerKm ?? 0);
+      const adjust = (delta: number) => {
+        const nextPace = Number((paceMinutesPerKm + delta).toFixed(4));
+        const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(4));
+        setValue(fieldName, nextValue, { shouldDirty: true, shouldTouch: true });
+      };
       return (
         <div
           className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 dark:bg-slate-950/50"
@@ -1070,45 +1120,27 @@ export function ActionPlan({
               setValueAs: parseOptionalNumber,
             })}
           />
-          <Button
-            type="button"
-            variant="ghost"
+          <PaceStepButton
             className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
-            onClick={() => {
-              const nextPace = Number((paceMinutesPerKm - adjustmentStep).toFixed(2));
-              const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
-              setValue(fieldName, nextValue, {
-                shouldDirty: true,
-                shouldTouch: true,
-              });
-            }}
+            onClick={() => adjust(-adjustmentStep)}
             disabled={isDisabled}
             title={tooltip}
           >
             –
-          </Button>
+          </PaceStepButton>
           <div className="flex items-baseline gap-1 px-1">
             <span className="text-[13px] font-semibold text-foreground tabular-nums dark:text-slate-50">
               {formatPaceValue(paceMinutesPerKm)}
             </span>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
+          <PaceStepButton
             className="h-6 w-6 rounded-full border border-border px-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200 dark:hover:text-white"
-            onClick={() => {
-              const nextPace = Number((paceMinutesPerKm + adjustmentStep).toFixed(2));
-              const nextValue = Number((nextPace - basePaceMinutesPerKm).toFixed(2));
-              setValue(fieldName, nextValue, {
-                shouldDirty: true,
-                shouldTouch: true,
-              });
-            }}
+            onClick={() => adjust(adjustmentStep)}
             disabled={isDisabled}
             title={tooltip}
           >
             +
-          </Button>
+          </PaceStepButton>
         </div>
       );
     },
@@ -2117,7 +2149,7 @@ export function ActionPlan({
                       timeText={formatMinutes(sectionSummaryMinutes)}
                       elevationGainText={`${Math.round(sectionSummaryGain)} D+`}
                       elevationLossText={`${Math.round(sectionSummaryLoss)} D-`}
-                      paceControl={paceAdjustmentControl}
+                      paceControl={null}
                     />
                   ) : null;
 
