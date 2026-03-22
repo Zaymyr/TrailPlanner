@@ -781,6 +781,63 @@ export type AdminTranslations = {
       admin: string;
     };
   };
+  raceCatalog: {
+    title: string;
+    description: string;
+    loadError: string;
+    empty: string;
+    loading: string;
+    searchPlaceholder: string;
+    table: {
+      name: string;
+      location: string;
+      distance: string;
+      elevation: string;
+      status: string;
+      actions: string;
+    };
+    status: {
+      live: string;
+      draft: string;
+    };
+    actions: {
+      add: string;
+      edit: string;
+      delete: string;
+      setLive: string;
+      setDraft: string;
+      save: string;
+      saving: string;
+      cancel: string;
+    };
+    fields: {
+      name: string;
+      location: string;
+      traceId: string;
+      externalUrl: string;
+      thumbnailUrl: string;
+      isLive: string;
+      gpxFile: string;
+    };
+    preview: string;
+    creating: string;
+    addTitle: string;
+    editTitle: string;
+    messages: {
+      created: string;
+      updated: string;
+      deleted: string;
+    };
+    errors: {
+      loadFailed: string;
+      createFailed: string;
+      updateFailed: string;
+      deleteFailed: string;
+      invalidGpx: string;
+      missingGpx: string;
+      confirmDelete: string;
+    };
+  };
 };
 
 export type ProfileTranslations = {
