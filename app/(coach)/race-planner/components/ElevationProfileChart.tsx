@@ -159,7 +159,7 @@ export function ElevationProfileChart({
   const paddingX = 20;
   const paddingLeft = 50;
   const paddingY = 20;
-  const paddingYBottom = 34;
+  const paddingYBottom = 48;
   const elevationAreaHeight = 150;
   const height = paddingY + elevationAreaHeight + paddingYBottom;
   const elevationBottom = paddingY + elevationAreaHeight;
@@ -195,6 +195,19 @@ export function ElevationProfileChart({
     }
     return ticks;
   }, [trackDistanceKm]);
+
+  const finishStationIndex = useMemo(() => {
+    if (aidStations.length === 0) return -1;
+    let maxDist = -Infinity;
+    let maxIdx = 0;
+    aidStations.forEach((s, i) => {
+      if (s.distanceKm > maxDist) {
+        maxDist = s.distanceKm;
+        maxIdx = i;
+      }
+    });
+    return maxIdx;
+  }, [aidStations]);
   const yScale = useCallback(
     (elevation: number) =>
       elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight,
@@ -455,7 +468,7 @@ export function ElevationProfileChart({
         )}
 
         {aidStations.map((station, index) => {
-          const isFinish = index === aidStations.length - 1;
+          const isFinish = index === finishStationIndex;
           const x = xScale(station.distanceKm);
           const elevationAtPoint = getElevationAtDistance(station.distanceKm);
           const y = yScale(elevationAtPoint);
@@ -490,7 +503,7 @@ export function ElevationProfileChart({
                   {copy.sections.courseProfile.finishLabel}
                 </text>
               )}
-              <text x={x} y={elevationBottom + 14} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
+              <text x={x} y={elevationBottom + 27} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
                 {station.name}
               </text>
             </g>
@@ -511,7 +524,7 @@ export function ElevationProfileChart({
 
         <text
           x={width / 2}
-          y={elevationBottom + 30}
+          y={elevationBottom + 44}
           fontSize={10}
           fill="#475569"
           textAnchor="middle"
