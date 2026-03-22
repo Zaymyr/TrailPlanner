@@ -22,7 +22,7 @@ import type {
   RacePlan,
   AlertTimingMode,
   ActiveAlert,
-} from '@trailplanner/shared';
+} from '../../../lib/shared';
 
 // ─── Mode descriptions ──────────────────────────────────────────────────────
 

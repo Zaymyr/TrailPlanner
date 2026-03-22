@@ -1,10 +1,7 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
-    "paths": {
-      "@trailplanner/shared": ["../../packages/shared/src"]
-    }
+    "strict": true
   },
-  "include": ["**/*.ts", "**/*.tsx", "../../packages/shared/src/**/*"]
+  "include": ["**/*.ts", "**/*.tsx"]
 }

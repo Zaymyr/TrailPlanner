@@ -10,7 +10,7 @@ import {
   buildAlertSchedule,
   getAlertsToFire,
   SNOOZE_OPTIONS_MINUTES,
-} from '@trailplanner/shared';
+} from './shared';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
