@@ -414,6 +414,7 @@ function SegmentCard({
         <span className="tabular-nums">{distanceText}</span>
         <span className="tabular-nums text-red-600 dark:text-red-400">{elevationGainText}</span>
       </div>
+      {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
       <div
         className={
           isCompactChip
@@ -426,7 +427,6 @@ function SegmentCard({
         <span className="tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
         <span className="text-blue-600 dark:text-blue-400">{elevationLossText}</span>
       </div>
-      {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
     </div>
   );
 }
@@ -2155,7 +2155,7 @@ export function ActionPlan({
                       elevationGainText={`${Math.round(sectionSummaryGain)} D+`}
                       elevationLossText={`${Math.round(sectionSummaryLoss)} D-`}
                       paceControl={
-                        <span className="text-[12px] font-semibold tabular-nums text-foreground dark:text-slate-50">
+                        <span className="text-[15px] font-bold tabular-nums text-foreground dark:text-slate-50">
                           {formatPaceValue(sectionAvgPace)}/km
                         </span>
                       }
