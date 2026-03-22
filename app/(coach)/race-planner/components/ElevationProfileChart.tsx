@@ -187,6 +187,14 @@ export function ElevationProfileChart({
     }
     return ticks;
   }, [scaledMin, scaledMax]);
+
+  const xTicks = useMemo(() => {
+    const ticks: number[] = [];
+    for (let d = 5; d <= trackDistanceKm; d += 5) {
+      ticks.push(Math.round(d * 10) / 10);
+    }
+    return ticks;
+  }, [trackDistanceKm]);
   const yScale = useCallback(
     (elevation: number) =>
       elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight,
@@ -447,9 +455,11 @@ export function ElevationProfileChart({
         )}
 
         {aidStations.map((station, index) => {
+          const isFinish = index === aidStations.length - 1;
           const x = xScale(station.distanceKm);
           const elevationAtPoint = getElevationAtDistance(station.distanceKm);
           const y = yScale(elevationAtPoint);
+          const color = isFinish ? "#22c55e" : "#fbbf24";
           return (
             <g
               key={`${station.name}-${station.distanceKm}`}
@@ -461,10 +471,39 @@ export function ElevationProfileChart({
               onPointerEnter={() => setRavitoIndex(index)}
               onPointerLeave={() => setRavitoIndex(null)}
             >
-              <line x1={x} x2={x} y1={y} y2={elevationBottom} stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="2 3" />
-              <circle cx={x} cy={y} r={4} fill="#fbbf24" />
-              <text x={x} y={elevationBottom + 15} fontSize={10} fontWeight="600" fill="#fbbf24" textAnchor="middle">
+              <line
+                x1={x} x2={x} y1={y} y2={elevationBottom}
+                stroke={color}
+                strokeWidth={isFinish ? 2 : 1.5}
+                strokeDasharray={isFinish ? undefined : "2 3"}
+              />
+              <circle cx={x} cy={y} r={isFinish ? 5 : 4} fill={color} />
+              {isFinish && (
+                <text
+                  x={x}
+                  y={Math.max(y - 9, paddingY + 8)}
+                  fontSize={9}
+                  fontWeight="700"
+                  fill={color}
+                  textAnchor="middle"
+                >
+                  {copy.sections.courseProfile.finishLabel}
+                </text>
+              )}
+              <text x={x} y={elevationBottom + 14} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
                 {station.name}
+              </text>
+            </g>
+          );
+        })}
+
+        {xTicks.map((d) => {
+          const x = xScale(d);
+          return (
+            <g key={d}>
+              <line x1={x} x2={x} y1={elevationBottom} y2={elevationBottom + 4} stroke="#475569" strokeWidth={1} />
+              <text x={x} y={elevationBottom + 13} fontSize={9} fill="#64748b" textAnchor="middle">
+                {d}
               </text>
             </g>
           );
@@ -472,9 +511,9 @@ export function ElevationProfileChart({
 
         <text
           x={width / 2}
-          y={elevationBottom + 28}
+          y={elevationBottom + 30}
           fontSize={10}
-          fill="#64748b"
+          fill="#475569"
           textAnchor="middle"
         >
           {copy.sections.courseProfile.axisLabel}

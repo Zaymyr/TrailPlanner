@@ -231,6 +231,7 @@ export const en: Translations = {
         speedUnit: "km/h",
         legendClimb: "Climb",
         legendDescent: "Descent",
+        finishLabel: "Finish",
         tooltip: {
           distance: "Distance",
           elevation: "Elevation",

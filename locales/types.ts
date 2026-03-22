@@ -138,6 +138,7 @@ export type RacePlannerTranslations = {
       speedUnit: string;
       legendClimb: string;
       legendDescent: string;
+      finishLabel: string;
       tooltip: {
         distance: string;
         elevation: string;
