@@ -229,6 +229,10 @@ export const en: Translations = {
         ariaLabel: "Course elevation profile",
         speedLabel: "Adjusted speed",
         speedUnit: "km/h",
+        legendClimb: "Climb",
+        legendDescent: "Descent",
+        startLabel: "Start",
+        finishLabel: "Finish",
         tooltip: {
           distance: "Distance",
           elevation: "Elevation",

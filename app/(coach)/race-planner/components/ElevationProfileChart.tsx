@@ -5,6 +5,14 @@ import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, Segment } from "../types";
 import { formatClockTime } from "../utils/format";
 
+function niceStep(range: number, targetCount: number): number {
+  const roughStep = Math.max(range, 1) / targetCount;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const normalized = roughStep / magnitude;
+  const niceNorm = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return niceNorm * magnitude;
+}
+
 function slopeToColor(grade: number) {
   const clamped = Math.max(-0.25, Math.min(0.25, grade));
   const t = (clamped + 0.25) / 0.5;
@@ -149,9 +157,11 @@ export function ElevationProfileChart({
 
   const width = Math.max(Math.round(chartWidth), 480);
   const paddingX = 20;
-  const paddingY = 14;
+  const paddingLeft = 50;
+  const paddingY = 20;
+  const paddingYBottom = 48;
   const elevationAreaHeight = 150;
-  const height = paddingY + elevationAreaHeight + paddingY;
+  const height = paddingY + elevationAreaHeight + paddingYBottom;
   const elevationBottom = paddingY + elevationAreaHeight;
   const maxElevation = Math.max(...safeProfile.map((p) => p.elevationM));
   const minElevation = Math.min(...safeProfile.map((p) => p.elevationM));
@@ -162,10 +172,42 @@ export function ElevationProfileChart({
 
   const xScale = useCallback(
     (distanceKm: number) =>
-      paddingX +
-      Math.min(Math.max(distanceKm, 0), trackDistanceKm) * ((width - paddingX * 2) / trackDistanceKm),
-    [paddingX, trackDistanceKm, width]
+      paddingLeft +
+      Math.min(Math.max(distanceKm, 0), trackDistanceKm) * ((width - paddingLeft - paddingX) / trackDistanceKm),
+    [paddingLeft, paddingX, trackDistanceKm, width]
   );
+
+  const yTicks = useMemo(() => {
+    const range = Math.max(scaledMax - scaledMin, 1);
+    const step = niceStep(range, 4);
+    const first = Math.ceil(scaledMin / step) * step;
+    const ticks: number[] = [];
+    for (let t = first; t <= scaledMax + step * 0.01; t += step) {
+      ticks.push(Math.round(t));
+    }
+    return ticks;
+  }, [scaledMin, scaledMax]);
+
+  const xTicks = useMemo(() => {
+    const ticks: number[] = [];
+    for (let d = 5; d <= trackDistanceKm; d += 5) {
+      ticks.push(Math.round(d * 10) / 10);
+    }
+    return ticks;
+  }, [trackDistanceKm]);
+
+  const finishStationIndex = useMemo(() => {
+    if (aidStations.length === 0) return -1;
+    let maxDist = -Infinity;
+    let maxIdx = 0;
+    aidStations.forEach((s, i) => {
+      if (s.distanceKm > maxDist) {
+        maxDist = s.distanceKm;
+        maxIdx = i;
+      }
+    });
+    return maxIdx;
+  }, [aidStations]);
   const yScale = useCallback(
     (elevation: number) =>
       elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight,
@@ -364,7 +406,7 @@ export function ElevationProfileChart({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${width} ${height}`}
-        className="h-[190px] w-full"
+        className="h-[215px] w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
         onPointerMove={handlePointerMove}
@@ -378,22 +420,31 @@ export function ElevationProfileChart({
           </linearGradient>
         </defs>
 
-        {[scaledMin, scaledMax].map((tick) => (
-          <g key={tick}>
-            <line
-              x1={paddingX}
-              x2={width - paddingX}
-              y1={yScale(tick)}
-              y2={yScale(tick)}
-              stroke="#1f2937"
-              strokeWidth={1}
-              strokeDasharray="4 4"
-            />
-            <text x={paddingX - 8} y={yScale(tick) + 4} className="fill-slate-400 text-[10px]" textAnchor="end">
-              {tick.toFixed(0)} {copy.units.meter}
-            </text>
-          </g>
-        ))}
+        {yTicks.map((tick) => {
+          const lineY = yScale(tick);
+          return (
+            <g key={tick}>
+              <line
+                x1={paddingLeft}
+                x2={width - paddingX}
+                y1={lineY}
+                y2={lineY}
+                stroke="#334155"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+              <text
+                x={paddingLeft - 6}
+                y={lineY + 4}
+                fontSize={10}
+                fill="#64748b"
+                textAnchor="end"
+              >
+                {tick.toFixed(0)} {copy.units.meter}
+              </text>
+            </g>
+          );
+        })}
 
         <path d={areaPath} fill="url(#elevationGradient)" stroke="none" />
         {slopeSegments.map((segment, index) => (
@@ -416,10 +467,34 @@ export function ElevationProfileChart({
           </>
         )}
 
+        {(() => {
+          const startX = xScale(0);
+          const startElevation = getElevationAtDistance(0);
+          const startY = yScale(startElevation);
+          return (
+            <g>
+              <line x1={startX} x2={startX} y1={startY} y2={elevationBottom} stroke="#3b82f6" strokeWidth={2} />
+              <circle cx={startX} cy={startY} r={5} fill="#3b82f6" />
+              <text
+                x={startX}
+                y={Math.max(startY - 9, paddingY + 8)}
+                fontSize={9}
+                fontWeight="700"
+                fill="#3b82f6"
+                textAnchor="middle"
+              >
+                {copy.sections.courseProfile.startLabel}
+              </text>
+            </g>
+          );
+        })()}
+
         {aidStations.map((station, index) => {
+          const isFinish = index === finishStationIndex;
           const x = xScale(station.distanceKm);
           const elevationAtPoint = getElevationAtDistance(station.distanceKm);
           const y = yScale(elevationAtPoint);
+          const color = isFinish ? "#22c55e" : "#fbbf24";
           return (
             <g
               key={`${station.name}-${station.distanceKm}`}
@@ -431,10 +506,40 @@ export function ElevationProfileChart({
               onPointerEnter={() => setRavitoIndex(index)}
               onPointerLeave={() => setRavitoIndex(null)}
             >
-              <line x1={x} x2={x} y1={y} y2={elevationBottom} stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="2 3" />
-              <circle cx={x} cy={y} r={4} fill="#fbbf24" />
-              <text x={x} y={elevationBottom + 12} className="fill-slate-300 text-[10px]" textAnchor="middle">
-                {station.name}
+              <line
+                x1={x} x2={x} y1={y} y2={elevationBottom}
+                stroke={color}
+                strokeWidth={isFinish ? 2 : 1.5}
+                strokeDasharray={isFinish ? undefined : "2 3"}
+              />
+              <circle cx={x} cy={y} r={isFinish ? 5 : 4} fill={color} />
+              {isFinish ? (
+                <text
+                  x={x}
+                  y={Math.max(y - 9, paddingY + 8)}
+                  fontSize={9}
+                  fontWeight="700"
+                  fill={color}
+                  textAnchor="middle"
+                >
+                  {copy.sections.courseProfile.finishLabel}
+                </text>
+              ) : (
+                <text x={x} y={elevationBottom + 27} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
+                  {station.name}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {xTicks.map((d) => {
+          const x = xScale(d);
+          return (
+            <g key={d}>
+              <line x1={x} x2={x} y1={elevationBottom} y2={elevationBottom + 4} stroke="#475569" strokeWidth={1} />
+              <text x={x} y={elevationBottom + 13} fontSize={9} fill="#64748b" textAnchor="middle">
+                {d}
               </text>
             </g>
           );
@@ -442,12 +547,36 @@ export function ElevationProfileChart({
 
         <text
           x={width / 2}
-          y={height - 4}
-          className="fill-slate-400 text-[10px]"
+          y={elevationBottom + 44}
+          fontSize={10}
+          fill="#475569"
           textAnchor="middle"
         >
           {copy.sections.courseProfile.axisLabel}
         </text>
+
+        {/* Slope color legend — top-right */}
+        <g>
+          <rect
+            x={width - paddingX - 112}
+            y={paddingY - 16}
+            width={112}
+            height={16}
+            rx={4}
+            fill="#0f172a"
+            fillOpacity={0.55}
+          />
+          {/* Descent: blue */}
+          <circle cx={width - paddingX - 104} cy={paddingY - 8} r={3.5} fill="rgb(59,130,246)" />
+          <text x={width - paddingX - 98} y={paddingY - 4} fontSize={9} fill="#94a3b8">
+            {copy.sections.courseProfile.legendDescent}
+          </text>
+          {/* Climb: red */}
+          <circle cx={width - paddingX - 52} cy={paddingY - 8} r={3.5} fill="rgb(239,68,68)" />
+          <text x={width - paddingX - 46} y={paddingY - 4} fontSize={9} fill="#94a3b8">
+            {copy.sections.courseProfile.legendClimb}
+          </text>
+        </g>
       </svg>
 
       {(activePoint || activeRavito) && (
