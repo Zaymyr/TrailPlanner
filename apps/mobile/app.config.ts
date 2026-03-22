@@ -4,6 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: 'Pace Yourself',
   slug: 'pace-yourself',
+  owner: 'faustin1990',
   scheme: 'paceyourself',
   version: '1.0.0',
   orientation: 'portrait',
