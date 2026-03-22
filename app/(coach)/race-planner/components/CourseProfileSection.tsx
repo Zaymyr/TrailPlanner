@@ -101,20 +101,11 @@ export const CourseProfileSection = ({
             </div>
             <Button
               type="button"
-              className="relative h-9 px-3 text-xs"
+              className={!allowExport ? "relative h-9 px-3 text-xs premium-glow" : "relative h-9 px-3 text-xs"}
               onClick={allowExport ? onExportGpx : onRequestExportUpgrade}
               variant={allowExport ? "default" : "outline"}
             >
-              <span className="flex items-center gap-1.5" title={!allowExport ? "Premium feature" : undefined}>
-                {!allowExport ? (
-                  <SparklesIcon
-                    className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
-                    strokeWidth={2}
-                    aria-hidden
-                  />
-                ) : null}
-                <span>{copy.buttons.exportGpx}</span>
-              </span>
+              {copy.buttons.exportGpx}
             </Button>
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
@@ -174,20 +165,11 @@ export const CourseProfileSection = ({
               </div>
               <Button
                 type="button"
-                className="relative h-9 px-3 text-xs"
+                className={!allowExport ? "relative h-9 px-3 text-xs premium-glow" : "relative h-9 px-3 text-xs"}
                 onClick={allowExport ? onExportGpx : onRequestExportUpgrade}
                 variant={allowExport ? "default" : "outline"}
               >
-                <span className="flex items-center gap-1.5" title={!allowExport ? "Premium feature" : undefined}>
-                  {!allowExport ? (
-                    <SparklesIcon
-                      className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
-                      strokeWidth={2}
-                      aria-hidden
-                    />
-                  ) : null}
-                  <span>{copy.buttons.exportGpx}</span>
-                </span>
+                {copy.buttons.exportGpx}
               </Button>
             </div>
             {importError ? <p className="text-xs text-red-400">{importError}</p> : null}
