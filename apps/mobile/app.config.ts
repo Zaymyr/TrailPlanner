@@ -11,6 +11,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/icon.png',
   userInterfaceStyle: 'dark',
   splash: {
+    image: './assets/splash.png',
     backgroundColor: '#0f172a',
   },
   ios: {
@@ -24,6 +25,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#0f172a',
     },
     package: 'com.paceyourself.app',
