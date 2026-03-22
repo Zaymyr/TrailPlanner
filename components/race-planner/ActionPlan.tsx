@@ -1764,28 +1764,23 @@ export function ActionPlan({
                 <Button
                   type="button"
                   variant="outline"
+                  className={autoFillLocked ? "premium-glow" : undefined}
                   onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
                   title={copy.buttons.autoFillHint}
                   disabled={autoFillLocked && isUpgradeBusy}
                 >
-                  <span className="flex items-center gap-1.5" title={autoFillLocked ? "Premium feature" : undefined}>
-                    {autoFillLocked ? <PremiumSparklesIcon aria-hidden /> : null}
-                    <span>{copy.buttons.autoFill}</span>
-                  </span>
+                  {copy.buttons.autoFill}
                 </Button>
               ) : null}
               {segments.length > 0 ? (
                 <Button
                   type="button"
                   variant="outline"
-                  className="hidden sm:inline-flex"
+                  className={exportLocked ? "hidden sm:inline-flex premium-glow" : "hidden sm:inline-flex"}
                   onClick={exportLocked ? () => onUpgrade("print") : onPrintAssistance}
                   disabled={exportLocked && isUpgradeBusy}
                 >
-                  <span className="flex items-center gap-1.5" title={exportLocked ? "Premium feature" : undefined}>
-                    {exportLocked ? <PremiumSparklesIcon aria-hidden /> : null}
-                    <span>{copy.buttons.printPlan}</span>
-                  </span>
+                  {copy.buttons.printPlan}
                 </Button>
               ) : null}
             </div>

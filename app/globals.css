@@ -87,6 +87,23 @@ button {
   animation: tutorial-glow 2s ease-in-out infinite;
 }
 
+@keyframes premium-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.25),
+      0 0 6px 2px rgba(251, 191, 36, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(251, 191, 36, 0.45),
+      0 0 10px 4px rgba(251, 191, 36, 0.2);
+  }
+}
+
+.premium-glow {
+  animation: premium-glow 2.5s ease-in-out infinite;
+}
+
 @media print {
   :root {
     color-scheme: light;
