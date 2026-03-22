@@ -29,6 +29,7 @@ const createConfig = async () => {
     experimental: {
       typedRoutes: true,
     },
+    transpilePackages: ['@trailplanner/shared'],
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
   };
 
