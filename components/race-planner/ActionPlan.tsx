@@ -2141,6 +2141,11 @@ export function ActionPlan({
                   };
                 });
 
+                const sectionAvgPace =
+                  sectionSummaryDistanceKm > 0
+                    ? sectionSummaryMinutes / sectionSummaryDistanceKm
+                    : 0;
+
                 const segmentCard =
                   sectionSegment ? (
                     <SegmentCard
@@ -2149,7 +2154,11 @@ export function ActionPlan({
                       timeText={formatMinutes(sectionSummaryMinutes)}
                       elevationGainText={`${Math.round(sectionSummaryGain)} D+`}
                       elevationLossText={`${Math.round(sectionSummaryLoss)} D-`}
-                      paceControl={null}
+                      paceControl={
+                        <span className="text-[12px] font-semibold tabular-nums text-foreground dark:text-slate-50">
+                          {formatPaceValue(sectionAvgPace)}/km
+                        </span>
+                      }
                     />
                   ) : null;
 
