@@ -132,9 +132,9 @@ export function RaceCatalogModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8">
       <div className="absolute inset-0" onClick={onClose} aria-hidden />
-      <div className="relative w-full max-w-5xl">
-        <Card className="border border-border bg-card text-foreground shadow-xl">
-          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative flex w-full max-w-5xl flex-col" style={{ maxHeight: "calc(100vh - 4rem)" }}>
+        <Card className="flex min-h-0 flex-1 flex-col border border-border bg-card text-foreground shadow-xl">
+          <CardHeader className="flex-shrink-0 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>{copy.title}</CardTitle>
               <p className="mt-1 text-sm text-muted-foreground">{copy.description}</p>
@@ -143,7 +143,7 @@ export function RaceCatalogModal({
               {copy.close}
             </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
             {isAdmin ? (
               <RaceCatalogAdminForm
                 accessToken={accessToken}
@@ -158,7 +158,7 @@ export function RaceCatalogModal({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={copy.searchPlaceholder}
-              className="h-9 text-sm"
+              className="h-9 flex-shrink-0 text-sm"
             />
             {query.isLoading ? <p className="text-sm text-muted-foreground">{copy.loading}</p> : null}
             {query.isError ? <p className="text-sm text-red-500">{copy.loadError}</p> : null}
@@ -167,6 +167,7 @@ export function RaceCatalogModal({
             ) : null}
 
             {races.length > 0 ? (
+              <div className="min-h-0 flex-1 overflow-y-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -264,6 +265,7 @@ export function RaceCatalogModal({
                   ))}
                 </TableBody>
               </Table>
+              </div>
             ) : null}
           </CardContent>
         </Card>
