@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Component, useEffect, useState } from 'react';
+import { View, Text } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Session } from '@supabase/supabase-js';
@@ -16,6 +17,44 @@ Notifications.setNotificationHandler({
   }),
 });
 
+class ErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#0f172a',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <Text style={{ color: '#f87171', fontSize: 18, fontWeight: 'bold', marginBottom: 12 }}>
+            Something went wrong
+          </Text>
+          <Text style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>
+            {this.state.error.message}
+          </Text>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
@@ -24,16 +63,33 @@ export default function RootLayout() {
 
   // Auth listener
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    try {
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        setSession(s);
+        setReady(true);
+      }).catch((err) => {
+        console.error('Failed to get session:', err);
+        setReady(true);
+      });
+
+      const { data } = supabase.auth.onAuthStateChange(
+        (_event, s) => setSession(s),
+      );
+      subscription = data.subscription;
+    } catch (err) {
+      console.error('Auth listener setup failed:', err);
       setReady(true);
-    });
+    }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, s) => setSession(s),
-    );
-
-    return () => subscription.unsubscribe();
+    return () => {
+      try {
+        subscription?.unsubscribe();
+      } catch (err) {
+        console.error('Failed to unsubscribe auth listener:', err);
+      }
+    };
   }, []);
 
   // Route guard
@@ -80,7 +136,7 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -89,6 +145,6 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: '#0f172a' },
         }}
       />
-    </>
+    </ErrorBoundary>
   );
 }
