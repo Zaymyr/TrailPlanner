@@ -14,6 +14,7 @@ import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { FuelTypeBadge, getFuelTypeLabel } from "../../components/products/FuelTypeBadge";
 import { readStoredSession } from "../../lib/auth-storage";
+import { defaultEntitlements, fetchEntitlements } from "../../lib/entitlements-client";
 import { defaultFuelType, fuelTypeSchema, fuelTypeValues } from "../../lib/fuel-types";
 import { readLocalProducts, upsertLocalProduct } from "../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
@@ -57,8 +58,10 @@ export default function SettingsPage() {
   const { t, locale } = useI18n();
   const [session, setSession] = useState(() => readStoredSession());
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [entitlements, setEntitlements] = useState(defaultEntitlements);
   const { selectedProducts, replaceSelection } = useProductSelection();
   const [filterQuery, setFilterQuery] = useState("");
+  const [showMyProducts, setShowMyProducts] = useState(false);
   const [sortKey, setSortKey] = useState<keyof FuelProduct>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [warningDraft, setWarningDraft] = useState<{ values: ProductFormValues; zeroFields: string[] } | null>(null);
@@ -67,6 +70,15 @@ export default function SettingsPage() {
   useEffect(() => {
     setSession(readStoredSession());
   }, []);
+
+  useEffect(() => {
+    if (!session?.accessToken) return;
+    const abortController = new AbortController();
+    fetchEntitlements(session.accessToken, abortController.signal)
+      .then(setEntitlements)
+      .catch(() => {});
+    return () => abortController.abort();
+  }, [session?.accessToken]);
 
   const productFormSchema = useMemo(
     () =>
@@ -290,6 +302,15 @@ export default function SettingsPage() {
     setSelectionError(null);
     const isSelected = selectedProducts.some((item) => item.id === product.id);
 
+    if (!isSelected && selectedProducts.length >= entitlements.favoriteLimit) {
+      setSelectionError(
+        Number.isFinite(entitlements.favoriteLimit)
+          ? `Limite de ${entitlements.favoriteLimit} favoris atteinte. Passez en Premium pour des favoris illimités.`
+          : "Limite atteinte."
+      );
+      return;
+    }
+
     const nextSelection = isSelected
       ? selectedProducts.filter((item) => item.id !== product.id)
       : [...selectedProducts, mapProductToSelection(product)];
@@ -323,13 +344,26 @@ export default function SettingsPage() {
   });
 
   const authMissing = !session?.accessToken;
+  const canCreateProduct = authMissing || entitlements.isPremium;
   const productList = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
+
+  const localProductIds = useMemo(
+    () => new Set(readLocalProducts().map((p) => p.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [productsQuery.data]
+  );
 
   const filteredProducts = useMemo(() => {
     const normalizedQuery = filterQuery.trim().toLowerCase();
-    if (!normalizedQuery) return productList;
-    return productList.filter((product) => product.name.toLowerCase().includes(normalizedQuery));
-  }, [filterQuery, productList]);
+    return productList.filter((product) => {
+      const matchesSearch = !normalizedQuery || product.name.toLowerCase().includes(normalizedQuery);
+      const matchesOwnership =
+        !showMyProducts ||
+        selectedProducts.some((s) => s.id === product.id) ||
+        localProductIds.has(product.id);
+      return matchesSearch && matchesOwnership;
+    });
+  }, [filterQuery, localProductIds, productList, selectedProducts, showMyProducts]);
 
   const sortedProducts = useMemo(() => {
     const sorted = [...filteredProducts].sort((a, b) => {
@@ -402,6 +436,29 @@ export default function SettingsPage() {
                   {t.productSettings.actions.refresh}
                 </Button>
               </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center overflow-hidden rounded-md border border-border text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setShowMyProducts(false)}
+                  className={`px-3 py-1.5 transition-colors ${!showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
+                >
+                  Tous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowMyProducts(true)}
+                  className={`px-3 py-1.5 transition-colors ${showMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
+                >
+                  Mes produits
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {Number.isFinite(entitlements.favoriteLimit)
+                  ? `${selectedProducts.length}/${entitlements.favoriteLimit} favoris sélectionnés`
+                  : `${selectedProducts.length} favoris sélectionnés`}
+              </p>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -553,7 +610,13 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">{t.productSettings.formDescription}</p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={onSubmit} className="space-y-4">
+            {!canCreateProduct && (
+              <div className="rounded-md border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-700 dark:text-amber-200">
+                <p className="font-medium">Fonctionnalité Premium</p>
+                <p className="mt-1">La création de produits personnalisés est réservée aux abonnés Premium.</p>
+              </div>
+            )}
+            <form onSubmit={onSubmit} className={`space-y-4 ${!canCreateProduct ? "hidden" : ""}`}>
               <div className="space-y-2">
                 <Label htmlFor="name">{t.productSettings.fields.name}</Label>
                 <Input id="name" placeholder="Gel, boisson, barre..." {...register("name")} disabled={authMissing} />
