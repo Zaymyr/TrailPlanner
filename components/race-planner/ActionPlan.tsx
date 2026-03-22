@@ -405,10 +405,10 @@ function SegmentCard({
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-xs font-semibold"
+            ? "flex items-center justify-between gap-3 text-xs font-semibold"
             : isCompact
-              ? "flex items-center justify-between text-xs font-semibold"
-              : "flex items-center justify-between text-sm font-semibold"
+              ? "flex items-center justify-between gap-3 text-xs font-semibold"
+              : "flex items-center justify-between gap-3 text-sm font-semibold"
         }
       >
         <span className="flex-1 tabular-nums">{distanceText}</span>
@@ -418,10 +418,10 @@ function SegmentCard({
       <div
         className={
           isCompactChip
-            ? "flex items-center justify-between text-[11px] font-semibold"
+            ? "flex items-center justify-between gap-3 text-[11px] font-semibold"
             : isCompact
-              ? "flex items-center justify-between text-[11px] font-semibold"
-              : "flex items-center justify-between text-xs font-semibold"
+              ? "flex items-center justify-between gap-3 text-[11px] font-semibold"
+              : "flex items-center justify-between gap-3 text-xs font-semibold"
         }
       >
         <span className="flex-1 tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
