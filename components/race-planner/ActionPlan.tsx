@@ -153,6 +153,8 @@ type ActionPlanProps = {
   fuelProducts: FuelProduct[];
   favoriteProducts: StoredProductPreference[];
   onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
+  favoriteLimit: number;
+  localProductIds?: string[];
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
@@ -999,6 +1001,8 @@ export function ActionPlan({
   fuelProducts,
   favoriteProducts,
   onFavoriteToggle,
+  favoriteLimit,
+  localProductIds,
   startSupplies,
   onStartSupplyDrop,
   onStartSupplyRemove,
@@ -1064,8 +1068,10 @@ export function ActionPlan({
   const [editorError, setEditorError] = useState<string | null>(null);
   const [supplyPicker, setSupplyPicker] = useState<{ type: "start" | "aid"; index?: number } | null>(null);
   const [pickerFavorites, setPickerFavorites] = useState<string[]>([]);
+  const [pickerFavoriteLimitHit, setPickerFavoriteLimitHit] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerFuelType, setPickerFuelType] = useState<FuelType | "all">("all");
+  const [pickerShowMyProducts, setPickerShowMyProducts] = useState(false);
   const [pickerSort, setPickerSort] = useState<{
     key: "name" | "type" | "carbs" | "sodium" | "calories" | "favorite";
     dir: "asc" | "desc";
@@ -1365,13 +1371,18 @@ export function ActionPlan({
   }, [favoriteProducts]);
   const filteredPickerProducts = useMemo(() => {
     const term = pickerSearch.trim().toLowerCase();
+    const localIds = new Set(localProductIds ?? []);
     return fuelProducts.filter((product) => {
       const matchesSearch =
         !term || product.name.toLowerCase().includes(term) || product.slug.toLowerCase().includes(term);
       const matchesType = pickerFuelType === "all" || product.fuelType === pickerFuelType;
-      return matchesSearch && matchesType;
+      const matchesOwnership =
+        !pickerShowMyProducts ||
+        pickerFavoriteSet.has(product.slug) ||
+        localIds.has(product.id);
+      return matchesSearch && matchesType && matchesOwnership;
     });
-  }, [fuelProducts, pickerFuelType, pickerSearch]);
+  }, [fuelProducts, localProductIds, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
   const renderItems = buildRenderItems(segments);
   const {
     data: coachCommentsData,
@@ -1724,8 +1735,13 @@ export function ActionPlan({
       if (!product) return;
 
       const result = onFavoriteToggle(product);
+      if (result.reason === "limit") {
+        setPickerFavoriteLimitHit(true);
+        return;
+      }
       if (!result.updated) return;
 
+      setPickerFavoriteLimitHit(false);
       setPickerFavorites((current) => {
         const exists = current.includes(slug);
         if (exists) return current.filter((item) => item !== slug);
@@ -2755,6 +2771,22 @@ export function ActionPlan({
                 className="w-full max-w-md border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
               />
               <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center rounded-md border border-border overflow-hidden text-xs font-medium">
+                  <button
+                    type="button"
+                    onClick={() => setPickerShowMyProducts(false)}
+                    className={`px-3 py-1.5 transition-colors ${!pickerShowMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
+                  >
+                    Tous
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPickerShowMyProducts(true)}
+                    className={`px-3 py-1.5 transition-colors ${pickerShowMyProducts ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"}`}
+                  >
+                    Mes produits
+                  </button>
+                </div>
                 <div className="flex items-center gap-2">
                   <Label htmlFor="fuelTypeFilter" className="text-xs text-muted-foreground dark:text-slate-300">
                     {copy.sections.gels.filters.typeLabel}
@@ -2773,9 +2805,18 @@ export function ActionPlan({
                     ))}
                   </select>
                 </div>
-                <p className="text-xs text-muted-foreground dark:text-slate-300">
-                  {`${pickerFavorites.length}/3 favoris sélectionnés`}
-                </p>
+                <div className="flex flex-col items-end gap-1">
+                  <p className="text-xs text-muted-foreground dark:text-slate-300">
+                    {Number.isFinite(favoriteLimit)
+                      ? `${pickerFavorites.length}/${favoriteLimit} favoris sélectionnés`
+                      : `${pickerFavorites.length} favoris sélectionnés`}
+                  </p>
+                  {pickerFavoriteLimitHit && (
+                    <p className="text-xs text-destructive dark:text-red-400">
+                      Limite atteinte. Passez en Premium pour des favoris illimités.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
             <div className="max-h-[70vh] overflow-x-auto overflow-y-auto rounded-xl border border-border bg-card dark:bg-slate-950/60">

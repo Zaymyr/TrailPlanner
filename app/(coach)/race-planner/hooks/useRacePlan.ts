@@ -105,6 +105,7 @@ export const useRacePlan = ({
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
+  const [localProductIds, setLocalProductIds] = useState<string[]>([]);
   const [fuelLoadStatus, setFuelLoadStatus] = useState<"loading" | "ready">("loading");
   const authStatus: "idle" | "signingIn" | "signingUp" | "checking" = isSessionLoading ? "checking" : "idle";
   const isCoach =
@@ -250,12 +251,14 @@ export const useRacePlan = ({
           const localProducts = readLocalProducts();
           const baseProducts = parsed.data.products.length > 0 ? parsed.data.products : defaultFuelProducts;
           setFuelProducts(mergeFuelProducts(baseProducts, localProducts));
+          setLocalProductIds(localProducts.map((p) => p.id));
         }
       } catch (error) {
         if (abortController.signal.aborted) return;
         console.error("Unable to load fuel products", error);
         const localProducts = readLocalProducts();
         setFuelProducts(mergeFuelProducts(defaultFuelProducts, localProducts));
+        setLocalProductIds(localProducts.map((p) => p.id));
       } finally {
         if (!abortController.signal.aborted) {
           setFuelLoadStatus("ready");
@@ -584,6 +587,7 @@ export const useRacePlan = ({
     planStatus,
     deletingPlanId,
     fuelProducts,
+    localProductIds,
     fuelLoadStatus,
     planLimitReached,
     canSavePlan,

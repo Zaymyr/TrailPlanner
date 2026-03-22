@@ -44,6 +44,8 @@ type PlanPrimaryContentProps = {
   fuelProducts: FuelProduct[];
   favoriteProducts: StoredProductPreference[];
   onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
+  favoriteLimit: number;
+  localProductIds?: string[];
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
@@ -92,6 +94,8 @@ export function PlanPrimaryContent({
   fuelProducts,
   favoriteProducts,
   onFavoriteToggle,
+  favoriteLimit,
+  localProductIds,
   startSupplies,
   onStartSupplyDrop,
   onStartSupplyRemove,
@@ -141,6 +145,8 @@ export function PlanPrimaryContent({
         fuelProducts={fuelProducts}
         favoriteProducts={favoriteProducts}
         onFavoriteToggle={onFavoriteToggle}
+        favoriteLimit={favoriteLimit}
+        localProductIds={localProductIds}
         startSupplies={startSupplies}
         onStartSupplyDrop={onStartSupplyDrop}
         onStartSupplyRemove={onStartSupplyRemove}
