@@ -467,6 +467,28 @@ export function ElevationProfileChart({
           </>
         )}
 
+        {(() => {
+          const startX = xScale(0);
+          const startElevation = getElevationAtDistance(0);
+          const startY = yScale(startElevation);
+          return (
+            <g>
+              <line x1={startX} x2={startX} y1={startY} y2={elevationBottom} stroke="#3b82f6" strokeWidth={2} />
+              <circle cx={startX} cy={startY} r={5} fill="#3b82f6" />
+              <text
+                x={startX}
+                y={Math.max(startY - 9, paddingY + 8)}
+                fontSize={9}
+                fontWeight="700"
+                fill="#3b82f6"
+                textAnchor="middle"
+              >
+                {copy.sections.courseProfile.startLabel}
+              </text>
+            </g>
+          );
+        })()}
+
         {aidStations.map((station, index) => {
           const isFinish = index === finishStationIndex;
           const x = xScale(station.distanceKm);
@@ -491,7 +513,7 @@ export function ElevationProfileChart({
                 strokeDasharray={isFinish ? undefined : "2 3"}
               />
               <circle cx={x} cy={y} r={isFinish ? 5 : 4} fill={color} />
-              {isFinish && (
+              {isFinish ? (
                 <text
                   x={x}
                   y={Math.max(y - 9, paddingY + 8)}
@@ -502,10 +524,11 @@ export function ElevationProfileChart({
                 >
                   {copy.sections.courseProfile.finishLabel}
                 </text>
+              ) : (
+                <text x={x} y={elevationBottom + 27} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
+                  {station.name}
+                </text>
               )}
-              <text x={x} y={elevationBottom + 27} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
-                {station.name}
-              </text>
             </g>
           );
         })}

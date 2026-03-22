@@ -240,6 +240,7 @@ export const fr: Translations = {
         speedUnit: "km/h",
         legendClimb: "Montée",
         legendDescent: "Descente",
+        startLabel: "Départ",
         finishLabel: "Arrivée",
         tooltip: {
           distance: "Distance",
