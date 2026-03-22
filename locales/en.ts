@@ -542,6 +542,7 @@ export const en: Translations = {
       },
       messages: {
         created: "Catalog race loaded. Your plan is ready to customize.",
+        guestLoaded: "Race loaded. Sign in to save your plan.",
       },
       units: {
         kilometer: "km",

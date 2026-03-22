@@ -16,6 +16,76 @@ const paramsSchema = z.object({
   id: z.string().uuid(),
 });
 
+const catalogRaceSchema = z.object({
+  id: z.string().uuid(),
+  gpx_storage_path: z.string().nullable().optional(),
+});
+
+export async function GET(_request: NextRequest, context: { params: { id?: string } }) {
+  const supabaseAnon = getSupabaseAnonConfig();
+  const supabaseService = getSupabaseServiceConfig();
+
+  if (!supabaseAnon || !supabaseService) {
+    return withSecurityHeaders(
+      NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 })
+    );
+  }
+
+  const parsedParams = paramsSchema.safeParse(context.params);
+  if (!parsedParams.success) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid race id." }, { status: 400 }));
+  }
+
+  const raceResponse = await fetch(
+    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedParams.data.id}&is_live=eq.true&select=id,gpx_storage_path&limit=1`,
+    {
+      headers: {
+        apikey: supabaseAnon.supabaseAnonKey,
+        Authorization: `Bearer ${supabaseAnon.supabaseAnonKey}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!raceResponse.ok) {
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to load race." }, { status: 502 }));
+  }
+
+  const race = z.array(catalogRaceSchema).parse(await raceResponse.json())?.[0];
+
+  if (!race) {
+    return withSecurityHeaders(NextResponse.json({ message: "Race not found." }, { status: 404 }));
+  }
+
+  if (!race.gpx_storage_path) {
+    return withSecurityHeaders(NextResponse.json({ message: "This race has no GPX available." }, { status: 409 }));
+  }
+
+  const gpxResponse = await fetch(
+    `${supabaseService.supabaseUrl}/storage/v1/object/race-gpx/${race.gpx_storage_path}`,
+    {
+      headers: {
+        apikey: supabaseService.supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!gpxResponse.ok) {
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to read race GPX." }, { status: 502 }));
+  }
+
+  const gpxContent = await gpxResponse.text();
+
+  return withSecurityHeaders(
+    new NextResponse(gpxContent, {
+      status: 200,
+      headers: { "Content-Type": "application/gpx+xml" },
+    })
+  );
+}
+
 export async function PUT(request: NextRequest, context: { params: { id?: string } }) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
