@@ -149,9 +149,10 @@ export function ElevationProfileChart({
 
   const width = Math.max(Math.round(chartWidth), 480);
   const paddingX = 20;
-  const paddingY = 14;
+  const paddingY = 20;
+  const paddingYBottom = 34;
   const elevationAreaHeight = 150;
-  const height = paddingY + elevationAreaHeight + paddingY;
+  const height = paddingY + elevationAreaHeight + paddingYBottom;
   const elevationBottom = paddingY + elevationAreaHeight;
   const maxElevation = Math.max(...safeProfile.map((p) => p.elevationM));
   const minElevation = Math.min(...safeProfile.map((p) => p.elevationM));
@@ -364,7 +365,7 @@ export function ElevationProfileChart({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${width} ${height}`}
-        className="h-[190px] w-full"
+        className="h-[215px] w-full"
         role="img"
         aria-label={copy.sections.courseProfile.ariaLabel}
         onPointerMove={handlePointerMove}
@@ -378,22 +379,47 @@ export function ElevationProfileChart({
           </linearGradient>
         </defs>
 
-        {[scaledMin, scaledMax].map((tick) => (
-          <g key={tick}>
-            <line
-              x1={paddingX}
-              x2={width - paddingX}
-              y1={yScale(tick)}
-              y2={yScale(tick)}
-              stroke="#1f2937"
-              strokeWidth={1}
-              strokeDasharray="4 4"
-            />
-            <text x={paddingX - 8} y={yScale(tick) + 4} className="fill-slate-400 text-[10px]" textAnchor="end">
-              {tick.toFixed(0)} {copy.units.meter}
-            </text>
-          </g>
-        ))}
+        {[scaledMin, scaledMax].map((tick, i) => {
+          const lineY = yScale(tick);
+          const label = `${tick.toFixed(0)} ${copy.units.meter}`;
+          const labelW = label.length * 6.5 + 8;
+          const labelH = 16;
+          const labelX = paddingX + 4;
+          const labelY = i === 0
+            ? lineY + 5          // min tick: label below the line
+            : lineY - labelH + 3; // max tick: label above the line
+          return (
+            <g key={tick}>
+              <line
+                x1={paddingX}
+                x2={width - paddingX}
+                y1={lineY}
+                y2={lineY}
+                stroke="#334155"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+              <rect
+                x={labelX}
+                y={labelY}
+                width={labelW}
+                height={labelH}
+                rx={3}
+                fill="#0f172a"
+                fillOpacity={0.65}
+              />
+              <text
+                x={labelX + labelW / 2}
+                y={labelY + labelH - 4}
+                fontSize={10}
+                fill="#94a3b8"
+                textAnchor="middle"
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
 
         <path d={areaPath} fill="url(#elevationGradient)" stroke="none" />
         {slopeSegments.map((segment, index) => (
@@ -433,7 +459,7 @@ export function ElevationProfileChart({
             >
               <line x1={x} x2={x} y1={y} y2={elevationBottom} stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="2 3" />
               <circle cx={x} cy={y} r={4} fill="#fbbf24" />
-              <text x={x} y={elevationBottom + 12} className="fill-slate-300 text-[10px]" textAnchor="middle">
+              <text x={x} y={elevationBottom + 15} fontSize={10} fill="#cbd5e1" textAnchor="middle">
                 {station.name}
               </text>
             </g>
@@ -442,12 +468,36 @@ export function ElevationProfileChart({
 
         <text
           x={width / 2}
-          y={height - 4}
-          className="fill-slate-400 text-[10px]"
+          y={elevationBottom + 28}
+          fontSize={10}
+          fill="#64748b"
           textAnchor="middle"
         >
           {copy.sections.courseProfile.axisLabel}
         </text>
+
+        {/* Slope color legend — top-right */}
+        <g>
+          <rect
+            x={width - paddingX - 112}
+            y={paddingY - 16}
+            width={112}
+            height={16}
+            rx={4}
+            fill="#0f172a"
+            fillOpacity={0.55}
+          />
+          {/* Descent: blue */}
+          <circle cx={width - paddingX - 104} cy={paddingY - 8} r={3.5} fill="rgb(59,130,246)" />
+          <text x={width - paddingX - 98} y={paddingY - 4} fontSize={9} fill="#94a3b8">
+            {copy.sections.courseProfile.legendDescent}
+          </text>
+          {/* Climb: red */}
+          <circle cx={width - paddingX - 52} cy={paddingY - 8} r={3.5} fill="rgb(239,68,68)" />
+          <text x={width - paddingX - 46} y={paddingY - 4} fontSize={9} fill="#94a3b8">
+            {copy.sections.courseProfile.legendClimb}
+          </text>
+        </g>
       </svg>
 
       {(activePoint || activeRavito) && (

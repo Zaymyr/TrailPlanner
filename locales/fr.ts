@@ -238,6 +238,8 @@ export const fr: Translations = {
         ariaLabel: "Profil d'élévation de la course",
         speedLabel: "Vitesse ajustée",
         speedUnit: "km/h",
+        legendClimb: "Montée",
+        legendDescent: "Descente",
         tooltip: {
           distance: "Distance",
           elevation: "Altitude",
