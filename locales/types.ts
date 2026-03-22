@@ -1216,6 +1216,7 @@ export type Translations = {
     admin: string;
     menuLabel: string;
     profile: string;
+    premium: string;
   };
   admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;
