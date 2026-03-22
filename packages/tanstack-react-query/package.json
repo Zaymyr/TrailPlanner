@@ -4,5 +4,9 @@
   "main": "./index.tsx",
   "module": "./index.tsx",
   "types": "./index.tsx",
-  "private": true
+  "private": true,
+  "peerDependencies": {
+    "@types/react": ">=18.0.0",
+    "react": ">=18.0.0"
+  }
 }
