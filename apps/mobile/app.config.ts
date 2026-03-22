@@ -50,4 +50,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
   ],
+  extra: {
+    eas: {
+      projectId: "c713a8a0-cd94-4f6e-9468-063c9c20da6c"
+    },
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  },
 });
