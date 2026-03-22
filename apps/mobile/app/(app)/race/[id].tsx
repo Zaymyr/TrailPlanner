@@ -18,11 +18,32 @@ import {
   respondToAlert,
   checkAndFireAlerts,
 } from '../../../lib/raceAlertService';
-import type {
-  RacePlan,
-  AlertTimingMode,
-  ActiveAlert,
-} from '../../../lib/shared';
+type AlertTimingMode = 'time' | 'gps' | 'auto';
+type AlertStatus = 'pending' | 'snoozed' | 'confirmed' | 'skipped';
+type FuelAlert = {
+  id: string;
+  triggerMinutes?: number;
+  triggerDistanceKm?: number;
+  title: string;
+  body: string;
+  payload: any;
+};
+type ActiveAlert = FuelAlert & {
+  status: AlertStatus;
+  snoozedUntilMinutes?: number;
+  respondedAt?: string;
+};
+type RacePlan = {
+  id: string;
+  name: string;
+  updatedAt: string;
+  raceDistanceKm: number;
+  elevationGainM: number;
+  targetCarbsPerHour: number;
+  targetWaterPerHour: number;
+  targetSodiumPerHour: number;
+  aidStations: any[];
+};
 
 // ─── Mode descriptions ──────────────────────────────────────────────────────
 
@@ -76,13 +97,17 @@ export default function RaceScreen() {
         .single();
 
       if (data) {
+        const pv = data.planner_values ?? {};
         setPlan({
           id: data.id,
           name: data.name,
-          createdAt: data.created_at,
           updatedAt: data.updated_at,
-          plannerValues: data.planner_values,
-          elevationProfile: data.elevation_profile ?? [],
+          raceDistanceKm: pv.raceDistanceKm ?? 0,
+          elevationGainM: pv.elevationGain ?? 0,
+          targetCarbsPerHour: pv.targetIntakePerHour ?? 0,
+          targetWaterPerHour: pv.waterIntakePerHour ?? 0,
+          targetSodiumPerHour: pv.sodiumIntakePerHour ?? 0,
+          aidStations: pv.aidStations ?? [],
         } as RacePlan);
       }
       setLoading(false);
@@ -191,7 +216,7 @@ export default function RaceScreen() {
   // ─── Pre-race view ──────────────────────────────────────────────────────
 
   if (!racing) {
-    const stationCount = plan.plannerValues.aidStations?.length ?? 0;
+    const stationCount = plan.aidStations?.length ?? 0;
 
     return (
       <>
@@ -202,13 +227,13 @@ export default function RaceScreen() {
             <View style={styles.statsRow}>
               <View style={styles.stat}>
                 <Text style={styles.statValue}>
-                  {plan.plannerValues.raceDistanceKm} km
+                  {plan.raceDistanceKm} km
                 </Text>
                 <Text style={styles.statLabel}>Distance</Text>
               </View>
               <View style={styles.stat}>
                 <Text style={styles.statValue}>
-                  {plan.plannerValues.elevationGain}m
+                  {plan.elevationGainM}m
                 </Text>
                 <Text style={styles.statLabel}>D+</Text>
               </View>

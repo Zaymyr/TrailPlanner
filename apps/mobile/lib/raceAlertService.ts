@@ -2,15 +2,112 @@ import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as Location from 'expo-location';
-import {
-  RacePlan,
-  AlertTimingMode,
-  ActiveAlert,
-  FuelAlert,
-  buildAlertSchedule,
-  getAlertsToFire,
-  SNOOZE_OPTIONS_MINUTES,
-} from './shared';
+
+// ─── Inline types & constants ────────────────────────────────────────────────
+
+const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
+
+type AlertTimingMode = 'time' | 'gps' | 'auto';
+type AlertStatus = 'pending' | 'snoozed' | 'confirmed' | 'skipped';
+type FuelAlert = {
+  id: string;
+  triggerMinutes?: number;
+  triggerDistanceKm?: number;
+  title: string;
+  body: string;
+  payload: any;
+};
+type ActiveAlert = FuelAlert & {
+  status: AlertStatus;
+  snoozedUntilMinutes?: number;
+  respondedAt?: string;
+};
+type RacePlan = {
+  id: string;
+  name: string;
+  updatedAt: string;
+  raceDistanceKm: number;
+  elevationGainM: number;
+  targetCarbsPerHour: number;
+  targetWaterPerHour: number;
+  targetSodiumPerHour: number;
+  aidStations: any[];
+};
+
+// ─── Alert schedule builder ───────────────────────────────────────────────────
+
+function buildAlertSchedule(
+  plan: RacePlan,
+  mode: AlertTimingMode,
+): FuelAlert[] {
+  const alerts: FuelAlert[] = [];
+  const stations = [...(plan.aidStations ?? [])].sort(
+    (a: any, b: any) => a.distanceKm - b.distanceKm,
+  );
+
+  const waypoints: Array<{ name: string; distanceKm: number }> = [
+    { name: 'Départ', distanceKm: 0 },
+    ...stations,
+    { name: 'Arrivée', distanceKm: plan.raceDistanceKm },
+  ];
+
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const from = waypoints[i] as any;
+    const to = waypoints[i + 1] as any;
+    const segmentDistanceKm = to.distanceKm - from.distanceKm;
+    const fraction = plan.raceDistanceKm > 0
+      ? segmentDistanceKm / plan.raceDistanceKm
+      : 0;
+
+    const carbsGrams = Math.round(plan.targetCarbsPerHour * fraction);
+    const waterMl = Math.round(plan.targetWaterPerHour * fraction);
+    const sodiumMg = Math.round(plan.targetSodiumPerHour * fraction);
+
+    const alert: FuelAlert = {
+      id: `seg-${i}`,
+      title: `Seg ${i + 1} → ${to.name}`,
+      body: `🍬 ${carbsGrams}g glucides · 💧 ${waterMl}ml eau · 🧂 ${sodiumMg}mg sodium`,
+      payload: { fromName: from.name, toName: to.name, segmentDistanceKm },
+    };
+
+    if (mode === 'gps' || mode === 'auto') {
+      alert.triggerDistanceKm = from.distanceKm;
+    }
+
+    alerts.push(alert);
+  }
+
+  return alerts;
+}
+
+function getAlertsToFire(
+  alerts: ActiveAlert[],
+  elapsedMinutes: number,
+  elapsedKm?: number,
+): ActiveAlert[] {
+  return alerts.filter((alert) => {
+    if (alert.status === 'confirmed' || alert.status === 'skipped') {
+      return false;
+    }
+
+    if (alert.status === 'snoozed') {
+      return (
+        alert.snoozedUntilMinutes != null &&
+        elapsedMinutes >= alert.snoozedUntilMinutes
+      );
+    }
+
+    // status === 'pending'
+    const timeTriggered =
+      alert.triggerMinutes != null && elapsedMinutes >= alert.triggerMinutes;
+    const gpsTriggered =
+      alert.triggerDistanceKm != null &&
+      elapsedKm != null &&
+      elapsedKm >= alert.triggerDistanceKm;
+
+    return timeTriggered || gpsTriggered;
+  });
+}
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -159,7 +256,7 @@ export async function startRace(
   await Notifications.scheduleNotificationAsync({
     content: {
       title: '🏁 Course démarrée',
-      body: `${plan.name} — ${plan.plannerValues.raceDistanceKm} km`,
+      body: `${plan.name} — ${plan.raceDistanceKm} km`,
     },
     trigger: null,
   });
