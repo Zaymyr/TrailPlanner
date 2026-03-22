@@ -5,6 +5,14 @@ import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, Segment } from "../types";
 import { formatClockTime } from "../utils/format";
 
+function niceStep(range: number, targetCount: number): number {
+  const roughStep = Math.max(range, 1) / targetCount;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const normalized = roughStep / magnitude;
+  const niceNorm = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return niceNorm * magnitude;
+}
+
 function slopeToColor(grade: number) {
   const clamped = Math.max(-0.25, Math.min(0.25, grade));
   const t = (clamped + 0.25) / 0.5;
@@ -149,6 +157,7 @@ export function ElevationProfileChart({
 
   const width = Math.max(Math.round(chartWidth), 480);
   const paddingX = 20;
+  const paddingLeft = 50;
   const paddingY = 20;
   const paddingYBottom = 34;
   const elevationAreaHeight = 150;
@@ -163,10 +172,21 @@ export function ElevationProfileChart({
 
   const xScale = useCallback(
     (distanceKm: number) =>
-      paddingX +
-      Math.min(Math.max(distanceKm, 0), trackDistanceKm) * ((width - paddingX * 2) / trackDistanceKm),
-    [paddingX, trackDistanceKm, width]
+      paddingLeft +
+      Math.min(Math.max(distanceKm, 0), trackDistanceKm) * ((width - paddingLeft - paddingX) / trackDistanceKm),
+    [paddingLeft, paddingX, trackDistanceKm, width]
   );
+
+  const yTicks = useMemo(() => {
+    const range = Math.max(scaledMax - scaledMin, 1);
+    const step = niceStep(range, 4);
+    const first = Math.ceil(scaledMin / step) * step;
+    const ticks: number[] = [];
+    for (let t = first; t <= scaledMax + step * 0.01; t += step) {
+      ticks.push(Math.round(t));
+    }
+    return ticks;
+  }, [scaledMin, scaledMax]);
   const yScale = useCallback(
     (elevation: number) =>
       elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight,
@@ -379,19 +399,12 @@ export function ElevationProfileChart({
           </linearGradient>
         </defs>
 
-        {[scaledMin, scaledMax].map((tick, i) => {
+        {yTicks.map((tick) => {
           const lineY = yScale(tick);
-          const label = `${tick.toFixed(0)} ${copy.units.meter}`;
-          const labelW = label.length * 6.5 + 8;
-          const labelH = 16;
-          const labelX = paddingX + 4;
-          const labelY = i === 0
-            ? lineY + 5          // min tick: label below the line
-            : lineY - labelH + 3; // max tick: label above the line
           return (
             <g key={tick}>
               <line
-                x1={paddingX}
+                x1={paddingLeft}
                 x2={width - paddingX}
                 y1={lineY}
                 y2={lineY}
@@ -399,23 +412,14 @@ export function ElevationProfileChart({
                 strokeWidth={1}
                 strokeDasharray="4 4"
               />
-              <rect
-                x={labelX}
-                y={labelY}
-                width={labelW}
-                height={labelH}
-                rx={3}
-                fill="#0f172a"
-                fillOpacity={0.65}
-              />
               <text
-                x={labelX + labelW / 2}
-                y={labelY + labelH - 4}
+                x={paddingLeft - 6}
+                y={lineY + 4}
                 fontSize={10}
-                fill="#94a3b8"
-                textAnchor="middle"
+                fill="#64748b"
+                textAnchor="end"
               >
-                {label}
+                {tick.toFixed(0)} {copy.units.meter}
               </text>
             </g>
           );
@@ -459,7 +463,7 @@ export function ElevationProfileChart({
             >
               <line x1={x} x2={x} y1={y} y2={elevationBottom} stroke="#fbbf24" strokeWidth={1.5} strokeDasharray="2 3" />
               <circle cx={x} cy={y} r={4} fill="#fbbf24" />
-              <text x={x} y={elevationBottom + 15} fontSize={10} fill="#cbd5e1" textAnchor="middle">
+              <text x={x} y={elevationBottom + 15} fontSize={10} fontWeight="600" fill="#fbbf24" textAnchor="middle">
                 {station.name}
               </text>
             </g>
