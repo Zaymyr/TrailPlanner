@@ -6,7 +6,8 @@ import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import { supabase } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceAlertService';
-import { SNOOZE_OPTIONS_MINUTES } from '../lib/shared';
+
+const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 
 // Show notifications even when the app is in the foreground
 Notifications.setNotificationHandler({
