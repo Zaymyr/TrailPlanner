@@ -72,6 +72,8 @@ export function HeaderTabs() {
     return true;
   });
 
+  const isPremiumActive = pathname === "/premium";
+
   return (
     <nav aria-label={t.navigation.menuLabel} className="flex items-center gap-1">
       {visibleTabs.map((item) => (
@@ -87,6 +89,16 @@ export function HeaderTabs() {
           {item.label}
         </Link>
       ))}
+      <Link
+        href="/premium"
+        className={`premium-glow rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors ${
+          isPremiumActive
+            ? "border-amber-400/80 bg-amber-400/90 text-slate-950 dark:border-amber-300/60 dark:bg-amber-400/80"
+            : "border-amber-300/50 bg-amber-400/80 text-slate-950 hover:bg-amber-400 dark:border-amber-300/40 dark:bg-amber-400/70 dark:hover:bg-amber-400/90"
+        }`}
+      >
+        ✦ {t.navigation.premium}
+      </Link>
     </nav>
   );
 }

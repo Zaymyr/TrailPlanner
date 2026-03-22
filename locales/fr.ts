@@ -128,6 +128,7 @@ export const fr: Translations = {
     profile: "Profil",
     admin: "Admin",
     menuLabel: "Ouvrir le menu de navigation",
+    premium: "Premium",
   },
   auth: {
     shared: {
