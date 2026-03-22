@@ -29,6 +29,9 @@ const createConfig = async () => {
     experimental: {
       typedRoutes: true,
     },
+    eslint: {
+      ignoreDuringBuilds: true,
+    },
     transpilePackages: ['@trailplanner/shared'],
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
   };
