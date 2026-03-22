@@ -1,47 +1,22 @@
 {
   "name": "trailplanner",
-  "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "check:links": "rm -rf .tmp-scripts && tsc --pretty false --outDir .tmp-scripts --rootDir . --module ES2022 --target ES2022 --moduleResolution Bundler --esModuleInterop --resolveJsonModule --lib ES2022,DOM scripts/check-internal-links.ts && node .tmp-scripts/scripts/check-internal-links.js",
-    "test": "vitest",
-    "test:watch": "vitest watch",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "replace:legacy-links": "rm -rf .tmp-scripts && tsc --pretty false --outDir .tmp-scripts --rootDir . --module ES2022 --target ES2022 --moduleResolution Bundler --esModuleInterop --resolveJsonModule --lib ES2022,DOM scripts/replace-legacy-links.ts && node .tmp-scripts/scripts/replace-legacy-links.js"
-  },
-  "dependencies": {
-    "@hookform/resolvers": "^3.3.4",
-    "@mdx-js/loader": "^3.1.1",
-    "@mdx-js/react": "^3.1.1",
-    "@next/mdx": "^14.2.35",
-    "@supabase/ssr": "^0.5.0",
-    "@supabase/supabase-js": "^2.45.4",
-    "@tanstack/react-query": "file:packages/tanstack-react-query",
-    "@vercel/analytics": "^1.6.1",
-    "@vercel/speed-insights": "^1.3.1",
-    "gray-matter": "^4.0.3",
-    "next": "^14.2.5",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-hook-form": "^7.51.4",
-    "zod": "^3.23.8"
+    "dev:web": "npm run dev -w @trailplanner/web",
+    "build:web": "npm run build -w @trailplanner/web",
+    "dev:mobile": "npm run start -w @trailplanner/mobile",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test"
   },
   "devDependencies": {
-    "@types/eslint": "^8.56.10",
-    "@types/node": "^22.0.0",
+    "turbo": "^2.0.0"
+  },
+  "overrides": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.5",
-    "postcss": "^8.4.41",
-    "tailwindcss": "^3.4.7",
-    "typescript": "^5.4.5",
-    "vitest": "^1.6.0"
+    "@types/react-dom": "^18.3.0"
   }
 }
