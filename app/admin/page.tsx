@@ -24,6 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
 import AdminGrowthSection from "./components/AdminGrowthSection";
+import AdminRaceCatalogSection from "./components/AdminRaceCatalogSection";
 
 const adminProductSchema = z.object({
   id: z.string(),
@@ -580,6 +581,7 @@ export default function AdminPage() {
         tabs={[
           { id: "products", label: t.admin.products.title },
           { id: "users", label: t.admin.users.title },
+          { id: "races", label: t.admin.raceCatalog.title },
           { id: "growth", label: t.admin.growth.title },
           { id: "analytics", label: t.admin.analytics.title },
         ]}
@@ -954,6 +956,10 @@ export default function AdminPage() {
           </DialogContent>
         </Dialog>
         </>
+      )}
+
+      {activeTab === "races" && (
+        <AdminRaceCatalogSection accessToken={accessToken} t={t.admin.raceCatalog} />
       )}
 
       {activeTab === "growth" && (
