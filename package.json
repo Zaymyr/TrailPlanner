@@ -1,10 +1,7 @@
 {
   "name": "trailplanner",
   "private": true,
-  "workspaces": {
-    "packages": ["apps/*", "packages/*"],
-    "nohoist": ["**/react-native", "**/react-native/**", "**/expo", "**/expo/**", "**/expo-*", "**/expo-*/**", "**/@expo/**"]
-  },
+  "workspaces": ["apps/web", "packages/*"],
   "scripts": {
     "dev:web": "npm run dev -w @trailplanner/web",
     "build:web": "npm run build -w @trailplanner/web",
