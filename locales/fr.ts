@@ -552,6 +552,7 @@ export const fr: Translations = {
       },
       messages: {
         created: "Course chargée. Votre plan est prêt à être personnalisé.",
+        guestLoaded: "Course chargée. Connectez-vous pour sauvegarder votre plan.",
       },
       units: {
         kilometer: "km",

@@ -448,6 +448,7 @@ export type RacePlannerTranslations = {
     };
     messages: {
       created: string;
+      guestLoaded: string;
     };
     units: {
       kilometer: string;

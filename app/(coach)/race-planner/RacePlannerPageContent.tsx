@@ -513,12 +513,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   useEffect(() => {
     if (!queryCatalogRaceIdRef.current) return;
-    if (!session?.accessToken) return;
+    if (authStatus === "checking") return;
 
     const raceId = queryCatalogRaceIdRef.current;
     queryCatalogRaceIdRef.current = null; // consommer une seule fois
     void handleUseCatalogRace(raceId);
-  }, [session?.accessToken, handleUseCatalogRace]);
+  }, [authStatus, handleUseCatalogRace]);
 
   useEffect(() => {
     const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
