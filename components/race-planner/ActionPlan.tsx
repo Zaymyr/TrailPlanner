@@ -411,7 +411,7 @@ function SegmentCard({
               : "flex items-center justify-between text-sm font-semibold"
         }
       >
-        <span className="tabular-nums">{distanceText}</span>
+        <span className="flex-1 tabular-nums">{distanceText}</span>
         <span className="tabular-nums text-red-600 dark:text-red-400">{elevationGainText}</span>
       </div>
       {paceControl ? <div className="flex items-center justify-center">{paceControl}</div> : null}
@@ -424,7 +424,7 @@ function SegmentCard({
               : "flex items-center justify-between text-xs font-semibold"
         }
       >
-        <span className="tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
+        <span className="flex-1 tabular-nums text-muted-foreground dark:text-slate-400">{timeText}</span>
         <span className="text-blue-600 dark:text-blue-400">{elevationLossText}</span>
       </div>
     </div>
