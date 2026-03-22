@@ -12,7 +12,7 @@ import type { Locale } from "../locales/types";
 import { HeaderAuth } from "./header-auth";
 import { AuthCallbackHandler } from "./auth-callback-handler";
 import { QueryProvider } from "./query-client-provider";
-import { HeaderMenu } from "./header-menu";
+import { HeaderTabs } from "./header-tabs";
 import { SiteFooter } from "../components/SiteFooter";
 import { CookieBanner } from "../components/CookieBanner";
 import { GTagLoader } from "./gtag-loader";
@@ -82,30 +82,25 @@ export default function RootLayout({
               <TrialWelcomeDialog />
               <TrialExpiredNotice />
               <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 lg:gap-8 lg:py-10">
-                <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3">
-                    <HeaderMenu />
-                    <div className="space-y-1">
-                      <Link href="/" aria-label="Go to home" className="inline-flex">
-                        <Image
-                          src="/branding/logo-horizontal.png"
-                          alt="Pace Yourself"
-                          width={220}
-                          height={44}
-                          priority
-                          className="h-10 w-auto sm:h-15"
-                        />
-                      </Link>
-                      <p className="text-sm text-muted-foreground">
-                        Plan your aid-station timing, fueling targets, and pacing for race day.
-                      </p>
+                <header className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <Link href="/" aria-label="Go to home" className="inline-flex flex-shrink-0">
+                      <Image
+                        src="/branding/logo-horizontal.png"
+                        alt="Pace Yourself"
+                        width={220}
+                        height={44}
+                        priority
+                        className="h-10 w-auto sm:h-15"
+                      />
+                    </Link>
+                    <div className="flex items-center gap-4 flex-shrink-0">
+                      <LanguageToggle />
+                      <ThemeToggle />
+                      <HeaderAuth />
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <LanguageToggle />
-                    <ThemeToggle />
-                    <HeaderAuth />
-                  </div>
+                  <HeaderTabs />
                 </header>
                 <main className="pb-6 sm:pb-8 lg:pb-10">{children}</main>
                 <SiteFooter />
