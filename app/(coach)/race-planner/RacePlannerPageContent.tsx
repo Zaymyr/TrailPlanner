@@ -285,9 +285,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
-  const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection();
-  const [profileError, setProfileError] = useState<string | null>(null);
   const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
+  const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection(entitlements.favoriteLimit);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
   const {
     state: {
@@ -436,6 +436,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     planStatus,
     deletingPlanId,
     fuelProducts,
+    localProductIds,
     planLimitReached,
     canSavePlan,
     requestPremiumUpgrade,
@@ -1287,6 +1288,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       fuelProducts={fuelProductEstimates}
       favoriteProducts={selectedProducts}
       onFavoriteToggle={toggleProduct}
+      favoriteLimit={entitlements.favoriteLimit}
+      localProductIds={localProductIds}
       startSupplies={startSupplies}
       onStartSupplyDrop={handleStartSupplyDrop}
       onStartSupplyRemove={handleStartSupplyRemove}
