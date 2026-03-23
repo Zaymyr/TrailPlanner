@@ -1,12 +1,13 @@
 import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 
 export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       if (data.session) router.replace('/(app)/plans');
       else router.replace('/(auth)/login');
     });
