@@ -38,20 +38,19 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
   }
   render() {
     if (this.state.error) {
+      const { ScrollView, Text } = require('react-native');
       return (
         <ScrollView style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
-          <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: 'bold', marginBottom: 12 }}>
-            🔴 Crash
-          </Text>
-          <Text style={{ color: '#f1f5f9', fontSize: 11, fontFamily: 'monospace' }}>
-            {this.state.error}
-          </Text>
+          <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: 'bold', marginBottom: 12 }}>🔴 Crash</Text>
+          <Text style={{ color: '#f1f5f9', fontSize: 11 }}>{this.state.error}</Text>
         </ScrollView>
       );
     }
     return this.props.children;
   }
 }
+
+export { ErrorBoundary };
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
