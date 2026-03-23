@@ -21,6 +21,12 @@ export default ({ config }: ConfigContext): ExpoConfig =>
   owner: 'pace-yourself',
   scheme: 'paceyourself',
   version: '1.0.0',
+  updates: {
+    url: 'https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c',
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   orientation: 'portrait',
   icon: './assets/icon.png',
   userInterfaceStyle: 'dark',

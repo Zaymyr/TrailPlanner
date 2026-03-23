@@ -12,7 +12,8 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "android": {
@@ -20,7 +21,8 @@
       },
       "ios": {
         "buildConfiguration": "Release"
-      }
+      },
+      "channel": "production"
     }
   },
   "submit": {
