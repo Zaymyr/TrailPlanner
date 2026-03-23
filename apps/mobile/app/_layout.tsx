@@ -1,5 +1,5 @@
-import { Component, useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, ScrollView } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Session } from '@supabase/supabase-js';
@@ -18,38 +18,22 @@ Notifications.setNotificationHandler({
   }),
 });
 
-class ErrorBoundary extends Component<
-  { children: React.ReactNode },
-  { error: Error | null }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { error: null };
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string | null}> {
+  state = { error: null };
+  componentDidCatch(error: Error) {
+    this.setState({ error: error.message + '\n' + error.stack });
   }
-
-  static getDerivedStateFromError(error: Error) {
-    return { error };
-  }
-
   render() {
     if (this.state.error) {
       return (
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: '#0f172a',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 24,
-          }}
-        >
-          <Text style={{ color: '#f87171', fontSize: 18, fontWeight: 'bold', marginBottom: 12 }}>
-            Something went wrong
+        <ScrollView style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
+          <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: 'bold', marginBottom: 12 }}>
+            🔴 Crash
           </Text>
-          <Text style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>
-            {this.state.error.message}
+          <Text style={{ color: '#f1f5f9', fontSize: 11, fontFamily: 'monospace' }}>
+            {this.state.error}
           </Text>
-        </View>
+        </ScrollView>
       );
     }
     return this.props.children;
