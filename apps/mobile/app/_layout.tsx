@@ -71,16 +71,16 @@ export default function RootLayout() {
     let subscription: { unsubscribe: () => void } | null = null;
 
     try {
-      supabase.auth.getSession().then(({ data: { session: s } }) => {
+      supabase.auth.getSession().then(({ data: { session: s } }: { data: { session: Session | null } }) => {
         setSession(s);
         setReady(true);
-      }).catch((err) => {
+      }).catch((err: Error) => {
         console.error('Failed to get session:', err);
         setReady(true);
       });
 
       const { data } = supabase.auth.onAuthStateChange(
-        (_event, s) => setSession(s),
+        (_event: any, s: Session | null) => setSession(s),
       );
       subscription = data.subscription;
     } catch (err) {
