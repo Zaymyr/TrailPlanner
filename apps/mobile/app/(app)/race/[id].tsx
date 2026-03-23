@@ -19,8 +19,8 @@ import {
   respondToAlert,
   checkAndFireAlerts,
 } from '../../../lib/raceAlertService';
+import RaceStartConfig, { type RaceConfig } from '../../../components/RaceStartConfig';
 
-type AlertTimingMode = 'time' | 'gps' | 'auto';
 type AlertStatus = 'pending' | 'snoozed' | 'confirmed' | 'skipped';
 type FuelAlert = {
   id: string;
@@ -82,14 +82,6 @@ type RacePlan = {
   plannerValues: PlannerValues;
 };
 
-// ─── Mode descriptions ──────────────────────────────────────────────────────
-
-const MODE_DESCRIPTIONS: Record<AlertTimingMode, string> = {
-  time: 'Les alertes se déclenchent selon le temps écoulé, calculé à partir de votre allure cible.',
-  gps: 'Les alertes se déclenchent selon la distance GPS parcourue.',
-  auto: "Combine temps et GPS : l'alerte se déclenche dès que l'un des deux seuils est atteint.",
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatElapsed(ms: number): string {
@@ -135,7 +127,7 @@ export default function RaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [loading, setLoading] = useState(true);
-  const [mode, setMode] = useState<AlertTimingMode>('auto');
+  const [showConfig, setShowConfig] = useState(false);
   const [racing, setRacing] = useState(false);
   const [alerts, setAlerts] = useState<ActiveAlert[]>([]);
   const [elapsed, setElapsed] = useState(0);
@@ -203,7 +195,7 @@ export default function RaceScreen() {
     };
   }, [racing]);
 
-  const handleStart = useCallback(async () => {
+  const handleStart = useCallback(async (config: RaceConfig) => {
     if (!plan) return;
 
     const granted = await requestPermissions();
@@ -215,12 +207,12 @@ export default function RaceScreen() {
       return;
     }
 
-    await startRace(plan, mode);
+    await startRace(plan, config.timingMode, config.confirmMode);
     setRacing(true);
 
     const session = getSession();
     if (session) setAlerts([...session.alerts]);
-  }, [plan, mode]);
+  }, [plan]);
 
   const handleStop = useCallback(() => {
     Alert.alert('Arrêter la course ?', 'Les alertes seront désactivées.', [
@@ -399,26 +391,24 @@ export default function RaceScreen() {
             <View style={{ height: 8 }} />
           </ScrollView>
 
-          {/* 4. Sticky bottom: mode selector + start button */}
+          {/* 4. Sticky bottom: start button */}
           <View style={styles.stickyBottom}>
-            <View style={styles.modeRow}>
-              {(['time', 'gps', 'auto'] as const).map((m) => (
-                <TouchableOpacity
-                  key={m}
-                  style={[styles.modePill, mode === m && styles.modePillActive]}
-                  onPress={() => setMode(m)}
-                >
-                  <Text style={[styles.modePillText, mode === m && styles.modePillTextActive]}>
-                    {m === 'time' ? '⏱ Temps' : m === 'gps' ? '📍 GPS' : '🔀 Auto'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity style={styles.startButton} onPress={handleStart}>
+            <TouchableOpacity style={styles.startButton} onPress={() => setShowConfig(true)}>
               <Text style={styles.startButtonText}>▶ Démarrer la course</Text>
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Race start config modal */}
+        <RaceStartConfig
+          visible={showConfig}
+          raceName={plan.name}
+          onStart={async (config) => {
+            setShowConfig(false);
+            await handleStart(config);
+          }}
+          onCancel={() => setShowConfig(false)}
+        />
 
         {/* Time picker modal */}
         <Modal visible={showTimePicker} transparent animationType="fade">
@@ -714,29 +704,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#1e293b',
     gap: 10,
   },
-  modeRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  modePill: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#1e293b',
-    alignItems: 'center',
-  },
-  modePillActive: {
-    backgroundColor: '#14532d',
-  },
-  modePillText: {
-    color: '#94a3b8',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  modePillTextActive: {
-    color: '#22c55e',
-  },
-
   // Start button
   startButton: {
     backgroundColor: '#22c55e',
