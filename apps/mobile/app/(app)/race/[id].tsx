@@ -18,23 +18,14 @@ import {
   getSession,
   respondToAlert,
   checkAndFireAlerts,
+  getNutritionStats,
+  type ActiveAlert as ServiceActiveAlert,
 } from '../../../lib/raceAlertService';
 import RaceStartConfig, { type RaceConfig } from '../../../components/RaceStartConfig';
+import { NutritionGauge } from '../../../components/NutritionGauge';
+import { NextIntakeCard } from '../../../components/NextIntakeCard';
 
-type AlertStatus = 'pending' | 'snoozed' | 'confirmed' | 'skipped';
-type FuelAlert = {
-  id: string;
-  triggerMinutes?: number;
-  triggerDistanceKm?: number;
-  title: string;
-  body: string;
-  payload: any;
-};
-type ActiveAlert = FuelAlert & {
-  status: AlertStatus;
-  snoozedUntilMinutes?: number;
-  respondedAt?: string;
-};
+type ActiveAlert = ServiceActiveAlert;
 
 type AidStationProduct = {
   name: string;
@@ -108,19 +99,6 @@ function formatDuration(totalMinutes: number): string {
   return `~${h}h${String(m).padStart(2, '0')}`;
 }
 
-function alertBorderColor(status: ActiveAlert['status']): string {
-  switch (status) {
-    case 'pending':
-      return '#f59e0b';
-    case 'snoozed':
-      return '#6366f1';
-    case 'confirmed':
-      return '#22c55e';
-    case 'skipped':
-      return '#475569';
-  }
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function RaceScreen() {
@@ -131,6 +109,19 @@ export default function RaceScreen() {
   const [racing, setRacing] = useState(false);
   const [alerts, setAlerts] = useState<ActiveAlert[]>([]);
   const [elapsed, setElapsed] = useState(0);
+  const [stats, setStats] = useState({
+    elapsedMinutes: 0,
+    totalCarbsConsumed: 0,
+    totalSodiumConsumed: 0,
+    totalWaterConsumed: 0,
+    targetCarbsTotal: 0,
+    targetSodiumTotal: 0,
+    lastHourCarbs: 0,
+    lastHourSodium: 0,
+    targetCarbsPerHour: 0,
+    targetSodiumPerHour: 0,
+    nextAlert: null as ActiveAlert | null,
+  });
   const [departureTime, setDepartureTime] = useState(new Date());
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [pickerHour, setPickerHour] = useState(new Date().getHours());
@@ -171,6 +162,7 @@ export default function RaceScreen() {
     if (existing) {
       setRacing(true);
       setAlerts([...existing.alerts]);
+      setStats(getNutritionStats(existing));
     }
   }, []);
 
@@ -193,6 +185,16 @@ export default function RaceScreen() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
+  }, [racing]);
+
+  // Stats refresh every 30 seconds
+  useEffect(() => {
+    if (!racing) return;
+    const interval = setInterval(() => {
+      const s = getSession();
+      if (s) setStats(getNutritionStats(s));
+    }, 30_000);
+    return () => clearInterval(interval);
   }, [racing]);
 
   const handleStart = useCallback(async (config: RaceConfig) => {
@@ -237,8 +239,11 @@ export default function RaceScreen() {
       snoozeMin?: number,
     ) => {
       await respondToAlert(alertId, action, snoozeMin);
-      const session = getSession();
-      if (session) setAlerts([...session.alerts]);
+      const s = getSession();
+      if (s) {
+        setAlerts([...s.alerts]);
+        setStats(getNutritionStats(s));
+      }
     },
     [],
   );
@@ -258,11 +263,6 @@ export default function RaceScreen() {
       </View>
     );
   }
-
-  const confirmedCount = alerts.filter((a) => a.status === 'confirmed').length;
-  const pendingCount = alerts.filter(
-    (a) => a.status === 'pending' || a.status === 'snoozed',
-  ).length;
 
   // ─── Pre-race view ──────────────────────────────────────────────────────
 
@@ -465,74 +465,64 @@ export default function RaceScreen() {
   return (
     <>
       <Stack.Screen options={{ title: plan.name }} />
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Status badge */}
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusDot}>🟢</Text>
-          <Text style={styles.statusText}>Course en cours</Text>
-          <Text style={styles.elapsed}>{formatElapsed(elapsed)}</Text>
-        </View>
+      <ScrollView style={styles.screenContainer} contentContainerStyle={styles.container}>
 
-        {/* Counters */}
-        <View style={styles.countersRow}>
-          <Text style={styles.counterText}>✅ {confirmedCount} faits</Text>
-          <Text style={styles.counterText}>⏳ {pendingCount} à venir</Text>
-        </View>
-
-        {/* Alert list */}
-        {alerts.map((alert) => {
-          const borderColor = alertBorderColor(alert.status);
-          const dimmed =
-            alert.status === 'confirmed' || alert.status === 'skipped';
-
-          return (
-            <View
-              key={alert.id}
-              style={[
-                styles.alertCard,
-                { borderLeftColor: borderColor, borderLeftWidth: 4 },
-                dimmed && styles.alertDimmed,
-              ]}
-            >
-              <Text style={styles.alertTitle}>{alert.title}</Text>
-              <Text style={styles.alertBody}>{alert.body}</Text>
-
-              {alert.status === 'snoozed' && alert.snoozedUntilMinutes != null && (
-                <Text style={styles.snoozedLabel}>
-                  😴 Snoozé jusqu'à {Math.round(alert.snoozedUntilMinutes)} min
-                </Text>
-              )}
-
-              {(alert.status === 'pending' || alert.status === 'snoozed') && (
-                <View style={styles.alertActions}>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleAlertAction(alert.id, 'confirmed')}
-                  >
-                    <Text style={styles.actionBtnText}>✅</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionBtn}
-                    onPress={() => handleAlertAction(alert.id, 'skipped')}
-                  >
-                    <Text style={styles.actionBtnText}>⏭</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.snoozeBtn]}
-                    onPress={() => handleAlertAction(alert.id, 'snoozed', 5)}
-                  >
-                    <Text style={styles.actionBtnText}>😴 5</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+        {/* 1. Header chrono + stats globales */}
+        <View style={styles.raceHeader}>
+          <View style={styles.chronoRow}>
+            <View style={styles.statusBadge}>
+              <Text style={styles.statusDot}>🟢</Text>
+              <Text style={styles.statusText}>Course en cours</Text>
             </View>
-          );
-        })}
+            <Text style={styles.chrono}>{formatElapsed(elapsed)}</Text>
+          </View>
+          <Text style={styles.raceSubtitle}>
+            {Math.round(stats.totalCarbsConsumed)}g glucides consommés · {Math.round(stats.totalWaterConsumed)}ml eau
+          </Text>
+        </View>
 
-        {/* Stop button */}
+        {/* 2. Prochaine prise mise en avant */}
+        <Text style={styles.dashSectionTitle}>PROCHAINE PRISE</Text>
+        <NextIntakeCard
+          alert={stats.nextAlert}
+          departureTime={departureTime}
+          onConfirm={() => {
+            if (stats.nextAlert) handleAlertAction(stats.nextAlert.id, 'confirmed');
+          }}
+          onSnooze={(min) => {
+            if (stats.nextAlert) handleAlertAction(stats.nextAlert.id, 'snoozed', min);
+          }}
+          onSkip={() => {
+            if (stats.nextAlert) handleAlertAction(stats.nextAlert.id, 'skipped');
+          }}
+        />
+
+        {/* 3. Jauges glucides + sodium */}
+        <Text style={styles.dashSectionTitle}>NUTRITION</Text>
+        <NutritionGauge
+          label="Glucides"
+          icon="🍬"
+          consumed={stats.totalCarbsConsumed}
+          target={stats.targetCarbsTotal}
+          unit="g"
+          lastHourConsumed={stats.lastHourCarbs}
+          lastHourTarget={stats.targetCarbsPerHour}
+        />
+        <NutritionGauge
+          label="Sodium"
+          icon="🧂"
+          consumed={stats.totalSodiumConsumed}
+          target={stats.targetSodiumTotal}
+          unit="mg"
+          lastHourConsumed={stats.lastHourSodium}
+          lastHourTarget={stats.targetSodiumPerHour}
+        />
+
+        {/* 4. Bouton stop */}
         <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
           <Text style={styles.stopButtonText}>⏹ Arrêter la course</Text>
         </TouchableOpacity>
+
       </ScrollView>
     </>
   );
@@ -789,15 +779,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // Racing status
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Racing dashboard
+  raceHeader: {
     backgroundColor: '#1e293b',
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
-    gap: 8,
+  },
+  chronoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   statusDot: {
     fontSize: 16,
@@ -805,71 +803,24 @@ const styles = StyleSheet.create({
   statusText: {
     color: '#22c55e',
     fontWeight: '700',
-    fontSize: 16,
-    flex: 1,
-  },
-  elapsed: {
-    color: '#f1f5f9',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-
-  // Counters
-  countersRow: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 16,
-  },
-  counterText: {
-    color: '#94a3b8',
     fontSize: 15,
-    fontWeight: '500',
   },
-
-  // Alert cards
-  alertCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 10,
-  },
-  alertDimmed: {
-    opacity: 0.5,
-  },
-  alertTitle: {
+  chrono: {
     color: '#f1f5f9',
     fontWeight: '700',
-    fontSize: 15,
-    marginBottom: 4,
+    fontSize: 22,
   },
-  alertBody: {
+  raceSubtitle: {
     color: '#94a3b8',
     fontSize: 13,
-    lineHeight: 20,
+  },
+  dashSectionTitle: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
     marginBottom: 8,
-  },
-  snoozedLabel: {
-    color: '#6366f1',
-    fontSize: 13,
-    marginBottom: 8,
-  },
-  alertActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionBtn: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  snoozeBtn: {
-    backgroundColor: '#312e81',
-  },
-  actionBtnText: {
-    color: '#f1f5f9',
-    fontSize: 14,
-    fontWeight: '600',
+    marginTop: 4,
   },
 
   // Stop button

@@ -17,10 +17,19 @@ type FuelAlert = {
   body: string;
   payload: any;
 };
-type ActiveAlert = FuelAlert & {
+export type ActiveAlert = FuelAlert & {
   status: AlertStatus;
   snoozedUntilMinutes?: number;
   respondedAt?: string;
+};
+
+type IntakeRecord = {
+  alertId: string;
+  confirmedAt: number;
+  carbsGrams: number;
+  sodiumMg: number;
+  waterMl: number;
+  products: Array<{ name: string; quantity: number; carbsGrams: number; sodiumMg: number }>;
 };
 type RacePlan = {
   id: string;
@@ -67,7 +76,15 @@ function buildAlertSchedule(
       id: `seg-${i}`,
       title: `Seg ${i + 1} → ${to.name}`,
       body: `🍬 ${carbsGrams}g glucides · 💧 ${waterMl}ml eau · 🧂 ${sodiumMg}mg sodium`,
-      payload: { fromName: from.name, toName: to.name, segmentDistanceKm },
+      payload: {
+        fromName: from.name,
+        toName: to.name,
+        segmentDistanceKm,
+        carbsGrams,
+        waterMl,
+        sodiumMg,
+        products: to.segmentPlan?.products ?? [],
+      },
     };
 
     if (mode === 'gps' || mode === 'auto') {
@@ -131,6 +148,7 @@ export type RaceSession = {
   alerts: ActiveAlert[];
   cumulativeKm: number;
   lastLocation?: { latitude: number; longitude: number };
+  intakeHistory: IntakeRecord[];
 };
 
 // ─── Haversine helper ────────────────────────────────────────────────────────
@@ -247,6 +265,7 @@ export async function startRace(
     startedAt: Date.now(),
     alerts: activeAlerts,
     cumulativeKm: 0,
+    intakeHistory: [],
   };
 
   // Register background alert task
@@ -323,6 +342,70 @@ export async function respondToAlert(
   } else {
     alert.status = response;
   }
+
+  if (response === 'confirmed' && alert.payload) {
+    session.intakeHistory.push({
+      alertId,
+      confirmedAt: Date.now(),
+      carbsGrams: alert.payload.carbsGrams ?? 0,
+      sodiumMg: alert.payload.sodiumMg ?? 0,
+      waterMl: alert.payload.waterMl ?? 0,
+      products: alert.payload.products?.map((p: any) => ({
+        name: p.name,
+        quantity: p.quantity,
+        carbsGrams: p.carbsGrams ?? 0,
+        sodiumMg: p.sodiumMg ?? 0,
+      })) ?? [],
+    });
+  }
+}
+
+export function getNutritionStats(s: RaceSession): {
+  elapsedMinutes: number;
+  totalCarbsConsumed: number;
+  totalSodiumConsumed: number;
+  totalWaterConsumed: number;
+  targetCarbsTotal: number;
+  targetSodiumTotal: number;
+  lastHourCarbs: number;
+  lastHourSodium: number;
+  targetCarbsPerHour: number;
+  targetSodiumPerHour: number;
+  nextAlert: ActiveAlert | null;
+} {
+  const elapsedMinutes = (Date.now() - s.startedAt) / 60_000;
+  const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+  const totalCarbsConsumed = s.intakeHistory.reduce((acc, r) => acc + r.carbsGrams, 0);
+  const totalSodiumConsumed = s.intakeHistory.reduce((acc, r) => acc + r.sodiumMg, 0);
+  const totalWaterConsumed = s.intakeHistory.reduce((acc, r) => acc + r.waterMl, 0);
+
+  const lastHourCarbs = s.intakeHistory
+    .filter(r => r.confirmedAt >= oneHourAgo)
+    .reduce((acc, r) => acc + r.carbsGrams, 0);
+
+  const lastHourSodium = s.intakeHistory
+    .filter(r => r.confirmedAt >= oneHourAgo)
+    .reduce((acc, r) => acc + r.sodiumMg, 0);
+
+  const targetCarbsTotal = (elapsedMinutes / 60) * s.plan.targetCarbsPerHour;
+  const targetSodiumTotal = (elapsedMinutes / 60) * s.plan.targetSodiumPerHour;
+
+  const nextAlert = s.alerts.find(a => a.status === 'pending' || a.status === 'snoozed') ?? null;
+
+  return {
+    elapsedMinutes,
+    totalCarbsConsumed,
+    totalSodiumConsumed,
+    totalWaterConsumed,
+    targetCarbsTotal,
+    targetSodiumTotal,
+    lastHourCarbs,
+    lastHourSodium,
+    targetCarbsPerHour: s.plan.targetCarbsPerHour,
+    targetSodiumPerHour: s.plan.targetSodiumPerHour,
+    nextAlert,
+  };
 }
 
 export async function checkAndFireAlerts(
