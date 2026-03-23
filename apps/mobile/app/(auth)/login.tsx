@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -24,12 +24,12 @@ export default function LoginScreen() {
     setError(null);
     setLoading(true);
     try {
-      const redirectUri = AuthSession.makeRedirectUri({
+      const redirectUri = makeRedirectUri({
         scheme: 'paceyourself',
-        path: 'auth/callback',
+        path: '/(app)/plans',
       });
 
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUri,
@@ -37,24 +37,40 @@ export default function LoginScreen() {
         },
       });
 
-      if (oauthError) {
-        setError(oauthError.message);
-        return;
-      }
+      if (error) throw error;
+      if (!data.url) throw new Error('No OAuth URL returned');
 
-      if (data?.url) {
-        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-        if (result.type === 'success' && result.url) {
-          const url = new URL(result.url);
-          const code = url.searchParams.get('code');
-          if (code) {
-            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-            if (exchangeError) setError(exchangeError.message);
-          }
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        redirectUri
+      );
+
+      if (result.type === 'success' && result.url) {
+        const url = new URL(result.url);
+
+        // Handle both hash and query params (Supabase uses hash)
+        const hashParams = new URLSearchParams(
+          result.url.includes('#')
+            ? result.url.split('#')[1]
+            : url.search
+        );
+
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const code = url.searchParams.get('code');
+
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+        } else if (code) {
+          await supabase.auth.exchangeCodeForSession(code);
         }
       }
     } catch (e: any) {
-      setError(e?.message ?? 'Erreur Google login');
+      console.error('Google login error:', e.message);
+      setError('Erreur de connexion Google. Réessaie.');
     } finally {
       setLoading(false);
     }
