@@ -1,6 +1,20 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
+import { withAppBuildGradle } from '@expo/config-plugins';
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
+// enableBundleCompression was removed from ReactExtension in React Native 0.76+
+// This plugin removes it from the generated build.gradle to prevent build failures.
+function withoutBundleCompression(c: ExpoConfig): ExpoConfig {
+  return withAppBuildGradle(c, (config) => {
+    config.modResults.contents = config.modResults.contents.replace(
+      /\s*enableBundleCompression\s*=\s*[^\n]*\n?/g,
+      '\n'
+    );
+    return config;
+  });
+}
+
+export default ({ config }: ConfigContext): ExpoConfig =>
+  withoutBundleCompression({
   ...config,
   name: 'Pace Yourself',
   slug: 'pace-yourself-app',
