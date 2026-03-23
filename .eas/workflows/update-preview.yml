@@ -1,14 +1,7 @@
 name: Update Preview
-
-on:
-  push:
-    branches:
-      - main
-
 jobs:
   update:
-    name: EAS Update preview
     type: update
     params:
       branch: preview
-      message: ${{ github.event.head_commit.message }}
+      message: Auto update
