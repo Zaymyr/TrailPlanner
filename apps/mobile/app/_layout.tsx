@@ -150,7 +150,10 @@ export default function RootLayout() {
           headerTintColor: '#f1f5f9',
           contentStyle: { backgroundColor: '#0f172a' },
         }}
-      />
+      >
+        <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack>
     </ErrorBoundary>
   );
 }
