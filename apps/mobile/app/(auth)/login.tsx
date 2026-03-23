@@ -8,13 +8,57 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import { supabase } from '../../lib/supabase';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  async function handleGoogleLogin() {
+    setError(null);
+    setLoading(true);
+    try {
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: 'paceyourself',
+        path: 'auth/callback',
+      });
+
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUri,
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (oauthError) {
+        setError(oauthError.message);
+        return;
+      }
+
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+        if (result.type === 'success' && result.url) {
+          const url = new URL(result.url);
+          const code = url.searchParams.get('code');
+          if (code) {
+            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+            if (exchangeError) setError(exchangeError.message);
+          }
+        }
+      }
+    } catch (e: any) {
+      setError(e?.message ?? 'Erreur Google login');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleLogin() {
     setError(null);
@@ -70,6 +114,20 @@ export default function LoginScreen() {
           <Text style={styles.buttonText}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </Text>
+        </TouchableOpacity>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>ou</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.googleButton, loading && styles.buttonDisabled]}
+          onPress={handleGoogleLogin}
+          disabled={loading}
+        >
+          <Text style={styles.googleButtonText}>🔵 Continuer avec Google</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -128,5 +186,33 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     fontSize: 17,
     fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#334155',
+  },
+  dividerText: {
+    color: '#475569',
+    fontSize: 13,
+  },
+  googleButton: {
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  googleButtonText: {
+    color: '#f1f5f9',
+    fontSize: 17,
+    fontWeight: '600',
   },
 });
