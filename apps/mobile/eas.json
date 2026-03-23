@@ -13,10 +13,7 @@
       "android": {
         "buildType": "apk"
       },
-      "channel": "preview",
-      "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
-      }
+      "channel": "preview"
     },
     "production": {
       "android": {
@@ -25,10 +22,7 @@
       "ios": {
         "buildConfiguration": "Release"
       },
-      "channel": "production",
-      "env": {
-        "NPM_CONFIG_LEGACY_PEER_DEPS": "true"
-      }
+      "channel": "production"
     }
   },
   "submit": {
