@@ -1,10 +1,23 @@
+import { Text, View, ScrollView } from 'react-native';
+
+// Global error handlers - must be first
+const originalConsoleError = console.error;
+console.error = (...args) => {
+  originalConsoleError(...args);
+};
+
+if (typeof ErrorUtils !== 'undefined') {
+  ErrorUtils.setGlobalHandler((error, isFatal) => {
+    console.error('GLOBAL ERROR:', error?.message, error?.stack);
+  });
+}
+
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
-import { supabase } from '../lib/supabase';
+import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceAlertService';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
@@ -45,6 +58,14 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
   const segments = useSegments();
   const router = useRouter();
+
+  if (supabaseInitError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
+        <Text style={{ color: '#ef4444' }}>Supabase Error: {supabaseInitError}</Text>
+      </View>
+    );
+  }
 
   // Auth listener
   useEffect(() => {
