@@ -117,9 +117,16 @@ const NOTIFICATION_CATEGORY = 'FUEL_ALERT';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export type AlertConfirmMode =
+  | 'manual'
+  | 'auto_5'
+  | 'auto_10'
+  | 'fire_forget';
+
 export type RaceSession = {
   plan: RacePlan;
   mode: AlertTimingMode;
+  confirmMode: AlertConfirmMode;
   startedAt: number; // Date.now() ms
   alerts: ActiveAlert[];
   cumulativeKm: number;
@@ -173,7 +180,24 @@ async function setupNotificationCategory(): Promise<void> {
 
 // ─── Fire a single alert notification ────────────────────────────────────────
 
-async function fireAlertNotification(alert: FuelAlert): Promise<void> {
+async function fireAlertNotification(
+  alert: FuelAlert,
+  confirmMode: AlertConfirmMode,
+): Promise<void> {
+  if (confirmMode === 'fire_forget' || confirmMode === 'auto_5' || confirmMode === 'auto_10') {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: alert.title,
+        body: alert.body,
+        data: { alertId: alert.id, payload: alert.payload },
+        sound: true,
+      },
+      trigger: null,
+    });
+    return;
+  }
+
+  // Manual mode: notification with action buttons
   await Notifications.scheduleNotificationAsync({
     content: {
       title: alert.title,
@@ -208,6 +232,7 @@ export async function requestPermissions(): Promise<boolean> {
 export async function startRace(
   plan: RacePlan,
   mode: AlertTimingMode,
+  confirmMode: AlertConfirmMode = 'manual',
 ): Promise<void> {
   const alerts = buildAlertSchedule(plan, mode);
   const activeAlerts: ActiveAlert[] = alerts.map((a) => ({
@@ -218,6 +243,7 @@ export async function startRace(
   session = {
     plan,
     mode,
+    confirmMode,
     startedAt: Date.now(),
     alerts: activeAlerts,
     cumulativeKm: 0,
@@ -309,6 +335,33 @@ export async function checkAndFireAlerts(
   }
 
   const elapsedMinutes = (Date.now() - session.startedAt) / 60_000;
+  const { confirmMode } = session;
+
+  // Auto-confirm alerts that have been pending/snoozed long enough
+  if (confirmMode === 'auto_5' || confirmMode === 'auto_10') {
+    const autoConfirmDelay = confirmMode === 'auto_5' ? 5 : 10;
+    session.alerts = session.alerts.map((alert) => {
+      if (alert.status !== 'pending' && alert.status !== 'snoozed') return alert;
+      if (alert.triggerMinutes === undefined) return alert;
+      const minutesSinceTrigger = elapsedMinutes - alert.triggerMinutes;
+      if (minutesSinceTrigger >= autoConfirmDelay) {
+        return { ...alert, status: 'confirmed' as const, respondedAt: new Date().toISOString() };
+      }
+      return alert;
+    });
+  }
+
+  if (confirmMode === 'fire_forget') {
+    // Mark as confirmed immediately after the trigger time passes
+    session.alerts = session.alerts.map((alert) => {
+      if (alert.status !== 'pending') return alert;
+      if (alert.triggerMinutes !== undefined && elapsedMinutes >= alert.triggerMinutes) {
+        return { ...alert, status: 'confirmed' as const, respondedAt: new Date().toISOString() };
+      }
+      return alert;
+    });
+  }
+
   const toFire = getAlertsToFire(
     session.alerts,
     elapsedMinutes,
@@ -316,7 +369,7 @@ export async function checkAndFireAlerts(
   );
 
   for (const alert of toFire) {
-    await fireAlertNotification(alert);
+    await fireAlertNotification(alert, confirmMode);
     // Mark as snoozed briefly to avoid re-firing on the next tick.
     // The user's response (confirm/skip/snooze) will update the real status.
     alert.status = 'snoozed';
