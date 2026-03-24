@@ -21,12 +21,11 @@ jobs:
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
 
       # ── Détection et repair dynamique des drifts remote/local ───────────
-      # Format de sortie de `supabase migration list` :
-      #   Local          | Remote         | Time (UTC)
-      #  ----------------|----------------|---------------------
-      #   20241215000000 | 20241215000000 | ...   ← OK
-      #                  | 20260322131711 | ...   ← remote only → repair applied
-      #   20260322100000 |                | ...   ← local only → pas de pb pour push
+      # Les migrations présentes en remote sans fichier local sont des
+      # migrations créées directement sur Supabase (dashboard, CLI local).
+      # On les marque "reverted" pour que db push les ignore complètement.
+      # Elles resteront en place sur la DB — on dit juste à Supabase CLI
+      # de ne plus les considérer comme un conflit.
       - name: Auto-repair remote-only migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -39,9 +38,7 @@ jobs:
 
           DRIFT_FOUND=0
 
-          # Lire chaque ligne, extraire LOCAL et REMOTE via le séparateur |
           while IFS='|' read -r local_col remote_col rest; do
-            # Nettoyer les espaces
             LOCAL_VER=$(echo "$local_col" | tr -d ' ')
             REMOTE_VER=$(echo "$remote_col" | tr -d ' ')
 
@@ -50,11 +47,11 @@ jobs:
               continue
             fi
 
-            # Si REMOTE est un timestamp valide et LOCAL est vide → drift
+            # Si REMOTE est valide et LOCAL est vide → drift
             if [[ -z "$LOCAL_VER" ]]; then
               echo "⚠️  Drift détecté : $REMOTE_VER est en remote sans fichier local"
-              supabase migration repair --status applied "$REMOTE_VER"
-              echo "✅ Repair applied: $REMOTE_VER"
+              supabase migration repair --status reverted "$REMOTE_VER"
+              echo "✅ Repair reverted: $REMOTE_VER (la migration reste sur la DB, le conflit est résolu)"
               DRIFT_FOUND=1
             fi
           done < /tmp/migration_list.txt
