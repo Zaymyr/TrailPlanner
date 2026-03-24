@@ -104,11 +104,25 @@ export default function RootLayout() {
     if (!ready) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inOnboarding = segments[1] === 'onboarding';
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
-      router.replace('/(app)/plans');
+      // Check if onboarding needed (water_bag_liters IS NULL)
+      (async () => {
+        const { data } = await supabase
+          .from('user_profiles')
+          .select('water_bag_liters')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (data === null || data?.water_bag_liters == null) {
+          router.replace('/(app)/onboarding');
+        } else {
+          router.replace('/(app)/plans');
+        }
+      })();
     }
   }, [session, ready, segments]);
 

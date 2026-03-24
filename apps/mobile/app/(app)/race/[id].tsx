@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import {
   requestPermissions,
@@ -103,6 +103,7 @@ function formatDuration(totalMinutes: number): string {
 
 export default function RaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const [plan, setPlan] = useState<RacePlan | null>(null);
   const [loading, setLoading] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
@@ -306,7 +307,18 @@ export default function RaceScreen() {
 
     return (
       <>
-        <Stack.Screen options={{ title: plan.name }} />
+        <Stack.Screen
+          options={{
+            title: plan.name,
+            headerRight: () => (
+              <TouchableOpacity onPress={() => router.push(`/(app)/plan/${id}/edit`)}>
+                <Text style={{ color: '#22c55e', fontSize: 15, fontWeight: '600', marginRight: 4 }}>
+                  Modifier
+                </Text>
+              </TouchableOpacity>
+            ),
+          }}
+        />
         <View style={styles.screenContainer}>
           <ScrollView contentContainerStyle={styles.container}>
             {/* 1. Header card */}
@@ -343,7 +355,33 @@ export default function RaceScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* 3. Segments */}
+            {/* 3. Nutrition totals summary */}
+            {segments.length > 0 && (() => {
+              const totalCarbs = segments.reduce((s, seg) => s + seg.carbsG, 0);
+              const totalWater = segments.reduce((s, seg) => s + seg.waterMl, 0);
+              const totalSodium = segments.reduce((s, seg) => s + seg.sodiumMg, 0);
+              return (
+                <View style={styles.nutritionSummary}>
+                  <Text style={styles.sectionTitle}>Nutrition totale</Text>
+                  <View style={styles.nutritionChips}>
+                    <View style={styles.nutritionChip}>
+                      <Text style={styles.nutritionChipValue}>{totalCarbs}g</Text>
+                      <Text style={styles.nutritionChipLabel}>Glucides</Text>
+                    </View>
+                    <View style={styles.nutritionChip}>
+                      <Text style={styles.nutritionChipValue}>{totalWater}ml</Text>
+                      <Text style={styles.nutritionChipLabel}>Eau</Text>
+                    </View>
+                    <View style={styles.nutritionChip}>
+                      <Text style={styles.nutritionChipValue}>{totalSodium}mg</Text>
+                      <Text style={styles.nutritionChipLabel}>Sodium</Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })()}
+
+            {/* 4. Segments */}
             {segments.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyText}>Aucun ravito défini dans ce plan.</Text>
@@ -548,6 +586,32 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingBottom: 16,
+  },
+
+  // Nutrition summary
+  nutritionSummary: {
+    marginBottom: 20,
+  },
+  nutritionChips: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  nutritionChip: {
+    flex: 1,
+    backgroundColor: '#1e293b',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  nutritionChipValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#22c55e',
+    marginBottom: 2,
+  },
+  nutritionChipLabel: {
+    fontSize: 12,
+    color: '#94a3b8',
   },
 
   // Header card
