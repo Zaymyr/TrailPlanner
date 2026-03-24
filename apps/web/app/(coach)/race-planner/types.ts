@@ -80,4 +80,17 @@ export type SavedPlan = {
   updatedAt: string;
   plannerValues: Partial<FormValues>;
   elevationProfile: ElevationPoint[];
+  catalogRaceId: string | null;
+  raceName?: string | null;
+};
+
+export type Race = {
+  id: string;
+  name: string;
+  distanceKm: number;
+  elevationGainM: number;
+  elevationLossM?: number | null;
+  locationText?: string | null;
+  isPublic: boolean;
+  createdBy?: string | null;
 };

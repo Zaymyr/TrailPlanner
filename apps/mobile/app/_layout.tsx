@@ -19,6 +19,7 @@ import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceAlertService';
+import { I18nProvider } from '../lib/i18n';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 
@@ -156,18 +157,20 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <ErrorBoundary>
-      <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f1f5f9',
-          contentStyle: { backgroundColor: '#0f172a' },
-        }}
-      >
-        <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      </Stack>
-    </ErrorBoundary>
+    <I18nProvider>
+      <ErrorBoundary>
+        <StatusBar style="light" />
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#f1f5f9',
+            contentStyle: { backgroundColor: '#0f172a' },
+          }}
+        >
+          <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        </Stack>
+      </ErrorBoundary>
+    </I18nProvider>
   );
 }

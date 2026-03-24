@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
+import { useI18n } from '../../lib/i18n';
 
 type UserProfile = {
   full_name: string | null;
@@ -22,6 +23,7 @@ type UserProfile = {
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 
 export default function ProfileScreen() {
+  const { locale, setLocale, t } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState('');
@@ -179,6 +181,27 @@ export default function ProfileScreen() {
         </View>
       </View>
 
+      {/* Langue */}
+      <Text style={styles.sectionTitle}>{t.profile.languageLabel}</Text>
+      <View style={styles.langRow}>
+        <TouchableOpacity
+          style={[styles.langBtn, locale === 'fr' && styles.langBtnActive]}
+          onPress={() => setLocale('fr')}
+        >
+          <Text style={[styles.langBtnText, locale === 'fr' && styles.langBtnTextActive]}>
+            🇫🇷 {t.profile.languageFr}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.langBtn, locale === 'en' && styles.langBtnActive]}
+          onPress={() => setLocale('en')}
+        >
+          <Text style={[styles.langBtnText, locale === 'en' && styles.langBtnTextActive]}>
+            🇬🇧 {t.profile.languageEn}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Version */}
       <Text style={styles.versionText}>Pace Yourself v{appVersion}</Text>
 
@@ -249,6 +272,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   waterBtnTextActive: {
+    color: '#22c55e',
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  langBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#334155',
+    alignItems: 'center',
+  },
+  langBtnActive: {
+    borderColor: '#22c55e',
+    backgroundColor: '#14532d',
+  },
+  langBtnText: {
+    color: '#94a3b8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  langBtnTextActive: {
     color: '#22c55e',
   },
   errorText: {

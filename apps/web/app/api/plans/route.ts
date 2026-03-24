@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     const response = await fetch(
       `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${encodeURIComponent(
         supabaseUser.id
-      )}&select=id,name,created_at,updated_at,planner_values,elevation_profile&order=updated_at.desc`,
+      )}&select=id,name,created_at,updated_at,planner_values,elevation_profile,race_id,races(name)&order=updated_at.desc`,
       {
         headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, token, undefined),
         cache: "no-store",

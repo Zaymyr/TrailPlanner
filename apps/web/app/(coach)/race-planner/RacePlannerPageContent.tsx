@@ -22,6 +22,7 @@ import { fetchUserProfile } from "../../../lib/profile-client";
 import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
+import { RaceSelector } from "../../../components/race-planner/RaceSelector";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
@@ -429,6 +430,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     planName,
     setPlanName,
     savedPlans,
+    races,
     activePlanId,
     accountMessage,
     accountError,
@@ -445,6 +447,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     handleDeletePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
+    handleCreateRace,
+    handleDeleteRace,
   } = useRacePlan({
     racePlannerCopy,
     premiumCopy,
@@ -748,6 +752,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       : null;
   const pacingOverviewDuration = raceTotals?.durationMinutes ?? projectedDurationMinutes ?? null;
   const isPremium = entitlements.isPremium;
+  const [isRaceSelectorOpen, setIsRaceSelectorOpen] = useState(false);
   const allowExport = entitlements.allowExport || entitlements.isPremium;
   const allowAutoFill = entitlements.allowAutoFill || entitlements.isPremium;
   const printableRaceName = planName?.trim()
@@ -1311,38 +1316,78 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
 
   const settingsContent = (
-    <PlannerRightPanel
-      planManagerProps={{
-        copy: racePlannerCopy.account,
-        planName,
-        planStatus,
-        accountMessage,
-        accountError,
-        savedPlans,
-        deletingPlanId,
-        sessionEmail: session?.email,
-        authStatus,
-        canSavePlan,
-        showPlanLimitUpsell: planLimitReached && !isPremium,
-        premiumCopy,
-        planOwnerSelector: isCoach
-          ? {
-              label: racePlannerCopy.account.coach.planOwnerLabel,
-              helper: racePlannerCopy.account.coach.planOwnerHelper,
-              options: planOwnerOptions,
-              value: selectedPlanOwnerValue,
-              isLoading: isCoacheesLoading,
-              errorMessage: coacheesError ? racePlannerCopy.account.coach.loadError : null,
-              onChange: handlePlanOwnerChange,
+    <>
+      <PlannerRightPanel
+        planManagerProps={{
+          copy: racePlannerCopy.account,
+          planName,
+          planStatus,
+          accountMessage,
+          accountError,
+          savedPlans,
+          races,
+          userId: session?.id,
+          deletingPlanId,
+          sessionEmail: session?.email,
+          authStatus,
+          canSavePlan,
+          showPlanLimitUpsell: planLimitReached && !isPremium,
+          premiumCopy,
+          planOwnerSelector: isCoach
+            ? {
+                label: racePlannerCopy.account.coach.planOwnerLabel,
+                helper: racePlannerCopy.account.coach.planOwnerHelper,
+                options: planOwnerOptions,
+                value: selectedPlanOwnerValue,
+                isLoading: isCoacheesLoading,
+                errorMessage: coacheesError ? racePlannerCopy.account.coach.loadError : null,
+                onChange: handlePlanOwnerChange,
+              }
+            : undefined,
+          onPlanNameChange: setPlanName,
+          onSavePlan: handleSavePlan,
+          onRefreshPlans: handleRefreshPlans,
+          onLoadPlan: (plan) => {
+            handleLoadPlan(plan);
+            // Also load the associated race into the planner
+            if (plan.catalogRaceId) {
+              void handleUseCatalogRace(plan.catalogRaceId);
             }
-          : undefined,
-        onPlanNameChange: setPlanName,
-        onSavePlan: handleSavePlan,
-        onRefreshPlans: handleRefreshPlans,
-        onLoadPlan: handleLoadPlan,
-        onDeletePlan: handleDeletePlan,
-      }}
-    />
+          },
+          onDeletePlan: handleDeletePlan,
+          onNewPlanForRace: (raceId) => {
+            void handleUseCatalogRace(raceId);
+          },
+          onNewPlanGlobal: () => setIsRaceSelectorOpen(true),
+          onDeleteRace: async (raceId) => {
+            await handleDeleteRace(raceId);
+          },
+        }}
+      />
+      <RaceSelector
+        races={races}
+        userId={session?.id}
+        isOpen={isRaceSelectorOpen}
+        onClose={() => setIsRaceSelectorOpen(false)}
+        onRaceSelected={(raceId) => {
+          void handleUseCatalogRace(raceId);
+          setIsRaceSelectorOpen(false);
+        }}
+        onCreateRace={async (values) => {
+          const race = await handleCreateRace({
+            name: values.name,
+            distance_km: values.distance_km,
+            elevation_gain_m: values.elevation_gain_m,
+            elevation_loss_m: values.elevation_loss_m,
+            location_text: values.location_text,
+            race_date: values.race_date,
+            aid_stations: values.aid_stations,
+            gpx_content: values.gpx_content,
+          });
+          return race;
+        }}
+      />
+    </>
   );
 
   return (
