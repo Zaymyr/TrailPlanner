@@ -21,10 +21,12 @@ jobs:
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
 
       # ── Détection et repair dynamique des drifts remote/local ───────────
-      # Récupère la liste complète des migrations via `supabase migration list`.
-      # Les lignes avec une version remote mais sans fichier local sont des
-      # migrations appliquées directement sur Supabase (dashboard, CLI local,
-      # etc.) sans passer par Git. On les marque "applied" automatiquement.
+      # Format de sortie de `supabase migration list` :
+      #   Local          | Remote         | Time (UTC)
+      #  ----------------|----------------|---------------------
+      #   20241215000000 | 20241215000000 | ...   ← OK
+      #                  | 20260322131711 | ...   ← remote only → repair applied
+      #   20260322100000 |                | ...   ← local only → pas de pb pour push
       - name: Auto-repair remote-only migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -35,22 +37,21 @@ jobs:
           echo ""
           echo "→ Recherche de drifts (remote sans local)..."
 
-          # La sortie de `supabase migration list` a ce format :
-          #   LOCAL    │ REMOTE   │ TIME (UTC)
-          #   ─────────┼──────────┼──────────────────────
-          #            │ 20260322 │ 2026-03-22 ...   ← remote only (drift)
-          #   20260323 │ 20260323 │ 2026-03-23 ...   ← OK
-          #   20260324 │          │ 2026-03-24 ...   ← local only (pas encore pushé)
-
           DRIFT_FOUND=0
 
-          while IFS= read -r line; do
-            # Extraire colonnes LOCAL et REMOTE (séparateur │)
-            LOCAL_VER=$(echo "$line" | awk -F'│' '{gsub(/ /,"",$1); print $1}')
-            REMOTE_VER=$(echo "$line" | awk -F'│' '{gsub(/ /,"",$2); print $2}')
+          # Lire chaque ligne, extraire LOCAL et REMOTE via le séparateur |
+          while IFS='|' read -r local_col remote_col rest; do
+            # Nettoyer les espaces
+            LOCAL_VER=$(echo "$local_col" | tr -d ' ')
+            REMOTE_VER=$(echo "$remote_col" | tr -d ' ')
 
-            # Si REMOTE a une valeur et LOCAL est vide → drift
-            if [[ -n "$REMOTE_VER" && "$REMOTE_VER" =~ ^[0-9]{14}$ && -z "$LOCAL_VER" ]]; then
+            # Ignorer les lignes d'en-tête et séparateurs
+            if [[ ! "$REMOTE_VER" =~ ^[0-9]{14}$ ]]; then
+              continue
+            fi
+
+            # Si REMOTE est un timestamp valide et LOCAL est vide → drift
+            if [[ -z "$LOCAL_VER" ]]; then
               echo "⚠️  Drift détecté : $REMOTE_VER est en remote sans fichier local"
               supabase migration repair --status applied "$REMOTE_VER"
               echo "✅ Repair applied: $REMOTE_VER"
@@ -60,6 +61,10 @@ jobs:
 
           if [ "$DRIFT_FOUND" -eq 0 ]; then
             echo "✅ Aucun drift détecté — migrations remote/local alignées."
+          else
+            echo ""
+            echo "→ État après repair :"
+            supabase migration list 2>&1
           fi
 
       # ── Sessions bloquantes ──────────────────────────────────────────────
