@@ -20,37 +20,46 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
 
-      # ── Réconciliation remote/local ──────────────────────────────────────
-      # Compare les migrations remote avec les fichiers locaux.
-      # Les migrations présentes en remote mais absentes en local sont
-      # marquées "applied" pour éviter que le push essaie de les rejouer.
-      - name: Sync migration history (repair drift)
+      # ── Détection et repair dynamique des drifts remote/local ───────────
+      # Récupère la liste complète des migrations via `supabase migration list`.
+      # Les lignes avec une version remote mais sans fichier local sont des
+      # migrations appliquées directement sur Supabase (dashboard, CLI local,
+      # etc.) sans passer par Git. On les marque "applied" automatiquement.
+      - name: Auto-repair remote-only migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          echo "→ Récupération des migrations remote..."
+          echo "→ Récupération de la liste des migrations..."
+          supabase migration list 2>&1 | tee /tmp/migration_list.txt
 
-          # Liste les versions remote (format: timestamp | name)
-          REMOTE=$(supabase migration list --output json 2>/dev/null \
-            | python3 -c "
-          import sys, json
-          data = json.load(sys.stdin)
-          for m in data:
-              if m.get('remote_version') and not m.get('local_path'):
-                  print(m['remote_version'])
-          " 2>/dev/null || echo "")
+          echo ""
+          echo "→ Recherche de drifts (remote sans local)..."
 
-          if [ -z "$REMOTE" ]; then
+          # La sortie de `supabase migration list` a ce format :
+          #   LOCAL    │ REMOTE   │ TIME (UTC)
+          #   ─────────┼──────────┼──────────────────────
+          #            │ 20260322 │ 2026-03-22 ...   ← remote only (drift)
+          #   20260323 │ 20260323 │ 2026-03-23 ...   ← OK
+          #   20260324 │          │ 2026-03-24 ...   ← local only (pas encore pushé)
+
+          DRIFT_FOUND=0
+
+          while IFS= read -r line; do
+            # Extraire colonnes LOCAL et REMOTE (séparateur │)
+            LOCAL_VER=$(echo "$line" | awk -F'│' '{gsub(/ /,"",$1); print $1}')
+            REMOTE_VER=$(echo "$line" | awk -F'│' '{gsub(/ /,"",$2); print $2}')
+
+            # Si REMOTE a une valeur et LOCAL est vide → drift
+            if [[ -n "$REMOTE_VER" && "$REMOTE_VER" =~ ^[0-9]{14}$ && -z "$LOCAL_VER" ]]; then
+              echo "⚠️  Drift détecté : $REMOTE_VER est en remote sans fichier local"
+              supabase migration repair --status applied "$REMOTE_VER"
+              echo "✅ Repair applied: $REMOTE_VER"
+              DRIFT_FOUND=1
+            fi
+          done < /tmp/migration_list.txt
+
+          if [ "$DRIFT_FOUND" -eq 0 ]; then
             echo "✅ Aucun drift détecté — migrations remote/local alignées."
-          else
-            echo "⚠️  Migrations remote sans fichier local détectées :"
-            echo "$REMOTE"
-            echo "→ Marquage comme 'applied' pour éviter les conflits..."
-            for version in $REMOTE; do
-              echo "   repair: $version"
-              supabase migration repair --status applied "$version"
-            done
-            echo "✅ Repair terminé."
           fi
 
       # ── Sessions bloquantes ──────────────────────────────────────────────
