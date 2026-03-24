@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const publicUrl = `${supabaseService.supabaseUrl}/storage/v1/object/public/race-images/${storagePath}`;
 
   const updateResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedParams.data.id}`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
     {
       method: "PATCH",
       headers: {

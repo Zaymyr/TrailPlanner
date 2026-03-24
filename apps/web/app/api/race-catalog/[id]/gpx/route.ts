@@ -37,7 +37,7 @@ export async function GET(_request: NextRequest, context: { params: { id?: strin
   }
 
   const raceResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedParams.data.id}&is_live=eq.true&select=id,gpx_storage_path&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}&is_live=eq.true&select=id,gpx_storage_path&limit=1`,
     {
       headers: {
         apikey: supabaseAnon.supabaseAnonKey,
@@ -168,7 +168,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const gpxSha = createHash("sha256").update(gpxContent).digest("hex");
 
   const updateResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedParams.data.id}`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
     {
       method: "PATCH",
       headers: {

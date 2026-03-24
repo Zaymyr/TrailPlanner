@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/race_catalog_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,notes,order_index&order=order_index.asc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,notes,order_index&order=order_index.asc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,

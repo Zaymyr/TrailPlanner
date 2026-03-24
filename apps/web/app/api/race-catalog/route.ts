@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/race_catalog?select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path&is_live=eq.true&order=name.asc${filter}`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path&is_live=eq.true&order=name.asc${filter}`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
   const traceProvider = parsedFields.data.trace_provider ?? (parsedFields.data.trace_id ? "tracedetrail" : undefined);
   const slug = buildSlug(raceName);
 
-  const insertResponse = await fetch(`${supabaseAnon.supabaseUrl}/rest/v1/race_catalog`, {
+  const insertResponse = await fetch(`${supabaseAnon.supabaseUrl}/rest/v1/races`, {
     method: "POST",
     headers: {
       apikey: supabaseAnon.supabaseAnonKey,
@@ -247,6 +247,8 @@ export async function POST(request: NextRequest) {
       bounds_max_lat: parsedGpx.stats.boundsMaxLat,
       bounds_max_lng: parsedGpx.stats.boundsMaxLng,
       is_live: parsedFields.data.is_live ?? true,
+      is_public: true,
+      created_by: null,
     }),
     cache: "no-store",
   });

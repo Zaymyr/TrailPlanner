@@ -121,7 +121,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const updateResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedParams.data.id}`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
     {
       method: "PATCH",
       headers: {
@@ -190,7 +190,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
 
   // Fetch the race to get the GPX path before deleting
   const fetchResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedParams.data.id}&select=id,gpx_storage_path&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}&select=id,gpx_storage_path&limit=1`,
     {
       headers: {
         apikey: supabaseAnon.supabaseAnonKey,
@@ -214,7 +214,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   }
 
   const deleteResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedParams.data.id}`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
     {
       method: "DELETE",
       headers: {
