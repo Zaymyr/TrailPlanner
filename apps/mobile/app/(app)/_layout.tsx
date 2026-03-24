@@ -86,15 +86,15 @@ export default function AppLayout() {
       {/* Non-tab screens — hidden from tab bar */}
       <Tabs.Screen
         name="race"
-        options={{ href: null, headerShown: false }}
+        options={{ href: null, headerShown: false, tabBarButton: () => null }}
       />
       <Tabs.Screen
         name="plan"
-        options={{ href: null }}
+        options={{ href: null, tabBarButton: () => null, tabBarStyle: { display: 'none' } }}
       />
       <Tabs.Screen
         name="onboarding"
-        options={{ href: null, headerShown: false }}
+        options={{ href: null, headerShown: false, tabBarButton: () => null }}
       />
     </Tabs>
   );
@@ -104,8 +104,7 @@ const styles = StyleSheet.create({
   centerButton: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    paddingBottom: 6,
+    justifyContent: 'center',
   },
   centerButtonInner: {
     backgroundColor: '#22c55e',

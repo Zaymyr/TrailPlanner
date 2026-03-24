@@ -109,6 +109,32 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel }: 
     update('aidStations', [...values.aidStations, newStation]);
   }
 
+  function autoGenerateAidStations() {
+    if (!values.raceDistanceKm || values.raceDistanceKm <= 0) {
+      Alert.alert('Distance requise', 'Renseigne d\'abord la distance de la course.');
+      return;
+    }
+    const interval = values.raceDistanceKm > 60 ? 15 : values.raceDistanceKm > 30 ? 10 : 8;
+    const count = Math.floor((values.raceDistanceKm - 1) / interval);
+    if (count === 0) {
+      Alert.alert('Course trop courte', 'La distance est trop courte pour générer des ravitos automatiquement.');
+      return;
+    }
+    const stations: AidStationFormItem[] = Array.from({ length: count }, (_, i) => ({
+      name: `Ravito ${i + 1}`,
+      distanceKm: Math.round((i + 1) * interval * 10) / 10,
+      waterRefill: true,
+    }));
+    Alert.alert(
+      'Générer automatiquement',
+      `Créer ${count} ravito(s) tous les ${interval} km ? Les ravitos existants seront remplacés.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Générer', onPress: () => update('aidStations', stations) },
+      ]
+    );
+  }
+
   function updateAidStation(index: number, patch: Partial<AidStationFormItem>) {
     const updated = values.aidStations.map((s, i) => (i === index ? { ...s, ...patch } : s));
     update('aidStations', updated);
@@ -289,9 +315,14 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel }: 
       {/* Section Ravitaillements */}
       <View style={[styles.sectionHeader, { marginTop: 24 }]}>
         <Text style={styles.sectionTitle}>Ravitaillements</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
-          <Text style={styles.addBtnText}>+ Ajouter</Text>
-        </TouchableOpacity>
+        <View style={styles.sectionActions}>
+          <TouchableOpacity style={styles.autoBtn} onPress={autoGenerateAidStations}>
+            <Text style={styles.autoBtnText}>Auto</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
+            <Text style={styles.addBtnText}>+ Ajouter</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {values.aidStations.length === 0 && (
@@ -459,6 +490,23 @@ const styles = StyleSheet.create({
   },
   waterBagBtnTextActive: {
     color: '#22c55e',
+  },
+  sectionActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  autoBtn: {
+    backgroundColor: '#14532d',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+  },
+  autoBtnText: {
+    color: '#22c55e',
+    fontSize: 14,
+    fontWeight: '600',
   },
   addBtn: {
     backgroundColor: '#1e293b',
