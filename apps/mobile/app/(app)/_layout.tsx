@@ -66,7 +66,7 @@ export default function AppLayout() {
           tabBarLabel: '',
           tabBarIcon: () => null,
           tabBarButton: (props) => (
-            <CenterTabButton onPress={props.onPress ? () => props.onPress?.() : undefined} />
+            <CenterTabButton onPress={props.onPress as (() => void) | undefined} />
           ),
         }}
       />
