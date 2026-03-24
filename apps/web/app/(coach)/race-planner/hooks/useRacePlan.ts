@@ -9,7 +9,7 @@ import { readLocalProducts } from "../../../../lib/local-products";
 import { fuelProductSchema, type FuelProduct } from "../../../../lib/product-types";
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { UserEntitlements } from "../../../../lib/entitlements";
-import type { ElevationPoint, FormValues, SavedPlan } from "../types";
+import type { ElevationPoint, FormValues, Race, SavedPlan } from "../types";
 import { useVerifiedSession } from "../../../hooks/useVerifiedSession";
 import {
   dedupeAidStations,
@@ -52,12 +52,41 @@ const mapSavedPlan = (row: Record<string, unknown>): SavedPlan | null => {
     (row.elevation_profile ?? row.elevationProfile) as ElevationPoint[]
   );
 
+  // race_id is the FK column (renamed from catalog_race_id)
+  const catalogRaceId =
+    typeof row.race_id === "string"
+      ? row.race_id
+      : typeof row.catalog_race_id === "string"
+        ? row.catalog_race_id
+        : null;
+
+  const racesJoin = row.races as { name?: string } | null | undefined;
+  const raceName = racesJoin?.name ?? null;
+
   return {
     id,
     name,
     updatedAt,
     plannerValues,
     elevationProfile,
+    catalogRaceId,
+    raceName,
+  };
+};
+
+const mapRace = (row: Record<string, unknown>): Race | null => {
+  const id = typeof row.id === "string" ? row.id : undefined;
+  const name = typeof row.name === "string" ? row.name : undefined;
+  if (!id || !name) return null;
+  return {
+    id,
+    name,
+    distanceKm: typeof row.distance_km === "number" ? row.distance_km : 0,
+    elevationGainM: typeof row.elevation_gain_m === "number" ? row.elevation_gain_m : 0,
+    elevationLossM: typeof row.elevation_loss_m === "number" ? row.elevation_loss_m : null,
+    locationText: typeof row.location_text === "string" ? row.location_text : null,
+    isPublic: row.is_public === true,
+    createdBy: typeof row.created_by === "string" ? row.created_by : null,
   };
 };
 
@@ -99,6 +128,7 @@ export const useRacePlan = ({
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
   const [planName, setPlanName] = useState("");
   const [savedPlans, setSavedPlans] = useState<SavedPlan[]>([]);
+  const [races, setRaces] = useState<Race[]>([]);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
   const [planStatus, setPlanStatus] = useState<"idle" | "saving">("idle");
@@ -185,6 +215,23 @@ export const useRacePlan = ({
     [isCoachPlanMode, racePlannerCopy.account.errors.fetchFailed, resolvedCoachCoacheeId]
   );
 
+  const refreshRaces = useCallback(async (accessToken: string) => {
+    try {
+      const response = await fetch("/api/races", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      if (!response.ok) return;
+      const data = (await response.json()) as { races?: Record<string, unknown>[] };
+      const parsed = (data.races ?? [])
+        .map((r) => mapRace(r))
+        .filter((r): r is Race => Boolean(r));
+      setRaces(parsed);
+    } catch (error) {
+      console.error("Unable to fetch races", error);
+    }
+  }, []);
+
   const previousContextRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -196,6 +243,7 @@ export const useRacePlan = ({
         setAccountMessage(null);
         setAccountError(null);
         setSavedPlans([]);
+        setRaces([]);
         setActivePlanId(null);
         setPlanName("");
         onSessionCleared?.();
@@ -209,14 +257,17 @@ export const useRacePlan = ({
       setAccountError(null);
       setAccountMessage(racePlannerCopy.account.messages.signedIn);
       setSavedPlans([]);
+      setRaces([]);
       setActivePlanId(null);
       setPlanName("");
       void refreshSavedPlans(accessToken);
+      void refreshRaces(accessToken);
     }
   }, [
     isCoachPlanMode,
     onSessionCleared,
     racePlannerCopy.account.messages.signedIn,
+    refreshRaces,
     refreshSavedPlans,
     resolvedCoachCoacheeId,
     session?.accessToken,
@@ -467,6 +518,74 @@ export const useRacePlan = ({
     }
   }, [refreshSavedPlans, session?.accessToken]);
 
+  const handleCreateRace = useCallback(
+    async (raceData: {
+      name: string;
+      distance_km: number;
+      elevation_gain_m: number;
+      elevation_loss_m?: number | null;
+      location_text?: string | null;
+      race_date?: string | null;
+      aid_stations?: Array<{ name: string; distanceKm: number; waterRefill?: boolean }>;
+      gpx_content?: string | null;
+    }): Promise<Race | null> => {
+      if (!session?.accessToken) return null;
+      try {
+        const response = await fetch("/api/races", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          body: JSON.stringify(raceData),
+        });
+        const data = (await response.json().catch(() => null)) as { race?: Record<string, unknown>; message?: string } | null;
+        if (!response.ok || !data?.race) {
+          setAccountError(data?.message ?? "Unable to create race.");
+          return null;
+        }
+        const newRace = mapRace(data.race);
+        if (newRace) {
+          setRaces((prev) => [newRace, ...prev.filter((r) => r.id !== newRace.id)]);
+        }
+        return newRace;
+      } catch (error) {
+        console.error("Unable to create race", error);
+        setAccountError("Unable to create race.");
+        return null;
+      }
+    },
+    [session?.accessToken]
+  );
+
+  const handleDeleteRace = useCallback(
+    async (raceId: string): Promise<boolean> => {
+      if (!session?.accessToken) return false;
+      try {
+        const response = await fetch(`/api/races/${raceId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${session.accessToken}` },
+        });
+        if (!response.ok) {
+          const data = (await response.json().catch(() => null)) as { message?: string } | null;
+          setAccountError(data?.message ?? "Unable to delete race.");
+          return false;
+        }
+        setRaces((prev) => prev.filter((r) => r.id !== raceId));
+        // Orphan associated plans in local state
+        setSavedPlans((prev) =>
+          prev.map((p) => (p.catalogRaceId === raceId ? { ...p, catalogRaceId: null, raceName: null } : p))
+        );
+        return true;
+      } catch (error) {
+        console.error("Unable to delete race", error);
+        setAccountError("Unable to delete race.");
+        return false;
+      }
+    },
+    [session?.accessToken]
+  );
+
   const handleUseCatalogRace = useCallback(async (raceId: string) => {
     setAccountError(null);
     setAccountMessage(null);
@@ -580,6 +699,7 @@ export const useRacePlan = ({
     planName,
     setPlanName,
     savedPlans,
+    races,
     activePlanId,
     accountMessage,
     accountError,
@@ -597,5 +717,7 @@ export const useRacePlan = ({
     handleDeletePlan,
     handleRefreshPlans,
     handleUseCatalogRace,
+    handleCreateRace,
+    handleDeleteRace,
   };
 };

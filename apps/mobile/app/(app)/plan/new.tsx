@@ -3,8 +3,10 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES } from '../../../components/PlanForm';
+import { RaceSelector } from '../../../components/RaceSelector';
+import { useI18n } from '../../../lib/i18n';
 
-type CatalogRace = {
+type RaceInfo = {
   id: string;
   name: string;
   distance_km: number;
@@ -12,15 +14,26 @@ type CatalogRace = {
 };
 
 export default function NewPlanScreen() {
-  const { catalogRaceId } = useLocalSearchParams<{ catalogRaceId?: string }>();
+  const { raceId, catalogRaceId } = useLocalSearchParams<{ raceId?: string; catalogRaceId?: string }>();
+  const resolvedRaceId = raceId ?? catalogRaceId ?? null;
+  const { t } = useI18n();
+
+  const [selectedRace, setSelectedRace] = useState<RaceInfo | null>(null);
   const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
-  const [catalogRace, setCatalogRace] = useState<CatalogRace | null>(null);
   const [saving, setSaving] = useState(false);
-  const [loadingCatalog, setLoadingCatalog] = useState(!!catalogRaceId);
+  const [loading, setLoading] = useState(!!resolvedRaceId);
+  const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
+  const [userId, setUserId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    if (!catalogRaceId) {
+    supabase.auth.getSession().then(({ data }) => {
+      setUserId(data?.session?.user?.id ?? null);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!resolvedRaceId) {
       setInitialValues(DEFAULT_PLAN_VALUES);
       return;
     }
@@ -30,13 +43,13 @@ export default function NewPlanScreen() {
       const { data, error } = await supabase
         .from('races')
         .select('id, name, distance_km, elevation_gain_m')
-        .eq('id', catalogRaceId)
+        .eq('id', resolvedRaceId)
         .single();
 
       if (cancelled) return;
       if (!error && data) {
-        const race = data as CatalogRace;
-        setCatalogRace(race);
+        const race = data as RaceInfo;
+        setSelectedRace(race);
         setInitialValues({
           ...DEFAULT_PLAN_VALUES,
           name: race.name,
@@ -46,18 +59,29 @@ export default function NewPlanScreen() {
       } else {
         setInitialValues(DEFAULT_PLAN_VALUES);
       }
-      setLoadingCatalog(false);
+      setLoading(false);
     })();
 
     return () => { cancelled = true; };
-  }, [catalogRaceId]);
+  }, [resolvedRaceId]);
+
+  function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
+    setSelectedRace(race);
+    setInitialValues({
+      ...DEFAULT_PLAN_VALUES,
+      name: race.name,
+      raceDistanceKm: race.distance_km,
+      elevationGain: race.elevation_gain_m,
+    });
+    setShowRaceSelector(false);
+  }
 
   async function handleSave(values: PlanFormValues) {
     setSaving(true);
 
     const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
-    if (!userId) {
+    const uid = sessionData?.session?.user?.id;
+    if (!uid) {
       setSaving(false);
       return;
     }
@@ -73,7 +97,7 @@ export default function NewPlanScreen() {
       waterIntakePerHour: values.waterIntakePerHour,
       sodiumIntakePerHour: values.sodiumIntakePerHour,
       waterBagLiters: values.waterBagLiters,
-      aidStations: values.aidStations.map((s, i) => ({
+      aidStations: values.aidStations.map((s) => ({
         name: s.name,
         distanceKm: s.distanceKm,
         waterRefill: s.waterRefill,
@@ -81,10 +105,10 @@ export default function NewPlanScreen() {
     };
 
     const { error } = await supabase.from('race_plans').insert({
-      user_id: userId,
+      user_id: uid,
       name: values.name,
       planner_values: plannerValues,
-      race_id: catalogRaceId ?? null,
+      race_id: selectedRace?.id ?? resolvedRaceId ?? null,
     });
 
     setSaving(false);
@@ -94,7 +118,7 @@ export default function NewPlanScreen() {
     }
   }
 
-  if (loadingCatalog || !initialValues) {
+  if (loading) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color="#22c55e" size="large" />
@@ -106,17 +130,33 @@ export default function NewPlanScreen() {
     <>
       <Stack.Screen
         options={{
-          title: catalogRace ? `Plan : ${catalogRace.name}` : 'Nouveau plan',
+          title: selectedRace ? `${t.plans.newPlanForRace} ${selectedRace.name}` : t.plans.newPlan,
           headerStyle: { backgroundColor: '#0f172a' },
           headerTintColor: '#f1f5f9',
         }}
       />
-      <PlanForm
-        initialValues={initialValues}
-        onSave={handleSave}
-        loading={saving}
-        saveLabel="Créer le plan"
+
+      <RaceSelector
+        visible={showRaceSelector}
+        onClose={() => {
+          if (!selectedRace) {
+            router.back();
+          } else {
+            setShowRaceSelector(false);
+          }
+        }}
+        onSelect={handleRaceSelected}
+        userId={userId}
       />
+
+      {!showRaceSelector && initialValues && (
+        <PlanForm
+          initialValues={initialValues}
+          onSave={handleSave}
+          loading={saving}
+          saveLabel={t.common.create}
+        />
+      )}
     </>
   );
 }
