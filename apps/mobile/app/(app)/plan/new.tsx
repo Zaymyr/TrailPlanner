@@ -28,7 +28,7 @@ export default function NewPlanScreen() {
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase
-        .from('race_catalog')
+        .from('races')
         .select('id, name, distance_km, elevation_gain_m')
         .eq('id', catalogRaceId)
         .single();
@@ -84,7 +84,7 @@ export default function NewPlanScreen() {
       user_id: userId,
       name: values.name,
       planner_values: plannerValues,
-      catalog_race_id: catalogRaceId ?? null,
+      race_id: catalogRaceId ?? null,
     });
 
     setSaving(false);

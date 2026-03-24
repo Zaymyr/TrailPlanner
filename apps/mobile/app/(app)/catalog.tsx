@@ -39,7 +39,7 @@ export default function CatalogScreen() {
     let cancelled = false;
     (async () => {
       const { data, error: err } = await supabase
-        .from('race_catalog')
+        .from('races')
         .select('id, name, location_text, distance_km, elevation_gain_m, thumbnail_url, race_date')
         .eq('is_live', true)
         .order('name');

@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
   }
 
   const catalogRaceResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_catalog?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at&limit=1`,
     {
       headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
       name: catalogRace.name,
       planner_values: plannerValues,
       elevation_profile: elevationProfile,
-      catalog_race_id: catalogRace.id,
+      race_id: catalogRace.id,
       catalog_race_updated_at_at_import: catalogRace.updated_at,
       plan_gpx_path: planGpxPath,
       plan_course_stats: planCourseStats,

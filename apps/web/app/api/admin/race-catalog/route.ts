@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/race_catalog?select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path,is_live,slug,created_at&order=name.asc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path,is_live,slug,created_at&order=name.asc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
