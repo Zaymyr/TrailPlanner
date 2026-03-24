@@ -38,11 +38,22 @@ export default function CatalogScreen() {
   function fetchRaces() {
     let cancelled = false;
     (async () => {
-      const { data, error: err } = await supabase
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id ?? null;
+
+      let query = supabase
         .from('races')
         .select('id, name, location_text, distance_km, elevation_gain_m, thumbnail_url, race_date')
-        .eq('is_live', true)
         .order('name');
+
+      // Only show races that have a GPX file OR were created by the current user
+      if (userId) {
+        query = query.or(`gpx_storage_path.not.is.null,created_by.eq.${userId}`);
+      } else {
+        query = query.not('gpx_storage_path', 'is', null);
+      }
+
+      const { data, error: err } = await query;
 
       if (cancelled) return;
       if (err) {
