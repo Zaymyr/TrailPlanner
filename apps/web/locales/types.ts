@@ -491,6 +491,7 @@ export type RacePlannerTranslations = {
       delete: string;
       empty: string;
       updatedAt: string;
+      unsavedChanges: string;
     };
     coach: {
       planOwnerLabel: string;
@@ -542,6 +543,7 @@ export type RacePlannerTranslations = {
       deleteFailed: string;
       authFailed: string;
       fetchFailed: string;
+      duplicateName: string;
     };
   };
   mobileNav: {

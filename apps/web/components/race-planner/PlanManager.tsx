@@ -21,6 +21,7 @@ export type PlanManagerProps = {
   sessionEmail?: string;
   authStatus: "idle" | "signingIn" | "signingUp" | "checking";
   canSavePlan: boolean;
+  hasUnsavedChanges: boolean;
   showPlanLimitUpsell: boolean;
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   planOwnerSelector?: {
@@ -64,6 +65,7 @@ export function PlanManager({
   sessionEmail,
   authStatus,
   canSavePlan,
+  hasUnsavedChanges,
   showPlanLimitUpsell,
   premiumCopy,
   planOwnerSelector,
@@ -110,15 +112,18 @@ export function PlanManager({
 
     const result: RaceGroup[] = [];
 
-    // Add groups for each race (even if they have no plans yet)
+    // Add groups only for races that have at least one plan
     for (const race of races) {
-      result.push({
-        raceId: race.id,
-        raceName: race.name,
-        isAdmin: race.isPublic && race.createdBy == null,
-        isOwned: !race.isPublic && race.createdBy === userId,
-        plans: plansByRace[race.id] ?? [],
-      });
+      const plans = plansByRace[race.id] ?? [];
+      if (plans.length > 0) {
+        result.push({
+          raceId: race.id,
+          raceName: race.name,
+          isAdmin: race.isPublic && race.createdBy == null,
+          isOwned: !race.isPublic && race.createdBy === userId,
+          plans,
+        });
+      }
       delete plansByRace[race.id];
     }
 
@@ -188,7 +193,15 @@ export function PlanManager({
                   ) : null}
                 </div>
               ) : null}
-              <Label htmlFor="plan-name">{copy.plans.nameLabel}</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="plan-name">{copy.plans.nameLabel}</Label>
+                {hasUnsavedChanges && (
+                  <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400">
+                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    {copy.plans.unsavedChanges}
+                  </span>
+                )}
+              </div>
               <Input
                 id="plan-name"
                 value={planName}

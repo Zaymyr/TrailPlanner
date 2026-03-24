@@ -93,4 +93,5 @@ export type Race = {
   locationText?: string | null;
   isPublic: boolean;
   createdBy?: string | null;
+  gpxStoragePath?: string | null;
 };
