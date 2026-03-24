@@ -92,7 +92,7 @@ export default function PlansScreen() {
       setPlans(planData as PlanRow[]);
 
       // Fetch ownership info for unique race IDs
-      const raceIds = [...new Set(planData.filter((p) => p.race_id).map((p) => p.race_id!))] ;
+      const raceIds = [...new Set((planData as PlanRow[]).filter((p) => p.race_id).map((p) => p.race_id!))] ;
       if (raceIds.length > 0 && uid) {
         const { data: racesData } = await supabase
           .from('races')

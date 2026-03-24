@@ -27,9 +27,10 @@ export default function NewPlanScreen() {
   const router = useRouter();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getSession();
       setUserId(data?.session?.user?.id ?? null);
-    });
+    })();
   }, []);
 
   useEffect(() => {
