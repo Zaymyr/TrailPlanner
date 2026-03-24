@@ -23,9 +23,12 @@ export function RaceSelector({ races, isOpen, onClose, onRaceSelected, onCreateR
 
   if (!isOpen) return null;
 
+  // Only show races that have a GPX file or were created by the current user
+  const available = races.filter((r) => r.gpxStoragePath || (!r.isPublic && r.createdBy));
+
   const filtered = search.trim()
-    ? races.filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
-    : races;
+    ? available.filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : available;
 
   const handleCreate = async (values: CreateRaceFormValues) => {
     setIsCreating(true);
@@ -94,7 +97,7 @@ export function RaceSelector({ races, isOpen, onClose, onRaceSelected, onCreateR
               />
               {filtered.length === 0 && (
                 <p className="py-4 text-center text-sm text-muted-foreground dark:text-slate-400">
-                  {races.length === 0
+                  {available.length === 0
                     ? "Aucune course disponible. Créez votre première course."
                     : "Aucune course correspondante."}
                 </p>
@@ -127,7 +130,7 @@ export function RaceSelector({ races, isOpen, onClose, onRaceSelected, onCreateR
                   </button>
                 ))}
               </div>
-              {races.length > 0 && (
+              {available.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setTab("create")}

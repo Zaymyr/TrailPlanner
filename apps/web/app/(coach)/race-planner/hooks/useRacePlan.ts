@@ -87,6 +87,7 @@ const mapRace = (row: Record<string, unknown>): Race | null => {
     locationText: typeof row.location_text === "string" ? row.location_text : null,
     isPublic: row.is_public === true,
     createdBy: typeof row.created_by === "string" ? row.created_by : null,
+    gpxStoragePath: typeof row.gpx_storage_path === "string" ? row.gpx_storage_path : null,
   };
 };
 

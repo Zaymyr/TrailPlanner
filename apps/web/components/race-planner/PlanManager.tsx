@@ -110,15 +110,18 @@ export function PlanManager({
 
     const result: RaceGroup[] = [];
 
-    // Add groups for each race (even if they have no plans yet)
+    // Add groups only for races that have at least one plan
     for (const race of races) {
-      result.push({
-        raceId: race.id,
-        raceName: race.name,
-        isAdmin: race.isPublic && race.createdBy == null,
-        isOwned: !race.isPublic && race.createdBy === userId,
-        plans: plansByRace[race.id] ?? [],
-      });
+      const plans = plansByRace[race.id] ?? [];
+      if (plans.length > 0) {
+        result.push({
+          raceId: race.id,
+          raceName: race.name,
+          isAdmin: race.isPublic && race.createdBy == null,
+          isOwned: !race.isPublic && race.createdBy === userId,
+          plans,
+        });
+      }
       delete plansByRace[race.id];
     }
 

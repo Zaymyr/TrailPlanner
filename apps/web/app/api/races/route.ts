@@ -37,6 +37,7 @@ const raceRowSchema = z.object({
   location_text: z.string().nullable().optional(),
   is_public: z.boolean(),
   created_by: z.string().uuid().nullable().optional(),
+  gpx_storage_path: z.string().nullable().optional(),
 });
 
 const buildAuthHeaders = (key: string, token: string, contentType = "application/json") => ({
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseAnon.supabaseUrl}/rest/v1/races?select=id,name,location_text,distance_km,elevation_gain_m,elevation_loss_m,is_public,created_by&is_live=eq.true&order=name.asc`,
+      `${supabaseAnon.supabaseUrl}/rest/v1/races?select=id,name,location_text,distance_km,elevation_gain_m,elevation_loss_m,is_public,created_by,gpx_storage_path&is_live=eq.true&order=name.asc`,
       {
         headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
         cache: "no-store",
