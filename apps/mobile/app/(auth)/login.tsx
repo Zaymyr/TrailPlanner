@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
+import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -145,6 +146,15 @@ export default function LoginScreen() {
         >
           <Text style={styles.googleButtonText}>🔵 Continuer avec Google</Text>
         </TouchableOpacity>
+
+        <View style={styles.signupRow}>
+          <Text style={styles.signupText}>Pas encore de compte ? </Text>
+          <Link href="/(auth)/signup" asChild>
+            <TouchableOpacity>
+              <Text style={styles.signupLink}>S'inscrire</Text>
+            </TouchableOpacity>
+          </Link>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -229,6 +239,20 @@ const styles = StyleSheet.create({
   googleButtonText: {
     color: '#f1f5f9',
     fontSize: 17,
+    fontWeight: '600',
+  },
+  signupRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+  },
+  signupText: {
+    color: '#94a3b8',
+    fontSize: 15,
+  },
+  signupLink: {
+    color: '#22c55e',
+    fontSize: 15,
     fontWeight: '600',
   },
 });
