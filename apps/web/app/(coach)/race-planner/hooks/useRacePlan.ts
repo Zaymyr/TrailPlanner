@@ -138,6 +138,9 @@ export const useRacePlan = ({
   const [fuelProducts, setFuelProducts] = useState<FuelProduct[]>(defaultFuelProducts);
   const [localProductIds, setLocalProductIds] = useState<string[]>([]);
   const [fuelLoadStatus, setFuelLoadStatus] = useState<"loading" | "ready">("loading");
+  // Track the elevation profile at the time of last save or load, to detect unsaved changes
+  const savedElevationRef = useRef<ElevationPoint[]>([]);
+  const [savedElevationGeneration, setSavedElevationGeneration] = useState(0);
   const authStatus: "idle" | "signingIn" | "signingUp" | "checking" = isSessionLoading ? "checking" : "idle";
   const isCoach =
     session?.role === "coach" || session?.roles?.includes("coach") || session?.role === "admin";
@@ -345,6 +348,9 @@ export const useRacePlan = ({
       setPlanName(plan.name);
       setActivePlanId(plan.id);
       setAccountMessage(message);
+      // Record baseline for unsaved-changes detection
+      savedElevationRef.current = plan.elevationProfile;
+      setSavedElevationGeneration((g) => g + 1);
     },
     [defaultValues, form, racePlannerCopy.account.messages.loadedPlan, setElevationProfile]
   );
@@ -367,6 +373,12 @@ export const useRacePlan = ({
     const existingPlanByName = savedPlans.find(
       (plan) => plan.name.trim().toLowerCase() === trimmedName.toLowerCase()
     );
+
+    // Block save if the name is already used by a DIFFERENT plan
+    if (existingPlanByName && existingPlanByName.id !== activePlanId) {
+      setAccountError(racePlannerCopy.account.errors.duplicateName);
+      return;
+    }
 
     if (planLimitReached && !existingPlanByName) {
       setAccountError(premiumCopy.planLimitReached);
@@ -440,6 +452,10 @@ export const useRacePlan = ({
         setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
         setPlanName(parsedPlan.name);
         setActivePlanId(parsedPlan.id);
+        // Reset dirty state so unsaved-changes indicator clears
+        form.reset(form.getValues(), { keepDefaultValues: true });
+        savedElevationRef.current = elevationProfile;
+        setSavedElevationGeneration((g) => g + 1);
       }
 
       setAccountMessage(racePlannerCopy.account.messages.savedPlan);
@@ -450,12 +466,15 @@ export const useRacePlan = ({
       setPlanStatus("idle");
     }
   }, [
+    activePlanId,
     elevationProfile,
+    form,
     isCoachPlanMode,
     parsedValues,
     planLimitReached,
     planName,
     premiumCopy.planLimitReached,
+    racePlannerCopy.account.errors.duplicateName,
     racePlannerCopy.account.errors.missingSession,
     racePlannerCopy.account.errors.saveFailed,
     racePlannerCopy.account.messages.savedPlan,
@@ -695,6 +714,21 @@ export const useRacePlan = ({
     setIsRaceCatalogOpen,
   ]);
 
+  // True when a plan is loaded and the user has made changes not yet saved
+  const hasUnsavedChanges = useMemo(() => {
+    if (!activePlanId) return false;
+    if (form.formState.isDirty) return true;
+    const saved = savedElevationRef.current;
+    if (elevationProfile.length !== saved.length) return true;
+    if (elevationProfile.length === 0) return false;
+    return (
+      elevationProfile[0].distanceKm !== saved[0]?.distanceKm ||
+      elevationProfile[elevationProfile.length - 1].elevationM !== saved[saved.length - 1]?.elevationM
+    );
+    // savedElevationGeneration is intentionally included to re-run after save/load resets the baseline
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePlanId, elevationProfile, form.formState.isDirty, savedElevationGeneration]);
+
   return {
     session,
     planName,
@@ -712,6 +746,7 @@ export const useRacePlan = ({
     fuelLoadStatus,
     planLimitReached,
     canSavePlan,
+    hasUnsavedChanges,
     requestPremiumUpgrade,
     handleSavePlan,
     handleLoadPlan,

@@ -441,6 +441,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     localProductIds,
     planLimitReached,
     canSavePlan,
+    hasUnsavedChanges,
     requestPremiumUpgrade,
     handleSavePlan,
     handleLoadPlan,
@@ -1331,6 +1332,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           sessionEmail: session?.email,
           authStatus,
           canSavePlan,
+          hasUnsavedChanges,
           showPlanLimitUpsell: planLimitReached && !isPremium,
           premiumCopy,
           planOwnerSelector: isCoach

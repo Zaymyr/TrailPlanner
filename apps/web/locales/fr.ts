@@ -596,6 +596,7 @@ export const fr: Translations = {
         delete: "Supprimer",
         empty: "Aucun plan enregistré pour le moment.",
         updatedAt: "Mis à jour le {date}",
+        unsavedChanges: "Modifications non sauvegardées",
       },
       coach: {
         planOwnerLabel: "Propriétaire du plan",
@@ -652,6 +653,7 @@ export const fr: Translations = {
         deleteFailed: "Impossible de supprimer ce plan.",
         authFailed: "Impossible de se connecter. Vérifiez vos identifiants.",
         fetchFailed: "Supabase est indisponible. Réessayez dans un instant.",
+        duplicateName: "Un plan avec ce nom existe déjà. Choisissez un autre nom.",
       },
     },
     mobileNav: {

@@ -586,6 +586,7 @@ export const en: Translations = {
         delete: "Delete",
         empty: "No saved plans yet.",
         updatedAt: "Updated {date}",
+        unsavedChanges: "Unsaved changes",
       },
       coach: {
         planOwnerLabel: "Plan owner",
@@ -642,6 +643,7 @@ export const en: Translations = {
         deleteFailed: "Unable to delete this plan.",
         authFailed: "Unable to sign in. Check your credentials and try again.",
         fetchFailed: "Unable to reach Supabase. Please retry soon.",
+        duplicateName: "A plan with this name already exists. Please choose a different name.",
       },
     },
     mobileNav: {
