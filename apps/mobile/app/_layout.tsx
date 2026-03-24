@@ -104,7 +104,6 @@ export default function RootLayout() {
     if (!ready) return;
 
     const inAuthGroup = segments[0] === '(auth)';
-    const inOnboarding = segments[1] === 'onboarding';
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/login');

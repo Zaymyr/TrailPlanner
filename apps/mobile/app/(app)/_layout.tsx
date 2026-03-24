@@ -7,7 +7,6 @@ export default function AppLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: '#0f172a' },
         headerTintColor: '#f1f5f9',
-        contentStyle: { backgroundColor: '#0f172a' },
         tabBarStyle: {
           backgroundColor: '#1e293b',
           borderTopColor: '#334155',
