@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function OnboardingLandingPage() {
   return (
-    <div className="flex min-h-[calc(100dvh-40px)] flex-col items-center justify-center px-2 py-12">
+    <div className="flex flex-col items-center px-5 pt-16 pb-32">
       <div className="flex w-full flex-col items-center gap-8">
         <div className="flex flex-col items-center gap-3 text-center">
           <div
@@ -99,7 +99,6 @@ export default function OnboardingLandingPage() {
         </Link>
       </div>
 
-      <div className="h-28" />
     </div>
   );
 }
