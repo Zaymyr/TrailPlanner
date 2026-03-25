@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES } from '../../../components/PlanForm';
+import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct } from '../../../components/PlanForm';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { useI18n } from '../../../lib/i18n';
 
@@ -24,12 +24,33 @@ export default function NewPlanScreen() {
   const [loading, setLoading] = useState(!!resolvedRaceId);
   const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
   const [userId, setUserId] = useState<string | null>(null);
+  const [favoriteProducts, setFavoriteProducts] = useState<FavProduct[]>([]);
   const router = useRouter();
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      setUserId(data?.session?.user?.id ?? null);
+      const uid = data?.session?.user?.id ?? null;
+      setUserId(uid);
+      if (uid) {
+        const { data: favsData } = await supabase
+          .from('user_favorite_products')
+          .select('products(id, name, carbs_g, sodium_mg)')
+          .eq('user_id', uid);
+        if (favsData) {
+          setFavoriteProducts(
+            (favsData as any[])
+              .map((row) => row.products)
+              .filter(Boolean)
+              .map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                carbsGrams: p.carbs_g ?? 0,
+                sodiumMg: p.sodium_mg ?? 0,
+              }))
+          );
+        }
+      }
     })();
   }, []);
 
@@ -102,6 +123,7 @@ export default function NewPlanScreen() {
         name: s.name,
         distanceKm: s.distanceKm,
         waterRefill: s.waterRefill,
+        supplies: s.supplies,
       })),
     };
 
@@ -156,6 +178,7 @@ export default function NewPlanScreen() {
           onSave={handleSave}
           loading={saving}
           saveLabel={t.common.create}
+          favoriteProducts={favoriteProducts}
         />
       )}
     </>

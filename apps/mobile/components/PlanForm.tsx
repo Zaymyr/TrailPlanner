@@ -11,10 +11,26 @@ import {
   Alert,
 } from 'react-native';
 
+export type AidStationSupply = {
+  productId: string;
+  productName: string;
+  carbsGrams: number;
+  sodiumMg: number;
+  quantity: number;
+};
+
 export type AidStationFormItem = {
   name: string;
   distanceKm: number;
   waterRefill: boolean;
+  supplies?: AidStationSupply[];
+};
+
+export type FavProduct = {
+  id: string;
+  name: string;
+  carbsGrams: number;
+  sodiumMg: number;
 };
 
 export type PlanFormValues = {
@@ -52,6 +68,7 @@ type Props = {
   onSave: (values: PlanFormValues) => void;
   loading?: boolean;
   saveLabel?: string;
+  favoriteProducts?: FavProduct[];
 };
 
 function NumberInput({
@@ -92,7 +109,60 @@ const inputStyles = StyleSheet.create({
   },
 });
 
-export default function PlanForm({ initialValues, onSave, loading, saveLabel }: Props) {
+function buildSuppliesForSegment(
+  durationMinutes: number,
+  carbsPerHour: number,
+  sodiumPerHour: number,
+  products: FavProduct[]
+): AidStationSupply[] {
+  const targetCarbs = Math.round(carbsPerHour * (durationMinutes / 60));
+  const targetSodium = Math.round(sodiumPerHour * (durationMinutes / 60));
+  if (targetCarbs <= 0 || products.length === 0) return [];
+
+  const options = [...products]
+    .sort((a, b) => b.carbsGrams - a.carbsGrams)
+    .slice(0, 3);
+
+  const minCarbs = Math.max(Math.min(...options.map((o) => o.carbsGrams)), 1);
+  const maxUnits = Math.min(12, Math.max(3, Math.ceil(targetCarbs / minCarbs) + 2));
+  let best = { score: Infinity, combo: [] as number[] };
+
+  const evaluateCombo = (combo: number[]) => {
+    const plannedCarbs = combo.reduce((t, qty, i) => t + qty * options[i].carbsGrams, 0);
+    const plannedSodium = combo.reduce((t, qty, i) => t + qty * options[i].sodiumMg, 0);
+    const carbDiff = Math.abs(plannedCarbs - targetCarbs) / Math.max(targetCarbs, 1);
+    const sodiumDiff = targetSodium > 0 ? Math.abs(plannedSodium - targetSodium) / targetSodium : 0;
+    const underfill = plannedCarbs < targetCarbs ? 0.2 : 0;
+    const itemPenalty = combo.reduce((s, q) => s + q, 0) * 0.01;
+    const score = carbDiff * 1.5 + sodiumDiff * 0.5 + underfill + itemPenalty;
+    if (score < best.score && plannedCarbs > 0) {
+      best = { score, combo: combo.slice() };
+    }
+  };
+
+  const search = (index: number, combo: number[], used: number) => {
+    if (index === options.length) { evaluateCombo(combo); return; }
+    for (let qty = 0; qty <= maxUnits - used; qty++) {
+      combo[index] = qty;
+      search(index + 1, combo, used + qty);
+    }
+  };
+  search(0, new Array(options.length).fill(0), 0);
+
+  if (best.score === Infinity || best.combo.every((q) => q === 0)) return [];
+
+  return best.combo
+    .map((qty, i) => ({
+      productId: options[i].id,
+      productName: options[i].name,
+      carbsGrams: options[i].carbsGrams,
+      sodiumMg: options[i].sodiumMg,
+      quantity: qty,
+    }))
+    .filter((s) => s.quantity > 0);
+}
+
+export default function PlanForm({ initialValues, onSave, loading, saveLabel, favoriteProducts }: Props) {
   const [values, setValues] = useState<PlanFormValues>(initialValues);
 
   function update<K extends keyof PlanFormValues>(key: K, val: PlanFormValues[K]) {
@@ -107,6 +177,72 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel }: 
       waterRefill: true,
     };
     update('aidStations', [...values.aidStations, newStation]);
+  }
+
+  function autoGenerateAidStations() {
+    if (!values.raceDistanceKm || values.raceDistanceKm <= 0) {
+      Alert.alert('Distance requise', 'Renseigne d\'abord la distance de la course.');
+      return;
+    }
+    const interval = values.raceDistanceKm > 60 ? 15 : values.raceDistanceKm > 30 ? 10 : 8;
+    const count = Math.floor((values.raceDistanceKm - 1) / interval);
+    if (count === 0) {
+      Alert.alert('Course trop courte', 'La distance est trop courte pour générer des ravitos automatiquement.');
+      return;
+    }
+    const stations: AidStationFormItem[] = Array.from({ length: count }, (_, i) => ({
+      name: `Ravito ${i + 1}`,
+      distanceKm: Math.round((i + 1) * interval * 10) / 10,
+      waterRefill: true,
+    }));
+    Alert.alert(
+      'Générer automatiquement',
+      `Créer ${count} ravito(s) tous les ${interval} km ? Les ravitos existants seront remplacés.`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Générer', onPress: () => update('aidStations', stations) },
+      ]
+    );
+  }
+
+  function fillSuppliesAuto() {
+    if (!favoriteProducts || favoriteProducts.length === 0) {
+      Alert.alert(
+        'Produits favoris requis',
+        'Ajoute des produits en favoris dans l\'onglet Nutrition pour utiliser cette fonctionnalité.'
+      );
+      return;
+    }
+    if (values.aidStations.length === 0) {
+      Alert.alert('Aucun ravito', 'Ajoute des ravitaillements avant de remplir automatiquement.');
+      return;
+    }
+    const minutesPerKm = values.paceType === 'pace'
+      ? values.paceMinutes + values.paceSeconds / 60
+      : 60 / Math.max(values.speedKph, 0.1);
+
+    const stops = [
+      0,
+      ...values.aidStations.map((s) => s.distanceKm),
+      values.raceDistanceKm,
+    ];
+
+    const updated = values.aidStations.map((station, idx) => {
+      const nextFrom = stops[idx + 1];
+      const nextTo = stops[idx + 2];
+      if (nextTo === undefined || nextTo <= nextFrom) return { ...station, supplies: [] };
+      const segmentKm = nextTo - nextFrom;
+      const durationMinutes = segmentKm * minutesPerKm;
+      const supplies = buildSuppliesForSegment(
+        durationMinutes,
+        values.targetIntakePerHour,
+        values.sodiumIntakePerHour,
+        favoriteProducts
+      );
+      return { ...station, supplies };
+    });
+
+    update('aidStations', updated);
   }
 
   function updateAidStation(index: number, patch: Partial<AidStationFormItem>) {
@@ -289,9 +425,17 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel }: 
       {/* Section Ravitaillements */}
       <View style={[styles.sectionHeader, { marginTop: 24 }]}>
         <Text style={styles.sectionTitle}>Ravitaillements</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
-          <Text style={styles.addBtnText}>+ Ajouter</Text>
-        </TouchableOpacity>
+        <View style={styles.sectionActions}>
+          <TouchableOpacity style={styles.fillBtn} onPress={fillSuppliesAuto}>
+            <Text style={styles.fillBtnText}>⭐ Remplir</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.autoBtn} onPress={autoGenerateAidStations}>
+            <Text style={styles.autoBtnText}>⚡ Générer</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
+            <Text style={styles.addBtnText}>+ Ajouter</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {values.aidStations.length === 0 && (
@@ -348,6 +492,29 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel }: 
               thumbColor={station.waterRefill ? '#22c55e' : '#94a3b8'}
             />
           </View>
+
+          {station.supplies && station.supplies.length > 0 && (
+            <View style={styles.suppliesBox}>
+              <View style={styles.suppliesHeader}>
+                <Text style={styles.suppliesTitle}>À emporter pour la section suivante</Text>
+                <TouchableOpacity onPress={() => updateAidStation(index, { supplies: [] })}>
+                  <Text style={styles.suppliesClear}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              {station.supplies.map((supply, si) => (
+                <View key={si} style={styles.supplyRow}>
+                  <Text style={styles.supplyQty}>{supply.quantity}×</Text>
+                  <View style={styles.supplyInfo}>
+                    <Text style={styles.supplyName}>{supply.productName}</Text>
+                    <Text style={styles.supplyMeta}>
+                      {supply.carbsGrams * supply.quantity}g glucides
+                      {supply.sodiumMg > 0 ? ` · ${supply.sodiumMg * supply.quantity}mg sodium` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
       ))}
 
@@ -459,6 +626,89 @@ const styles = StyleSheet.create({
   },
   waterBagBtnTextActive: {
     color: '#22c55e',
+  },
+  sectionActions: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  fillBtn: {
+    backgroundColor: '#1e1a3d',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#7c3aed',
+  },
+  fillBtnText: {
+    color: '#a78bfa',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  autoBtn: {
+    backgroundColor: '#14532d',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+  },
+  autoBtnText: {
+    color: '#22c55e',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  suppliesBox: {
+    marginTop: 10,
+    backgroundColor: '#0f172a',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#7c3aed',
+  },
+  suppliesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  suppliesTitle: {
+    color: '#a78bfa',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  suppliesClear: {
+    color: '#475569',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  supplyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 3,
+  },
+  supplyQty: {
+    color: '#a78bfa',
+    fontSize: 14,
+    fontWeight: '700',
+    width: 26,
+    textAlign: 'right',
+  },
+  supplyInfo: {
+    flex: 1,
+  },
+  supplyName: {
+    color: '#f1f5f9',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  supplyMeta: {
+    color: '#64748b',
+    fontSize: 11,
   },
   addBtn: {
     backgroundColor: '#1e293b',

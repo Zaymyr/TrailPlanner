@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES } from '../../../../components/PlanForm';
+import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct } from '../../../../components/PlanForm';
 
 type RacePlanRow = {
   id: string;
@@ -22,6 +22,13 @@ type RacePlanRow = {
       name: string;
       distanceKm: number;
       waterRefill: boolean;
+      supplies?: Array<{
+        productId: string;
+        productName: string;
+        carbsGrams: number;
+        sodiumMg: number;
+        quantity: number;
+      }>;
     }>;
   };
 };
@@ -44,6 +51,7 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
       name: s.name,
       distanceKm: s.distanceKm,
       waterRefill: s.waterRefill,
+      supplies: s.supplies,
     })),
   };
 }
@@ -55,6 +63,7 @@ export default function EditPlanScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [favoriteProducts, setFavoriteProducts] = useState<FavProduct[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -62,21 +71,43 @@ export default function EditPlanScreen() {
     let cancelled = false;
 
     (async () => {
-      const { data, error: err } = await supabase
-        .from('race_plans')
-        .select('id, name, planner_values')
-        .eq('id', id)
-        .single();
+      const [planResult, sessionData] = await Promise.all([
+        supabase.from('race_plans').select('id, name, planner_values').eq('id', id).single(),
+        supabase.auth.getSession(),
+      ]);
 
       if (cancelled) return;
-      if (err) {
-        setError(err.message);
-      } else if (data) {
-        const plan = data as RacePlanRow;
+
+      if (planResult.error) {
+        setError(planResult.error.message);
+      } else if (planResult.data) {
+        const plan = planResult.data as RacePlanRow;
         setPlanName(plan.name);
         setInitialValues(planRowToFormValues(plan));
       }
-      setLoading(false);
+
+      const uid = sessionData.data?.session?.user?.id;
+      if (uid) {
+        const { data: favsData } = await supabase
+          .from('user_favorite_products')
+          .select('products(id, name, carbs_g, sodium_mg)')
+          .eq('user_id', uid);
+        if (!cancelled && favsData) {
+          setFavoriteProducts(
+            (favsData as any[])
+              .map((row) => row.products)
+              .filter(Boolean)
+              .map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                carbsGrams: p.carbs_g ?? 0,
+                sodiumMg: p.sodium_mg ?? 0,
+              }))
+          );
+        }
+      }
+
+      if (!cancelled) setLoading(false);
     })();
 
     return () => { cancelled = true; };
@@ -100,6 +131,7 @@ export default function EditPlanScreen() {
         name: s.name,
         distanceKm: s.distanceKm,
         waterRefill: s.waterRefill,
+        supplies: s.supplies,
       })),
     };
 
@@ -149,6 +181,7 @@ export default function EditPlanScreen() {
         onSave={handleSave}
         loading={saving}
         saveLabel="Enregistrer les modifications"
+        favoriteProducts={favoriteProducts}
       />
     </>
   );
