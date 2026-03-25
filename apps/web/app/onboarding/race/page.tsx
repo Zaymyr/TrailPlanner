@@ -48,9 +48,8 @@ export default function RacePage() {
     const supabase = getSupabaseClient();
     supabase
       .from("races")
-      .select("id, name, distance_km, elevation_gain_m, race_aid_stations!inner(id, name, km, order_index)")
+      .select("id, name, distance_km, elevation_gain_m, race_aid_stations(id, name, km, order_index)")
       .eq("is_live", true)
-      .not("gpx_storage_path", "is", null)
       .order("created_at", { ascending: false })
       .limit(5)
       .then(({ data, error }) => {
@@ -184,12 +183,14 @@ export default function RacePage() {
                   >
                     {race.elevation_gain_m} m D+
                   </span>
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: "#f0ece6", color: "#6b7c5a" }}
-                  >
-                    {race.race_aid_stations.length} ravitos
-                  </span>
+                  {race.race_aid_stations.length > 0 && (
+                    <span
+                      className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                      style={{ backgroundColor: "#f0ece6", color: "#6b7c5a" }}
+                    >
+                      {race.race_aid_stations.length} ravitos
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -210,21 +211,27 @@ export default function RacePage() {
               >
                 Points de ravitaillement
               </p>
-              <div className="flex flex-col gap-1.5">
-                {selectedRace.race_aid_stations.map((s) => (
-                  <div key={s.id} className="flex items-center gap-2">
-                    <div
-                      className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                      style={{ backgroundColor: "#2D5016" }}
-                    >
-                      {s.km}
+              {selectedRace.race_aid_stations.length === 0 ? (
+                <p className="text-sm" style={{ color: "#6b7c5a" }}>
+                  Aucun ravito défini pour cette course
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {selectedRace.race_aid_stations.map((s) => (
+                    <div key={s.id} className="flex items-center gap-2">
+                      <div
+                        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                        style={{ backgroundColor: "#2D5016" }}
+                      >
+                        {s.km}
+                      </div>
+                      <span className="text-sm" style={{ color: "#1a2e0a" }}>
+                        {s.name}
+                      </span>
                     </div>
-                    <span className="text-sm" style={{ color: "#1a2e0a" }}>
-                      {s.name}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
