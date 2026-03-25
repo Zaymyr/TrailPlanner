@@ -71,7 +71,7 @@ export default function AccountPage() {
           console.warn("Could not save plan to Supabase:", saveError);
         }
 
-        router.push("/app");
+        router.push("/app" as any);
         router.refresh();
         return;
       }
@@ -79,7 +79,7 @@ export default function AccountPage() {
       if (data?.requiresEmailConfirmation) {
         saveOnboardingToLocalStorage(planData);
         setError(null);
-        router.push("/app");
+        router.push("/app" as any);
         return;
       }
     } catch (err) {
@@ -106,7 +106,7 @@ export default function AccountPage() {
 
   function handleSkip() {
     saveOnboardingToLocalStorage(planData);
-    router.push("/app");
+    router.push("/app" as any);
   }
 
   return (
