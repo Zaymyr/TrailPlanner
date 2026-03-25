@@ -86,7 +86,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
       <div className="fixed inset-0 z-50 bg-[#FAF7F2] sm:bg-[#EDE8E0] flex items-center justify-center overflow-y-auto">
         <div className="
           w-full sm:max-w-[430px]
-          min-h-screen sm:min-h-[844px]
+          h-screen sm:h-[844px]
           bg-[#FAF7F2]
           sm:rounded-[40px]
           sm:shadow-2xl
@@ -94,7 +94,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         ">
         <TopoBackground />
 
-        <div className="relative flex min-h-full flex-col">
+        <div className="relative flex h-full flex-col">
           {!isLanding && (
             <div className="flex items-center gap-3 px-5 pt-5 pb-2">
               {backPath && (
