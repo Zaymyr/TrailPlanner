@@ -60,11 +60,14 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+const FREE_PLAN_LIMIT = 1;
+
 export default function PlansScreen() {
   const { t } = useI18n();
   const router = useRouter();
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
   const [raceOwnership, setRaceOwnership] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,20 +82,30 @@ export default function PlansScreen() {
     const uid = sessionData?.session?.user?.id ?? null;
     if (!cancelled) setUserId(uid);
 
-    const { data: planData, error: planErr } = await supabase
-      .from('race_plans')
-      .select('id, name, updated_at, race_id, planner_values, races(name)')
-      .order('updated_at', { ascending: false });
+    const [planResult, subResult] = await Promise.all([
+      supabase
+        .from('race_plans')
+        .select('id, name, updated_at, race_id, planner_values, races(name)')
+        .order('updated_at', { ascending: false }),
+      uid
+        ? supabase
+            .from('subscriptions')
+            .select('status')
+            .eq('user_id', uid)
+            .eq('status', 'active')
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
     if (cancelled) return;
 
-    if (planErr) {
-      setError(planErr.message);
-    } else if (planData) {
-      setPlans(planData as PlanRow[]);
+    if (planResult.error) {
+      setError(planResult.error.message);
+    } else if (planResult.data) {
+      setPlans(planResult.data as PlanRow[]);
 
       // Fetch ownership info for unique race IDs
-      const raceIds = [...new Set((planData as PlanRow[]).filter((p) => p.race_id).map((p) => p.race_id!))] ;
+      const raceIds = [...new Set((planResult.data as PlanRow[]).filter((p) => p.race_id).map((p) => p.race_id!))] ;
       if (raceIds.length > 0 && uid) {
         const { data: racesData } = await supabase
           .from('races')
@@ -106,6 +119,10 @@ export default function PlansScreen() {
       }
     }
 
+    if (!subResult.error && subResult.data) {
+      setIsPremium(true);
+    }
+
     if (!cancelled) {
       setLoading(false);
       setRefreshing(false);
@@ -114,6 +131,22 @@ export default function PlansScreen() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  function handleCreatePlan(raceId?: string) {
+    if (!isPremium && plans.length >= FREE_PLAN_LIMIT) {
+      Alert.alert(
+        'Limite atteinte',
+        `Les utilisateurs gratuits peuvent créer ${FREE_PLAN_LIMIT} plan. Passez en Premium pour des plans illimités.`,
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+    if (raceId) {
+      router.push({ pathname: '/(app)/plan/new', params: { raceId } });
+    } else {
+      router.push('/(app)/race/new');
+    }
+  }
 
   const handleDelete = (planId: string) => {
     setMenuPlanId(null);
@@ -216,7 +249,7 @@ export default function PlansScreen() {
             <Text style={styles.emptyIcon}>🏔️</Text>
             <Text style={styles.emptyTitle}>{t.plans.empty}</Text>
             <Text style={styles.emptySubtitle}>{t.plans.emptySubtitle}</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/(app)/race/new')}>
+            <TouchableOpacity style={styles.emptyButton} onPress={() => handleCreatePlan()}>
               <Text style={styles.emptyButtonText}>{t.plans.createFirst}</Text>
             </TouchableOpacity>
           </View>
@@ -248,7 +281,7 @@ export default function PlansScreen() {
               {section.raceId && (
                 <TouchableOpacity
                   style={styles.addPlanBtn}
-                  onPress={() => router.push({ pathname: '/(app)/plan/new', params: { raceId: section.raceId! } })}
+                  onPress={() => handleCreatePlan(section.raceId!)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={styles.addPlanBtnText}>+</Text>
@@ -310,7 +343,7 @@ export default function PlansScreen() {
       {/* FAB → new race */}
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push('/(app)/race/new')}
+        onPress={() => handleCreatePlan()}
         activeOpacity={0.85}
       >
         <Text style={styles.fabText}>+</Text>

@@ -3,23 +3,18 @@ import * as TaskManager from 'expo-task-manager';
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as Location from 'expo-location';
 
-// ─── Inline types & constants ────────────────────────────────────────────────
+import {
+  buildAlertSchedule as buildAlertScheduleShared,
+  getAlertsToFire,
+  type RacePlan as SharedRacePlan,
+  type ActiveAlert as SharedActiveAlert,
+  type AlertTimingMode,
+  SNOOZE_OPTIONS_MINUTES,
+} from './shared';
 
-const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
+// ─── Local types ──────────────────────────────────────────────────────────────
 
-type AlertTimingMode = 'time' | 'gps' | 'auto';
-type AlertStatus = 'pending' | 'snoozed' | 'confirmed' | 'skipped';
-type FuelAlert = {
-  id: string;
-  triggerMinutes?: number;
-  triggerDistanceKm?: number;
-  title: string;
-  body: string;
-  payload: any;
-};
-export type ActiveAlert = FuelAlert & {
-  status: AlertStatus;
-  snoozedUntilMinutes?: number;
+export type ActiveAlert = SharedActiveAlert & {
   respondedAt?: string;
 };
 
@@ -31,6 +26,15 @@ type IntakeRecord = {
   waterMl: number;
   products: Array<{ name: string; quantity: number; carbsGrams: number; sodiumMg: number }>;
 };
+
+type PlannerValues = {
+  paceType?: 'pace' | 'speed';
+  paceMinutes?: number;
+  paceSeconds?: number;
+  speedKph?: number;
+  waterBagLiters?: number;
+};
+
 type RacePlan = {
   id: string;
   name: string;
@@ -41,89 +45,38 @@ type RacePlan = {
   targetWaterPerHour: number;
   targetSodiumPerHour: number;
   aidStations: any[];
+  plannerValues?: PlannerValues;
 };
 
-// ─── Alert schedule builder ───────────────────────────────────────────────────
+// ─── Adapter: local flat plan → canonical nested plan ────────────────────────
 
-function buildAlertSchedule(
-  plan: RacePlan,
-  mode: AlertTimingMode,
-): FuelAlert[] {
-  const alerts: FuelAlert[] = [];
-  const stations = [...(plan.aidStations ?? [])].sort(
-    (a: any, b: any) => a.distanceKm - b.distanceKm,
-  );
+function adaptToSharedPlan(plan: RacePlan): SharedRacePlan {
+  const pv = plan.plannerValues ?? {};
+  const minutesPerKm =
+    pv.paceType === 'speed' && pv.speedKph && pv.speedKph > 0
+      ? 60 / pv.speedKph
+      : (pv.paceMinutes ?? 6) + (pv.paceSeconds ?? 0) / 60;
+  const paceMinutesFloor = Math.floor(minutesPerKm);
+  const paceSecondsRem = Math.round((minutesPerKm - paceMinutesFloor) * 60);
 
-  const waypoints: Array<{ name: string; distanceKm: number }> = [
-    { name: 'Départ', distanceKm: 0 },
-    ...stations,
-    { name: 'Arrivée', distanceKm: plan.raceDistanceKm },
-  ];
-
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    const from = waypoints[i] as any;
-    const to = waypoints[i + 1] as any;
-    const segmentDistanceKm = to.distanceKm - from.distanceKm;
-    const fraction = plan.raceDistanceKm > 0
-      ? segmentDistanceKm / plan.raceDistanceKm
-      : 0;
-
-    const carbsGrams = Math.round(plan.targetCarbsPerHour * fraction);
-    const waterMl = Math.round(plan.targetWaterPerHour * fraction);
-    const sodiumMg = Math.round(plan.targetSodiumPerHour * fraction);
-
-    const alert: FuelAlert = {
-      id: `seg-${i}`,
-      title: `Seg ${i + 1} → ${to.name}`,
-      body: `🍬 ${carbsGrams}g glucides · 💧 ${waterMl}ml eau · 🧂 ${sodiumMg}mg sodium`,
-      payload: {
-        fromName: from.name,
-        toName: to.name,
-        segmentDistanceKm,
-        carbsGrams,
-        waterMl,
-        sodiumMg,
-        products: to.segmentPlan?.products ?? [],
-      },
-    };
-
-    if (mode === 'gps' || mode === 'auto') {
-      alert.triggerDistanceKm = from.distanceKm;
-    }
-
-    alerts.push(alert);
-  }
-
-  return alerts;
-}
-
-function getAlertsToFire(
-  alerts: ActiveAlert[],
-  elapsedMinutes: number,
-  elapsedKm?: number,
-): ActiveAlert[] {
-  return alerts.filter((alert) => {
-    if (alert.status === 'confirmed' || alert.status === 'skipped') {
-      return false;
-    }
-
-    if (alert.status === 'snoozed') {
-      return (
-        alert.snoozedUntilMinutes != null &&
-        elapsedMinutes >= alert.snoozedUntilMinutes
-      );
-    }
-
-    // status === 'pending'
-    const timeTriggered =
-      alert.triggerMinutes != null && elapsedMinutes >= alert.triggerMinutes;
-    const gpsTriggered =
-      alert.triggerDistanceKm != null &&
-      elapsedKm != null &&
-      elapsedKm >= alert.triggerDistanceKm;
-
-    return timeTriggered || gpsTriggered;
-  });
+  return {
+    id: plan.id,
+    name: plan.name,
+    createdAt: plan.updatedAt,
+    updatedAt: plan.updatedAt,
+    plannerValues: {
+      raceDistanceKm: plan.raceDistanceKm,
+      elevationGain: plan.elevationGainM,
+      targetIntakePerHour: plan.targetCarbsPerHour,
+      waterIntakePerHour: plan.targetWaterPerHour,
+      sodiumIntakePerHour: plan.targetSodiumPerHour,
+      waterBagLiters: pv.waterBagLiters ?? 1.5,
+      paceMinutes: paceMinutesFloor,
+      paceSeconds: paceSecondsRem,
+      aidStations: plan.aidStations ?? [],
+    },
+    elevationProfile: [],
+  };
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -199,7 +152,7 @@ async function setupNotificationCategory(): Promise<void> {
 // ─── Fire a single alert notification ────────────────────────────────────────
 
 async function fireAlertNotification(
-  alert: FuelAlert,
+  alert: ActiveAlert,
   confirmMode: AlertConfirmMode,
 ): Promise<void> {
   if (confirmMode === 'fire_forget' || confirmMode === 'auto_5' || confirmMode === 'auto_10') {
@@ -252,9 +205,28 @@ export async function startRace(
   mode: AlertTimingMode,
   confirmMode: AlertConfirmMode = 'manual',
 ): Promise<void> {
-  const alerts = buildAlertSchedule(plan, mode);
-  const activeAlerts: ActiveAlert[] = alerts.map((a) => ({
+  // Build alerts using the canonical time-based formula from shared.ts.
+  // This fixes both: (1) distance-proportional nutrition and (2) missing triggerMinutes.
+  const sharedAlerts = buildAlertScheduleShared(adaptToSharedPlan(plan), mode);
+
+  // Enrich each alert payload with products from the aid station segment plans.
+  // The canonical buildAlertSchedule doesn't include products in the payload,
+  // but respondToAlert needs them to log intake history.
+  const sortedStations = [...(plan.aidStations ?? [])].sort(
+    (a: any, b: any) => a.distanceKm - b.distanceKm,
+  );
+  const waypoints: any[] = [
+    { name: 'Départ', distanceKm: 0 },
+    ...sortedStations,
+    { name: 'Arrivée', distanceKm: plan.raceDistanceKm },
+  ];
+
+  const activeAlerts: ActiveAlert[] = sharedAlerts.map((a, i) => ({
     ...a,
+    payload: {
+      ...a.payload,
+      products: waypoints[i + 1]?.segmentPlan?.products ?? [],
+    },
     status: 'pending' as const,
   }));
 
@@ -347,15 +319,15 @@ export async function respondToAlert(
     session.intakeHistory.push({
       alertId,
       confirmedAt: Date.now(),
-      carbsGrams: alert.payload.carbsGrams ?? 0,
-      sodiumMg: alert.payload.sodiumMg ?? 0,
-      waterMl: alert.payload.waterMl ?? 0,
-      products: alert.payload.products?.map((p: any) => ({
+      carbsGrams: (alert.payload.carbsGrams as number) ?? 0,
+      sodiumMg: (alert.payload.sodiumMg as number) ?? 0,
+      waterMl: (alert.payload.waterMl as number) ?? 0,
+      products: ((alert.payload.products as any[]) ?? []).map((p: any) => ({
         name: p.name,
         quantity: p.quantity,
         carbsGrams: p.carbsGrams ?? 0,
         sodiumMg: p.sodiumMg ?? 0,
-      })) ?? [],
+      })),
     });
   }
 }

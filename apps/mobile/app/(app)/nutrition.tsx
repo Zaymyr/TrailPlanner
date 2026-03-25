@@ -2,14 +2,21 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   ScrollView,
   Alert,
+  TextInput,
+  Modal,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+
+const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
+const FREE_FAVORITE_LIMIT = 3;
 
 type FuelType = 'gel' | 'drink_mix' | 'electrolyte' | 'capsule' | 'bar' | 'real_food' | 'other';
 
@@ -20,6 +27,7 @@ type Product = {
   carbs_g: number | null;
   sodium_mg: number | null;
   calories_kcal: number | null;
+  created_by?: string | null;
 };
 
 type FavoriteRow = {
@@ -39,11 +47,17 @@ const FUEL_TYPE_LABELS: Record<FuelType | 'all', string> = {
 };
 
 const FUEL_FILTERS: Array<FuelType | 'all'> = [
-  'all', 'gel', 'drink_mix', 'electrolyte', 'bar', 'real_food', 'other',
+  'all', 'gel', 'drink_mix', 'electrolyte', 'capsule', 'bar', 'real_food', 'other',
+];
+
+const FUEL_TYPE_OPTIONS: FuelType[] = [
+  'gel', 'drink_mix', 'electrolyte', 'capsule', 'bar', 'real_food', 'other',
 ];
 
 export default function NutritionScreen() {
   const [userId, setUserId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isPremium, setIsPremium] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteRow[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -51,23 +65,40 @@ export default function NutritionScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Create product form state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newFuelType, setNewFuelType] = useState<FuelType>('gel');
+  const [newCarbsG, setNewCarbsG] = useState('');
+  const [newSodiumMg, setNewSodiumMg] = useState('');
+  const [newCaloriesKcal, setNewCaloriesKcal] = useState('');
+
   const fetchData = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id;
+    const token = sessionData?.session?.access_token ?? null;
     if (!uid) return;
     setUserId(uid);
+    setAccessToken(token);
 
-    const [favsResult, productsResult] = await Promise.all([
+    const [favsResult, productsResult, subResult] = await Promise.all([
       supabase
         .from('user_favorite_products')
-        .select('product_id, products(id, name, fuel_type, carbs_g, sodium_mg, calories_kcal)')
+        .select('product_id, products(id, name, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by)')
         .eq('user_id', uid),
       supabase
         .from('products')
-        .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal')
-        .eq('is_live', true)
+        .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .or(`is_live.eq.true,created_by.eq.${uid}`)
         .eq('is_archived', false)
         .order('name'),
+      supabase
+        .from('subscriptions')
+        .select('status')
+        .eq('user_id', uid)
+        .eq('status', 'active')
+        .maybeSingle(),
     ]);
 
     if (favsResult.error) {
@@ -82,6 +113,10 @@ export default function NutritionScreen() {
       setError(productsResult.error.message);
     } else {
       setProducts((productsResult.data as Product[]) ?? []);
+    }
+
+    if (!subResult.error && subResult.data) {
+      setIsPremium(true);
     }
 
     setLoading(false);
@@ -111,6 +146,16 @@ export default function NutritionScreen() {
         setFavorites((prev) => prev.filter((f) => f.product_id !== productId));
       }
     } else {
+      // Check free tier limit before adding
+      if (!isPremium && favoriteIds.size >= FREE_FAVORITE_LIMIT) {
+        Alert.alert(
+          'Limite atteinte',
+          `Les utilisateurs gratuits peuvent avoir ${FREE_FAVORITE_LIMIT} favoris. Passez en Premium pour des favoris illimités.`,
+          [{ text: 'OK' }],
+        );
+        return;
+      }
+
       // Add
       const { error: err } = await supabase
         .from('user_favorite_products')
@@ -123,6 +168,60 @@ export default function NutritionScreen() {
           setFavorites((prev) => [...prev, { product_id: productId, products: product }]);
         }
       }
+    }
+  }
+
+  function resetCreateForm() {
+    setNewName('');
+    setNewFuelType('gel');
+    setNewCarbsG('');
+    setNewSodiumMg('');
+    setNewCaloriesKcal('');
+  }
+
+  async function handleCreateProduct() {
+    if (!newName.trim()) {
+      Alert.alert('Champ requis', 'Le nom du produit est obligatoire.');
+      return;
+    }
+
+    if (!WEB_URL) {
+      Alert.alert('Erreur', 'Configuration manquante. Contacte le support.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const res = await fetch(`${WEB_URL}/api/products`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          name: newName.trim(),
+          fuelType: newFuelType,
+          carbsGrams: parseFloat(newCarbsG) || 0,
+          sodiumMg: parseFloat(newSodiumMg) || 0,
+          caloriesKcal: parseFloat(newCaloriesKcal) || 0,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `Erreur ${res.status}`);
+      }
+
+      const created: Product = await res.json();
+      // Append to products list and auto-favorite
+      setProducts((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      await toggleFavorite(created.id);
+      resetCreateForm();
+      setShowCreateModal(false);
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message ?? 'Impossible de créer le produit.');
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -150,6 +249,14 @@ export default function NutritionScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Mes favoris */}
       <Text style={styles.sectionTitle}>Mes favoris</Text>
+
+      {!isPremium && (
+        <View style={styles.limitBanner}>
+          <Text style={styles.limitBannerText}>
+            {favoriteIds.size}/{FREE_FAVORITE_LIMIT} favoris · Passez en Premium pour des favoris illimités
+          </Text>
+        </View>
+      )}
 
       {favorites.length === 0 ? (
         <View style={styles.emptyFavorites}>
@@ -185,7 +292,29 @@ export default function NutritionScreen() {
       )}
 
       {/* Catalogue produits */}
-      <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Catalogue produits</Text>
+      <View style={styles.catalogHeader}>
+        <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Catalogue produits</Text>
+        {isPremium ? (
+          <TouchableOpacity
+            style={styles.createButton}
+            onPress={() => setShowCreateModal(true)}
+          >
+            <Text style={styles.createButtonText}>+ Mon produit</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.premiumTag}>
+            <Text style={styles.premiumTagText}>Premium</Text>
+          </View>
+        )}
+      </View>
+
+      {!isPremium && (
+        <View style={styles.premiumBanner}>
+          <Text style={styles.premiumBannerText}>
+            ⚡ La création de produits personnalisés est réservée aux abonnés Premium.
+          </Text>
+        </View>
+      )}
 
       {/* Filtre par type */}
       <ScrollView
@@ -222,6 +351,9 @@ export default function NutritionScreen() {
                 <Text style={styles.productName}>{product.name}</Text>
                 <Text style={styles.productType}>
                   {FUEL_TYPE_LABELS[product.fuel_type] ?? product.fuel_type}
+                  {product.created_by === userId && (
+                    <Text style={styles.myProductTag}> · Mon produit</Text>
+                  )}
                 </Text>
                 <View style={styles.productStats}>
                   {product.carbs_g != null && (
@@ -247,6 +379,109 @@ export default function NutritionScreen() {
           );
         })
       )}
+
+      {/* Create product modal */}
+      <Modal
+        visible={showCreateModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCreateModal(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalWrapper}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowCreateModal(false)} />
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Créer un produit</Text>
+
+            <Text style={styles.inputLabel}>Nom *</Text>
+            <TextInput
+              style={styles.textInput}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="Ex : Gel Maurten 100"
+              placeholderTextColor="#475569"
+              autoCapitalize="words"
+            />
+
+            <Text style={styles.inputLabel}>Type</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.filterScroll}
+              contentContainerStyle={styles.filterContent}
+            >
+              {FUEL_TYPE_OPTIONS.map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.filterChip, newFuelType === type && styles.filterChipActive]}
+                  onPress={() => setNewFuelType(type)}
+                >
+                  <Text style={[styles.filterChipText, newFuelType === type && styles.filterChipTextActive]}>
+                    {FUEL_TYPE_LABELS[type]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <View style={styles.numericRow}>
+              <View style={styles.numericField}>
+                <Text style={styles.inputLabel}>Glucides (g)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newCarbsG}
+                  onChangeText={setNewCarbsG}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor="#475569"
+                />
+              </View>
+              <View style={styles.numericField}>
+                <Text style={styles.inputLabel}>Sodium (mg)</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newSodiumMg}
+                  onChangeText={setNewSodiumMg}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor="#475569"
+                />
+              </View>
+              <View style={styles.numericField}>
+                <Text style={styles.inputLabel}>Kcal</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={newCaloriesKcal}
+                  onChangeText={setNewCaloriesKcal}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  placeholderTextColor="#475569"
+                />
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.submitButton, creating && styles.submitButtonDisabled]}
+              onPress={handleCreateProduct}
+              disabled={creating}
+            >
+              {creating ? (
+                <ActivityIndicator color="#0f172a" />
+              ) : (
+                <Text style={styles.submitButtonText}>Créer et ajouter aux favoris</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => { resetCreateForm(); setShowCreateModal(false); }}
+            >
+              <Text style={styles.cancelButtonText}>Annuler</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 }
@@ -277,6 +512,68 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#22c55e',
     marginBottom: 12,
+  },
+  catalogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 28,
+    marginBottom: 8,
+  },
+  limitBanner: {
+    backgroundColor: '#1e293b',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  limitBannerText: {
+    color: '#94a3b8',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  premiumBanner: {
+    backgroundColor: '#1c1003',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#92400e',
+  },
+  premiumBannerText: {
+    color: '#fbbf24',
+    fontSize: 13,
+  },
+  createButton: {
+    backgroundColor: '#14532d',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+    marginBottom: 4,
+  },
+  createButtonText: {
+    color: '#22c55e',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  premiumTag: {
+    backgroundColor: '#1c1003',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#92400e',
+    marginBottom: 4,
+  },
+  premiumTagText: {
+    color: '#fbbf24',
+    fontSize: 11,
+    fontWeight: '700',
   },
   emptyFavorites: {
     backgroundColor: '#1e293b',
@@ -314,6 +611,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
+  },
+  myProductTag: {
+    color: '#22c55e',
+    textTransform: 'none',
+    letterSpacing: 0,
   },
   productStats: {
     flexDirection: 'row',
@@ -379,5 +681,77 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#22c55e',
+  },
+  // Modal styles
+  modalWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalSheet: {
+    backgroundColor: '#1e293b',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingBottom: 40,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#f1f5f9',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  inputLabel: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  textInput: {
+    backgroundColor: '#0f172a',
+    color: '#f1f5f9',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  numericRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  numericField: {
+    flex: 1,
+  },
+  submitButton: {
+    backgroundColor: '#22c55e',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 24,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitButtonText: {
+    color: '#0f172a',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  cancelButtonText: {
+    color: '#94a3b8',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

@@ -8,19 +8,32 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Linking,
 } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
+
+const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 
 type UserProfile = {
   full_name: string | null;
   age: number | null;
   water_bag_liters: number | null;
   role: string | null;
+  trial_ends_at: string | null;
+  trial_started_at: string | null;
 };
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
 
 export default function ProfileScreen() {
   const { locale, setLocale, t } = useI18n();
@@ -29,6 +42,8 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
   const [isPremium, setIsPremium] = useState(false);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [isTrialActive, setIsTrialActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +61,7 @@ export default function ProfileScreen() {
       const [profileResult, subResult] = await Promise.all([
         supabase
           .from('user_profiles')
-          .select('full_name, age, water_bag_liters, role')
+          .select('full_name, age, water_bag_liters, role, trial_ends_at, trial_started_at')
           .eq('user_id', uid)
           .single(),
         supabase
@@ -64,6 +79,11 @@ export default function ProfileScreen() {
         setProfile(p);
         setFullName(p.full_name ?? '');
         setWaterBagLiters(p.water_bag_liters ?? 1.5);
+
+        if (p.trial_ends_at) {
+          setTrialEndsAt(p.trial_ends_at);
+          setIsTrialActive(new Date(p.trial_ends_at).getTime() > Date.now());
+        }
       }
 
       if (!subResult.error && subResult.data) {
@@ -114,6 +134,17 @@ export default function ProfileScreen() {
     );
   }
 
+  function handleUpgrade() {
+    const url = WEB_URL ? `${WEB_URL}/premium` : null;
+    if (!url) {
+      Alert.alert('Premium', 'Rendez-vous sur notre site web pour passer en Premium.');
+      return;
+    }
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Erreur', 'Impossible d\'ouvrir le navigateur.');
+    });
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -123,6 +154,11 @@ export default function ProfileScreen() {
   }
 
   const appVersion = Constants.expoConfig?.version ?? '—';
+
+  // Determine subscription display state
+  const showTrialActive = !isPremium && isTrialActive && trialEndsAt;
+  const showTrialExpired = !isPremium && !isTrialActive && trialEndsAt;
+  const showFree = !isPremium && !trialEndsAt;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -173,12 +209,45 @@ export default function ProfileScreen() {
 
       {/* Statut abonnement */}
       <View style={styles.statusCard}>
-        <Text style={styles.statusLabel}>Abonnement</Text>
-        <View style={[styles.statusBadge, isPremium ? styles.statusBadgePremium : styles.statusBadgeFree]}>
-          <Text style={[styles.statusBadgeText, isPremium ? styles.statusBadgeTextPremium : styles.statusBadgeTextFree]}>
-            {isPremium ? '⚡ Premium' : 'Gratuit'}
-          </Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>Abonnement</Text>
+
+          {isPremium && (
+            <View style={[styles.statusBadge, styles.statusBadgePremium]}>
+              <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>
+                ⚡ Premium
+              </Text>
+            </View>
+          )}
+
+          {showTrialActive && (
+            <View style={[styles.statusBadge, styles.statusBadgeTrial]}>
+              <Text style={[styles.statusBadgeText, styles.statusBadgeTextTrial]}>
+                ⏳ Essai Premium
+              </Text>
+            </View>
+          )}
+
+          {(showTrialExpired || showFree) && (
+            <View style={[styles.statusBadge, styles.statusBadgeFree]}>
+              <Text style={[styles.statusBadgeText, styles.statusBadgeTextFree]}>
+                {showTrialExpired ? 'Essai expiré' : 'Gratuit'}
+              </Text>
+            </View>
+          )}
         </View>
+
+        {showTrialActive && trialEndsAt && (
+          <Text style={styles.trialSubtitle}>
+            Expire le {formatDate(trialEndsAt)}
+          </Text>
+        )}
+
+        {(showTrialExpired || showFree) && (
+          <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
+            <Text style={styles.upgradeButtonText}>Passer en Premium →</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Langue */}
@@ -326,6 +395,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 16,
     marginTop: 24,
+    marginBottom: 24,
+  },
+  statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -346,6 +418,9 @@ const styles = StyleSheet.create({
   statusBadgeFree: {
     backgroundColor: '#334155',
   },
+  statusBadgeTrial: {
+    backgroundColor: '#78350f',
+  },
   statusBadgeText: {
     fontSize: 13,
     fontWeight: '700',
@@ -355,6 +430,28 @@ const styles = StyleSheet.create({
   },
   statusBadgeTextFree: {
     color: '#94a3b8',
+  },
+  statusBadgeTextTrial: {
+    color: '#fbbf24',
+  },
+  trialSubtitle: {
+    color: '#fbbf24',
+    fontSize: 13,
+    marginTop: 8,
+  },
+  upgradeButton: {
+    backgroundColor: '#14532d',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#22c55e',
+  },
+  upgradeButtonText: {
+    color: '#22c55e',
+    fontSize: 14,
+    fontWeight: '700',
   },
   versionText: {
     color: '#334155',
