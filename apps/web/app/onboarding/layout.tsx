@@ -94,7 +94,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
             <div className="flex items-center gap-3 px-5 pt-5 pb-2">
               {backPath && (
                 <button
-                  onClick={() => router.push(backPath)}
+                  onClick={() => router.push(backPath as never)}
                   aria-label="Retour"
                   className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-black/5"
                 >
