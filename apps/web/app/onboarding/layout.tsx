@@ -83,10 +83,15 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
 
   return (
     <OnboardingProvider>
-      <div
-        className="fixed inset-0 z-50 overflow-y-auto"
-        style={{ backgroundColor: "#FAF7F2" }}
-      >
+      <div className="min-h-screen bg-[#EDE8E0] flex items-center justify-center">
+        <div className="
+          w-full sm:max-w-[430px]
+          min-h-screen sm:min-h-[844px]
+          bg-[#FAF7F2]
+          sm:rounded-[40px]
+          sm:shadow-2xl
+          relative overflow-hidden
+        ">
         <TopoBackground />
 
         <div className="relative mx-auto flex min-h-full max-w-[430px] flex-col">
@@ -136,6 +141,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
           )}
 
           <div className="flex flex-1 flex-col px-5 pb-8">{children}</div>
+        </div>
         </div>
       </div>
     </OnboardingProvider>
