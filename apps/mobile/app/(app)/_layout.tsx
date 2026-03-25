@@ -86,15 +86,15 @@ export default function AppLayout() {
       {/* Non-tab screens — hidden from tab bar */}
       <Tabs.Screen
         name="race"
-        options={{ href: null, headerShown: false, tabBarButton: () => null }}
+        options={{ href: null, headerShown: false }}
       />
       <Tabs.Screen
         name="plan"
-        options={{ href: null, tabBarButton: () => null, tabBarStyle: { display: 'none' } }}
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
       />
       <Tabs.Screen
         name="onboarding"
-        options={{ href: null, headerShown: false, tabBarButton: () => null }}
+        options={{ href: null, headerShown: false }}
       />
     </Tabs>
   );
