@@ -9,7 +9,7 @@ export type SweatLevel = "a_lot" | "normal" | "little";
 export type RaceCheckpoint = {
   km: number;
   name: string;
-  type: "ravito" | "checkpoint";
+  type?: "ravito" | "checkpoint";
 };
 
 export type OnboardingState = {

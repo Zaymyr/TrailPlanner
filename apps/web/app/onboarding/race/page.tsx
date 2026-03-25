@@ -2,31 +2,37 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import type { RaceCheckpoint } from "../../../contexts/OnboardingContext";
 
-type PresetRace = {
+type AidStation = {
+  id: string;
+  name: string;
+  km: number;
+  order_index: number;
+};
+
+type Race = {
   id: string;
   name: string;
   distance_km: number;
-  elevation_m: number;
-  checkpoints: RaceCheckpoint[];
+  elevation_gain_m: number;
+  race_aid_stations: AidStation[];
 };
 
-function createSupabaseBrowserClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  return createClient(url, key, {
-    auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-  });
+function getSupabaseClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 }
 
 export default function RacePage() {
   const router = useRouter();
   const { state, setRaceSelection, clearRaceSelection, setDistance, setElevation } = useOnboarding();
 
-  const [races, setRaces] = useState<PresetRace[]>([]);
+  const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(state.raceId);
   const [isManual, setIsManual] = useState(state.raceId === null && state.distance !== null);
@@ -39,14 +45,23 @@ export default function RacePage() {
   );
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = getSupabaseClient();
     supabase
-      .from("preset_races")
-      .select("id, name, distance_km, elevation_m, checkpoints")
-      .order("distance_km", { ascending: true })
+      .from("races")
+      .select("id, name, distance_km, elevation_gain_m, race_aid_stations!inner(id, name, km, order_index)")
+      .eq("is_live", true)
+      .not("gpx_storage_path", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(5)
       .then(({ data, error }) => {
         if (!error && data) {
-          setRaces(data as PresetRace[]);
+          const mapped = (data as Race[]).map((r) => ({
+            ...r,
+            race_aid_stations: [...r.race_aid_stations].sort(
+              (a, b) => a.order_index - b.order_index
+            ),
+          }));
+          setRaces(mapped);
         }
         setLoading(false);
       });
@@ -62,7 +77,7 @@ export default function RacePage() {
       Number(distanceInput) > 0 &&
       Number(elevationInput) >= 0);
 
-  function handleSelectRace(race: PresetRace) {
+  function handleSelectRace(race: Race) {
     setSelectedRaceId(race.id);
     setIsManual(false);
   }
@@ -75,11 +90,15 @@ export default function RacePage() {
   function handleContinue() {
     if (!canContinue) return;
     if (selectedRace) {
+      const checkpoints: RaceCheckpoint[] = selectedRace.race_aid_stations.map((s) => ({
+        km: s.km,
+        name: s.name,
+      }));
       setRaceSelection(
         selectedRace.id,
         selectedRace.distance_km,
-        selectedRace.elevation_m,
-        selectedRace.checkpoints
+        selectedRace.elevation_gain_m,
+        checkpoints
       );
     } else {
       clearRaceSelection();
@@ -112,6 +131,12 @@ export default function RacePage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
+          {races.length === 0 && !loading && (
+            <p className="text-center text-sm" style={{ color: "#6b7c5a" }}>
+              Aucune course disponible pour le moment
+            </p>
+          )}
+
           {races.map((race) => {
             const isSelected = selectedRaceId === race.id;
             return (
@@ -157,7 +182,13 @@ export default function RacePage() {
                     className="rounded-full px-2.5 py-0.5 text-xs font-medium"
                     style={{ backgroundColor: "#e8f0e0", color: "#2D5016" }}
                   >
-                    {race.elevation_m} m D+
+                    {race.elevation_gain_m} m D+
+                  </span>
+                  <span
+                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
+                    style={{ backgroundColor: "#f0ece6", color: "#6b7c5a" }}
+                  >
+                    {race.race_aid_stations.length} ravitos
                   </span>
                 </div>
               </button>
@@ -173,29 +204,23 @@ export default function RacePage() {
                 border: "1px solid #c8dca8",
               }}
             >
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide" style={{ color: "#2D5016" }}>
+              <p
+                className="mb-2 text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "#2D5016" }}
+              >
                 Points de ravitaillement
               </p>
               <div className="flex flex-col gap-1.5">
-                {selectedRace.checkpoints.map((cp) => (
-                  <div key={cp.km} className="flex items-center gap-2">
+                {selectedRace.race_aid_stations.map((s) => (
+                  <div key={s.id} className="flex items-center gap-2">
                     <div
                       className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
                       style={{ backgroundColor: "#2D5016" }}
                     >
-                      {cp.km}
+                      {s.km}
                     </div>
                     <span className="text-sm" style={{ color: "#1a2e0a" }}>
-                      {cp.name}
-                    </span>
-                    <span
-                      className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-medium"
-                      style={{
-                        backgroundColor: cp.type === "ravito" ? "#dff0d8" : "#d8eaf0",
-                        color: cp.type === "ravito" ? "#2D5016" : "#1a4a5a",
-                      }}
-                    >
-                      {cp.type === "ravito" ? "Ravito" : "Checkpoint"}
+                      {s.name}
                     </span>
                   </div>
                 ))}

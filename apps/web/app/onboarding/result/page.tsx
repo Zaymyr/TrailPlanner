@@ -146,10 +146,7 @@ export default function ResultPage() {
                     </span>
                     <span
                       className="rounded-full px-2 py-0.5 text-[10px] font-medium"
-                      style={{
-                        backgroundColor: cp.type === "ravito" ? "#e8f0e0" : "#d8eaf0",
-                        color: cp.type === "ravito" ? "#2D5016" : "#1a4a5a",
-                      }}
+                      style={{ backgroundColor: "#e8f0e0", color: "#2D5016" }}
                     >
                       km {cp.km}
                     </span>
