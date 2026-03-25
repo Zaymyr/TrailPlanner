@@ -8,7 +8,7 @@ export default function OnboardingLandingPage() {
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      padding: '40px 20px 0',
+      padding: '40px 24px 32px',
     }}>
 
       {/* Icon + title */}

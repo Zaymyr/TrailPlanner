@@ -37,7 +37,7 @@ export default function InstallPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-120px)] flex-col items-center justify-center gap-8 py-12">
+    <div className="flex min-h-[calc(100dvh-120px)] flex-col items-center justify-center gap-8 px-6 pt-10 pb-8">
       <div className="flex flex-col items-center gap-6 text-center">
         <div
           className="flex h-20 w-20 items-center justify-center rounded-3xl text-4xl"

@@ -17,7 +17,7 @@ export default function ResultPage() {
   const insight = getInsightMessage(distance, elevation, goal);
 
   return (
-    <div className="flex flex-col gap-5 pt-6 pb-36">
+    <div className="flex flex-col gap-5 px-6 pt-10 pb-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ton plan est prêt 🎉

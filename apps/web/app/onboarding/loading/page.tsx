@@ -35,7 +35,7 @@ export default function LoadingPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-[calc(100dvh-120px)] flex-col items-center justify-center gap-8 py-12">
+    <div className="flex min-h-[calc(100dvh-120px)] flex-col items-center justify-center gap-8 px-6 pt-10 pb-8">
       <div className="flex flex-col items-center gap-4">
         <div
           className="flex h-16 w-16 items-center justify-center rounded-full"
