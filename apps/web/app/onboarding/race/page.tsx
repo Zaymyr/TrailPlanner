@@ -50,16 +50,19 @@ export default function RacePage() {
       .from("races")
       .select("id, name, distance_km, elevation_gain_m, race_aid_stations(id, name, km, order_index)")
       .eq("is_live", true)
+      .not("gpx_storage_path", "is", null)
       .order("created_at", { ascending: false })
       .limit(5)
       .then(({ data, error }) => {
         if (!error && data) {
-          const mapped = (data as Race[]).map((r) => ({
-            ...r,
-            race_aid_stations: [...r.race_aid_stations].sort(
-              (a, b) => a.order_index - b.order_index
-            ),
-          }));
+          const mapped = (data as Race[])
+            .filter((r) => r.race_aid_stations.length > 0)
+            .map((r) => ({
+              ...r,
+              race_aid_stations: [...r.race_aid_stations].sort(
+                (a, b) => a.km - b.km
+              ),
+            }));
           setRaces(mapped);
         }
         setLoading(false);
