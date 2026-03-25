@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
-import { calculateNutrition, getCheckpoints, getInsightMessage } from "../../../lib/nutrition";
+import { calculateNutrition, getCheckpoints, getInsightMessage, formatEstimatedTime, formatAveragePace } from "../../../lib/nutrition";
 
 export default function ResultPage() {
   const router = useRouter();
@@ -15,9 +15,11 @@ export default function ResultPage() {
   const plan = calculateNutrition(distance, elevation, goal);
   const checkpoints = getCheckpoints(distance, elevation, goal);
   const insight = getInsightMessage(distance, elevation, goal);
+  const estimatedTime = formatEstimatedTime(distance, elevation, goal);
+  const averagePace = formatAveragePace(distance, elevation, goal);
 
   return (
-    <div className="flex flex-col gap-5 pt-6 pb-36">
+    <div className="flex flex-col gap-5 px-6 pt-10 pb-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ton plan est prêt 🎉
@@ -40,7 +42,7 @@ export default function ResultPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div
           className="flex flex-col items-center gap-1 rounded-2xl p-4"
           style={{
@@ -86,6 +88,36 @@ export default function ResultPage() {
             Sodium/h
           </span>
         </div>
+        <div
+          className="flex flex-col items-center gap-1 rounded-2xl p-4"
+          style={{
+            backgroundColor: "#ffffff",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+          }}
+        >
+          <span className="text-2xl">⏱️</span>
+          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
+            {estimatedTime}
+          </span>
+          <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
+            Temps estimé
+          </span>
+        </div>
+        <div
+          className="col-span-2 flex flex-col items-center gap-1 rounded-2xl p-4"
+          style={{
+            backgroundColor: "#ffffff",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+          }}
+        >
+          <span className="text-2xl">🏃</span>
+          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
+            {averagePace}
+          </span>
+          <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
+            Allure moyenne
+          </span>
+        </div>
       </div>
 
       <div
@@ -99,25 +131,47 @@ export default function ResultPage() {
           Ravitaillements clés
         </h2>
         <div className="flex flex-col gap-3">
-          {checkpoints.map((cp) => (
-            <div key={cp.km} className="flex items-center gap-3">
-              <div
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                style={{ backgroundColor: "#2D5016" }}
-              >
-                {cp.km}
-              </div>
-              <div className="flex flex-1 items-center justify-between">
-                <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
-                  km {cp.km}
-                </span>
-                <div className="flex gap-3 text-xs" style={{ color: "#6b7c5a" }}>
-                  <span>🍬 {cp.carbs}g</span>
-                  <span>💧 {cp.water}ml</span>
+          {state.checkpoints
+            ? state.checkpoints.map((cp) => (
+                <div key={cp.km} className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: "#2D5016" }}
+                  >
+                    {cp.km}
+                  </div>
+                  <div className="flex flex-1 items-center justify-between">
+                    <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
+                      {cp.name}
+                    </span>
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{ backgroundColor: "#e8f0e0", color: "#2D5016" }}
+                    >
+                      km {cp.km}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              ))
+            : checkpoints.map((cp) => (
+                <div key={cp.km} className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: "#2D5016" }}
+                  >
+                    {cp.km}
+                  </div>
+                  <div className="flex flex-1 items-center justify-between">
+                    <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
+                      km {cp.km}
+                    </span>
+                    <div className="flex gap-3 text-xs" style={{ color: "#6b7c5a" }}>
+                      <span>🍬 {cp.carbs}g</span>
+                      <span>💧 {cp.water}ml</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
         </div>
       </div>
 

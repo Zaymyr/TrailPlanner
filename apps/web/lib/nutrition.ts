@@ -33,6 +33,28 @@ export function calculateNutrition(
   return { carbsPerHour, waterPerHour, sodiumPerHour };
 }
 
+export function calculateAdjustedPace(distance: number, elevation: number, goal: Goal): number {
+  let pace = 7;
+  pace += Math.round(elevation / 500);
+  if (goal === "comfort") pace += 1;
+  if (goal === "performance") pace -= 1;
+  return pace;
+}
+
+export function formatEstimatedTime(distance: number, elevation: number, goal: Goal): string {
+  const totalMinutes = distance * calculateAdjustedPace(distance, elevation, goal);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = Math.round(totalMinutes % 60);
+  return `${hours}h ${String(mins).padStart(2, "0")}min`;
+}
+
+export function formatAveragePace(distance: number, elevation: number, goal: Goal): string {
+  const pace = calculateAdjustedPace(distance, elevation, goal);
+  const minutes = Math.floor(pace);
+  const seconds = Math.round((pace - minutes) * 60);
+  return `${minutes}:${String(seconds).padStart(2, "0")} min/km`;
+}
+
 export function estimateRaceHours(distance: number, elevation: number): number {
   const basePaceMinPerKm = 8;
   const elevationPenaltyMin = elevation / 100;
