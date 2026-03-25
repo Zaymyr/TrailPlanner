@@ -1,8 +1,10 @@
 import React from "react";
+import { OnboardingProvider } from "../../contexts/OnboardingContext";
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
+    <OnboardingProvider>
+      <div style={{
       width: '100vw',
       maxWidth: '430px',
       minHeight: '100dvh',
@@ -15,5 +17,6 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
     }}>
       {children}
     </div>
+    </OnboardingProvider>
   )
 }
