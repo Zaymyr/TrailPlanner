@@ -131,25 +131,50 @@ export default function ResultPage() {
           Ravitaillements clés
         </h2>
         <div className="flex flex-col gap-3">
-          {checkpoints.map((cp) => (
-            <div key={cp.km} className="flex items-center gap-3">
-              <div
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                style={{ backgroundColor: "#2D5016" }}
-              >
-                {cp.km}
-              </div>
-              <div className="flex flex-1 items-center justify-between">
-                <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
-                  km {cp.km}
-                </span>
-                <div className="flex gap-3 text-xs" style={{ color: "#6b7c5a" }}>
-                  <span>🍬 {cp.carbs}g</span>
-                  <span>💧 {cp.water}ml</span>
+          {state.checkpoints
+            ? state.checkpoints.map((cp) => (
+                <div key={cp.km} className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: "#2D5016" }}
+                  >
+                    {cp.km}
+                  </div>
+                  <div className="flex flex-1 items-center justify-between">
+                    <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
+                      {cp.name}
+                    </span>
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-medium"
+                      style={{
+                        backgroundColor: cp.type === "ravito" ? "#e8f0e0" : "#d8eaf0",
+                        color: cp.type === "ravito" ? "#2D5016" : "#1a4a5a",
+                      }}
+                    >
+                      km {cp.km}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </div>
-          ))}
+              ))
+            : checkpoints.map((cp) => (
+                <div key={cp.km} className="flex items-center gap-3">
+                  <div
+                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: "#2D5016" }}
+                  >
+                    {cp.km}
+                  </div>
+                  <div className="flex flex-1 items-center justify-between">
+                    <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
+                      km {cp.km}
+                    </span>
+                    <div className="flex gap-3 text-xs" style={{ color: "#6b7c5a" }}>
+                      <span>🍬 {cp.carbs}g</span>
+                      <span>💧 {cp.water}ml</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
         </div>
       </div>
 
