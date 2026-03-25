@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { parseGpx } from "../../../../../lib/gpx/parseGpx";
+import { haversineMeters, parseGpx } from "../../../../../lib/gpx/parseGpx";
 import { checkRateLimit, withSecurityHeaders } from "../../../../../lib/http";
 import {
   extractBearerToken,
@@ -209,5 +209,62 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const updated = await updateResponse.json();
+
+  // Extract aid stations from waypoints and persist them
+  try {
+    // Delete existing aid stations for this race
+    const deleteResponse = await fetch(
+      `${supabaseService.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}`,
+      {
+        method: "DELETE",
+        headers: {
+          apikey: supabaseService.supabaseServiceRoleKey,
+          Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+        },
+      }
+    );
+    if (!deleteResponse.ok) {
+      console.error("Unable to delete existing aid stations", await deleteResponse.text());
+    }
+
+    // Insert new aid stations from GPX waypoints
+    if (parsedGpx.waypoints.length > 0) {
+      const aidStations = parsedGpx.waypoints.map((wpt, index) => {
+        let closestDistKm = 0;
+        let minDist = Infinity;
+        for (const pt of parsedGpx.points) {
+          const d = haversineMeters(wpt.lat, wpt.lng, pt.lat, pt.lng);
+          if (d < minDist) {
+            minDist = d;
+            closestDistKm = pt.distKmCum;
+          }
+        }
+        return {
+          race_id: parsedParams.data.id,
+          name: wpt.name ?? wpt.desc ?? `Aid Station ${index + 1}`,
+          km: closestDistKm,
+          water_available: true,
+          notes: wpt.desc && wpt.name ? wpt.desc : null,
+          order_index: index,
+        };
+      });
+
+      const insertResponse = await fetch(`${supabaseService.supabaseUrl}/rest/v1/race_aid_stations`, {
+        method: "POST",
+        headers: {
+          apikey: supabaseService.supabaseServiceRoleKey,
+          Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(aidStations),
+      });
+      if (!insertResponse.ok) {
+        console.error("Unable to insert aid stations", await insertResponse.text());
+      }
+    }
+  } catch (error) {
+    console.error("Unexpected error while saving aid stations", error);
+  }
+
   return withSecurityHeaders(NextResponse.json({ race: updated?.[0] ?? null }));
 }

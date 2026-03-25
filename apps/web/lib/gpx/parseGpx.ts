@@ -42,7 +42,7 @@ const toNumber = (value: string | null | undefined): number | null => {
 
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
-const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371e3;
   const φ1 = toRadians(lat1);
   const φ2 = toRadians(lat2);
