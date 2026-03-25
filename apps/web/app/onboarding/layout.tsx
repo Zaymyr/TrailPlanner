@@ -5,18 +5,21 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
   return (
     <OnboardingProvider>
       <div style={{
-      width: '100vw',
-      maxWidth: '430px',
-      minHeight: '100dvh',
-      margin: '0 auto',
-      backgroundColor: '#FAF7F2',
-      position: 'relative',
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-    }}>
-      {children}
-    </div>
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        backgroundColor: '#FAF7F2',
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 9999,
+      }}>
+        {children}
+      </div>
     </OnboardingProvider>
   )
 }
