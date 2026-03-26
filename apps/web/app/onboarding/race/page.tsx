@@ -85,6 +85,9 @@ export default function RacePage() {
       Number(distanceInput) > 0 &&
       Number(elevationInput) >= 0);
 
+  // Derived only for rendering the summary card — NOT used for canContinue or handleContinue
+  const selectedRace = races.find((r) => r.id === selectedRaceId) ?? null;
+
   function handleSelectRace(race: Race) {
     selectedRaceRef.current = race;
     setSelectedRaceId(race.id);
