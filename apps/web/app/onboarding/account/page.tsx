@@ -39,10 +39,18 @@ export default function AccountPage() {
     setSubmitting(true);
 
     try {
+      const anonToken = localStorage.getItem("trailplanner.anonAccessToken");
+      const anonPlanId = localStorage.getItem("trailplanner.anonPlanId");
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, fullName: email.split("@")[0] }),
+        body: JSON.stringify({
+          email,
+          password,
+          fullName: email.split("@")[0],
+          ...(anonToken ? { anonToken } : {}),
+        }),
       });
 
       const data = (await response.json().catch(() => null)) as {
@@ -57,45 +65,43 @@ export default function AccountPage() {
         return;
       }
 
+      // Transfer the anon-saved plan ID so race-planner auto-loads it after confirmation
+      if (anonPlanId) {
+        localStorage.setItem("trailplanner.pendingPlanId", anonPlanId);
+        localStorage.removeItem("trailplanner.anonPlanId");
+      }
+      localStorage.removeItem("trailplanner.anonAccessToken");
+      localStorage.removeItem("trailplanner.anonRefreshToken");
+
       if (data?.access_token) {
-        persistSessionToStorage({
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
-          email,
-        });
+        persistSessionToStorage({ accessToken: data.access_token, refreshToken: data.refresh_token, email });
 
-        // Save plan immediately using the valid (unconfirmed) session token
-        try {
-          const planRes = await fetch("/api/plans", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${data.access_token}`,
-            },
-            body: JSON.stringify({
-              name: "Mon plan de course",
-              plannerValues: planData,
-              elevationProfile: [],
-            }),
-          });
-          if (planRes.ok) {
-            const planResult = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } | null;
-            const planId = planResult?.plan?.id;
-            if (planId) {
-              localStorage.setItem("trailplanner.pendingPlanId", planId);
+        // Fallback plan save for the rare case where no anon plan was created
+        if (!anonPlanId) {
+          try {
+            const planRes = await fetch("/api/plans", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${data.access_token}`,
+              },
+              body: JSON.stringify({ name: "Mon plan de course", plannerValues: planData, elevationProfile: [] }),
+            });
+            if (planRes.ok) {
+              const planResult = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } | null;
+              const planId = planResult?.plan?.id;
+              if (planId) localStorage.setItem("trailplanner.pendingPlanId", planId);
             }
-          }
-        } catch { /* silent fail */ }
-
-        setConfirmed(true);
-        return;
+          } catch { /* silent fail */ }
+        }
       }
 
-      if (data?.requiresEmailConfirmation) {
+      // requiresEmailConfirmation (anon link or email-confirm flow) — fallback localStorage save
+      if (!data?.access_token && !anonPlanId) {
         saveOnboardingToLocalStorage(planData);
-        setConfirmed(true);
-        return;
       }
+
+      setConfirmed(true);
     } catch (err) {
       console.error("Sign up error", err);
       setError("Une erreur est survenue. Réessaie.");
