@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition, getInsightMessage, formatEstimatedTime, formatAveragePace } from "../../../lib/nutrition";
@@ -63,6 +64,35 @@ export default function ResultPage() {
   const goal = state.goal ?? "comfort";
 
   const plan = calculateNutrition(distance, elevation, goal);
+
+  // Persist full onboarding state to localStorage so it's available at signup time
+  // even if the user refreshes the page (React context would be lost on refresh).
+  useEffect(() => {
+    const stateSnapshot = {
+      race: state.raceId
+        ? {
+            id: state.raceId,
+            aidStations: (state.checkpoints ?? []).map((cp) => ({
+              name: cp.name,
+              distanceKm: cp.km,
+            })),
+          }
+        : null,
+      elevationProfile: state.elevationProfile ?? [],
+      values: {
+        distanceKm: distance,
+        elevationM: elevation,
+        goal,
+        eatingEase: state.eatingEase,
+        sweatLevel: state.sweatLevel,
+        carbsPerHour: plan.carbsPerHour,
+        waterPerHour: plan.waterPerHour,
+        sodiumPerHour: plan.sodiumPerHour,
+      },
+    };
+    localStorage.setItem("trailplanner.onboardingState", JSON.stringify(stateSnapshot));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const insight = getInsightMessage(distance, elevation, goal);
   const estimatedTime = formatEstimatedTime(distance, elevation, goal);

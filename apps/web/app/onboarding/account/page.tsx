@@ -39,6 +39,8 @@ export default function AccountPage() {
     setSubmitting(true);
 
     try {
+      console.log("[onboarding-signup] form submitted");
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,6 +59,18 @@ export default function AccountPage() {
         user?: { id?: string };
       } | null;
 
+      const storedState = (() => {
+        try {
+          const raw = localStorage.getItem("trailplanner.onboardingState");
+          console.log("[onboarding-signup] onboardingState from localStorage:", raw ? "found" : "NOT FOUND");
+          return raw ? JSON.parse(raw) as { race?: { id?: string; aidStations?: { name: string; distanceKm: number }[] } | null; elevationProfile?: { distanceKm: number; elevationM: number }[]; values?: Record<string, unknown> } : null;
+        } catch { return null; }
+      })();
+
+      console.log("[onboarding-signup] signup response:", response.status, "user.id:", data?.user?.id, "requiresEmailConfirmation:", data?.requiresEmailConfirmation);
+      console.log("[onboarding-signup] context state — raceId:", state.raceId, "checkpoints:", state.checkpoints?.length ?? 0, "elevationProfile:", state.elevationProfile?.length ?? 0);
+      console.log("[onboarding-signup] all localStorage keys:", Object.keys(localStorage));
+
       if (!response.ok) {
         setError(data?.message ?? "Impossible de créer le compte.");
         return;
@@ -69,12 +83,21 @@ export default function AccountPage() {
       // Save plan server-side via service role so it's ready when the user confirms their email.
       // user.id is real and permanent even before email confirmation.
       const newUserId = data?.user?.id;
-      if (newUserId) {
+      if (!newUserId) {
+        console.error("[onboarding-signup] no user.id in signup response — save-plan skipped", data);
+      } else {
         try {
-          const aidStations = (state.checkpoints ?? []).map((cp) => ({
-            name: cp.name,
-            distanceKm: cp.km,
-          }));
+          // Prefer React context (same-session), fall back to localStorage (after page refresh)
+          const aidStations =
+            (state.checkpoints ?? []).length > 0
+              ? state.checkpoints!.map((cp) => ({ name: cp.name, distanceKm: cp.km }))
+              : (storedState?.race?.aidStations ?? []);
+          const elevationProfile = state.elevationProfile?.length
+            ? state.elevationProfile
+            : (storedState?.elevationProfile ?? []);
+          const catalogRaceId = state.raceId ?? storedState?.race?.id ?? undefined;
+
+          console.log("[onboarding-signup] calling save-plan for userId:", newUserId, "aidStations:", aidStations.length, "catalogRaceId:", catalogRaceId);
           const planRes = await fetch("/api/onboarding/save-plan", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -82,15 +105,18 @@ export default function AccountPage() {
               userId: newUserId,
               name: "Mon plan de course",
               plannerValues: { ...planData, aidStations },
-              elevationProfile: state.elevationProfile ?? [],
-              catalogRaceId: state.raceId ?? undefined,
+              elevationProfile,
+              catalogRaceId,
             }),
           });
+          console.log("[onboarding-signup] save-plan response:", planRes.status);
           if (planRes.ok) {
             const { plan } = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } ?? {};
             if (plan?.id) localStorage.setItem("trailplanner.pendingPlanId", plan.id);
           }
-        } catch { /* silent fail */ }
+        } catch (err) {
+          console.error("[onboarding-signup] save-plan error:", err);
+        }
       }
 
       setConfirmed(true);

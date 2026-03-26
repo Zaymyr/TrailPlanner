@@ -67,7 +67,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        user: result.user,
+        // When email confirmation is required, Supabase returns the user object
+        // at the top level (not nested under .user), so we fall back to `result`
+        user: result.user ?? result,
         access_token: accessToken,
         refresh_token: refreshToken,
         requiresEmailConfirmation,
