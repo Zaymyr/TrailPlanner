@@ -44,13 +44,17 @@ export async function POST(request: Request) {
         cache: "no-store",
       });
 
+      const linkResult = await linkResponse.json().catch(() => null);
+
       if (!linkResponse.ok) {
-        const linkResult = await linkResponse.json().catch(() => null);
         const message = typeof linkResult?.msg === "string" ? linkResult.msg : "Unable to link account.";
         return NextResponse.json({ message }, { status: linkResponse.status || 400 });
       }
 
-      return NextResponse.json({ requiresEmailConfirmation: true }, { status: 200 });
+      return NextResponse.json(
+        { user: linkResult, requiresEmailConfirmation: true },
+        { status: 200 }
+      );
     }
 
     const response = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/signup`, {

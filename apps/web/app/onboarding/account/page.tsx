@@ -58,6 +58,7 @@ export default function AccountPage() {
         refresh_token?: string;
         message?: string;
         requiresEmailConfirmation?: boolean;
+        user?: { id?: string };
       } | null;
 
       if (!response.ok) {
@@ -75,30 +76,28 @@ export default function AccountPage() {
 
       if (data?.access_token) {
         persistSessionToStorage({ accessToken: data.access_token, refreshToken: data.refresh_token, email });
-
-        // Fallback plan save for the rare case where no anon plan was created
-        if (!anonPlanId) {
-          try {
-            const planRes = await fetch("/api/plans", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${data.access_token}`,
-              },
-              body: JSON.stringify({ name: "Mon plan de course", plannerValues: planData, elevationProfile: [] }),
-            });
-            if (planRes.ok) {
-              const planResult = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } | null;
-              const planId = planResult?.plan?.id;
-              if (planId) localStorage.setItem("trailplanner.pendingPlanId", planId);
-            }
-          } catch { /* silent fail */ }
-        }
       }
 
-      // requiresEmailConfirmation (anon link or email-confirm flow) — fallback localStorage save
-      if (!data?.access_token && !anonPlanId) {
-        saveOnboardingToLocalStorage(planData);
+      // Save plan server-side via service role so it's ready when the user confirms their email.
+      // Only needed when there's no anon plan already saved (anon plan is transferred above).
+      const newUserId = data?.user?.id;
+      if (newUserId && !anonPlanId) {
+        try {
+          const planRes = await fetch("/api/onboarding/save-plan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: newUserId,
+              name: "Mon plan de course",
+              plannerValues: planData,
+              elevationProfile: state.elevationProfile ?? [],
+            }),
+          });
+          if (planRes.ok) {
+            const { plan } = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } ?? {};
+            if (plan?.id) localStorage.setItem("trailplanner.pendingPlanId", plan.id);
+          }
+        } catch { /* silent fail */ }
       }
 
       setConfirmed(true);
