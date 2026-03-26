@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
-import type { SweatLevel } from "../../../contexts/OnboardingContext";
+import type { AidAccess } from "../../../contexts/OnboardingContext";
 
 type Option = {
-  value: SweatLevel;
+  value: AidAccess;
   label: string;
   description: string;
   emoji: string;
@@ -13,51 +13,51 @@ type Option = {
 
 const OPTIONS: Option[] = [
   {
-    value: "a_lot",
-    label: "Beaucoup",
-    description: "Je suis trempé après 30 min",
-    emoji: "🥵",
+    value: "full",
+    label: "Oui, ravitos complets",
+    description: "Tout est fourni sur le parcours",
+    emoji: "🏪",
   },
   {
-    value: "normal",
-    label: "Normalement",
-    description: "Comme la plupart des coureurs",
-    emoji: "😊",
+    value: "limited",
+    label: "Ravitos limités",
+    description: "Quelques points d'eau seulement",
+    emoji: "💧",
   },
   {
-    value: "little",
-    label: "Peu",
-    description: "Je transpire rarement",
-    emoji: "🧊",
+    value: "autonomous",
+    label: "Je suis autonome",
+    description: "Je porte tout sur moi",
+    emoji: "🎒",
   },
 ];
 
 export default function HydrationPage() {
   const router = useRouter();
-  const { state, setSweatLevel } = useOnboarding();
+  const { state, setAidAccess } = useOnboarding();
 
   function handleContinue() {
-    router.push("/onboarding/install");
+    router.push("/onboarding/loading");
   }
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
-          Hydratation
+          Accès aux ravitaillements
         </h1>
         <p className="text-sm" style={{ color: "#6b7c5a" }}>
-          Tu transpires plutôt :
+          Qu&apos;est-ce qui t&apos;est disponible sur le parcours ?
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
         {OPTIONS.map((option) => {
-          const isSelected = state.sweatLevel === option.value;
+          const isSelected = state.aidAccess === option.value;
           return (
             <button
               key={option.value}
-              onClick={() => setSweatLevel(option.value)}
+              onClick={() => setAidAccess(option.value)}
               className="flex w-full items-center gap-4 rounded-2xl p-5 text-left transition-all active:scale-[0.98]"
               style={{
                 backgroundColor: "#ffffff",
@@ -100,11 +100,11 @@ export default function HydrationPage() {
       >
         <button
           onClick={handleContinue}
-          disabled={!state.sweatLevel}
+          disabled={!state.aidAccess}
           className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "#2D5016" }}
         >
-          Mettre à jour mon plan
+          Générer mon plan
         </button>
       </div>
 

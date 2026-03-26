@@ -38,7 +38,7 @@ export default function GoalPage() {
 
   function handleSelect(value: Goal) {
     setGoal(value);
-    router.push("/onboarding/loading");
+    router.push("/onboarding/nutrition");
   }
 
   return (
@@ -99,7 +99,7 @@ export default function GoalPage() {
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
-          onClick={() => state.goal && router.push("/onboarding/loading")}
+          onClick={() => state.goal && router.push("/onboarding/nutrition")}
           disabled={!state.goal}
           className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "#2D5016" }}

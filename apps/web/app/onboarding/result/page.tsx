@@ -180,7 +180,7 @@ export default function ResultPage() {
       >
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => router.push("/onboarding/nutrition")}
+            onClick={() => router.push("/onboarding/improve")}
             className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80"
             style={{ backgroundColor: "#2D5016" }}
           >

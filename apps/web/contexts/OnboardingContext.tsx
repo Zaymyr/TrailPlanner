@@ -5,6 +5,9 @@ import React, { createContext, useContext, useState } from "react";
 export type Goal = "comfort" | "good_time" | "performance";
 export type EatingEase = "hard" | "ok" | "easy";
 export type SweatLevel = "a_lot" | "normal" | "little";
+export type GelTolerance = "well" | "varied" | "avoid";
+export type AidAccess = "full" | "limited" | "autonomous";
+export type SolidFood = "banana" | "bars" | "tuc" | "dates";
 
 export type RaceCheckpoint = {
   km: number;
@@ -18,6 +21,9 @@ export type OnboardingState = {
   goal: Goal | null;
   eatingEase: EatingEase | null;
   sweatLevel: SweatLevel | null;
+  gelTolerance: GelTolerance | null;
+  aidAccess: AidAccess | null;
+  solidFood: SolidFood | null;
   raceId: string | null;
   checkpoints: RaceCheckpoint[] | null;
 };
@@ -29,6 +35,9 @@ type OnboardingContextType = {
   setGoal: (v: Goal) => void;
   setEatingEase: (v: EatingEase) => void;
   setSweatLevel: (v: SweatLevel) => void;
+  setGelTolerance: (v: GelTolerance) => void;
+  setAidAccess: (v: AidAccess) => void;
+  setSolidFood: (v: SolidFood) => void;
   setRaceSelection: (raceId: string, distanceKm: number, elevationM: number, checkpoints: RaceCheckpoint[]) => void;
   clearRaceSelection: () => void;
 };
@@ -42,6 +51,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     goal: null,
     eatingEase: null,
     sweatLevel: null,
+    gelTolerance: null,
+    aidAccess: null,
+    solidFood: null,
     raceId: null,
     checkpoints: null,
   });
@@ -55,6 +67,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         setGoal: (v) => setState((s) => ({ ...s, goal: v })),
         setEatingEase: (v) => setState((s) => ({ ...s, eatingEase: v })),
         setSweatLevel: (v) => setState((s) => ({ ...s, sweatLevel: v })),
+        setGelTolerance: (v) => setState((s) => ({ ...s, gelTolerance: v })),
+        setAidAccess: (v) => setState((s) => ({ ...s, aidAccess: v })),
+        setSolidFood: (v) => setState((s) => ({ ...s, solidFood: v })),
         setRaceSelection: (raceId, distanceKm, elevationM, checkpoints) =>
           setState((s) => ({
             ...s,
