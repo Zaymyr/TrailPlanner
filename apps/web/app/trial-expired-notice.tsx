@@ -1,12 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { TrialExpiredBanner } from "../components/trial-expired/TrialExpiredBanner";
 import { TrialExpiredModal } from "../components/trial-expired/TrialExpiredModal";
-import type { UserEntitlements } from "../lib/entitlements";
-import { defaultEntitlements, fetchEntitlements } from "../lib/entitlements-client";
 import { markTrialExpiredSeen } from "../lib/trial-client";
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 
@@ -23,22 +20,12 @@ const COPY = {
 };
 
 export const TrialExpiredNotice = () => {
-  const { session } = useVerifiedSession();
-  const queryClient = useQueryClient();
+  const { session, entitlements } = useVerifiedSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [isMarkingSeen, setIsMarkingSeen] = useState(false);
-
-  const entitlementsQuery = useQuery({
-    queryKey: ["entitlements", session?.accessToken],
-    queryFn: () => fetchEntitlements(session?.accessToken ?? ""),
-    enabled: Boolean(session?.accessToken),
-    staleTime: 60_000,
-  });
-
-  const entitlements = entitlementsQuery.data ?? defaultEntitlements;
 
   const isTrialExpired = useMemo(() => {
     if (!entitlements.trialEndsAt) return false;
@@ -69,19 +56,12 @@ export const TrialExpiredNotice = () => {
 
     try {
       const result = await markTrialExpiredSeen(session.accessToken);
-      const seenAt = result.trialExpiredSeenAt ?? new Date().toISOString();
-
-      queryClient.setQueryData<UserEntitlements>(["entitlements", session.accessToken], (previous) => ({
-        ...(previous ?? defaultEntitlements),
-        trialExpiredSeenAt: seenAt,
-      }));
-
-      return seenAt;
+      return result.trialExpiredSeenAt ?? new Date().toISOString();
     } catch (error) {
       console.error("Unable to mark trial expired as seen", error);
       return null;
     }
-  }, [queryClient, session?.accessToken]);
+  }, [session?.accessToken]);
 
   const handleDismiss = useCallback(async () => {
     setUpgradeError(null);

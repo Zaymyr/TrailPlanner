@@ -16,7 +16,7 @@ import { FuelTypeBadge } from "../../components/products/FuelTypeBadge";
 import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
-import { fetchEntitlements } from "../../lib/entitlements-client";
+import { PageLoadingSkeleton } from "../../components/PageLoadingSkeleton";
 import { fetchCoachTiers } from "../../lib/coach-tiers-client";
 import { fetchCoachSummary } from "../../lib/coach-summary-client";
 import { fetchCoachRelationshipStatus } from "../../lib/coach-relationship-client";
@@ -85,7 +85,7 @@ const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 export default function ProfilePage() {
   const { t, locale } = useI18n();
   const queryClient = useQueryClient();
-  const { session, isLoading: isSessionLoading } = useVerifiedSession();
+  const { session, isLoading, entitlements, isEntitlementsLoading, refreshEntitlements } = useVerifiedSession();
   const { replaceSelection } = useProductSelection();
   const router = useRouter();
   const [favoriteProducts, setFavoriteProducts] = useState<FuelProduct[]>([]);
@@ -143,17 +143,6 @@ export default function ProfilePage() {
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.profile.error;
       setSaveError(message);
-    },
-  });
-
-  const entitlementsQuery = useQuery({
-    queryKey: ["entitlements", session?.accessToken],
-    enabled: Boolean(session?.accessToken),
-    queryFn: async () => {
-      if (!session?.accessToken) {
-        throw new Error(t.profile.authRequired);
-      }
-      return fetchEntitlements(session.accessToken);
     },
   });
 
@@ -348,16 +337,13 @@ export default function ProfilePage() {
   }, [locale, t.profile.subscription.trialEndsAt, trialActive, trialEndsAt]);
 
   const subscriptionStatusLabel = useMemo(() => {
-    if (entitlementsQuery.isLoading) return t.profile.subscription.loading;
-    if (entitlementsQuery.isError) return t.profile.subscription.error;
-    if (entitlementsQuery.data?.isPremium) return t.profile.subscription.premiumStatus;
+    if (isEntitlementsLoading) return t.profile.subscription.loading;
+    if (entitlements.isPremium) return t.profile.subscription.premiumStatus;
     if (trialActive) return t.profile.subscription.trialStatus;
     return t.profile.subscription.freeStatus;
   }, [
-    entitlementsQuery.data?.isPremium,
-    entitlementsQuery.isError,
-    entitlementsQuery.isLoading,
-    t.profile.subscription.error,
+    entitlements.isPremium,
+    isEntitlementsLoading,
     t.profile.subscription.freeStatus,
     t.profile.subscription.loading,
     t.profile.subscription.premiumStatus,
@@ -369,17 +355,17 @@ export default function ProfilePage() {
   const coachPlanName = coachSummaryQuery.data?.planName ?? null;
   const isCoach = coachSummaryQuery.data?.isCoach === true;
   const premiumSourceLabel = useMemo(() => {
-    if (!entitlementsQuery.data?.isPremium || isCoach) return null;
+    if (!entitlements.isPremium || isCoach) return null;
     if (trialActive) return t.profile.subscription.premiumSourceTrial;
     return t.profile.subscription.premiumSourceSubscription;
   }, [
-    entitlementsQuery.data?.isPremium,
+    entitlements.isPremium,
     isCoach,
     t.profile.subscription.premiumSourceSubscription,
     t.profile.subscription.premiumSourceTrial,
     trialActive,
   ]);
-  const premiumGrant = entitlementsQuery.data?.premiumGrant ?? null;
+  const premiumGrant = entitlements.premiumGrant ?? null;
   const premiumGrantStartLabel = useMemo(() => {
     if (!premiumGrant?.startsAt) return null;
     const formatted = new Intl.DateTimeFormat(locale, { dateStyle: "long", timeStyle: "short" }).format(
@@ -613,6 +599,8 @@ export default function ProfilePage() {
     </div>
   );
 
+  if (isLoading) return <PageLoadingSkeleton />;
+
   return (
     <div className="space-y-6">
       <div className="space-y-1">
@@ -621,7 +609,7 @@ export default function ProfilePage() {
         <p className="text-sm text-muted-foreground">{t.profile.description}</p>
       </div>
 
-      {!isSessionLoading && authMissing ? (
+      {!isLoading && authMissing ? (
         <p className="rounded-md border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-amber-700 dark:text-amber-200">
           {t.profile.authRequired}
         </p>
@@ -637,8 +625,8 @@ export default function ProfilePage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => entitlementsQuery.refetch()}
-              disabled={!session?.accessToken || entitlementsQuery.isLoading}
+              onClick={() => session?.accessToken && void refreshEntitlements(session.accessToken)}
+              disabled={!session?.accessToken || isEntitlementsLoading}
             >
               {t.profile.subscription.refresh}
             </Button>
@@ -646,22 +634,22 @@ export default function ProfilePage() {
           <CardContent className="space-y-4">
             {!session?.accessToken ? (
               <p className="text-sm text-muted-foreground">{t.profile.authRequired}</p>
-            ) : entitlementsQuery.data ? (
+            ) : session?.accessToken ? (
               <div className="flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-2">
                 <span
                   className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold uppercase tracking-wide ${
-                    entitlementsQuery.data.isPremium
+                    entitlements.isPremium
                       ? "border border-emerald-300/70 bg-emerald-300/20 text-emerald-700 dark:text-emerald-100"
                       : "border border-border bg-card text-foreground"
                   }`}
                 >
-                  {entitlementsQuery.data.isPremium ? t.profile.subscription.premiumStatus : subscriptionStatusLabel}
+                  {entitlements.isPremium ? t.profile.subscription.premiumStatus : subscriptionStatusLabel}
                 </span>
                 <p className="text-sm text-muted-foreground">{subscriptionStatusLabel}</p>
               </div>
             ) : null}
 
-            {!entitlementsQuery.data?.isPremium && trialActive && trialEndsAtLabel ? (
+            {!entitlements.isPremium && trialActive && trialEndsAtLabel ? (
               <p className="text-xs text-muted-foreground">{trialEndsAtLabel}</p>
             ) : null}
 
@@ -777,11 +765,11 @@ export default function ProfilePage() {
                 <Button
                   type="button"
                   onClick={() => setUpgradeDialogOpen(true)}
-                  disabled={entitlementsQuery.isLoading || entitlementsQuery.data?.isPremium || upgradeStatus === "opening"}
+                  disabled={isEntitlementsLoading || entitlements.isPremium || upgradeStatus === "opening"}
                 >
                   {t.profile.subscription.subscribeCta}
                 </Button>
-                {entitlementsQuery.data?.isPremium ? (
+                {entitlements.isPremium ? (
                   <Button
                     type="button"
                     variant="outline"

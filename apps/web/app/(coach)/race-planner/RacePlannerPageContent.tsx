@@ -26,8 +26,8 @@ import { RaceSelector } from "../../../components/race-planner/RaceSelector";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
-import type { UserEntitlements } from "../../../lib/entitlements";
-import { defaultEntitlements, fetchEntitlements } from "../../../lib/entitlements-client";
+import { useVerifiedSession } from "../../hooks/useVerifiedSession";
+import { PageLoadingSkeleton } from "../../../components/PageLoadingSkeleton";
 import { clearRacePlannerStorage, readRacePlannerStorage, writeRacePlannerStorage } from "../../../lib/race-planner-storage";
 import { formatMinutes } from "./utils/format";
 import { minutesPerKm, paceToSpeedKph, speedToPace } from "./utils/pacing";
@@ -286,7 +286,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
-  const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
+  const { isLoading, entitlements } = useVerifiedSession();
   const { selectedProducts, replaceSelection, toggleProduct } = useProductSelection(entitlements.favoriteLimit);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [stripePrice, setStripePrice] = useState<z.infer<typeof stripePriceResponseSchema>["price"] | null>(null);
@@ -466,7 +466,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setUpgradeReason,
     coachCoacheeId: selectedCoacheeId,
     onSessionCleared: () => {
-      setEntitlements(defaultEntitlements);
       setUpgradeError(null);
     },
   });
@@ -622,28 +621,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
   }, [effectiveTargets, form, isCoachManaged]);
 
-  useEffect(() => {
-    if (!session?.accessToken) {
-      setEntitlements(defaultEntitlements);
-      return;
-    }
-
-    const abortController = new AbortController();
-
-    fetchEntitlements(session.accessToken, abortController.signal)
-      .then((result) => {
-        if (!abortController.signal.aborted) {
-          setEntitlements(result);
-        }
-      })
-      .catch((error) => {
-        if (abortController.signal.aborted) return;
-        console.error("Unable to load entitlements", error);
-        setEntitlements(defaultEntitlements);
-      });
-
-    return () => abortController.abort();
-  }, [session?.accessToken]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -1391,6 +1368,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       />
     </>
   );
+
+  if (isLoading) return <PageLoadingSkeleton />;
 
   return (
     <>
