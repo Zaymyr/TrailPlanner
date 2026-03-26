@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition } from "../../../lib/nutrition";
@@ -16,6 +16,7 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const hasSavedPlan = useRef(false);
 
   const distance = state.distance ?? 42;
   const elevation = state.elevation ?? 1500;
@@ -85,7 +86,8 @@ export default function AccountPage() {
       const newUserId = data?.user?.id;
       if (!newUserId) {
         console.error("[onboarding-signup] no user.id in signup response — save-plan skipped", data);
-      } else {
+      } else if (!hasSavedPlan.current) {
+        hasSavedPlan.current = true;
         try {
           // Prefer React context (same-session), fall back to localStorage (after page refresh)
           const aidStations =
