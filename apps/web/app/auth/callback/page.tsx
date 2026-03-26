@@ -92,11 +92,11 @@ export default function AuthCallbackPage() {
         const onboardingPlan = loadOnboardingFromLocalStorage();
 
         if (onboardingPlan) {
-          await fetch("/api/plans", {
+          const planRes = await fetch("/api/plans", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${accessToken}`,
+              Authorization: `Bearer ${updatedAccessToken}`,
             },
             body: JSON.stringify({
               name: "Mon plan de course",
@@ -104,6 +104,13 @@ export default function AuthCallbackPage() {
               elevationProfile: [],
             }),
           });
+          if (planRes.ok) {
+            const planData = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } | null;
+            const planId = planData?.plan?.id;
+            if (planId) {
+              localStorage.setItem("trailplanner.pendingPlanId", planId);
+            }
+          }
         }
       } catch {
         // Silent fail — never block signup flow
