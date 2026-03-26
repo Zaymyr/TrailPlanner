@@ -96,7 +96,7 @@ export default function AuthCallbackPage() {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `Bearer ${updatedAccessToken}`,
+              Authorization: `Bearer ${accessToken}`,
             },
             body: JSON.stringify({
               name: "Mon plan de course",
