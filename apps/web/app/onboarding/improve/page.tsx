@@ -95,9 +95,9 @@ export default function ImprovePage() {
 
   function handleCTA() {
     if (hasSession) {
-      router.push("/race-planner");
+      router.push("/race-planner" as any);
     } else {
-      router.push("/auth/sign-up");
+      router.push("/auth/sign-up" as any);
     }
   }
 
