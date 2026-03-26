@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition, getInsightMessage, formatEstimatedTime, formatAveragePace } from "../../../lib/nutrition";
@@ -65,62 +64,6 @@ export default function ResultPage() {
 
   const plan = calculateNutrition(distance, elevation, goal);
 
-  // Save plan anonymously on mount so it's persisted before the user creates an account
-  const hasSaved = useRef(false);
-  useEffect(() => {
-    if (hasSaved.current) return;
-    // Skip if already saved this session
-    if (localStorage.getItem("trailplanner.anonPlanId")) return;
-    hasSaved.current = true;
-
-    const savePlan = async () => {
-      try {
-        let accessToken = localStorage.getItem("trailplanner.anonAccessToken");
-
-        if (!accessToken) {
-          const anonRes = await fetch("/api/auth/anon", { method: "POST" });
-          if (!anonRes.ok) return;
-          const anonData = (await anonRes.json()) as { access_token?: string; refresh_token?: string };
-          if (!anonData.access_token) return;
-          accessToken = anonData.access_token;
-          localStorage.setItem("trailplanner.anonAccessToken", anonData.access_token);
-          if (anonData.refresh_token) {
-            localStorage.setItem("trailplanner.anonRefreshToken", anonData.refresh_token);
-          }
-        }
-
-        const planRes = await fetch("/api/plans", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            name: "Mon plan de course",
-            plannerValues: {
-              distanceKm: distance,
-              elevationM: elevation,
-              goal,
-              eatingEase: state.eatingEase,
-              sweatLevel: state.sweatLevel,
-              carbsPerHour: plan.carbsPerHour,
-              waterPerHour: plan.waterPerHour,
-              sodiumPerHour: plan.sodiumPerHour,
-            },
-            elevationProfile: state.elevationProfile ?? [],
-          }),
-        });
-
-        if (planRes.ok) {
-          const planData = (await planRes.json()) as { plan?: { id?: string } };
-          const planId = planData.plan?.id;
-          if (planId) localStorage.setItem("trailplanner.anonPlanId", planId);
-        }
-      } catch { /* silent fail */ }
-    };
-
-    void savePlan();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const insight = getInsightMessage(distance, elevation, goal);
   const estimatedTime = formatEstimatedTime(distance, elevation, goal);
   const averagePace = formatAveragePace(distance, elevation, goal);
