@@ -18,6 +18,7 @@ export default function AccountPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   const distance = state.distance ?? 42;
   const elevation = state.elevation ?? 1500;
@@ -78,8 +79,7 @@ export default function AccountPage() {
 
       if (data?.requiresEmailConfirmation) {
         saveOnboardingToLocalStorage(planData);
-        setError(null);
-        router.push("/app" as any);
+        setConfirmed(true);
         return;
       }
     } catch (err) {
@@ -107,6 +107,26 @@ export default function AccountPage() {
   function handleSkip() {
     saveOnboardingToLocalStorage(planData);
     router.push("/app" as any);
+  }
+
+  if (confirmed) {
+    return (
+      <div className="flex flex-col items-center gap-6 px-6 pt-16 pb-8 text-center">
+        <span className="text-6xl">📬</span>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
+            Vérifie ta boîte mail
+          </h1>
+          <p className="text-sm" style={{ color: "#6b7c5a" }}>
+            On t&apos;a envoyé un lien de confirmation à{" "}
+            <span className="font-semibold" style={{ color: "#1a2e0a" }}>
+              {email}
+            </span>
+            . Clique dessus pour activer ton compte.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -233,6 +253,10 @@ export default function AccountPage() {
         >
           {submitting ? "Création..." : "Créer un compte"}
         </button>
+
+        <p className="text-center text-sm" style={{ color: "#16a34a" }}>
+          🎁 14 jours Premium offerts à la création de ton compte
+        </p>
       </form>
 
       <button

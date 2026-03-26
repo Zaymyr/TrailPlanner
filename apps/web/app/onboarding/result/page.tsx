@@ -88,7 +88,7 @@ export default function ResultPage() {
 
       {state.elevationProfile && state.elevationProfile.length > 1 && (
         <div
-          className="h-40 overflow-hidden rounded-2xl"
+          className="h-[200px] overflow-visible rounded-2xl"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <ElevationProfileChart
@@ -123,8 +123,8 @@ export default function ResultPage() {
             boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
           }}
         >
-          <span className="text-xl">🍬</span>
-          <span className="text-lg font-bold" style={{ color: "#1a2e0a" }}>
+          <span className="text-lg">🍬</span>
+          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
             {plan.carbsPerHour}g
           </span>
           <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
@@ -138,8 +138,8 @@ export default function ResultPage() {
             boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
           }}
         >
-          <span className="text-xl">💧</span>
-          <span className="text-lg font-bold" style={{ color: "#1a2e0a" }}>
+          <span className="text-lg">💧</span>
+          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
             {plan.waterPerHour}ml
           </span>
           <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
@@ -153,8 +153,8 @@ export default function ResultPage() {
             boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
           }}
         >
-          <span className="text-xl">🧂</span>
-          <span className="text-lg font-bold" style={{ color: "#1a2e0a" }}>
+          <span className="text-lg">🧂</span>
+          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
             {plan.sodiumPerHour}mg
           </span>
           <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
@@ -168,8 +168,8 @@ export default function ResultPage() {
             boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
           }}
         >
-          <span className="text-xl">⏱️</span>
-          <span className="text-lg font-bold" style={{ color: "#1a2e0a" }}>
+          <span className="text-lg">⏱️</span>
+          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
             {estimatedTime}
           </span>
           <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
@@ -183,8 +183,8 @@ export default function ResultPage() {
             boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
           }}
         >
-          <span className="text-xl">🏃</span>
-          <span className="text-lg font-bold" style={{ color: "#1a2e0a" }}>
+          <span className="text-lg">🏃</span>
+          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
             {averagePace}
           </span>
           <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>

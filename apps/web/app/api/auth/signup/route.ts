@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getSupabaseAnonConfig } from "../../../../lib/supabase";
+import { ensureTrialStatus } from "../../../../lib/trial-server";
 
 const signUpSchema = z.object({
   email: z.string().trim().email(),
@@ -48,6 +49,20 @@ export async function POST(request: Request) {
     if (!response.ok || !result) {
       const message = typeof result?.msg === "string" ? result.msg : "Unable to create account.";
       return NextResponse.json({ message }, { status: response.status || 400 });
+    }
+
+    // Activate trial for users who get an immediate session (no email confirmation)
+    if (accessToken && result.user?.id) {
+      try {
+        await ensureTrialStatus({
+          supabaseUrl: supabaseConfig.supabaseUrl,
+          supabaseKey: supabaseConfig.supabaseAnonKey,
+          token: accessToken,
+          userId: result.user.id,
+        });
+      } catch {
+        // Non-fatal — trial can be activated on first login
+      }
     }
 
     return NextResponse.json(
