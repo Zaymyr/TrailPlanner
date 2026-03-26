@@ -2,105 +2,154 @@
 
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
-import type { EatingEase } from "../../../contexts/OnboardingContext";
+import type { GelTolerance, SolidFood } from "../../../contexts/OnboardingContext";
 
-type Option = {
-  value: EatingEase;
+type GelOption = {
+  value: GelTolerance;
   label: string;
-  description: string;
   emoji: string;
 };
 
-const OPTIONS: Option[] = [
-  {
-    value: "hard",
-    label: "Difficilement",
-    description: "Je dois forcer pour manger en course",
-    emoji: "😬",
-  },
-  {
-    value: "ok",
-    label: "Ça va",
-    description: "Je mange si je me le rappelle",
-    emoji: "🙂",
-  },
-  {
-    value: "easy",
-    label: "Facilement",
-    description: "Je mange sans problème en courant",
-    emoji: "😄",
-  },
+type FoodOption = {
+  value: SolidFood;
+  label: string;
+  emoji: string;
+};
+
+const GEL_OPTIONS: GelOption[] = [
+  { value: "well", label: "Je les supporte bien", emoji: "🧃" },
+  { value: "varied", label: "Je préfère varier", emoji: "🔀" },
+  { value: "avoid", label: "Je les évite", emoji: "🚫" },
+];
+
+const FOOD_OPTIONS: FoodOption[] = [
+  { value: "banana", label: "Banane", emoji: "🍌" },
+  { value: "bars", label: "Barres", emoji: "🍫" },
+  { value: "tuc", label: "TUC / biscuits salés", emoji: "🥐" },
+  { value: "dates", label: "Dattes", emoji: "🌴" },
 ];
 
 export default function NutritionPage() {
   const router = useRouter();
-  const { state, setEatingEase } = useOnboarding();
+  const { state, setGelTolerance, setSolidFood } = useOnboarding();
 
-  function handleSelect(value: EatingEase) {
-    setEatingEase(value);
-    setTimeout(() => {
-      router.push("/onboarding/hydration");
-    }, 300);
+  function handleContinue() {
+    router.push("/onboarding/hydration");
   }
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
-          Alimentation en course
+          Tes préférences alimentaires
         </h1>
         <p className="text-sm" style={{ color: "#6b7c5a" }}>
-          Tu manges facilement en course ?
+          Pour personnaliser ton plan ravito
         </p>
       </div>
 
-      <div className="flex flex-col gap-3">
-        {OPTIONS.map((option) => {
-          const isSelected = state.eatingEase === option.value;
-          return (
-            <button
-              key={option.value}
-              onClick={() => handleSelect(option.value)}
-              className="flex w-full items-center gap-4 rounded-2xl p-5 text-left transition-all active:scale-[0.98]"
-              style={{
-                backgroundColor: "#ffffff",
-                boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-                border: isSelected ? "2px solid #2D5016" : "2px solid transparent",
-              }}
-            >
-              <span className="text-3xl">{option.emoji}</span>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-semibold" style={{ color: "#1a2e0a" }}>
+          Tu supportes les gels énergétiques ?
+        </p>
+        <div className="flex flex-col gap-2">
+          {GEL_OPTIONS.map((option) => {
+            const isSelected = state.gelTolerance === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => setGelTolerance(option.value)}
+                className="flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left transition-all active:scale-[0.98]"
+                style={{
+                  backgroundColor: "#ffffff",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+                  border: isSelected ? "2px solid #2D5016" : "2px solid transparent",
+                }}
+              >
+                <span className="text-2xl">{option.emoji}</span>
+                <span className="text-base font-medium" style={{ color: "#1a2e0a" }}>
                   {option.label}
                 </span>
-                <span className="text-sm" style={{ color: "#6b7c5a" }}>
-                  {option.description}
-                </span>
-              </div>
-              {isSelected && (
-                <div
-                  className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: "#2D5016" }}
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <path
-                      d="M2 6L5 9L10 3"
-                      stroke="white"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              )}
-            </button>
-          );
-        })}
+                {isSelected && (
+                  <div
+                    className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: "#2D5016" }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M2 6L5 9L10 3"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <p className="text-center text-xs" style={{ color: "#9ca3af" }}>
-        Sélectionne une option pour continuer
-      </p>
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-semibold" style={{ color: "#1a2e0a" }}>
+          Ton aliment solide préféré en course ?
+        </p>
+        <div className="flex flex-col gap-2">
+          {FOOD_OPTIONS.map((option) => {
+            const isSelected = state.solidFood === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() => setSolidFood(option.value)}
+                className="flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left transition-all active:scale-[0.98]"
+                style={{
+                  backgroundColor: "#ffffff",
+                  boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+                  border: isSelected ? "2px solid #2D5016" : "2px solid transparent",
+                }}
+              >
+                <span className="text-2xl">{option.emoji}</span>
+                <span className="text-base font-medium" style={{ color: "#1a2e0a" }}>
+                  {option.label}
+                </span>
+                {isSelected && (
+                  <div
+                    className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
+                    style={{ backgroundColor: "#2D5016" }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path
+                        d="M2 6L5 9L10 3"
+                        stroke="white"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+        style={{ backgroundColor: "#FAF7F2" }}
+      >
+        <button
+          onClick={handleContinue}
+          disabled={!state.gelTolerance || !state.solidFood}
+          className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
+          style={{ backgroundColor: "#2D5016" }}
+        >
+          Continuer
+        </button>
+      </div>
+
+      <div className="h-28" />
     </div>
   );
 }
