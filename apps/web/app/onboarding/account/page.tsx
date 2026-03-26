@@ -4,10 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition } from "../../../lib/nutrition";
-import {
-  saveOnboardingToLocalStorage,
-  saveOnboardingToSupabase,
-} from "../../../lib/supabase-onboarding";
+import { saveOnboardingToLocalStorage } from "../../../lib/supabase-onboarding";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
 import { buildSupabaseOAuthUrl } from "../../../lib/oauth";
 
@@ -67,13 +64,30 @@ export default function AccountPage() {
           email,
         });
 
-        const { error: saveError } = await saveOnboardingToSupabase(data.access_token, planData);
-        if (saveError) {
-          console.warn("Could not save plan to Supabase:", saveError);
-        }
+        // Save plan immediately using the valid (unconfirmed) session token
+        try {
+          const planRes = await fetch("/api/plans", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${data.access_token}`,
+            },
+            body: JSON.stringify({
+              name: "Mon plan de course",
+              plannerValues: planData,
+              elevationProfile: [],
+            }),
+          });
+          if (planRes.ok) {
+            const planResult = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } | null;
+            const planId = planResult?.plan?.id;
+            if (planId) {
+              localStorage.setItem("trailplanner.pendingPlanId", planId);
+            }
+          }
+        } catch { /* silent fail */ }
 
-        router.push("/app" as any);
-        router.refresh();
+        setConfirmed(true);
         return;
       }
 

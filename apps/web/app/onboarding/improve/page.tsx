@@ -101,66 +101,46 @@ export default function ImprovePage() {
       </div>
 
       {/* Metric cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-2">
         <div
-          className="flex flex-col items-center gap-1 rounded-2xl p-4"
+          className="flex items-center gap-2 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
-          <span className="text-2xl">🍬</span>
-          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
-            {plan.carbsPerHour}g
-          </span>
-          <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
-            Glucides/h
-          </span>
+          <span className="text-base">🍬</span>
+          <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.carbsPerHour}g</span>
+          <span className="text-xs" style={{ color: "#6b7c5a" }}>Glucides/h</span>
         </div>
         <div
-          className="flex flex-col items-center gap-1 rounded-2xl p-4"
+          className="flex items-center gap-2 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
-          <span className="text-2xl">💧</span>
-          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
-            {plan.waterPerHour}ml
-          </span>
-          <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
-            Eau/h
-          </span>
+          <span className="text-base">💧</span>
+          <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.waterPerHour}ml</span>
+          <span className="text-xs" style={{ color: "#6b7c5a" }}>Eau/h</span>
         </div>
         <div
-          className="flex flex-col items-center gap-1 rounded-2xl p-4"
+          className="flex items-center gap-2 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
-          <span className="text-2xl">🧂</span>
-          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
-            {plan.sodiumPerHour}mg
-          </span>
-          <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
-            Sodium/h
-          </span>
+          <span className="text-base">🧂</span>
+          <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.sodiumPerHour}mg</span>
+          <span className="text-xs" style={{ color: "#6b7c5a" }}>Sodium/h</span>
         </div>
         <div
-          className="flex flex-col items-center gap-1 rounded-2xl p-4"
+          className="flex items-center gap-2 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
-          <span className="text-2xl">⏱️</span>
-          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
-            {estimatedTime}
-          </span>
-          <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
-            Temps estimé
-          </span>
+          <span className="text-base">⏱️</span>
+          <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{estimatedTime}</span>
+          <span className="text-xs" style={{ color: "#6b7c5a" }}>Temps estimé</span>
         </div>
         <div
-          className="col-span-2 flex flex-col items-center gap-1 rounded-2xl p-4"
+          className="flex items-center gap-2 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
-          <span className="text-2xl">🏃</span>
-          <span className="text-xl font-bold" style={{ color: "#1a2e0a" }}>
-            {averagePace}
-          </span>
-          <span className="text-center text-xs" style={{ color: "#6b7c5a" }}>
-            Allure moyenne
-          </span>
+          <span className="text-base">🏃</span>
+          <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{averagePace}</span>
+          <span className="text-xs" style={{ color: "#6b7c5a" }}>Allure moyenne</span>
         </div>
       </div>
 
