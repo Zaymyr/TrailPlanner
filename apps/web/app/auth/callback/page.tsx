@@ -86,6 +86,17 @@ export default function AuthCallbackPage() {
         console.error("Unable to fetch user session after OAuth", error);
       }
 
+      // Clean up anonymous session tokens
+      localStorage.removeItem("trailplanner.anonAccessToken");
+      localStorage.removeItem("trailplanner.anonRefreshToken");
+
+      // Transfer anonymous plan ID so race-planner auto-loads it after login
+      const anonPlanId = localStorage.getItem("trailplanner.anonPlanId");
+      if (anonPlanId) {
+        localStorage.removeItem("trailplanner.anonPlanId");
+        localStorage.setItem("trailplanner.pendingPlanId", anonPlanId);
+      }
+
       router.replace("/race-planner");
     };
 

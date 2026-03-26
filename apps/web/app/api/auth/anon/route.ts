@@ -22,6 +22,7 @@ export async function POST() {
     const result = await response.json().catch(() => null);
 
     if (!response.ok || !result?.access_token) {
+      console.error("Anonymous signup failed", result);
       return NextResponse.json({ message: "Unable to create anonymous session." }, { status: 500 });
     }
 
