@@ -3,6 +3,56 @@
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition, getCheckpoints, getInsightMessage, formatEstimatedTime, formatAveragePace } from "../../../lib/nutrition";
+import { ElevationProfileChart } from "../../(coach)/race-planner/components/ElevationProfileChart";
+import type { RacePlannerTranslations } from "../../../locales/types";
+
+const ELEVATION_COPY = {
+  sections: {
+    courseProfile: {
+      title: "",
+      description: "",
+      empty: "",
+      sectionEmpty: "",
+      axisLabel: "Altitude (m)",
+      ariaLabel: "Profil du parcours",
+      speedLabel: "",
+      speedUnit: "km/h",
+      legendClimb: "Montée",
+      legendDescent: "Descente",
+      startLabel: "Départ",
+      finishLabel: "Arrivée",
+      tooltip: {
+        distance: "Distance",
+        elevation: "Altitude",
+        segmentGain: "D+",
+        segmentLoss: "D-",
+        cumulativeGain: "D+ total",
+        cumulativeLoss: "D- total",
+        time: "Temps",
+        pace: "Allure",
+        speed: "Vitesse",
+        ravitoTitle: "Ravito",
+        waterRefill: "Eau",
+        waterRefillYes: "Oui",
+        waterRefillNo: "Non",
+        plannedGels: "Gels",
+        plannedCarbs: "Glucides",
+        plannedCalories: "Calories",
+        plannedSodium: "Sodium",
+        plannedWater: "Eau",
+      },
+    },
+  },
+  units: {
+    hourShort: "h",
+    minuteShort: "min",
+    kilometer: "km",
+    meter: "m",
+    grams: "g",
+    milliliters: "ml",
+    milligrams: "mg",
+  },
+} as unknown as RacePlannerTranslations;
 
 export default function ResultPage() {
   const router = useRouter();
@@ -28,6 +78,22 @@ export default function ResultPage() {
           {distance} km · {elevation} m D+
         </p>
       </div>
+
+      {state.elevationProfile && state.elevationProfile.length > 1 && (
+        <div
+          className="overflow-hidden rounded-2xl"
+          style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+        >
+          <ElevationProfileChart
+            profile={state.elevationProfile}
+            aidStations={(state.checkpoints ?? []).map((cp) => ({ name: cp.name, distanceKm: cp.km }))}
+            segments={[]}
+            totalDistanceKm={distance}
+            copy={ELEVATION_COPY}
+            baseMinutesPerKm={null}
+          />
+        </div>
+      )}
 
       <div
         className="rounded-2xl p-4"
@@ -187,7 +253,7 @@ export default function ResultPage() {
             Améliorer mon plan
           </button>
           <button
-            onClick={() => router.push("/onboarding/install")}
+            onClick={() => router.push("/onboarding/nutrition")}
             className="text-center text-sm font-medium underline underline-offset-2"
             style={{ color: "#2D5016" }}
           >

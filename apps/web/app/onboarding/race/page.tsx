@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
-import type { RaceCheckpoint } from "../../../contexts/OnboardingContext";
+import type { RaceCheckpoint, OnboardingElevationPoint } from "../../../contexts/OnboardingContext";
 
 type AidStation = {
   id: string;
@@ -30,12 +30,14 @@ function getSupabaseClient() {
 
 export default function RacePage() {
   const router = useRouter();
-  const { state, setRaceSelection, clearRaceSelection, setDistance, setElevation } = useOnboarding();
+  const { state, setRaceSelection, clearRaceSelection, setDistance, setElevation, setElevationProfile } = useOnboarding();
 
   const [races, setRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(state.raceId);
   const [isManual, setIsManual] = useState(state.raceId === null && state.distance !== null);
+  // Ref holds the selected race synchronously so handleContinue works on first click
+  const selectedRaceRef = useRef<Race | null>(null);
 
   const [distanceInput, setDistanceInput] = useState(
     state.distance !== null && state.raceId === null ? String(state.distance) : ""
@@ -64,15 +66,19 @@ export default function RacePage() {
               ),
             }));
           setRaces(mapped);
+          // Sync ref if a race was previously selected
+          if (state.raceId) {
+            const prev = mapped.find((r) => r.id === state.raceId) ?? null;
+            selectedRaceRef.current = prev;
+          }
         }
         setLoading(false);
       });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const selectedRace = races.find((r) => r.id === selectedRaceId) ?? null;
-
   const canContinue =
-    (selectedRaceId !== null && selectedRace !== null) ||
+    selectedRaceId !== null ||
     (isManual &&
       distanceInput !== "" &&
       elevationInput !== "" &&
@@ -80,26 +86,46 @@ export default function RacePage() {
       Number(elevationInput) >= 0);
 
   function handleSelectRace(race: Race) {
+    selectedRaceRef.current = race;
     setSelectedRaceId(race.id);
     setIsManual(false);
+    // Fire-and-forget: pre-fetch elevation profile for result page
+    fetch(`/api/onboarding/race-profile?raceId=${encodeURIComponent(race.id)}`)
+      .then((res) => res.json())
+      .then((data: { elevationProfile?: OnboardingElevationPoint[] }) => {
+        if (Array.isArray(data.elevationProfile)) {
+          setElevationProfile(data.elevationProfile);
+        }
+      })
+      .catch(() => {/* non-critical */});
   }
 
   function handleSelectManual() {
+    selectedRaceRef.current = null;
     setSelectedRaceId(null);
     setIsManual(true);
   }
 
   function handleContinue() {
-    if (!canContinue) return;
-    if (selectedRace) {
-      const checkpoints: RaceCheckpoint[] = selectedRace.race_aid_stations.map((s) => ({
+    const race = selectedRaceRef.current;
+    const manualValid =
+      isManual &&
+      distanceInput !== "" &&
+      elevationInput !== "" &&
+      Number(distanceInput) > 0 &&
+      Number(elevationInput) >= 0;
+
+    if (!race && !manualValid) return;
+
+    if (race) {
+      const checkpoints: RaceCheckpoint[] = race.race_aid_stations.map((s) => ({
         km: s.km,
         name: s.name,
       }));
       setRaceSelection(
-        selectedRace.id,
-        selectedRace.distance_km,
-        selectedRace.elevation_gain_m,
+        race.id,
+        race.distance_km,
+        race.elevation_gain_m,
         checkpoints
       );
     } else {
@@ -226,7 +252,7 @@ export default function RacePage() {
                         className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
                         style={{ backgroundColor: "#2D5016" }}
                       >
-                        {s.km}
+                        {Math.round(s.km)}
                       </div>
                       <span className="text-sm" style={{ color: "#1a2e0a" }}>
                         {s.name}
@@ -356,8 +382,7 @@ export default function RacePage() {
       >
         <button
           onClick={handleContinue}
-          disabled={!canContinue}
-          className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
+          className={`flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 ${!canContinue ? "opacity-40 cursor-not-allowed" : ""}`}
           style={{ backgroundColor: "#2D5016" }}
         >
           Continuer

@@ -34,7 +34,7 @@ export default function NutritionPage() {
   const { state, setGelTolerance, setSolidFood } = useOnboarding();
 
   function handleContinue() {
-    router.push("/onboarding/hydration");
+    router.push("/onboarding/improve");
   }
 
   return (

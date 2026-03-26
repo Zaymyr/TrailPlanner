@@ -15,6 +15,8 @@ export type RaceCheckpoint = {
   type?: "ravito" | "checkpoint";
 };
 
+export type OnboardingElevationPoint = { distanceKm: number; elevationM: number };
+
 export type OnboardingState = {
   distance: number | null;
   elevation: number | null;
@@ -26,6 +28,7 @@ export type OnboardingState = {
   solidFood: SolidFood | null;
   raceId: string | null;
   checkpoints: RaceCheckpoint[] | null;
+  elevationProfile: OnboardingElevationPoint[] | null;
 };
 
 type OnboardingContextType = {
@@ -40,6 +43,7 @@ type OnboardingContextType = {
   setSolidFood: (v: SolidFood) => void;
   setRaceSelection: (raceId: string, distanceKm: number, elevationM: number, checkpoints: RaceCheckpoint[]) => void;
   clearRaceSelection: () => void;
+  setElevationProfile: (v: OnboardingElevationPoint[]) => void;
 };
 
 const OnboardingContext = createContext<OnboardingContextType | null>(null);
@@ -56,6 +60,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     solidFood: null,
     raceId: null,
     checkpoints: null,
+    elevationProfile: null,
   });
 
   return (
@@ -83,7 +88,9 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
             ...s,
             raceId: null,
             checkpoints: null,
+            elevationProfile: null,
           })),
+        setElevationProfile: (v) => setState((s) => ({ ...s, elevationProfile: v })),
       }}
     >
       {children}

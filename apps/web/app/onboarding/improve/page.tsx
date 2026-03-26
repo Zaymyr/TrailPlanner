@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import {
@@ -9,7 +8,6 @@ import {
   formatEstimatedTime,
   formatAveragePace,
 } from "../../../lib/nutrition";
-import { readStoredSession } from "../../../lib/auth-storage";
 
 type FoodItem = {
   emoji: string;
@@ -74,12 +72,6 @@ function computeFoodMix(
 export default function ImprovePage() {
   const router = useRouter();
   const { state } = useOnboarding();
-  const [hasSession, setHasSession] = useState(false);
-
-  useEffect(() => {
-    const session = readStoredSession();
-    setHasSession(!!session?.accessToken);
-  }, []);
 
   const distance = state.distance ?? 42;
   const elevation = state.elevation ?? 1500;
@@ -94,11 +86,7 @@ export default function ImprovePage() {
   const foodItems = computeFoodMix(totalCarbs, state.gelTolerance, state.solidFood);
 
   function handleCTA() {
-    if (hasSession) {
-      router.push("/race-planner" as any);
-    } else {
-      router.push("/auth/sign-up" as any);
-    }
+    router.push("/onboarding/account");
   }
 
   return (
