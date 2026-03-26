@@ -39,9 +39,6 @@ export default function AccountPage() {
     setSubmitting(true);
 
     try {
-      const anonToken = localStorage.getItem("trailplanner.anonAccessToken");
-      const anonPlanId = localStorage.getItem("trailplanner.anonPlanId");
-
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -49,7 +46,6 @@ export default function AccountPage() {
           email,
           password,
           fullName: email.split("@")[0],
-          ...(anonToken ? { anonToken } : {}),
         }),
       });
 
@@ -66,31 +62,28 @@ export default function AccountPage() {
         return;
       }
 
-      // Transfer the anon-saved plan ID so race-planner auto-loads it after confirmation
-      if (anonPlanId) {
-        localStorage.setItem("trailplanner.pendingPlanId", anonPlanId);
-        localStorage.removeItem("trailplanner.anonPlanId");
-      }
-      localStorage.removeItem("trailplanner.anonAccessToken");
-      localStorage.removeItem("trailplanner.anonRefreshToken");
-
       if (data?.access_token) {
         persistSessionToStorage({ accessToken: data.access_token, refreshToken: data.refresh_token, email });
       }
 
       // Save plan server-side via service role so it's ready when the user confirms their email.
-      // Only needed when there's no anon plan already saved (anon plan is transferred above).
+      // user.id is real and permanent even before email confirmation.
       const newUserId = data?.user?.id;
-      if (newUserId && !anonPlanId) {
+      if (newUserId) {
         try {
+          const aidStations = (state.checkpoints ?? []).map((cp) => ({
+            name: cp.name,
+            distanceKm: cp.km,
+          }));
           const planRes = await fetch("/api/onboarding/save-plan", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               userId: newUserId,
               name: "Mon plan de course",
-              plannerValues: planData,
+              plannerValues: { ...planData, aidStations },
               elevationProfile: state.elevationProfile ?? [],
+              catalogRaceId: state.raceId ?? undefined,
             }),
           });
           if (planRes.ok) {

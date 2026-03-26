@@ -9,6 +9,7 @@ const savePlanSchema = z.object({
   elevationProfile: z
     .array(z.object({ distanceKm: z.number(), elevationM: z.number() }))
     .default([]),
+  catalogRaceId: z.string().uuid().optional(),
 });
 
 export async function POST(request: Request) {
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Invalid payload." }, { status: 400 });
   }
 
-  const { userId, name, plannerValues, elevationProfile } = parsed.data;
+  const { userId, name, plannerValues, elevationProfile, catalogRaceId } = parsed.data;
 
   try {
     const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/race_plans`, {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
         name,
         planner_values: plannerValues,
         elevation_profile: elevationProfile,
+        race_id: catalogRaceId ?? null,
       }),
       cache: "no-store",
     });
