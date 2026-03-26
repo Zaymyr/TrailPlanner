@@ -8,7 +8,6 @@ const signUpSchema = z.object({
   email: z.string().trim().email(),
   password: z.string().min(8, "Password must be at least 8 characters"),
   fullName: z.string().trim().min(2).max(120).optional(),
-  anonToken: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -25,33 +24,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { email, password, fullName, anonToken } = parsedBody.data;
-
-    // Link anonymous user to permanent account instead of creating a new one
-    if (anonToken) {
-      const linkResponse = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/user`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: supabaseConfig.supabaseAnonKey,
-          Authorization: `Bearer ${anonToken}`,
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          ...(fullName ? { data: { full_name: fullName } } : {}),
-        }),
-        cache: "no-store",
-      });
-
-      if (!linkResponse.ok) {
-        const linkResult = await linkResponse.json().catch(() => null);
-        const message = typeof linkResult?.msg === "string" ? linkResult.msg : "Unable to link account.";
-        return NextResponse.json({ message }, { status: linkResponse.status || 400 });
-      }
-
-      return NextResponse.json({ requiresEmailConfirmation: true }, { status: 200 });
-    }
+    const { email, password, fullName } = parsedBody.data;
 
     const response = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/signup`, {
       method: "POST",
@@ -94,7 +67,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        user: result.user,
+        // When email confirmation is required, Supabase returns the user object
+        // at the top level (not nested under .user), so we fall back to `result`
+        user: result.user ?? result,
         access_token: accessToken,
         refresh_token: refreshToken,
         requiresEmailConfirmation,
