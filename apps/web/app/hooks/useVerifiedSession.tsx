@@ -11,6 +11,8 @@ import {
   readStoredSession,
 } from "../../lib/auth-storage";
 import { clearRacePlannerStorage } from "../../lib/race-planner-storage";
+import { defaultEntitlements, fetchEntitlements } from "../../lib/entitlements-client";
+import type { UserEntitlements } from "../../lib/entitlements";
 
 export type VerifiedSession = {
   id?: string;
@@ -37,6 +39,9 @@ type VerifiedSessionContextValue = {
   isLoading: boolean;
   refresh: () => Promise<boolean>;
   clearSession: () => void;
+  entitlements: UserEntitlements;
+  isEntitlementsLoading: boolean;
+  refreshEntitlements: (accessToken: string) => Promise<void>;
 };
 
 const VerifiedSessionContext = createContext<VerifiedSessionContextValue | null>(null);
@@ -44,6 +49,8 @@ const VerifiedSessionContext = createContext<VerifiedSessionContextValue | null>
 const useVerifiedSessionState = (): VerifiedSessionContextValue => {
   const [session, setSession] = useState<VerifiedSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [entitlements, setEntitlements] = useState<UserEntitlements>(defaultEntitlements);
+  const [isEntitlementsLoading, setIsEntitlementsLoading] = useState(false);
   const refreshInFlight = useRef<Promise<boolean> | null>(null);
   const hasInitialized = useRef(false);
 
@@ -52,7 +59,21 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
     clearStoredSession();
     clearRacePlannerStorage();
     setSession(null);
+    setEntitlements(defaultEntitlements);
     setIsLoading(false);
+  }, []);
+
+  const refreshEntitlements = useCallback(async (accessToken: string): Promise<void> => {
+    setIsEntitlementsLoading(true);
+    try {
+      const result = await fetchEntitlements(accessToken);
+      setEntitlements(result);
+    } catch (error) {
+      console.error("Unable to load entitlements", error);
+      setEntitlements(defaultEntitlements);
+    } finally {
+      setIsEntitlementsLoading(false);
+    }
   }, []);
 
   const refresh = useCallback(async (): Promise<boolean> => {
@@ -106,14 +127,19 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
           });
         }
 
-        setSession({
+        const nextSession: VerifiedSession = {
           id: user?.id,
           accessToken: nextAccessToken,
           refreshToken: nextRefreshToken,
           email: user?.email ?? stored.email,
           role: user?.role,
           roles: user?.roles,
-        });
+        };
+
+        setSession(nextSession);
+
+        await refreshEntitlements(nextAccessToken);
+
         setIsLoading(false);
         return true;
       } catch (error) {
@@ -128,7 +154,7 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
 
     refreshInFlight.current = task;
     return task;
-  }, [clearSession]);
+  }, [clearSession, refreshEntitlements]);
 
   useEffect(() => {
     void refresh();
@@ -181,7 +207,7 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
     };
   }, [clearSession, refresh]);
 
-  return { session, isLoading, refresh, clearSession };
+  return { session, isLoading, refresh, clearSession, entitlements, isEntitlementsLoading, refreshEntitlements };
 };
 
 export const VerifiedSessionProvider = ({ children }: { children: ReactNode }) => {
