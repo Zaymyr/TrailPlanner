@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "../../../components/ui/button";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
+import { loadOnboardingFromLocalStorage } from "../../../lib/supabase-onboarding";
 
 type SessionResponse = {
   user?: {
@@ -84,6 +85,28 @@ export default function AuthCallbackPage() {
         }
       } catch (error) {
         console.error("Unable to fetch user session after OAuth", error);
+      }
+
+      // Try to save the onboarding plan — fire and forget, never block the redirect
+      try {
+        const onboardingPlan = loadOnboardingFromLocalStorage();
+
+        if (onboardingPlan) {
+          await fetch("/api/plans", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              name: "Mon plan de course",
+              plannerValues: onboardingPlan,
+              elevationProfile: [],
+            }),
+          });
+        }
+      } catch {
+        // Silent fail — never block signup flow
       }
 
       router.replace("/race-planner");

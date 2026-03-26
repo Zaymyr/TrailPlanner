@@ -11,6 +11,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { redirectToGoogleOAuth } from "../../lib/oauth";
+import { loadOnboardingFromLocalStorage } from "../../lib/supabase-onboarding";
 
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
@@ -90,6 +91,28 @@ export default function SignUpPage() {
           refreshToken: data.refresh_token,
           email: values.email,
         });
+
+        // Try to save the onboarding plan — fire and forget, never block the redirect
+        try {
+          const onboardingPlan = loadOnboardingFromLocalStorage();
+
+          if (onboardingPlan) {
+            await fetch("/api/plans", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${data.access_token}`,
+              },
+              body: JSON.stringify({
+                name: "Mon plan de course",
+                plannerValues: onboardingPlan,
+                elevationProfile: [],
+              }),
+            });
+          }
+        } catch {
+          // Silent fail — never block signup flow
+        }
 
         setFormMessage(t.auth.signUp.success);
         router.push("/race-planner");
