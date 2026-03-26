@@ -355,6 +355,19 @@ export const useRacePlan = ({
     [defaultValues, form, racePlannerCopy.account.messages.loadedPlan, setElevationProfile]
   );
 
+  // Auto-load a plan created during onboarding (after email confirmation redirect)
+  const hasAutoLoaded = useRef(false);
+  useEffect(() => {
+    if (hasAutoLoaded.current || savedPlans.length === 0) return;
+    const pendingPlanId = typeof window !== "undefined" ? localStorage.getItem("trailplanner.pendingPlanId") : null;
+    if (!pendingPlanId) return;
+    const planToLoad = savedPlans.find((p) => p.id === pendingPlanId);
+    if (!planToLoad) return;
+    hasAutoLoaded.current = true;
+    localStorage.removeItem("trailplanner.pendingPlanId");
+    handleLoadPlan(planToLoad);
+  }, [savedPlans, handleLoadPlan]);
+
   const handleSavePlan = useCallback(async () => {
     setAccountError(null);
     setAccountMessage(null);

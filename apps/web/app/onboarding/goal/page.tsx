@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import type { Goal } from "../../../contexts/OnboardingContext";
@@ -35,11 +36,7 @@ const GOALS: GoalOption[] = [
 export default function GoalPage() {
   const router = useRouter();
   const { state, setGoal } = useOnboarding();
-
-  function handleSelect(value: Goal) {
-    setGoal(value);
-    router.push("/onboarding/nutrition");
-  }
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(state.goal);
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
@@ -54,11 +51,11 @@ export default function GoalPage() {
 
       <div className="flex flex-col gap-3">
         {GOALS.map((goal) => {
-          const isSelected = state.goal === goal.value;
+          const isSelected = selectedGoal === goal.value;
           return (
             <button
               key={goal.value}
-              onClick={() => handleSelect(goal.value)}
+              onClick={() => setSelectedGoal(goal.value)}
               className="flex w-full items-center gap-4 rounded-2xl p-5 text-left transition-all active:scale-[0.98]"
               style={{
                 backgroundColor: "#ffffff",
@@ -99,8 +96,12 @@ export default function GoalPage() {
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
-          onClick={() => state.goal && router.push("/onboarding/nutrition")}
-          disabled={!state.goal}
+          onClick={() => {
+            if (!selectedGoal) return;
+            setGoal(selectedGoal);
+            router.push("/onboarding/loading");
+          }}
+          disabled={!selectedGoal}
           className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "#2D5016" }}
         >

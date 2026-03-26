@@ -4,10 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition } from "../../../lib/nutrition";
-import {
-  saveOnboardingToLocalStorage,
-  saveOnboardingToSupabase,
-} from "../../../lib/supabase-onboarding";
+import { saveOnboardingToLocalStorage } from "../../../lib/supabase-onboarding";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
 import { buildSupabaseOAuthUrl } from "../../../lib/oauth";
 
@@ -18,6 +15,7 @@ export default function AccountPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
 
   const distance = state.distance ?? 42;
   const elevation = state.elevation ?? 1500;
@@ -41,10 +39,18 @@ export default function AccountPage() {
     setSubmitting(true);
 
     try {
+      const anonToken = localStorage.getItem("trailplanner.anonAccessToken");
+      const anonPlanId = localStorage.getItem("trailplanner.anonPlanId");
+
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, fullName: email.split("@")[0] }),
+        body: JSON.stringify({
+          email,
+          password,
+          fullName: email.split("@")[0],
+          ...(anonToken ? { anonToken } : {}),
+        }),
       });
 
       const data = (await response.json().catch(() => null)) as {
@@ -59,29 +65,43 @@ export default function AccountPage() {
         return;
       }
 
+      // Transfer the anon-saved plan ID so race-planner auto-loads it after confirmation
+      if (anonPlanId) {
+        localStorage.setItem("trailplanner.pendingPlanId", anonPlanId);
+        localStorage.removeItem("trailplanner.anonPlanId");
+      }
+      localStorage.removeItem("trailplanner.anonAccessToken");
+      localStorage.removeItem("trailplanner.anonRefreshToken");
+
       if (data?.access_token) {
-        persistSessionToStorage({
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
-          email,
-        });
+        persistSessionToStorage({ accessToken: data.access_token, refreshToken: data.refresh_token, email });
 
-        const { error: saveError } = await saveOnboardingToSupabase(data.access_token, planData);
-        if (saveError) {
-          console.warn("Could not save plan to Supabase:", saveError);
+        // Fallback plan save for the rare case where no anon plan was created
+        if (!anonPlanId) {
+          try {
+            const planRes = await fetch("/api/plans", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${data.access_token}`,
+              },
+              body: JSON.stringify({ name: "Mon plan de course", plannerValues: planData, elevationProfile: [] }),
+            });
+            if (planRes.ok) {
+              const planResult = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } | null;
+              const planId = planResult?.plan?.id;
+              if (planId) localStorage.setItem("trailplanner.pendingPlanId", planId);
+            }
+          } catch { /* silent fail */ }
         }
-
-        router.push("/app" as any);
-        router.refresh();
-        return;
       }
 
-      if (data?.requiresEmailConfirmation) {
+      // requiresEmailConfirmation (anon link or email-confirm flow) — fallback localStorage save
+      if (!data?.access_token && !anonPlanId) {
         saveOnboardingToLocalStorage(planData);
-        setError(null);
-        router.push("/app" as any);
-        return;
       }
+
+      setConfirmed(true);
     } catch (err) {
       console.error("Sign up error", err);
       setError("Une erreur est survenue. Réessaie.");
@@ -107,6 +127,26 @@ export default function AccountPage() {
   function handleSkip() {
     saveOnboardingToLocalStorage(planData);
     router.push("/app" as any);
+  }
+
+  if (confirmed) {
+    return (
+      <div className="flex flex-col items-center gap-6 px-6 pt-16 pb-8 text-center">
+        <span className="text-6xl">📬</span>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
+            Vérifie ta boîte mail
+          </h1>
+          <p className="text-sm" style={{ color: "#6b7c5a" }}>
+            On t&apos;a envoyé un lien de confirmation à{" "}
+            <span className="font-semibold" style={{ color: "#1a2e0a" }}>
+              {email}
+            </span>
+            . Clique dessus pour activer ton compte.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -233,6 +273,10 @@ export default function AccountPage() {
         >
           {submitting ? "Création..." : "Créer un compte"}
         </button>
+
+        <p className="text-center text-sm" style={{ color: "#16a34a" }}>
+          🎁 14 jours Premium offerts à la création de ton compte
+        </p>
       </form>
 
       <button

@@ -1,24 +1,25 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useOnboarding } from "../../../contexts/OnboardingContext";
-import type { GelTolerance } from "../../../contexts/OnboardingContext";
+import { useOnboarding } from "../../../../contexts/OnboardingContext";
+import type { SolidFood } from "../../../../contexts/OnboardingContext";
 
-type GelOption = {
-  value: GelTolerance;
+type FoodOption = {
+  value: SolidFood;
   label: string;
   emoji: string;
 };
 
-const GEL_OPTIONS: GelOption[] = [
-  { value: "well", label: "Je les supporte bien", emoji: "🧃" },
-  { value: "varied", label: "Je préfère varier", emoji: "🔀" },
-  { value: "avoid", label: "Je les évite", emoji: "🚫" },
+const FOOD_OPTIONS: FoodOption[] = [
+  { value: "banana", label: "Banane", emoji: "🍌" },
+  { value: "bars", label: "Barres", emoji: "🍫" },
+  { value: "tuc", label: "TUC / biscuits salés", emoji: "🥐" },
+  { value: "dates", label: "Dattes", emoji: "🌴" },
 ];
 
-export default function NutritionPage() {
+export default function NutritionFoodPage() {
   const router = useRouter();
-  const { state, setGelTolerance } = useOnboarding();
+  const { state, setSolidFood } = useOnboarding();
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
@@ -33,15 +34,15 @@ export default function NutritionPage() {
 
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold" style={{ color: "#1a2e0a" }}>
-          Tu supportes les gels énergétiques ?
+          Ton aliment solide préféré en course ?
         </p>
         <div className="flex flex-col gap-2">
-          {GEL_OPTIONS.map((option) => {
-            const isSelected = state.gelTolerance === option.value;
+          {FOOD_OPTIONS.map((option) => {
+            const isSelected = state.solidFood === option.value;
             return (
               <button
                 key={option.value}
-                onClick={() => setGelTolerance(option.value)}
+                onClick={() => setSolidFood(option.value)}
                 className="flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left transition-all active:scale-[0.98]"
                 style={{
                   backgroundColor: "#ffffff",
@@ -79,8 +80,8 @@ export default function NutritionPage() {
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
-          onClick={() => router.push("/onboarding/nutrition/food")}
-          disabled={!state.gelTolerance}
+          onClick={() => router.push("/onboarding/improve")}
+          disabled={!state.solidFood}
           className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "#2D5016" }}
         >
