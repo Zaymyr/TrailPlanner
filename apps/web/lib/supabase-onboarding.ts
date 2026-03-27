@@ -20,6 +20,11 @@ export function saveOnboardingToLocalStorage(data: OnboardingPlanData): void {
   window.localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(data));
 }
 
+export function clearOnboardingFromLocalStorage(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(LOCALSTORAGE_KEY);
+}
+
 export function loadOnboardingFromLocalStorage(): OnboardingPlanData | null {
   if (typeof window === "undefined") return null;
   try {
