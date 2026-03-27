@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { useI18n } from "../../i18n-provider";
@@ -79,19 +79,20 @@ export default function ImprovePage() {
       : [];
   const previewStations = allStationsWithNutrition.slice(0, 5);
 
-  const planSummary = Object.values(
-    allStationsWithNutrition
-      .flatMap((s) => s.nutrition ?? [])
-      .reduce<Record<string, NutritionItem & { quantity: number; carbsG: number }>>(
-        (acc, item) => {
-          if (!acc[item.fuelType]) acc[item.fuelType] = { ...item, quantity: 0, carbsG: 0 };
-          acc[item.fuelType].quantity += item.quantity;
-          acc[item.fuelType].carbsG += item.carbsG;
-          return acc;
-        },
-        {},
-      ),
-  );
+  const planSummary = useMemo(() => {
+    const acc: Record<string, NutritionItem & { quantity: number; carbsG: number; sodiumMg: number }> = {};
+    for (const station of allStationsWithNutrition) {
+      for (const item of station.nutrition ?? []) {
+        if (!acc[item.fuelType]) {
+          acc[item.fuelType] = { ...item, quantity: 0, carbsG: 0, sodiumMg: 0 };
+        }
+        acc[item.fuelType].quantity += Math.ceil(item.quantity);
+        acc[item.fuelType].carbsG += item.carbsG;
+        acc[item.fuelType].sodiumMg += (item as NutritionItem & { sodiumMg?: number }).sodiumMg ?? 0;
+      }
+    }
+    return Object.values(acc);
+  }, [allStationsWithNutrition]);
   const planTotalCarbs = Math.round(planSummary.reduce((s, n) => s + n.carbsG, 0));
 
   function handleCTA() {
@@ -222,7 +223,7 @@ export default function ImprovePage() {
                     className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
                     style={{ color: "#1a2e0a" }}
                   >
-                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{item.quantity}
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{Math.ceil(item.quantity)}
                   </span>
                 ))}
               </div>
@@ -301,7 +302,7 @@ export default function ImprovePage() {
                     className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
                     style={{ color: "#1a2e0a" }}
                   >
-                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{item.quantity}
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{Math.ceil(item.quantity)}
                   </span>
                 ))}
               </div>
