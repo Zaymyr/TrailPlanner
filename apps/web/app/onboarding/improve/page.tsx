@@ -136,7 +136,7 @@ export default function ImprovePage() {
           plan.carbsPerHour,
           speedKph,
           products,
-        ).slice(0, 3)
+        ).slice(0, 5)
       : [];
 
   function handleCTA() {
@@ -235,44 +235,42 @@ export default function ImprovePage() {
 
       {/* Aid station preview */}
       {previewStations.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
-              {aidStationCopy.title}
-            </h2>
-            <p className="text-xs" style={{ color: "#6b7c5a" }}>
-              {aidStationCopy.subtitle}
-            </p>
-          </div>
+        <div
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+        >
+          <h2 className="mb-0.5 text-base font-semibold" style={{ color: "#1a2e0a" }}>
+            {aidStationCopy.title}
+          </h2>
+          <p className="mb-2 text-xs" style={{ color: "#6b7c5a" }}>
+            {aidStationCopy.subtitle}
+          </p>
           {previewStations.map((station, i) => (
             <div
               key={i}
-              className="rounded-2xl p-4"
-              style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+              className="flex items-center gap-3 border-b border-slate-100 py-2 last:border-0"
             >
-              <p className="mb-2 text-sm font-semibold" style={{ color: "#1a2e0a" }}>
-                {station.name} — {station.distanceKm} km
-              </p>
-              <div className="flex flex-col gap-1">
+              <span
+                className="w-32 shrink-0 truncate text-sm font-semibold"
+                style={{ color: "#374151" }}
+              >
+                {station.name} · {Math.round(station.distanceKm)}km
+              </span>
+              <div className="flex flex-wrap gap-1.5">
                 {(station.nutrition ?? []).map((item) => (
-                  <div key={item.fuelType} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: "#1a2e0a" }}>
-                      {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName}
-                    </span>
-                    <span className="text-sm font-medium" style={{ color: "#2D5016" }}>
-                      {aidStationCopy.unit.replace("{qty}", String(item.quantity))}
-                    </span>
-                  </div>
+                  <span
+                    key={item.fuelType}
+                    title={item.productName}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
+                    style={{ color: "#1a2e0a" }}
+                  >
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{item.quantity}
+                  </span>
                 ))}
               </div>
-              {(station.nutrition ?? []).length > 0 && (
-                <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
-                  {aidStationCopy.totalCarbs.replace(
-                    "{carbs}",
-                    String(Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))),
-                  )}
-                </p>
-              )}
+              <span className="ml-auto shrink-0 text-xs" style={{ color: "#9ca3af" }}>
+                ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
+              </span>
             </div>
           ))}
         </div>
@@ -314,43 +312,44 @@ export default function ImprovePage() {
         </div>
       )}
 
-      {/* Section B — First 3 aid stations */}
+      {/* Section B — First 5 aid stations */}
       {previewStations.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
-              {t.racePlanner.onboarding.improve.aidStationPreview.title}
-            </h2>
-            <p className="text-xs" style={{ color: "#6b7c5a" }}>
-              {t.racePlanner.onboarding.improve.aidStationPreview.subtitle}
-            </p>
-          </div>
+        <div
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+        >
+          <h2 className="mb-0.5 text-base font-semibold" style={{ color: "#1a2e0a" }}>
+            {t.racePlanner.onboarding.improve.aidStationPreview.title}
+          </h2>
+          <p className="mb-2 text-xs" style={{ color: "#6b7c5a" }}>
+            {t.racePlanner.onboarding.improve.aidStationPreview.subtitle}
+          </p>
           {previewStations.map((station, i) => (
             <div
               key={i}
-              className="rounded-2xl p-4"
-              style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+              className="flex items-center gap-3 border-b border-slate-100 py-2 last:border-0"
             >
-              <p className="mb-2 text-sm font-semibold" style={{ color: "#1a2e0a" }}>
-                Ravito {i + 1} — {station.distanceKm} km
-              </p>
-              <div className="flex flex-col gap-1">
+              <span
+                className="w-32 shrink-0 truncate text-sm font-semibold"
+                style={{ color: "#374151" }}
+              >
+                Ravito {i + 1} · {Math.round(station.distanceKm)}km
+              </span>
+              <div className="flex flex-wrap gap-1.5">
                 {(station.nutrition ?? []).map((item) => (
-                  <div key={item.fuelType} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: "#1a2e0a" }}>
-                      {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName}
-                    </span>
-                    <span className="text-sm font-medium" style={{ color: "#2D5016" }}>
-                      × {item.quantity}
-                    </span>
-                  </div>
+                  <span
+                    key={item.fuelType}
+                    title={item.productName}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
+                    style={{ color: "#1a2e0a" }}
+                  >
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{item.quantity}
+                  </span>
                 ))}
               </div>
-              {(station.nutrition ?? []).length > 0 && (
-                <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
-                  ≈ {Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g glucides
-                </p>
-              )}
+              <span className="ml-auto shrink-0 text-xs" style={{ color: "#9ca3af" }}>
+                ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
+              </span>
             </div>
           ))}
         </div>
