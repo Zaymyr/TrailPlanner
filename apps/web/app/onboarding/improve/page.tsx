@@ -37,6 +37,7 @@ type FoodItem = {
   emoji: string;
   label: string;
   count: number;
+  carbsG: number;
 };
 
 function computeFoodMix(
@@ -55,35 +56,35 @@ function computeFoodMix(
 
   const gelCount = Math.ceil(gelCarbs / gelCarbsPerUnit);
   if (gelCount > 0) {
-    items.push({ emoji: "🧃", label: "gels", count: gelCount });
+    items.push({ emoji: "🧃", label: "gels", count: gelCount, carbsG: gelCount * 25 });
   }
 
   if (remainingCarbs > 0) {
     switch (solidFood) {
       case "banana": {
         const count = Math.ceil(remainingCarbs / 25);
-        items.push({ emoji: "🍌", label: "bananes", count });
+        items.push({ emoji: "🍌", label: "bananes", count, carbsG: count * 25 });
         break;
       }
       case "bars": {
         const count = Math.ceil(remainingCarbs / 35);
-        items.push({ emoji: "🍫", label: "barres", count });
+        items.push({ emoji: "🍫", label: "barres", count, carbsG: count * 35 });
         break;
       }
       case "tuc": {
         const count = Math.ceil(remainingCarbs / 5);
-        items.push({ emoji: "🥐", label: "portions TUC", count });
+        items.push({ emoji: "🥐", label: "portions TUC", count, carbsG: count * 5 });
         break;
       }
       case "dates": {
         const count = Math.ceil(remainingCarbs / 7);
-        items.push({ emoji: "🌴", label: "dattes", count });
+        items.push({ emoji: "🌴", label: "dattes", count, carbsG: count * 7 });
         break;
       }
       default: {
         // fallback: bananas
         const count = Math.ceil(remainingCarbs / 25);
-        items.push({ emoji: "🍌", label: "bananes", count });
+        items.push({ emoji: "🍌", label: "bananes", count, carbsG: count * 25 });
         break;
       }
     }
@@ -206,36 +207,20 @@ export default function ImprovePage() {
           Ton plan alimentaire
         </h2>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap gap-2">
           {foodItems.map((item) => (
-            <div key={item.label} className="flex items-center justify-between">
-              <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
-                {item.emoji} {item.count} {item.label}
-              </span>
-              <span
-                className="rounded-full px-3 py-0.5 text-xs font-medium"
-                style={{ backgroundColor: "#e8f0e0", color: "#2D5016" }}
-              >
-                {item.label === "gels"
-                  ? `${item.count * 25}g glucides`
-                  : item.label === "bananes"
-                  ? `${item.count * 25}g glucides`
-                  : item.label === "barres"
-                  ? `${item.count * 35}g glucides`
-                  : item.label === "portions TUC"
-                  ? `${item.count * 5}g glucides`
-                  : `${item.count * 7}g glucides`}
-              </span>
-            </div>
+            <span
+              key={item.label}
+              className="rounded-full bg-slate-100 px-3 py-1 text-sm"
+              style={{ color: "#1a2e0a" }}
+            >
+              {item.emoji} {item.count} {item.label} · {item.carbsG}g
+            </span>
           ))}
         </div>
 
-        <p className="mt-4 text-sm" style={{ color: "#6b7c5a" }}>
-          Ce mix couvre environ{" "}
-          <span className="font-semibold" style={{ color: "#1a2e0a" }}>
-            {totalCarbs}g de glucides
-          </span>{" "}
-          pour ta course.
+        <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
+          Total : {totalCarbs}g glucides · {plan.sodiumPerHour}mg sodium/h · {plan.waterPerHour}ml eau/h
         </p>
 
         {state.aidAccess === "autonomous" && (
