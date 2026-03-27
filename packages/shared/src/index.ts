@@ -16,11 +16,20 @@ export type SegmentPlanData = {
   }>;
 };
 
+export type AidStationNutritionItem = {
+  fuelType: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  carbsG: number;
+};
+
 export type AidStation = {
   name: string;
   distanceKm: number;
   waterRefill?: boolean;
   segmentPlan?: SegmentPlanData;
+  nutrition?: AidStationNutritionItem[];
 };
 
 export type PlannerValues = {
@@ -32,6 +41,7 @@ export type PlannerValues = {
   waterBagLiters: number;
   paceMinutes: number;
   paceSeconds: number;
+  fuelTypes?: string[];
   aidStations: AidStation[];
   finishPlan?: SegmentPlanData;
   sectionSegments?: Record<string, unknown>;
