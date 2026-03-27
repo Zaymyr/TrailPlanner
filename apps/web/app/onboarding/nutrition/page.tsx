@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { useI18n } from "../../i18n-provider";
 import { fuelTypeValues } from "../../../lib/fuel-types";
+import type { FuelProduct } from "../../../lib/product-types";
 
 const FUEL_TYPE_EMOJI: Record<string, string> = {
   gel: "🟡",
@@ -22,6 +23,19 @@ export default function NutritionPage() {
   const { t } = useI18n();
   const [selected, setSelected] = useState<string[]>(state.fuelTypes ?? []);
   const [showError, setShowError] = useState(false);
+  const [products, setProducts] = useState<FuelProduct[]>([]);
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => setProducts(data.products ?? []))
+      .catch(() => {});
+  }, []);
+
+  const productsByType = products.reduce<Record<string, FuelProduct[]>>((acc, p) => {
+    (acc[p.fuelType] ??= []).push(p);
+    return acc;
+  }, {});
 
   const toggle = (type: string) => {
     setShowError(false);
@@ -77,6 +91,18 @@ export default function NutritionPage() {
                 <span className="text-xs leading-snug" style={{ color: "#6b7c5a" }}>
                   {description}
                 </span>
+                {(productsByType[type]?.length ?? 0) > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {productsByType[type].slice(0, 3).map((p) => (
+                      <span
+                        key={p.id}
+                        className="rounded-full border border-slate-200 bg-white/60 px-2 py-0.5 text-[10px] text-slate-500"
+                      >
+                        {p.name.length > 18 ? p.name.slice(0, 18) + "…" : p.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </button>
             );
           })}
