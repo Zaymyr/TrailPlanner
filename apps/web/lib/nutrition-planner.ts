@@ -37,7 +37,7 @@ export function computeAidStationNutrition(
       if (!product || product.carbsGrams <= 0) continue;
 
       const rawQuantity = carbsForEachType / product.carbsGrams;
-      const quantity = Math.max(0.5, Math.round(rawQuantity * 10) / 10);
+      const quantity = Math.max(1, Math.ceil(rawQuantity));
 
       nutrition.push({
         fuelType,

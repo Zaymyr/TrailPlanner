@@ -11,7 +11,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { redirectToGoogleOAuth } from "../../lib/oauth";
-import { loadOnboardingFromLocalStorage } from "../../lib/supabase-onboarding";
+import { clearOnboardingFromLocalStorage, loadOnboardingFromLocalStorage } from "../../lib/supabase-onboarding";
 
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
@@ -109,6 +109,7 @@ export default function SignUpPage() {
                 elevationProfile: [],
               }),
             });
+            clearOnboardingFromLocalStorage();
           }
         } catch {
           // Silent fail — never block signup flow

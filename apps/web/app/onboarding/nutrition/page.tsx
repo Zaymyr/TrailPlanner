@@ -1,24 +1,57 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
-import type { GelTolerance } from "../../../contexts/OnboardingContext";
+import { useI18n } from "../../i18n-provider";
+import { fuelTypeValues } from "../../../lib/fuel-types";
+import type { FuelProduct } from "../../../lib/product-types";
 
-type GelOption = {
-  value: GelTolerance;
-  label: string;
-  emoji: string;
+const FUEL_TYPE_EMOJI: Record<string, string> = {
+  gel: "🟡",
+  bar: "🍫",
+  electrolyte: "💧",
+  capsule: "💊",
+  drink_mix: "🥤",
+  real_food: "🍌",
+  other: "➕",
 };
-
-const GEL_OPTIONS: GelOption[] = [
-  { value: "well", label: "Je les supporte bien", emoji: "🧃" },
-  { value: "varied", label: "Je préfère varier", emoji: "🔀" },
-  { value: "avoid", label: "Je les évite", emoji: "🚫" },
-];
 
 export default function NutritionPage() {
   const router = useRouter();
-  const { state, setGelTolerance } = useOnboarding();
+  const { state, setFuelTypes } = useOnboarding();
+  const { t } = useI18n();
+  const [selected, setSelected] = useState<string[]>(state.fuelTypes ?? []);
+  const [showError, setShowError] = useState(false);
+  const [products, setProducts] = useState<FuelProduct[]>([]);
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => setProducts(data.products ?? []))
+      .catch(() => {});
+  }, []);
+
+  const productsByType = products.reduce<Record<string, FuelProduct[]>>((acc, p) => {
+    (acc[p.fuelType] ??= []).push(p);
+    return acc;
+  }, {});
+
+  const toggle = (type: string) => {
+    setShowError(false);
+    setSelected((prev) =>
+      prev.includes(type) ? prev.filter((v) => v !== type) : [...prev, type]
+    );
+  };
+
+  const handleContinue = () => {
+    if (selected.length === 0) {
+      setShowError(true);
+      return;
+    }
+    setFuelTypes(selected);
+    router.push("/onboarding/improve");
+  };
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
@@ -33,56 +66,65 @@ export default function NutritionPage() {
 
       <div className="flex flex-col gap-2">
         <p className="text-sm font-semibold" style={{ color: "#1a2e0a" }}>
-          Tu supportes les gels énergétiques ?
+          Quels types de ravitaillement utilises-tu ?
         </p>
-        <div className="flex flex-col gap-2">
-          {GEL_OPTIONS.map((option) => {
-            const isSelected = state.gelTolerance === option.value;
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {fuelTypeValues.map((type) => {
+            const isSelected = selected.includes(type);
+            const label = t.racePlanner.onboarding.fuelTypes[type].label;
+            const description = t.racePlanner.onboarding.fuelTypes[type].description;
             return (
               <button
-                key={option.value}
-                onClick={() => setGelTolerance(option.value)}
-                className="flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left transition-all active:scale-[0.98]"
+                key={type}
+                onClick={() => toggle(type)}
+                className="flex flex-col items-start gap-1 rounded-2xl px-4 py-4 text-left transition-all active:scale-[0.97]"
                 style={{
-                  backgroundColor: "#ffffff",
+                  backgroundColor: isSelected ? "#ecfdf5" : "#ffffff",
                   boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
-                  border: isSelected ? "2px solid #2D5016" : "2px solid transparent",
+                  border: isSelected ? "2px solid #10b981" : "2px solid transparent",
                 }}
               >
-                <span className="text-2xl">{option.emoji}</span>
-                <span className="text-base font-medium" style={{ color: "#1a2e0a" }}>
-                  {option.label}
+                <span className="text-2xl">{FUEL_TYPE_EMOJI[type]}</span>
+                <span className="text-sm font-semibold leading-tight" style={{ color: "#1a2e0a" }}>
+                  {label}
                 </span>
-                {isSelected && (
-                  <div
-                    className="ml-auto flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full"
-                    style={{ backgroundColor: "#2D5016" }}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path
-                        d="M2 6L5 9L10 3"
-                        stroke="white"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                <span className="text-xs leading-snug" style={{ color: "#6b7c5a" }}>
+                  {description}
+                </span>
+                {(productsByType[type]?.length ?? 0) > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {productsByType[type].slice(0, 3).map((p) => (
+                      <span
+                        key={p.id}
+                        className="rounded-full border border-slate-200 bg-white/60 px-2 py-0.5 text-[10px] text-slate-500"
+                      >
+                        {p.name.length > 18 ? p.name.slice(0, 18) + "…" : p.name}
+                      </span>
+                    ))}
                   </div>
                 )}
               </button>
             );
           })}
         </div>
+        {showError && (
+          <p className="text-sm" style={{ color: "#dc2626" }}>
+            Sélectionne au moins un type de ravitaillement.
+          </p>
+        )}
       </div>
 
-      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+      <div
+        className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
-          onClick={() => router.push("/onboarding/nutrition/food")}
-          disabled={!state.gelTolerance}
-          className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
-          style={{ backgroundColor: "#2D5016" }}
+          onClick={handleContinue}
+          className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80"
+          style={{
+            backgroundColor: "#2D5016",
+            opacity: selected.length === 0 ? 0.4 : 1,
+          }}
         >
           Continuer
         </button>

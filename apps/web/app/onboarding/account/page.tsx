@@ -3,10 +3,13 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
-import { calculateNutrition } from "../../../lib/nutrition";
-import { saveOnboardingToLocalStorage } from "../../../lib/supabase-onboarding";
+import { calculateNutrition, calculateAdjustedPace } from "../../../lib/nutrition";
+import { saveOnboardingToLocalStorage, clearOnboardingFromLocalStorage } from "../../../lib/supabase-onboarding";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
 import { buildSupabaseOAuthUrl } from "../../../lib/oauth";
+
+// Module-level guard survives React StrictMode double-mount within the same session.
+let _planSaved = false;
 
 export default function AccountPage() {
   const router = useRouter();
@@ -23,6 +26,11 @@ export default function AccountPage() {
   const goal = state.goal ?? "comfort";
   const plan = calculateNutrition(distance, elevation, goal);
 
+  const paceMinPerKm = calculateAdjustedPace(distance, elevation, goal);
+  const paceMinutes = Math.floor(paceMinPerKm);
+  const paceSeconds = Math.round((paceMinPerKm - paceMinutes) * 60);
+  const speedKph = 60 / paceMinPerKm;
+
   const planData = {
     distanceKm: distance,
     elevationM: elevation,
@@ -32,6 +40,17 @@ export default function AccountPage() {
     carbsPerHour: plan.carbsPerHour,
     waterPerHour: plan.waterPerHour,
     sodiumPerHour: plan.sodiumPerHour,
+    // planner fields
+    paceType: "pace" as const,
+    paceMinutes,
+    paceSeconds,
+    speedKph,
+    elevationGain: elevation,
+    raceDistanceKm: distance,
+    targetIntakePerHour: plan.carbsPerHour,
+    sodiumIntakePerHour: plan.sodiumPerHour,
+    waterIntakePerHour: plan.waterPerHour,
+    fuelTypes: state.fuelTypes,
   };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -86,14 +105,29 @@ export default function AccountPage() {
       const newUserId = data?.user?.id;
       if (!newUserId) {
         console.error("[onboarding-signup] no user.id in signup response — save-plan skipped", data);
-      } else if (!hasSavedPlan.current) {
+      } else if (!hasSavedPlan.current && !_planSaved) {
         hasSavedPlan.current = true;
+        _planSaved = true;
         try {
           // Prefer React context (same-session), fall back to localStorage (after page refresh)
-          const aidStations =
+          const rawCheckpoints =
             (state.checkpoints ?? []).length > 0
               ? state.checkpoints!.map((cp) => ({ name: cp.name, distanceKm: cp.km }))
               : (storedState?.race?.aidStations ?? []);
+
+          // Merge computed nutrition (supplies) into aid stations when available
+          const nutritionByName = Object.fromEntries(
+            state.computedNutrition.map((s) => [s.name, s.nutrition]),
+          );
+          const aidStations = rawCheckpoints.map((cp) => ({
+            name: cp.name,
+            distanceKm: cp.distanceKm,
+            waterRefill: true,
+            supplies: (nutritionByName[cp.name] ?? []).map((n) => ({
+              productId: n.productId,
+              quantity: Math.ceil(n.quantity),
+            })),
+          }));
           const elevationProfile = state.elevationProfile?.length
             ? state.elevationProfile
             : (storedState?.elevationProfile ?? []);
@@ -115,6 +149,8 @@ export default function AccountPage() {
           if (planRes.ok) {
             const { plan } = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } ?? {};
             if (plan?.id) localStorage.setItem("trailplanner.pendingPlanId", plan.id);
+            // Clear the onboarding localStorage key so /sign-up page won't create a duplicate plan.
+            clearOnboardingFromLocalStorage();
           }
         } catch (err) {
           console.error("[onboarding-signup] save-plan error:", err);

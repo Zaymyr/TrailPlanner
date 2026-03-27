@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { useI18n } from "../../i18n-provider";
@@ -12,6 +12,17 @@ import {
 } from "../../../lib/nutrition";
 import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
 import type { FuelProduct } from "../../../lib/product-types";
+import type { NutritionItem } from "../../../lib/nutrition-planner";
+
+const FUEL_TYPE_COLOR: Record<string, string> = {
+  gel: "#fbbf24",
+  electrolyte: "#3b82f6",
+  bar: "#f59e0b",
+  capsule: "#f97316",
+  drink_mix: "#06b6d4",
+  real_food: "#22c55e",
+  other: "#94a3b8",
+};
 
 const FUEL_TYPE_EMOJI: Record<string, string> = {
   gel: "🟡",
@@ -23,69 +34,10 @@ const FUEL_TYPE_EMOJI: Record<string, string> = {
   other: "📦",
 };
 
-type FoodItem = {
-  emoji: string;
-  label: string;
-  count: number;
-};
-
-function computeFoodMix(
-  totalCarbs: number,
-  gelTolerance: "well" | "varied" | "avoid" | null,
-  solidFood: "banana" | "bars" | "tuc" | "dates" | null
-): FoodItem[] {
-  const gelCarbsPerUnit = 25;
-
-  const gelFraction =
-    gelTolerance === "well" ? 0.4 : gelTolerance === "varied" ? 0.2 : 0;
-
-  const gelCarbs = Math.round(totalCarbs * gelFraction);
-  const remainingCarbs = totalCarbs - gelCarbs;
-
-  const items: FoodItem[] = [];
-
-  const gelCount = Math.ceil(gelCarbs / gelCarbsPerUnit);
-  if (gelCount > 0) {
-    items.push({ emoji: "🧃", label: "gels", count: gelCount });
-  }
-
-  if (remainingCarbs > 0) {
-    switch (solidFood) {
-      case "banana": {
-        const count = Math.ceil(remainingCarbs / 25);
-        items.push({ emoji: "🍌", label: "bananes", count });
-        break;
-      }
-      case "bars": {
-        const count = Math.ceil(remainingCarbs / 35);
-        items.push({ emoji: "🍫", label: "barres", count });
-        break;
-      }
-      case "tuc": {
-        const count = Math.ceil(remainingCarbs / 5);
-        items.push({ emoji: "🥐", label: "portions TUC", count });
-        break;
-      }
-      case "dates": {
-        const count = Math.ceil(remainingCarbs / 7);
-        items.push({ emoji: "🌴", label: "dattes", count });
-        break;
-      }
-      default: {
-        // fallback: bananas
-        const count = Math.ceil(remainingCarbs / 25);
-        items.push({ emoji: "🍌", label: "bananes", count });
-        break;
-      }
-    }
-  }
-
-  return items;
-}
 
 export default function ImprovePage() {
   const router = useRouter();
-  const { state } = useOnboarding();
+  const { state, setComputedNutrition } = useOnboarding();
   const { t } = useI18n();
   const aidStationCopy = t.racePlanner.onboarding.improve.aidStationPreview;
 
@@ -109,16 +61,13 @@ export default function ImprovePage() {
   const estimatedTime = formatEstimatedTime(distance, elevation, goal);
   const averagePace = formatAveragePace(distance, elevation, goal);
 
-  const totalCarbs = Math.round(plan.carbsPerHour * (estimatedMinutes / 60));
-  const foodItems = computeFoodMix(totalCarbs, state.gelTolerance, state.solidFood);
-
   const paceMinPerKm = calculateAdjustedPace(distance, elevation, goal);
   const speedKph = 60 / paceMinPerKm;
   const rawAidStations = (state.checkpoints ?? []).map((cp) => ({
     name: cp.name,
     distanceKm: cp.km,
   }));
-  const previewStations =
+  const allStationsWithNutrition =
     state.fuelTypes.length > 0 && rawAidStations.length > 0
       ? computeAidStationNutrition(
           rawAidStations,
@@ -126,10 +75,40 @@ export default function ImprovePage() {
           plan.carbsPerHour,
           speedKph,
           products,
-        ).slice(0, 3)
+        )
       : [];
+  const previewStations = allStationsWithNutrition.slice(0, 5);
+
+  const planSummary = useMemo(() => {
+    const acc: Record<string, NutritionItem & { quantity: number; carbsG: number; sodiumMg: number }> = {};
+    for (const station of allStationsWithNutrition) {
+      for (const item of station.nutrition ?? []) {
+        if (!acc[item.fuelType]) {
+          acc[item.fuelType] = { ...item, quantity: 0, carbsG: 0, sodiumMg: 0 };
+        }
+        acc[item.fuelType].quantity += Math.ceil(item.quantity);
+        acc[item.fuelType].carbsG += item.carbsG;
+        acc[item.fuelType].sodiumMg += (item as NutritionItem & { sodiumMg?: number }).sodiumMg ?? 0;
+      }
+    }
+    return Object.values(acc);
+  }, [allStationsWithNutrition]);
+  const planTotalCarbs = Math.round(planSummary.reduce((s, n) => s + n.carbsG, 0));
 
   function handleCTA() {
+    setComputedNutrition(
+      allStationsWithNutrition.map((s) => ({
+        name: s.name,
+        distanceKm: s.distanceKm,
+        nutrition: (s.nutrition ?? []).map((n) => ({
+          fuelType: n.fuelType,
+          productId: n.productId,
+          productName: n.productName,
+          quantity: n.quantity,
+          carbsG: n.carbsG,
+        })),
+      })),
+    );
     router.push("/onboarding/account");
   }
 
@@ -197,36 +176,23 @@ export default function ImprovePage() {
           Ton plan alimentaire
         </h2>
 
-        <div className="flex flex-col gap-3">
-          {foodItems.map((item) => (
-            <div key={item.label} className="flex items-center justify-between">
-              <span className="text-sm font-medium" style={{ color: "#1a2e0a" }}>
-                {item.emoji} {item.count} {item.label}
-              </span>
-              <span
-                className="rounded-full px-3 py-0.5 text-xs font-medium"
-                style={{ backgroundColor: "#e8f0e0", color: "#2D5016" }}
-              >
-                {item.label === "gels"
-                  ? `${item.count * 25}g glucides`
-                  : item.label === "bananes"
-                  ? `${item.count * 25}g glucides`
-                  : item.label === "barres"
-                  ? `${item.count * 35}g glucides`
-                  : item.label === "portions TUC"
-                  ? `${item.count * 5}g glucides`
-                  : `${item.count * 7}g glucides`}
-              </span>
-            </div>
+        <div className="flex flex-wrap gap-2">
+          {planSummary.map((item) => (
+            <span
+              key={item.fuelType}
+              className="rounded-full bg-slate-100 px-3 py-1 text-sm"
+              style={{ color: "#1a2e0a" }}
+            >
+              {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
+              {Math.ceil(item.quantity)}{" "}
+              {t.racePlanner.onboarding.fuelTypes[item.fuelType as keyof typeof t.racePlanner.onboarding.fuelTypes]?.label ?? item.fuelType}{" "}
+              · {Math.round(item.carbsG)}g
+            </span>
           ))}
         </div>
 
-        <p className="mt-4 text-sm" style={{ color: "#6b7c5a" }}>
-          Ce mix couvre environ{" "}
-          <span className="font-semibold" style={{ color: "#1a2e0a" }}>
-            {totalCarbs}g de glucides
-          </span>{" "}
-          pour ta course.
+        <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
+          Total : {planTotalCarbs}g glucides · {plan.sodiumPerHour}mg sodium/h · {plan.waterPerHour}ml eau/h
         </p>
 
         {state.aidAccess === "autonomous" && (
@@ -241,44 +207,125 @@ export default function ImprovePage() {
 
       {/* Aid station preview */}
       {previewStations.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
-              {aidStationCopy.title}
-            </h2>
-            <p className="text-xs" style={{ color: "#6b7c5a" }}>
-              {aidStationCopy.subtitle}
-            </p>
-          </div>
+        <div
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+        >
+          <h2 className="mb-0.5 text-base font-semibold" style={{ color: "#1a2e0a" }}>
+            {aidStationCopy.title}
+          </h2>
+          <p className="mb-2 text-xs" style={{ color: "#6b7c5a" }}>
+            {aidStationCopy.subtitle}
+          </p>
           {previewStations.map((station, i) => (
             <div
               key={i}
-              className="rounded-2xl p-4"
-              style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+              className="flex items-center gap-3 border-b border-slate-100 py-2 last:border-0"
             >
-              <p className="mb-2 text-sm font-semibold" style={{ color: "#1a2e0a" }}>
-                {station.name} — {station.distanceKm} km
-              </p>
-              <div className="flex flex-col gap-1">
+              <span
+                className="w-32 shrink-0 truncate text-sm font-semibold"
+                style={{ color: "#374151" }}
+              >
+                {station.name} · {Math.round(station.distanceKm)}km
+              </span>
+              <div className="flex flex-wrap gap-1.5">
                 {(station.nutrition ?? []).map((item) => (
-                  <div key={item.fuelType} className="flex items-center justify-between">
-                    <span className="text-sm" style={{ color: "#1a2e0a" }}>
-                      {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName}
-                    </span>
-                    <span className="text-sm font-medium" style={{ color: "#2D5016" }}>
-                      {aidStationCopy.unit.replace("{qty}", String(item.quantity))}
-                    </span>
-                  </div>
+                  <span
+                    key={item.fuelType}
+                    title={item.productName}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
+                    style={{ color: "#1a2e0a" }}
+                  >
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
+                    {item.productName.length > 20 ? item.productName.slice(0, 20) + "…" : item.productName}{" "}
+                    ×{Math.ceil(item.quantity)}
+                  </span>
                 ))}
               </div>
-              {(station.nutrition ?? []).length > 0 && (
-                <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
-                  {aidStationCopy.totalCarbs.replace(
-                    "{carbs}",
-                    String(Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))),
-                  )}
-                </p>
-              )}
+              <span className="ml-auto shrink-0 text-xs" style={{ color: "#9ca3af" }}>
+                ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Section A — Nutrition mix */}
+      {state.fuelTypes.length > 0 && (
+        <div
+          className="rounded-2xl p-5"
+          style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+        >
+          <h2 className="mb-3 text-base font-semibold" style={{ color: "#1a2e0a" }}>
+            {t.racePlanner.onboarding.improve.nutritionMix.title}
+          </h2>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {state.fuelTypes.map((type) => (
+              <span
+                key={type}
+                className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white"
+                style={{ backgroundColor: FUEL_TYPE_COLOR[type] ?? "#94a3b8" }}
+              >
+                {FUEL_TYPE_EMOJI[type] ?? "📦"}{" "}
+                {t.racePlanner.onboarding.fuelTypes[type as keyof typeof t.racePlanner.onboarding.fuelTypes]?.label ?? type}{" "}
+                {Math.round(100 / state.fuelTypes.length)}%
+              </span>
+            ))}
+          </div>
+          <div className="flex h-3 w-full overflow-hidden rounded-full">
+            {state.fuelTypes.map((type) => (
+              <div
+                key={type}
+                style={{
+                  width: `${100 / state.fuelTypes.length}%`,
+                  backgroundColor: FUEL_TYPE_COLOR[type] ?? "#94a3b8",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section B — First 5 aid stations */}
+      {previewStations.length > 0 && (
+        <div
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+        >
+          <h2 className="mb-0.5 text-base font-semibold" style={{ color: "#1a2e0a" }}>
+            {t.racePlanner.onboarding.improve.aidStationPreview.title}
+          </h2>
+          <p className="mb-2 text-xs" style={{ color: "#6b7c5a" }}>
+            {t.racePlanner.onboarding.improve.aidStationPreview.subtitle}
+          </p>
+          {previewStations.map((station, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-3 border-b border-slate-100 py-2 last:border-0"
+            >
+              <span
+                className="w-32 shrink-0 truncate text-sm font-semibold"
+                style={{ color: "#374151" }}
+              >
+                Ravito {i + 1} · {Math.round(station.distanceKm)}km
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {(station.nutrition ?? []).map((item) => (
+                  <span
+                    key={item.fuelType}
+                    title={item.productName}
+                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
+                    style={{ color: "#1a2e0a" }}
+                  >
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
+                    {item.productName.length > 20 ? item.productName.slice(0, 20) + "…" : item.productName}{" "}
+                    ×{Math.ceil(item.quantity)}
+                  </span>
+                ))}
+              </div>
+              <span className="ml-auto shrink-0 text-xs" style={{ color: "#9ca3af" }}>
+                ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
+              </span>
             </div>
           ))}
         </div>
