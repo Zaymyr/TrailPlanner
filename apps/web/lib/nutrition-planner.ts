@@ -15,20 +15,20 @@ export function computeAidStationNutrition(
   targetCarbsPerHour: number,
   speedKph: number,
   products: FuelProduct[],
+  weights?: Record<string, number>,
 ): AidStation[] {
   if (fuelTypes.length === 0 || speedKph <= 0) {
     return aidStations;
   }
 
   const sorted = [...aidStations].sort((a, b) => a.distanceKm - b.distanceKm);
-  const carbsPerType = 1 / fuelTypes.length;
+  const totalWeight = fuelTypes.reduce((s, t) => s + (weights?.[t] ?? 1), 0);
 
   return sorted.map((station, i) => {
     const prevDistanceKm = i === 0 ? 0 : sorted[i - 1].distanceKm;
     const distanceSinceLast = station.distanceKm - prevDistanceKm;
     const hoursToStation = distanceSinceLast / speedKph;
     const totalCarbsNeeded = targetCarbsPerHour * hoursToStation;
-    const carbsForEachType = totalCarbsNeeded * carbsPerType;
 
     const nutrition: NutritionItem[] = [];
 
@@ -36,7 +36,8 @@ export function computeAidStationNutrition(
       const product = products.find((p) => p.fuelType === fuelType);
       if (!product || product.carbsGrams <= 0) continue;
 
-      const rawQuantity = carbsForEachType / product.carbsGrams;
+      const carbsForThisType = totalCarbsNeeded * ((weights?.[fuelType] ?? 1) / totalWeight);
+      const rawQuantity = carbsForThisType / product.carbsGrams;
       const quantity = Math.max(1, Math.ceil(rawQuantity));
 
       nutrition.push({
@@ -44,7 +45,7 @@ export function computeAidStationNutrition(
         productId: product.id,
         productName: product.name,
         quantity,
-        carbsG: carbsForEachType,
+        carbsG: carbsForThisType,
       });
     }
 
