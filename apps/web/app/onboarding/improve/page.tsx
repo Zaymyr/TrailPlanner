@@ -37,7 +37,7 @@ const FUEL_TYPE_EMOJI: Record<string, string> = {
 
 export default function ImprovePage() {
   const router = useRouter();
-  const { state } = useOnboarding();
+  const { state, setComputedNutrition } = useOnboarding();
   const { t } = useI18n();
   const aidStationCopy = t.racePlanner.onboarding.improve.aidStationPreview;
 
@@ -96,6 +96,19 @@ export default function ImprovePage() {
   const planTotalCarbs = Math.round(planSummary.reduce((s, n) => s + n.carbsG, 0));
 
   function handleCTA() {
+    setComputedNutrition(
+      allStationsWithNutrition.map((s) => ({
+        name: s.name,
+        distanceKm: s.distanceKm,
+        nutrition: (s.nutrition ?? []).map((n) => ({
+          fuelType: n.fuelType,
+          productId: n.productId,
+          productName: n.productName,
+          quantity: n.quantity,
+          carbsG: n.carbsG,
+        })),
+      })),
+    );
     router.push("/onboarding/account");
   }
 

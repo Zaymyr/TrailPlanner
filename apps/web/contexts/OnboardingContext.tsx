@@ -15,6 +15,20 @@ export type RaceCheckpoint = {
 
 export type OnboardingElevationPoint = { distanceKm: number; elevationM: number };
 
+export type ComputedNutritionItem = {
+  fuelType: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  carbsG: number;
+};
+
+export type ComputedStation = {
+  name: string;
+  distanceKm: number;
+  nutrition: ComputedNutritionItem[];
+};
+
 export type OnboardingState = {
   distance: number | null;
   elevation: number | null;
@@ -23,6 +37,7 @@ export type OnboardingState = {
   sweatLevel: SweatLevel | null;
   aidAccess: AidAccess | null;
   fuelTypes: string[];
+  computedNutrition: ComputedStation[];
   raceId: string | null;
   checkpoints: RaceCheckpoint[] | null;
   elevationProfile: OnboardingElevationPoint[] | null;
@@ -37,6 +52,7 @@ type OnboardingContextType = {
   setSweatLevel: (v: SweatLevel) => void;
   setAidAccess: (v: AidAccess) => void;
   setFuelTypes: (v: string[]) => void;
+  setComputedNutrition: (v: ComputedStation[]) => void;
   setRaceSelection: (raceId: string, distanceKm: number, elevationM: number, checkpoints: RaceCheckpoint[]) => void;
   clearRaceSelection: () => void;
   setElevationProfile: (v: OnboardingElevationPoint[]) => void;
@@ -53,6 +69,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     sweatLevel: null,
     aidAccess: null,
     fuelTypes: [],
+    computedNutrition: [],
     raceId: null,
     checkpoints: null,
     elevationProfile: null,
@@ -69,6 +86,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         setSweatLevel: (v) => setState((s) => ({ ...s, sweatLevel: v })),
         setAidAccess: (v) => setState((s) => ({ ...s, aidAccess: v })),
         setFuelTypes: (v) => setState((s) => ({ ...s, fuelTypes: v })),
+        setComputedNutrition: (v) => setState((s) => ({ ...s, computedNutrition: v })),
         setRaceSelection: (raceId, distanceKm, elevationM, checkpoints) =>
           setState((s) => ({
             ...s,
