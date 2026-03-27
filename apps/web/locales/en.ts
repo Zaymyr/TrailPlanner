@@ -699,6 +699,15 @@ export const en: Translations = {
           totalCarbs: "≈ {carbs}g carbs",
         },
       },
+      fuelTypes: {
+        gel: { label: "Energy Gel", description: "Fast carbs, easy to carry" },
+        bar: { label: "Energy Bar", description: "Sustained energy, solid food" },
+        electrolyte: { label: "Electrolyte / Drink", description: "Sodium & minerals, hydration" },
+        capsule: { label: "Salt Capsule", description: "Concentrated sodium supplement" },
+        drink_mix: { label: "Drink Mix", description: "Carbs + electrolytes combined" },
+        real_food: { label: "Real Food", description: "Banana, bar, crackers…" },
+        other: { label: "Other", description: "Miscellaneous supplements" },
+      },
     },
   },
   admin: {

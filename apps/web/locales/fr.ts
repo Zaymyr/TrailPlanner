@@ -709,6 +709,15 @@ export const fr: Translations = {
           totalCarbs: "≈ {carbs}g de glucides",
         },
       },
+      fuelTypes: {
+        gel: { label: "Gel énergétique", description: "Glucides rapides, facile à emporter" },
+        bar: { label: "Barre énergétique", description: "Énergie durable, aliment solide" },
+        electrolyte: { label: "Électrolyte / Boisson", description: "Sodium & minéraux, hydratation" },
+        capsule: { label: "Capsule de sel", description: "Supplément sodium concentré" },
+        drink_mix: { label: "Boisson énergétique", description: "Glucides + électrolytes" },
+        real_food: { label: "Aliment solide", description: "Banane, barre, biscuit…" },
+        other: { label: "Autre", description: "Compléments divers" },
+      },
     },
   },
   admin: {

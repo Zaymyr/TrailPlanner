@@ -583,6 +583,15 @@ export type OnboardingTranslations = {
       totalCarbs: string;
     };
   };
+  fuelTypes: {
+    gel: { label: string; description: string };
+    bar: { label: string; description: string };
+    electrolyte: { label: string; description: string };
+    capsule: { label: string; description: string };
+    drink_mix: { label: string; description: string };
+    real_food: { label: string; description: string };
+    other: { label: string; description: string };
+  };
 };
 
 export type LandingPageTranslations = {
