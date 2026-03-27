@@ -19,6 +19,12 @@ const supabaseProductSchema = z.object({
   is_live: z.boolean(),
   is_archived: z.boolean(),
   updated_at: z.string(),
+  fuel_type: z.string().nullable().optional(),
+  calories_kcal: z.number().nonnegative().nullable().optional(),
+  carbs_g: z.number().nonnegative().nullable().optional(),
+  sodium_mg: z.number().nonnegative().nullable().optional(),
+  protein_g: z.number().nonnegative().nullable().optional(),
+  fat_g: z.number().nonnegative().nullable().optional(),
 });
 
 const productResponseSchema = z.object({
@@ -33,6 +39,12 @@ const productResponseSchema = z.object({
       isArchived: z.boolean(),
       updatedAt: z.string(),
       waterMl: z.number().optional(),
+      fuelType: z.string().optional(),
+      caloriesKcal: z.number().nonnegative().optional(),
+      carbsGrams: z.number().nonnegative().optional(),
+      sodiumMg: z.number().nonnegative().optional(),
+      proteinGrams: z.number().nonnegative().optional(),
+      fatGrams: z.number().nonnegative().optional(),
     })
   ),
 });
@@ -45,6 +57,16 @@ const updatePayloadSchema = z.object({
   id: z.string().uuid(),
   isLive: z.boolean().optional(),
   isArchived: z.boolean().optional(),
+  name: z.string().trim().min(1).optional(),
+  slug: z.string().trim().min(1).optional(),
+  sku: z.string().trim().optional().nullable(),
+  productUrl: z.string().url().optional().nullable(),
+  fuelType: z.string().optional(),
+  caloriesKcal: z.coerce.number().nonnegative().optional(),
+  carbsGrams: z.coerce.number().nonnegative().optional(),
+  sodiumMg: z.coerce.number().nonnegative().optional(),
+  proteinGrams: z.coerce.number().nonnegative().optional(),
+  fatGrams: z.coerce.number().nonnegative().optional(),
 });
 
 const mapProduct = (row: z.infer<typeof supabaseProductSchema>): z.infer<typeof productResponseSchema.shape.products.element> => ({
@@ -57,6 +79,12 @@ const mapProduct = (row: z.infer<typeof supabaseProductSchema>): z.infer<typeof 
   isArchived: row.is_archived,
   updatedAt: row.updated_at,
   waterMl: 0,
+  fuelType: row.fuel_type ?? undefined,
+  caloriesKcal: row.calories_kcal ?? undefined,
+  carbsGrams: row.carbs_g ?? undefined,
+  sodiumMg: row.sodium_mg ?? undefined,
+  proteinGrams: row.protein_g ?? undefined,
+  fatGrams: row.fat_g ?? undefined,
 });
 
 const authorizeAdmin = async (request: NextRequest) => {
@@ -92,7 +120,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,name,product_url,is_live,is_archived,updated_at&order=updated_at.desc`,
+      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,name,product_url,is_live,is_archived,updated_at,fuel_type,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
       {
         headers: {
           apikey: auth.supabaseService.supabaseServiceRoleKey,
@@ -123,20 +151,32 @@ export async function PATCH(request: NextRequest) {
 
   const parsedBody = updatePayloadSchema.safeParse(await request.json().catch(() => ({})));
 
-  if (!parsedBody.success || (parsedBody.data.isLive === undefined && parsedBody.data.isArchived === undefined)) {
+  if (!parsedBody.success) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid product update payload." }, { status: 400 }));
   }
 
-  const updates: Record<string, unknown> = {};
-  if (parsedBody.data.isLive !== undefined) {
-    updates.is_live = parsedBody.data.isLive;
-  }
-  if (parsedBody.data.isArchived !== undefined) {
-    updates.is_archived = parsedBody.data.isArchived;
+  const { id, isLive, isArchived, name, slug, sku, productUrl, fuelType, caloriesKcal, carbsGrams, sodiumMg, proteinGrams, fatGrams } = parsedBody.data;
+
+  const fieldsToUpdate: Record<string, unknown> = {};
+  if (isLive !== undefined) fieldsToUpdate.is_live = isLive;
+  if (isArchived !== undefined) fieldsToUpdate.is_archived = isArchived;
+  if (name !== undefined) fieldsToUpdate.name = name;
+  if (slug !== undefined) fieldsToUpdate.slug = slug;
+  if (sku !== undefined) fieldsToUpdate.sku = sku;
+  if (productUrl !== undefined) fieldsToUpdate.product_url = productUrl;
+  if (fuelType !== undefined) fieldsToUpdate.fuel_type = fuelType;
+  if (caloriesKcal !== undefined) fieldsToUpdate.calories_kcal = caloriesKcal;
+  if (carbsGrams !== undefined) fieldsToUpdate.carbs_g = carbsGrams;
+  if (sodiumMg !== undefined) fieldsToUpdate.sodium_mg = sodiumMg;
+  if (proteinGrams !== undefined) fieldsToUpdate.protein_g = proteinGrams;
+  if (fatGrams !== undefined) fieldsToUpdate.fat_g = fatGrams;
+
+  if (Object.keys(fieldsToUpdate).length === 0) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid product update payload." }, { status: 400 }));
   }
 
   try {
-    const response = await fetch(`${auth.supabaseService.supabaseUrl}/rest/v1/products?id=eq.${parsedBody.data.id}`, {
+    const response = await fetch(`${auth.supabaseService.supabaseUrl}/rest/v1/products?id=eq.${id}`, {
       method: "PATCH",
       headers: {
         apikey: auth.supabaseService.supabaseServiceRoleKey,
@@ -144,7 +184,7 @@ export async function PATCH(request: NextRequest) {
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
-      body: JSON.stringify(updates),
+      body: JSON.stringify(fieldsToUpdate),
       cache: "no-store",
     });
 
