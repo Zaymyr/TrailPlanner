@@ -89,8 +89,8 @@ export default function AdminPage() {
 
       {activeTab === "products" && <AdminProductsTab accessToken={accessToken} />}
       {activeTab === "users" && <AdminUsersTab accessToken={accessToken} />}
-      {activeTab === "races" && <AdminRaceCatalogSection accessToken={accessToken} t={t.admin.raceCatalog} />}
-      {activeTab === "growth" && <AdminGrowthSection accessToken={accessToken} t={t.admin.growth} />}
+      {activeTab === "races" && <AdminRaceCatalogSection accessToken={accessToken ?? undefined} t={t.admin.raceCatalog} />}
+      {activeTab === "growth" && <AdminGrowthSection accessToken={accessToken ?? undefined} t={t.admin.growth} />}
       {activeTab === "analytics" && <AdminAnalyticsTab accessToken={accessToken} />}
     </div>
   );
