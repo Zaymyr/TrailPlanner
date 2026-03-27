@@ -26,6 +26,7 @@ export type OnboardingState = {
   gelTolerance: GelTolerance | null;
   aidAccess: AidAccess | null;
   solidFood: SolidFood | null;
+  fuelTypes: string[];
   raceId: string | null;
   checkpoints: RaceCheckpoint[] | null;
   elevationProfile: OnboardingElevationPoint[] | null;
@@ -41,6 +42,7 @@ type OnboardingContextType = {
   setGelTolerance: (v: GelTolerance) => void;
   setAidAccess: (v: AidAccess) => void;
   setSolidFood: (v: SolidFood) => void;
+  setFuelTypes: (v: string[]) => void;
   setRaceSelection: (raceId: string, distanceKm: number, elevationM: number, checkpoints: RaceCheckpoint[]) => void;
   clearRaceSelection: () => void;
   setElevationProfile: (v: OnboardingElevationPoint[]) => void;
@@ -58,6 +60,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
     gelTolerance: null,
     aidAccess: null,
     solidFood: null,
+    fuelTypes: [],
     raceId: null,
     checkpoints: null,
     elevationProfile: null,
@@ -75,6 +78,7 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
         setGelTolerance: (v) => setState((s) => ({ ...s, gelTolerance: v })),
         setAidAccess: (v) => setState((s) => ({ ...s, aidAccess: v })),
         setSolidFood: (v) => setState((s) => ({ ...s, solidFood: v })),
+        setFuelTypes: (v) => setState((s) => ({ ...s, fuelTypes: v })),
         setRaceSelection: (raceId, distanceKm, elevationM, checkpoints) =>
           setState((s) => ({
             ...s,

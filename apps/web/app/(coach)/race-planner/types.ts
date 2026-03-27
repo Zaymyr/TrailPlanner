@@ -17,7 +17,15 @@ export type SectionSegment = SegmentPlan & {
   label?: string;
 };
 
-export type AidStation = { name: string; distanceKm: number; waterRefill?: boolean } & SegmentPlan;
+export type AidStationNutritionItem = {
+  fuelType: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  carbsG: number;
+};
+
+export type AidStation = { name: string; distanceKm: number; waterRefill?: boolean; nutrition?: AidStationNutritionItem[] } & SegmentPlan;
 
 export type FormValues = {
   raceDistanceKm: number;
@@ -30,6 +38,7 @@ export type FormValues = {
   waterIntakePerHour: number;
   sodiumIntakePerHour: number;
   waterBagLiters: number;
+  fuelTypes?: string[];
   startSupplies?: StationSupply[];
   aidStations: AidStation[];
   finishPlan?: SegmentPlan;

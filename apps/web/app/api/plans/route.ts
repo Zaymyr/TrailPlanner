@@ -2,12 +2,15 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../lib/http";
-import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../lib/supabase";
+import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../lib/supabase";
 import { getUserEntitlements } from "../../../lib/entitlements";
+import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
+import type { FuelProduct } from "../../../lib/product-types";
 
 const plannerValuesSchema = z
   .object({
     segments: z.record(z.array(z.unknown())).optional(),
+    fuelTypes: z.array(z.string()).optional().default([]),
   })
   .passthrough();
 
@@ -177,6 +180,60 @@ export async function POST(request: Request) {
       parsedBody.data.name
     );
 
+    // Enrich aidStations with nutrition data when fuelTypes are present
+    let plannerValues = parsedBody.data.plannerValues;
+    const fuelTypes = plannerValues.fuelTypes ?? [];
+    const aidStations = Array.isArray(plannerValues.aidStations) ? plannerValues.aidStations : [];
+
+    if (fuelTypes.length > 0 && aidStations.length > 0) {
+      const serviceConfig = getSupabaseServiceConfig();
+      if (serviceConfig) {
+        const productsResponse = await fetch(
+          `${serviceConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,name,fuel_type,carbs_g`,
+          {
+            headers: {
+              apikey: serviceConfig.supabaseServiceRoleKey,
+              Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        );
+        if (productsResponse.ok) {
+          const rows = (await productsResponse.json().catch(() => [])) as Array<{
+            id: string;
+            slug: string;
+            name: string;
+            fuel_type: string;
+            carbs_g: number;
+          }>;
+          const products: FuelProduct[] = rows.map((r) => ({
+            id: r.id,
+            slug: r.slug,
+            name: r.name,
+            fuelType: r.fuel_type as FuelProduct["fuelType"],
+            carbsGrams: Number(r.carbs_g) || 0,
+            caloriesKcal: 0,
+            sodiumMg: 0,
+            proteinGrams: 0,
+            fatGrams: 0,
+          }));
+          const speedKph = typeof plannerValues.speedKph === "number" && plannerValues.speedKph > 0
+            ? plannerValues.speedKph
+            : typeof plannerValues.paceMinutes === "number" && plannerValues.paceMinutes > 0
+              ? 60 / (plannerValues.paceMinutes + (Number(plannerValues.paceSeconds) || 0) / 60)
+              : 8;
+          const enriched = computeAidStationNutrition(
+            aidStations,
+            fuelTypes,
+            Number(plannerValues.targetIntakePerHour) || 60,
+            speedKph,
+            products,
+          );
+          plannerValues = { ...plannerValues, aidStations: enriched };
+        }
+      }
+    }
+
     const response = await fetch(
       existingPlan
         ? `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${existingPlan.id}`
@@ -189,7 +246,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           name: parsedBody.data.name,
-          planner_values: parsedBody.data.plannerValues,
+          planner_values: plannerValues,
           elevation_profile: parsedBody.data.elevationProfile,
         }),
       }

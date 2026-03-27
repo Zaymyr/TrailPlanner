@@ -691,6 +691,14 @@ export const en: Translations = {
             "Create a free account to save multiple plans, load them any time, and unlock premium features like auto-fill and printable race sheets. Coaches can also share plans with their athletes.",
         },
       ],
+      improve: {
+        aidStationPreview: {
+          title: "Your first aid stations",
+          subtitle: "Based on your pace and nutrition preferences",
+          unit: "× {qty}",
+          totalCarbs: "≈ {carbs}g carbs",
+        },
+      },
     },
   },
   admin: {

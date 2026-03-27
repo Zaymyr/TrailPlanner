@@ -575,6 +575,14 @@ export type OnboardingTranslations = {
     OnboardingStep,
     OnboardingStep,
   ];
+  improve: {
+    aidStationPreview: {
+      title: string;
+      subtitle: string;
+      unit: string;
+      totalCarbs: string;
+    };
+  };
 };
 
 export type LandingPageTranslations = {
