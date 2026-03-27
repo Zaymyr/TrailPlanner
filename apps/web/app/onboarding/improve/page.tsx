@@ -13,6 +13,16 @@ import {
 import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
 import type { FuelProduct } from "../../../lib/product-types";
 
+const FUEL_TYPE_COLOR: Record<string, string> = {
+  gel: "#fbbf24",
+  electrolyte: "#3b82f6",
+  bar: "#f59e0b",
+  capsule: "#f97316",
+  drink_mix: "#06b6d4",
+  real_food: "#22c55e",
+  other: "#94a3b8",
+};
+
 const FUEL_TYPE_EMOJI: Record<string, string> = {
   gel: "🟡",
   drink_mix: "🔵",
@@ -276,6 +286,84 @@ export default function ImprovePage() {
                     "{carbs}",
                     String(Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))),
                   )}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Section A — Nutrition mix */}
+      {state.fuelTypes.length > 0 && (
+        <div
+          className="rounded-2xl p-5"
+          style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+        >
+          <h2 className="mb-3 text-base font-semibold" style={{ color: "#1a2e0a" }}>
+            {t.racePlanner.onboarding.improve.nutritionMix.title}
+          </h2>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {state.fuelTypes.map((type) => (
+              <span
+                key={type}
+                className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white"
+                style={{ backgroundColor: FUEL_TYPE_COLOR[type] ?? "#94a3b8" }}
+              >
+                {FUEL_TYPE_EMOJI[type] ?? "📦"}{" "}
+                {t.racePlanner.onboarding.fuelTypes[type as keyof typeof t.racePlanner.onboarding.fuelTypes]?.label ?? type}{" "}
+                {Math.round(100 / state.fuelTypes.length)}%
+              </span>
+            ))}
+          </div>
+          <div className="flex h-3 w-full overflow-hidden rounded-full">
+            {state.fuelTypes.map((type) => (
+              <div
+                key={type}
+                style={{
+                  width: `${100 / state.fuelTypes.length}%`,
+                  backgroundColor: FUEL_TYPE_COLOR[type] ?? "#94a3b8",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Section B — First 3 aid stations */}
+      {previewStations.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
+              {t.racePlanner.onboarding.improve.aidStationPreview.title}
+            </h2>
+            <p className="text-xs" style={{ color: "#6b7c5a" }}>
+              {t.racePlanner.onboarding.improve.aidStationPreview.subtitle}
+            </p>
+          </div>
+          {previewStations.map((station, i) => (
+            <div
+              key={i}
+              className="rounded-2xl p-4"
+              style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+            >
+              <p className="mb-2 text-sm font-semibold" style={{ color: "#1a2e0a" }}>
+                Ravito {i + 1} — {station.distanceKm} km
+              </p>
+              <div className="flex flex-col gap-1">
+                {(station.nutrition ?? []).map((item) => (
+                  <div key={item.fuelType} className="flex items-center justify-between">
+                    <span className="text-sm" style={{ color: "#1a2e0a" }}>
+                      {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName}
+                    </span>
+                    <span className="text-sm font-medium" style={{ color: "#2D5016" }}>
+                      × {item.quantity}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {(station.nutrition ?? []).length > 0 && (
+                <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
+                  ≈ {Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g glucides
                 </p>
               )}
             </div>

@@ -702,9 +702,12 @@ export const fr: Translations = {
         },
       ],
       improve: {
+        nutritionMix: {
+          title: "Ton mix nutritionnel",
+        },
         aidStationPreview: {
           title: "Tes premiers ravitaillements",
-          subtitle: "Basé sur ton allure et tes préférences nutritionnelles",
+          subtitle: "Basé sur ton allure et tes préférences",
           unit: "× {qty}",
           totalCarbs: "≈ {carbs}g de glucides",
         },

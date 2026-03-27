@@ -692,9 +692,12 @@ export const en: Translations = {
         },
       ],
       improve: {
+        nutritionMix: {
+          title: "Your nutrition mix",
+        },
         aidStationPreview: {
           title: "Your first aid stations",
-          subtitle: "Based on your pace and nutrition preferences",
+          subtitle: "Based on your pace and preferences",
           unit: "× {qty}",
           totalCarbs: "≈ {carbs}g carbs",
         },

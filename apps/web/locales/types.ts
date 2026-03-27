@@ -576,6 +576,9 @@ export type OnboardingTranslations = {
     OnboardingStep,
   ];
   improve: {
+    nutritionMix: {
+      title: string;
+    };
     aidStationPreview: {
       title: string;
       subtitle: string;
