@@ -36,7 +36,7 @@ export default function NutritionPage() {
       return;
     }
     setFuelTypes(selected);
-    router.push("/onboarding/nutrition/food");
+    router.push("/onboarding/improve");
   };
 
   return (
