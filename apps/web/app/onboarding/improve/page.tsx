@@ -223,7 +223,9 @@ export default function ImprovePage() {
                     className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
                     style={{ color: "#1a2e0a" }}
                   >
-                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{Math.ceil(item.quantity)}
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
+                    {item.productName.length > 20 ? item.productName.slice(0, 20) + "…" : item.productName}{" "}
+                    ×{Math.ceil(item.quantity)}
                   </span>
                 ))}
               </div>
@@ -302,7 +304,9 @@ export default function ImprovePage() {
                     className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
                     style={{ color: "#1a2e0a" }}
                   >
-                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} ×{Math.ceil(item.quantity)}
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
+                    {item.productName.length > 20 ? item.productName.slice(0, 20) + "…" : item.productName}{" "}
+                    ×{Math.ceil(item.quantity)}
                   </span>
                 ))}
               </div>
