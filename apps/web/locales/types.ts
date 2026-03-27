@@ -667,6 +667,23 @@ export type AdminTranslations = {
       setDraft: string;
       archive: string;
       restore: string;
+      edit: string;
+    };
+    editDialog: {
+      title: string;
+      name: string;
+      slug: string;
+      sku: string;
+      productUrl: string;
+      fuelType: string;
+      caloriesKcal: string;
+      carbsGrams: string;
+      sodiumMg: string;
+      proteinGrams: string;
+      fatGrams: string;
+      save: string;
+      saving: string;
+      cancel: string;
     };
   };
   users: {
