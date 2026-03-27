@@ -701,6 +701,14 @@ export const fr: Translations = {
             "Créez un compte gratuit pour sauvegarder plusieurs plans, les recharger à tout moment et débloquer les fonctionnalités premium comme le remplissage auto et les fiches de course imprimables. Les coachs peuvent aussi partager leurs plans avec leurs athlètes.",
         },
       ],
+      improve: {
+        aidStationPreview: {
+          title: "Tes premiers ravitaillements",
+          subtitle: "Basé sur ton allure et tes préférences nutritionnelles",
+          unit: "× {qty}",
+          totalCarbs: "≈ {carbs}g de glucides",
+        },
+      },
     },
   },
   admin: {

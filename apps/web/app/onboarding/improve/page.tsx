@@ -1,13 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
+import { useI18n } from "../../i18n-provider";
 import {
   calculateNutrition,
   calculateAdjustedPace,
   formatEstimatedTime,
   formatAveragePace,
 } from "../../../lib/nutrition";
+import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
+import type { FuelProduct } from "../../../lib/product-types";
+
+const FUEL_TYPE_EMOJI: Record<string, string> = {
+  gel: "🟡",
+  drink_mix: "🔵",
+  electrolyte: "💧",
+  capsule: "💊",
+  bar: "🍫",
+  real_food: "🍌",
+  other: "📦",
+};
 
 type FoodItem = {
   emoji: string;
@@ -72,6 +86,19 @@ function computeFoodMix(
 export default function ImprovePage() {
   const router = useRouter();
   const { state } = useOnboarding();
+  const { t } = useI18n();
+  const aidStationCopy = t.racePlanner.onboarding.improve.aidStationPreview;
+
+  const [products, setProducts] = useState<FuelProduct[]>([]);
+
+  useEffect(() => {
+    fetch("/api/products")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data?.products)) setProducts(data.products as FuelProduct[]);
+      })
+      .catch(() => {});
+  }, []);
 
   const distance = state.distance ?? 42;
   const elevation = state.elevation ?? 1500;
@@ -84,6 +111,23 @@ export default function ImprovePage() {
 
   const totalCarbs = Math.round(plan.carbsPerHour * (estimatedMinutes / 60));
   const foodItems = computeFoodMix(totalCarbs, state.gelTolerance, state.solidFood);
+
+  const paceMinPerKm = calculateAdjustedPace(distance, elevation, goal);
+  const speedKph = 60 / paceMinPerKm;
+  const rawAidStations = (state.checkpoints ?? []).map((cp) => ({
+    name: cp.name,
+    distanceKm: cp.km,
+  }));
+  const previewStations =
+    state.fuelTypes.length > 0 && rawAidStations.length > 0
+      ? computeAidStationNutrition(
+          rawAidStations,
+          state.fuelTypes,
+          plan.carbsPerHour,
+          speedKph,
+          products,
+        ).slice(0, 3)
+      : [];
 
   function handleCTA() {
     router.push("/onboarding/account");
@@ -194,6 +238,51 @@ export default function ImprovePage() {
           </div>
         )}
       </div>
+
+      {/* Aid station preview */}
+      {previewStations.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
+              {aidStationCopy.title}
+            </h2>
+            <p className="text-xs" style={{ color: "#6b7c5a" }}>
+              {aidStationCopy.subtitle}
+            </p>
+          </div>
+          {previewStations.map((station, i) => (
+            <div
+              key={i}
+              className="rounded-2xl p-4"
+              style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+            >
+              <p className="mb-2 text-sm font-semibold" style={{ color: "#1a2e0a" }}>
+                {station.name} — {station.distanceKm} km
+              </p>
+              <div className="flex flex-col gap-1">
+                {(station.nutrition ?? []).map((item) => (
+                  <div key={item.fuelType} className="flex items-center justify-between">
+                    <span className="text-sm" style={{ color: "#1a2e0a" }}>
+                      {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName}
+                    </span>
+                    <span className="text-sm font-medium" style={{ color: "#2D5016" }}>
+                      {aidStationCopy.unit.replace("{qty}", String(item.quantity))}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {(station.nutrition ?? []).length > 0 && (
+                <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
+                  {aidStationCopy.totalCarbs.replace(
+                    "{carbs}",
+                    String(Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))),
+                  )}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* CTA */}
       <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
