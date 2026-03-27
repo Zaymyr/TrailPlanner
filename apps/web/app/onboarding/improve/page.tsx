@@ -31,13 +31,12 @@ type FoodItem = {
 
 function computeFoodMix(
   totalCarbs: number,
-  gelTolerance: "well" | "varied" | "avoid" | null,
-  solidFood: "banana" | "bars" | "tuc" | "dates" | null
+  fuelTypes: string[],
+  solidFood: string | null
 ): FoodItem[] {
   const gelCarbsPerUnit = 25;
 
-  const gelFraction =
-    gelTolerance === "well" ? 0.4 : gelTolerance === "varied" ? 0.2 : 0;
+  const gelFraction = fuelTypes.includes("gel") ? 0.4 : 0;
 
   const gelCarbs = Math.round(totalCarbs * gelFraction);
   const remainingCarbs = totalCarbs - gelCarbs;
@@ -110,7 +109,7 @@ export default function ImprovePage() {
   const averagePace = formatAveragePace(distance, elevation, goal);
 
   const totalCarbs = Math.round(plan.carbsPerHour * (estimatedMinutes / 60));
-  const foodItems = computeFoodMix(totalCarbs, state.gelTolerance, state.solidFood);
+  const foodItems = computeFoodMix(totalCarbs, state.fuelTypes, state.solidFoodPreference);
 
   const paceMinPerKm = calculateAdjustedPace(distance, elevation, goal);
   const speedKph = 60 / paceMinPerKm;

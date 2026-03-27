@@ -3,10 +3,9 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../../contexts/OnboardingContext";
-import type { SolidFood } from "../../../../contexts/OnboardingContext";
 
 type FoodOption = {
-  value: SolidFood;
+  value: string;
   label: string;
   emoji: string;
 };
@@ -22,7 +21,7 @@ const NEXT_STEP = "/onboarding/improve";
 
 export default function NutritionFoodPage() {
   const router = useRouter();
-  const { state, setSolidFood } = useOnboarding();
+  const { state, setSolidFoodPreference } = useOnboarding();
 
   const showSolidFoodQuestion =
     state.fuelTypes.includes("real_food") || state.fuelTypes.includes("bar");
@@ -54,11 +53,11 @@ export default function NutritionFoodPage() {
         </p>
         <div className="flex flex-col gap-2">
           {FOOD_OPTIONS.map((option) => {
-            const isSelected = state.solidFood === option.value;
+            const isSelected = state.solidFoodPreference === option.value;
             return (
               <button
                 key={option.value}
-                onClick={() => setSolidFood(option.value)}
+                onClick={() => setSolidFoodPreference(option.value)}
                 className="flex w-full items-center gap-4 rounded-2xl px-5 py-4 text-left transition-all active:scale-[0.98]"
                 style={{
                   backgroundColor: "#ffffff",
@@ -98,7 +97,7 @@ export default function NutritionFoodPage() {
       >
         <button
           onClick={() => router.push(NEXT_STEP)}
-          disabled={!state.solidFood}
+          disabled={!state.solidFoodPreference}
           className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "#2D5016" }}
         >
