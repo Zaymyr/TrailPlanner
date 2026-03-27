@@ -822,32 +822,32 @@ export default function AdminPage() {
             </DialogHeader>
             <form onSubmit={handleEditSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-product-name">{t.admin.products.editDialog.nameLabel}</Label>
+                <Label htmlFor="edit-product-name">{t.admin.products.editDialog.name}</Label>
                 <Input id="edit-product-name" {...editForm.register("name")} />
                 {editForm.formState.errors.name ? (
                   <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.name.message}</p>
                 ) : null}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-product-slug">{t.admin.products.editDialog.slugLabel}</Label>
+                <Label htmlFor="edit-product-slug">{t.admin.products.editDialog.slug}</Label>
                 <Input id="edit-product-slug" {...editForm.register("slug")} />
                 {editForm.formState.errors.slug ? (
                   <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.slug.message}</p>
                 ) : null}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-product-sku">{t.admin.products.editDialog.skuLabel}</Label>
+                <Label htmlFor="edit-product-sku">{t.admin.products.editDialog.sku}</Label>
                 <Input id="edit-product-sku" {...editForm.register("sku")} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-product-url">{t.admin.products.editDialog.productUrlLabel}</Label>
+                <Label htmlFor="edit-product-url">{t.admin.products.editDialog.productUrl}</Label>
                 <Input id="edit-product-url" type="url" {...editForm.register("productUrl")} />
                 {editForm.formState.errors.productUrl ? (
                   <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.productUrl.message}</p>
                 ) : null}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-product-fuel-type">{t.admin.products.editDialog.fuelTypeLabel}</Label>
+                <Label htmlFor="edit-product-fuel-type">{t.admin.products.editDialog.fuelType}</Label>
                 <select
                   id="edit-product-fuel-type"
                   className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
@@ -862,35 +862,35 @@ export default function AdminPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-product-calories">{t.admin.products.editDialog.caloriesKcalLabel}</Label>
+                  <Label htmlFor="edit-product-calories">{t.admin.products.editDialog.caloriesKcal}</Label>
                   <Input id="edit-product-calories" type="number" min="0" {...editForm.register("caloriesKcal")} />
                   {editForm.formState.errors.caloriesKcal ? (
                     <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.caloriesKcal.message}</p>
                   ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-product-carbs">{t.admin.products.editDialog.carbsGramsLabel}</Label>
+                  <Label htmlFor="edit-product-carbs">{t.admin.products.editDialog.carbsGrams}</Label>
                   <Input id="edit-product-carbs" type="number" min="0" {...editForm.register("carbsGrams")} />
                   {editForm.formState.errors.carbsGrams ? (
                     <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.carbsGrams.message}</p>
                   ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-product-sodium">{t.admin.products.editDialog.sodiumMgLabel}</Label>
+                  <Label htmlFor="edit-product-sodium">{t.admin.products.editDialog.sodiumMg}</Label>
                   <Input id="edit-product-sodium" type="number" min="0" {...editForm.register("sodiumMg")} />
                   {editForm.formState.errors.sodiumMg ? (
                     <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.sodiumMg.message}</p>
                   ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-product-protein">{t.admin.products.editDialog.proteinGramsLabel}</Label>
+                  <Label htmlFor="edit-product-protein">{t.admin.products.editDialog.proteinGrams}</Label>
                   <Input id="edit-product-protein" type="number" min="0" {...editForm.register("proteinGrams")} />
                   {editForm.formState.errors.proteinGrams ? (
                     <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.proteinGrams.message}</p>
                   ) : null}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-product-fat">{t.admin.products.editDialog.fatGramsLabel}</Label>
+                  <Label htmlFor="edit-product-fat">{t.admin.products.editDialog.fatGrams}</Label>
                   <Input id="edit-product-fat" type="number" min="0" {...editForm.register("fatGrams")} />
                   {editForm.formState.errors.fatGrams ? (
                     <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.fatGrams.message}</p>

@@ -671,16 +671,16 @@ export type AdminTranslations = {
     };
     editDialog: {
       title: string;
-      nameLabel: string;
-      slugLabel: string;
-      skuLabel: string;
-      productUrlLabel: string;
-      fuelTypeLabel: string;
-      caloriesKcalLabel: string;
-      carbsGramsLabel: string;
-      sodiumMgLabel: string;
-      proteinGramsLabel: string;
-      fatGramsLabel: string;
+      name: string;
+      slug: string;
+      sku: string;
+      productUrl: string;
+      fuelType: string;
+      caloriesKcal: string;
+      carbsGrams: string;
+      sodiumMg: string;
+      proteinGrams: string;
+      fatGrams: string;
       save: string;
       saving: string;
       cancel: string;
