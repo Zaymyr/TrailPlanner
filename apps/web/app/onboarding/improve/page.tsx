@@ -12,6 +12,7 @@ import {
 } from "../../../lib/nutrition";
 import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
 import type { FuelProduct } from "../../../lib/product-types";
+import type { NutritionItem } from "../../../lib/nutrition-planner";
 
 const FUEL_TYPE_COLOR: Record<string, string> = {
   gel: "#fbbf24",
@@ -33,65 +34,6 @@ const FUEL_TYPE_EMOJI: Record<string, string> = {
   other: "📦",
 };
 
-type FoodItem = {
-  emoji: string;
-  label: string;
-  count: number;
-  carbsG: number;
-};
-
-function computeFoodMix(
-  totalCarbs: number,
-  fuelTypes: string[],
-  solidFood: string | null
-): FoodItem[] {
-  const gelCarbsPerUnit = 25;
-
-  const gelFraction = fuelTypes.includes("gel") ? 0.4 : 0;
-
-  const gelCarbs = Math.round(totalCarbs * gelFraction);
-  const remainingCarbs = totalCarbs - gelCarbs;
-
-  const items: FoodItem[] = [];
-
-  const gelCount = Math.ceil(gelCarbs / gelCarbsPerUnit);
-  if (gelCount > 0) {
-    items.push({ emoji: "🧃", label: "gels", count: gelCount, carbsG: gelCount * 25 });
-  }
-
-  if (remainingCarbs > 0) {
-    switch (solidFood) {
-      case "banana": {
-        const count = Math.ceil(remainingCarbs / 25);
-        items.push({ emoji: "🍌", label: "bananes", count, carbsG: count * 25 });
-        break;
-      }
-      case "bars": {
-        const count = Math.ceil(remainingCarbs / 35);
-        items.push({ emoji: "🍫", label: "barres", count, carbsG: count * 35 });
-        break;
-      }
-      case "tuc": {
-        const count = Math.ceil(remainingCarbs / 5);
-        items.push({ emoji: "🥐", label: "portions TUC", count, carbsG: count * 5 });
-        break;
-      }
-      case "dates": {
-        const count = Math.ceil(remainingCarbs / 7);
-        items.push({ emoji: "🌴", label: "dattes", count, carbsG: count * 7 });
-        break;
-      }
-      default: {
-        // fallback: bananas
-        const count = Math.ceil(remainingCarbs / 25);
-        items.push({ emoji: "🍌", label: "bananes", count, carbsG: count * 25 });
-        break;
-      }
-    }
-  }
-
-  return items;
-}
 
 export default function ImprovePage() {
   const router = useRouter();
@@ -119,16 +61,13 @@ export default function ImprovePage() {
   const estimatedTime = formatEstimatedTime(distance, elevation, goal);
   const averagePace = formatAveragePace(distance, elevation, goal);
 
-  const totalCarbs = Math.round(plan.carbsPerHour * (estimatedMinutes / 60));
-  const foodItems = computeFoodMix(totalCarbs, state.fuelTypes, state.solidFoodPreference);
-
   const paceMinPerKm = calculateAdjustedPace(distance, elevation, goal);
   const speedKph = 60 / paceMinPerKm;
   const rawAidStations = (state.checkpoints ?? []).map((cp) => ({
     name: cp.name,
     distanceKm: cp.km,
   }));
-  const previewStations =
+  const allStationsWithNutrition =
     state.fuelTypes.length > 0 && rawAidStations.length > 0
       ? computeAidStationNutrition(
           rawAidStations,
@@ -136,8 +75,24 @@ export default function ImprovePage() {
           plan.carbsPerHour,
           speedKph,
           products,
-        ).slice(0, 5)
+        )
       : [];
+  const previewStations = allStationsWithNutrition.slice(0, 5);
+
+  const planSummary = Object.values(
+    allStationsWithNutrition
+      .flatMap((s) => s.nutrition ?? [])
+      .reduce<Record<string, NutritionItem & { quantity: number; carbsG: number }>>(
+        (acc, item) => {
+          if (!acc[item.fuelType]) acc[item.fuelType] = { ...item, quantity: 0, carbsG: 0 };
+          acc[item.fuelType].quantity += item.quantity;
+          acc[item.fuelType].carbsG += item.carbsG;
+          return acc;
+        },
+        {},
+      ),
+  );
+  const planTotalCarbs = Math.round(planSummary.reduce((s, n) => s + n.carbsG, 0));
 
   function handleCTA() {
     router.push("/onboarding/account");
@@ -208,19 +163,22 @@ export default function ImprovePage() {
         </h2>
 
         <div className="flex flex-wrap gap-2">
-          {foodItems.map((item) => (
+          {planSummary.map((item) => (
             <span
-              key={item.label}
+              key={item.fuelType}
               className="rounded-full bg-slate-100 px-3 py-1 text-sm"
               style={{ color: "#1a2e0a" }}
             >
-              {item.emoji} {item.count} {item.label} · {item.carbsG}g
+              {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
+              {Math.ceil(item.quantity)}{" "}
+              {t.racePlanner.onboarding.fuelTypes[item.fuelType as keyof typeof t.racePlanner.onboarding.fuelTypes]?.label ?? item.fuelType}{" "}
+              · {Math.round(item.carbsG)}g
             </span>
           ))}
         </div>
 
         <p className="mt-2 text-xs" style={{ color: "#6b7c5a" }}>
-          Total : {totalCarbs}g glucides · {plan.sodiumPerHour}mg sodium/h · {plan.waterPerHour}ml eau/h
+          Total : {planTotalCarbs}g glucides · {plan.sodiumPerHour}mg sodium/h · {plan.waterPerHour}ml eau/h
         </p>
 
         {state.aidAccess === "autonomous" && (
