@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../../contexts/OnboardingContext";
 import type { SolidFood } from "../../../../contexts/OnboardingContext";
@@ -17,9 +18,24 @@ const FOOD_OPTIONS: FoodOption[] = [
   { value: "dates", label: "Dattes", emoji: "🌴" },
 ];
 
+const NEXT_STEP = "/onboarding/improve";
+
 export default function NutritionFoodPage() {
   const router = useRouter();
   const { state, setSolidFood } = useOnboarding();
+
+  const showSolidFoodQuestion =
+    state.fuelTypes.includes("real_food") || state.fuelTypes.includes("bar");
+
+  useEffect(() => {
+    if (!showSolidFoodQuestion) {
+      router.replace(NEXT_STEP);
+    }
+  }, [showSolidFoodQuestion, router]);
+
+  if (!showSolidFoodQuestion) {
+    return null;
+  }
 
   return (
     <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
@@ -76,11 +92,12 @@ export default function NutritionFoodPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+      <div
+        className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
-          onClick={() => router.push("/onboarding/improve")}
+          onClick={() => router.push(NEXT_STEP)}
           disabled={!state.solidFood}
           className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-40"
           style={{ backgroundColor: "#2D5016" }}
