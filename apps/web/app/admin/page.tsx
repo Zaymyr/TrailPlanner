@@ -21,6 +21,7 @@ import {
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { fuelTypeValues } from "../../lib/fuel-types";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
 import AdminGrowthSection from "./components/AdminGrowthSection";
@@ -35,7 +36,28 @@ const adminProductSchema = z.object({
   isLive: z.boolean(),
   isArchived: z.boolean(),
   updatedAt: z.string(),
+  fuelType: z.string().optional(),
+  caloriesKcal: z.number().nonnegative().optional(),
+  carbsGrams: z.number().nonnegative().optional(),
+  sodiumMg: z.number().nonnegative().optional(),
+  proteinGrams: z.number().nonnegative().optional(),
+  fatGrams: z.number().nonnegative().optional(),
 });
+
+const editProductFormSchema = z.object({
+  name: z.string().trim().min(1),
+  slug: z.string().trim().min(1),
+  sku: z.string().trim().optional(),
+  productUrl: z.string().url().or(z.literal("")).optional(),
+  fuelType: z.enum(fuelTypeValues),
+  caloriesKcal: z.coerce.number().nonnegative(),
+  carbsGrams: z.coerce.number().nonnegative(),
+  sodiumMg: z.coerce.number().nonnegative(),
+  proteinGrams: z.coerce.number().nonnegative(),
+  fatGrams: z.coerce.number().nonnegative(),
+});
+
+type EditProductFormValues = z.infer<typeof editProductFormSchema>;
 
 const adminUsersSchema = z.object({
   users: z.array(
@@ -167,6 +189,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState("products");
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [premiumDialogUser, setPremiumDialogUser] = useState<z.infer<typeof adminUserSchema> | null>(null);
+  const [editProduct, setEditProduct] = useState<z.infer<typeof adminProductSchema> | null>(null);
 
   const accessToken = session?.accessToken;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
@@ -191,6 +214,22 @@ export default function AdminPage() {
     },
   });
 
+  const editForm = useForm<EditProductFormValues>({
+    resolver: zodResolver(editProductFormSchema),
+    defaultValues: {
+      name: "",
+      slug: "",
+      sku: "",
+      productUrl: "",
+      fuelType: "other",
+      caloriesKcal: 0,
+      carbsGrams: 0,
+      sodiumMg: 0,
+      proteinGrams: 0,
+      fatGrams: 0,
+    },
+  });
+
   useEffect(() => {
     if (!premiumDialogOpen) {
       premiumForm.reset({
@@ -209,6 +248,21 @@ export default function AdminPage() {
       });
     }
   }, [premiumDialogOpen, premiumDialogUser, premiumForm, premiumReasonOptions]);
+
+  useEffect(() => {
+    editForm.reset({
+      name: editProduct?.name ?? "",
+      slug: editProduct?.slug ?? "",
+      sku: editProduct?.sku ?? "",
+      productUrl: editProduct?.productUrl ?? "",
+      fuelType: (fuelTypeValues as readonly string[]).includes(editProduct?.fuelType ?? "") ? (editProduct?.fuelType as EditProductFormValues["fuelType"]) : "other",
+      caloriesKcal: editProduct?.caloriesKcal ?? 0,
+      carbsGrams: editProduct?.carbsGrams ?? 0,
+      sodiumMg: editProduct?.sodiumMg ?? 0,
+      proteinGrams: editProduct?.proteinGrams ?? 0,
+      fatGrams: editProduct?.fatGrams ?? 0,
+    });
+  }, [editProduct, editForm]);
 
   const productsQuery = useQuery({
     queryKey: ["admin", "products", accessToken],
@@ -269,6 +323,59 @@ export default function AdminPage() {
     onSuccess: () => {
       setProductError(null);
       setProductMessage(t.admin.products.messages.updated);
+      void productsQuery.refetch();
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : t.admin.products.messages.error;
+      setProductError(message);
+      setProductMessage(null);
+    },
+  });
+
+  const editProductMutation = useMutation({
+    mutationFn: async (payload: { id: string } & EditProductFormValues) => {
+      if (!accessToken) throw new Error(t.admin.products.messages.error);
+
+      const response = await fetch("/api/admin/products", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          id: payload.id,
+          name: payload.name,
+          slug: payload.slug,
+          sku: payload.sku || undefined,
+          productUrl: payload.productUrl || undefined,
+          fuelType: payload.fuelType,
+          caloriesKcal: payload.caloriesKcal,
+          carbsGrams: payload.carbsGrams,
+          sodiumMg: payload.sodiumMg,
+          proteinGrams: payload.proteinGrams,
+          fatGrams: payload.fatGrams,
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as unknown;
+
+      if (!response.ok) {
+        const message = (data as { message?: string } | null)?.message ?? t.admin.products.messages.error;
+        throw new Error(message);
+      }
+
+      const parsed = z.object({ product: adminProductSchema }).safeParse(data);
+
+      if (!parsed.success) {
+        throw new Error(t.admin.products.messages.error);
+      }
+
+      return parsed.data.product;
+    },
+    onSuccess: () => {
+      setProductError(null);
+      setProductMessage(t.admin.products.messages.updated);
+      setEditProduct(null);
       void productsQuery.refetch();
     },
     onError: (error) => {
@@ -496,6 +603,11 @@ export default function AdminPage() {
     });
   });
 
+  const handleEditSubmit = editForm.handleSubmit((values) => {
+    if (!editProduct) return;
+    editProductMutation.mutate({ id: editProduct.id, ...values });
+  });
+
   const getUserRoles = (user: z.infer<typeof adminUserSchema>): UserRoleOption[] => {
     const roles = (user.roles ?? (user.role ? [user.role] : [])) as UserRoleOption[];
     return roles.length > 0 ? roles : ["user"];
@@ -590,6 +702,7 @@ export default function AdminPage() {
       />
 
       {activeTab === "products" && (
+        <>
         <Card>
           <CardHeader>
             <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.products.title}</CardTitle>
@@ -640,6 +753,14 @@ export default function AdminPage() {
                         <Button
                           className="h-9 px-3 text-sm"
                           variant="outline"
+                          disabled={updateProductMutation.isPending || editProductMutation.isPending}
+                          onClick={() => setEditProduct(product)}
+                        >
+                          {t.admin.products.actions.edit}
+                        </Button>
+                        <Button
+                          className="h-9 px-3 text-sm"
+                          variant="outline"
                           disabled={updateProductMutation.isPending}
                           onClick={() =>
                             updateProductMutation.mutate({
@@ -687,6 +808,113 @@ export default function AdminPage() {
             ) : null}
           </CardContent>
         </Card>
+
+        <Dialog
+          open={editProduct !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditProduct(null);
+          }}
+        >
+          <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{t.admin.products.editDialog.title}</DialogTitle>
+              <DialogDescription>{editProduct?.name}</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-name">{t.admin.products.editDialog.nameLabel}</Label>
+                <Input id="edit-product-name" {...editForm.register("name")} />
+                {editForm.formState.errors.name ? (
+                  <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.name.message}</p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-slug">{t.admin.products.editDialog.slugLabel}</Label>
+                <Input id="edit-product-slug" {...editForm.register("slug")} />
+                {editForm.formState.errors.slug ? (
+                  <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.slug.message}</p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-sku">{t.admin.products.editDialog.skuLabel}</Label>
+                <Input id="edit-product-sku" {...editForm.register("sku")} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-url">{t.admin.products.editDialog.productUrlLabel}</Label>
+                <Input id="edit-product-url" type="url" {...editForm.register("productUrl")} />
+                {editForm.formState.errors.productUrl ? (
+                  <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.productUrl.message}</p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-product-fuel-type">{t.admin.products.editDialog.fuelTypeLabel}</Label>
+                <select
+                  id="edit-product-fuel-type"
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  {...editForm.register("fuelType")}
+                >
+                  {fuelTypeValues.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-product-calories">{t.admin.products.editDialog.caloriesKcalLabel}</Label>
+                  <Input id="edit-product-calories" type="number" min="0" {...editForm.register("caloriesKcal")} />
+                  {editForm.formState.errors.caloriesKcal ? (
+                    <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.caloriesKcal.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-product-carbs">{t.admin.products.editDialog.carbsGramsLabel}</Label>
+                  <Input id="edit-product-carbs" type="number" min="0" {...editForm.register("carbsGrams")} />
+                  {editForm.formState.errors.carbsGrams ? (
+                    <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.carbsGrams.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-product-sodium">{t.admin.products.editDialog.sodiumMgLabel}</Label>
+                  <Input id="edit-product-sodium" type="number" min="0" {...editForm.register("sodiumMg")} />
+                  {editForm.formState.errors.sodiumMg ? (
+                    <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.sodiumMg.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-product-protein">{t.admin.products.editDialog.proteinGramsLabel}</Label>
+                  <Input id="edit-product-protein" type="number" min="0" {...editForm.register("proteinGrams")} />
+                  {editForm.formState.errors.proteinGrams ? (
+                    <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.proteinGrams.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-product-fat">{t.admin.products.editDialog.fatGramsLabel}</Label>
+                  <Input id="edit-product-fat" type="number" min="0" {...editForm.register("fatGrams")} />
+                  {editForm.formState.errors.fatGrams ? (
+                    <p className="text-xs text-red-600 dark:text-red-300">{editForm.formState.errors.fatGrams.message}</p>
+                  ) : null}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditProduct(null)}
+                >
+                  {t.admin.products.editDialog.cancel}
+                </Button>
+                <Button type="submit" disabled={editProductMutation.isPending}>
+                  {editProductMutation.isPending
+                    ? t.admin.products.editDialog.saving
+                    : t.admin.products.editDialog.save}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+        </>
       )}
 
       {activeTab === "users" && (
