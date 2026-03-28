@@ -295,7 +295,7 @@ export default function ImprovePage() {
               <p className="mb-3 text-sm text-foreground">
                 🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
               </p>
-              <Button variant="outline" size="sm" onClick={handleCTA}>
+              <Button variant="outline" onClick={handleCTA}>
                 {t.racePlanner.onboarding.improve.createAccount}
               </Button>
             </div>
