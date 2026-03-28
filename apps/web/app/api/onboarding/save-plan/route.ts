@@ -28,20 +28,19 @@ export async function POST(request: Request) {
   console.log("[save-plan] called — userId:", userId, "name:", name, "catalogRaceId:", catalogRaceId ?? null, "aidStations:", Array.isArray((plannerValues as Record<string,unknown>).aidStations) ? ((plannerValues as Record<string,unknown>).aidStations as unknown[]).length : 0);
 
   try {
-    // Idempotency guard: if a plan was already saved for this user in the last 60 seconds,
-    // return it instead of creating a duplicate (handles React StrictMode double-invocation
-    // and any other race conditions).
-    const since = new Date(Date.now() - 60_000).toISOString();
-    const checkRes = await fetch(
-      `${serviceConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${userId}&created_at=gte.${since}&select=id&limit=1`,
-      {
-        headers: {
-          apikey: serviceConfig.supabaseServiceRoleKey,
-          Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
-        },
-        cache: "no-store",
-      }
-    );
+    // Idempotency guard: when a catalogRaceId is present use user_id+race_id for a permanent
+    // dedup (no time-window race condition). Without a race_id, fall back to a short time
+    // window to handle concurrent requests from StrictMode / double-submits.
+    const idempotencyUrl = catalogRaceId
+      ? `${serviceConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${userId}&race_id=eq.${catalogRaceId}&select=id&limit=1`
+      : `${serviceConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${userId}&created_at=gte.${new Date(Date.now() - 60_000).toISOString()}&select=id&limit=1`;
+    const checkRes = await fetch(idempotencyUrl, {
+      headers: {
+        apikey: serviceConfig.supabaseServiceRoleKey,
+        Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+      },
+      cache: "no-store",
+    });
     const existing = await checkRes.json().catch(() => []);
     if (Array.isArray(existing) && existing.length > 0) {
       console.log("[save-plan] duplicate detected — returning existing plan:", existing[0].id);
