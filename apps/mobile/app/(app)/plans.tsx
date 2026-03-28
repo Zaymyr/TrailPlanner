@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
+import { Colors } from '../../constants/colors';
 
 type PlanRow = {
   id: string;
@@ -216,7 +217,7 @@ export default function PlansScreen() {
   const selectedPlan = plans.find((p) => p.id === menuPlanId);
 
   if (loading) {
-    return <View style={styles.center}><ActivityIndicator color="#22c55e" size="large" /></View>;
+    return <View style={styles.center}><ActivityIndicator color={Colors.brandPrimary} size="large" /></View>;
   }
 
   if (error) {
@@ -231,7 +232,7 @@ export default function PlansScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0f172a' }}>
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <SectionList
         sections={sections.map((s) => ({ ...s, key: s.raceId ?? '__orphan__' }))}
         keyExtractor={(item) => item.id}
@@ -240,7 +241,7 @@ export default function PlansScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => { setRefreshing(true); fetchData(); }}
-            tintColor="#22c55e"
+            tintColor={Colors.brandPrimary}
           />
         }
         stickySectionHeadersEnabled={false}
@@ -388,10 +389,10 @@ export default function PlansScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a', padding: 24 },
-  errorText: { color: '#ef4444', fontSize: 15, textAlign: 'center', marginBottom: 16 },
-  retryButton: { backgroundColor: '#1e293b', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
-  retryButtonText: { color: '#f1f5f9', fontSize: 15 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, padding: 24 },
+  errorText: { color: Colors.danger, fontSize: 15, textAlign: 'center', marginBottom: 16 },
+  retryButton: { backgroundColor: Colors.surface, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  retryButtonText: { color: Colors.textPrimary, fontSize: 15 },
   list: { padding: 16, gap: 4, paddingBottom: 100 },
   listEmpty: { flex: 1 },
   sectionHeader: {
@@ -401,62 +402,70 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 10,
     marginTop: 8,
+    backgroundColor: Colors.background,
   },
-  sectionCollapseIcon: { color: '#475569', fontSize: 11, width: 14 },
-  sectionTitle: { color: '#f1f5f9', fontSize: 15, fontWeight: '700', flex: 1 },
-  editRaceText: { color: '#94a3b8', fontSize: 12 },
+  sectionCollapseIcon: { color: Colors.brandPrimary, fontSize: 11, width: 14 },
+  sectionTitle: { color: Colors.brandPrimary, fontSize: 15, fontWeight: '600', flex: 1 },
+  editRaceText: { color: Colors.textSecondary, fontSize: 12 },
   addPlanBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     width: 28,
     height: 28,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
-  addPlanBtnText: { color: '#22c55e', fontSize: 18, fontWeight: '700', lineHeight: 22 },
-  orphanWarning: { color: '#fbbf24', fontSize: 12, paddingHorizontal: 4, paddingBottom: 8 },
+  addPlanBtnText: { color: Colors.brandPrimary, fontSize: 18, fontWeight: '700', lineHeight: 22 },
+  orphanWarning: { color: Colors.warning, fontSize: 12, paddingHorizontal: 4, paddingBottom: 8 },
   card: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
     marginLeft: 22,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardContent: { flex: 1, marginRight: 12 },
-  planName: { fontSize: 15, fontWeight: '600', color: '#f1f5f9', marginBottom: 4 },
+  planName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, marginBottom: 4 },
   meta: { flexDirection: 'row', flexWrap: 'wrap' },
-  metaText: { fontSize: 13, color: '#94a3b8' },
-  metaDate: { fontSize: 13, color: '#475569' },
+  metaText: { fontSize: 13, color: Colors.textSecondary },
+  metaDate: { fontSize: 13, color: Colors.textMuted },
   cardActions: { alignItems: 'flex-end', gap: 8 },
   menuButton: { paddingHorizontal: 8, paddingVertical: 2 },
-  menuButtonText: { color: '#94a3b8', fontSize: 20, fontWeight: '700', letterSpacing: 1 },
-  startButton: { backgroundColor: '#14532d', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  startButtonText: { color: '#22c55e', fontWeight: '700', fontSize: 13 },
+  menuButtonText: { color: Colors.textSecondary, fontSize: 20, fontWeight: '700', letterSpacing: 1 },
+  startButton: { backgroundColor: Colors.brandPrimary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  startButtonText: { color: Colors.textOnBrand, fontWeight: '700', fontSize: 13 },
   fab: {
     position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#22c55e', justifyContent: 'center', alignItems: 'center',
-    elevation: 6, shadowColor: '#22c55e', shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.4, shadowRadius: 6,
+    backgroundColor: Colors.brandPrimary, justifyContent: 'center', alignItems: 'center',
+    elevation: 6, shadowColor: Colors.brandPrimary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8,
   },
-  fabText: { color: '#0f172a', fontSize: 28, fontWeight: '700', lineHeight: 32 },
+  fabText: { color: Colors.textOnBrand, fontSize: 28, fontWeight: '700', lineHeight: 32 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, paddingVertical: 64 },
   emptyIcon: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { fontSize: 20, fontWeight: '700', color: '#f1f5f9', textAlign: 'center', marginBottom: 8 },
-  emptySubtitle: { fontSize: 15, color: '#94a3b8', textAlign: 'center', lineHeight: 22, marginBottom: 32 },
-  emptyButton: { backgroundColor: '#22c55e', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14 },
-  emptyButtonText: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
+  emptyTitle: { fontSize: 20, fontWeight: '700', color: Colors.textPrimary, textAlign: 'center', marginBottom: 8 },
+  emptySubtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32 },
+  emptyButton: { backgroundColor: Colors.brandPrimary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14 },
+  emptyButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  menuSheet: { backgroundColor: '#1e293b', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, paddingTop: 8, paddingHorizontal: 8 },
-  menuTitle: { color: '#94a3b8', fontSize: 13, textAlign: 'center', paddingVertical: 12, paddingHorizontal: 16 },
+  menuSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, paddingTop: 8, paddingHorizontal: 8 },
+  menuTitle: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center', paddingVertical: 12, paddingHorizontal: 16 },
   menuItem: { paddingVertical: 16, paddingHorizontal: 20, borderRadius: 12 },
-  menuItemText: { fontSize: 17, color: '#f1f5f9' },
-  menuItemDanger: { color: '#ef4444' },
-  menuDivider: { height: 1, backgroundColor: '#334155', marginHorizontal: 8 },
-  menuCancel: { marginTop: 8, backgroundColor: '#334155', alignItems: 'center' },
-  menuCancelText: { fontSize: 17, color: '#94a3b8', fontWeight: '600' },
+  menuItemText: { fontSize: 17, color: Colors.textPrimary },
+  menuItemDanger: { color: Colors.danger },
+  menuDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 8 },
+  menuCancel: { marginTop: 8, backgroundColor: Colors.surfaceMuted, alignItems: 'center' },
+  menuCancelText: { fontSize: 17, color: Colors.textSecondary, fontWeight: '600' },
 });
