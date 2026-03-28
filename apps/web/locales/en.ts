@@ -703,6 +703,7 @@ export const en: Translations = {
         },
         hiddenRavitos: "See {count} more aid stations",
         startLabel: "Start",
+        createAccount: "Create a free account",
       },
       fuelTypes: {
         gel: { label: "Energy Gel", description: "Fast carbs, easy to carry" },

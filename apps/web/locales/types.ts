@@ -587,6 +587,7 @@ export type OnboardingTranslations = {
     };
     hiddenRavitos: string;
     startLabel: string;
+    createAccount: string;
   };
   fuelTypes: {
     gel: { label: string; description: string };

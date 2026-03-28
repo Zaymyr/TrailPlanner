@@ -11,6 +11,7 @@ import {
   formatAveragePace,
 } from "../../../lib/nutrition";
 import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
+import { Button } from "../../../components/ui/button";
 import type { FuelProduct } from "../../../lib/product-types";
 import type { NutritionItem } from "../../../lib/nutrition-planner";
 
@@ -266,36 +267,37 @@ export default function ImprovePage() {
           {previewStations.map((station, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 border-b border-slate-100 py-2 last:border-0"
+              className="flex flex-col gap-1 border-b border-slate-100 py-3 last:border-0"
             >
-              <span
-                className="w-32 shrink-0 truncate text-sm font-semibold"
-                style={{ color: "#374151" }}
-              >
-                {station.name} · {Math.round(station.distanceKm)}km
-              </span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium" style={{ color: "#374151" }}>
+                  {station.name} · {Math.round(station.distanceKm)}km
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
                 {(station.nutrition ?? []).map((item) => (
                   <span
                     key={item.fuelType}
-                    title={item.productName}
-                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
+                    className="flex items-center gap-1 text-sm"
                     style={{ color: "#1a2e0a" }}
                   >
-                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
-                    {item.productName.length > 20 ? item.productName.slice(0, 20) + "…" : item.productName}{" "}
-                    ×{Math.ceil(item.quantity)}
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName} ×{Math.ceil(item.quantity)}
                   </span>
                 ))}
               </div>
-              <span className="ml-auto shrink-0 text-xs" style={{ color: "#9ca3af" }}>
-                ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
-              </span>
             </div>
           ))}
           {hiddenCount > 0 && (
-            <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/40 p-5 text-center text-sm text-muted-foreground">
-              🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
+            <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/40 p-5 text-center">
+              <p className="mb-3 text-sm text-foreground">
+                🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
+              </p>
+              <Button variant="outline" size="sm" onClick={handleCTA}>
+                {t.racePlanner.onboarding.improve.createAccount}
+              </Button>
             </div>
           )}
         </div>
