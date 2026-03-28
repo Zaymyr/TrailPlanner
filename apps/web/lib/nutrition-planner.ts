@@ -113,19 +113,11 @@ export function computeAidStationNutrition(
 
   // New algorithm when sodium + water targets are supplied
   if (targetSodiumPerHour !== undefined && targetWaterPerHour !== undefined) {
-    const chosen: ChosenProduct[] = fuelTypes
-      .map((fuelType) => {
-        const p = products.find((prod) => prod.fuelType === fuelType);
-        if (!p) return null;
-        return {
-          id: p.id,
-          name: p.name,
-          fuel_type: p.fuelType,
-          carbs_g: p.carbsGrams,
-          sodium_mg: p.sodiumMg,
-        };
-      })
-      .filter((p): p is ChosenProduct => p !== null);
+    const chosen: ChosenProduct[] = fuelTypes.flatMap((fuelType) => {
+      const p = products.find((prod) => prod.fuelType === fuelType);
+      if (!p) return [];
+      return [{ id: p.id, name: p.name, fuel_type: p.fuelType, carbs_g: p.carbsGrams, sodium_mg: p.sodiumMg }];
+    });
 
     return sorted.map((station, i) => {
       const prevDistanceKm = i === 0 ? 0 : sorted[i - 1].distanceKm;
