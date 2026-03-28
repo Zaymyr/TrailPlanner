@@ -95,9 +95,13 @@ export default function ImprovePage() {
           speedKph,
           products,
           FUEL_TYPE_WEIGHTS,
+          plan.sodiumPerHour,
+          plan.waterPerHour,
         )
       : [];
-  const previewStations = allStationsWithNutrition.slice(0, 5);
+  const PREVIEW_COUNT = 3;
+  const previewStations = allStationsWithNutrition.slice(0, PREVIEW_COUNT);
+  const hiddenCount = allStationsWithNutrition.length - PREVIEW_COUNT;
 
   const mixPercentages = useMemo(
     () => computeMixPercentages(state.fuelTypes),
@@ -270,6 +274,14 @@ export default function ImprovePage() {
               </span>
             </div>
           ))}
+          {hiddenCount > 0 && (
+            <div
+              className="mt-3 rounded-xl border border-dashed px-4 py-3 text-center text-xs"
+              style={{ borderColor: "#d1d5db", color: "#6b7c5a", backgroundColor: "#f9fafb" }}
+            >
+              🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
+            </div>
+          )}
         </div>
       )}
 
