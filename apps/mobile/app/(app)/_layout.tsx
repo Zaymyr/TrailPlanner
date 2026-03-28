@@ -12,7 +12,7 @@ function CenterTabButton({ onPress }: { onPress?: () => void }) {
     >
       <View style={styles.centerButtonInner}>
         <Ionicons name="map" size={26} color={Colors.textOnBrand} />
-        <Text style={styles.centerButtonLabel}>Mes plans</Text>
+        <Text style={styles.centerButtonLabel}>Plans</Text>
       </View>
     </TouchableOpacity>
   );
@@ -22,8 +22,9 @@ export default function AppLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: '#0f172a' },
-        headerTintColor: '#f1f5f9',
+        headerStyle: { backgroundColor: Colors.background },
+        headerTintColor: Colors.textPrimary,
+        headerShadowVisible: false,
         tabBarStyle: {
           backgroundColor: Colors.background,
           borderTopColor: Colors.border,
@@ -92,6 +93,14 @@ export default function AppLayout() {
       <Tabs.Screen
         name="plan"
         options={{ href: null, tabBarStyle: { display: 'none' } }}
+      />
+      <Tabs.Screen
+        name="plan/new"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="plan/[id]/edit"
+        options={{ href: null }}
       />
       <Tabs.Screen
         name="onboarding"
