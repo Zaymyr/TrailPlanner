@@ -275,10 +275,7 @@ export default function ImprovePage() {
             </div>
           ))}
           {hiddenCount > 0 && (
-            <div
-              className="mt-3 rounded-xl border border-dashed px-4 py-3 text-center text-xs"
-              style={{ borderColor: "#d1d5db", color: "#6b7c5a", backgroundColor: "#f9fafb" }}
-            >
+            <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/40 p-5 text-center text-sm text-muted-foreground">
               🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
             </div>
           )}

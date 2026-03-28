@@ -10,21 +10,16 @@ export type NutritionItem = {
   sodiumMg?: number;
 };
 
-// Each group is processed in order; within a group, all selected types are handled.
-// Priority 1: multi-nutrient drinks (carbs + sodium + 500ml water per serving)
-// Priority 2: gels (carbs + some sodium)
-// Priority 3: solid food (carbs + sodium)
-// Priority 4: capsules (sodium top-up only, allocated after carb sources)
-const PRIORITY_GROUPS: string[][] = [
-  ["electrolyte", "drink_mix"],
-  ["gel"],
-  ["bar", "real_food"],
-  ["capsule"],
-];
+type ChosenProduct = {
+  id: string;
+  name: string;
+  fuel_type: string;
+  carbs_g: number;
+  sodium_mg: number;
+};
 
 function allocateSegmentNutrition(
-  fuelTypes: string[],
-  products: FuelProduct[],
+  chosen: ChosenProduct[],
   segmentDurationH: number,
   targetCarbsPerHour: number,
   targetSodiumPerHour: number,
@@ -36,63 +31,65 @@ function allocateSegmentNutrition(
 
   let carbsRemaining = carbsNeeded;
   let sodiumRemaining = sodiumNeeded;
-  let waterRemaining = waterNeeded;
 
   const nutrition: NutritionItem[] = [];
 
-  for (let groupIndex = 0; groupIndex < PRIORITY_GROUPS.length; groupIndex++) {
-    const group = PRIORITY_GROUPS[groupIndex];
-    const isElectrolyte = groupIndex === 0;
-    const isCapsule = groupIndex === PRIORITY_GROUPS.length - 1;
+  // Step A: Electrolytes first — driven by water need (500 ml/unit)
+  const electrolytes = chosen.filter((p) => p.fuel_type === "electrolyte");
+  for (const product of electrolytes) {
+    const qty = Math.round(waterNeeded / 500);
+    if (qty <= 0) continue;
+    carbsRemaining = Math.max(0, carbsRemaining - qty * product.carbs_g);
+    sodiumRemaining = Math.max(0, sodiumRemaining - qty * product.sodium_mg);
+    nutrition.push({
+      fuelType: product.fuel_type,
+      productId: product.id,
+      productName: product.name,
+      quantity: qty,
+      carbsG: qty * product.carbs_g,
+      sodiumMg: qty * product.sodium_mg,
+    });
+  }
 
-    for (const fuelType of fuelTypes.filter((t) => group.includes(t))) {
-      const product = products.find((p) => p.fuelType === fuelType);
-      if (!product) continue;
-
-      if (isCapsule) {
-        // Sodium-only supplement — fills residual sodium gap after carb sources
-        if (product.sodiumMg <= 0) continue;
-        const sodiumResidual = Math.max(0, sodiumRemaining);
-        const hardCap = Math.ceil((sodiumNeeded * 0.5) / product.sodiumMg);
-        const units = Math.min(Math.max(0, Math.round(sodiumResidual / product.sodiumMg)), hardCap);
-        if (units === 0) continue;
-        nutrition.push({
-          fuelType,
-          productId: product.id,
-          productName: product.name,
-          quantity: units,
-          carbsG: units * product.carbsGrams,
-          sodiumMg: units * product.sodiumMg,
-        });
-      } else {
-        // Carb-bearing product
-        if (product.carbsGrams <= 0) continue;
-        let units = Math.round(carbsRemaining / product.carbsGrams);
-        if (isElectrolyte) {
-          // Electrolyte servings provide 500ml water each — cap to avoid over-hydration
-          units = Math.min(units, Math.ceil(waterNeeded / 500));
-        }
-        units = Math.max(0, units);
-        if (units === 0) continue;
-
-        const carbsConsumed = units * product.carbsGrams;
-        const sodiumConsumed = units * product.sodiumMg;
-        const waterConsumed = isElectrolyte ? units * 500 : 0;
-
-        carbsRemaining = Math.max(0, carbsRemaining - carbsConsumed);
-        sodiumRemaining = Math.max(0, sodiumRemaining - sodiumConsumed);
-        waterRemaining = Math.max(0, waterRemaining - waterConsumed);
-
-        nutrition.push({
-          fuelType,
-          productId: product.id,
-          productName: product.name,
-          quantity: units,
-          carbsG: carbsConsumed,
-          sodiumMg: sodiumConsumed,
-        });
-      }
+  // Step B: Distribute remaining carbs proportionally among all carb sources
+  // (non-electrolyte, non-capsule, carbs > 5 g/unit)
+  const carbSources = chosen.filter(
+    (p) => p.fuel_type !== "electrolyte" && p.fuel_type !== "capsule" && p.carbs_g > 5,
+  );
+  const totalCarbsDensity = carbSources.reduce((sum, p) => sum + p.carbs_g, 0);
+  if (totalCarbsDensity > 0) {
+    for (const product of carbSources) {
+      const weight = product.carbs_g / totalCarbsDensity;
+      const qty = Math.max(0, Math.round((carbsRemaining * weight) / product.carbs_g));
+      if (qty <= 0) continue;
+      carbsRemaining = Math.max(0, carbsRemaining - qty * product.carbs_g);
+      sodiumRemaining = Math.max(0, sodiumRemaining - qty * product.sodium_mg);
+      nutrition.push({
+        fuelType: product.fuel_type,
+        productId: product.id,
+        productName: product.name,
+        quantity: qty,
+        carbsG: qty * product.carbs_g,
+        sodiumMg: qty * product.sodium_mg,
+      });
     }
+  }
+
+  // Step C: Salt capsules — fill residual sodium, capped at 40 % of total sodium need
+  const saltOnly = chosen.filter((p) => p.fuel_type === "capsule");
+  for (const product of saltOnly) {
+    if (product.sodium_mg <= 0) continue;
+    const cap = Math.ceil((sodiumNeeded * 0.4) / product.sodium_mg);
+    const qty = Math.max(0, Math.min(Math.round(sodiumRemaining / product.sodium_mg), cap));
+    if (qty <= 0) continue;
+    nutrition.push({
+      fuelType: product.fuel_type,
+      productId: product.id,
+      productName: product.name,
+      quantity: qty,
+      carbsG: qty * product.carbs_g,
+      sodiumMg: qty * product.sodium_mg,
+    });
   }
 
   return nutrition;
@@ -114,14 +111,27 @@ export function computeAidStationNutrition(
 
   const sorted = [...aidStations].sort((a, b) => a.distanceKm - b.distanceKm);
 
-  // Priority-based algorithm when sodium + water targets are supplied
+  // New algorithm when sodium + water targets are supplied
   if (targetSodiumPerHour !== undefined && targetWaterPerHour !== undefined) {
+    const chosen: ChosenProduct[] = fuelTypes
+      .map((fuelType) => {
+        const p = products.find((prod) => prod.fuelType === fuelType);
+        if (!p) return null;
+        return {
+          id: p.id,
+          name: p.name,
+          fuel_type: p.fuelType,
+          carbs_g: p.carbsGrams,
+          sodium_mg: p.sodiumMg,
+        };
+      })
+      .filter((p): p is ChosenProduct => p !== null);
+
     return sorted.map((station, i) => {
       const prevDistanceKm = i === 0 ? 0 : sorted[i - 1].distanceKm;
       const segmentDurationH = (station.distanceKm - prevDistanceKm) / speedKph;
       const nutrition = allocateSegmentNutrition(
-        fuelTypes,
-        products,
+        chosen,
         segmentDurationH,
         targetCarbsPerHour,
         targetSodiumPerHour,
