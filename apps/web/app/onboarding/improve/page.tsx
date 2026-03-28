@@ -86,10 +86,22 @@ export default function ImprovePage() {
     name: cp.name,
     distanceKm: cp.km,
   }));
-  const allStationsWithNutrition =
-    state.fuelTypes.length > 0 && rawAidStations.length > 0
+
+  // Each display station carries nutrition for the segment FROM it to the next.
+  // The planner computes backward-looking segments (prev→current), so we pass
+  // [...rawAidStations, finish] and shift: display[i] gets plannerOutput[i].
+  //   display[0] = start  → plannerOutput[0] = first ravito (0 → ravito1)
+  //   display[i] = ravito_i → plannerOutput[i] = ravito_{i+1} (ravito_i → ravito_{i+1})
+  //   display[last] = last ravito → plannerOutput[last] = finish (last → end)
+  const startStation = { name: t.racePlanner.onboarding.improve.startLabel, distanceKm: 0 };
+  const finishStation = { name: "finish", distanceKm: distance };
+  const plannerStations = [...rawAidStations, finishStation];
+  const displayList = [startStation, ...rawAidStations];
+
+  const plannerOutput =
+    state.fuelTypes.length > 0
       ? computeAidStationNutrition(
-          rawAidStations,
+          plannerStations,
           state.fuelTypes,
           plan.carbsPerHour,
           speedKph,
@@ -99,6 +111,13 @@ export default function ImprovePage() {
           plan.waterPerHour,
         )
       : [];
+
+  const allStationsWithNutrition = state.fuelTypes.length > 0
+    ? displayList.map((station, i) => ({
+        ...station,
+        nutrition: plannerOutput[i]?.nutrition ?? [],
+      }))
+    : [];
   const PREVIEW_COUNT = 3;
   const previewStations = allStationsWithNutrition.slice(0, PREVIEW_COUNT);
   const hiddenCount = allStationsWithNutrition.length - PREVIEW_COUNT;

@@ -712,6 +712,7 @@ export const fr: Translations = {
           totalCarbs: "≈ {carbs}g de glucides",
         },
         hiddenRavitos: "Voir les {count} ravitaillements suivants",
+        startLabel: "Départ",
       },
       fuelTypes: {
         gel: { label: "Gel énergétique", description: "Glucides rapides, facile à emporter" },

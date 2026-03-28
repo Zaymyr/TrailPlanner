@@ -586,6 +586,7 @@ export type OnboardingTranslations = {
       totalCarbs: string;
     };
     hiddenRavitos: string;
+    startLabel: string;
   };
   fuelTypes: {
     gel: { label: string; description: string };

@@ -702,6 +702,7 @@ export const en: Translations = {
           totalCarbs: "≈ {carbs}g carbs",
         },
         hiddenRavitos: "See {count} more aid stations",
+        startLabel: "Start",
       },
       fuelTypes: {
         gel: { label: "Energy Gel", description: "Fast carbs, easy to carry" },
