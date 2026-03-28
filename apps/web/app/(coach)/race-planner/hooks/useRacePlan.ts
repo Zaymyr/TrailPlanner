@@ -365,6 +365,8 @@ export const useRacePlan = ({
     if (!planToLoad) return;
     hasAutoLoaded.current = true;
     localStorage.removeItem("trailplanner.pendingPlanId");
+    localStorage.removeItem('onboarding_plan_saved');
+    sessionStorage.removeItem('onboarding_plan_saved');
     handleLoadPlan(planToLoad);
   }, [savedPlans, handleLoadPlan]);
 

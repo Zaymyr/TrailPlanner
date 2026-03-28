@@ -522,6 +522,16 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     const raceId = queryCatalogRaceIdRef.current;
     queryCatalogRaceIdRef.current = null; // consommer une seule fois
+
+    // Strip ?catalogRaceId from the URL immediately so a page refresh or
+    // browser back/forward navigation doesn't remount the component with the
+    // param still present and trigger a second plan creation.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("catalogRaceId");
+      window.history.replaceState(null, "", url.pathname + (url.search || ""));
+    }
+
     void handleUseCatalogRace(raceId);
   }, [authStatus, handleUseCatalogRace]);
 
@@ -1328,10 +1338,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onRefreshPlans: handleRefreshPlans,
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
-            // Also load the associated race into the planner
-            if (plan.catalogRaceId) {
-              void handleUseCatalogRace(plan.catalogRaceId);
-            }
           },
           onDeletePlan: handleDeletePlan,
           onNewPlanForRace: (raceId) => {

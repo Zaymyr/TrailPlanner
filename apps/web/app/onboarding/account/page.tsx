@@ -105,7 +105,7 @@ export default function AccountPage() {
       const newUserId = data?.user?.id;
       if (!newUserId) {
         console.error("[onboarding-signup] no user.id in signup response — save-plan skipped", data);
-      } else if (!hasSavedPlan.current && !_planSaved) {
+      } else if (!hasSavedPlan.current && !_planSaved && !sessionStorage.getItem('onboarding_plan_saved') && !localStorage.getItem('onboarding_plan_saved')) {
         hasSavedPlan.current = true;
         _planSaved = true;
         try {
@@ -149,10 +149,15 @@ export default function AccountPage() {
           if (planRes.ok) {
             const { plan } = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } ?? {};
             if (plan?.id) localStorage.setItem("trailplanner.pendingPlanId", plan.id);
-            // Clear the onboarding localStorage key so /sign-up page won't create a duplicate plan.
+            sessionStorage.setItem('onboarding_plan_saved', '1');
+            localStorage.setItem('onboarding_plan_saved', '1');
+            // Clear the onboarding localStorage keys so /sign-up page won't create a duplicate plan.
+            localStorage.removeItem('trailplanner.onboardingState');
             clearOnboardingFromLocalStorage();
           }
         } catch (err) {
+          hasSavedPlan.current = false;
+          _planSaved = false;
           console.error("[onboarding-signup] save-plan error:", err);
         }
       }

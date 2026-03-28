@@ -149,6 +149,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Idempotency guard: if the user already has a plan for this catalog race
+  // created in the last 90 seconds, return that plan instead of creating another.
+  // This prevents duplicates from page refresh, back navigation, or React Strict Mode
+  // double-invocations while the URL param is still present.
+  const recentPlanCutoff = new Date(Date.now() - 90_000).toISOString();
+  const recentPlanResponse = await fetch(
+    `${supabaseAnon.supabaseUrl}/rest/v1/race_plans?race_id=eq.${parsedBody.data.catalogRaceId}&created_at=gte.${recentPlanCutoff}&select=id,name,created_at,updated_at,planner_values,elevation_profile&order=created_at.desc&limit=1`,
+    {
+      headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
+      cache: "no-store",
+    }
+  );
+  if (recentPlanResponse.ok) {
+    const recentPlans = (await recentPlanResponse.json().catch(() => [])) as Array<Record<string, unknown>>;
+    if (recentPlans.length > 0) {
+      const existing = planRowSchema.safeParse(recentPlans[0]);
+      if (existing.success) {
+        return withSecurityHeaders(NextResponse.json({ plan: existing.data }));
+      }
+    }
+  }
+
   const catalogRaceResponse = await fetch(
     `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at&limit=1`,
     {

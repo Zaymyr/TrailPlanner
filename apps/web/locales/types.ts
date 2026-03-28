@@ -585,6 +585,7 @@ export type OnboardingTranslations = {
       unit: string;
       totalCarbs: string;
     };
+    hiddenRavitos: string;
   };
   fuelTypes: {
     gel: { label: string; description: string };

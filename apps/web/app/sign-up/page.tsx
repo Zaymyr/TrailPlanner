@@ -96,7 +96,8 @@ export default function SignUpPage() {
         try {
           const onboardingPlan = loadOnboardingFromLocalStorage();
 
-          if (onboardingPlan) {
+          if (onboardingPlan && !localStorage.getItem('onboarding_plan_saved')) {
+            localStorage.setItem('onboarding_plan_saved', '1');
             await fetch("/api/plans", {
               method: "POST",
               headers: {
@@ -112,6 +113,7 @@ export default function SignUpPage() {
             clearOnboardingFromLocalStorage();
           }
         } catch {
+          localStorage.removeItem('onboarding_plan_saved');
           // Silent fail — never block signup flow
         }
 
