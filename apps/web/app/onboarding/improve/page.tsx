@@ -11,6 +11,7 @@ import {
   formatAveragePace,
 } from "../../../lib/nutrition";
 import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
+import { Button } from "../../../components/ui/button";
 import type { FuelProduct } from "../../../lib/product-types";
 import type { NutritionItem } from "../../../lib/nutrition-planner";
 
@@ -86,10 +87,22 @@ export default function ImprovePage() {
     name: cp.name,
     distanceKm: cp.km,
   }));
-  const allStationsWithNutrition =
-    state.fuelTypes.length > 0 && rawAidStations.length > 0
+
+  // Each display station carries nutrition for the segment FROM it to the next.
+  // The planner computes backward-looking segments (prev→current), so we pass
+  // [...rawAidStations, finish] and shift: display[i] gets plannerOutput[i].
+  //   display[0] = start  → plannerOutput[0] = first ravito (0 → ravito1)
+  //   display[i] = ravito_i → plannerOutput[i] = ravito_{i+1} (ravito_i → ravito_{i+1})
+  //   display[last] = last ravito → plannerOutput[last] = finish (last → end)
+  const startStation = { name: t.racePlanner.onboarding.improve.startLabel, distanceKm: 0 };
+  const finishStation = { name: "finish", distanceKm: distance };
+  const plannerStations = [...rawAidStations, finishStation];
+  const displayList = [startStation, ...rawAidStations];
+
+  const plannerOutput =
+    state.fuelTypes.length > 0
       ? computeAidStationNutrition(
-          rawAidStations,
+          plannerStations,
           state.fuelTypes,
           plan.carbsPerHour,
           speedKph,
@@ -99,6 +112,13 @@ export default function ImprovePage() {
           plan.waterPerHour,
         )
       : [];
+
+  const allStationsWithNutrition = state.fuelTypes.length > 0
+    ? displayList.map((station, i) => ({
+        ...station,
+        nutrition: plannerOutput[i]?.nutrition ?? [],
+      }))
+    : [];
   const PREVIEW_COUNT = 3;
   const previewStations = allStationsWithNutrition.slice(0, PREVIEW_COUNT);
   const hiddenCount = allStationsWithNutrition.length - PREVIEW_COUNT;
@@ -247,39 +267,37 @@ export default function ImprovePage() {
           {previewStations.map((station, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 border-b border-slate-100 py-2 last:border-0"
+              className="flex flex-col gap-1 border-b border-slate-100 py-3 last:border-0"
             >
-              <span
-                className="w-32 shrink-0 truncate text-sm font-semibold"
-                style={{ color: "#374151" }}
-              >
-                {station.name} · {Math.round(station.distanceKm)}km
-              </span>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium" style={{ color: "#374151" }}>
+                  {station.name} · {Math.round(station.distanceKm)}km
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
+                </span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
                 {(station.nutrition ?? []).map((item) => (
                   <span
                     key={item.fuelType}
-                    title={item.productName}
-                    className="rounded-full bg-slate-100 px-2 py-0.5 text-xs"
+                    className="flex items-center gap-1 text-sm"
                     style={{ color: "#1a2e0a" }}
                   >
-                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"}{" "}
-                    {item.productName.length > 20 ? item.productName.slice(0, 20) + "…" : item.productName}{" "}
-                    ×{Math.ceil(item.quantity)}
+                    {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName} ×{Math.ceil(item.quantity)}
                   </span>
                 ))}
               </div>
-              <span className="ml-auto shrink-0 text-xs" style={{ color: "#9ca3af" }}>
-                ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
-              </span>
             </div>
           ))}
           {hiddenCount > 0 && (
-            <div
-              className="mt-3 rounded-xl border border-dashed px-4 py-3 text-center text-xs"
-              style={{ borderColor: "#d1d5db", color: "#6b7c5a", backgroundColor: "#f9fafb" }}
-            >
-              🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
+            <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/40 p-5 text-center">
+              <p className="mb-3 text-sm text-foreground">
+                🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
+              </p>
+              <Button variant="outline" onClick={handleCTA}>
+                {t.racePlanner.onboarding.improve.createAccount}
+              </Button>
             </div>
           )}
         </div>
