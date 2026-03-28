@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { Colors } from '../../constants/colors';
 
 function CenterTabButton({ onPress }: { onPress?: () => void }) {
   return (
@@ -10,8 +11,8 @@ function CenterTabButton({ onPress }: { onPress?: () => void }) {
       activeOpacity={0.85}
     >
       <View style={styles.centerButtonInner}>
-        <Ionicons name="map" size={26} color="#0f172a" />
-        <Text style={styles.centerButtonLabel}>Mon Plan</Text>
+        <Ionicons name="map" size={26} color={Colors.textOnBrand} />
+        <Text style={styles.centerButtonLabel}>Mes plans</Text>
       </View>
     </TouchableOpacity>
   );
@@ -24,14 +25,14 @@ export default function AppLayout() {
         headerStyle: { backgroundColor: '#0f172a' },
         headerTintColor: '#f1f5f9',
         tabBarStyle: {
-          backgroundColor: '#1e293b',
-          borderTopColor: '#334155',
+          backgroundColor: Colors.background,
+          borderTopColor: Colors.border,
           borderTopWidth: 1,
           height: 68,
           paddingBottom: 8,
         },
-        tabBarActiveTintColor: '#22c55e',
-        tabBarInactiveTintColor: '#475569',
+        tabBarActiveTintColor: Colors.brandPrimary,
+        tabBarInactiveTintColor: Colors.textMuted,
       }}
     >
       {/* Far left: Profile */}
@@ -107,22 +108,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   centerButtonInner: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'column',
-    shadowColor: '#22c55e',
+    shadowColor: Colors.brandPrimary,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
     minWidth: 80,
   },
   centerButtonLabel: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 11,
     fontWeight: '700',
     marginTop: 2,
