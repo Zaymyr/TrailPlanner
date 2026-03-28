@@ -1,7 +1,10 @@
 {
   "name": "trailplanner",
   "private": true,
-  "workspaces": ["apps/web", "packages/*"],
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
   "scripts": {
     "dev:web": "npm run dev -w @trailplanner/web",
     "build:web": "npm run build -w @trailplanner/web",
@@ -11,7 +14,8 @@
     "test": "turbo run test"
   },
   "dependencies": {
-    "react-dom": "^18.3.1"
+    "expo": "^55.0.8",
+    "react-dom": "19.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",

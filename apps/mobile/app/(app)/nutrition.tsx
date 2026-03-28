@@ -14,6 +14,8 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
+import { usePremium } from '../../hooks/usePremium';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 const FREE_FAVORITE_LIMIT = 3;
@@ -57,13 +59,15 @@ const FUEL_TYPE_OPTIONS: FuelType[] = [
 export default function NutritionScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const [isPremium, setIsPremium] = useState(false);
+  const { isPremium } = usePremium();
   const [favorites, setFavorites] = useState<FavoriteRow[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [fuelFilter, setFuelFilter] = useState<FuelType | 'all'>('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [favoritesExpanded, setFavoritesExpanded] = useState(false);
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   // Create product form state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -82,7 +86,7 @@ export default function NutritionScreen() {
     setUserId(uid);
     setAccessToken(token);
 
-    const [favsResult, productsResult, subResult] = await Promise.all([
+    const [favsResult, productsResult] = await Promise.all([
       supabase
         .from('user_favorite_products')
         .select('product_id, products(id, name, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by)')
@@ -93,12 +97,6 @@ export default function NutritionScreen() {
         .or(`is_live.eq.true,created_by.eq.${uid}`)
         .eq('is_archived', false)
         .order('name'),
-      supabase
-        .from('subscriptions')
-        .select('status')
-        .eq('user_id', uid)
-        .eq('status', 'active')
-        .maybeSingle(),
     ]);
 
     if (favsResult.error) {
@@ -113,10 +111,6 @@ export default function NutritionScreen() {
       setError(productsResult.error.message);
     } else {
       setProducts((productsResult.data as Product[]) ?? []);
-    }
-
-    if (!subResult.error && subResult.data) {
-      setIsPremium(true);
     }
 
     setLoading(false);
@@ -225,14 +219,18 @@ export default function NutritionScreen() {
     }
   }
 
-  const filteredProducts = fuelFilter === 'all'
-    ? products
-    : products.filter((p) => p.fuel_type === fuelFilter);
+  const filteredProducts = products.filter((p) => {
+    const matchesCategory = fuelFilter === 'all' || p.fuel_type === fuelFilter;
+    const matchesSearch =
+      catalogSearch.trim() === '' ||
+      p.name.toLowerCase().includes(catalogSearch.trim().toLowerCase());
+    return matchesCategory && matchesSearch;
+  });
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -248,47 +246,58 @@ export default function NutritionScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Mes favoris */}
-      <Text style={styles.sectionTitle}>Mes favoris</Text>
+      <TouchableOpacity
+        style={styles.favoritesToggleRow}
+        onPress={() => setFavoritesExpanded((v) => !v)}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Mes favoris</Text>
+        <Text style={styles.favoritesChevron}>{favoritesExpanded ? '▼' : '▶'}</Text>
+      </TouchableOpacity>
 
-      {!isPremium && (
-        <View style={styles.limitBanner}>
-          <Text style={styles.limitBannerText}>
-            {favoriteIds.size}/{FREE_FAVORITE_LIMIT} favoris · Passez en Premium pour des favoris illimités
-          </Text>
-        </View>
-      )}
-
-      {favorites.length === 0 ? (
-        <View style={styles.emptyFavorites}>
-          <Text style={styles.emptyFavText}>
-            Aucun favori. Ajoute des produits depuis le catalogue ci-dessous.
-          </Text>
-        </View>
-      ) : (
-        favorites.map((fav) => (
-          <View key={fav.product_id} style={styles.productCard}>
-            <View style={styles.productInfo}>
-              <Text style={styles.productName}>{fav.products.name}</Text>
-              <Text style={styles.productType}>
-                {FUEL_TYPE_LABELS[fav.products.fuel_type] ?? fav.products.fuel_type}
+      {favoritesExpanded && (
+        <>
+          {!isPremium && (
+            <View style={styles.limitBanner}>
+              <Text style={styles.limitBannerText}>
+                {favoriteIds.size}/{FREE_FAVORITE_LIMIT} favoris · Passez en Premium pour des favoris illimités
               </Text>
-              <View style={styles.productStats}>
-                {fav.products.carbs_g != null && (
-                  <Text style={styles.statText}>{fav.products.carbs_g}g glucides</Text>
-                )}
-                {fav.products.sodium_mg != null && (
-                  <Text style={styles.statText}> · {fav.products.sodium_mg}mg sodium</Text>
-                )}
-              </View>
             </View>
-            <TouchableOpacity
-              style={styles.removeFavButton}
-              onPress={() => toggleFavorite(fav.product_id)}
-            >
-              <Text style={styles.removeFavText}>★</Text>
-            </TouchableOpacity>
-          </View>
-        ))
+          )}
+
+          {favorites.length === 0 ? (
+            <View style={styles.emptyFavorites}>
+              <Text style={styles.emptyFavText}>
+                Aucun favori. Ajoute des produits depuis le catalogue ci-dessous.
+              </Text>
+            </View>
+          ) : (
+            favorites.map((fav) => (
+              <View key={fav.product_id} style={styles.productCard}>
+                <View style={styles.productInfo}>
+                  <Text style={styles.productName}>{fav.products.name}</Text>
+                  <Text style={styles.productType}>
+                    {FUEL_TYPE_LABELS[fav.products.fuel_type] ?? fav.products.fuel_type}
+                  </Text>
+                  <View style={styles.productStats}>
+                    {fav.products.carbs_g != null && (
+                      <Text style={styles.statText}>{fav.products.carbs_g}g glucides</Text>
+                    )}
+                    {fav.products.sodium_mg != null && (
+                      <Text style={styles.statText}> · {fav.products.sodium_mg}mg sodium</Text>
+                    )}
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.removeFavButton}
+                  onPress={() => toggleFavorite(fav.product_id)}
+                >
+                  <Text style={styles.removeFavText}>★</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </>
       )}
 
       {/* Catalogue produits */}
@@ -315,6 +324,14 @@ export default function NutritionScreen() {
           </Text>
         </View>
       )}
+
+      <TextInput
+        style={styles.catalogSearchInput}
+        value={catalogSearch}
+        onChangeText={setCatalogSearch}
+        placeholder="🔍 Rechercher un produit..."
+        placeholderTextColor={Colors.textMuted}
+      />
 
       {/* Filtre par type */}
       <ScrollView
@@ -401,7 +418,7 @@ export default function NutritionScreen() {
               value={newName}
               onChangeText={setNewName}
               placeholder="Ex : Gel Maurten 100"
-              placeholderTextColor="#475569"
+              placeholderTextColor={Colors.textMuted}
               autoCapitalize="words"
             />
 
@@ -434,7 +451,7 @@ export default function NutritionScreen() {
                   onChangeText={setNewCarbsG}
                   keyboardType="decimal-pad"
                   placeholder="0"
-                  placeholderTextColor="#475569"
+                  placeholderTextColor={Colors.textMuted}
                 />
               </View>
               <View style={styles.numericField}>
@@ -445,7 +462,7 @@ export default function NutritionScreen() {
                   onChangeText={setNewSodiumMg}
                   keyboardType="decimal-pad"
                   placeholder="0"
-                  placeholderTextColor="#475569"
+                  placeholderTextColor={Colors.textMuted}
                 />
               </View>
               <View style={styles.numericField}>
@@ -456,7 +473,7 @@ export default function NutritionScreen() {
                   onChangeText={setNewCaloriesKcal}
                   keyboardType="decimal-pad"
                   placeholder="0"
-                  placeholderTextColor="#475569"
+                  placeholderTextColor={Colors.textMuted}
                 />
               </View>
             </View>
@@ -467,7 +484,7 @@ export default function NutritionScreen() {
               disabled={creating}
             >
               {creating ? (
-                <ActivityIndicator color="#0f172a" />
+                <ActivityIndicator color={Colors.textOnBrand} />
               ) : (
                 <Text style={styles.submitButtonText}>Créer et ajouter aux favoris</Text>
               )}
@@ -489,7 +506,7 @@ export default function NutritionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 16,
@@ -499,18 +516,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
+    letterSpacing: 0.5,
     marginBottom: 12,
   },
   catalogHeader: {
@@ -521,79 +539,86 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   limitBanner: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   limitBannerText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
   },
   premiumBanner: {
-    backgroundColor: '#1c1003',
+    backgroundColor: Colors.warningSurface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#92400e',
+    borderWidth: 1.5,
+    borderColor: Colors.warning,
   },
   premiumBannerText: {
-    color: '#fbbf24',
+    color: Colors.warning,
     fontSize: 13,
   },
   createButton: {
-    backgroundColor: '#14532d',
+    backgroundColor: 'transparent',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#22c55e',
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
     marginBottom: 4,
   },
   createButtonText: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   premiumTag: {
-    backgroundColor: '#1c1003',
+    backgroundColor: Colors.warningSurface,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 8,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#92400e',
+    borderColor: Colors.warning,
     marginBottom: 4,
   },
   premiumTagText: {
-    color: '#fbbf24',
+    color: Colors.warning,
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   emptyFavorites: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 12,
     padding: 20,
     marginBottom: 8,
   },
   emptyFavText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
     fontStyle: 'italic',
   },
   productCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: 16,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   productInfo: {
     flex: 1,
@@ -602,18 +627,19 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     marginBottom: 2,
   },
   productType: {
-    fontSize: 12,
-    color: '#475569',
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     marginBottom: 4,
   },
   myProductTag: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     textTransform: 'none',
     letterSpacing: 0,
   },
@@ -623,37 +649,40 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
   },
   favButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#334155',
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
     justifyContent: 'center',
     alignItems: 'center',
   },
   favButtonActive: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
   },
   favButtonText: {
-    fontSize: 20,
-    color: '#475569',
+    fontSize: 18,
+    color: Colors.textMuted,
   },
   favButtonTextActive: {
-    color: '#22c55e',
+    color: Colors.textOnBrand,
   },
   removeFavButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#14532d',
+    width: 36,
+    height: 36,
+    borderRadius: 999,
+    backgroundColor: Colors.brandPrimary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removeFavText: {
-    fontSize: 20,
-    color: '#22c55e',
+    fontSize: 18,
+    color: Colors.textOnBrand,
   },
   filterScroll: {
     marginBottom: 12,
@@ -663,24 +692,47 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   filterChip: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 7,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   filterChipActive: {
-    backgroundColor: '#14532d',
-    borderColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
   },
   filterChipText: {
-    color: '#475569',
+    color: Colors.textSecondary,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   filterChipTextActive: {
-    color: '#22c55e',
+    color: Colors.textOnBrand,
+  },
+  favoritesToggleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  favoritesChevron: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  catalogSearchInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: Colors.textPrimary,
+    marginBottom: 12,
   },
   // Modal styles
   modalWrapper: {
@@ -692,7 +744,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   modalSheet: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -701,25 +753,25 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     marginBottom: 20,
     textAlign: 'center',
   },
   inputLabel: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 12,
   },
   textInput: {
-    backgroundColor: '#0f172a',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surfaceSecondary,
+    color: Colors.textPrimary,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   numericRow: {
     flexDirection: 'row',
@@ -730,7 +782,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -740,7 +792,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -750,7 +802,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelButtonText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },

@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Web (Next.js)",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "npm run dev"],
+      "cwd": "apps/web",
+      "port": 3000
+    },
+    {
+      "name": "Mobile (Expo)",
+      "runtimeExecutable": "cmd.exe",
+      "runtimeArgs": ["/c", "npm run start"],
+      "cwd": "apps/mobile",
+      "port": 8081
+    }
+  ]
+}

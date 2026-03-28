@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
+import { usePremium } from '../../hooks/usePremium';
 
 type PlanRow = {
   id: string;
@@ -66,9 +67,9 @@ const FREE_PLAN_LIMIT = 1;
 export default function PlansScreen() {
   const { t } = useI18n();
   const router = useRouter();
+  const { isPremium } = usePremium();
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
-  const [isPremium, setIsPremium] = useState(false);
   const [raceOwnership, setRaceOwnership] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,19 +84,11 @@ export default function PlansScreen() {
     const uid = sessionData?.session?.user?.id ?? null;
     if (!cancelled) setUserId(uid);
 
-    const [planResult, subResult] = await Promise.all([
+    const [planResult] = await Promise.all([
       supabase
         .from('race_plans')
         .select('id, name, updated_at, race_id, planner_values, races(name)')
         .order('updated_at', { ascending: false }),
-      uid
-        ? supabase
-            .from('subscriptions')
-            .select('status')
-            .eq('user_id', uid)
-            .eq('status', 'active')
-            .maybeSingle()
-        : Promise.resolve({ data: null, error: null }),
     ]);
 
     if (cancelled) return;
@@ -118,10 +111,6 @@ export default function PlansScreen() {
           setRaceOwnership(ownershipMap);
         }
       }
-    }
-
-    if (!subResult.error && subResult.data) {
-      setIsPremium(true);
     }
 
     if (!cancelled) {
