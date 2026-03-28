@@ -1328,10 +1328,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onRefreshPlans: handleRefreshPlans,
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
-            // Also load the associated race into the planner
-            if (plan.catalogRaceId) {
-              void handleUseCatalogRace(plan.catalogRaceId);
-            }
           },
           onDeletePlan: handleDeletePlan,
           onNewPlanForRace: (raceId) => {
