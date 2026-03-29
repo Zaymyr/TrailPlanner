@@ -1,6 +1,14 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import type { ActiveAlert } from '../lib/raceAlertService';
 
+type AlertPayload = {
+  carbsGrams?: number;
+  waterMl?: number;
+  sodiumMg?: number;
+  products?: Array<{ name: string; quantity: number; carbsGrams: number; sodiumMg: number }>;
+  [key: string]: unknown;
+};
+
 type Props = {
   alert: ActiveAlert | null;
   departureTime: Date;
@@ -24,7 +32,8 @@ export function NextIntakeCard({ alert, departureTime, onConfirm, onSnooze, onSk
     : '—';
 
   const isSnoozed = alert.status === 'snoozed';
-  const products = alert.payload?.products ?? [];
+  const payload = alert.payload as AlertPayload;
+  const products = payload.products ?? [];
 
   return (
     <View style={[styles.card, isSnoozed && styles.cardSnoozed]}>
@@ -38,19 +47,19 @@ export function NextIntakeCard({ alert, departureTime, onConfirm, onSnooze, onSk
 
       {/* Nutrition details */}
       <View style={styles.nutritionRow}>
-        {alert.payload?.carbsGrams > 0 && (
+        {(payload.carbsGrams ?? 0) > 0 && (
           <View style={styles.nutriBadge}>
-            <Text style={styles.nutriText}>🍬 {alert.payload.carbsGrams}g</Text>
+            <Text style={styles.nutriText}>🍬 {payload.carbsGrams}g</Text>
           </View>
         )}
-        {alert.payload?.waterMl > 0 && (
+        {(payload.waterMl ?? 0) > 0 && (
           <View style={styles.nutriBadge}>
-            <Text style={styles.nutriText}>💧 {alert.payload.waterMl}ml</Text>
+            <Text style={styles.nutriText}>💧 {payload.waterMl}ml</Text>
           </View>
         )}
-        {alert.payload?.sodiumMg > 0 && (
+        {(payload.sodiumMg ?? 0) > 0 && (
           <View style={styles.nutriBadge}>
-            <Text style={styles.nutriText}>🧂 {alert.payload.sodiumMg}mg</Text>
+            <Text style={styles.nutriText}>🧂 {payload.sodiumMg}mg</Text>
           </View>
         )}
       </View>
