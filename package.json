@@ -13,16 +13,9 @@
     "lint": "turbo run lint",
     "test": "turbo run test"
   },
-  "dependencies": {
-    "expo": "^55.0.8",
-    "react-dom": "19.2.0"
-  },
   "devDependencies": {
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
     "turbo": "^2.0.0"
-  },
-  "overrides": {
-    "react-dom": "^18.3.1"
   }
 }
