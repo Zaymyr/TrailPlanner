@@ -3,19 +3,23 @@ import {
   View,
   Text,
   SectionList,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
   Alert,
   Modal,
-  Pressable,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 type PlanRow = {
   id: string;
@@ -41,6 +45,23 @@ type RaceSection = {
   data: PlanRow[];
 };
 
+type PickerRace = {
+  id: string;
+  name: string;
+  distance_km: number;
+  elevation_gain_m: number;
+};
+
+type PickerEventGroup = {
+  id: string;
+  name: string;
+  location: string | null;
+  race_date: string | null;
+  races: PickerRace[];
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 function estimateDuration(pv: PlanRow['planner_values']): string | null {
   const dist = pv.raceDistanceKm;
   if (!dist) return null;
@@ -62,7 +83,119 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+function formatEventDate(isoDate: string | null): string | null {
+  if (!isoDate) return null;
+  return new Date(isoDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function getRacePickerLabel(raceName: string, eventName: string): string {
+  const cleaned = raceName.replace(eventName, '').replace(/[\s\-–—·]+/g, ' ').trim();
+  return cleaned.length > 2 ? cleaned : raceName;
+}
+
 const FREE_PLAN_LIMIT = 1;
+
+// ─── Race Picker sub-components ───────────────────────────────────────────────
+
+function PickerRaceCard({
+  race,
+  eventName,
+  flex,
+  onSelect,
+}: {
+  race: PickerRace;
+  eventName: string;
+  flex?: boolean;
+  onSelect: (race: PickerRace) => void;
+}) {
+  const label = getRacePickerLabel(race.name, eventName);
+  return (
+    <View style={[pStyles.raceCard, flex ? { flex: 1 } : pStyles.raceCardFixed]}>
+      <Text style={pStyles.raceLabel} numberOfLines={2}>{label}</Text>
+      <Text style={pStyles.raceStats}>{race.distance_km} km{'  '}D+{race.elevation_gain_m}m</Text>
+      <TouchableOpacity style={pStyles.selectBtn} onPress={() => onSelect(race)}>
+        <Text style={pStyles.selectBtnText}>Sélectionner</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function PersonalPickerCard({
+  race,
+  flex,
+  onSelect,
+}: {
+  race: PickerRace;
+  flex?: boolean;
+  onSelect: (race: PickerRace) => void;
+}) {
+  return (
+    <View style={[pStyles.raceCard, flex ? { flex: 1 } : pStyles.raceCardFixed]}>
+      <Text style={pStyles.raceLabel} numberOfLines={2}>{race.name}</Text>
+      <Text style={pStyles.raceStats}>{race.distance_km} km{'  '}D+{race.elevation_gain_m}m</Text>
+      <TouchableOpacity style={pStyles.selectBtn} onPress={() => onSelect(race)}>
+        <Text style={pStyles.selectBtnText}>Sélectionner</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function PersonalPickerSection({ races, onSelect }: { races: PickerRace[]; onSelect: (race: PickerRace) => void }) {
+  const useFlex = races.length <= 2;
+  return (
+    <View style={[pStyles.eventCard, pStyles.personalCard]}>
+      <View style={pStyles.eventHeader}>
+        <Text style={pStyles.eventHeaderEmoji}>🗺️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={pStyles.eventName}>Mes courses</Text>
+        </View>
+      </View>
+      <View style={pStyles.divider} />
+      {useFlex ? (
+        <View style={pStyles.racesRow}>
+          {races.map((r) => <PersonalPickerCard key={r.id} race={r} flex onSelect={onSelect} />)}
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={pStyles.racesScrollContent}>
+          {races.map((r) => <PersonalPickerCard key={r.id} race={r} onSelect={onSelect} />)}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+function EventPickerCard({ event, onSelect }: { event: PickerEventGroup; onSelect: (race: PickerRace) => void }) {
+  const dateStr = formatEventDate(event.race_date);
+  const headerMeta = [event.location, dateStr].filter(Boolean).join(' · ');
+  const useFlex = event.races.length <= 2;
+  return (
+    <View style={pStyles.eventCard}>
+      <View style={pStyles.eventHeader}>
+        <Text style={pStyles.eventHeaderEmoji}>🏔️</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={pStyles.eventName}>{event.name}</Text>
+          {headerMeta ? <Text style={pStyles.eventMeta}>{headerMeta}</Text> : null}
+        </View>
+      </View>
+      <View style={pStyles.divider} />
+      {useFlex ? (
+        <View style={pStyles.racesRow}>
+          {event.races.map((r) => (
+            <PickerRaceCard key={r.id} race={r} eventName={event.name} flex onSelect={onSelect} />
+          ))}
+        </View>
+      ) : (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={pStyles.racesScrollContent}>
+          {event.races.map((r) => (
+            <PickerRaceCard key={r.id} race={r} eventName={event.name} onSelect={onSelect} />
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function PlansScreen() {
   const { t } = useI18n();
@@ -74,8 +207,13 @@ export default function PlansScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [menuPlanId, setMenuPlanId] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+
+  // Race picker modal state
+  const [showRacePicker, setShowRacePicker] = useState(false);
+  const [pickerEvents, setPickerEvents] = useState<PickerEventGroup[]>([]);
+  const [pickerPersonal, setPickerPersonal] = useState<PickerRace[]>([]);
+  const [pickerLoading, setPickerLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     let cancelled = false;
@@ -98,8 +236,7 @@ export default function PlansScreen() {
     } else if (planResult.data) {
       setPlans(planResult.data as PlanRow[]);
 
-      // Fetch ownership info for unique race IDs
-      const raceIds = [...new Set((planResult.data as PlanRow[]).filter((p) => p.race_id).map((p) => p.race_id!))] ;
+      const raceIds = [...new Set((planResult.data as PlanRow[]).filter((p) => p.race_id).map((p) => p.race_id!))];
       if (raceIds.length > 0 && uid) {
         const { data: racesData } = await supabase
           .from('races')
@@ -122,7 +259,7 @@ export default function PlansScreen() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  function handleCreatePlan(raceId?: string) {
+  async function openRacePicker() {
     if (!isPremium && plans.length >= FREE_PLAN_LIMIT) {
       Alert.alert(
         'Limite atteinte',
@@ -131,15 +268,52 @@ export default function PlansScreen() {
       );
       return;
     }
-    if (raceId) {
-      router.push({ pathname: '/(app)/plan/new', params: { raceId } });
-    } else {
-      router.push('/(app)/race/new');
+    setShowRacePicker(true);
+    setPickerLoading(true);
+    try {
+      const uid = userId;
+      const [eventsResult, orphansResult, personalResult] = await Promise.all([
+        supabase
+          .from('race_events')
+          .select('id, name, location, race_date, races(id, name, distance_km, elevation_gain_m)')
+          .eq('is_live', true)
+          .order('name'),
+        supabase
+          .from('races')
+          .select('id, name, distance_km, elevation_gain_m')
+          .eq('is_live', true)
+          .is('event_id', null),
+        uid
+          ? supabase
+              .from('races')
+              .select('id, name, distance_km, elevation_gain_m')
+              .eq('is_public', false)
+              .eq('created_by', uid)
+          : Promise.resolve({ data: [] as PickerRace[], error: null }),
+      ]);
+
+      const groups: PickerEventGroup[] = (eventsResult.data ?? []) as PickerEventGroup[];
+      const orphans = (orphansResult.data ?? []) as PickerRace[];
+      if (orphans.length > 0) {
+        groups.push({ id: '__orphans__', name: 'Autres courses', location: null, race_date: null, races: orphans });
+      }
+      setPickerEvents(groups);
+      setPickerPersonal(((personalResult as any).data ?? []) as PickerRace[]);
+    } finally {
+      setPickerLoading(false);
     }
   }
 
+  function handlePickRace(race: PickerRace) {
+    setShowRacePicker(false);
+    router.push({ pathname: '/(app)/plan/new', params: { raceId: race.id, raceName: race.name } });
+  }
+
+  function handleCreatePlan(raceId: string) {
+    router.push({ pathname: '/(app)/plan/new', params: { raceId } });
+  }
+
   const handleDelete = (planId: string) => {
-    setMenuPlanId(null);
     Alert.alert(t.plans.deleteTitle, t.plans.deleteMessage, [
       { text: t.common.cancel, style: 'cancel' },
       {
@@ -173,11 +347,9 @@ export default function PlansScreen() {
     }
 
     const result: RaceSection[] = [];
-    const seen = new Set<string>();
 
     for (const [key, planList] of Object.entries(grouped)) {
       if (key === '__orphan__') continue;
-      seen.add(key);
       const raceName = planList[0]?.races?.name ?? 'Course inconnue';
       const createdBy = raceOwnership[key] ?? null;
       result.push({
@@ -202,8 +374,6 @@ export default function PlansScreen() {
 
     return result;
   })();
-
-  const selectedPlan = plans.find((p) => p.id === menuPlanId);
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={Colors.brandPrimary} size="large" /></View>;
@@ -239,7 +409,7 @@ export default function PlansScreen() {
             <Text style={styles.emptyIcon}>🏔️</Text>
             <Text style={styles.emptyTitle}>{t.plans.empty}</Text>
             <Text style={styles.emptySubtitle}>{t.plans.emptySubtitle}</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={() => handleCreatePlan()}>
+            <TouchableOpacity style={styles.emptyButton} onPress={openRacePicker}>
               <Text style={styles.emptyButtonText}>{t.plans.createFirst}</Text>
             </TouchableOpacity>
           </View>
@@ -267,7 +437,6 @@ export default function PlansScreen() {
                   <Text style={styles.editRaceText}>{t.races.editRace}</Text>
                 </TouchableOpacity>
               )}
-              {/* + new plan for this race */}
               {section.raceId && (
                 <TouchableOpacity
                   style={styles.addPlanBtn}
@@ -285,9 +454,7 @@ export default function PlansScreen() {
           const isCollapsed = collapsedSections.has(key);
           if (isCollapsed || section.data.length === 0) return null;
           if (section.raceId === null) {
-            return (
-              <Text style={styles.orphanWarning}>{t.plans.noRaceWarning}</Text>
-            );
+            return <Text style={styles.orphanWarning}>{t.plans.noRaceWarning}</Text>;
           }
           return null;
         }}
@@ -311,13 +478,22 @@ export default function PlansScreen() {
                 </View>
               </View>
               <View style={styles.cardActions}>
-                <TouchableOpacity
-                  style={styles.menuButton}
-                  onPress={() => setMenuPlanId(item.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.menuButtonText}>⋯</Text>
-                </TouchableOpacity>
+                <View style={styles.cardIconActions}>
+                  <TouchableOpacity
+                    onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons name="create-outline" size={16} color="#6B7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(item.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
                 <TouchableOpacity
                   style={styles.startButton}
                   onPress={() => router.push(`/(app)/race/${item.id}` as any)}
@@ -330,52 +506,74 @@ export default function PlansScreen() {
         }}
       />
 
-      {/* FAB → new race */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => handleCreatePlan()}
-        activeOpacity={0.85}
-      >
+      {/* FAB → race picker */}
+      <TouchableOpacity style={styles.fab} onPress={openRacePicker} activeOpacity={0.85}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* Context menu */}
+      {/* ── Race Picker Modal ── */}
       <Modal
-        visible={menuPlanId !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuPlanId(null)}
+        visible={showRacePicker}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowRacePicker(false)}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setMenuPlanId(null)}>
-          <View style={styles.menuSheet}>
-            {selectedPlan && (
-              <Text style={styles.menuTitle} numberOfLines={1}>{selectedPlan.name}</Text>
-            )}
+        <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }}>
+          {/* Header */}
+          <View style={pStyles.header}>
+            <Text style={pStyles.headerTitle}>Choisir une course</Text>
             <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => { setMenuPlanId(null); router.push(`/(app)/plan/${menuPlanId}/edit` as any); }}
+              onPress={() => setShowRacePicker(false)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={styles.menuItemText}>✏️  {t.plans.editButton}</Text>
-            </TouchableOpacity>
-            <View style={styles.menuDivider} />
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => menuPlanId && handleDelete(menuPlanId)}
-            >
-              <Text style={[styles.menuItemText, styles.menuItemDanger]}>🗑️  {t.plans.deleteButton}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuCancel]}
-              onPress={() => setMenuPlanId(null)}
-            >
-              <Text style={styles.menuCancelText}>{t.common.cancel}</Text>
+              <Ionicons name="close" size={24} color={Colors.textPrimary} />
             </TouchableOpacity>
           </View>
-        </Pressable>
+
+          {/* Create new race shortcut */}
+          <TouchableOpacity
+            style={pStyles.newRaceRow}
+            onPress={() => { setShowRacePicker(false); router.push('/(app)/race/new'); }}
+          >
+            <Ionicons name="add-circle-outline" size={18} color={Colors.brandPrimary} />
+            <Text style={pStyles.newRaceText}>Créer une nouvelle course</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          {/* Body */}
+          {pickerLoading ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator color={Colors.brandPrimary} size="large" />
+            </View>
+          ) : (
+            <ScrollView
+              contentContainerStyle={pStyles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {pickerPersonal.length > 0 && (
+                <PersonalPickerSection races={pickerPersonal} onSelect={handlePickRace} />
+              )}
+
+              {pickerEvents.map((event) => (
+                <EventPickerCard key={event.id} event={event} onSelect={handlePickRace} />
+              ))}
+
+              {pickerPersonal.length === 0 && pickerEvents.length === 0 && (
+                <View style={pStyles.emptyPicker}>
+                  <Text style={pStyles.emptyPickerIcon}>🏁</Text>
+                  <Text style={pStyles.emptyPickerText}>Aucune course disponible</Text>
+                  <Text style={pStyles.emptyPickerSub}>Créez votre première course avec le bouton ci-dessus.</Text>
+                </View>
+              )}
+            </ScrollView>
+          )}
+        </SafeAreaView>
       </Modal>
     </View>
   );
 }
+
+// ─── Plans screen styles ──────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background, padding: 24 },
@@ -431,8 +629,8 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 13, color: Colors.textSecondary },
   metaDate: { fontSize: 13, color: Colors.textMuted },
   cardActions: { alignItems: 'flex-end', gap: 8 },
-  menuButton: { paddingHorizontal: 8, paddingVertical: 2 },
-  menuButtonText: { color: Colors.textSecondary, fontSize: 20, fontWeight: '700', letterSpacing: 1 },
+  cardIconActions: { flexDirection: 'row', gap: 4 },
+  iconBtn: { padding: 6 },
   startButton: { backgroundColor: Colors.brandPrimary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
   startButtonText: { color: Colors.textOnBrand, fontWeight: '700', fontSize: 13 },
   fab: {
@@ -448,13 +646,89 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 15, color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 32 },
   emptyButton: { backgroundColor: Colors.brandPrimary, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14 },
   emptyButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  menuSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 40, paddingTop: 8, paddingHorizontal: 8 },
-  menuTitle: { color: Colors.textSecondary, fontSize: 13, textAlign: 'center', paddingVertical: 12, paddingHorizontal: 16 },
-  menuItem: { paddingVertical: 16, paddingHorizontal: 20, borderRadius: 12 },
-  menuItemText: { fontSize: 17, color: Colors.textPrimary },
-  menuItemDanger: { color: Colors.danger },
-  menuDivider: { height: 1, backgroundColor: Colors.border, marginHorizontal: 8 },
-  menuCancel: { marginTop: 8, backgroundColor: Colors.surfaceMuted, alignItems: 'center' },
-  menuCancelText: { fontSize: 17, color: Colors.textSecondary, fontWeight: '600' },
+});
+
+// ─── Race Picker Modal styles ─────────────────────────────────────────────────
+
+const pStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary },
+  newRaceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  newRaceText: { flex: 1, fontSize: 15, color: Colors.brandPrimary, fontWeight: '600' },
+  scrollContent: { padding: 16, gap: 16, paddingBottom: 40 },
+  // Event cards — same structure as catalog.tsx
+  eventCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  personalCard: {
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  eventHeaderEmoji: { fontSize: 22, lineHeight: 26 },
+  eventName: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
+  eventMeta: { fontSize: 13, color: Colors.textSecondary },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 12 },
+  racesRow: { flexDirection: 'row', gap: 10 },
+  racesScrollContent: { flexDirection: 'row', gap: 10 },
+  raceCard: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    minWidth: 140,
+  },
+  raceCardFixed: { width: 150 },
+  raceLabel: { fontSize: 15, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 },
+  raceStats: { fontSize: 12, color: Colors.textSecondary },
+  selectBtn: {
+    backgroundColor: 'transparent',
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
+    marginTop: 8,
+  },
+  selectBtnText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '600' },
+  emptyPicker: {
+    alignItems: 'center',
+    paddingVertical: 64,
+    paddingHorizontal: 32,
+  },
+  emptyPickerIcon: { fontSize: 48, marginBottom: 12 },
+  emptyPickerText: { fontSize: 18, fontWeight: '700', color: Colors.textPrimary, marginBottom: 8 },
+  emptyPickerSub: { fontSize: 14, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
 });

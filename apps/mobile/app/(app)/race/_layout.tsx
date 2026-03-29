@@ -1,12 +1,14 @@
 import { Stack } from 'expo-router';
+import { Colors } from '../../../constants/colors';
 
 export default function RaceLayout() {
   return (
     <Stack
       screenOptions={{
-        headerStyle: { backgroundColor: '#0f172a' },
-        headerTintColor: '#f1f5f9',
-        contentStyle: { backgroundColor: '#0f172a' },
+        headerStyle: { backgroundColor: Colors.background },
+        headerTintColor: Colors.textPrimary,
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: Colors.background },
       }}
     />
   );

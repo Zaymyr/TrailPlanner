@@ -94,8 +94,64 @@ function RaceSubCard({
   );
 }
 
+function PersonalRaceCard({ race, flex }: { race: Race; flex?: boolean }) {
+  const router = useRouter();
+  return (
+    <View style={[styles.raceCard, flex ? { flex: 1 } : styles.raceCardFixed]}>
+      <Text style={styles.raceLabel} numberOfLines={2}>{race.name}</Text>
+      <Text style={styles.raceStats}>
+        {race.distance_km}km{'  '}D+{race.elevation_gain_m}m
+      </Text>
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={() =>
+          router.push({
+            pathname: '/(app)/plan/new',
+            params: { catalogRaceId: race.id },
+          })
+        }
+      >
+        <Text style={styles.createButtonText}>➕ Créer un plan</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function PersonalRacesSection({ races }: { races: Race[] }) {
+  const useFlex = races.length <= 2;
+  return (
+    <View style={[styles.eventCard, styles.personalCard]}>
+      <View style={styles.eventHeader}>
+        <Text style={styles.eventHeaderEmoji}>🗺️</Text>
+        <View style={styles.eventHeaderText}>
+          <Text style={styles.eventName}>Mes courses</Text>
+        </View>
+      </View>
+      <View style={styles.divider} />
+      {useFlex ? (
+        <View style={styles.racesRow}>
+          {races.map((race) => (
+            <PersonalRaceCard key={race.id} race={race} flex />
+          ))}
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.racesScrollContent}
+        >
+          {races.map((race) => (
+            <PersonalRaceCard key={race.id} race={race} />
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 export default function CatalogScreen() {
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
+  const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +160,10 @@ export default function CatalogScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const [eventsResult, orphansResult] = await Promise.all([
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id ?? null;
+
+        const [eventsResult, orphansResult, personalResult] = await Promise.all([
           supabase
             .from('race_events')
             .select(`
@@ -128,6 +187,13 @@ export default function CatalogScreen() {
             .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path')
             .eq('is_live', true)
             .is('event_id', null),
+          userId
+            ? supabase
+                .from('races')
+                .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path')
+                .eq('is_public', false)
+                .eq('created_by', userId)
+            : Promise.resolve({ data: [], error: null }),
         ]);
 
         if (cancelled) return;
@@ -147,6 +213,7 @@ export default function CatalogScreen() {
         }
 
         setEventGroups(groups);
+        setPersonalRaces((personalResult.data ?? []) as Race[]);
         setError(null);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -204,7 +271,7 @@ export default function CatalogScreen() {
       keyExtractor={(item) => item.id}
       contentContainerStyle={[
         styles.list,
-        eventGroups.length === 0 && styles.listEmpty,
+        eventGroups.length === 0 && personalRaces.length === 0 && styles.listEmpty,
       ]}
       refreshControl={
         <RefreshControl
@@ -216,12 +283,19 @@ export default function CatalogScreen() {
           tintColor={Colors.brandPrimary}
         />
       }
+      ListHeaderComponent={
+        personalRaces.length > 0 ? (
+          <PersonalRacesSection races={personalRaces} />
+        ) : null
+      }
       ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🏁</Text>
-          <Text style={styles.emptyTitle}>Aucune course disponible</Text>
-          <Text style={styles.emptySubtitle}>Le catalogue sera bientôt enrichi.</Text>
-        </View>
+        personalRaces.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyIcon}>🏁</Text>
+            <Text style={styles.emptyTitle}>Aucune course disponible</Text>
+            <Text style={styles.emptySubtitle}>Le catalogue sera bientôt enrichi.</Text>
+          </View>
+        ) : null
       }
       renderItem={({ item: event }) => {
         const dateStr = formatEventDate(event.race_date);
@@ -338,6 +412,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 6,
     elevation: 3,
+  },
+  personalCard: {
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
   },
   eventHeader: {
     flexDirection: 'row',
