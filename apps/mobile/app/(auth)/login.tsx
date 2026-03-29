@@ -12,6 +12,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -27,7 +28,7 @@ export default function LoginScreen() {
     try {
       const redirectUri = makeRedirectUri({
         scheme: 'paceyourself',
-        path: '/(app)/plans',
+        path: 'auth/callback',
       });
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -43,22 +44,18 @@ export default function LoginScreen() {
 
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
-        redirectUri
+        redirectUri,
       );
 
       if (result.type === 'success' && result.url) {
-        const url = new URL(result.url);
+        // Avoid new URL() — custom schemes can throw in some RN environments
+        const fragment = result.url.includes('#') ? result.url.split('#')[1] : '';
+        const query = result.url.includes('?') ? result.url.split('?')[1] : '';
+        const params = new URLSearchParams(fragment || query);
 
-        // Handle both hash and query params (Supabase uses hash)
-        const hashParams = new URLSearchParams(
-          result.url.includes('#')
-            ? result.url.split('#')[1]
-            : url.search
-        );
-
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const code = url.searchParams.get('code');
+        const accessToken = params.get('access_token');
+        const refreshToken = params.get('refresh_token');
+        const code = new URLSearchParams(query).get('code');
 
         if (accessToken && refreshToken) {
           await supabase.auth.setSession({
@@ -103,7 +100,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#475569"
+          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -114,7 +111,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Mot de passe"
-          placeholderTextColor="#475569"
+          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -163,7 +160,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   inner: {
     flex: 1,
@@ -172,34 +169,36 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
-    color: '#22c55e',
+    fontWeight: '800',
+    color: Colors.brandPrimary,
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#94a3b8',
+    fontSize: 16,
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
   },
   input: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     marginBottom: 12,
   },
   error: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 14,
     marginBottom: 12,
     textAlign: 'center',
   },
   button: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -209,8 +208,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#0f172a',
-    fontSize: 17,
+    color: Colors.textOnBrand,
+    fontSize: 16,
     fontWeight: '700',
   },
   dividerRow: {
@@ -222,23 +221,23 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: Colors.border,
   },
   dividerText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 13,
   },
   googleButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
   },
   googleButtonText: {
-    color: '#f1f5f9',
-    fontSize: 17,
+    color: Colors.textPrimary,
+    fontSize: 16,
     fontWeight: '600',
   },
   signupRow: {
@@ -247,11 +246,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   signupText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 15,
   },
   signupLink: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 15,
     fontWeight: '600',
   },

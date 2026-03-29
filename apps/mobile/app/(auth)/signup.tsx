@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
 
 export default function SignupScreen() {
   const [fullName, setFullName] = useState('');
@@ -83,7 +84,7 @@ export default function SignupScreen() {
         <TextInput
           style={styles.input}
           placeholder="Prénom (optionnel)"
-          placeholderTextColor="#475569"
+          placeholderTextColor={Colors.textMuted}
           value={fullName}
           onChangeText={setFullName}
           textContentType="givenName"
@@ -93,7 +94,7 @@ export default function SignupScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#475569"
+          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -104,7 +105,7 @@ export default function SignupScreen() {
         <TextInput
           style={styles.input}
           placeholder="Mot de passe (min. 8 caractères)"
-          placeholderTextColor="#475569"
+          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -139,7 +140,7 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   inner: {
     flexGrow: 1,
@@ -149,34 +150,36 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
-    color: '#22c55e',
+    fontWeight: '800',
+    color: Colors.brandPrimary,
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 18,
-    color: '#94a3b8',
+    fontSize: 16,
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
   },
   input: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     marginBottom: 12,
   },
   error: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 14,
     marginBottom: 12,
     textAlign: 'center',
   },
   button: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -186,8 +189,8 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#0f172a',
-    fontSize: 17,
+    color: Colors.textOnBrand,
+    fontSize: 16,
     fontWeight: '700',
   },
   loginRow: {
@@ -196,11 +199,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   loginText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 15,
   },
   loginLink: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -212,13 +215,13 @@ const styles = StyleSheet.create({
   successTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: 12,
   },
   successText: {
     fontSize: 15,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 22,
