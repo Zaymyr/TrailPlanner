@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
+import { Colors } from '../../../constants/colors';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct } from '../../../components/PlanForm';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { useI18n } from '../../../lib/i18n';
@@ -119,11 +120,12 @@ export default function NewPlanScreen() {
       waterIntakePerHour: values.waterIntakePerHour,
       sodiumIntakePerHour: values.sodiumIntakePerHour,
       waterBagLiters: values.waterBagLiters,
+      startSupplies: (values.startSupplies ?? []).map((s) => ({ productId: s.productId, quantity: s.quantity })),
       aidStations: values.aidStations.map((s) => ({
         name: s.name,
         distanceKm: s.distanceKm,
         waterRefill: s.waterRefill,
-        supplies: s.supplies,
+        supplies: (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
       })),
     };
 
@@ -154,8 +156,9 @@ export default function NewPlanScreen() {
       <Stack.Screen
         options={{
           title: selectedRace ? `${t.plans.newPlanForRace} ${selectedRace.name}` : t.plans.newPlan,
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f1f5f9',
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.textPrimary,
+          headerShadowVisible: false,
         }}
       />
 
@@ -190,6 +193,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
 });

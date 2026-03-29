@@ -3,90 +3,194 @@ import {
   View,
   Text,
   FlatList,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
-  Image,
   RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
 
-type CatalogRace = {
+type Race = {
   id: string;
   name: string;
-  location_text: string | null;
   distance_km: number;
   elevation_gain_m: number;
-  thumbnail_url: string | null;
-  race_date: string | null;
+  has_aid_stations: boolean | null;
+  gpx_storage_path: string | null;
 };
 
-function formatRaceDate(isoDate: string | null): string | null {
+type EventGroup = {
+  id: string;
+  name: string;
+  location: string | null;
+  race_date: string | null;
+  races: Race[];
+};
+
+function formatEventDate(isoDate: string | null): string | null {
   if (!isoDate) return null;
-  const d = new Date(isoDate);
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  return new Date(isoDate).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function getRaceShortLabel(raceName: string, eventName: string): string {
+  const cleaned = raceName
+    .replace(eventName, '')
+    .replace(/[\s\-–—·]+/g, ' ')
+    .trim();
+  return cleaned.length > 2 ? cleaned : raceName;
+}
+
+function SkeletonEventCard() {
+  return (
+    <View style={[styles.eventCard, { opacity: 0.6 }]}>
+      <View style={styles.skeletonTitle} />
+      <View style={styles.skeletonSubtitle} />
+      <View style={styles.divider} />
+      <View style={styles.racesRow}>
+        <View style={[styles.skeletonRaceCard, { flex: 1 }]} />
+        <View style={[styles.skeletonRaceCard, { flex: 1 }]} />
+      </View>
+    </View>
+  );
+}
+
+function RaceSubCard({
+  race,
+  eventName,
+  flex,
+}: {
+  race: Race;
+  eventName: string;
+  flex?: boolean;
+}) {
+  const router = useRouter();
+  const label = getRaceShortLabel(race.name, eventName);
+  return (
+    <View style={[styles.raceCard, flex ? { flex: 1 } : styles.raceCardFixed]}>
+      <Text style={styles.raceLabel} numberOfLines={2}>
+        {label}
+      </Text>
+      <Text style={styles.raceStats}>
+        {race.distance_km}km{'  '}D+{race.elevation_gain_m}m
+      </Text>
+      <TouchableOpacity
+        style={styles.createButton}
+        onPress={() =>
+          router.push({
+            pathname: '/(app)/plan/new',
+            params: { catalogRaceId: race.id },
+          })
+        }
+      >
+        <Text style={styles.createButtonText}>+ Créer un plan</Text>
+      </TouchableOpacity>
+    </View>
+  );
 }
 
 export default function CatalogScreen() {
-  const [races, setRaces] = useState<CatalogRace[]>([]);
+  const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
 
-  function fetchRaces() {
+  function fetchEvents() {
     let cancelled = false;
     (async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData?.session?.user?.id ?? null;
+      try {
+        const [eventsResult, orphansResult] = await Promise.all([
+          supabase
+            .from('race_events')
+            .select(`
+              id,
+              name,
+              location,
+              race_date,
+              races (
+                id,
+                name,
+                distance_km,
+                elevation_gain_m,
+                has_aid_stations,
+                gpx_storage_path
+              )
+            `)
+            .eq('is_live', true)
+            .order('name'),
+          supabase
+            .from('races')
+            .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path')
+            .eq('is_live', true)
+            .is('event_id', null),
+        ]);
 
-      let query = supabase
-        .from('races')
-        .select('id, name, location_text, distance_km, elevation_gain_m, thumbnail_url, race_date')
-        .order('name');
+        if (cancelled) return;
+        if (eventsResult.error) throw eventsResult.error;
+        if (orphansResult.error) throw orphansResult.error;
 
-      // Only show races that have a GPX file OR were created by the current user
-      if (userId) {
-        query = query.or(`gpx_storage_path.not.is.null,created_by.eq.${userId}`);
-      } else {
-        query = query.not('gpx_storage_path', 'is', null);
+        const groups: EventGroup[] = (eventsResult.data ?? []) as EventGroup[];
+        const orphans = (orphansResult.data ?? []) as Race[];
+        if (orphans.length > 0) {
+          groups.push({
+            id: '__orphans__',
+            name: 'Autres courses',
+            location: null,
+            race_date: null,
+            races: orphans,
+          });
+        }
+
+        setEventGroups(groups);
+        setError(null);
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Erreur inconnue');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
-
-      const { data, error: err } = await query;
-
-      if (cancelled) return;
-      if (err) {
-        setError(err.message);
-      } else {
-        setRaces((data as CatalogRace[]) ?? []);
-      }
-      setLoading(false);
-      setRefreshing(false);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }
 
   useEffect(() => {
-    const cancel = fetchRaces();
-    return cancel;
+    return fetchEvents();
   }, []);
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
-      </View>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: Colors.background }}
+        contentContainerStyle={styles.list}
+      >
+        <SkeletonEventCard />
+        <SkeletonEventCard />
+      </ScrollView>
     );
   }
 
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
+        <Text style={styles.errorText}>Impossible de charger les courses</Text>
         <TouchableOpacity
           style={styles.retryButton}
-          onPress={() => { setError(null); setLoading(true); fetchRaces(); }}
+          onPress={() => {
+            setError(null);
+            setLoading(true);
+            fetchEvents();
+          }}
         >
           <Text style={styles.retryButtonText}>Réessayer</Text>
         </TouchableOpacity>
@@ -96,14 +200,20 @@ export default function CatalogScreen() {
 
   return (
     <FlatList
-      data={races}
+      data={eventGroups}
       keyExtractor={(item) => item.id}
-      contentContainerStyle={[styles.list, races.length === 0 && styles.listEmpty]}
+      contentContainerStyle={[
+        styles.list,
+        eventGroups.length === 0 && styles.listEmpty,
+      ]}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); fetchRaces(); }}
-          tintColor="#22c55e"
+          onRefresh={() => {
+            setRefreshing(true);
+            fetchEvents();
+          }}
+          tintColor={Colors.brandPrimary}
         />
       }
       ListEmptyComponent={
@@ -113,47 +223,44 @@ export default function CatalogScreen() {
           <Text style={styles.emptySubtitle}>Le catalogue sera bientôt enrichi.</Text>
         </View>
       }
-      renderItem={({ item }) => {
-        const raceDate = formatRaceDate(item.race_date);
+      renderItem={({ item: event }) => {
+        const dateStr = formatEventDate(event.race_date);
+        const headerMeta = [event.location, dateStr].filter(Boolean).join(' · ');
+        const useFlex = event.races.length <= 2;
+
         return (
-          <View style={styles.card}>
-            {item.thumbnail_url ? (
-              <Image
-                source={{ uri: item.thumbnail_url }}
-                style={styles.thumbnail}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={[styles.thumbnail, styles.thumbnailPlaceholder]}>
-                <Text style={styles.thumbnailIcon}>🏔️</Text>
+          <View style={styles.eventCard}>
+            {/* Event header */}
+            <View style={styles.eventHeader}>
+              <Text style={styles.eventHeaderEmoji}>🏔️</Text>
+              <View style={styles.eventHeaderText}>
+                <Text style={styles.eventName}>{event.name}</Text>
+                {headerMeta ? (
+                  <Text style={styles.eventMeta}>{headerMeta}</Text>
+                ) : null}
               </View>
-            )}
-
-            <View style={styles.cardBody}>
-              <Text style={styles.raceName}>{item.name}</Text>
-
-              {item.location_text && (
-                <Text style={styles.raceLocation}>📍 {item.location_text}</Text>
-              )}
-
-              <View style={styles.statsRow}>
-                <Text style={styles.statChip}>{item.distance_km} km</Text>
-                <Text style={styles.statChip}>D+ {item.elevation_gain_m}m</Text>
-                {raceDate && <Text style={styles.statChip}>{raceDate}</Text>}
-              </View>
-
-              <TouchableOpacity
-                style={styles.createButton}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(app)/plan/new',
-                    params: { catalogRaceId: item.id },
-                  })
-                }
-              >
-                <Text style={styles.createButtonText}>+ Créer un plan</Text>
-              </TouchableOpacity>
             </View>
+
+            <View style={styles.divider} />
+
+            {/* Race format sub-cards */}
+            {useFlex ? (
+              <View style={styles.racesRow}>
+                {event.races.map((race) => (
+                  <RaceSubCard key={race.id} race={race} eventName={event.name} flex />
+                ))}
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.racesScrollContent}
+              >
+                {event.races.map((race) => (
+                  <RaceSubCard key={race.id} race={race} eventName={event.name} />
+                ))}
+              </ScrollView>
+            )}
           </View>
         );
       }}
@@ -166,33 +273,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   retryButtonText: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
   },
   list: {
     padding: 16,
     gap: 16,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   listEmpty: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   emptyContainer: {
     flex: 1,
@@ -208,72 +317,117 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
-  card: {
-    backgroundColor: '#1e293b',
+  // Event card
+  eventCard: {
+    backgroundColor: Colors.surface,
     borderRadius: 16,
-    overflow: 'hidden',
-  },
-  thumbnail: {
-    width: '100%',
-    height: 140,
-  },
-  thumbnailPlaceholder: {
-    backgroundColor: '#334155',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  thumbnailIcon: {
-    fontSize: 40,
-  },
-  cardBody: {
-    padding: 16,
-  },
-  raceName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#f1f5f9',
-    marginBottom: 4,
-  },
-  raceLocation: {
-    fontSize: 14,
-    color: '#94a3b8',
-    marginBottom: 10,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
-  },
-  statChip: {
-    backgroundColor: '#334155',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    fontSize: 13,
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
-  createButton: {
-    backgroundColor: '#14532d',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: Colors.border,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 3,
   },
-  createButtonText: {
-    color: '#22c55e',
+  eventHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  eventHeaderEmoji: {
+    fontSize: 22,
+    lineHeight: 26,
+  },
+  eventHeaderText: {
+    flex: 1,
+  },
+  eventName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 2,
+  },
+  eventMeta: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 12,
+  },
+  // Race sub-cards — flex row (≤ 2 races)
+  racesRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  // Race sub-cards — horizontal scroll (3+ races)
+  racesScrollContent: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  raceCard: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 12,
+    minWidth: 140,
+  },
+  raceCardFixed: {
+    width: 150,
+  },
+  raceLabel: {
     fontSize: 15,
     fontWeight: '700',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  raceStats: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
+  createButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 7,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
+    marginTop: 8,
+  },
+  createButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Skeleton placeholders
+  skeletonTitle: {
+    height: 18,
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 8,
+    width: '60%',
+    marginBottom: 8,
+  },
+  skeletonSubtitle: {
+    height: 13,
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 6,
+    width: '40%',
+  },
+  skeletonRaceCard: {
+    height: 100,
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 12,
   },
 });

@@ -13,6 +13,8 @@ import {
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
+import { Colors } from '../../constants/colors';
+import { usePremium } from '../../hooks/usePremium';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 
@@ -41,9 +43,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
-  const [isPremium, setIsPremium] = useState(false);
-  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
-  const [isTrialActive, setIsTrialActive] = useState(false);
+  const { isPremium, isTrialActive, trialEndsAt } = usePremium();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,19 +58,11 @@ export default function ProfileScreen() {
       if (!uid || cancelled) return;
       setUserId(uid);
 
-      const [profileResult, subResult] = await Promise.all([
-        supabase
-          .from('user_profiles')
-          .select('full_name, age, water_bag_liters, role, trial_ends_at, trial_started_at')
-          .eq('user_id', uid)
-          .single(),
-        supabase
-          .from('subscriptions')
-          .select('status')
-          .eq('user_id', uid)
-          .eq('status', 'active')
-          .maybeSingle(),
-      ]);
+      const profileResult = await supabase
+        .from('user_profiles')
+        .select('full_name, age, water_bag_liters, role, trial_ends_at, trial_started_at')
+        .eq('user_id', uid)
+        .single();
 
       if (cancelled) return;
 
@@ -79,15 +71,6 @@ export default function ProfileScreen() {
         setProfile(p);
         setFullName(p.full_name ?? '');
         setWaterBagLiters(p.water_bag_liters ?? 1.5);
-
-        if (p.trial_ends_at) {
-          setTrialEndsAt(p.trial_ends_at);
-          setIsTrialActive(new Date(p.trial_ends_at).getTime() > Date.now());
-        }
-      }
-
-      if (!subResult.error && subResult.data) {
-        setIsPremium(true);
       }
 
       setLoading(false);
@@ -148,7 +131,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -171,7 +154,7 @@ export default function ProfileScreen() {
         value={fullName}
         onChangeText={setFullName}
         placeholder="Ton prénom"
-        placeholderTextColor="#475569"
+        placeholderTextColor={Colors.textMuted}
         autoCapitalize="words"
         textContentType="givenName"
       />
@@ -199,7 +182,7 @@ export default function ProfileScreen() {
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color="#0f172a" />
+          <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
           <Text style={styles.saveButtonText}>
             {saved ? '✓ Enregistré' : 'Enregistrer'}
@@ -285,7 +268,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 20,
@@ -295,24 +278,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
+    letterSpacing: 0.5,
     marginBottom: 16,
   },
   label: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 12,
   },
   textInput: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
@@ -324,24 +310,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   waterBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   waterBtnActive: {
-    backgroundColor: '#14532d',
-    borderColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
   },
   waterBtnText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   waterBtnTextActive: {
-    color: '#22c55e',
+    color: Colors.textOnBrand,
   },
   langRow: {
     flexDirection: 'row',
@@ -354,29 +340,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
   },
   langBtnActive: {
-    borderColor: '#22c55e',
-    backgroundColor: '#14532d',
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
   },
   langBtnText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   langBtnTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -386,16 +374,23 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   statusCard: {
-    backgroundColor: '#1e293b',
-    borderRadius: 14,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: 16,
     marginTop: 24,
     marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   statusRow: {
     flexDirection: 'row',
@@ -403,58 +398,58 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusLabel: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
   statusBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 999,
   },
   statusBadgePremium: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
   },
   statusBadgeFree: {
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surfaceSecondary,
   },
   statusBadgeTrial: {
-    backgroundColor: '#78350f',
+    backgroundColor: Colors.warningSurface,
   },
   statusBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   statusBadgeTextPremium: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   statusBadgeTextFree: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
   },
   statusBadgeTextTrial: {
-    color: '#fbbf24',
+    color: Colors.warning,
   },
   trialSubtitle: {
-    color: '#fbbf24',
+    color: Colors.warning,
     fontSize: 13,
     marginTop: 8,
   },
   upgradeButton: {
-    backgroundColor: '#14532d',
+    backgroundColor: 'transparent',
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#22c55e',
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
   },
   upgradeButtonText: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   versionText: {
-    color: '#334155',
+    color: Colors.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 24,
@@ -465,11 +460,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.borderStrong,
+    backgroundColor: 'transparent',
   },
   logoutButtonText: {
-    color: '#94a3b8',
+    color: Colors.danger,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

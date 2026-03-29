@@ -4,3 +4,14 @@ dist
 coverage
 .next
 tsconfig.tsbuildinfo
+# Expo
+.expo/
+apps/mobile/.expo/
+
+# Env files
+apps/mobile/.env
+apps/mobile/.env.local
+
+# Claude local config
+.claude/settings.local.json
+.claude/launch.json

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct } from '../../../../components/PlanForm';
+import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, Supply } from '../../../../components/PlanForm';
+import { Colors } from '../../../../constants/colors';
 
 type RacePlanRow = {
   id: string;
@@ -18,17 +19,12 @@ type RacePlanRow = {
     waterIntakePerHour?: number;
     sodiumIntakePerHour?: number;
     waterBagLiters?: number;
+    startSupplies?: Array<{ productId: string; quantity: number }>;
     aidStations?: Array<{
       name: string;
       distanceKm: number;
       waterRefill: boolean;
-      supplies?: Array<{
-        productId: string;
-        productName: string;
-        carbsGrams: number;
-        sodiumMg: number;
-        quantity: number;
-      }>;
+      supplies?: Array<{ productId: string; quantity: number }>;
     }>;
   };
 };
@@ -47,11 +43,12 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
     waterIntakePerHour: pv.waterIntakePerHour ?? 500,
     sodiumIntakePerHour: pv.sodiumIntakePerHour ?? 600,
     waterBagLiters: pv.waterBagLiters ?? 1.5,
+    startSupplies: (pv.startSupplies ?? []).map((s): Supply => ({ productId: s.productId, quantity: s.quantity ?? 1 })),
     aidStations: (pv.aidStations ?? []).map((s) => ({
       name: s.name,
       distanceKm: s.distanceKm,
       waterRefill: s.waterRefill,
-      supplies: s.supplies,
+      supplies: (s.supplies ?? []).map((sup): Supply => ({ productId: sup.productId, quantity: sup.quantity ?? 1 })),
     })),
   };
 }
@@ -127,11 +124,12 @@ export default function EditPlanScreen() {
       waterIntakePerHour: values.waterIntakePerHour,
       sodiumIntakePerHour: values.sodiumIntakePerHour,
       waterBagLiters: values.waterBagLiters,
+      startSupplies: (values.startSupplies ?? []).map((s) => ({ productId: s.productId, quantity: s.quantity })),
       aidStations: values.aidStations.map((s) => ({
         name: s.name,
         distanceKm: s.distanceKm,
         waterRefill: s.waterRefill,
-        supplies: s.supplies,
+        supplies: (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
       })),
     };
 
@@ -154,7 +152,7 @@ export default function EditPlanScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -169,13 +167,7 @@ export default function EditPlanScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: `Modifier : ${planName}`,
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f1f5f9',
-        }}
-      />
+      <Stack.Screen options={{ title: `Modifier : ${planName}` }} />
       <PlanForm
         initialValues={initialValues}
         onSave={handleSave}
@@ -192,11 +184,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
   },
