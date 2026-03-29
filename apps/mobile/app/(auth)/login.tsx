@@ -12,6 +12,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -103,7 +104,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor="#475569"
+          placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -114,7 +115,7 @@ export default function LoginScreen() {
         <TextInput
           style={styles.input}
           placeholder="Mot de passe"
-          placeholderTextColor="#475569"
+          placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -163,7 +164,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   inner: {
     flex: 1,
@@ -173,33 +174,35 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 18,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
   },
   input: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   error: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 14,
     marginBottom: 12,
     textAlign: 'center',
   },
   button: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -209,7 +212,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -222,22 +225,22 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: Colors.border,
   },
   dividerText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 13,
   },
   googleButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   googleButtonText: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 17,
     fontWeight: '600',
   },
@@ -247,11 +250,11 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   signupText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 15,
   },
   signupLink: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 15,
     fontWeight: '600',
   },

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { Colors } from '../constants/colors';
 
 export type AlertConfirmMode =
   | 'manual'
@@ -136,7 +137,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '90%',
@@ -144,19 +145,19 @@ const styles = StyleSheet.create({
   },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: '#1e293b',
+    borderBottomColor: Colors.border,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
   },
   headerTitle: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 2,
   },
   headerSubtitle: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -165,7 +166,7 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   sectionLabel: {
-    color: '#64748b',
+    color: Colors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
@@ -181,22 +182,25 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 12,
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surfaceSecondary,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   pillActive: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandPrimary,
   },
   pillText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontWeight: '600',
     fontSize: 14,
   },
   pillTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   modeCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
@@ -204,7 +208,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   modeCardActive: {
-    borderColor: '#22c55e',
+    borderColor: Colors.brandPrimary,
   },
   modeCardHeader: {
     flexDirection: 'row',
@@ -213,24 +217,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modeCardLabel: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
     flex: 1,
   },
   modeCardDesc: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
   },
   tag: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
   tagText: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 11,
     fontWeight: '700',
   },
@@ -241,29 +245,31 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 20,
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
+    borderTopColor: Colors.border,
   },
   cancelBtn: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   cancelBtnText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 16,
     fontWeight: '600',
   },
   startBtn: {
     flex: 2,
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
   },
   startBtnText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 16,
     fontWeight: '800',
   },

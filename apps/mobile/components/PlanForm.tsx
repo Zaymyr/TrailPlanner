@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Colors } from '../constants/colors';
 
 export type AidStationSupply = {
   productId: string;
@@ -92,20 +93,22 @@ function NumberInput({
       }}
       keyboardType="numeric"
       placeholder={placeholder ?? '0'}
-      placeholderTextColor="#475569"
+      placeholderTextColor={Colors.textMuted}
     />
   );
 }
 
 const inputStyles = StyleSheet.create({
   input: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
     flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
 });
 
@@ -291,7 +294,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
         value={values.name}
         onChangeText={(t) => update('name', t)}
         placeholder="Ex : UTMB 2025"
-        placeholderTextColor="#475569"
+        placeholderTextColor={Colors.textMuted}
       />
 
       <View style={styles.row}>
@@ -473,7 +476,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
             value={station.name}
             onChangeText={(t) => updateAidStation(index, { name: t })}
             placeholder={`Ravito ${index + 1}`}
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
 
           <Text style={styles.label}>Distance (km)</Text>
@@ -488,8 +491,8 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
             <Switch
               value={station.waterRefill}
               onValueChange={(v) => updateAidStation(index, { waterRefill: v })}
-              trackColor={{ false: '#334155', true: '#14532d' }}
-              thumbColor={station.waterRefill ? '#22c55e' : '#94a3b8'}
+              trackColor={{ false: Colors.border, true: Colors.brandSurface }}
+              thumbColor={station.waterRefill ? Colors.brandPrimary : Colors.textSecondary}
             />
           </View>
 
@@ -525,7 +528,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
         disabled={loading}
       >
         {loading ? (
-          <ActivityIndicator color="#0f172a" />
+          <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
           <Text style={styles.saveButtonText}>{saveLabel ?? 'Enregistrer'}</Text>
         )}
@@ -537,7 +540,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 20,
@@ -552,23 +555,25 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     marginBottom: 12,
   },
   label: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 4,
   },
   textInput: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
     marginBottom: 4,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   row: {
     flexDirection: 'row',
@@ -579,10 +584,12 @@ const styles = StyleSheet.create({
   },
   toggleRow: {
     flexDirection: 'row',
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 10,
     padding: 4,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   toggleBtn: {
     flex: 1,
@@ -591,15 +598,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   toggleBtnActive: {
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surface,
   },
   toggleBtnText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 14,
     fontWeight: '600',
   },
   toggleBtnTextActive: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
   },
   waterBagRow: {
     flexDirection: 'row',
@@ -608,24 +615,24 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   waterBagBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   waterBagBtnActive: {
-    backgroundColor: '#14532d',
-    borderColor: '#22c55e',
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandPrimary,
   },
   waterBagBtnText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   waterBagBtnTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   sectionActions: {
     flexDirection: 'row',
@@ -647,21 +654,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   autoBtn: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: Colors.brandPrimary,
   },
   autoBtnText: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
   suppliesBox: {
     marginTop: 10,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
@@ -681,7 +688,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   suppliesClear: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -702,41 +709,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   supplyName: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 13,
     fontWeight: '600',
   },
   supplyMeta: {
-    color: '#64748b',
+    color: Colors.textMuted,
     fontSize: 11,
   },
   addBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   addBtnText: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
   emptyText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 14,
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 16,
   },
   stationCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   stationHeader: {
     flexDirection: 'row',
@@ -749,23 +756,25 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   orderBtn: {
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surfaceSecondary,
     width: 28,
     height: 28,
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   orderBtnDisabled: {
     opacity: 0.3,
   },
   orderBtnText: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 14,
   },
   stationIndex: {
     flex: 1,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
   },
@@ -773,12 +782,12 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#450a0a',
+    backgroundColor: Colors.dangerSurface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removeBtnText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -789,11 +798,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   switchLabel: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
   },
   saveButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',
@@ -803,7 +812,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 17,
     fontWeight: '700',
   },

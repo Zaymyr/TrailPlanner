@@ -11,6 +11,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0];
 
@@ -99,7 +100,7 @@ export default function OnboardingScreen() {
             value={fullName}
             onChangeText={setFullName}
             placeholder="Ex : Marie"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
             autoCapitalize="words"
             textContentType="givenName"
           />
@@ -160,7 +161,7 @@ export default function OnboardingScreen() {
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color="#0f172a" />
+            <ActivityIndicator color={Colors.textOnBrand} />
           ) : (
             <Text style={styles.primaryButtonText}>Activer les notifications</Text>
           )}
@@ -181,7 +182,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   inner: {
     flex: 1,
@@ -192,13 +193,13 @@ const styles = StyleSheet.create({
   logo: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     textAlign: 'center',
     marginBottom: 32,
   },
   stepIndicator: {
     fontSize: 13,
-    color: '#475569',
+    color: Colors.textMuted,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -210,13 +211,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 15,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 32,
@@ -239,33 +240,35 @@ const styles = StyleSheet.create({
   bulletText: {
     flex: 1,
     fontSize: 15,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     lineHeight: 22,
   },
   bulletBold: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontWeight: '700',
   },
   label: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 8,
   },
   labelHint: {
     fontSize: 12,
-    color: '#475569',
+    color: Colors.textMuted,
     marginBottom: 10,
     marginTop: -4,
   },
   textInput: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   waterBagRow: {
     flexDirection: 'row',
@@ -273,29 +276,29 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   waterBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
     flex: 1,
     alignItems: 'center',
   },
   waterBtnActive: {
-    backgroundColor: '#14532d',
-    borderColor: '#22c55e',
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandPrimary,
   },
   waterBtnText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },
   waterBtnTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   primaryButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 14,
     paddingVertical: 18,
     alignItems: 'center',
@@ -304,7 +307,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   primaryButtonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 17,
     fontWeight: '700',
   },
@@ -314,7 +317,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   skipButtonText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 15,
   },
 });

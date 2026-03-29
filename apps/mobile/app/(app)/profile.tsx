@@ -13,6 +13,7 @@ import {
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
+import { Colors } from '../../constants/colors';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 
@@ -148,7 +149,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -171,7 +172,7 @@ export default function ProfileScreen() {
         value={fullName}
         onChangeText={setFullName}
         placeholder="Ton prénom"
-        placeholderTextColor="#475569"
+        placeholderTextColor={Colors.textMuted}
         autoCapitalize="words"
         textContentType="givenName"
       />
@@ -199,7 +200,7 @@ export default function ProfileScreen() {
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color="#0f172a" />
+          <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
           <Text style={styles.saveButtonText}>
             {saved ? '✓ Enregistré' : 'Enregistrer'}
@@ -285,7 +286,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 20,
@@ -295,27 +296,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     marginBottom: 16,
   },
   label: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 12,
   },
   textInput: {
-    backgroundColor: '#1e293b',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   waterBagRow: {
     flexDirection: 'row',
@@ -324,24 +327,24 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   waterBtn: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   waterBtnActive: {
-    backgroundColor: '#14532d',
-    borderColor: '#22c55e',
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandPrimary,
   },
   waterBtnText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   waterBtnTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   langRow: {
     flexDirection: 'row',
@@ -354,29 +357,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
     alignItems: 'center',
   },
   langBtnActive: {
-    borderColor: '#22c55e',
-    backgroundColor: '#14532d',
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
   },
   langBtnText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   langBtnTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -386,16 +389,18 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 16,
     fontWeight: '700',
   },
   statusCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 14,
     padding: 16,
     marginTop: 24,
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   statusRow: {
     flexDirection: 'row',
@@ -403,7 +408,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statusLabel: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -413,48 +418,48 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   statusBadgePremium: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
   },
   statusBadgeFree: {
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surfaceMuted,
   },
   statusBadgeTrial: {
-    backgroundColor: '#78350f',
+    backgroundColor: Colors.warningSurface,
   },
   statusBadgeText: {
     fontSize: 13,
     fontWeight: '700',
   },
   statusBadgeTextPremium: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   statusBadgeTextFree: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
   },
   statusBadgeTextTrial: {
-    color: '#fbbf24',
+    color: Colors.warning,
   },
   trialSubtitle: {
-    color: '#fbbf24',
+    color: Colors.warning,
     fontSize: 13,
     marginTop: 8,
   },
   upgradeButton: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 12,
     borderWidth: 1,
-    borderColor: '#22c55e',
+    borderColor: Colors.brandBorder,
   },
   upgradeButtonText: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 14,
     fontWeight: '700',
   },
   versionText: {
-    color: '#334155',
+    color: Colors.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 24,
@@ -465,10 +470,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   logoutButtonText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 16,
     fontWeight: '600',
   },

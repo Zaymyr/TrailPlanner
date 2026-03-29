@@ -20,6 +20,7 @@ import * as Notifications from 'expo-notifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceAlertService';
 import { I18nProvider } from '../lib/i18n';
+import { Colors } from '../constants/colors';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 
@@ -43,9 +44,9 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
     if (this.state.error) {
       const { ScrollView, Text } = require('react-native');
       return (
-        <ScrollView style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
-          <Text style={{ color: '#ef4444', fontSize: 14, fontWeight: 'bold', marginBottom: 12 }}>🔴 Crash</Text>
-          <Text style={{ color: '#f1f5f9', fontSize: 11 }}>{this.state.error}</Text>
+        <ScrollView style={{ flex: 1, backgroundColor: Colors.background, padding: 20, paddingTop: 60 }}>
+          <Text style={{ color: Colors.danger, fontSize: 14, fontWeight: 'bold', marginBottom: 12 }}>🔴 Crash</Text>
+          <Text style={{ color: Colors.textPrimary, fontSize: 11 }}>{this.state.error}</Text>
         </ScrollView>
       );
     }
@@ -63,8 +64,8 @@ export default function RootLayout() {
 
   if (supabaseInitError) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
-        <Text style={{ color: '#ef4444' }}>Supabase Error: {supabaseInitError}</Text>
+      <View style={{ flex: 1, backgroundColor: Colors.background, padding: 20, paddingTop: 60 }}>
+        <Text style={{ color: Colors.danger }}>Supabase Error: {supabaseInitError}</Text>
       </View>
     );
   }
@@ -159,12 +160,12 @@ export default function RootLayout() {
   return (
     <I18nProvider>
       <ErrorBoundary>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Stack
           screenOptions={{
-            headerStyle: { backgroundColor: '#0f172a' },
-            headerTintColor: '#f1f5f9',
-            contentStyle: { backgroundColor: '#0f172a' },
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.textPrimary,
+            contentStyle: { backgroundColor: Colors.background },
           }}
         >
           <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />

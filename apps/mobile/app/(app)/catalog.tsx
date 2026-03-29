@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
 
 type CatalogRace = {
   id: string;
@@ -75,7 +76,7 @@ export default function CatalogScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -103,7 +104,7 @@ export default function CatalogScreen() {
         <RefreshControl
           refreshing={refreshing}
           onRefresh={() => { setRefreshing(true); fetchRaces(); }}
-          tintColor="#22c55e"
+          tintColor={Colors.brandPrimary}
         />
       }
       ListEmptyComponent={
@@ -166,33 +167,35 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   retryButtonText: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
   },
   list: {
     padding: 16,
     gap: 16,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   listEmpty: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   emptyContainer: {
     flex: 1,
@@ -208,26 +211,33 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 15,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     textAlign: 'center',
   },
   card: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   thumbnail: {
     width: '100%',
     height: 140,
   },
   thumbnailPlaceholder: {
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -240,12 +250,12 @@ const styles = StyleSheet.create({
   raceName: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     marginBottom: 4,
   },
   raceLocation: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginBottom: 10,
   },
   statsRow: {
@@ -255,24 +265,22 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   statChip: {
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surfaceSecondary,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontWeight: '600',
   },
   createButton: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandPrimary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#22c55e',
   },
   createButtonText: {
-    color: '#22c55e',
+    color: Colors.textOnBrand,
     fontSize: 15,
     fontWeight: '700',
   },

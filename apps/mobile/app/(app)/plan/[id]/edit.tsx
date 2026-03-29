@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct } from '../../../../components/PlanForm';
+import { Colors } from '../../../../constants/colors';
 
 type RacePlanRow = {
   id: string;
@@ -154,7 +155,7 @@ export default function EditPlanScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -172,8 +173,8 @@ export default function EditPlanScreen() {
       <Stack.Screen
         options={{
           title: `Modifier : ${planName}`,
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f1f5f9',
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.textPrimary,
         }}
       />
       <PlanForm
@@ -192,11 +193,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
   },

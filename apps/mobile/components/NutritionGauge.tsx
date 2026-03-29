@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native';
+import { Colors } from '../constants/colors';
 
 type Props = {
   label: string;
@@ -15,9 +16,9 @@ export function NutritionGauge({ label, icon, consumed, target, unit, lastHourCo
   const hourPct = Math.min(lastHourConsumed / Math.max(lastHourTarget, 1), 1);
 
   const getColor = (pct: number) => {
-    if (pct >= 0.8) return '#22c55e';
-    if (pct >= 0.5) return '#f59e0b';
-    return '#ef4444';
+    if (pct >= 0.8) return Colors.success;
+    if (pct >= 0.5) return Colors.warning;
+    return Colors.danger;
   };
 
   return (
@@ -61,10 +62,12 @@ export function NutritionGauge({ label, icon, consumed, target, unit, lastHourCo
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -72,20 +75,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   icon: { fontSize: 18, marginRight: 6 },
-  label: { color: '#f1f5f9', fontWeight: '600', flex: 1 },
-  value: { color: '#f1f5f9', fontWeight: '700', fontSize: 18 },
-  unit: { color: '#94a3b8', fontSize: 12, fontWeight: '400' },
+  label: { color: Colors.textPrimary, fontWeight: '600', flex: 1 },
+  value: { color: Colors.textPrimary, fontWeight: '700', fontSize: 18 },
+  unit: { color: Colors.textSecondary, fontSize: 12, fontWeight: '400' },
   gaugeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
     gap: 8,
   },
-  gaugeLabel: { color: '#64748b', fontSize: 11, width: 90 },
+  gaugeLabel: { color: Colors.textMuted, fontSize: 11, width: 90 },
   gaugeTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surfaceSecondary,
     borderRadius: 4,
     overflow: 'hidden',
   },

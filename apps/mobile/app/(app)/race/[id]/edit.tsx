@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
 import { useI18n } from '../../../../lib/i18n';
+import { Colors } from '../../../../constants/colors';
 
 export default function EditRaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -113,7 +114,7 @@ export default function EditRaceScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -128,7 +129,7 @@ export default function EditRaceScreen() {
         value={name}
         onChangeText={setName}
         placeholder={t.races.namePlaceholder}
-        placeholderTextColor="#475569"
+        placeholderTextColor={Colors.textMuted}
       />
 
       <View style={styles.row}>
@@ -139,7 +140,7 @@ export default function EditRaceScreen() {
             value={distanceKm}
             onChangeText={setDistanceKm}
             keyboardType="decimal-pad"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
         <View style={styles.col}>
@@ -149,7 +150,7 @@ export default function EditRaceScreen() {
             value={elevationGain}
             onChangeText={setElevationGain}
             keyboardType="number-pad"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
       </View>
@@ -162,7 +163,7 @@ export default function EditRaceScreen() {
             value={elevationLoss}
             onChangeText={setElevationLoss}
             keyboardType="number-pad"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
         <View style={styles.col}>
@@ -172,7 +173,7 @@ export default function EditRaceScreen() {
             value={raceDate}
             onChangeText={setRaceDate}
             placeholder="YYYY-MM-DD"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
       </View>
@@ -183,7 +184,7 @@ export default function EditRaceScreen() {
         value={location}
         onChangeText={setLocation}
         placeholder={t.races.locationPlaceholder}
-        placeholderTextColor="#475569"
+        placeholderTextColor={Colors.textMuted}
       />
 
       <TouchableOpacity
@@ -192,7 +193,7 @@ export default function EditRaceScreen() {
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color="#0f172a" />
+          <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
           <Text style={styles.saveButtonText}>{t.common.save}</Text>
         )}
@@ -202,30 +203,30 @@ export default function EditRaceScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0f172a' },
-  container: { flex: 1, backgroundColor: '#0f172a' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 60 },
-  sectionTitle: { color: '#f1f5f9', fontSize: 20, fontWeight: '700', marginBottom: 20 },
-  label: { color: '#94a3b8', fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 12 },
+  sectionTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  label: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 12 },
   input: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   row: { flexDirection: 'row', gap: 12 },
   col: { flex: 1 },
   saveButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 24,
   },
   saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
+  saveButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
 });

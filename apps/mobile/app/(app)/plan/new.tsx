@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct } from '../../../components/PlanForm';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { useI18n } from '../../../lib/i18n';
+import { Colors } from '../../../constants/colors';
 
 type RaceInfo = {
   id: string;
@@ -144,7 +145,7 @@ export default function NewPlanScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -154,8 +155,8 @@ export default function NewPlanScreen() {
       <Stack.Screen
         options={{
           title: selectedRace ? `${t.plans.newPlanForRace} ${selectedRace.name}` : t.plans.newPlan,
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f1f5f9',
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.textPrimary,
         }}
       />
 
@@ -190,6 +191,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
 });

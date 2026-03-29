@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { Colors } from '../../constants/colors';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 const FREE_FAVORITE_LIMIT = 3;
@@ -232,7 +233,7 @@ export default function NutritionScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -401,7 +402,7 @@ export default function NutritionScreen() {
               value={newName}
               onChangeText={setNewName}
               placeholder="Ex : Gel Maurten 100"
-              placeholderTextColor="#475569"
+              placeholderTextColor={Colors.textMuted}
               autoCapitalize="words"
             />
 
@@ -434,7 +435,7 @@ export default function NutritionScreen() {
                   onChangeText={setNewCarbsG}
                   keyboardType="decimal-pad"
                   placeholder="0"
-                  placeholderTextColor="#475569"
+                  placeholderTextColor={Colors.textMuted}
                 />
               </View>
               <View style={styles.numericField}>
@@ -445,7 +446,7 @@ export default function NutritionScreen() {
                   onChangeText={setNewSodiumMg}
                   keyboardType="decimal-pad"
                   placeholder="0"
-                  placeholderTextColor="#475569"
+                  placeholderTextColor={Colors.textMuted}
                 />
               </View>
               <View style={styles.numericField}>
@@ -456,7 +457,7 @@ export default function NutritionScreen() {
                   onChangeText={setNewCaloriesKcal}
                   keyboardType="decimal-pad"
                   placeholder="0"
-                  placeholderTextColor="#475569"
+                  placeholderTextColor={Colors.textMuted}
                 />
               </View>
             </View>
@@ -467,7 +468,7 @@ export default function NutritionScreen() {
               disabled={creating}
             >
               {creating ? (
-                <ActivityIndicator color="#0f172a" />
+                <ActivityIndicator color={Colors.textOnBrand} />
               ) : (
                 <Text style={styles.submitButtonText}>Créer et ajouter aux favoris</Text>
               )}
@@ -489,7 +490,7 @@ export default function NutritionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   content: {
     padding: 16,
@@ -499,18 +500,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     marginBottom: 12,
   },
   catalogHeader: {
@@ -521,79 +522,86 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   limitBanner: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   limitBannerText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
     textAlign: 'center',
   },
   premiumBanner: {
-    backgroundColor: '#1c1003',
+    backgroundColor: Colors.warningSurface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#92400e',
+    borderColor: Colors.warning,
   },
   premiumBannerText: {
-    color: '#fbbf24',
+    color: Colors.warning,
     fontSize: 13,
   },
   createButton: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandPrimary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#22c55e',
     marginBottom: 4,
   },
   createButtonText: {
-    color: '#22c55e',
+    color: Colors.textOnBrand,
     fontSize: 13,
     fontWeight: '700',
   },
   premiumTag: {
-    backgroundColor: '#1c1003',
+    backgroundColor: Colors.warningSurface,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#92400e',
+    borderColor: Colors.warning,
     marginBottom: 4,
   },
   premiumTagText: {
-    color: '#fbbf24',
+    color: Colors.warning,
     fontSize: 11,
     fontWeight: '700',
   },
   emptyFavorites: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 20,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   emptyFavText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
     fontStyle: 'italic',
   },
   productCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     padding: 16,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   productInfo: {
     flex: 1,
@@ -602,18 +610,18 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     marginBottom: 2,
   },
   productType: {
     fontSize: 12,
-    color: '#475569',
+    color: Colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 4,
   },
   myProductTag: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     textTransform: 'none',
     letterSpacing: 0,
   },
@@ -623,37 +631,37 @@ const styles = StyleSheet.create({
   },
   statText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
   },
   favButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#334155',
+    backgroundColor: Colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
   favButtonActive: {
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
   },
   favButtonText: {
     fontSize: 20,
-    color: '#475569',
+    color: Colors.textMuted,
   },
   favButtonTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   removeFavButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#14532d',
+    backgroundColor: Colors.brandSurface,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removeFavText: {
     fontSize: 20,
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   filterScroll: {
     marginBottom: 12,
@@ -663,24 +671,24 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   filterChip: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   filterChipActive: {
-    backgroundColor: '#14532d',
-    borderColor: '#22c55e',
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandPrimary,
   },
   filterChipText: {
-    color: '#475569',
+    color: Colors.textMuted,
     fontSize: 13,
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   // Modal styles
   modalWrapper: {
@@ -692,7 +700,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   modalSheet: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -701,25 +709,25 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     marginBottom: 20,
     textAlign: 'center',
   },
   inputLabel: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 12,
   },
   textInput: {
-    backgroundColor: '#0f172a',
-    color: '#f1f5f9',
+    backgroundColor: Colors.surfaceSecondary,
+    color: Colors.textPrimary,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   numericRow: {
     flexDirection: 'row',
@@ -730,7 +738,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   submitButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -740,7 +748,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   submitButtonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -750,7 +758,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   cancelButtonText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 15,
     fontWeight: '600',
   },

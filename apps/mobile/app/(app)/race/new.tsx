@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '../../../lib/supabase';
 import { useI18n } from '../../../lib/i18n';
+import { Colors } from '../../../constants/colors';
 
 type AidStation = { name: string; km: string; water: boolean };
 
@@ -170,7 +171,7 @@ export default function NewRaceScreen() {
         value={name}
         onChangeText={setName}
         placeholder={t.races.namePlaceholder}
-        placeholderTextColor="#475569"
+        placeholderTextColor={Colors.textMuted}
       />
 
       {/* Distance + Gain */}
@@ -183,7 +184,7 @@ export default function NewRaceScreen() {
             onChangeText={setDistanceKm}
             keyboardType="decimal-pad"
             placeholder="50"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
         <View style={styles.col}>
@@ -194,7 +195,7 @@ export default function NewRaceScreen() {
             onChangeText={setElevationGain}
             keyboardType="number-pad"
             placeholder="2200"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
       </View>
@@ -209,7 +210,7 @@ export default function NewRaceScreen() {
             onChangeText={setElevationLoss}
             keyboardType="number-pad"
             placeholder="2100"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
         <View style={styles.col}>
@@ -219,7 +220,7 @@ export default function NewRaceScreen() {
             value={raceDate}
             onChangeText={setRaceDate}
             placeholder="YYYY-MM-DD"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
         </View>
       </View>
@@ -231,7 +232,7 @@ export default function NewRaceScreen() {
         value={location}
         onChangeText={setLocation}
         placeholder={t.races.locationPlaceholder}
-        placeholderTextColor="#475569"
+        placeholderTextColor={Colors.textMuted}
       />
 
       {/* Aid stations */}
@@ -248,7 +249,7 @@ export default function NewRaceScreen() {
             value={s.name}
             onChangeText={(v) => setAidStations((prev) => prev.map((a, j) => j === i ? { ...a, name: v } : a))}
             placeholder={t.races.aidStationName}
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
           <TextInput
             style={[styles.input, styles.aidKm]}
@@ -256,7 +257,7 @@ export default function NewRaceScreen() {
             onChangeText={(v) => setAidStations((prev) => prev.map((a, j) => j === i ? { ...a, km: v } : a))}
             keyboardType="decimal-pad"
             placeholder="km"
-            placeholderTextColor="#475569"
+            placeholderTextColor={Colors.textMuted}
           />
           <TouchableOpacity
             onPress={() => setAidStations((prev) => prev.filter((_, j) => j !== i))}
@@ -273,7 +274,7 @@ export default function NewRaceScreen() {
         disabled={saving}
       >
         {saving ? (
-          <ActivityIndicator color="#0f172a" />
+          <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
           <Text style={styles.saveButtonText}>{t.common.create}</Text>
         )}
@@ -283,47 +284,47 @@ export default function NewRaceScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 60 },
-  sectionTitle: { color: '#f1f5f9', fontSize: 20, fontWeight: '700', marginBottom: 20 },
-  label: { color: '#94a3b8', fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 12 },
+  sectionTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  label: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600', marginBottom: 6, marginTop: 12 },
   input: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   row: { flexDirection: 'row', gap: 12 },
   col: { flex: 1 },
   gpxButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
     borderStyle: 'dashed',
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 8,
   },
-  gpxButtonText: { color: '#94a3b8', fontSize: 14 },
+  gpxButtonText: { color: Colors.textSecondary, fontSize: 14 },
   aidHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 4 },
-  addLink: { color: '#22c55e', fontSize: 14, fontWeight: '600' },
+  addLink: { color: Colors.brandPrimary, fontSize: 14, fontWeight: '600' },
   aidRow: { flexDirection: 'row', gap: 8, marginBottom: 8, alignItems: 'center' },
   aidName: { flex: 1 },
   aidKm: { width: 70 },
   aidRemove: { padding: 8 },
-  aidRemoveText: { color: '#94a3b8', fontSize: 16 },
+  aidRemoveText: { color: Colors.textSecondary, fontSize: 16 },
   saveButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 24,
   },
   saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
+  saveButtonText: { color: Colors.textOnBrand, fontSize: 16, fontWeight: '700' },
 });

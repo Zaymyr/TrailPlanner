@@ -24,6 +24,7 @@ import {
 import RaceStartConfig, { type RaceConfig } from '../../../components/RaceStartConfig';
 import { NutritionGauge } from '../../../components/NutritionGauge';
 import { NextIntakeCard } from '../../../components/NextIntakeCard';
+import { Colors } from '../../../constants/colors';
 
 type ActiveAlert = ServiceActiveAlert;
 
@@ -252,7 +253,7 @@ export default function RaceScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
       </View>
     );
   }
@@ -312,7 +313,7 @@ export default function RaceScreen() {
             title: plan.name,
             headerRight: () => (
               <TouchableOpacity onPress={() => router.push(`/(app)/plan/${id}/edit`)}>
-                <Text style={{ color: '#22c55e', fontSize: 15, fontWeight: '600', marginRight: 4 }}>
+                <Text style={{ color: Colors.brandPrimary, fontSize: 15, fontWeight: '600', marginRight: 4 }}>
                   Modifier
                 </Text>
               </TouchableOpacity>
@@ -573,15 +574,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   errorText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 16,
   },
   screenContainer: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
   },
   container: {
     padding: 20,
@@ -598,33 +599,42 @@ const styles = StyleSheet.create({
   },
   nutritionChip: {
     flex: 1,
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   nutritionChipValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     marginBottom: 2,
   },
   nutritionChipLabel: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
   },
 
   // Header card
   card: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   planTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     marginBottom: 16,
   },
   statsRow: {
@@ -637,11 +647,11 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#22c55e',
+    color: Colors.brandPrimary,
   },
   statLabel: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     marginTop: 2,
   },
 
@@ -655,28 +665,35 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
   },
   timeButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: Colors.border,
   },
   timeButtonText: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '600',
   },
 
   // Segment cards
   segmentCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   segmentHeader: {
     flexDirection: 'row',
@@ -685,7 +702,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   segmentTitle: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
     flex: 1,
@@ -703,18 +720,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   segmentMeta: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
     marginBottom: 2,
   },
   segmentETA: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
     marginBottom: 10,
   },
   segmentDivider: {
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: Colors.border,
     marginBottom: 10,
   },
   nutritionRow: {
@@ -724,7 +741,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   nutritionItem: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -733,40 +750,42 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   productText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
     marginTop: 2,
   },
   emptyCard: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   emptyText: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 14,
   },
 
   // Sticky bottom
   stickyBottom: {
-    backgroundColor: '#0f172a',
+    backgroundColor: Colors.background,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 24,
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
+    borderTopColor: Colors.border,
     gap: 10,
   },
   // Start button
   startButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
   },
   startButtonText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -779,13 +798,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalContent: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 20,
     padding: 24,
     width: '80%',
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   modalTitle: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
@@ -802,35 +823,35 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   timeArrow: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontSize: 24,
     fontWeight: '700',
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
   timeValue: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 38,
     fontWeight: '700',
     minWidth: 64,
     textAlign: 'center',
   },
   timeSeparator: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontSize: 38,
     fontWeight: '700',
     marginHorizontal: 4,
     marginBottom: 8,
   },
   modalConfirm: {
-    backgroundColor: '#22c55e',
+    backgroundColor: Colors.brandPrimary,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 8,
   },
   modalConfirmText: {
-    color: '#0f172a',
+    color: Colors.textOnBrand,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -839,16 +860,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCancelText: {
-    color: '#64748b',
+    color: Colors.textMuted,
     fontSize: 14,
   },
 
   // Racing dashboard
   raceHeader: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   chronoRow: {
     flexDirection: 'row',
@@ -865,21 +888,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   statusText: {
-    color: '#22c55e',
+    color: Colors.brandPrimary,
     fontWeight: '700',
     fontSize: 15,
   },
   chrono: {
-    color: '#f1f5f9',
+    color: Colors.textPrimary,
     fontWeight: '700',
     fontSize: 22,
   },
   raceSubtitle: {
-    color: '#94a3b8',
+    color: Colors.textSecondary,
     fontSize: 13,
   },
   dashSectionTitle: {
-    color: '#64748b',
+    color: Colors.textMuted,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 1,
@@ -889,14 +912,16 @@ const styles = StyleSheet.create({
 
   // Stop button
   stopButton: {
-    backgroundColor: '#7f1d1d',
+    backgroundColor: Colors.dangerSurface,
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 16,
+    borderWidth: 1,
+    borderColor: Colors.danger,
   },
   stopButtonText: {
-    color: '#ef4444',
+    color: Colors.danger,
     fontSize: 16,
     fontWeight: '700',
   },
