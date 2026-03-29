@@ -1,26 +1,29 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Colors } from '../../constants/colors';
 
-function CenterTabButton({ onPress }: { onPress?: () => void }) {
+function CenterTabButton({ onPress, focused }: { onPress?: () => void; focused?: boolean }) {
   return (
     <TouchableOpacity
       style={styles.centerButton}
       onPress={onPress}
       activeOpacity={0.85}
     >
-      <View style={styles.centerButtonInner}>
-        <Ionicons name="map" size={26} color={Colors.textOnBrand} />
-        <Text style={styles.centerButtonLabel}>Plans</Text>
+      <View style={[styles.centerButtonInner, !focused && styles.centerButtonInnerInactive]}>
+        <Ionicons name="map" size={26} color={focused ? Colors.textOnBrand : '#9CA3AF'} />
+        <Text style={[styles.centerButtonLabel, !focused && styles.centerButtonLabelInactive]}>Plans</Text>
       </View>
     </TouchableOpacity>
   );
 }
 
 export default function AppLayout() {
+  const router = useRouter();
+
   return (
     <Tabs
+      initialRouteName="plans"
       screenOptions={{
         headerStyle: { backgroundColor: Colors.background },
         headerTintColor: Colors.textPrimary,
@@ -57,6 +60,14 @@ export default function AppLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trail-sign" size={size} color={color} />
           ),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={() => router.push('/(app)/race/new')}
+              style={{ paddingHorizontal: 12, paddingVertical: 4 }}
+            >
+              <Text style={{ color: Colors.brandPrimary, fontSize: 26, fontWeight: '600' }}>+</Text>
+            </TouchableOpacity>
+          ),
         }}
       />
 
@@ -68,7 +79,10 @@ export default function AppLayout() {
           tabBarLabel: '',
           tabBarIcon: () => null,
           tabBarButton: (props) => (
-            <CenterTabButton onPress={props.onPress as (() => void) | undefined} />
+            <CenterTabButton
+              onPress={props.onPress as (() => void) | undefined}
+              focused={props.accessibilityState?.selected}
+            />
           ),
         }}
       />
@@ -136,5 +150,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     marginTop: 2,
+  },
+  centerButtonInnerInactive: {
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  centerButtonLabelInactive: {
+    color: '#9CA3AF',
   },
 });

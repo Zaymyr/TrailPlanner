@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Switch,
   StyleSheet,
   ScrollView,
   ActivityIndicator,
@@ -13,7 +12,9 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  ViewStyle,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { usePremium } from '../hooks/usePremium';
@@ -226,7 +227,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
   const [productsLoading, setProductsLoading] = useState(true);
   const [pickerTarget, setPickerTarget] = useState<'start' | number | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
-  const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
+  const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set([DEPART_ID]));
   const [editingStation, setEditingStation] = useState<{
     index: number;
     name: string;
@@ -482,6 +483,76 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
     ? new Set(getSupplies(pickerTarget).map((s) => s.productId))
     : new Set<string>();
 
+  // ─── Gauge helpers ────────────────────────────────────────────────────────────
+
+  function getGaugeColor(ratio: number, nutrientColor: string): string {
+    if (ratio === 0) return '#D1D5DB';
+    if (ratio >= 0.85 && ratio <= 1.15) return nutrientColor;
+    if ((ratio >= 0.70 && ratio < 0.85) || (ratio > 1.15 && ratio <= 1.35)) return '#F97316';
+    return '#EF4444';
+  }
+
+  function ArcGauge({ ratio, nutrientColor, label }: {
+    ratio: number; nutrientColor: string; label: string;
+  }) {
+    const SIZE = 56;
+    const SW = 6;
+    const HALF = SIZE / 2;
+    const arcColor = getGaugeColor(ratio, nutrientColor);
+    const fill = Math.min(Math.max(ratio, 0), 1);
+    const pct = Math.round(ratio * 100);
+
+    const ringBase: ViewStyle = {
+      position: 'absolute', width: SIZE, height: SIZE, borderRadius: HALF, borderWidth: SW,
+    };
+    const rightRot = Math.min(fill * 360, 180) - 180;
+    const leftRot  = Math.max(fill * 360 - 180, 0) - 180;
+
+    return (
+      <View style={{ alignItems: 'center' }}>
+        <View style={{ width: SIZE, height: SIZE }}>
+          {/* Background ring */}
+          <View style={[ringBase, { borderColor: '#E5E7EB', opacity: 0.6 }]} />
+
+          {/* Filled arc — right half (0–50%) */}
+          <View style={{ position: 'absolute', right: 0, width: HALF, height: SIZE, overflow: 'hidden' }}>
+            <View style={[ringBase, {
+              right: 0,
+              borderColor: fill > 0 ? arcColor : 'transparent',
+              transform: [{ rotate: `${rightRot}deg` }],
+            }]} />
+          </View>
+
+          {/* Filled arc — left half (50–100%) */}
+          <View style={{ position: 'absolute', left: 0, width: HALF, height: SIZE, overflow: 'hidden' }}>
+            <View style={[ringBase, {
+              left: 0,
+              borderColor: fill > 0.5 ? arcColor : 'transparent',
+              transform: [{ rotate: `${leftRot}deg` }],
+            }]} />
+          </View>
+
+          {/* Target tick at 100% position (top, 12 o'clock) */}
+          <View style={{
+            position: 'absolute', top: 0, left: HALF - 1,
+            width: 2, height: SW, backgroundColor: '#6B7280',
+          }} />
+
+          {/* Centred % text */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ fontSize: 10, fontWeight: '700', color: arcColor }}>
+              {pct}%
+            </Text>
+          </View>
+        </View>
+
+        <Text style={{ fontSize: 9, color: '#6B7280', marginTop: 4, textAlign: 'center' }}>
+          {label}
+        </Text>
+      </View>
+    );
+  }
+
   function renderPickerRow(product: Product) {
     const added = currentSupplyIds.has(product.id);
     return (
@@ -555,6 +626,39 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
             );
           })
         )}
+      </View>
+    );
+  }
+
+  function renderGauges(
+    target: 'start' | number,
+    sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
+  ) {
+    const supplies = getSupplies(target);
+
+    const totalCarbs = supplies.reduce((sum, s) => {
+      const p = productMap[s.productId];
+      return sum + (p ? (p.carbs_g ?? 0) * s.quantity : 0);
+    }, 0);
+    const totalSodium = supplies.reduce((sum, s) => {
+      const p = productMap[s.productId];
+      return sum + (p ? (p.sodium_mg ?? 0) * s.quantity : 0);
+    }, 0);
+    // ÉLEC products: 500 ml/serving + always-on 500 ml water point at every station
+    const totalWater = supplies.reduce((sum, s) => {
+      const p = productMap[s.productId];
+      return sum + (p && p.fuel_type === 'electrolyte' ? 500 * s.quantity : 0);
+    }, 0) + 500;
+
+    const carbsRatio  = sectionTarget && sectionTarget.targetCarbsG  > 0 ? totalCarbs  / sectionTarget.targetCarbsG  : 0;
+    const sodiumRatio = sectionTarget && sectionTarget.targetSodiumMg > 0 ? totalSodium / sectionTarget.targetSodiumMg : 0;
+    const waterRatio  = sectionTarget && sectionTarget.targetWaterMl  > 0 ? totalWater  / sectionTarget.targetWaterMl  : 0;
+
+    return (
+      <View style={styles.gaugesRow}>
+        <ArcGauge ratio={carbsRatio}  nutrientColor="#2D5016" label="Glucides" />
+        <ArcGauge ratio={sodiumRatio} nutrientColor="#3B82F6" label="Sodium"   />
+        <ArcGauge ratio={waterRatio}  nutrientColor="#06B6D4" label="Eau"      />
       </View>
     );
   }
@@ -660,32 +764,49 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
 
         {(() => {
           const elements: React.ReactElement[] = [];
+          const speedKph =
+            values.paceType === 'pace'
+              ? 60 / Math.max(values.paceMinutes + values.paceSeconds / 60, 0.01)
+              : Math.max(values.speedKph, 0.1);
+
           values.aidStations.forEach((station, index) => {
             const isDepart = station.id === DEPART_ID;
             const isArrivee = station.id === ARRIVEE_ID;
             const stationKey = station.id ?? String(index);
+            const isExpanded = expandedStations.has(stationKey);
+
+            // Section target: this station → next station
+            const nextSt = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
+            const sectionDistKm = nextSt ? Math.max(nextSt.distanceKm - station.distanceKm, 0) : 0;
+            const sectionDurationH = sectionDistKm / speedKph;
+            const sectionTarget = {
+              targetCarbsG: values.targetIntakePerHour * sectionDurationH,
+              targetSodiumMg: values.sodiumIntakePerHour * sectionDurationH,
+              targetWaterMl: values.waterIntakePerHour * sectionDurationH,
+            };
 
             let card: React.ReactElement;
 
             if (isDepart) {
               card = (
                 <View key={stationKey} style={styles.stationCard}>
-                  <View style={styles.stationHeaderRow}>
+                  <TouchableOpacity
+                    onPress={() => toggleStation(stationKey)}
+                    activeOpacity={0.7}
+                    style={styles.stationHeaderRow}
+                  >
                     <Text style={styles.stationIcon}>🟢</Text>
                     <Text style={styles.stationName}>{station.name}</Text>
                     <Text style={styles.stationKm}>{station.distanceKm} km</Text>
-                  </View>
-                  <View style={styles.cardDivider} />
-                  <View style={styles.switchRow}>
-                    <Text style={styles.switchLabel}>Eau disponible</Text>
-                    <Switch
-                      value={station.waterRefill}
-                      onValueChange={(v) => updateAidStation(index, { waterRefill: v })}
-                      trackColor={{ false: Colors.border, true: Colors.brandPrimary }}
-                      thumbColor={station.waterRefill ? Colors.textOnBrand : Colors.textMuted}
-                    />
-                  </View>
-                  {renderSupplies('start')}
+                    <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
+                  </TouchableOpacity>
+                  {isExpanded && (
+                    <>
+                      <View style={styles.cardDivider} />
+                      {renderGauges('start', sectionTarget)}
+                      {renderSupplies('start')}
+                    </>
+                  )}
                 </View>
               );
             } else if (isArrivee) {
@@ -699,7 +820,6 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
                 </View>
               );
             } else {
-              const isExpanded = expandedStations.has(stationKey);
               card = (
                 <View key={stationKey} style={styles.stationCard}>
                   <TouchableOpacity
@@ -709,35 +829,27 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
                   >
                     <Text style={styles.stationIcon}>📍</Text>
                     <Text style={styles.stationName} numberOfLines={1}>{station.name}</Text>
+                    <TouchableOpacity
+                      style={styles.headerIconBtn}
+                      onPress={() => setEditingStation({ index, name: station.name, km: String(station.distanceKm) })}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#6B7280" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.headerIconBtn}
+                      onPress={() => removeAidStation(index)}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    >
+                      <Ionicons name="trash-outline" size={16} color="#6B7280" />
+                    </TouchableOpacity>
                     <Text style={styles.stationKm}>{station.distanceKm} km</Text>
                     <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
                   </TouchableOpacity>
                   {isExpanded && (
                     <>
                       <View style={styles.cardDivider} />
-                      <View style={styles.editDeleteRow}>
-                        <TouchableOpacity
-                          style={styles.editBtn}
-                          onPress={() =>
-                            setEditingStation({ index, name: station.name, km: String(station.distanceKm) })
-                          }
-                        >
-                          <Text style={styles.editBtnText}>✏️ Modifier</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.deleteBtn} onPress={() => removeAidStation(index)}>
-                          <Text style={styles.deleteBtnText}>🗑️ Supprimer</Text>
-                        </TouchableOpacity>
-                      </View>
-                      <View style={styles.cardDivider} />
-                      <View style={styles.switchRow}>
-                        <Text style={styles.switchLabel}>Eau disponible</Text>
-                        <Switch
-                          value={station.waterRefill}
-                          onValueChange={(v) => updateAidStation(index, { waterRefill: v })}
-                          trackColor={{ false: Colors.border, true: Colors.brandPrimary }}
-                          thumbColor={station.waterRefill ? Colors.textOnBrand : Colors.textMuted}
-                        />
-                      </View>
+                      {renderGauges(index, sectionTarget)}
                       {renderSupplies(index)}
                     </>
                   )}
@@ -748,12 +860,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
             elements.push(card);
 
             if (index < values.aidStations.length - 1) {
-              const nextSt = values.aidStations[index + 1];
-              const distKm = nextSt.distanceKm - station.distanceKm;
-              const speedKph =
-                values.paceType === 'pace'
-                  ? 60 / Math.max(values.paceMinutes + values.paceSeconds / 60, 0.01)
-                  : Math.max(values.speedKph, 0.1);
+              const distKm = nextSt ? nextSt.distanceKm - station.distanceKm : 0;
               const durationMin = (distKm / speedKph) * 60;
               const hours = Math.floor(durationMin / 60);
               const mins = Math.round(durationMin % 60);
@@ -904,11 +1011,7 @@ const styles = StyleSheet.create({
   stationKm: { color: Colors.textSecondary, fontSize: 13 },
   chevron: { color: Colors.textMuted, fontSize: 12, marginLeft: 8 },
   cardDivider: { height: 1, backgroundColor: Colors.border },
-  editDeleteRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, paddingHorizontal: 14, paddingVertical: 10 },
-  editBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: Colors.border },
-  editBtnText: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  deleteBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.dangerSurface },
-  deleteBtnText: { color: Colors.danger, fontSize: 13, fontWeight: '600' },
+  headerIconBtn: { padding: 6, borderRadius: 6, marginLeft: 2 },
   separator: { flexDirection: 'row', alignItems: 'center', marginVertical: 4, paddingHorizontal: 8 },
   separatorLine: { flex: 1, height: 1, backgroundColor: Colors.border },
   separatorText: { marginHorizontal: 10, color: Colors.textMuted, fontSize: 12 },
@@ -926,10 +1029,10 @@ const styles = StyleSheet.create({
   arriveeNote: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', marginTop: 4 },
   removeBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.dangerSurface, justifyContent: 'center', alignItems: 'center' },
   removeBtnText: { color: Colors.danger, fontSize: 13, fontWeight: '700' },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10 },
-  switchLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
+  // Gauges row (horizontal, between header divider and products)
+  gaugesRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8 },
   // Supplies within station card
-  suppliesSection: { marginTop: 0, borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10, paddingHorizontal: 14, paddingBottom: 6 },
+  suppliesSection: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10, paddingHorizontal: 14, paddingBottom: 6 },
   suppliesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   suppliesLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
   suppliesAddBtn: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '600' },
