@@ -167,7 +167,16 @@ export function sanitizeElevationProfile(profile?: ElevationPoint[]): ElevationP
       const distanceKm = Number(point.distanceKm);
       const elevationM = Number(point.elevationM);
       if (!Number.isFinite(distanceKm) || !Number.isFinite(elevationM)) return null;
-      return { distanceKm, elevationM };
+
+      const lat = typeof point.lat === "number" && Number.isFinite(point.lat) ? point.lat : undefined;
+      const lon = typeof point.lon === "number" && Number.isFinite(point.lon) ? point.lon : undefined;
+
+      return {
+        distanceKm,
+        elevationM,
+        ...(lat !== undefined ? { lat } : {}),
+        ...(lon !== undefined ? { lon } : {}),
+      };
     })
     .filter((point): point is ElevationPoint => Boolean(point));
 }
