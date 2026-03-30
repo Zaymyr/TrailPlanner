@@ -181,8 +181,9 @@ export async function POST(request: NextRequest) {
   try {
     parsedGpx = parseGpx(gpxContent);
   } catch (error) {
-    console.error("Unable to parse uploaded GPX", error);
-    return withSecurityHeaders(NextResponse.json({ message: "Invalid GPX file." }, { status: 422 }));
+    console.error("Unable to parse uploaded GPX in /api/race-catalog", error);
+    const details = error instanceof Error ? error.message : "Unknown parse error";
+    return withSecurityHeaders(NextResponse.json({ message: `Invalid GPX file: ${details}` }, { status: 422 }));
   }
 
   const raceName = parsedFields.data.name ?? parsedGpx.name ?? null;

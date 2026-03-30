@@ -189,8 +189,9 @@ export async function POST(request: NextRequest) {
     try {
       parsedGpx = parseGpx(body.gpx_content);
     } catch (error) {
-      console.error("Unable to parse GPX", error);
-      return withSecurityHeaders(NextResponse.json({ message: "Invalid GPX file." }, { status: 422 }));
+      console.error("Unable to parse GPX in /api/races", error);
+      const details = error instanceof Error ? error.message : "Unknown parse error";
+      return withSecurityHeaders(NextResponse.json({ message: `Invalid GPX file: ${details}` }, { status: 422 }));
     }
 
     resolvedDistance = parsedGpx.stats.distanceKm || resolvedDistance;

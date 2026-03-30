@@ -1,6 +1,7 @@
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues } from "../types";
 import { dedupeAidStations, sanitizeAidStations, sanitizeElevationProfile } from "./plan-sanitizers";
+import { parseGpx as parseSharedGpx } from "../../../../lib/gpx/parseGpx";
 
 export type ParsedGpx = {
   distanceKm: number;
@@ -79,32 +80,6 @@ export function haversineDistanceMeters(lat1: number, lon1: number, lat2: number
   return earthRadiusMeters * c;
 }
 
-const parseTrackPoints = (content: string, copy: RacePlannerTranslations): ParsedTrackPoint[] => {
-  const trkptRegex = /<trkpt\b([^>]*)>([\s\S]*?)<\/trkpt>/gi;
-  const points: ParsedTrackPoint[] = [];
-  let previous: ParsedTrackPoint | null = null;
-  let match: RegExpExecArray | null = null;
-
-  while ((match = trkptRegex.exec(content))) {
-    const lat = parseAttr(match[1], "lat");
-    const lon = parseAttr(match[1], "lon");
-
-    if (lat === null || lon === null) {
-      throw new Error(copy.gpx.errors.invalidCoordinates);
-    }
-
-    const ele = toNumber(parseTag(match[2], "ele")) ?? previous?.elevationM ?? 0;
-    const distanceMeters =
-      previous === null ? 0 : previous.distanceMeters + haversineDistanceMeters(previous.lat, previous.lon, lat, lon);
-
-    const current: ParsedTrackPoint = { lat, lon, distanceMeters, elevationM: ele };
-    points.push(current);
-    previous = current;
-  }
-
-  return points;
-};
-
 const parseWaypoints = (content: string, copy: RacePlannerTranslations): ParsedWaypoint[] => {
   const wptRegex = /<wpt\b([^>]*)>([\s\S]*?)<\/wpt>/gi;
   const waypoints: ParsedWaypoint[] = [];
@@ -149,7 +124,14 @@ const findClosestTrackPoint = (waypoint: ParsedWaypoint, trackPoints: ParsedTrac
 };
 
 export function parseStandardGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
-  const trackPoints = parseTrackPoints(content, copy);
+  const shared = parseSharedGpx(content);
+  const trackPoints: ParsedTrackPoint[] = shared.points.map((point) => ({
+    lat: point.lat,
+    lon: point.lng,
+    distanceMeters: point.distKmCum * 1000,
+    elevationM: point.ele ?? 0,
+  }));
+
   if (trackPoints.length === 0) {
     throw new Error(copy.gpx.errors.noTrackPoints);
   }

@@ -74,18 +74,18 @@ export const CourseProfileSection = ({
   baseMinutesPerKm,
 }: CourseProfileSectionProps) => (
   <Card id={sectionId} className="relative overflow-hidden">
+    <input
+      ref={fileInputRef}
+      type="file"
+      accept=".gpx,application/gpx+xml"
+      className="hidden"
+      onChange={onImportGpx}
+    />
     <CardHeader className="space-y-0 pb-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <CardTitleWithTooltip title={copy.sections.courseProfile.title} description={copy.sections.courseProfile.description} />
         {isCollapsed ? (
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".gpx,application/gpx+xml"
-              className="hidden"
-              onChange={onImportGpx}
-            />
             <div id="onboarding-course-btns" className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -107,6 +107,7 @@ export const CourseProfileSection = ({
             >
               {copy.buttons.exportGpx}
             </Button>
+            {importError ? <p className="w-full text-xs text-red-400">{importError}</p> : null}
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <Label htmlFor="raceDistanceKm" className="text-[11px] text-muted-foreground dark:text-slate-300">

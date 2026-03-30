@@ -95,8 +95,9 @@ export function CreateRaceForm({ onSubmit, isSubmitting, error }: Props) {
       if (totalKm > 0) setDistanceKm(String(Math.round(totalKm * 10) / 10));
       if (gainM > 0) setElevationGain(String(Math.round(gainM)));
       if (lossM > 0) setElevationLoss(String(Math.round(lossM)));
-    } catch {
-      setGpxError("Unable to preview GPX. The file will still be sent to the server for parsing.");
+    } catch (error) {
+      const details = error instanceof Error ? ` (${error.message})` : "";
+      setGpxError(`Unable to preview GPX${details}. The file will still be sent to the server for parsing.`);
     }
   };
 
