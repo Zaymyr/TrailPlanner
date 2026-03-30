@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getUserEntitlements } from "../../../../lib/entitlements";
 import { parseGpx } from "../../../../lib/gpx/parseGpx";
+import { normalizeImportedWaypoints } from "../../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
 import {
   extractBearerToken,
@@ -48,40 +49,15 @@ const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType 
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
-const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
-
-const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-  const R = 6371e3;
-  const φ1 = toRadians(lat1);
-  const φ2 = toRadians(lat2);
-  const Δφ = toRadians(lat2 - lat1);
-  const Δλ = toRadians(lng2 - lng1);
-
-  const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-};
-
 const mapWaypointsToAidStations = (
   points: Array<{ lat: number; lng: number; distKmCum: number }>,
   waypoints: Array<{ lat: number; lng: number; name?: string | null; desc?: string | null }>
 ) =>
-  waypoints.map((waypoint, index) => {
-    let closest = points[0];
-    let minDistance = Number.POSITIVE_INFINITY;
-
-    points.forEach((point) => {
-      const distance = haversineDistance(point.lat, point.lng, waypoint.lat, waypoint.lng);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closest = point;
-      }
-    });
-
-    const name = waypoint.name?.trim() || waypoint.desc?.trim() || `Aid station ${index + 1}`;
-    return { name, distanceKm: Number(closest.distKmCum.toFixed(1)), waterRefill: true };
-  });
+  normalizeImportedWaypoints(points, waypoints).aidStations.map((station) => ({
+    name: station.name,
+    distanceKm: station.distanceKm,
+    waterRefill: true,
+  }));
 
 export async function POST(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();

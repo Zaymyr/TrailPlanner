@@ -2,12 +2,15 @@ import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues } from "../types";
 import { dedupeAidStations, sanitizeAidStations, sanitizeElevationProfile } from "./plan-sanitizers";
 import { parseGpx as parseSharedGpx } from "../../../../lib/gpx/parseGpx";
+import { normalizeImportedWaypoints } from "../../../../lib/gpx/normalizeImportedWaypoints";
 
 export type ParsedGpx = {
   distanceKm: number;
   aidStations: AidStation[];
   elevationProfile: ElevationPoint[];
   plannerValues?: Partial<FormValues>;
+  startName?: string;
+  finishName?: string;
 };
 
 type ParsedTrackPoint = { lat: number; lon: number; distanceMeters: number; elevationM: number };
@@ -138,11 +141,14 @@ export function parseStandardGpx(content: string, copy: RacePlannerTranslations)
 
   const waypoints = parseWaypoints(content, copy);
 
-  const aidStations = waypoints
+  const mappedWaypoints = waypoints
     .map((waypoint, index) => {
       const distanceMeters = waypoint.distanceMeters ?? findClosestTrackPoint(waypoint, trackPoints).distanceMeters;
       return {
+        lat: waypoint.lat,
+        lng: waypoint.lon,
         name: waypoint.name,
+        desc: waypoint.name,
         distanceKm: Number((distanceMeters / 1000).toFixed(1)),
         __order: Number.isFinite(waypoint.index) ? Number(waypoint.index) : index,
       };
@@ -150,8 +156,25 @@ export function parseStandardGpx(content: string, copy: RacePlannerTranslations)
     .sort((a, b) => a.__order - b.__order || a.distanceKm - b.distanceKm)
     .map(({ __order: _order, ...station }) => station);
 
+  const normalizedWaypoints = normalizeImportedWaypoints(
+    trackPoints.map((point) => ({
+      lat: point.lat,
+      lng: point.lon,
+      ele: point.elevationM,
+      distKmCum: Number((point.distanceMeters / 1000).toFixed(3)),
+    })),
+    mappedWaypoints
+  );
+
   const totalDistanceKm = Number(((trackPoints.at(-1)?.distanceMeters ?? 0) / 1000).toFixed(1));
-  aidStations.push({ name: copy.defaults.finish, distanceKm: totalDistanceKm });
+  const aidStations: AidStation[] = [
+    ...normalizedWaypoints.aidStations.map((station) => ({ name: station.name, distanceKm: station.distanceKm })),
+    {
+      name: normalizedWaypoints.finishName || copy.defaults.finish,
+      distanceKm: totalDistanceKm,
+      waterRefill: true,
+    },
+  ];
 
   const elevationProfile = sanitizeElevationProfile(
     trackPoints.map((point) => ({
@@ -166,6 +189,8 @@ export function parseStandardGpx(content: string, copy: RacePlannerTranslations)
     distanceKm: totalDistanceKm,
     aidStations: dedupeAidStations(aidStations),
     elevationProfile,
+    startName: normalizedWaypoints.startName || copy.defaults.start,
+    finishName: normalizedWaypoints.finishName || copy.defaults.finish,
   };
 }
 

@@ -65,10 +65,11 @@ describe("race planner GPX", () => {
   it("imports a standard GPX with waypoints", () => {
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
-  <wpt lat="45.0005" lon="3.0005"><name>Ravito 1</name></wpt>
+  <wpt lat="45.0500" lon="3.0500"><name>Ravito 1</name></wpt>
   <trk><trkseg>
     <trkpt lat="45.0000" lon="3.0000"><ele>100</ele></trkpt>
-    <trkpt lat="45.0010" lon="3.0010"><ele>120</ele></trkpt>
+    <trkpt lat="45.0500" lon="3.0500"><ele>120</ele></trkpt>
+    <trkpt lat="45.1000" lon="3.1000"><ele>130</ele></trkpt>
   </trkseg></trk>
 </gpx>`;
 
@@ -77,16 +78,35 @@ describe("race planner GPX", () => {
     expect(parsed.aidStations.some((s) => s.name === "Ravito 1")).toBe(true);
   });
 
+  it("uses explicit finish waypoint name and avoids duplicate endpoint station", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="45.0000" lon="3.0000"><name>Départ officiel</name></wpt>
+  <wpt lat="45.0010" lon="3.0010"><name>Arrivée arche</name></wpt>
+  <trk><trkseg>
+    <trkpt lat="45.0000" lon="3.0000" />
+    <trkpt lat="45.0010" lon="3.0010" />
+  </trkseg></trk>
+</gpx>`;
+
+    const parsed = parseGpx(gpx, copy);
+    const finishStations = parsed.aidStations.filter((s) => s.name === "Arrivée arche");
+
+    expect(finishStations).toHaveLength(1);
+    expect(parsed.aidStations.some((s) => s.name === "Départ officiel")).toBe(false);
+  });
+
   it("uses tp:index/tp:distance extensions when provided", () => {
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:tp="https://pace-yourself.app/gpx">
-  <wpt lat="45.0005" lon="3.0005">
+  <wpt lat="45.0500" lon="3.0500">
     <name>Ravito 1</name>
     <extensions><tp:index>0</tp:index><tp:distance>2500</tp:distance></extensions>
   </wpt>
   <trk><trkseg>
     <trkpt lat="45.0000" lon="3.0000"><ele>100</ele></trkpt>
-    <trkpt lat="45.0010" lon="3.0010"><ele>120</ele></trkpt>
+    <trkpt lat="45.0500" lon="3.0500"><ele>120</ele></trkpt>
+    <trkpt lat="45.1000" lon="3.1000"><ele>130</ele></trkpt>
   </trkseg></trk>
 </gpx>`;
 

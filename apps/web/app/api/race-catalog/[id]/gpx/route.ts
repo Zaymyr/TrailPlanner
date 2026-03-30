@@ -2,7 +2,8 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { haversineMeters, parseGpx } from "../../../../../lib/gpx/parseGpx";
+import { parseGpx } from "../../../../../lib/gpx/parseGpx";
+import { normalizeImportedWaypoints } from "../../../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../../../lib/http";
 import {
   extractBearerToken,
@@ -230,25 +231,15 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
     // Insert new aid stations from GPX waypoints
     if (parsedGpx.waypoints.length > 0) {
-      const aidStations = parsedGpx.waypoints.map((wpt, index) => {
-        let closestDistKm = 0;
-        let minDist = Infinity;
-        for (const pt of parsedGpx.points) {
-          const d = haversineMeters(wpt.lat, wpt.lng, pt.lat, pt.lng);
-          if (d < minDist) {
-            minDist = d;
-            closestDistKm = pt.distKmCum;
-          }
-        }
-        return {
-          race_id: parsedParams.data.id,
-          name: wpt.name ?? wpt.desc ?? `Aid Station ${index + 1}`,
-          km: closestDistKm,
-          water_available: true,
-          notes: wpt.desc && wpt.name ? wpt.desc : null,
-          order_index: index,
-        };
-      });
+      const normalized = normalizeImportedWaypoints(parsedGpx.points, parsedGpx.waypoints);
+      const aidStations = normalized.aidStations.map((station, index) => ({
+        race_id: parsedParams.data.id,
+        name: station.name,
+        km: station.distanceKm,
+        water_available: true,
+        notes: null,
+        order_index: index,
+      }));
 
       const insertResponse = await fetch(`${supabaseService.supabaseUrl}/rest/v1/race_aid_stations`, {
         method: "POST",

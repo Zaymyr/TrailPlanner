@@ -52,4 +52,18 @@ describe("shared GPX parser", () => {
     expect(parsed.waypoints.length).toBe(1);
     expect(parsed.stats.distanceKm).toBeGreaterThan(0);
   });
+
+  it("decodes waypoint names with entities and accents", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="45.0000" lon="3.0000"><name>Départ d&apos;été</name></wpt>
+  <trk><trkseg>
+    <trkpt lat="45.0000" lon="3.0000" />
+    <trkpt lat="45.0010" lon="3.0010" />
+  </trkseg></trk>
+</gpx>`;
+
+    const parsed = parseGpx(gpx);
+    expect(parsed.waypoints[0]?.name).toBe("Départ d'été");
+  });
 });
