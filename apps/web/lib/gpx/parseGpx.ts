@@ -73,11 +73,11 @@ export const parseGpx = (content: string): ParsedGpx => {
     content.match(/<trk>[\s\S]*?<name>([\s\S]*?)<\/name>/i);
   const trackName = trackNameMatch?.[1]?.trim() ?? null;
 
-  const trkptRegex = /<trkpt\b([^>]*)>([\s\S]*?)<\/trkpt>/gi;
+  const trkptRegex = /<trkpt\b([^>]*)(?:>([\s\S]*?)<\/trkpt>|\s*\/>)/gi;
   let trkptMatch: RegExpExecArray | null = null;
   while ((trkptMatch = trkptRegex.exec(content))) {
     const attributes = trkptMatch[1];
-    const inner = trkptMatch[2];
+    const inner = trkptMatch[2] ?? "";
     const lat = toNumber(attributes.match(/\blat=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blat='([^']+)'/i)?.[1]);
     const lng = toNumber(attributes.match(/\blon=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blon='([^']+)'/i)?.[1]);
 

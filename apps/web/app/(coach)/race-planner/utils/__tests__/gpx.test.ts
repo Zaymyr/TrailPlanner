@@ -48,6 +48,20 @@ describe("race planner GPX", () => {
     expect(parsed.aidStations.some((s) => s.name === "Finish")).toBe(true);
   });
 
+  it("imports standard GPX with self-closing trkpt tags", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="45.0000" lon="3.0000" />
+    <trkpt lat="45.0010" lon="3.0010" />
+  </trkseg></trk>
+</gpx>`;
+
+    const parsed = parseGpx(gpx, copy);
+    expect(parsed.distanceKm).toBeGreaterThan(0);
+    expect(parsed.elevationProfile.length).toBe(2);
+  });
+
   it("imports a standard GPX with waypoints", () => {
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">

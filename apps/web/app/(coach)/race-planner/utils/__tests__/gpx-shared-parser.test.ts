@@ -35,4 +35,21 @@ describe("shared GPX parser", () => {
   it("rejects clearly invalid GPX content", () => {
     expect(() => parseGpx("<gpx><trk></trk></gpx>")).toThrow("No track points found in GPX.");
   });
+
+  it("parses self-closing track points (trkpt />)", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="ChatGPT" xmlns="http://www.topografix.com/GPX/1/1" xmlns:tp="https://trailplanner.app/gpx">
+  <wpt lat="44.969030" lon="3.646060"><name>Start</name><extensions><tp:index>0</tp:index><tp:distance>0</tp:distance></extensions></wpt>
+  <trk><name>Sample</name><trkseg>
+    <trkpt lat="44.969030" lon="3.646060"/>
+    <trkpt lat="44.968260" lon="3.647540"/>
+    <trkpt lat="44.968220" lon="3.647660"/>
+  </trkseg></trk>
+</gpx>`;
+
+    const parsed = parseGpx(gpx);
+    expect(parsed.points.length).toBe(3);
+    expect(parsed.waypoints.length).toBe(1);
+    expect(parsed.stats.distanceKm).toBeGreaterThan(0);
+  });
 });
