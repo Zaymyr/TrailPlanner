@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, Segment } from "../types";
 import { formatClockTime } from "../utils/format";
+import { buildWaypointLabelLayout } from "../utils/waypoint-label-layout";
 
 function niceStep(range: number, targetCount: number): number {
   const roughStep = Math.max(range, 1) / targetCount;
@@ -209,35 +210,20 @@ export function ElevationProfileChart({
     return maxIdx;
   }, [aidStations]);
 
-  const truncateLabel = useCallback((name: string, maxLength: number) => {
-    const trimmed = name.trim();
-    if (trimmed.length <= maxLength) return trimmed;
-    return `${trimmed.slice(0, Math.max(maxLength - 1, 1)).trim()}…`;
-  }, []);
+  const aidStationLabelLayout = useMemo(() => {
+    const layout = buildWaypointLabelLayout(
+      aidStations.map((station, index) => ({
+        index,
+        name: station.name,
+        x: xScale(station.distanceKm),
+        isFinish: index === finishStationIndex,
+        isSelected: ravitoIndex === index,
+      })),
+      { widthPx: width }
+    );
 
-  const minLabelSpacingPx = useMemo(() => {
-    if (width <= 520) return 92;
-    if (width <= 780) return 76;
-    return 58;
-  }, [width]);
-
-  const visibleAidStationLabelIndices = useMemo(() => {
-    const visible = new Set<number>();
-    let lastVisibleX = Number.NEGATIVE_INFINITY;
-
-    aidStations.forEach((station, index) => {
-      const isFinish = index === finishStationIndex;
-      if (isFinish) return;
-
-      const x = xScale(station.distanceKm);
-      if (x - lastVisibleX >= minLabelSpacingPx) {
-        visible.add(index);
-        lastVisibleX = x;
-      }
-    });
-
-    return visible;
-  }, [aidStations, finishStationIndex, minLabelSpacingPx, xScale]);
+    return new Map(layout.map((item) => [item.index, item] as const));
+  }, [aidStations, finishStationIndex, ravitoIndex, width, xScale]);
   const yScale = useCallback(
     (elevation: number) =>
       elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight,
@@ -525,10 +511,10 @@ export function ElevationProfileChart({
           const elevationAtPoint = getElevationAtDistance(station.distanceKm);
           const y = yScale(elevationAtPoint);
           const color = isFinish ? "#22c55e" : "#fbbf24";
-          const showLabel = !isFinish && visibleAidStationLabelIndices.has(index);
-          const labelAbove = index % 2 === 0;
-          const labelY = labelAbove ? Math.max(y - 9, paddingY + 10) : elevationBottom + 27;
-          const labelText = truncateLabel(station.name, width < 640 ? 10 : 14);
+          const labelLayout = aidStationLabelLayout.get(index);
+          const showLabel = !isFinish && Boolean(labelLayout?.visibleLabel);
+          const labelY = labelLayout?.lane === "top" ? Math.max(y - 16, paddingY + 10) : elevationBottom + 33;
+          const labelText = labelLayout?.shortLabel ?? station.name;
           return (
             <g
               key={`${station.name}-${station.distanceKm}`}
