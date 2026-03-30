@@ -208,6 +208,36 @@ export function ElevationProfileChart({
     });
     return maxIdx;
   }, [aidStations]);
+
+  const truncateLabel = useCallback((name: string, maxLength: number) => {
+    const trimmed = name.trim();
+    if (trimmed.length <= maxLength) return trimmed;
+    return `${trimmed.slice(0, Math.max(maxLength - 1, 1)).trim()}…`;
+  }, []);
+
+  const minLabelSpacingPx = useMemo(() => {
+    if (width <= 520) return 92;
+    if (width <= 780) return 76;
+    return 58;
+  }, [width]);
+
+  const visibleAidStationLabelIndices = useMemo(() => {
+    const visible = new Set<number>();
+    let lastVisibleX = Number.NEGATIVE_INFINITY;
+
+    aidStations.forEach((station, index) => {
+      const isFinish = index === finishStationIndex;
+      if (isFinish) return;
+
+      const x = xScale(station.distanceKm);
+      if (x - lastVisibleX >= minLabelSpacingPx) {
+        visible.add(index);
+        lastVisibleX = x;
+      }
+    });
+
+    return visible;
+  }, [aidStations, finishStationIndex, minLabelSpacingPx, xScale]);
   const yScale = useCallback(
     (elevation: number) =>
       elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight,
@@ -495,6 +525,10 @@ export function ElevationProfileChart({
           const elevationAtPoint = getElevationAtDistance(station.distanceKm);
           const y = yScale(elevationAtPoint);
           const color = isFinish ? "#22c55e" : "#fbbf24";
+          const showLabel = !isFinish && visibleAidStationLabelIndices.has(index);
+          const labelAbove = index % 2 === 0;
+          const labelY = labelAbove ? Math.max(y - 9, paddingY + 10) : elevationBottom + 27;
+          const labelText = truncateLabel(station.name, width < 640 ? 10 : 14);
           return (
             <g
               key={`${station.name}-${station.distanceKm}`}
@@ -505,7 +539,9 @@ export function ElevationProfileChart({
               onBlur={() => setRavitoIndex(null)}
               onPointerEnter={() => setRavitoIndex(index)}
               onPointerLeave={() => setRavitoIndex(null)}
+              onClick={() => setRavitoIndex((current) => (current === index ? null : index))}
             >
+              <title>{station.name}</title>
               <line
                 x1={x} x2={x} y1={y} y2={elevationBottom}
                 stroke={color}
@@ -525,9 +561,11 @@ export function ElevationProfileChart({
                   {copy.sections.courseProfile.finishLabel}
                 </text>
               ) : (
-                <text x={x} y={elevationBottom + 27} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
-                  {station.name}
-                </text>
+                showLabel ? (
+                  <text x={x} y={labelY} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
+                    {labelText}
+                  </text>
+                ) : null
               )}
             </g>
           );
