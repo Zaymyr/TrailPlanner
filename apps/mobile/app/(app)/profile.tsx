@@ -128,6 +128,17 @@ export default function ProfileScreen() {
     });
   }
 
+  function handleManageSubscription() {
+    const url = WEB_URL ? `${WEB_URL}/profile` : null;
+    if (!url) {
+      Alert.alert('Abonnement', 'Rendez-vous sur notre site web pour gérer votre abonnement.');
+      return;
+    }
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Erreur', 'Impossible d\'ouvrir le navigateur.');
+    });
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -146,7 +157,6 @@ export default function ProfileScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Section profil */}
-      <Text style={styles.sectionTitle}>Mon profil</Text>
 
       <Text style={styles.label}>Prénom</Text>
       <TextInput
@@ -231,6 +241,10 @@ export default function ProfileScreen() {
             <Text style={styles.upgradeButtonText}>Passer en Premium →</Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity style={styles.manageSubscriptionButton} onPress={handleManageSubscription}>
+          <Text style={styles.manageSubscriptionButtonText}>Modifier mon abonnement</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Langue */}
@@ -445,6 +459,20 @@ const styles = StyleSheet.create({
   },
   upgradeButtonText: {
     color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  manageSubscriptionButton: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  manageSubscriptionButtonText: {
+    color: Colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
   },

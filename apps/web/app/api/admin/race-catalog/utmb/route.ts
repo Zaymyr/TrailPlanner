@@ -8,6 +8,7 @@ import {
   extractBearerToken,
   fetchSupabaseUser,
   getSupabaseAnonConfig,
+  type SupabaseServiceConfig,
   getSupabaseServiceConfig,
   isAdminUser,
 } from "../../../../../lib/supabase";
@@ -75,6 +76,12 @@ const buildRestHeaders = (context: SupabaseAuthContext, contentType = "applicati
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
+const buildServiceHeaders = (serviceConfig: SupabaseServiceConfig, contentType = "application/json") => ({
+  apikey: serviceConfig.supabaseServiceRoleKey,
+  Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+  ...(contentType ? { "Content-Type": contentType } : {}),
+});
+
 async function requireAdmin(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -117,12 +124,12 @@ async function requireAdmin(request: NextRequest) {
   } as const;
 }
 
-async function findExistingRaceBySourceUrl(context: SupabaseAuthContext, sourceUrl: string) {
+async function findExistingRaceBySourceUrl(serviceConfig: SupabaseServiceConfig, sourceUrl: string) {
   const encoded = encodeURIComponent(sourceUrl);
   const response = await fetch(
-    `${context.supabaseUrl}/rest/v1/races?select=id,name,slug&or=(source_url.eq.${encoded},external_site_url.eq.${encoded})&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/races?select=id,name,slug&or=(source_url.eq.${encoded},external_site_url.eq.${encoded})&limit=1`,
     {
-      headers: buildRestHeaders(context, undefined),
+      headers: buildServiceHeaders(serviceConfig, undefined),
       cache: "no-store",
     }
   );
@@ -136,13 +143,13 @@ async function findExistingRaceBySourceUrl(context: SupabaseAuthContext, sourceU
   return rows[0] ?? null;
 }
 
-async function findExistingRaceEvent(context: SupabaseAuthContext, eventName: string) {
+async function findExistingRaceEvent(serviceConfig: SupabaseServiceConfig, eventName: string) {
   const response = await fetch(
-    `${context.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date&name=ilike.*${encodeURIComponent(
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date&name=ilike.*${encodeURIComponent(
       eventName
     )}*&limit=20`,
     {
-      headers: buildRestHeaders(context, undefined),
+      headers: buildServiceHeaders(serviceConfig, undefined),
       cache: "no-store",
     }
   );
@@ -158,7 +165,7 @@ async function findExistingRaceEvent(context: SupabaseAuthContext, eventName: st
 }
 
 async function createRaceEvent(
-  context: SupabaseAuthContext,
+  serviceConfig: SupabaseServiceConfig,
   payload: { name: string; location: string | null; race_date: string | null; isLive: boolean }
 ) {
   const basePayload = {
@@ -170,10 +177,10 @@ async function createRaceEvent(
   const attempts = [{ ...basePayload, is_live: payload.isLive }, basePayload];
 
   for (const attempt of attempts) {
-    const response = await fetch(`${context.supabaseUrl}/rest/v1/race_events`, {
+    const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/race_events`, {
       method: "POST",
       headers: {
-        ...buildRestHeaders(context),
+        ...buildServiceHeaders(serviceConfig),
         Prefer: "return=representation",
       },
       body: JSON.stringify(attempt),
@@ -191,14 +198,16 @@ async function createRaceEvent(
   throw new Error("Unable to create race event.");
 }
 
-async function ensureRaceEventId(
-  context: SupabaseAuthContext,
-  payload: { name: string; location: string | null; race_date: string | null; isLive: boolean }
-) {
-  const existing = await findExistingRaceEvent(context, payload.name);
+async function ensureRaceEventId(serviceConfig: SupabaseServiceConfig, payload: {
+  name: string;
+  location: string | null;
+  race_date: string | null;
+  isLive: boolean;
+}) {
+  const existing = await findExistingRaceEvent(serviceConfig, payload.name);
   if (existing) return existing.id;
 
-  const created = await createRaceEvent(context, payload);
+  const created = await createRaceEvent(serviceConfig, payload);
   return created?.id ?? null;
 }
 
@@ -215,7 +224,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const utmbRace = await getUtmbRaceData(body.url);
-    const duplicateRace = await findExistingRaceBySourceUrl(admin.context, utmbRace.normalizedUrl);
+    const duplicateRace = await findExistingRaceBySourceUrl(admin.serviceConfig, utmbRace.normalizedUrl);
 
     if (body.action === "preview") {
       return withSecurityHeaders(
@@ -249,12 +258,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const raceEventId = await ensureRaceEventId(admin.context, {
-      name: utmbRace.eventName,
-      location: utmbRace.location,
-      race_date: utmbRace.date,
-      isLive: body.isLive,
-    });
+    let raceEventId: string | null;
+    try {
+      raceEventId = await ensureRaceEventId(admin.serviceConfig, {
+        name: utmbRace.eventName,
+        location: utmbRace.location,
+        race_date: utmbRace.date,
+        isLive: body.isLive,
+      });
+    } catch (error) {
+      console.error("Unable to resolve UTMB race event", error);
+      return withSecurityHeaders(
+        NextResponse.json({ message: "Impossible de créer ou rattacher l'événement UTMB." }, { status: 502 })
+      );
+    }
 
     const gpxResponse = await fetch(utmbRace.gpxUrl, {
       cache: "no-store",
@@ -303,10 +320,10 @@ export async function POST(request: NextRequest) {
     }
 
     const gpxSha = createHash("sha256").update(gpxContent).digest("hex");
-    const insertResponse = await fetch(`${admin.context.supabaseUrl}/rest/v1/races`, {
+    const insertResponse = await fetch(`${admin.serviceConfig.supabaseUrl}/rest/v1/races`, {
       method: "POST",
       headers: {
-        ...buildRestHeaders(admin.context),
+        ...buildServiceHeaders(admin.serviceConfig),
         Prefer: "return=representation",
       },
       body: JSON.stringify({
@@ -358,10 +375,10 @@ export async function POST(request: NextRequest) {
     const insertedRace = z.array(raceRowSchema).parse(await insertResponse.json())[0];
 
     if (utmbRace.aidStations.length > 0) {
-      const aidInsertResponse = await fetch(`${admin.context.supabaseUrl}/rest/v1/race_aid_stations`, {
+      const aidInsertResponse = await fetch(`${admin.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations`, {
         method: "POST",
         headers: {
-          ...buildRestHeaders(admin.context),
+          ...buildServiceHeaders(admin.serviceConfig),
           Prefer: "return=minimal",
         },
         body: JSON.stringify(
