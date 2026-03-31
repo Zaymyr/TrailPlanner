@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -42,6 +42,7 @@ export { DEFAULT_PLAN_VALUES };
 type Props = {
   initialValues: PlanFormValues;
   onSave: (values: PlanFormValues) => void;
+  onValuesChange?: (values: PlanFormValues) => void;
   loading?: boolean;
   saveLabel?: string;
   favoriteProducts?: FavProduct[];
@@ -54,6 +55,7 @@ const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 export default function PlanForm({
   initialValues,
   onSave,
+  onValuesChange,
   loading,
   saveLabel,
   favoriteProducts,
@@ -74,6 +76,23 @@ export default function PlanForm({
 
   void favoriteProducts;
   void saveLabel;
+
+  useEffect(() => {
+    setValues(buildInitialPlanValues(initialValues));
+    setExpandedStations(new Set([DEPART_ID]));
+    setExpandedSections({
+      course: !compactBasicsByDefault,
+      pace: !compactBasicsByDefault,
+      nutrition: !compactBasicsByDefault,
+      summary: !compactBasicsByDefault,
+    });
+    setEditingStation(null);
+    setGaugeAnimateSignal(0);
+  }, [compactBasicsByDefault, initialValues]);
+
+  useEffect(() => {
+    onValuesChange?.(values);
+  }, [onValuesChange, values]);
 
   const triggerGaugeAnimation = () => {
     setGaugeAnimateSignal((prev) => prev + 1);
@@ -109,6 +128,8 @@ export default function PlanForm({
     setPickerTarget,
     pickerSearch,
     setPickerSearch,
+    pickerSort,
+    setPickerSort,
     filteredAllProducts,
     pickerFavorites,
     currentSupplyIds,
@@ -310,6 +331,8 @@ export default function PlanForm({
         visible={pickerTarget !== null}
         pickerSearch={pickerSearch}
         setPickerSearch={setPickerSearch}
+        pickerSort={pickerSort}
+        setPickerSort={setPickerSort}
         productsLoading={productsLoading}
         pickerFavorites={pickerFavorites}
         filteredAllProducts={filteredAllProducts}

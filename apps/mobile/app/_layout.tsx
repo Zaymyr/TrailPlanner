@@ -18,7 +18,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
-import { respondToAlert } from '../lib/raceAlertService';
+import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider } from '../lib/i18n';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;

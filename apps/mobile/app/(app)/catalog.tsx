@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
-  ImageBackground,
+  Image,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -18,6 +19,7 @@ type Race = {
   name: string;
   distance_km: number;
   elevation_gain_m: number;
+  race_date?: string | null;
   has_aid_stations: boolean | null;
   gpx_storage_path: string | null;
   thumbnail_url?: string | null;
@@ -51,6 +53,29 @@ function getRaceShortLabel(raceName: string, eventName: string): string {
 
 function getEventImageUrl(event: Pick<EventGroup, 'thumbnail_url' | 'races'>): string | null {
   return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
+}
+
+function isUpcomingOrUndated(isoDate: string | null | undefined) {
+  if (!isoDate) return true;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const raceDate = new Date(isoDate);
+  if (Number.isNaN(raceDate.getTime())) return true;
+  raceDate.setHours(0, 0, 0, 0);
+
+  return raceDate >= today;
+}
+
+function matchesDistanceFilter(distanceKm: number, distanceFilter: string) {
+  const trimmed = distanceFilter.trim().replace(',', '.');
+  if (!trimmed) return true;
+
+  const targetDistance = Number(trimmed);
+  if (!Number.isFinite(targetDistance)) return true;
+
+  return Math.abs(distanceKm - targetDistance) <= 2;
 }
 
 function SkeletonEventCard() {
@@ -159,6 +184,8 @@ function PersonalRacesSection({ races }: { races: Race[] }) {
 export default function CatalogScreen() {
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
+  const [nameFilter, setNameFilter] = useState('');
+  const [distanceFilter, setDistanceFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -184,6 +211,7 @@ export default function CatalogScreen() {
                 name,
                 distance_km,
                 elevation_gain_m,
+                race_date,
                 has_aid_stations,
                 gpx_storage_path,
                 thumbnail_url
@@ -193,13 +221,13 @@ export default function CatalogScreen() {
             .order('name'),
           supabase
             .from('races')
-            .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path, thumbnail_url')
+            .select('id, name, distance_km, elevation_gain_m, race_date, has_aid_stations, gpx_storage_path, thumbnail_url')
             .eq('is_live', true)
             .is('event_id', null),
           userId
             ? supabase
                 .from('races')
-                .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path, thumbnail_url')
+                .select('id, name, distance_km, elevation_gain_m, race_date, has_aid_stations, gpx_storage_path, thumbnail_url')
                 .eq('is_public', false)
                 .eq('created_by', userId)
             : Promise.resolve({ data: [], error: null }),
@@ -244,6 +272,46 @@ export default function CatalogScreen() {
     return fetchEvents();
   }, []);
 
+  const filteredEventGroups = useMemo(() => {
+    const normalizedName = nameFilter.trim().toLowerCase();
+
+    return eventGroups
+      .filter((event) => isUpcomingOrUndated(event.race_date))
+      .map((event) => {
+        const eventMatchesName =
+          normalizedName.length === 0 ||
+          event.name.toLowerCase().includes(normalizedName) ||
+          (event.location ?? '').toLowerCase().includes(normalizedName);
+
+        const races = event.races.filter((race) => {
+          const raceMatchesName =
+            normalizedName.length === 0 ||
+            eventMatchesName ||
+            race.name.toLowerCase().includes(normalizedName);
+
+          return raceMatchesName && matchesDistanceFilter(race.distance_km, distanceFilter);
+        });
+
+        return { ...event, races };
+      })
+      .filter((event) => event.races.length > 0);
+  }, [distanceFilter, eventGroups, nameFilter]);
+
+  const filteredPersonalRaces = useMemo(() => {
+    const normalizedName = nameFilter.trim().toLowerCase();
+
+    return personalRaces.filter((race) => {
+      const raceMatchesName =
+        normalizedName.length === 0 || race.name.toLowerCase().includes(normalizedName);
+
+      return (
+        isUpcomingOrUndated(race.race_date) &&
+        raceMatchesName &&
+        matchesDistanceFilter(race.distance_km, distanceFilter)
+      );
+    });
+  }, [distanceFilter, nameFilter, personalRaces]);
+
   if (loading) {
     return (
       <ScrollView
@@ -276,11 +344,11 @@ export default function CatalogScreen() {
 
   return (
     <FlatList
-      data={eventGroups}
+      data={filteredEventGroups}
       keyExtractor={(item) => item.id}
       contentContainerStyle={[
         styles.list,
-        eventGroups.length === 0 && personalRaces.length === 0 && styles.listEmpty,
+        filteredEventGroups.length === 0 && filteredPersonalRaces.length === 0 && styles.listEmpty,
       ]}
       refreshControl={
         <RefreshControl
@@ -293,12 +361,32 @@ export default function CatalogScreen() {
         />
       }
       ListHeaderComponent={
-        personalRaces.length > 0 ? (
-          <PersonalRacesSection races={personalRaces} />
-        ) : null
+        <View style={styles.listHeader}>
+          <View style={styles.filtersCard}>
+            <TextInput
+              value={nameFilter}
+              onChangeText={setNameFilter}
+              placeholder="Rechercher une course"
+              placeholderTextColor={Colors.textMuted}
+              style={styles.filterInput}
+            />
+            <TextInput
+              value={distanceFilter}
+              onChangeText={setDistanceFilter}
+              placeholder="Distance (km)"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="decimal-pad"
+              style={styles.filterInput}
+            />
+            <Text style={styles.filterHint}>Courses futures uniquement</Text>
+          </View>
+          {filteredPersonalRaces.length > 0 ? (
+            <PersonalRacesSection races={filteredPersonalRaces} />
+          ) : null}
+        </View>
       }
       ListEmptyComponent={
-        personalRaces.length === 0 ? (
+        filteredPersonalRaces.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>🏁</Text>
             <Text style={styles.emptyTitle}>Aucune course disponible</Text>
@@ -312,16 +400,7 @@ export default function CatalogScreen() {
         const useFlex = event.races.length <= 2;
         const eventImageUrl = getEventImageUrl(event);
         return (
-          <View style={[styles.eventCard, eventImageUrl ? styles.eventCardWithImage : null]}>
-            {eventImageUrl ? (
-              <ImageBackground
-                source={{ uri: eventImageUrl }}
-                imageStyle={styles.eventCardImage}
-                style={styles.eventCardImageFill}
-              >
-                <View style={styles.eventCardImageOverlay} />
-              </ImageBackground>
-            ) : null}
+          <View style={styles.eventCard}>
             {/* Event header */}
             <View style={styles.eventHeader}>
               <Text style={styles.eventHeaderEmoji}>🏔️</Text>
@@ -331,6 +410,9 @@ export default function CatalogScreen() {
                   <Text style={styles.eventMeta}>{headerMeta}</Text>
                 ) : null}
               </View>
+              {eventImageUrl ? (
+                <Image source={{ uri: eventImageUrl }} style={styles.eventThumbnail} resizeMode="cover" />
+              ) : null}
             </View>
 
             <View style={styles.divider} />
@@ -391,6 +473,31 @@ const styles = StyleSheet.create({
     gap: 16,
     backgroundColor: Colors.background,
   },
+  listHeader: {
+    gap: 16,
+  },
+  filtersCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+    gap: 10,
+  },
+  filterInput: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: Colors.textPrimary,
+    fontSize: 15,
+  },
+  filterHint: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+  },
   listEmpty: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -431,19 +538,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
-  eventCardWithImage: {
-    overflow: 'hidden',
-  },
-  eventCardImageFill: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  eventCardImage: {
-    borderRadius: 16,
-  },
-  eventCardImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.72)',
-  },
   personalCard: {
     borderColor: Colors.brandBorder,
     backgroundColor: Colors.brandSurface,
@@ -459,6 +553,14 @@ const styles = StyleSheet.create({
   },
   eventHeaderText: {
     flex: 1,
+  },
+  eventThumbnail: {
+    width: 84,
+    height: 84,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
   },
   eventName: {
     fontSize: 17,

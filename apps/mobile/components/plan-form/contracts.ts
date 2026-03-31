@@ -62,6 +62,16 @@ export type IntakeTimelineItem = {
   minute: number;
   label: string;
   detail: string;
+  carbsGrams?: number;
+  sodiumMg?: number;
+  waterMl?: number;
+  products?: Array<{
+    name: string;
+    quantity: number;
+    carbsGrams: number;
+    sodiumMg: number;
+    waterMl: number;
+  }>;
   immediate?: boolean;
 };
 

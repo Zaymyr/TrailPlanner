@@ -590,6 +590,32 @@ export const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: 12,
   },
+  pickerSortRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  pickerSortBtn: {
+    flex: 1,
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  pickerSortBtnActive: {
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandBorder,
+  },
+  pickerSortBtnText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  pickerSortBtnTextActive: {
+    color: Colors.brandPrimary,
+  },
   pickerSectionTitle: {
     color: Colors.textMuted,
     fontSize: 11,
@@ -604,6 +630,7 @@ export const styles = StyleSheet.create({
   pickerRowInfo: { flex: 1, marginRight: 12 },
   pickerRowName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
   pickerRowType: { color: Colors.textMuted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 1 },
+  pickerRowMeta: { color: Colors.textSecondary, fontSize: 12, marginTop: 3, fontWeight: '600' },
   pickerAddBtn: { backgroundColor: 'transparent', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.brandPrimary },
   pickerAddBtnDone: { borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary },
   pickerAddBtnText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '600' },

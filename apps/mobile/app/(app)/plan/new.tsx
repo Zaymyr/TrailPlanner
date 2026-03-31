@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
 import { Colors } from '../../../constants/colors';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, type ElevationPoint } from '../../../components/PlanForm';
@@ -57,46 +58,60 @@ export default function NewPlanScreen() {
     })();
   }, []);
 
-  useEffect(() => {
+  const loadRaceSeed = useCallback(async () => {
     if (!resolvedRaceId) {
+      setSelectedRace(null);
+      setLoading(false);
+      setShowRaceSelector(true);
       setElevationProfile([]);
       setInitialValues(DEFAULT_PLAN_VALUES);
       return;
     }
 
-    let cancelled = false;
-    (async () => {
-      const [{ data, error }, fetchedElevationProfile, fetchedAidStations] = await Promise.all([
-        supabase
-          .from('races')
-          .select('id, name, distance_km, elevation_gain_m')
-          .eq('id', resolvedRaceId)
-          .single(),
-        fetchRaceElevationProfile(resolvedRaceId),
-        fetchRaceAidStations(resolvedRaceId),
-      ]);
+    setLoading(true);
+    const [{ data, error }, fetchedElevationProfile, fetchedAidStations] = await Promise.all([
+      supabase
+        .from('races')
+        .select('id, name, distance_km, elevation_gain_m')
+        .eq('id', resolvedRaceId)
+        .single(),
+      fetchRaceElevationProfile(resolvedRaceId),
+      fetchRaceAidStations(resolvedRaceId),
+    ]);
 
-      if (cancelled) return;
-      if (!error && data) {
-        const race = data as RaceInfo;
-        setSelectedRace(race);
-        setElevationProfile(fetchedElevationProfile);
-        setInitialValues({
-          ...DEFAULT_PLAN_VALUES,
-          name: race.name,
-          raceDistanceKm: race.distance_km,
-          elevationGain: race.elevation_gain_m,
-          aidStations: fetchedAidStations,
-        });
-      } else {
-        setElevationProfile([]);
-        setInitialValues(DEFAULT_PLAN_VALUES);
-      }
-      setLoading(false);
-    })();
-
-    return () => { cancelled = true; };
+    if (!error && data) {
+      const race = data as RaceInfo;
+      setSelectedRace(race);
+      setShowRaceSelector(false);
+      setElevationProfile(fetchedElevationProfile);
+      setInitialValues({
+        ...DEFAULT_PLAN_VALUES,
+        name: race.name,
+        raceDistanceKm: race.distance_km,
+        elevationGain: race.elevation_gain_m,
+        aidStations: fetchedAidStations,
+      });
+    } else {
+      setSelectedRace(null);
+      setElevationProfile([]);
+      setInitialValues(DEFAULT_PLAN_VALUES);
+    }
+    setLoading(false);
   }, [resolvedRaceId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadRaceSeed();
+
+      return () => {
+        setSelectedRace(null);
+        setElevationProfile([]);
+        setInitialValues(null);
+        setLoading(!!resolvedRaceId);
+        setShowRaceSelector(!resolvedRaceId);
+      };
+    }, [loadRaceSeed, resolvedRaceId]),
+  );
 
   async function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
     setSelectedRace(race);
@@ -201,6 +216,7 @@ export default function NewPlanScreen() {
 
       {!showRaceSelector && initialValues && (
         <PlanForm
+          key={selectedRace?.id ?? resolvedRaceId ?? 'new-plan'}
           initialValues={initialValues}
           elevationProfile={elevationProfile}
           onSave={handleSave}

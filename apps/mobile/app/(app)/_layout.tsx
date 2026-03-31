@@ -18,6 +18,15 @@ export default function AppLayout() {
         headerStyle: { backgroundColor: Colors.background },
         headerTintColor: Colors.textPrimary,
         headerShadowVisible: false,
+        headerTitleAlign: 'center',
+        headerTitleStyle: {
+          color: Colors.textPrimary,
+          fontSize: 22,
+          fontWeight: '800',
+        },
+        headerTitleContainerStyle: {
+          paddingHorizontal: 12,
+        },
         tabBarStyle: {
           backgroundColor: Colors.background,
           borderTopColor: Colors.border,

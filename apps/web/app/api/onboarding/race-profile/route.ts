@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseGpx } from "../../../../lib/gpx/parseGpx";
-import { getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../../lib/supabase";
+import {
+  extractBearerToken,
+  fetchSupabaseUser,
+  getSupabaseAnonConfig,
+  getSupabaseServiceConfig,
+} from "../../../../lib/supabase";
 import { withSecurityHeaders } from "../../../../lib/http";
 import { getUtmbRaceData } from "../../../../lib/utmb-race-import";
 
@@ -32,11 +37,17 @@ export async function GET(request: NextRequest) {
   }
 
   // Fetch race's gpx_storage_path (no auth required — public live races)
+  const token = extractBearerToken(request.headers.get("authorization"));
+  const currentUser = token ? await fetchSupabaseUser(token, supabaseAnon) : null;
+
   const raceRes = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${raceId}&is_live=eq.true&select=gpx_storage_path,trace_provider,source_url,external_site_url&limit=1`,
+    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=gpx_storage_path,trace_provider,source_url,external_site_url,is_live,created_by&limit=1`,
     {
-      headers: { apikey: supabaseAnon.supabaseAnonKey },
-      cache: "force-cache",
+      headers: {
+        apikey: supabaseService.supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+      },
+      cache: "no-store",
     }
   );
 
@@ -49,8 +60,16 @@ export async function GET(request: NextRequest) {
     trace_provider?: string | null;
     source_url?: string | null;
     external_site_url?: string | null;
+    is_live?: boolean | null;
+    created_by?: string | null;
   }>;
   const race = rows[0] ?? null;
+  const canAccess = Boolean(
+    race && (race.is_live === true || (currentUser?.id && race.created_by === currentUser.id)),
+  );
+  if (!canAccess) {
+    return withSecurityHeaders(NextResponse.json({ elevationProfile: [] }));
+  }
   const gpxPath = race?.gpx_storage_path ?? null;
   const sourceUrl = race?.source_url ?? race?.external_site_url ?? null;
   const traceProvider = race?.trace_provider ?? null;
@@ -92,7 +111,51 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  if (elevationProfile.length === 0) {
+    const fallbackPlanRes = await fetch(
+      `${supabaseService.supabaseUrl}/rest/v1/race_plans?race_id=eq.${raceId}&select=elevation_profile,updated_at&order=updated_at.desc&limit=1`,
+      {
+        headers: {
+          apikey: supabaseService.supabaseServiceRoleKey,
+          Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (fallbackPlanRes.ok) {
+      const fallbackRows = (await fallbackPlanRes.json().catch(() => [])) as Array<{
+        elevation_profile?: Array<{ distanceKm?: unknown; elevationM?: unknown }> | null;
+      }>;
+      const fallbackProfile = Array.isArray(fallbackRows[0]?.elevation_profile)
+        ? fallbackRows[0]?.elevation_profile ?? []
+        : [];
+
+      elevationProfile = samplePoints(
+        fallbackProfile.flatMap((point) => {
+          const distanceKm =
+            typeof point?.distanceKm === "number" && Number.isFinite(point.distanceKm) ? point.distanceKm : null;
+          const elevationM =
+            typeof point?.elevationM === "number" && Number.isFinite(point.elevationM) ? point.elevationM : null;
+
+          if (distanceKm === null || elevationM === null) return [];
+
+          return [{ distanceKm, elevationM }];
+        }),
+        400
+      );
+    }
+  }
+
   return withSecurityHeaders(
-    NextResponse.json({ elevationProfile }, { headers: { "Cache-Control": "public, max-age=3600, s-maxage=3600" } })
+    NextResponse.json(
+      { elevationProfile },
+      {
+        headers: {
+          "Cache-Control":
+            race?.is_live === true ? "public, max-age=3600, s-maxage=3600" : "private, no-store",
+        },
+      }
+    )
   );
 }

@@ -1,8 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ElevationPoint, SectionSegment } from './profile-utils';
-import { autoSegmentSection, buildSectionKey, getElevationSlice, getSectionSegments, normalizeSectionSegments, recomputeSectionFromSubSections } from './profile-utils';
+import { autoSegmentSection, buildSectionKey, getElevationSlice, normalizeSectionSegments } from './profile-utils';
 import type { PlanFormValues, PlanTarget, SectionSummary } from './contracts';
+import { buildPlanSectionSummary, getBaseSpeedKph } from './section-summary';
 
 type Args = {
   values: PlanFormValues;
@@ -12,57 +13,18 @@ type Args = {
 
 export function usePlanSections({ values, setValues, elevationProfile }: Args) {
   const baseSpeedKph = useMemo(
-    () =>
-      values.paceType === 'pace'
-        ? 60 / Math.max(values.paceMinutes + values.paceSeconds / 60, 0.01)
-        : Math.max(values.speedKph, 0.1),
+    () => getBaseSpeedKph(values),
     [values.paceMinutes, values.paceSeconds, values.paceType, values.speedKph],
   );
 
   const buildSectionSummary = useCallback(
-    (target: PlanTarget): SectionSummary | null => {
-      const sectionIndex = target === 'start' ? 0 : target;
-      const fromStation = values.aidStations[sectionIndex];
-      const toStation = values.aidStations[sectionIndex + 1];
-
-      if (!fromStation || !toStation) return null;
-
-      const startKm = fromStation.distanceKm;
-      const endKm = toStation.distanceKm;
-      const distanceKm = Math.max(0, endKm - startKm);
-      const pauseMinutes = Math.max(0, fromStation.pauseMinutes ?? 0);
-      const hasStoredSegments = Boolean(values.sectionSegments?.[buildSectionKey(sectionIndex)]?.length);
-      const segments = getSectionSegments(values.sectionSegments, sectionIndex, distanceKm);
-      const profilePoints =
-        elevationProfile.length > 0
-          ? getElevationSlice(elevationProfile, startKm, endKm)
-          : [
-              { distanceKm: startKm, elevationM: 0 },
-              { distanceKm: endKm, elevationM: 0 },
-            ];
-      const recomputed = recomputeSectionFromSubSections({
-        segments,
-        startDistanceKm: startKm,
-        elevationProfile: profilePoints,
-        paceModel: { secondsPerKm: 3600 / baseSpeedKph },
-      });
-      const durationMin = recomputed.totals.etaSeconds / 60 + pauseMinutes;
-
-      return {
-        sectionIndex,
-        startKm,
-        endKm,
-        distanceKm,
-        durationMin,
-        targetCarbsG: values.targetIntakePerHour * (durationMin / 60),
-        targetSodiumMg: values.sodiumIntakePerHour * (durationMin / 60),
-        targetWaterMl: values.waterIntakePerHour * (durationMin / 60),
-        profilePoints,
-        segments,
-        segmentStats: recomputed.segmentStats,
-        hasStoredSegments,
-      };
-    },
+    (target: PlanTarget): SectionSummary | null =>
+      buildPlanSectionSummary({
+        values,
+        elevationProfile,
+        baseSpeedKph,
+        target,
+      }),
     [
       baseSpeedKph,
       elevationProfile,

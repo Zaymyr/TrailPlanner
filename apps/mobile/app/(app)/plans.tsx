@@ -153,7 +153,7 @@ function PersonalPickerSection({ races, onSelect }: { races: PickerRace[]; onSel
     <View style={[pStyles.eventCard, pStyles.personalCard]}>
       <View style={pStyles.eventHeader}>
         <Text style={pStyles.eventHeaderEmoji}>🗺️</Text>
-        <View style={{ flex: 1 }}>
+        <View style={pStyles.eventHeaderText}>
           <Text style={pStyles.eventName}>Mes courses</Text>
         </View>
       </View>
@@ -189,7 +189,7 @@ function EventPickerCard({ event, onSelect }: { event: PickerEventGroup; onSelec
       ) : null}
       <View style={pStyles.eventHeader}>
         <Text style={pStyles.eventHeaderEmoji}>🏔️</Text>
-        <View style={{ flex: 1 }}>
+        <View style={[pStyles.eventHeaderText, eventImageUrl ? pStyles.eventHeaderTextNeutral : null]}>
           <Text style={pStyles.eventName}>{event.name}</Text>
           {headerMeta ? <Text style={pStyles.eventMeta}>{headerMeta}</Text> : null}
         </View>
@@ -481,6 +481,29 @@ export default function PlansScreen() {
           const duration = estimateDuration(item.planner_values);
           return (
             <View style={styles.card}>
+              <View style={styles.cardActionsLeft}>
+                <TouchableOpacity
+                  onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.iconBtn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="create-outline" size={16} color="#6B7280" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => handleDelete(item.id)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.iconBtn}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.cardMainButton}
+                activeOpacity={0.8}
+                onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
+              >
               <View style={styles.cardContent}>
                 <Text style={styles.planName}>{item.name}</Text>
                 <View style={styles.meta}>
@@ -494,30 +517,14 @@ export default function PlansScreen() {
                   <Text style={styles.metaDate}>{' · '}{formatDate(item.updated_at)}</Text>
                 </View>
               </View>
-              <View style={styles.cardActions}>
-                <View style={styles.cardIconActions}>
-                  <TouchableOpacity
-                    onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.iconBtn}
-                  >
-                    <Ionicons name="create-outline" size={16} color="#6B7280" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDelete(item.id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.iconBtn}
-                  >
-                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-                <TouchableOpacity
-                  style={styles.startButton}
-                  onPress={() => router.push(`/(app)/race/${item.id}` as any)}
-                >
-                  <Text style={styles.startButtonText}>{t.plans.startButton}</Text>
-                </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={() => router.push(`/(app)/race/${item.id}` as any)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.startButtonText}>{t.plans.startButton}</Text>
+              </TouchableOpacity>
             </View>
           );
         }}
@@ -626,10 +633,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.surface,
     borderRadius: 12,
-    padding: 16,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'stretch',
     marginBottom: 8,
     marginLeft: 22,
     borderWidth: 1,
@@ -639,17 +644,55 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
+    overflow: 'hidden',
   },
-  cardContent: { flex: 1, marginRight: 12 },
+  cardActionsLeft: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  cardMainButton: {
+    flex: 1,
+  },
+  cardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+  },
   planName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary, marginBottom: 4 },
   meta: { flexDirection: 'row', flexWrap: 'wrap' },
   metaText: { fontSize: 13, color: Colors.textSecondary },
   metaDate: { fontSize: 13, color: Colors.textMuted },
   cardActions: { alignItems: 'flex-end', gap: 8 },
   cardIconActions: { flexDirection: 'row', gap: 4 },
-  iconBtn: { padding: 6 },
-  startButton: { backgroundColor: Colors.brandPrimary, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
-  startButtonText: { color: Colors.textOnBrand, fontWeight: '700', fontSize: 13 },
+  iconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  startButton: {
+    width: 76,
+    minHeight: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    backgroundColor: Colors.brandPrimary,
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.brandLight,
+  },
+  startButtonText: { color: Colors.textOnBrand, fontWeight: '700', fontSize: 12, textAlign: 'center' },
   fab: {
     position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28,
     backgroundColor: Colors.brandPrimary, justifyContent: 'center', alignItems: 'center',
@@ -727,6 +770,15 @@ const pStyles = StyleSheet.create({
     gap: 10,
   },
   eventHeaderEmoji: { fontSize: 22, lineHeight: 26 },
+  eventHeaderText: { flex: 1 },
+  eventHeaderTextNeutral: {
+    backgroundColor: 'rgba(249, 247, 243, 0.92)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(214, 208, 198, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
   eventName: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 },
   eventMeta: { fontSize: 13, color: Colors.textSecondary },
   divider: { height: 1, backgroundColor: Colors.border, marginVertical: 12 },

@@ -243,6 +243,18 @@ export function buildSectionIntakeTimelineV2({
         minute: 0,
         label: unit.label,
         detail: detailParts.length > 0 ? detailParts.join(' - ') : '1 prise',
+        carbsGrams: Math.round(unit.carbs),
+        sodiumMg: Math.round(unit.sodium),
+        waterMl: Math.round(unit.fluidVolumeMl),
+        products: [
+          {
+            name: unit.label,
+            quantity: 1,
+            carbsGrams: Math.round(unit.carbs),
+            sodiumMg: Math.round(unit.sodium),
+            waterMl: Math.round(unit.fluidVolumeMl),
+          },
+        ],
         immediate: true,
       });
     });
@@ -292,6 +304,18 @@ export function buildSectionIntakeTimelineV2({
       minute,
       label: unit.label,
       detail: detailParts.length > 0 ? detailParts.join(' - ') : '1 prise',
+      carbsGrams: Math.round(unit.carbs),
+      sodiumMg: Math.round(unit.sodium),
+      waterMl: 0,
+      products: [
+        {
+          name: unit.label,
+          quantity: 1,
+          carbsGrams: Math.round(unit.carbs),
+          sodiumMg: Math.round(unit.sodium),
+          waterMl: 0,
+        },
+      ],
     });
   });
 
@@ -326,6 +350,21 @@ export function buildSectionIntakeTimelineV2({
         minute,
         label: fluidUnits.length > 0 ? fluidLabel : 'Eau',
         detail: detailParts.join(' - '),
+        carbsGrams: slotCarbs,
+        sodiumMg: slotSodium,
+        waterMl: slotWaterMl,
+        products:
+          fluidUnits.length > 0
+            ? [
+                {
+                  name: fluidLabel,
+                  quantity: 1,
+                  carbsGrams: slotCarbs,
+                  sodiumMg: slotSodium,
+                  waterMl: slotWaterMl,
+                },
+              ]
+            : undefined,
       });
     });
   }

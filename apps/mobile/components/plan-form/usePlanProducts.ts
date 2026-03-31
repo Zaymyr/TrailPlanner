@@ -13,6 +13,7 @@ export function usePlanProducts({ values }: Args) {
   const [productsLoading, setProductsLoading] = useState(true);
   const [pickerTarget, setPickerTarget] = useState<PlanTarget | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
+  const [pickerSort, setPickerSort] = useState<'name' | 'carbs' | 'sodium'>('name');
 
   useEffect(() => {
     let cancelled = false;
@@ -64,13 +65,27 @@ export function usePlanProducts({ values }: Args) {
   }, []);
 
   const pickerSearchLower = pickerSearch.trim().toLowerCase();
-  const filteredAllProducts = useMemo(
-    () =>
-      allProducts.filter(
-        (product) => pickerSearchLower === '' || product.name.toLowerCase().includes(pickerSearchLower),
-      ),
-    [allProducts, pickerSearchLower],
-  );
+  const filteredAllProducts = useMemo(() => {
+    const filtered = allProducts.filter(
+      (product) => pickerSearchLower === '' || product.name.toLowerCase().includes(pickerSearchLower),
+    );
+
+    return [...filtered].sort((left, right) => {
+      if (pickerSort === 'carbs') {
+        const leftCarbs = left.carbs_g ?? 0;
+        const rightCarbs = right.carbs_g ?? 0;
+        if (rightCarbs !== leftCarbs) return rightCarbs - leftCarbs;
+      }
+
+      if (pickerSort === 'sodium') {
+        const leftSodium = left.sodium_mg ?? 0;
+        const rightSodium = right.sodium_mg ?? 0;
+        if (rightSodium !== leftSodium) return rightSodium - leftSodium;
+      }
+
+      return left.name.localeCompare(right.name, 'fr', { sensitivity: 'base' });
+    });
+  }, [allProducts, pickerSearchLower, pickerSort]);
   const pickerFavorites = useMemo(
     () => filteredAllProducts.filter((product) => favoriteProductIds.has(product.id)),
     [favoriteProductIds, filteredAllProducts],
@@ -89,6 +104,7 @@ export function usePlanProducts({ values }: Args) {
 
   const openPicker = (target: PlanTarget) => {
     setPickerSearch('');
+    setPickerSort('name');
     setPickerTarget(target);
   };
 
@@ -102,6 +118,8 @@ export function usePlanProducts({ values }: Args) {
     setPickerTarget,
     pickerSearch,
     setPickerSearch,
+    pickerSort,
+    setPickerSort,
     filteredAllProducts,
     pickerFavorites,
     currentSupplyIds,

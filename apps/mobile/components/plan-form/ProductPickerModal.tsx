@@ -9,6 +9,8 @@ type Props = {
   visible: boolean;
   pickerSearch: string;
   setPickerSearch: (value: string) => void;
+  pickerSort: 'name' | 'carbs' | 'sodium';
+  setPickerSort: (value: 'name' | 'carbs' | 'sodium') => void;
   productsLoading: boolean;
   pickerFavorites: PickerProduct[];
   filteredAllProducts: PickerProduct[];
@@ -22,6 +24,8 @@ export function ProductPickerModal({
   visible,
   pickerSearch,
   setPickerSearch,
+  pickerSort,
+  setPickerSort,
   productsLoading,
   pickerFavorites,
   filteredAllProducts,
@@ -30,8 +34,16 @@ export function ProductPickerModal({
   onClose,
   onAddProduct,
 }: Props) {
+  const sortOptions: Array<{ key: 'name' | 'carbs' | 'sodium'; label: string }> = [
+    { key: 'name', label: 'Nom' },
+    { key: 'carbs', label: 'Glucides' },
+    { key: 'sodium', label: 'Sodium' },
+  ];
+
   const renderPickerRow = (product: PickerProduct) => {
     const added = currentSupplyIds.has(product.id);
+    const carbs = Math.round(product.carbs_g ?? 0);
+    const sodium = Math.round(product.sodium_mg ?? 0);
     return (
       <View key={product.id} style={styles.pickerRow}>
         <View style={styles.pickerRowInfo}>
@@ -39,6 +51,9 @@ export function ProductPickerModal({
             {product.name}
           </Text>
           <Text style={styles.pickerRowType}>{fuelLabels[product.fuel_type] ?? product.fuel_type.toUpperCase()}</Text>
+          <Text style={styles.pickerRowMeta}>
+            {carbs}g glucides · {sodium}mg sodium
+          </Text>
         </View>
         <TouchableOpacity
           style={[styles.pickerAddBtn, added && styles.pickerAddBtnDone]}
@@ -73,6 +88,20 @@ export function ProductPickerModal({
             placeholderTextColor={Colors.textMuted}
             autoCorrect={false}
           />
+
+          <View style={styles.pickerSortRow}>
+            {sortOptions.map((option) => (
+              <TouchableOpacity
+                key={option.key}
+                style={[styles.pickerSortBtn, pickerSort === option.key && styles.pickerSortBtnActive]}
+                onPress={() => setPickerSort(option.key)}
+              >
+                <Text style={[styles.pickerSortBtnText, pickerSort === option.key && styles.pickerSortBtnTextActive]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {productsLoading ? (
             <ActivityIndicator color={Colors.brandPrimary} style={{ marginTop: 24 }} />
