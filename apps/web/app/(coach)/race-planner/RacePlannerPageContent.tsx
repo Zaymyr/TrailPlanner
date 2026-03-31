@@ -1343,7 +1343,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     "Sans course";
   const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
   const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
-  const shouldShowSaveBar = hasUnsavedChanges;
+  const hasBlockingOverlayOpen =
+    isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || onboardingOpen || upgradeDialogOpen;
+  const shouldShowSaveBar = hasUnsavedChanges && !hasBlockingOverlayOpen;
   const saveBarDisabled = authStatus === "checking" || !canSavePlan;
   const saveBarContent = (
     <PlanSaveBar
