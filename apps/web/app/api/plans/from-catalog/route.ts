@@ -26,6 +26,17 @@ const catalogRaceSchema = z.object({
   gpx_storage_path: z.string().nullable().optional(),
   gpx_sha256: z.string().nullable().optional(),
   updated_at: z.string(),
+  race_aid_stations: z
+    .array(
+      z.object({
+        name: z.string(),
+        km: z.number(),
+        water_available: z.boolean().nullable().optional(),
+        order_index: z.number().nullable().optional(),
+      })
+    )
+    .optional()
+    .default([]),
 });
 
 const plannerValuesSchema = z
@@ -148,7 +159,7 @@ export async function POST(request: NextRequest) {
   }
 
   const catalogRaceResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at,race_aid_stations(name,km,water_available,order_index)&limit=1`,
     {
       headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -243,7 +254,16 @@ export async function POST(request: NextRequest) {
     elevationM: Number((point.ele ?? 0).toFixed(1)),
   }));
 
-  const plannerAidStations = mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints);
+  const plannerAidStations =
+    catalogRace.race_aid_stations.length > 0
+      ? [...catalogRace.race_aid_stations]
+          .sort((left, right) => (left.order_index ?? 0) - (right.order_index ?? 0))
+          .map((station) => ({
+            name: station.name,
+            distanceKm: station.km,
+            waterRefill: station.water_available !== false,
+          }))
+      : mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints);
 
   const plannerValues = {
     raceDistanceKm: parsedGpx.stats.distanceKm || Number(catalogRace.distance_km),

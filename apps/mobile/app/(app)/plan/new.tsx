@@ -6,7 +6,7 @@ import { Colors } from '../../../constants/colors';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, type ElevationPoint } from '../../../components/PlanForm';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { useI18n } from '../../../lib/i18n';
-import { fetchRaceElevationProfile } from '../../../lib/raceProfile';
+import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
 
 type RaceInfo = {
   id: string;
@@ -66,13 +66,14 @@ export default function NewPlanScreen() {
 
     let cancelled = false;
     (async () => {
-      const [{ data, error }, fetchedElevationProfile] = await Promise.all([
+      const [{ data, error }, fetchedElevationProfile, fetchedAidStations] = await Promise.all([
         supabase
           .from('races')
           .select('id, name, distance_km, elevation_gain_m')
           .eq('id', resolvedRaceId)
           .single(),
         fetchRaceElevationProfile(resolvedRaceId),
+        fetchRaceAidStations(resolvedRaceId),
       ]);
 
       if (cancelled) return;
@@ -85,6 +86,7 @@ export default function NewPlanScreen() {
           name: race.name,
           raceDistanceKm: race.distance_km,
           elevationGain: race.elevation_gain_m,
+          aidStations: fetchedAidStations,
         });
       } else {
         setElevationProfile([]);
@@ -98,12 +100,17 @@ export default function NewPlanScreen() {
 
   async function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
     setSelectedRace(race);
-    setElevationProfile(await fetchRaceElevationProfile(race.id));
+    const [nextElevationProfile, nextAidStations] = await Promise.all([
+      fetchRaceElevationProfile(race.id),
+      fetchRaceAidStations(race.id),
+    ]);
+    setElevationProfile(nextElevationProfile);
     setInitialValues({
       ...DEFAULT_PLAN_VALUES,
       name: race.name,
       raceDistanceKm: race.distance_km,
       elevationGain: race.elevation_gain_m,
+      aidStations: nextAidStations,
     });
     setShowRaceSelector(false);
   }
