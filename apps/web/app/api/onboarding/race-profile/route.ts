@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   const currentUser = token ? await fetchSupabaseUser(token, supabaseAnon) : null;
 
   const raceRes = await fetch(
-    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=gpx_storage_path,trace_provider,source_url,external_site_url,is_live,created_by&limit=1`,
+    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=gpx_storage_path,trace_provider,source_url,external_site_url,is_live,is_public,created_by,race_events(is_live)&limit=1`,
     {
       headers: {
         apikey: supabaseService.supabaseServiceRoleKey,
@@ -61,11 +61,20 @@ export async function GET(request: NextRequest) {
     source_url?: string | null;
     external_site_url?: string | null;
     is_live?: boolean | null;
+    is_public?: boolean | null;
     created_by?: string | null;
+    race_events?: { is_live?: boolean | null } | Array<{ is_live?: boolean | null }> | null;
   }>;
   const race = rows[0] ?? null;
+  const eventIsLive = Array.isArray(race?.race_events)
+    ? race.race_events.some((event) => event?.is_live === true)
+    : race?.race_events?.is_live === true;
   const canAccess = Boolean(
-    race && (race.is_live === true || (currentUser?.id && race.created_by === currentUser.id)),
+    race &&
+      (race.is_live === true ||
+        race.is_public === true ||
+        eventIsLive ||
+        (currentUser?.id && race.created_by === currentUser.id)),
   );
   if (!canAccess) {
     return withSecurityHeaders(NextResponse.json({ elevationProfile: [] }));

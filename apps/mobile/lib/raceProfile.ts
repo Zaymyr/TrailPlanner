@@ -7,11 +7,49 @@ export type CatalogAidStation = {
   pauseMinutes?: number;
 };
 
+function sanitizeElevationProfile(points: unknown): ElevationPoint[] {
+  if (!Array.isArray(points)) return [];
+
+  return points
+    .filter(
+      (point): point is ElevationPoint =>
+        typeof point === 'object' &&
+        point !== null &&
+        typeof (point as ElevationPoint).distanceKm === 'number' &&
+        Number.isFinite((point as ElevationPoint).distanceKm) &&
+        typeof (point as ElevationPoint).elevationM === 'number' &&
+        Number.isFinite((point as ElevationPoint).elevationM),
+    )
+    .map((point) => ({
+      distanceKm: point.distanceKm,
+      elevationM: point.elevationM,
+    }));
+}
+
+async function fetchStoredRaceElevationProfile(raceId: string): Promise<ElevationPoint[]> {
+  const { supabase } = await import('./supabase');
+
+  try {
+    const { data, error } = await supabase
+      .from('race_plans')
+      .select('elevation_profile, updated_at')
+      .eq('race_id', raceId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) return [];
+    return sanitizeElevationProfile(data?.elevation_profile);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchRaceElevationProfile(raceId: string | null | undefined): Promise<ElevationPoint[]> {
   if (!raceId) return [];
 
   const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
-  if (!apiBase) return [];
+  if (!apiBase) return fetchStoredRaceElevationProfile(raceId);
 
   try {
     const { supabase } = await import('./supabase');
@@ -21,24 +59,14 @@ export async function fetchRaceElevationProfile(raceId: string | null | undefine
     const response = await fetch(`${apiBase}/api/onboarding/race-profile?raceId=${encodeURIComponent(raceId)}`, {
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
-    if (!response.ok) return [];
+    if (!response.ok) return fetchStoredRaceElevationProfile(raceId);
 
     const data = (await response.json().catch(() => null)) as { elevationProfile?: ElevationPoint[] } | null;
-    const elevationProfile = Array.isArray(data?.elevationProfile) ? data?.elevationProfile : [];
-    return elevationProfile
-      .filter(
-        (point): point is ElevationPoint =>
-          typeof point?.distanceKm === 'number' &&
-          Number.isFinite(point.distanceKm) &&
-          typeof point?.elevationM === 'number' &&
-          Number.isFinite(point.elevationM),
-      )
-      .map((point) => ({
-        distanceKm: point.distanceKm,
-        elevationM: point.elevationM,
-      }));
+    const elevationProfile = sanitizeElevationProfile(data?.elevationProfile);
+    if (elevationProfile.length > 0) return elevationProfile;
+    return fetchStoredRaceElevationProfile(raceId);
   } catch {
-    return [];
+    return fetchStoredRaceElevationProfile(raceId);
   }
 }
 
