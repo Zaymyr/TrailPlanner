@@ -79,7 +79,7 @@ export type Segment = {
   isFinish?: boolean;
 };
 
-export type ElevationPoint = { distanceKm: number; elevationM: number };
+export type ElevationPoint = { distanceKm: number; elevationM: number; lat?: number; lon?: number };
 export type SpeedSample = { distanceKm: number; speedKph: number };
 export type GelOption = { slug: string; name: string; carbs: number; sodium: number };
 

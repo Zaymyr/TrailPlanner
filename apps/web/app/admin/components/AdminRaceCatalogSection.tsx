@@ -239,9 +239,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       if (!addForm.getValues("name") && parsed.name) {
         addForm.setValue("name", parsed.name, { shouldDirty: true });
       }
-    } catch {
+    } catch (error) {
       setAddGpxPreview(null);
-      setAddGpxError(t.errors.invalidGpx);
+      setAddGpxError(error instanceof Error ? `${t.errors.invalidGpx} (${error.message})` : t.errors.invalidGpx);
     }
   };
 
@@ -255,9 +255,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       const content = await file.text();
       const parsed = parseGpx(content);
       setEditGpxPreview({ distanceKm: parsed.stats.distanceKm, gainM: parsed.stats.gainM, lossM: parsed.stats.lossM });
-    } catch {
+    } catch (error) {
       setEditGpxPreview(null);
-      setEditGpxError(t.errors.invalidGpx);
+      setEditGpxError(error instanceof Error ? `${t.errors.invalidGpx} (${error.message})` : t.errors.invalidGpx);
     }
   };
 

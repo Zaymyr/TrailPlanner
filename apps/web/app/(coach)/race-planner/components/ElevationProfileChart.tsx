@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, Segment } from "../types";
 import { formatClockTime } from "../utils/format";
+import { buildWaypointLabelLayout } from "../utils/waypoint-label-layout";
 
 function niceStep(range: number, targetCount: number): number {
   const roughStep = Math.max(range, 1) / targetCount;
@@ -208,6 +209,21 @@ export function ElevationProfileChart({
     });
     return maxIdx;
   }, [aidStations]);
+
+  const aidStationLabelLayout = useMemo(() => {
+    const layout = buildWaypointLabelLayout(
+      aidStations.map((station, index) => ({
+        index,
+        name: station.name,
+        x: xScale(station.distanceKm),
+        isFinish: index === finishStationIndex,
+        isSelected: ravitoIndex === index,
+      })),
+      { widthPx: width }
+    );
+
+    return new Map(layout.map((item) => [item.index, item] as const));
+  }, [aidStations, finishStationIndex, ravitoIndex, width, xScale]);
   const yScale = useCallback(
     (elevation: number) =>
       elevationBottom - ((elevation - minElevation) / elevationRange) * elevationAreaHeight,
@@ -495,6 +511,10 @@ export function ElevationProfileChart({
           const elevationAtPoint = getElevationAtDistance(station.distanceKm);
           const y = yScale(elevationAtPoint);
           const color = isFinish ? "#22c55e" : "#fbbf24";
+          const labelLayout = aidStationLabelLayout.get(index);
+          const showLabel = !isFinish && Boolean(labelLayout?.visibleLabel);
+          const labelY = labelLayout?.lane === "top" ? Math.max(y - 16, paddingY + 10) : elevationBottom + 33;
+          const labelText = labelLayout?.shortLabel ?? station.name;
           return (
             <g
               key={`${station.name}-${station.distanceKm}`}
@@ -505,7 +525,9 @@ export function ElevationProfileChart({
               onBlur={() => setRavitoIndex(null)}
               onPointerEnter={() => setRavitoIndex(index)}
               onPointerLeave={() => setRavitoIndex(null)}
+              onClick={() => setRavitoIndex((current) => (current === index ? null : index))}
             >
+              <title>{station.name}</title>
               <line
                 x1={x} x2={x} y1={y} y2={elevationBottom}
                 stroke={color}
@@ -525,9 +547,11 @@ export function ElevationProfileChart({
                   {copy.sections.courseProfile.finishLabel}
                 </text>
               ) : (
-                <text x={x} y={elevationBottom + 27} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
-                  {station.name}
-                </text>
+                showLabel ? (
+                  <text x={x} y={labelY} fontSize={10} fontWeight="600" fill={color} textAnchor="middle">
+                    {labelText}
+                  </text>
+                ) : null
               )}
             </g>
           );

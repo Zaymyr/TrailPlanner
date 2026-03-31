@@ -78,7 +78,7 @@ export function RaceCatalogAdminForm({ accessToken, copy, onCreated, onError }: 
       }
     } catch (error) {
       setPreview(null);
-      setParseError(copy.errors.invalidGpx);
+      setParseError(error instanceof Error ? `${copy.errors.invalidGpx} (${error.message})` : copy.errors.invalidGpx);
     }
   };
 

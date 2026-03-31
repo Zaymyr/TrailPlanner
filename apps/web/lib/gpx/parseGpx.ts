@@ -40,6 +40,17 @@ const toNumber = (value: string | null | undefined): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const decodeEntities = (text: string | null | undefined) => {
+  if (!text) return "";
+  return text
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+    .trim();
+};
+
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
 export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -71,13 +82,13 @@ export const parseGpx = (content: string): ParsedGpx => {
   const trackNameMatch =
     content.match(/<metadata>[\s\S]*?<name>([\s\S]*?)<\/name>[\s\S]*?<\/metadata>/i) ??
     content.match(/<trk>[\s\S]*?<name>([\s\S]*?)<\/name>/i);
-  const trackName = trackNameMatch?.[1]?.trim() ?? null;
+  const trackName = decodeEntities(trackNameMatch?.[1]) || null;
 
-  const trkptRegex = /<trkpt\b([^>]*)>([\s\S]*?)<\/trkpt>/gi;
+  const trkptRegex = /<trkpt\b([^>]*)(?:>([\s\S]*?)<\/trkpt>|\s*\/>)/gi;
   let trkptMatch: RegExpExecArray | null = null;
   while ((trkptMatch = trkptRegex.exec(content))) {
     const attributes = trkptMatch[1];
-    const inner = trkptMatch[2];
+    const inner = trkptMatch[2] ?? "";
     const lat = toNumber(attributes.match(/\blat=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blat='([^']+)'/i)?.[1]);
     const lng = toNumber(attributes.match(/\blon=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blon='([^']+)'/i)?.[1]);
 
@@ -140,8 +151,8 @@ export const parseGpx = (content: string): ParsedGpx => {
     const lat = toNumber(attributes.match(/\blat=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blat='([^']+)'/i)?.[1]);
     const lng = toNumber(attributes.match(/\blon=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blon='([^']+)'/i)?.[1]);
     if (lat === null || lng === null) continue;
-    const name = inner.match(/<name>([\s\S]*?)<\/name>/i)?.[1]?.trim() ?? null;
-    const desc = inner.match(/<desc>([\s\S]*?)<\/desc>/i)?.[1]?.trim() ?? null;
+    const name = decodeEntities(inner.match(/<name>([\s\S]*?)<\/name>/i)?.[1]) || null;
+    const desc = decodeEntities(inner.match(/<desc>([\s\S]*?)<\/desc>/i)?.[1]) || null;
     waypoints.push({ lat, lng, name, desc });
   }
 

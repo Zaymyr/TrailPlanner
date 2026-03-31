@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { parseGpx } from "../../../lib/gpx/parseGpx";
+import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../lib/http";
 import {
   extractBearerToken,
@@ -46,38 +47,15 @@ const buildAuthHeaders = (key: string, token: string, contentType = "application
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
-const toRadians = (deg: number) => (deg * Math.PI) / 180;
-
-const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-  const R = 6371e3;
-  const φ1 = toRadians(lat1);
-  const φ2 = toRadians(lat2);
-  const Δφ = toRadians(lat2 - lat1);
-  const Δλ = toRadians(lng2 - lng1);
-  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-};
-
 const mapWaypointsToAidStations = (
   points: Array<{ lat: number; lng: number; distKmCum: number }>,
   waypoints: Array<{ lat: number; lng: number; name?: string | null; desc?: string | null }>
 ) =>
-  waypoints.map((wp, i) => {
-    let closest = points[0];
-    let minDist = Infinity;
-    for (const p of points) {
-      const d = haversineDistance(p.lat, p.lng, wp.lat, wp.lng);
-      if (d < minDist) {
-        minDist = d;
-        closest = p;
-      }
-    }
-    return {
-      name: wp.name?.trim() || wp.desc?.trim() || `Aid station ${i + 1}`,
-      distanceKm: Number(closest.distKmCum.toFixed(1)),
-      waterRefill: true,
-    };
-  });
+  normalizeImportedWaypoints(points, waypoints).aidStations.map((station) => ({
+    name: station.name,
+    distanceKm: station.distanceKm,
+    waterRefill: true,
+  }));
 
 export async function GET(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();
@@ -189,8 +167,9 @@ export async function POST(request: NextRequest) {
     try {
       parsedGpx = parseGpx(body.gpx_content);
     } catch (error) {
-      console.error("Unable to parse GPX", error);
-      return withSecurityHeaders(NextResponse.json({ message: "Invalid GPX file." }, { status: 422 }));
+      console.error("Unable to parse GPX in /api/races", error);
+      const details = error instanceof Error ? error.message : "Unknown parse error";
+      return withSecurityHeaders(NextResponse.json({ message: `Invalid GPX file: ${details}` }, { status: 422 }));
     }
 
     resolvedDistance = parsedGpx.stats.distanceKm || resolvedDistance;
