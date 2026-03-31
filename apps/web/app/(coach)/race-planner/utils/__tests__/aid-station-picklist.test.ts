@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { FuelProduct } from "../../../../lib/product-types";
+import type { FuelProduct } from "../../../../../lib/product-types";
 import type { Segment } from "../../types";
 import { buildAidStationPickList } from "../aid-station-picklist";
 

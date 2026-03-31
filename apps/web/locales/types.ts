@@ -848,10 +848,15 @@ export type AdminTranslations = {
     };
     actions: {
       add: string;
+      addUtmb: string;
       edit: string;
       delete: string;
       setLive: string;
       setDraft: string;
+      import: string;
+      confirmImport: string;
+      loadingImport: string;
+      importing: string;
       save: string;
       saving: string;
       cancel: string;
@@ -864,26 +869,36 @@ export type AdminTranslations = {
       thumbnailUrl: string;
       isLive: string;
       gpxFile: string;
+      utmbUrl: string;
       replaceGpx: string;
       replaceImage: string;
     };
     preview: string;
     creating: string;
     addTitle: string;
+    utmbTitle: string;
+    utmbDescription: string;
     editTitle: string;
     gpxSection: string;
     imageSection: string;
     currentThumbnail: string;
     uploadingGpx: string;
     uploadingImage: string;
+    utmbPreview: {
+      title: string;
+      aidStations: string;
+    };
     messages: {
       created: string;
+      imported: string;
       updated: string;
       deleted: string;
     };
     errors: {
       loadFailed: string;
       createFailed: string;
+      utmbImportFailed: string;
+      utmbDuplicate: string;
       updateFailed: string;
       deleteFailed: string;
       invalidGpx: string;

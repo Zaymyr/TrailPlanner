@@ -71,6 +71,23 @@ const addFormSchema = z.object({
 type AddFormValues = z.infer<typeof addFormSchema>;
 
 type ParsedPreview = { distanceKm: number; gainM: number; lossM: number };
+type UtmbPreview = {
+  url: string;
+  courseName: string;
+  eventName: string;
+  distanceKm: number;
+  elevationGainM: number;
+  elevationLossM: number;
+  date: string | null;
+  location: string | null;
+  gpxUrl: string;
+  aidStationCount: number;
+};
+type ExistingRacePreview = {
+  id: string;
+  name: string;
+  slug?: string | null;
+};
 
 type Props = {
   accessToken?: string;
@@ -83,8 +100,13 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [addUtmbOpen, setAddUtmbOpen] = useState(false);
   const [editRace, setEditRace] = useState<RaceRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [utmbUrl, setUtmbUrl] = useState("");
+  const [utmbPreview, setUtmbPreview] = useState<UtmbPreview | null>(null);
+  const [utmbDuplicateRace, setUtmbDuplicateRace] = useState<ExistingRacePreview | null>(null);
+  const [utmbError, setUtmbError] = useState<string | null>(null);
 
   // Add form GPX state
   const [addGpxFile, setAddGpxFile] = useState<File | null>(null);
@@ -177,6 +199,73 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       setError(err instanceof Error ? err.message : t.errors.deleteFailed);
       setMessage(null);
       setDeletingId(null);
+    },
+  });
+
+  const utmbPreviewMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await fetch("/api/admin/race-catalog/utmb", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ url, action: "preview" }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { message?: string; preview?: UtmbPreview; duplicateRace?: ExistingRacePreview | null }
+        | null;
+
+      if (!response.ok || !data?.preview) {
+        throw new Error(data?.message ?? t.errors.utmbImportFailed);
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      setUtmbPreview(data.preview ?? null);
+      setUtmbDuplicateRace(data.duplicateRace ?? null);
+      setUtmbError(null);
+    },
+    onError: (err) => {
+      setUtmbPreview(null);
+      setUtmbDuplicateRace(null);
+      setUtmbError(err instanceof Error ? err.message : t.errors.utmbImportFailed);
+    },
+  });
+
+  const utmbImportMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await fetch("/api/admin/race-catalog/utmb", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ url, action: "import" }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { message?: string; race?: RaceRow }
+        | null;
+
+      if (!response.ok || !data?.race) {
+        throw new Error(data?.message ?? t.errors.utmbImportFailed);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      setMessage(t.messages.imported);
+      setError(null);
+      setUtmbError(null);
+      setUtmbPreview(null);
+      setUtmbDuplicateRace(null);
+      setUtmbUrl("");
+      setAddUtmbOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+    },
+    onError: (err) => {
+      setUtmbError(err instanceof Error ? err.message : t.errors.utmbImportFailed);
     },
   });
 
@@ -385,6 +474,13 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     deleteMutation.mutate(id);
   };
 
+  const resetUtmbDialog = () => {
+    setUtmbUrl("");
+    setUtmbPreview(null);
+    setUtmbDuplicateRace(null);
+    setUtmbError(null);
+  };
+
   const raceRows = racesQuery.data ?? [];
   const filteredRaces = search
     ? raceRows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
@@ -398,16 +494,30 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
             <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.title}</CardTitle>
             <p className="text-sm text-slate-600 dark:text-slate-400">{t.description}</p>
           </div>
-          <Button
-            className="h-9 px-4 text-sm"
-            onClick={() => {
-              setAddOpen(true);
-              setMessage(null);
-              setError(null);
-            }}
-          >
-            {t.actions.add}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-9 px-4 text-sm"
+              onClick={() => {
+                resetUtmbDialog();
+                setAddUtmbOpen(true);
+                setMessage(null);
+                setError(null);
+              }}
+            >
+              {t.actions.addUtmb}
+            </Button>
+            <Button
+              className="h-9 px-4 text-sm"
+              onClick={() => {
+                setAddOpen(true);
+                setMessage(null);
+                setError(null);
+              }}
+            >
+              {t.actions.add}
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -518,6 +628,88 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       </CardContent>
 
       {/* ── Add dialog ── */}
+      <Dialog
+        open={addUtmbOpen}
+        onOpenChange={(open) => {
+          setAddUtmbOpen(open);
+          if (!open) resetUtmbDialog();
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.utmbTitle}</DialogTitle>
+            <DialogDescription>{t.utmbDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">{t.fields.utmbUrl}</Label>
+              <Input
+                className="h-9 text-sm"
+                placeholder="https://saint-jacques.utmb.world/races/100K"
+                value={utmbUrl}
+                onChange={(event) => {
+                  setUtmbUrl(event.target.value);
+                  setUtmbPreview(null);
+                  setUtmbDuplicateRace(null);
+                  setUtmbError(null);
+                }}
+              />
+            </div>
+
+            {utmbError ? <p className="text-sm text-red-600 dark:text-red-300">{utmbError}</p> : null}
+
+            {utmbPreview ? (
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{t.utmbPreview.title}</p>
+                <div className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                  <p className="font-medium">{utmbPreview.courseName}</p>
+                  <p>{utmbPreview.eventName}</p>
+                  <p>
+                    {utmbPreview.distanceKm.toFixed(1)} km · D+ {Math.round(utmbPreview.elevationGainM)} m · D-{" "}
+                    {Math.round(utmbPreview.elevationLossM)} m
+                  </p>
+                  <p>
+                    {utmbPreview.location ?? "—"}
+                    {utmbPreview.date ? ` · ${utmbPreview.date}` : ""}
+                  </p>
+                  <p>{t.utmbPreview.aidStations.replace("{count}", String(utmbPreview.aidStationCount))}</p>
+                </div>
+              </div>
+            ) : null}
+
+            {utmbDuplicateRace ? (
+              <p className="text-sm text-amber-700 dark:text-amber-200">
+                {t.errors.utmbDuplicate.replace("{name}", utmbDuplicateRace.name)}
+              </p>
+            ) : null}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddUtmbOpen(false)}>
+                {t.actions.cancel}
+              </Button>
+              {!utmbPreview ? (
+                <Button
+                  type="button"
+                  disabled={!utmbUrl.trim() || utmbPreviewMutation.isPending}
+                  onClick={() => utmbPreviewMutation.mutate(utmbUrl.trim())}
+                >
+                  {utmbPreviewMutation.isPending ? t.actions.loadingImport : t.actions.import}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={Boolean(utmbDuplicateRace) || utmbImportMutation.isPending}
+                  onClick={() => utmbImportMutation.mutate(utmbUrl.trim())}
+                >
+                  {utmbImportMutation.isPending ? t.actions.importing : t.actions.confirmImport}
+                </Button>
+              )}
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={addOpen}
         onOpenChange={(open) => {
