@@ -3,9 +3,10 @@ import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../lib/supabase';
 import { Colors } from '../../../constants/colors';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct } from '../../../components/PlanForm';
+import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, type ElevationPoint } from '../../../components/PlanForm';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { useI18n } from '../../../lib/i18n';
+import { fetchRaceElevationProfile } from '../../../lib/raceProfile';
 
 type RaceInfo = {
   id: string;
@@ -26,6 +27,7 @@ export default function NewPlanScreen() {
   const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
   const [userId, setUserId] = useState<string | null>(null);
   const [favoriteProducts, setFavoriteProducts] = useState<FavProduct[]>([]);
+  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -57,22 +59,27 @@ export default function NewPlanScreen() {
 
   useEffect(() => {
     if (!resolvedRaceId) {
+      setElevationProfile([]);
       setInitialValues(DEFAULT_PLAN_VALUES);
       return;
     }
 
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase
-        .from('races')
-        .select('id, name, distance_km, elevation_gain_m')
-        .eq('id', resolvedRaceId)
-        .single();
+      const [{ data, error }, fetchedElevationProfile] = await Promise.all([
+        supabase
+          .from('races')
+          .select('id, name, distance_km, elevation_gain_m')
+          .eq('id', resolvedRaceId)
+          .single(),
+        fetchRaceElevationProfile(resolvedRaceId),
+      ]);
 
       if (cancelled) return;
       if (!error && data) {
         const race = data as RaceInfo;
         setSelectedRace(race);
+        setElevationProfile(fetchedElevationProfile);
         setInitialValues({
           ...DEFAULT_PLAN_VALUES,
           name: race.name,
@@ -80,6 +87,7 @@ export default function NewPlanScreen() {
           elevationGain: race.elevation_gain_m,
         });
       } else {
+        setElevationProfile([]);
         setInitialValues(DEFAULT_PLAN_VALUES);
       }
       setLoading(false);
@@ -88,8 +96,9 @@ export default function NewPlanScreen() {
     return () => { cancelled = true; };
   }, [resolvedRaceId]);
 
-  function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
+  async function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
     setSelectedRace(race);
+    setElevationProfile(await fetchRaceElevationProfile(race.id));
     setInitialValues({
       ...DEFAULT_PLAN_VALUES,
       name: race.name,
@@ -121,6 +130,8 @@ export default function NewPlanScreen() {
       sodiumIntakePerHour: values.sodiumIntakePerHour,
       waterBagLiters: values.waterBagLiters,
       startSupplies: (values.startSupplies ?? []).map((s) => ({ productId: s.productId, quantity: s.quantity })),
+      segments: values.sectionSegments,
+      sectionSegments: values.sectionSegments,
       aidStations: values.aidStations.map((s) => ({
         name: s.name,
         distanceKm: s.distanceKm,
@@ -133,6 +144,7 @@ export default function NewPlanScreen() {
       user_id: uid,
       name: values.name,
       planner_values: plannerValues,
+      elevation_profile: elevationProfile,
       race_id: selectedRace?.id ?? resolvedRaceId ?? null,
     });
 
@@ -178,6 +190,7 @@ export default function NewPlanScreen() {
       {!showRaceSelector && initialValues && (
         <PlanForm
           initialValues={initialValues}
+          elevationProfile={elevationProfile}
           onSave={handleSave}
           loading={saving}
           saveLabel={t.common.create}

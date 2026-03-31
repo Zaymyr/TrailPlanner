@@ -4,20 +4,32 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   ScrollView,
   ActivityIndicator,
   Alert,
-  Modal,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-  ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { supabase } from '../lib/supabase';
 import { usePremium } from '../hooks/usePremium';
+import { styles, inputStyles } from './plan-form/styles';
+import { ProductPickerModal, type PickerProduct } from './plan-form/ProductPickerModal';
+import { EditStationModal, type EditingStation } from './plan-form/EditStationModal';
+import { GaugeArc, type GaugeMetric } from './plan-form/GaugeArc';
+import { AidStationsSectionV3 as AidStationsSection } from './plan-form/AidStationsSectionV3';
+import { PlanBasicsSection } from './plan-form/PlanBasicsSection';
+import {
+  autoSegmentSection,
+  buildSectionKey,
+  getElevationSlice,
+  getSectionSegments,
+  normalizeSectionSegments,
+  recomputeSectionFromSubSections,
+  type ElevationPoint,
+  type SectionSegment,
+  type SectionSubSegmentStats,
+  type SegmentPreset,
+} from './plan-form/profile-utils';
 
 // ─── Exported types ───────────────────────────────────────────────────────────
 
@@ -55,7 +67,10 @@ export type PlanFormValues = {
   waterBagLiters: number;
   startSupplies: Supply[];
   aidStations: AidStationFormItem[];
+  sectionSegments?: Record<string, SectionSegment[]>;
 };
+
+export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset };
 
 export const DEFAULT_PLAN_VALUES: PlanFormValues = {
   name: '',
@@ -75,13 +90,27 @@ export const DEFAULT_PLAN_VALUES: PlanFormValues = {
 
 // ─── Internal types ───────────────────────────────────────────────────────────
 
-type Product = {
-  id: string;
-  name: string;
-  fuel_type: string;
-  carbs_g: number | null;
-  sodium_mg: number | null;
-  calories_kcal: number | null;
+type Product = PickerProduct;
+type IntakeTimelineItem = {
+  minute: number;
+  label: string;
+  detail: string;
+  immediate?: boolean;
+};
+
+type SectionSummary = {
+  sectionIndex: number;
+  startKm: number;
+  endKm: number;
+  distanceKm: number;
+  durationMin: number;
+  targetCarbsG: number;
+  targetSodiumMg: number;
+  targetWaterMl: number;
+  profilePoints: ElevationPoint[];
+  segments: SectionSegment[];
+  segmentStats: SectionSubSegmentStats[];
+  hasStoredSegments: boolean;
 };
 
 type Props = {
@@ -90,6 +119,7 @@ type Props = {
   loading?: boolean;
   saveLabel?: string;
   favoriteProducts?: FavProduct[];
+  elevationProfile?: ElevationPoint[];
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -112,6 +142,14 @@ const FUEL_LABELS: Record<string, string> = {
 function normalizeSupplies(raw: any[] | undefined): Supply[] {
   if (!raw) return [];
   return raw.map((s) => ({ productId: s.productId, quantity: s.quantity ?? 1 }));
+}
+
+function cloneSectionSegments(
+  raw: Record<string, SectionSegment[]> | undefined,
+): Record<string, SectionSegment[]> | undefined {
+  if (!raw) return undefined;
+  const entries = Object.entries(raw).map(([key, segments]) => [key, segments.map((segment) => ({ ...segment }))] as const);
+  return entries.length > 0 ? Object.fromEntries(entries) : undefined;
 }
 
 function injectSystemStations(
@@ -200,21 +238,14 @@ function NumberInput({ value, onChange, placeholder, style }: {
   );
 }
 
-const inputStyles = StyleSheet.create({
-  input: {
-    backgroundColor: Colors.surface, color: Colors.textPrimary, borderRadius: 10,
-    borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 16, flex: 1,
-  },
-});
-
 // ─── PlanForm ─────────────────────────────────────────────────────────────────
 
-export default function PlanForm({ initialValues, onSave, loading, saveLabel, favoriteProducts }: Props) {
+export default function PlanForm({ initialValues, onSave, loading, saveLabel, favoriteProducts, elevationProfile = [] }: Props) {
   const { isPremium } = usePremium();
   const [values, setValues] = useState<PlanFormValues>({
     ...initialValues,
     startSupplies: normalizeSupplies((initialValues as any).startSupplies),
+    sectionSegments: cloneSectionSegments(initialValues.sectionSegments),
     aidStations: injectSystemStations(
       initialValues.aidStations.map((s) => ({ ...s, supplies: normalizeSupplies(s.supplies) })),
       initialValues.raceDistanceKm
@@ -228,11 +259,12 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
   const [pickerTarget, setPickerTarget] = useState<'start' | number | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set([DEPART_ID]));
-  const [editingStation, setEditingStation] = useState<{
-    index: number;
-    name: string;
-    km: string;
-  } | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Record<'course' | 'pace' | 'nutrition', boolean>>({
+    course: true,
+    pace: true,
+    nutrition: true,
+  });
+  const [editingStation, setEditingStation] = useState<EditingStation>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -282,6 +314,14 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
     });
   }
 
+  function replaceAidStations(aidStations: AidStationFormItem[], resetSectionSegments = false) {
+    setValues((prev) => ({
+      ...prev,
+      aidStations,
+      ...(resetSectionSegments ? { sectionSegments: undefined } : {}),
+    }));
+  }
+
   function getSupplies(target: 'start' | number): Supply[] {
     if (target === 'start') return values.startSupplies ?? [];
     return values.aidStations[target]?.supplies ?? [];
@@ -293,6 +333,162 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
     } else {
       updateAidStation(target, { supplies });
     }
+  }
+
+  function getBaseSpeedKph() {
+    return values.paceType === 'pace'
+      ? 60 / Math.max(values.paceMinutes + values.paceSeconds / 60, 0.01)
+      : Math.max(values.speedKph, 0.1);
+  }
+
+  function buildSectionSummary(target: 'start' | number): SectionSummary | null {
+    const sectionIndex = target === 'start' ? 0 : target;
+    const fromStation = values.aidStations[sectionIndex];
+    const toStation = values.aidStations[sectionIndex + 1];
+
+    if (!fromStation || !toStation) return null;
+
+    const startKm = fromStation.distanceKm;
+    const endKm = toStation.distanceKm;
+    const distanceKm = Math.max(0, endKm - startKm);
+    const hasStoredSegments = Boolean(values.sectionSegments?.[buildSectionKey(sectionIndex)]?.length);
+    const segments = getSectionSegments(values.sectionSegments, sectionIndex, distanceKm);
+    const profilePoints =
+      elevationProfile.length > 0
+        ? getElevationSlice(elevationProfile, startKm, endKm)
+        : [
+            { distanceKm: startKm, elevationM: 0 },
+            { distanceKm: endKm, elevationM: 0 },
+          ];
+    const recomputed = recomputeSectionFromSubSections({
+      segments,
+      startDistanceKm: startKm,
+      elevationProfile: profilePoints,
+      paceModel: { secondsPerKm: 3600 / getBaseSpeedKph() },
+    });
+    const durationMin = recomputed.totals.etaSeconds / 60;
+
+    return {
+      sectionIndex,
+      startKm,
+      endKm,
+      distanceKm,
+      durationMin,
+      targetCarbsG: values.targetIntakePerHour * (durationMin / 60),
+      targetSodiumMg: values.sodiumIntakePerHour * (durationMin / 60),
+      targetWaterMl: values.waterIntakePerHour * (durationMin / 60),
+      profilePoints,
+      segments,
+      segmentStats: recomputed.segmentStats,
+      hasStoredSegments,
+    };
+  }
+
+  function updateSectionSegmentPaceAdjustment(
+    target: 'start' | number,
+    segmentIndex: number,
+    paceAdjustmentMinutesPerKm: number | undefined,
+  ) {
+    const summary = buildSectionSummary(target);
+    if (!summary) return;
+
+    const sectionKey = buildSectionKey(summary.sectionIndex);
+    const nextSegments = summary.segments.map((segment, index) =>
+      index === segmentIndex
+        ? {
+            ...segment,
+            ...(paceAdjustmentMinutesPerKm === undefined
+              ? { paceAdjustmentMinutesPerKm: undefined }
+              : { paceAdjustmentMinutesPerKm }),
+          }
+        : segment,
+    );
+
+    setValues((prev) => ({
+      ...prev,
+      sectionSegments: {
+        ...(prev.sectionSegments ?? {}),
+        [sectionKey]: nextSegments,
+      },
+    }));
+  }
+
+  function splitSectionSegment(target: 'start' | number, segmentIndex: number) {
+    const summary = buildSectionSummary(target);
+    if (!summary) return;
+
+    const segment = summary.segments[segmentIndex];
+    const segmentStat = summary.segmentStats[segmentIndex];
+    if (!segment || !segmentStat || segment.segmentKm <= 0.02) return;
+
+    const segmentProfile = getElevationSlice(elevationProfile, segmentStat.startDistanceKm, segmentStat.endDistanceKm);
+    let replacementSegments =
+      segmentProfile.length > 1 ? autoSegmentSection(segmentProfile, 'moyen') : [];
+
+    if (replacementSegments.length <= 1) {
+      const firstKm = Number((segment.segmentKm / 2).toFixed(3));
+      const secondKm = Number((segment.segmentKm - firstKm).toFixed(3));
+      if (firstKm > 0.01 && secondKm > 0.01) {
+        replacementSegments = [{ segmentKm: firstKm }, { segmentKm: secondKm }];
+      }
+    }
+
+    if (replacementSegments.length <= 1) return;
+
+    const propagatedSegments = replacementSegments.map((replacementSegment) => ({
+      ...replacementSegment,
+      ...(typeof segment.paceAdjustmentMinutesPerKm === 'number'
+        ? { paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm }
+        : {}),
+    }));
+    const sectionKey = buildSectionKey(summary.sectionIndex);
+    const nextSegments = normalizeSectionSegments(
+      [
+        ...summary.segments.slice(0, segmentIndex),
+        ...propagatedSegments,
+        ...summary.segments.slice(segmentIndex + 1),
+      ],
+      summary.distanceKm,
+    );
+
+    setValues((prev) => ({
+      ...prev,
+      sectionSegments: {
+        ...(prev.sectionSegments ?? {}),
+        [sectionKey]: nextSegments,
+      },
+    }));
+  }
+
+  function removeSectionSegment(target: 'start' | number, segmentIndex: number) {
+    const summary = buildSectionSummary(target);
+    if (!summary || segmentIndex <= 0 || summary.segments.length <= 1) return;
+
+    const previousSegment = summary.segments[segmentIndex - 1];
+    const currentSegment = summary.segments[segmentIndex];
+    if (!previousSegment || !currentSegment) return;
+
+    const mergedSegment: SectionSegment = {
+      ...previousSegment,
+      segmentKm: Number((previousSegment.segmentKm + currentSegment.segmentKm).toFixed(3)),
+    };
+    const sectionKey = buildSectionKey(summary.sectionIndex);
+    const nextSegments = normalizeSectionSegments(
+      [
+        ...summary.segments.slice(0, segmentIndex - 1),
+        mergedSegment,
+        ...summary.segments.slice(segmentIndex + 1),
+      ],
+      summary.distanceKm,
+    );
+
+    setValues((prev) => ({
+      ...prev,
+      sectionSegments: {
+        ...(prev.sectionSegments ?? {}),
+        [sectionKey]: nextSegments,
+      },
+    }));
   }
 
   function increaseQty(target: 'start' | number, productId: string) {
@@ -337,7 +533,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
     const arriveeIdx = values.aidStations.findIndex((s) => s.id === ARRIVEE_ID);
     const updated = [...values.aidStations];
     arriveeIdx >= 0 ? updated.splice(arriveeIdx, 0, newStation) : updated.push(newStation);
-    update('aidStations', updated);
+    replaceAidStations(updated, true);
   }
 
   function autoGenerateAidStations() {
@@ -357,16 +553,29 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
     }));
     Alert.alert('Générer automatiquement', `Créer ${count} ravito(s) tous les ${interval} km ? Les ravitos existants seront remplacés.`, [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Générer', onPress: () => update('aidStations', injectSystemStations(newIntermediates, values.raceDistanceKm)) },
+      { text: 'Générer', onPress: () => replaceAidStations(injectSystemStations(newIntermediates, values.raceDistanceKm), true) },
     ]);
   }
 
-  function fillSuppliesAuto() {
+  async function fillSuppliesAuto() {
     if (!isPremium) return;
+
+    let latestFavoriteIds = favoriteProductIds;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: favData } = await supabase
+        .from('user_favorite_products')
+        .select('product_id')
+        .eq('user_id', user.id);
+      if (favData) {
+        latestFavoriteIds = new Set((favData as any[]).map((f) => f.product_id));
+        setFavoriteProductIds(latestFavoriteIds);
+      }
+    }
 
     // Favorites-first product pool, fallback to all products with carbs
     const allWithCarbs = allProducts.filter((p) => (p.carbs_g ?? 0) > 0);
-    const favWithCarbs = allWithCarbs.filter((p) => favoriteProductIds.has(p.id));
+    const favWithCarbs = allWithCarbs.filter((p) => latestFavoriteIds.has(p.id));
     const pool = favWithCarbs.length > 0 ? favWithCarbs : allWithCarbs;
 
     if (pool.length === 0) {
@@ -384,16 +593,12 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
       sodiumMg: p.sodium_mg ?? 0,
     }));
 
-    const speedKph = values.paceType === 'pace'
-      ? 60 / Math.max(values.paceMinutes + values.paceSeconds / 60, 0.01)
-      : Math.max(values.speedKph, 0.1);
-
-    const intermediates = values.aidStations.filter((s) => s.id !== DEPART_ID && s.id !== ARRIVEE_ID);
-    const stops = [0, ...intermediates.map((s) => s.distanceKm), values.raceDistanceKm];
-
-    const startSegKm = (stops[1] ?? values.raceDistanceKm) - 0;
-    const startDurationH = startSegKm / speedKph;
-    const newStartSupplies = startSegKm > 0
+    // Always reset supplies first so the recompute is based only on current favorites.
+    const intermediates = values.aidStations
+      .filter((s) => s.id !== DEPART_ID && s.id !== ARRIVEE_ID)
+      .map((s) => ({ ...s, supplies: [] as Supply[] }));
+    const startDurationH = (buildSectionSummary('start')?.durationMin ?? 0) / 60;
+    const newStartSupplies = startDurationH > 0
       ? buildPlanForTarget(
           values.targetIntakePerHour * startDurationH,
           values.sodiumIntakePerHour * startDurationH,
@@ -402,10 +607,8 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
       : [];
 
     const updatedIntermediates = intermediates.map((station, idx) => {
-      const segFrom = stops[idx + 1];
-      const segTo = stops[idx + 2];
-      if (segTo === undefined || segTo <= segFrom) return { ...station, supplies: [] as Supply[] };
-      const durationH = (segTo - segFrom) / speedKph;
+      const durationH = (buildSectionSummary(idx + 1)?.durationMin ?? 0) / 60;
+      if (durationH <= 0) return { ...station, supplies: [] as Supply[] };
       const supplies = buildPlanForTarget(
         values.targetIntakePerHour * durationH,
         values.sodiumIntakePerHour * durationH,
@@ -428,7 +631,7 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
   function removeAidStation(index: number) {
     const station = values.aidStations[index];
     if (station.id === DEPART_ID || station.id === ARRIVEE_ID) return;
-    update('aidStations', values.aidStations.filter((_, i) => i !== index));
+    replaceAidStations(values.aidStations.filter((_, i) => i !== index), true);
   }
 
   function moveAidStation(index: number, direction: 'up' | 'down') {
@@ -438,13 +641,17 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
     if (arr[index].id === DEPART_ID || arr[index].id === ARRIVEE_ID) return;
     if (arr[target].id === DEPART_ID || arr[target].id === ARRIVEE_ID) return;
     [arr[index], arr[target]] = [arr[target], arr[index]];
-    update('aidStations', arr);
+    replaceAidStations(arr, true);
   }
 
   function handleSave() {
     if (!values.name.trim()) { Alert.alert('Champ requis', 'Le nom du plan est obligatoire.'); return; }
     if (!values.raceDistanceKm || values.raceDistanceKm <= 0) { Alert.alert('Champ requis', 'La distance doit être supérieure à 0.'); return; }
     onSave({ ...values, aidStations: values.aidStations.filter((s) => s.id !== ARRIVEE_ID) });
+  }
+
+  function toggleSection(section: 'course' | 'pace' | 'nutrition') {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   }
 
   // ─── Picker helpers ─────────────────────────────────────────────────────────
@@ -485,98 +692,284 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
 
   // ─── Gauge helpers ────────────────────────────────────────────────────────────
 
-  function getGaugeColor(ratio: number, nutrientColor: string): string {
+  function getGaugeColor(key: GaugeMetric['key'], ratio: number): string {
+    if (key === 'water') {
+      return ratio >= 0.8 ? '#2D5016' : '#EF4444';
+    }
     if (ratio === 0) return '#D1D5DB';
-    if (ratio >= 0.85 && ratio <= 1.15) return nutrientColor;
-    if ((ratio >= 0.70 && ratio < 0.85) || (ratio > 1.15 && ratio <= 1.35)) return '#F97316';
+    if (ratio >= 0.8 && ratio <= 1.2) return '#2D5016';
+    if ((ratio >= 0.6 && ratio < 0.8) || (ratio > 1.2 && ratio <= 1.4)) return '#F97316';
     return '#EF4444';
   }
 
-  function ArcGauge({ ratio, nutrientColor, label }: {
-    ratio: number; nutrientColor: string; label: string;
-  }) {
-    const SIZE = 56;
-    const SW = 6;
-    const HALF = SIZE / 2;
-    const arcColor = getGaugeColor(ratio, nutrientColor);
-    const fill = Math.min(Math.max(ratio, 0), 1);
-    const pct = Math.round(ratio * 100);
-
-    const ringBase: ViewStyle = {
-      position: 'absolute', width: SIZE, height: SIZE, borderRadius: HALF, borderWidth: SW,
-    };
-    const rightRot = Math.min(fill * 360, 180) - 180;
-    const leftRot  = Math.max(fill * 360 - 180, 0) - 180;
-
-    return (
-      <View style={{ alignItems: 'center' }}>
-        <View style={{ width: SIZE, height: SIZE }}>
-          {/* Background ring */}
-          <View style={[ringBase, { borderColor: '#E5E7EB', opacity: 0.6 }]} />
-
-          {/* Filled arc — right half (0–50%) */}
-          <View style={{ position: 'absolute', right: 0, width: HALF, height: SIZE, overflow: 'hidden' }}>
-            <View style={[ringBase, {
-              right: 0,
-              borderColor: fill > 0 ? arcColor : 'transparent',
-              transform: [{ rotate: `${rightRot}deg` }],
-            }]} />
-          </View>
-
-          {/* Filled arc — left half (50–100%) */}
-          <View style={{ position: 'absolute', left: 0, width: HALF, height: SIZE, overflow: 'hidden' }}>
-            <View style={[ringBase, {
-              left: 0,
-              borderColor: fill > 0.5 ? arcColor : 'transparent',
-              transform: [{ rotate: `${leftRot}deg` }],
-            }]} />
-          </View>
-
-          {/* Target tick at 100% position (top, 12 o'clock) */}
-          <View style={{
-            position: 'absolute', top: 0, left: HALF - 1,
-            width: 2, height: SW, backgroundColor: '#6B7280',
-          }} />
-
-          {/* Centred % text */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' }}>
-            <Text style={{ fontSize: 10, fontWeight: '700', color: arcColor }}>
-              {pct}%
-            </Text>
-          </View>
-        </View>
-
-        <Text style={{ fontSize: 9, color: '#6B7280', marginTop: 4, textAlign: 'center' }}>
-          {label}
-        </Text>
-      </View>
-    );
+  function formatGaugeValue(metric: GaugeMetric, value: number): string {
+    if (metric.key === 'water') {
+      const liters = value / 1000;
+      const formatted = Number.isInteger(liters) ? liters.toFixed(0) : liters.toFixed(1);
+      return `${formatted}L`;
+    }
+    return `${Math.round(value)}${metric.unit}`;
   }
 
-  function renderPickerRow(product: Product) {
-    const added = currentSupplyIds.has(product.id);
-    return (
-      <View key={product.id} style={styles.pickerRow}>
-        <View style={styles.pickerRowInfo}>
-          <Text style={styles.pickerRowName} numberOfLines={1}>{product.name}</Text>
-          <Text style={styles.pickerRowType}>{FUEL_LABELS[product.fuel_type] ?? product.fuel_type.toUpperCase()}</Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.pickerAddBtn, added && styles.pickerAddBtnDone]}
-          onPress={() => {
-            if (!added && pickerTarget !== null) {
-              addSupplyToStation(pickerTarget, product.id);
-              if (!productMap[product.id]) setProductMap((prev) => ({ ...prev, [product.id]: product }));
-            }
-          }}
-          disabled={added}
-        >
-          <Text style={[styles.pickerAddBtnText, added && styles.pickerAddBtnTextDone]}>
-            {added ? '✓ Ajouté' : '+ Ajouter'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
+  function buildGaugeMetrics(
+    target: 'start' | number,
+    sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
+  ): GaugeMetric[] {
+    const supplies = getSupplies(target);
+    const totalCarbs = supplies.reduce((sum, s) => {
+      const p = productMap[s.productId];
+      return sum + (p ? (p.carbs_g ?? 0) * s.quantity : 0);
+    }, 0);
+    const totalSodium = supplies.reduce((sum, s) => {
+      const p = productMap[s.productId];
+      return sum + (p ? (p.sodium_mg ?? 0) * s.quantity : 0);
+    }, 0);
+    const availableWaterMl =
+      target === 'start' || values.aidStations[target]?.waterRefill ? values.waterBagLiters * 1000 : 0;
+
+    return [
+      {
+        key: 'carbs',
+        label: 'Glucides',
+        unit: 'g',
+        color: '#2D5016',
+        current: totalCarbs,
+        target: sectionTarget?.targetCarbsG ?? 0,
+        ratio: sectionTarget && sectionTarget.targetCarbsG > 0 ? totalCarbs / sectionTarget.targetCarbsG : 0,
+      },
+      {
+        key: 'sodium',
+        label: 'Sodium',
+        unit: 'mg',
+        color: '#3B82F6',
+        current: totalSodium,
+        target: sectionTarget?.targetSodiumMg ?? 0,
+        ratio: sectionTarget && sectionTarget.targetSodiumMg > 0 ? totalSodium / sectionTarget.targetSodiumMg : 0,
+      },
+      {
+        key: 'water',
+        label: 'Eau',
+        unit: 'ml',
+        color: '#06B6D4',
+        current: availableWaterMl,
+        target: sectionTarget?.targetWaterMl ?? 0,
+        ratio: sectionTarget && sectionTarget.targetWaterMl > 0 ? availableWaterMl / sectionTarget.targetWaterMl : 0,
+      },
+    ];
+  }
+
+  function buildSectionIntakeTimeline(
+    target: 'start' | number,
+    sectionDurationMin: number,
+    sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
+  ): IntakeTimelineItem[] {
+    const supplies = getSupplies(target);
+    const events: IntakeTimelineItem[] = [];
+    const safeDuration = Math.max(0, sectionDurationMin);
+
+    supplies.forEach((supply) => {
+      const product = productMap[supply.productId];
+      if (!product || supply.quantity <= 0) return;
+
+      const isSmoothed = product.fuel_type === 'drink_mix' || product.fuel_type === 'electrolyte';
+      if (!isSmoothed || safeDuration <= 0) {
+        events.push({
+          minute: 0,
+          label: product.name,
+          detail: `x${supply.quantity} immédiat`,
+          immediate: true,
+        });
+        return;
+      }
+
+      for (let i = 0; i < supply.quantity; i += 1) {
+        const minute = Math.max(1, Math.round(((i + 1) / (supply.quantity + 1)) * safeDuration));
+        events.push({
+          minute,
+          label: product.name,
+          detail: `prise ${i + 1}/${supply.quantity}`,
+        });
+      }
+    });
+
+    if (sectionTarget && sectionTarget.targetWaterMl > 0 && safeDuration > 0) {
+      const availableWaterMl =
+        target === 'start' || values.aidStations[target]?.waterRefill ? values.waterBagLiters * 1000 : 0;
+      const plannedWaterMl = Math.min(sectionTarget.targetWaterMl, availableWaterMl);
+      if (plannedWaterMl > 0) {
+        const sipCount = Math.max(1, Math.round(safeDuration / 20));
+        const mlPerSip = Math.max(1, Math.round(plannedWaterMl / sipCount));
+        for (let i = 0; i < sipCount; i += 1) {
+          const minute = Math.max(1, Math.round(((i + 1) / (sipCount + 1)) * safeDuration));
+          events.push({
+            minute,
+            label: 'Eau',
+            detail: `${mlPerSip} ml`,
+          });
+        }
+      }
+    }
+
+    events.sort((a, b) => {
+      if (a.minute !== b.minute) return a.minute - b.minute;
+      if ((a.immediate ? 0 : 1) !== (b.immediate ? 0 : 1)) return (a.immediate ? 0 : 1) - (b.immediate ? 0 : 1);
+      return a.label.localeCompare(b.label);
+    });
+    return events;
+  }
+  function buildSectionIntakeTimelineV2(
+    target: 'start' | number,
+    sectionDurationMin: number,
+    sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
+  ): IntakeTimelineItem[] {
+    const supplies = getSupplies(target);
+    const safeDuration = Math.max(0, Math.round(sectionDurationMin));
+    const totalTargetCarbs = Math.max(sectionTarget?.targetCarbsG ?? 0, 0);
+    const totalTargetSodium = Math.max(sectionTarget?.targetSodiumMg ?? 0, 0);
+    const availableWaterMl =
+      target === 'start' || values.aidStations[target]?.waterRefill ? values.waterBagLiters * 1000 : 0;
+    const totalTargetWater = Math.max(Math.min(sectionTarget?.targetWaterMl ?? 0, availableWaterMl), 0);
+
+    const expandedUnits = supplies.flatMap((supply) => {
+      const product = productMap[supply.productId];
+      if (!product || supply.quantity <= 0) return [];
+
+      return Array.from({ length: supply.quantity }, () => ({
+        label: product.name,
+        carbs: Math.max(product.carbs_g ?? 0, 0),
+        sodium: Math.max(product.sodium_mg ?? 0, 0),
+        fluid: product.fuel_type === 'drink_mix' || product.fuel_type === 'electrolyte',
+      }));
+    });
+
+    const events: IntakeTimelineItem[] = [];
+
+    if (safeDuration <= 0) {
+      expandedUnits.forEach((unit) => {
+        const detailParts: string[] = [];
+        if (unit.carbs > 0) detailParts.push(`${Math.round(unit.carbs)}g glucides`);
+        if (unit.sodium > 0) detailParts.push(`${Math.round(unit.sodium)}mg sodium`);
+        events.push({
+          minute: 0,
+          label: unit.label,
+          detail: detailParts.length > 0 ? detailParts.join(' - ') : '1 prise',
+          immediate: true,
+        });
+      });
+      return events;
+    }
+
+    let cumulativeCarbs = 0;
+    let cumulativeSodium = 0;
+    const fluidEventMinutes: number[] = [];
+
+    expandedUnits.forEach((unit, index) => {
+      const candidates: Array<{ minute: number; weight: number }> = [];
+
+      if (totalTargetCarbs > 0 && unit.carbs > 0) {
+        const nextCarbs = cumulativeCarbs + unit.carbs;
+        candidates.push({
+          minute: (nextCarbs / totalTargetCarbs) * safeDuration,
+          weight: unit.carbs / totalTargetCarbs,
+        });
+      }
+
+      if (totalTargetSodium > 0 && unit.sodium > 0) {
+        const nextSodium = cumulativeSodium + unit.sodium;
+        candidates.push({
+          minute: (nextSodium / totalTargetSodium) * safeDuration,
+          weight: unit.sodium / totalTargetSodium,
+        });
+      }
+
+      let minute = 0;
+      if (candidates.length > 0) {
+        const totalWeight = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
+        minute = Math.round(
+          candidates.reduce((sum, candidate) => sum + candidate.minute * candidate.weight, 0) / Math.max(totalWeight, 1),
+        );
+      } else {
+        minute = Math.round(((index + 1) / (expandedUnits.length + 1)) * safeDuration);
+      }
+
+      minute = Math.min(safeDuration, Math.max(1, minute));
+      cumulativeCarbs += unit.carbs;
+      cumulativeSodium += unit.sodium;
+
+      const detailParts: string[] = [];
+      if (unit.carbs > 0) detailParts.push(`${Math.round(unit.carbs)}g glucides`);
+      if (unit.sodium > 0) detailParts.push(`${Math.round(unit.sodium)}mg sodium`);
+      events.push({
+        minute,
+        label: unit.label,
+        detail: detailParts.length > 0 ? detailParts.join(' - ') : '1 prise',
+      });
+
+      if (unit.fluid) fluidEventMinutes.push(minute);
+    });
+
+    if (totalTargetWater > 0) {
+      const waterRatePerMinute = totalTargetWater / safeDuration;
+      let remainingWaterMl = totalTargetWater;
+      let lastWaterMinute = 0;
+      const waterEvents: Array<{ minute: number; amountMl: number }> = [];
+
+      for (
+        let targetMinute = Math.min(10, safeDuration);
+        targetMinute <= safeDuration && remainingWaterMl > 0;
+        targetMinute += 10
+      ) {
+        let scheduledMinute = targetMinute;
+
+        while (
+          scheduledMinute < safeDuration &&
+          fluidEventMinutes.some((fluidMinute) => Math.abs(fluidMinute - scheduledMinute) <= 1)
+        ) {
+          scheduledMinute = Math.min(safeDuration, scheduledMinute + 2);
+        }
+
+        const elapsedMinutes = Math.max(1, scheduledMinute - lastWaterMinute);
+        const sipMl = Math.min(
+          remainingWaterMl,
+          Math.max(1, Math.round(waterRatePerMinute * elapsedMinutes)),
+        );
+
+        waterEvents.push({ minute: scheduledMinute, amountMl: sipMl });
+        remainingWaterMl = Math.max(0, remainingWaterMl - sipMl);
+        lastWaterMinute = scheduledMinute;
+      }
+
+      if (remainingWaterMl > 0) {
+        if (waterEvents.length > 0) {
+          waterEvents[waterEvents.length - 1].amountMl += Math.round(remainingWaterMl);
+        } else {
+          waterEvents.push({ minute: Math.min(10, safeDuration), amountMl: Math.round(remainingWaterMl) });
+        }
+      }
+
+      waterEvents.forEach((waterEvent) => {
+        events.push({
+          minute: waterEvent.minute,
+          label: 'Eau',
+          detail: `${Math.round(waterEvent.amountMl)} ml`,
+        });
+      });
+    }
+
+    events.sort((a, b) => {
+      if (a.minute !== b.minute) return a.minute - b.minute;
+      if ((a.label === 'Eau' ? 1 : 0) !== (b.label === 'Eau' ? 1 : 0)) {
+        return (a.label === 'Eau' ? 1 : 0) - (b.label === 'Eau' ? 1 : 0);
+      }
+      return a.label.localeCompare(b.label);
+    });
+
+    return events;
+  }
+  function handleAddProductFromPicker(product: Product) {
+    if (pickerTarget === null) return;
+    addSupplyToStation(pickerTarget, product.id);
+    if (!productMap[product.id]) setProductMap((prev) => ({ ...prev, [product.id]: product }));
   }
 
   function renderSupplies(target: 'start' | number) {
@@ -601,9 +994,14 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
                     {product?.name ?? '…'}
                   </Text>
                   {product && (
-                    <Text style={styles.supplyType}>
-                      {FUEL_LABELS[product.fuel_type] ?? product.fuel_type.toUpperCase()}
-                    </Text>
+                    <>
+                      <Text style={styles.supplyType}>
+                        {FUEL_LABELS[product.fuel_type] ?? product.fuel_type.toUpperCase()}
+                      </Text>
+                      <Text style={styles.supplyMeta}>
+                        {(product.carbs_g ?? 0) * supply.quantity}g glucides · {(product.sodium_mg ?? 0) * supply.quantity}mg sodium
+                      </Text>
+                    </>
                   )}
                 </View>
                 <View style={styles.supplyControls}>
@@ -633,32 +1031,21 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
   function renderGauges(
     target: 'start' | number,
     sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
+    compact = false,
   ) {
-    const supplies = getSupplies(target);
-
-    const totalCarbs = supplies.reduce((sum, s) => {
-      const p = productMap[s.productId];
-      return sum + (p ? (p.carbs_g ?? 0) * s.quantity : 0);
-    }, 0);
-    const totalSodium = supplies.reduce((sum, s) => {
-      const p = productMap[s.productId];
-      return sum + (p ? (p.sodium_mg ?? 0) * s.quantity : 0);
-    }, 0);
-    // ÉLEC products: 500 ml/serving + always-on 500 ml water point at every station
-    const totalWater = supplies.reduce((sum, s) => {
-      const p = productMap[s.productId];
-      return sum + (p && p.fuel_type === 'electrolyte' ? 500 * s.quantity : 0);
-    }, 0) + 500;
-
-    const carbsRatio  = sectionTarget && sectionTarget.targetCarbsG  > 0 ? totalCarbs  / sectionTarget.targetCarbsG  : 0;
-    const sodiumRatio = sectionTarget && sectionTarget.targetSodiumMg > 0 ? totalSodium / sectionTarget.targetSodiumMg : 0;
-    const waterRatio  = sectionTarget && sectionTarget.targetWaterMl  > 0 ? totalWater  / sectionTarget.targetWaterMl  : 0;
+    const metrics = buildGaugeMetrics(target, sectionTarget);
 
     return (
-      <View style={styles.gaugesRow}>
-        <ArcGauge ratio={carbsRatio}  nutrientColor="#2D5016" label="Glucides" />
-        <ArcGauge ratio={sodiumRatio} nutrientColor="#3B82F6" label="Sodium"   />
-        <ArcGauge ratio={waterRatio}  nutrientColor="#06B6D4" label="Eau"      />
+      <View style={compact ? styles.gaugesRowCompact : styles.gaugesRow}>
+        {metrics.map((metric) => (
+          <GaugeArc
+            key={metric.key}
+            metric={metric}
+            formatGaugeValue={formatGaugeValue}
+            getGaugeColor={getGaugeColor}
+            compact={compact}
+          />
+        ))}
       </View>
     );
   }
@@ -671,404 +1058,67 @@ export default function PlanForm({ initialValues, onSave, loading, saveLabel, fa
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <PlanBasicsSection
+          values={values}
+          expandedSections={expandedSections}
+          toggleSection={toggleSection}
+          update={update}
+          NumberInput={NumberInput}
+          waterBagOptions={waterBagOptions}
+        />
 
-        {/* Course */}
-        <Text style={styles.sectionTitle}>Course</Text>
-        <Text style={styles.label}>Nom du plan</Text>
-        <TextInput style={styles.textInput} value={values.name} onChangeText={(t) => update('name', t)} placeholder="Ex : UTMB 2025" placeholderTextColor={Colors.textMuted} />
-
-        <View style={styles.row}>
-          <View style={styles.rowItem}>
-            <Text style={styles.label}>Distance (km)</Text>
-            <NumberInput value={values.raceDistanceKm} onChange={(v) => update('raceDistanceKm', v)} placeholder="50" />
-          </View>
-          <View style={[styles.rowItem, { marginLeft: 12 }]}>
-            <Text style={styles.label}>D+ (m)</Text>
-            <NumberInput value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
-          </View>
-        </View>
-
-        {/* Allure */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Allure</Text>
-        <View style={styles.toggleRow}>
-          <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]} onPress={() => update('paceType', 'pace')}>
-            <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>Allure (min/km)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]} onPress={() => update('paceType', 'speed')}>
-            <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>Vitesse (km/h)</Text>
-          </TouchableOpacity>
-        </View>
-        {values.paceType === 'pace' ? (
-          <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <Text style={styles.label}>Minutes</Text>
-              <NumberInput value={values.paceMinutes} onChange={(v) => update('paceMinutes', Math.floor(v))} placeholder="6" />
-            </View>
-            <View style={[styles.rowItem, { marginLeft: 12 }]}>
-              <Text style={styles.label}>Secondes</Text>
-              <NumberInput value={values.paceSeconds} onChange={(v) => update('paceSeconds', Math.min(59, Math.floor(v)))} placeholder="30" />
-            </View>
-          </View>
-        ) : (
-          <>
-            <Text style={styles.label}>Vitesse (km/h)</Text>
-            <NumberInput value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
-          </>
-        )}
-
-        {/* Nutrition */}
-        <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Nutrition (cibles/heure)</Text>
-        <View style={styles.row}>
-          <View style={styles.rowItem}>
-            <Text style={styles.label}>Glucides (g/h)</Text>
-            <NumberInput value={values.targetIntakePerHour} onChange={(v) => update('targetIntakePerHour', v)} placeholder="70" />
-          </View>
-          <View style={[styles.rowItem, { marginLeft: 12 }]}>
-            <Text style={styles.label}>Eau (ml/h)</Text>
-            <NumberInput value={values.waterIntakePerHour} onChange={(v) => update('waterIntakePerHour', v)} placeholder="500" />
-          </View>
-        </View>
-        <View style={styles.row}>
-          <View style={styles.rowItem}>
-            <Text style={styles.label}>Sodium (mg/h)</Text>
-            <NumberInput value={values.sodiumIntakePerHour} onChange={(v) => update('sodiumIntakePerHour', v)} placeholder="600" />
-          </View>
-          <View style={[styles.rowItem, { marginLeft: 12 }]} />
-        </View>
-
-        <Text style={styles.label}>Volume sac à eau</Text>
-        <View style={styles.waterBagRow}>
-          {waterBagOptions.map((opt) => (
-            <TouchableOpacity key={opt} style={[styles.waterBagBtn, values.waterBagLiters === opt && styles.waterBagBtnActive]} onPress={() => update('waterBagLiters', opt)}>
-              <Text style={[styles.waterBagBtnText, values.waterBagLiters === opt && styles.waterBagBtnTextActive]}>{opt}L</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Ravitaillements */}
-        <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-          <Text style={styles.sectionTitle}>Ravitaillements</Text>
-          <View style={styles.sectionActions}>
-            <TouchableOpacity style={styles.fillBtn} onPress={fillSuppliesAuto}>
-              <Text style={styles.fillBtnText}>⭐ Remplir</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
-              <Text style={styles.addBtnText}>+ Ajouter</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {intermediateCount === 0 && (
-          <Text style={styles.emptyText}>Pas de ravito intermédiaire. Utilise "+ Ajouter" pour en créer.</Text>
-        )}
-
-        {(() => {
-          const elements: React.ReactElement[] = [];
-          const speedKph =
-            values.paceType === 'pace'
-              ? 60 / Math.max(values.paceMinutes + values.paceSeconds / 60, 0.01)
-              : Math.max(values.speedKph, 0.1);
-
-          values.aidStations.forEach((station, index) => {
-            const isDepart = station.id === DEPART_ID;
-            const isArrivee = station.id === ARRIVEE_ID;
-            const stationKey = station.id ?? String(index);
-            const isExpanded = expandedStations.has(stationKey);
-
-            // Section target: this station → next station
-            const nextSt = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
-            const sectionDistKm = nextSt ? Math.max(nextSt.distanceKm - station.distanceKm, 0) : 0;
-            const sectionDurationH = sectionDistKm / speedKph;
-            const sectionTarget = {
-              targetCarbsG: values.targetIntakePerHour * sectionDurationH,
-              targetSodiumMg: values.sodiumIntakePerHour * sectionDurationH,
-              targetWaterMl: values.waterIntakePerHour * sectionDurationH,
-            };
-
-            let card: React.ReactElement;
-
-            if (isDepart) {
-              card = (
-                <View key={stationKey} style={styles.stationCard}>
-                  <TouchableOpacity
-                    onPress={() => toggleStation(stationKey)}
-                    activeOpacity={0.7}
-                    style={styles.stationHeaderRow}
-                  >
-                    <Text style={styles.stationIcon}>🟢</Text>
-                    <Text style={styles.stationName}>{station.name}</Text>
-                    <Text style={styles.stationKm}>{station.distanceKm} km</Text>
-                    <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
-                  </TouchableOpacity>
-                  {isExpanded && (
-                    <>
-                      <View style={styles.cardDivider} />
-                      {renderGauges('start', sectionTarget)}
-                      {renderSupplies('start')}
-                    </>
-                  )}
-                </View>
-              );
-            } else if (isArrivee) {
-              card = (
-                <View key={stationKey} style={styles.stationCard}>
-                  <View style={styles.stationHeaderRow}>
-                    <Text style={styles.stationIcon}>🏁</Text>
-                    <Text style={styles.stationName}>{station.name}</Text>
-                    <Text style={styles.stationKm}>{station.distanceKm} km</Text>
-                  </View>
-                </View>
-              );
-            } else {
-              card = (
-                <View key={stationKey} style={styles.stationCard}>
-                  <TouchableOpacity
-                    onPress={() => toggleStation(stationKey)}
-                    activeOpacity={0.7}
-                    style={styles.stationHeaderRow}
-                  >
-                    <Text style={styles.stationIcon}>📍</Text>
-                    <Text style={styles.stationName} numberOfLines={1}>{station.name}</Text>
-                    <TouchableOpacity
-                      style={styles.headerIconBtn}
-                      onPress={() => setEditingStation({ index, name: station.name, km: String(station.distanceKm) })}
-                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    >
-                      <Ionicons name="create-outline" size={16} color="#6B7280" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.headerIconBtn}
-                      onPress={() => removeAidStation(index)}
-                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#6B7280" />
-                    </TouchableOpacity>
-                    <Text style={styles.stationKm}>{station.distanceKm} km</Text>
-                    <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
-                  </TouchableOpacity>
-                  {isExpanded && (
-                    <>
-                      <View style={styles.cardDivider} />
-                      {renderGauges(index, sectionTarget)}
-                      {renderSupplies(index)}
-                    </>
-                  )}
-                </View>
-              );
-            }
-
-            elements.push(card);
-
-            if (index < values.aidStations.length - 1) {
-              const distKm = nextSt ? nextSt.distanceKm - station.distanceKm : 0;
-              const durationMin = (distKm / speedKph) * 60;
-              const hours = Math.floor(durationMin / 60);
-              const mins = Math.round(durationMin % 60);
-              const timeLabel =
-                hours > 0 ? `${hours}h${String(mins).padStart(2, '0')}` : `${mins}min`;
-              elements.push(
-                <View key={`sep-${index}`} style={styles.separator}>
-                  <View style={styles.separatorLine} />
-                  <Text style={styles.separatorText}>
-                    {distKm.toFixed(1)} km · {timeLabel}
-                  </Text>
-                  <View style={styles.separatorLine} />
-                </View>
-              );
-            }
-          });
-          return elements;
-        })()}
-
-        <TouchableOpacity style={[styles.saveButton, loading && styles.saveButtonDisabled]} onPress={handleSave} disabled={loading}>
-          {loading ? <ActivityIndicator color={Colors.textOnBrand} /> : <Text style={styles.saveButtonText}>{saveLabel ?? 'Enregistrer'}</Text>}
-        </TouchableOpacity>
+        <AidStationsSection
+          values={values}
+          basePaceMinutesPerKm={60 / getBaseSpeedKph()}
+          departId={DEPART_ID}
+          arriveeId={ARRIVEE_ID}
+          expandedStations={expandedStations}
+          toggleStation={toggleStation}
+          setEditingStation={(value) => setEditingStation(value)}
+          removeAidStation={removeAidStation}
+          addAidStation={addAidStation}
+          fillSuppliesAuto={fillSuppliesAuto}
+          intermediateCount={intermediateCount}
+          renderGauges={renderGauges}
+          renderSupplies={renderSupplies}
+          getGaugeMetrics={buildGaugeMetrics}
+          getGaugeColor={getGaugeColor}
+          getSectionSummary={buildSectionSummary}
+          getSectionIntakeTimeline={buildSectionIntakeTimelineV2}
+          onSplitSectionSegment={splitSectionSegment}
+          onRemoveSectionSegment={removeSectionSegment}
+          onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
+        />
+        <View style={styles.saveSpacer} />
       </ScrollView>
 
-      {/* Product picker modal */}
-      <Modal visible={pickerTarget !== null} transparent animationType="slide" onRequestClose={() => setPickerTarget(null)}>
-        <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <Pressable style={styles.modalOverlay} onPress={() => setPickerTarget(null)} />
-          <View style={styles.pickerSheet}>
-            <View style={styles.pickerHeader}>
-              <Text style={styles.pickerTitle}>Choisir un produit</Text>
-              <TouchableOpacity onPress={() => setPickerTarget(null)} style={styles.pickerCloseBtn}>
-                <Text style={styles.pickerCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.pickerSearchInput}
-              value={pickerSearch}
-              onChangeText={setPickerSearch}
-              placeholder="Rechercher..."
-              placeholderTextColor={Colors.textMuted}
-              autoCorrect={false}
-            />
-
-            {productsLoading ? (
-              <ActivityIndicator color={Colors.brandPrimary} style={{ marginTop: 24 }} />
-            ) : (
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                {pickerFavorites.length > 0 && (
-                  <>
-                    <Text style={styles.pickerSectionTitle}>Mes favoris</Text>
-                    {pickerFavorites.map(renderPickerRow)}
-                  </>
-                )}
-                <Text style={styles.pickerSectionTitle}>Tous les produits</Text>
-                {filteredAllProducts.length === 0 ? (
-                  <Text style={styles.pickerEmpty}>Aucun produit trouvé.</Text>
-                ) : (
-                  filteredAllProducts.map(renderPickerRow)
-                )}
-              </ScrollView>
-            )}
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Edit station modal */}
-      <Modal
-        visible={editingStation !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditingStation(null)}
+      <TouchableOpacity
+        style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
+        onPress={handleSave}
+        disabled={loading}
+        activeOpacity={0.9}
       >
-        <Pressable style={styles.editModalOverlay} onPress={() => setEditingStation(null)}>
-          <Pressable style={styles.editModalCard} onPress={() => {}}>
-            <View style={styles.editModalHeader}>
-              <Text style={styles.editModalTitle}>Modifier le ravitaillement</Text>
-              <TouchableOpacity onPress={() => setEditingStation(null)} style={styles.pickerCloseBtn}>
-                <Text style={styles.pickerCloseText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.label}>Nom</Text>
-            <TextInput
-              style={styles.textInput}
-              value={editingStation?.name ?? ''}
-              onChangeText={(t) =>
-                setEditingStation((prev) => (prev ? { ...prev, name: t } : prev))
-              }
-              placeholder="Nom du ravitaillement"
-              placeholderTextColor={Colors.textMuted}
-            />
-            <Text style={styles.label}>Distance (km)</Text>
-            <TextInput
-              style={[styles.textInput, { marginBottom: 20 }]}
-              value={editingStation?.km ?? ''}
-              onChangeText={(t) =>
-                setEditingStation((prev) => (prev ? { ...prev, km: t } : prev))
-              }
-              keyboardType="numeric"
-              placeholder="0"
-              placeholderTextColor={Colors.textMuted}
-            />
-            <TouchableOpacity style={styles.saveButton} onPress={handleEditSave}>
-              <Text style={styles.saveButtonText}>Enregistrer</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+        {loading ? (
+          <ActivityIndicator color={Colors.textOnBrand} />
+        ) : (
+          <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
+        )}
+      </TouchableOpacity>
+
+      <ProductPickerModal
+        visible={pickerTarget !== null}
+        pickerSearch={pickerSearch}
+        setPickerSearch={setPickerSearch}
+        productsLoading={productsLoading}
+        pickerFavorites={pickerFavorites}
+        filteredAllProducts={filteredAllProducts}
+        currentSupplyIds={currentSupplyIds}
+        fuelLabels={FUEL_LABELS}
+        onClose={() => setPickerTarget(null)}
+        onAddProduct={handleAddProductFromPicker}
+      />
+
+      <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} />
     </>
   );
 }
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 20, paddingBottom: 48 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.brandPrimary, marginBottom: 12 },
-  label: { fontSize: 13, color: Colors.textSecondary, marginBottom: 6, marginTop: 4 },
-  textInput: { backgroundColor: Colors.surface, color: Colors.textPrimary, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, marginBottom: 4 },
-  stationInput: { backgroundColor: Colors.surfaceSecondary, color: Colors.textPrimary, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, marginBottom: 4 },
-  row: { flexDirection: 'row', marginBottom: 4 },
-  rowItem: { flex: 1 },
-  toggleRow: { flexDirection: 'row', backgroundColor: Colors.surfaceSecondary, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 4, marginBottom: 12 },
-  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  toggleBtnActive: { backgroundColor: Colors.surface },
-  toggleBtnText: { color: Colors.textMuted, fontSize: 14, fontWeight: '600' },
-  toggleBtnTextActive: { color: Colors.textPrimary, fontWeight: '600' },
-  waterBagRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
-  waterBagBtn: { backgroundColor: Colors.surface, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: Colors.border },
-  waterBagBtnActive: { backgroundColor: Colors.brandPrimary, borderColor: Colors.brandPrimary },
-  waterBagBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '500' },
-  waterBagBtnTextActive: { color: Colors.textOnBrand },
-  sectionActions: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
-  fillBtn: { backgroundColor: 'transparent', paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, borderWidth: 1.5, borderColor: '#7C3AED' },
-  fillBtnText: { color: '#7C3AED', fontSize: 13, fontWeight: '600' },
-  addBtn: { backgroundColor: 'transparent', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.brandLight },
-  addBtnText: { color: Colors.brandLight, fontSize: 14, fontWeight: '600' },
-  emptyText: { color: Colors.textMuted, fontSize: 14, fontStyle: 'italic', textAlign: 'center', paddingVertical: 16 },
-  stationCard: { backgroundColor: Colors.surface, borderRadius: 14, marginBottom: 12, borderWidth: 1, borderColor: Colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3 },
-  stationCardSystem: { backgroundColor: Colors.surfaceSecondary },
-  stationHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  stationHeaderRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12 },
-  stationIcon: { fontSize: 16, marginRight: 8 },
-  stationName: { flex: 1, color: Colors.textPrimary, fontWeight: '600', fontSize: 15 },
-  stationKm: { color: Colors.textSecondary, fontSize: 13 },
-  chevron: { color: Colors.textMuted, fontSize: 12, marginLeft: 8 },
-  cardDivider: { height: 1, backgroundColor: Colors.border },
-  headerIconBtn: { padding: 6, borderRadius: 6, marginLeft: 2 },
-  separator: { flexDirection: 'row', alignItems: 'center', marginVertical: 4, paddingHorizontal: 8 },
-  separatorLine: { flex: 1, height: 1, backgroundColor: Colors.border },
-  separatorText: { marginHorizontal: 10, color: Colors.textMuted, fontSize: 12 },
-  editModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  editModalCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 24, width: '100%' },
-  editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  editModalTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  stationOrderButtons: { flexDirection: 'row', gap: 4, marginRight: 8 },
-  orderBtn: { backgroundColor: Colors.surfaceSecondary, borderWidth: 1, borderColor: Colors.border, width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-  orderBtnDisabled: { opacity: 0.3 },
-  orderBtnText: { color: Colors.textSecondary, fontSize: 14 },
-  stationIndex: { flex: 1, color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  stationSystemLabel: { flex: 1, color: Colors.brandPrimary, fontSize: 14, fontWeight: '700' },
-  stationLockedKm: { color: Colors.textSecondary, fontSize: 14, fontWeight: '500', marginBottom: 4 },
-  arriveeNote: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', marginTop: 4 },
-  removeBtn: { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.dangerSurface, justifyContent: 'center', alignItems: 'center' },
-  removeBtnText: { color: Colors.danger, fontSize: 13, fontWeight: '700' },
-  // Gauges row (horizontal, between header divider and products)
-  gaugesRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 8 },
-  // Supplies within station card
-  suppliesSection: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10, paddingHorizontal: 14, paddingBottom: 6 },
-  suppliesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  suppliesLabel: { color: Colors.textSecondary, fontSize: 13, fontWeight: '600' },
-  suppliesAddBtn: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '600' },
-  suppliesEmpty: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic' },
-  supplyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, gap: 8 },
-  supplyInfo: { flex: 1 },
-  supplyName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
-  supplyType: { color: Colors.textMuted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  supplyControls: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  qtyBtn: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-  qtyBtnDisabled: { opacity: 0.3 },
-  qtyBtnText: { color: Colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  qtyText: { color: Colors.textPrimary, fontWeight: '700', minWidth: 24, textAlign: 'center', fontSize: 15 },
-  removeSupplyBtn: { paddingLeft: 8 },
-  removeSupplyText: { color: Colors.danger, fontSize: 18 },
-  // Save
-  saveButton: { backgroundColor: Colors.brandPrimary, borderRadius: 12, paddingVertical: 18, alignItems: 'center', marginTop: 32 },
-  saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: Colors.textOnBrand, fontSize: 17, fontWeight: '700' },
-  // Picker modal
-  modalWrapper: { flex: 1, justifyContent: 'flex-end' },
-  modalOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.5)' },
-  pickerSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '80%' },
-  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  pickerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  pickerCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceSecondary, justifyContent: 'center', alignItems: 'center' },
-  pickerCloseText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
-  pickerSearchInput: { backgroundColor: Colors.surfaceSecondary, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: Colors.textPrimary, marginBottom: 12 },
-  pickerSectionTitle: { color: Colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
-  pickerEmpty: { color: Colors.textMuted, fontSize: 14, fontStyle: 'italic', textAlign: 'center', paddingVertical: 12 },
-  pickerRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  pickerRowInfo: { flex: 1, marginRight: 12 },
-  pickerRowName: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
-  pickerRowType: { color: Colors.textMuted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 1 },
-  pickerAddBtn: { backgroundColor: 'transparent', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1.5, borderColor: Colors.brandPrimary },
-  pickerAddBtnDone: { borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary },
-  pickerAddBtnText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '600' },
-  pickerAddBtnTextDone: { color: Colors.textOnBrand },
-});

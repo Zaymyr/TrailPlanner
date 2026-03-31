@@ -1,28 +1,18 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text } from 'react-native';
 import { Colors } from '../../constants/colors';
 
-function CenterTabButton({ onPress, focused }: { onPress?: () => void; focused?: boolean }) {
-  return (
-    <TouchableOpacity
-      style={styles.centerButton}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
-      <View style={[styles.centerButtonInner, !focused && styles.centerButtonInnerInactive]}>
-        <Ionicons name="map" size={26} color={focused ? Colors.textOnBrand : '#9CA3AF'} />
-        <Text style={[styles.centerButtonLabel, !focused && styles.centerButtonLabelInactive]}>Plans</Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
+export const unstable_settings = {
+  initialRouteName: 'plans',
+};
 
 export default function AppLayout() {
   const router = useRouter();
 
   return (
     <Tabs
+      backBehavior="initialRoute"
       initialRouteName="plans"
       screenOptions={{
         headerStyle: { backgroundColor: Colors.background },
@@ -76,13 +66,9 @@ export default function AppLayout() {
         name="plans"
         options={{
           title: 'Mes plans',
-          tabBarLabel: '',
-          tabBarIcon: () => null,
-          tabBarButton: (props) => (
-            <CenterTabButton
-              onPress={props.onPress as (() => void) | undefined}
-              focused={props.accessibilityState?.selected}
-            />
+          tabBarLabel: 'Plans',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map" size={size} color={color} />
           ),
         }}
       />
@@ -124,39 +110,3 @@ export default function AppLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  centerButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  centerButtonInner: {
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'column',
-    shadowColor: Colors.brandPrimary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
-    minWidth: 80,
-  },
-  centerButtonLabel: {
-    color: Colors.textOnBrand,
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  centerButtonInnerInactive: {
-    backgroundColor: 'transparent',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  centerButtonLabelInactive: {
-    color: '#9CA3AF',
-  },
-});

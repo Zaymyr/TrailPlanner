@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, Supply } from '../../../../components/PlanForm';
+import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, Supply, type ElevationPoint } from '../../../../components/PlanForm';
 import { Colors } from '../../../../constants/colors';
+import { fetchRaceElevationProfile } from '../../../../lib/raceProfile';
 
 type RacePlanRow = {
   id: string;
   name: string;
+  race_id?: string | null;
+  elevation_profile?: ElevationPoint[];
   planner_values: {
     raceDistanceKm?: number;
     elevationGain?: number;
@@ -20,6 +23,8 @@ type RacePlanRow = {
     sodiumIntakePerHour?: number;
     waterBagLiters?: number;
     startSupplies?: Array<{ productId: string; quantity: number }>;
+    segments?: Record<string, any[]>;
+    sectionSegments?: Record<string, any[]>;
     aidStations?: Array<{
       name: string;
       distanceKm: number;
@@ -44,6 +49,7 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
     sodiumIntakePerHour: pv.sodiumIntakePerHour ?? 600,
     waterBagLiters: pv.waterBagLiters ?? 1.5,
     startSupplies: (pv.startSupplies ?? []).map((s): Supply => ({ productId: s.productId, quantity: s.quantity ?? 1 })),
+    sectionSegments: (pv.sectionSegments ?? pv.segments) as PlanFormValues['sectionSegments'],
     aidStations: (pv.aidStations ?? []).map((s) => ({
       name: s.name,
       distanceKm: s.distanceKm,
@@ -61,6 +67,7 @@ export default function EditPlanScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [favoriteProducts, setFavoriteProducts] = useState<FavProduct[]>([]);
+  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -69,7 +76,7 @@ export default function EditPlanScreen() {
 
     (async () => {
       const [planResult, sessionData] = await Promise.all([
-        supabase.from('race_plans').select('id, name, planner_values').eq('id', id).single(),
+        supabase.from('race_plans').select('id, name, planner_values, elevation_profile, race_id').eq('id', id).single(),
         supabase.auth.getSession(),
       ]);
 
@@ -81,6 +88,11 @@ export default function EditPlanScreen() {
         const plan = planResult.data as RacePlanRow;
         setPlanName(plan.name);
         setInitialValues(planRowToFormValues(plan));
+        if (Array.isArray(plan.elevation_profile) && plan.elevation_profile.length > 0) {
+          setElevationProfile(plan.elevation_profile);
+        } else {
+          setElevationProfile(await fetchRaceElevationProfile(plan.race_id ?? null));
+        }
       }
 
       const uid = sessionData.data?.session?.user?.id;
@@ -125,6 +137,8 @@ export default function EditPlanScreen() {
       sodiumIntakePerHour: values.sodiumIntakePerHour,
       waterBagLiters: values.waterBagLiters,
       startSupplies: (values.startSupplies ?? []).map((s) => ({ productId: s.productId, quantity: s.quantity })),
+      segments: values.sectionSegments,
+      sectionSegments: values.sectionSegments,
       aidStations: values.aidStations.map((s) => ({
         name: s.name,
         distanceKm: s.distanceKm,
@@ -138,6 +152,7 @@ export default function EditPlanScreen() {
       .update({
         name: values.name,
         planner_values: plannerValues,
+        elevation_profile: elevationProfile,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);
@@ -170,6 +185,7 @@ export default function EditPlanScreen() {
       <Stack.Screen options={{ title: `Modifier : ${planName}` }} />
       <PlanForm
         initialValues={initialValues}
+        elevationProfile={elevationProfile}
         onSave={handleSave}
         loading={saving}
         saveLabel="Enregistrer les modifications"
