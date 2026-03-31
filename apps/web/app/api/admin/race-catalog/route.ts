@@ -12,6 +12,7 @@ import {
 const raceRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  event_id: z.string().uuid().nullable().optional(),
   location_text: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   distance_km: z.number(),
@@ -25,6 +26,17 @@ const raceRowSchema = z.object({
   is_live: z.boolean(),
   slug: z.string(),
   created_at: z.string().optional(),
+  race_events: z
+    .object({
+      id: z.string().uuid(),
+      name: z.string(),
+      location: z.string().nullable().optional(),
+      race_date: z.string().nullable().optional(),
+      thumbnail_url: z.string().nullable().optional(),
+      is_live: z.boolean().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -52,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path,is_live,slug,created_at&order=name.asc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/races?select=id,name,event_id,location_text,location,distance_km,elevation_gain_m,elevation_loss_m,trace_provider,trace_id,external_site_url,thumbnail_url,gpx_storage_path,is_live,slug,created_at,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=name.asc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,

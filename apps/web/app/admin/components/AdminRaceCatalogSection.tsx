@@ -28,9 +28,19 @@ const basePillClass = "rounded-full px-3 py-1 text-xs font-semibold";
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
+const raceEventSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  location: z.string().nullable().optional(),
+  race_date: z.string().nullable().optional(),
+  thumbnail_url: z.string().nullable().optional(),
+  is_live: z.boolean().nullable().optional(),
+});
+
 const raceRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  event_id: z.string().uuid().nullable().optional(),
   location_text: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   distance_km: z.number(),
@@ -44,9 +54,11 @@ const raceRowSchema = z.object({
   is_live: z.boolean(),
   slug: z.string(),
   created_at: z.string().optional(),
+  race_events: raceEventSchema.nullable().optional(),
 });
 
 type RaceRow = z.infer<typeof raceRowSchema>;
+type RaceEventRow = z.infer<typeof raceEventSchema>;
 
 const editFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -58,6 +70,16 @@ const editFormSchema = z.object({
 });
 
 type EditFormValues = z.infer<typeof editFormSchema>;
+
+const editEventFormSchema = z.object({
+  name: z.string().trim().min(1),
+  location: z.string().trim().optional(),
+  race_date: z.string().trim().optional(),
+  thumbnail_url: z.string().trim().optional(),
+  is_live: z.boolean(),
+});
+
+type EditEventFormValues = z.infer<typeof editEventFormSchema>;
 
 const addFormSchema = z.object({
   name: z.string().trim().optional(),
@@ -102,6 +124,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [addUtmbOpen, setAddUtmbOpen] = useState(false);
   const [editRace, setEditRace] = useState<RaceRow | null>(null);
+  const [editEvent, setEditEvent] = useState<RaceEventRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [utmbUrl, setUtmbUrl] = useState("");
   const [utmbPreview, setUtmbPreview] = useState<UtmbPreview | null>(null);
@@ -123,6 +146,10 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [editImageError, setEditImageError] = useState<string | null>(null);
   const [isUploadingGpx, setIsUploadingGpx] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [editEventImageFile, setEditEventImageFile] = useState<File | null>(null);
+  const [editEventImagePreview, setEditEventImagePreview] = useState<string | null>(null);
+  const [editEventImageError, setEditEventImageError] = useState<string | null>(null);
+  const [isUploadingEventImage, setIsUploadingEventImage] = useState(false);
 
   const racesQuery = useQuery({
     queryKey: ["admin", "race-catalog", accessToken],
@@ -202,6 +229,41 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     },
   });
 
+  const updateEventMutation = useMutation({
+    mutationFn: async (payload: { id: string } & Partial<EditEventFormValues>) => {
+      const { id, ...fields } = payload;
+      const body: Record<string, unknown> = {};
+      if (fields.name !== undefined) body.name = fields.name;
+      if (fields.location !== undefined) body.location = fields.location || null;
+      if (fields.race_date !== undefined) body.race_date = fields.race_date || null;
+      if (fields.thumbnail_url !== undefined) body.thumbnail_url = fields.thumbnail_url || null;
+      if (fields.is_live !== undefined) body.is_live = fields.is_live;
+
+      const response = await fetch(`/api/admin/race-events/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      });
+      const data = (await response.json().catch(() => null)) as unknown;
+      if (!response.ok) {
+        throw new Error((data as { message?: string } | null)?.message ?? t.errors.updateFailed);
+      }
+    },
+    onSuccess: () => {
+      setMessage(t.messages.updated);
+      setError(null);
+      setEditEvent(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : t.errors.updateFailed);
+      setMessage(null);
+    },
+  });
+
   const utmbPreviewMutation = useMutation({
     mutationFn: async (url: string) => {
       const response = await fetch("/api/admin/race-catalog/utmb", {
@@ -273,6 +335,10 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     resolver: zodResolver(editFormSchema),
   });
 
+  const editEventForm = useForm<EditEventFormValues>({
+    resolver: zodResolver(editEventFormSchema),
+  });
+
   const addForm = useForm<AddFormValues>({
     resolver: zodResolver(addFormSchema),
     defaultValues: {
@@ -313,6 +379,30 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setEditImageFile(null);
     setEditImagePreview(null);
     setEditImageError(null);
+  };
+
+  const handleOpenEditEvent = (event: RaceEventRow) => {
+    setEditEvent(event);
+    editEventForm.reset({
+      name: event.name,
+      location: event.location ?? "",
+      race_date: event.race_date ?? "",
+      thumbnail_url: event.thumbnail_url ?? "",
+      is_live: event.is_live !== false,
+    });
+    setEditEventImageFile(null);
+    setEditEventImagePreview(null);
+    setEditEventImageError(null);
+    setMessage(null);
+    setError(null);
+  };
+
+  const handleCloseEditEvent = () => {
+    setEditEvent(null);
+    setEditEventImageFile(null);
+    if (editEventImagePreview) URL.revokeObjectURL(editEventImagePreview);
+    setEditEventImagePreview(null);
+    setEditEventImageError(null);
   };
 
   // GPX file change for add form
@@ -370,6 +460,26 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setEditImagePreview(objectUrl);
   };
 
+  const handleEditEventImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setEditEventImageError(null);
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setEditEventImageError(t.errors.imageInvalidType);
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setEditEventImageError(t.errors.imageTooLarge);
+      return;
+    }
+
+    setEditEventImageFile(file);
+    if (editEventImagePreview) URL.revokeObjectURL(editEventImagePreview);
+    const objectUrl = URL.createObjectURL(file);
+    setEditEventImagePreview(objectUrl);
+  };
+
   const handleUploadGpx = async () => {
     if (!editRace || !editGpxFile) return;
     setIsUploadingGpx(true);
@@ -425,9 +535,44 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     }
   };
 
+  const handleUploadEventImage = async () => {
+    if (!editEvent || !editEventImageFile) return;
+    setIsUploadingEventImage(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", editEventImageFile);
+      const response = await fetch(`/api/admin/race-events/${editEvent.id}/thumbnail`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string; thumbnail_url?: string } | null;
+      if (!response.ok) throw new Error(data?.message ?? t.errors.imageUploadFailed);
+      setMessage(t.messages.updated);
+      setEditEventImageFile(null);
+      if (editEventImagePreview) URL.revokeObjectURL(editEventImagePreview);
+      setEditEventImagePreview(null);
+      if (data?.thumbnail_url && editEvent) {
+        setEditEvent({ ...editEvent, thumbnail_url: data.thumbnail_url });
+        editEventForm.setValue("thumbnail_url", data.thumbnail_url, { shouldDirty: true });
+      }
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t.errors.imageUploadFailed);
+    } finally {
+      setIsUploadingEventImage(false);
+    }
+  };
+
   const handleEditSubmit = editForm.handleSubmit((values) => {
     if (!editRace) return;
     updateMutation.mutate({ id: editRace.id, ...values });
+  });
+
+  const handleEditEventSubmit = editEventForm.handleSubmit((values) => {
+    if (!editEvent) return;
+    updateEventMutation.mutate({ id: editEvent.id, ...values });
   });
 
   const handleAddSubmit = addForm.handleSubmit(async (values) => {
@@ -551,6 +696,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
               <TableRow>
                 <TableHead className="text-slate-600 dark:text-slate-300">{t.table.name}</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300">{t.table.location}</TableHead>
+                <TableHead className="text-slate-600 dark:text-slate-300">Evenement</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300">{t.table.distance}</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300">{t.table.elevation}</TableHead>
                 <TableHead className="text-slate-600 dark:text-slate-300">{t.table.status}</TableHead>
@@ -562,9 +708,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 <TableRow key={race.id}>
                   <TableCell className="font-semibold text-slate-900 dark:text-slate-50">
                     <div className="flex items-center gap-2">
-                      {race.thumbnail_url ? (
+                      {race.race_events?.thumbnail_url ?? race.thumbnail_url ? (
                         <Image
-                          src={race.thumbnail_url}
+                          src={race.race_events?.thumbnail_url ?? race.thumbnail_url ?? ""}
                           alt={race.name}
                           width={32}
                           height={32}
@@ -572,11 +718,21 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                           unoptimized
                         />
                       ) : null}
-                      {race.name}
+                      <div className="min-w-0">
+                        <p className="truncate">{race.name}</p>
+                        {race.race_events?.name ? (
+                          <p className="truncate text-xs font-normal text-slate-500 dark:text-slate-400">
+                            {race.race_events.name}
+                          </p>
+                        ) : null}
+                      </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-slate-700 dark:text-slate-200">
                     {race.location_text ?? race.location ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-slate-700 dark:text-slate-200">
+                    {race.race_events?.location ?? race.location_text ?? race.location ?? "—"}
                   </TableCell>
                   <TableCell className="text-slate-700 dark:text-slate-200">
                     {race.distance_km.toFixed(1)} km
@@ -600,6 +756,15 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                     )}
                   </TableCell>
                   <TableCell className="flex justify-end gap-2">
+                    {race.race_events ? (
+                      <Button
+                        variant="outline"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => handleOpenEditEvent(race.race_events!)}
+                      >
+                        Modifier l'événement
+                      </Button>
+                    ) : null}
                     <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => handleOpenEdit(race)}>
                       {t.actions.edit}
                     </Button>
@@ -930,6 +1095,108 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   onClick={() => void handleUploadImage()}
                 >
                   {isUploadingImage ? t.uploadingImage : t.actions.save}
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editEvent !== null} onOpenChange={(open) => { if (!open) handleCloseEditEvent(); }}>
+        <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Modifier l'événement</DialogTitle>
+            <DialogDescription>{editEvent?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6">
+            <form onSubmit={handleEditEventSubmit} className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.name}</Label>
+                  <Input className="h-9 text-sm" {...editEventForm.register("name")} />
+                  {editEventForm.formState.errors.name ? (
+                    <p className="text-xs text-red-500">{editEventForm.formState.errors.name.message}</p>
+                  ) : null}
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.location}</Label>
+                  <Input className="h-9 text-sm" {...editEventForm.register("location")} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">Date de l'événement</Label>
+                  <Input type="date" className="h-9 text-sm" {...editEventForm.register("race_date")} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">{t.fields.thumbnailUrl}</Label>
+                  <Input className="h-9 text-sm" placeholder="https://…" {...editEventForm.register("thumbnail_url")} />
+                </div>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 bg-white text-emerald-500 dark:border-slate-700 dark:bg-slate-950"
+                  {...editEventForm.register("is_live")}
+                />
+                {t.fields.isLive}
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={handleCloseEditEvent}>
+                  {t.actions.cancel}
+                </Button>
+                <Button type="submit" disabled={updateEventMutation.isPending}>
+                  {updateEventMutation.isPending ? t.actions.saving : t.actions.save}
+                </Button>
+              </div>
+            </form>
+
+            <hr className="border-slate-200 dark:border-slate-800" />
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Image de l'événement</p>
+              {editEvent?.thumbnail_url && !editEventImagePreview ? (
+                <div className="space-y-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Image actuelle de l'événement</p>
+                  <Image
+                    src={editEvent.thumbnail_url}
+                    alt={editEvent.name}
+                    width={120}
+                    height={80}
+                    className="h-20 w-auto rounded border border-slate-200 object-cover dark:border-slate-700"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+              {editEventImagePreview ? (
+                <div className="space-y-1">
+                  <Image
+                    src={editEventImagePreview}
+                    alt="preview"
+                    width={120}
+                    height={80}
+                    className="h-20 w-auto rounded border border-slate-200 object-cover dark:border-slate-700"
+                    unoptimized
+                  />
+                </div>
+              ) : null}
+              <div className="space-y-1">
+                <Label className="text-xs">Remplacer l'image d'événement</Label>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  className="h-9 text-sm"
+                  onChange={handleEditEventImageChange}
+                />
+                <p className="text-xs text-slate-400">JPEG, PNG, WebP, AVIF — max 5 MB</p>
+              </div>
+              {editEventImageError ? <p className="text-xs text-red-500">{editEventImageError}</p> : null}
+              {editEventImageFile && !editEventImageError ? (
+                <Button
+                  type="button"
+                  className="h-8 px-4 text-xs"
+                  disabled={isUploadingEventImage}
+                  onClick={() => void handleUploadEventImage()}
+                >
+                  {isUploadingEventImage ? t.uploadingImage : t.actions.save}
                 </Button>
               ) : null}
             </div>

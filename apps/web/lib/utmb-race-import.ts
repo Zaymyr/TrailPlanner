@@ -23,6 +23,10 @@ export type UtmbRaceData = {
   date: string | null;
   location: string | null;
   aidStations: UtmbAidStation[];
+  elevationProfile: Array<{
+    distanceKm: number;
+    elevationM: number;
+  }>;
 };
 
 export class UtmbImportError extends Error {
@@ -160,6 +164,28 @@ function getTrackPointAidStations(track: UnknownRecord, totalDistanceKm: number)
     .sort((left, right) => left.distanceKm - right.distanceKm);
 }
 
+function getTrackElevationProfile(track: UnknownRecord) {
+  const rawPoints = Array.isArray(track.points) ? track.points : [];
+  const profile = rawPoints
+    .flatMap((point) => {
+      if (!isRecord(point)) return [];
+
+      const rawDistance = toFiniteNumber(point.distance);
+      const rawElevation = toFiniteNumber(point.elevation);
+      if (rawDistance === null || rawElevation === null) return [];
+
+      return [
+        {
+          distanceKm: Number(metersToKilometers(rawDistance).toFixed(3)),
+          elevationM: Math.round(rawElevation),
+        },
+      ];
+    })
+    .sort((left, right) => left.distanceKm - right.distanceKm);
+
+  return profile.filter((point, index) => index === 0 || point.distanceKm !== profile[index - 1]?.distanceKm);
+}
+
 export async function getUtmbRaceData(inputUrl: string): Promise<UtmbRaceData> {
   const normalizedUrl = normalizeUtmbRaceUrl(inputUrl);
 
@@ -216,5 +242,6 @@ export async function getUtmbRaceData(inputUrl: string): Promise<UtmbRaceData> {
     date,
     location,
     aidStations: getTrackPointAidStations(track, distanceKm),
+    elevationProfile: getTrackElevationProfile(track),
   };
 }

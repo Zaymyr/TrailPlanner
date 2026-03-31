@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   SafeAreaView,
+  ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +51,7 @@ type PickerRace = {
   name: string;
   distance_km: number;
   elevation_gain_m: number;
+  thumbnail_url?: string | null;
 };
 
 type PickerEventGroup = {
@@ -57,6 +59,7 @@ type PickerEventGroup = {
   name: string;
   location: string | null;
   race_date: string | null;
+  thumbnail_url?: string | null;
   races: PickerRace[];
 };
 
@@ -91,6 +94,10 @@ function formatEventDate(isoDate: string | null): string | null {
 function getRacePickerLabel(raceName: string, eventName: string): string {
   const cleaned = raceName.replace(eventName, '').replace(/[\s\-–—·]+/g, ' ').trim();
   return cleaned.length > 2 ? cleaned : raceName;
+}
+
+function getPickerEventImageUrl(event: Pick<PickerEventGroup, 'thumbnail_url' | 'races'>): string | null {
+  return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
 }
 
 const FREE_PLAN_LIMIT = 1;
@@ -168,8 +175,18 @@ function EventPickerCard({ event, onSelect }: { event: PickerEventGroup; onSelec
   const dateStr = formatEventDate(event.race_date);
   const headerMeta = [event.location, dateStr].filter(Boolean).join(' · ');
   const useFlex = event.races.length <= 2;
+  const eventImageUrl = getPickerEventImageUrl(event);
   return (
-    <View style={pStyles.eventCard}>
+    <View style={[pStyles.eventCard, eventImageUrl ? pStyles.eventCardWithImage : null]}>
+      {eventImageUrl ? (
+        <ImageBackground
+          source={{ uri: eventImageUrl }}
+          imageStyle={pStyles.eventCardImage}
+          style={pStyles.eventCardImageFill}
+        >
+          <View style={pStyles.eventCardImageOverlay} />
+        </ImageBackground>
+      ) : null}
       <View style={pStyles.eventHeader}>
         <Text style={pStyles.eventHeaderEmoji}>🏔️</Text>
         <View style={{ flex: 1 }}>
@@ -275,18 +292,18 @@ export default function PlansScreen() {
       const [eventsResult, orphansResult, personalResult] = await Promise.all([
         supabase
           .from('race_events')
-          .select('id, name, location, race_date, races(id, name, distance_km, elevation_gain_m)')
+          .select('id, name, location, race_date, thumbnail_url, races(id, name, distance_km, elevation_gain_m, thumbnail_url)')
           .eq('is_live', true)
           .order('name'),
         supabase
           .from('races')
-          .select('id, name, distance_km, elevation_gain_m')
+          .select('id, name, distance_km, elevation_gain_m, thumbnail_url')
           .eq('is_live', true)
           .is('event_id', null),
         uid
           ? supabase
               .from('races')
-              .select('id, name, distance_km, elevation_gain_m')
+              .select('id, name, distance_km, elevation_gain_m, thumbnail_url')
               .eq('is_public', false)
               .eq('created_by', uid)
           : Promise.resolve({ data: [] as PickerRace[], error: null }),
@@ -686,6 +703,19 @@ const pStyles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 6,
     elevation: 3,
+  },
+  eventCardWithImage: {
+    overflow: 'hidden',
+  },
+  eventCardImageFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  eventCardImage: {
+    borderRadius: 16,
+  },
+  eventCardImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
   },
   personalCard: {
     borderColor: Colors.brandBorder,

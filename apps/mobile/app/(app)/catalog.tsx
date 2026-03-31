@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
+  ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
@@ -19,6 +20,7 @@ type Race = {
   elevation_gain_m: number;
   has_aid_stations: boolean | null;
   gpx_storage_path: string | null;
+  thumbnail_url?: string | null;
 };
 
 type EventGroup = {
@@ -26,6 +28,7 @@ type EventGroup = {
   name: string;
   location: string | null;
   race_date: string | null;
+  thumbnail_url?: string | null;
   races: Race[];
 };
 
@@ -44,6 +47,10 @@ function getRaceShortLabel(raceName: string, eventName: string): string {
     .replace(/[\s\-–—·]+/g, ' ')
     .trim();
   return cleaned.length > 2 ? cleaned : raceName;
+}
+
+function getEventImageUrl(event: Pick<EventGroup, 'thumbnail_url' | 'races'>): string | null {
+  return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
 }
 
 function SkeletonEventCard() {
@@ -171,26 +178,28 @@ export default function CatalogScreen() {
               name,
               location,
               race_date,
+              thumbnail_url,
               races (
                 id,
                 name,
                 distance_km,
                 elevation_gain_m,
                 has_aid_stations,
-                gpx_storage_path
+                gpx_storage_path,
+                thumbnail_url
               )
             `)
             .eq('is_live', true)
             .order('name'),
           supabase
             .from('races')
-            .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path')
+            .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path, thumbnail_url')
             .eq('is_live', true)
             .is('event_id', null),
           userId
             ? supabase
                 .from('races')
-                .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path')
+                .select('id, name, distance_km, elevation_gain_m, has_aid_stations, gpx_storage_path, thumbnail_url')
                 .eq('is_public', false)
                 .eq('created_by', userId)
             : Promise.resolve({ data: [], error: null }),
@@ -301,9 +310,18 @@ export default function CatalogScreen() {
         const dateStr = formatEventDate(event.race_date);
         const headerMeta = [event.location, dateStr].filter(Boolean).join(' · ');
         const useFlex = event.races.length <= 2;
-
+        const eventImageUrl = getEventImageUrl(event);
         return (
-          <View style={styles.eventCard}>
+          <View style={[styles.eventCard, eventImageUrl ? styles.eventCardWithImage : null]}>
+            {eventImageUrl ? (
+              <ImageBackground
+                source={{ uri: eventImageUrl }}
+                imageStyle={styles.eventCardImage}
+                style={styles.eventCardImageFill}
+              >
+                <View style={styles.eventCardImageOverlay} />
+              </ImageBackground>
+            ) : null}
             {/* Event header */}
             <View style={styles.eventHeader}>
               <Text style={styles.eventHeaderEmoji}>🏔️</Text>
@@ -412,6 +430,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 6,
     elevation: 3,
+  },
+  eventCardWithImage: {
+    overflow: 'hidden',
+  },
+  eventCardImageFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  eventCardImage: {
+    borderRadius: 16,
+  },
+  eventCardImageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.72)',
   },
   personalCard: {
     borderColor: Colors.brandBorder,
