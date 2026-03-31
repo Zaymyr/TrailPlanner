@@ -30,6 +30,7 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
       const startKm = fromStation.distanceKm;
       const endKm = toStation.distanceKm;
       const distanceKm = Math.max(0, endKm - startKm);
+      const pauseMinutes = Math.max(0, fromStation.pauseMinutes ?? 0);
       const hasStoredSegments = Boolean(values.sectionSegments?.[buildSectionKey(sectionIndex)]?.length);
       const segments = getSectionSegments(values.sectionSegments, sectionIndex, distanceKm);
       const profilePoints =
@@ -45,7 +46,7 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
         elevationProfile: profilePoints,
         paceModel: { secondsPerKm: 3600 / baseSpeedKph },
       });
-      const durationMin = recomputed.totals.etaSeconds / 60;
+      const durationMin = recomputed.totals.etaSeconds / 60 + pauseMinutes;
 
       return {
         sectionIndex,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Text, View } from 'react-native';
 import { styles } from './styles';
 
@@ -17,6 +17,7 @@ type Props = {
   formatGaugeValue: (metric: GaugeMetric, value: number) => string;
   getGaugeColor: (key: GaugeMetric['key'], ratio: number) => string;
   compact?: boolean;
+  animateSignal?: number;
 };
 
 const PRIMARY_SEGMENTS = 28;
@@ -79,7 +80,7 @@ function RingSegment({
   );
 }
 
-export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = false }: Props) {
+export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = false, animateSignal = 0 }: Props) {
   const size = compact ? 32 : 66;
   const center = size / 2;
   const innerRadius = compact ? 11 : 24;
@@ -88,18 +89,41 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
   const visualRatio = Math.min(safeRatio, MAX_VISUAL_RATIO);
   const displayPct = Math.round(safeRatio * 100);
   const animatedRatio = useRef(new Animated.Value(visualRatio)).current;
+  const hasMounted = useRef(false);
+  const lastAnimateSignal = useRef(animateSignal);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const fillColor = getGaugeColor(metric.key, safeRatio);
   const overflowColor = darkenHex(fillColor);
 
   useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      lastAnimateSignal.current = animateSignal;
+      animatedRatio.setValue(visualRatio);
+      return;
+    }
+
+    const shouldAnimate = animateSignal > 0 && animateSignal !== lastAnimateSignal.current;
+    lastAnimateSignal.current = animateSignal;
+
+    if (!shouldAnimate) {
+      animatedRatio.stopAnimation();
+      animatedRatio.setValue(visualRatio);
+      setIsAnimating(false);
+      return;
+    }
+
+    setIsAnimating(true);
     Animated.timing(animatedRatio, {
       toValue: visualRatio,
       duration: 460,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
-    }).start();
-  }, [animatedRatio, visualRatio]);
+    }).start(() => {
+      setIsAnimating(false);
+    });
+  }, [animateSignal, animatedRatio, visualRatio]);
 
   return (
     <View style={styles.gaugeCard}>
@@ -116,16 +140,21 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
           const angle = -90 + (360 / PRIMARY_SEGMENTS) * index;
           const start = index / PRIMARY_SEGMENTS;
           const end = (index + 1) / PRIMARY_SEGMENTS;
-          const opacity = animatedRatio.interpolate({
-            inputRange: [0, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0, 0, 1, 1],
-            extrapolate: 'clamp',
-          });
-          const scale = animatedRatio.interpolate({
-            inputRange: [0, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0.75, 0.75, 1, 1],
-            extrapolate: 'clamp',
-          });
+          const staticOpacity = visualRatio >= end ? 1 : visualRatio <= start ? 0 : (visualRatio - start) / Math.max(end - start, 0.0001);
+          const opacity = isAnimating
+            ? animatedRatio.interpolate({
+                inputRange: [0, start, end, MAX_VISUAL_RATIO],
+                outputRange: [0, 0, 1, 1],
+                extrapolate: 'clamp',
+              })
+            : staticOpacity;
+          const scale = isAnimating
+            ? animatedRatio.interpolate({
+                inputRange: [0, start, end, MAX_VISUAL_RATIO],
+                outputRange: [0.75, 0.75, 1, 1],
+                extrapolate: 'clamp',
+              })
+            : 0.75 + staticOpacity * 0.25;
 
           return (
             <React.Fragment key={`primary-${index}`}>
@@ -154,16 +183,22 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
           const angle = -90 + (360 / OVERFLOW_SEGMENTS) * index;
           const start = 1 + index / OVERFLOW_SEGMENTS;
           const end = 1 + (index + 1) / OVERFLOW_SEGMENTS;
-          const opacity = animatedRatio.interpolate({
-            inputRange: [0, 1, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0, 0, 0, 1, 1],
-            extrapolate: 'clamp',
-          });
-          const scale = animatedRatio.interpolate({
-            inputRange: [0, 1, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0.7, 0.7, 0.7, 1, 1],
-            extrapolate: 'clamp',
-          });
+          const overflowProgress =
+            visualRatio >= end ? 1 : visualRatio <= start ? 0 : (visualRatio - start) / Math.max(end - start, 0.0001);
+          const opacity = isAnimating
+            ? animatedRatio.interpolate({
+                inputRange: [0, 1, start, end, MAX_VISUAL_RATIO],
+                outputRange: [0, 0, 0, 1, 1],
+                extrapolate: 'clamp',
+              })
+            : overflowProgress;
+          const scale = isAnimating
+            ? animatedRatio.interpolate({
+                inputRange: [0, 1, start, end, MAX_VISUAL_RATIO],
+                outputRange: [0.7, 0.7, 0.7, 1, 1],
+                extrapolate: 'clamp',
+              })
+            : 0.7 + overflowProgress * 0.3;
 
           return (
             <RingSegment

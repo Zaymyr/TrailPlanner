@@ -10,7 +10,12 @@ import type {
   SectionTarget,
   Supply,
 } from './contracts';
-import { DEPART_ID, ARRIVEE_ID } from './contracts';
+import {
+  ARRIVEE_ID,
+  DEFAULT_FLUID_MIX_SHARE,
+  DEFAULT_FLUID_PRODUCT_VOLUME_ML,
+  DEPART_ID,
+} from './contracts';
 import { formatDurationLabel } from './helpers';
 
 type SuppliesGetter = (target: PlanTarget) => Supply[];
@@ -33,6 +38,100 @@ type BuildPlanHighlightsArgs = {
   productMap: Record<string, PlanProduct>;
   buildSectionSummary: (target: PlanTarget) => SectionSummary | null;
 };
+
+const MAX_DRINK_INTERVAL_MIN = 10;
+const TARGET_DRINK_SIP_ML = 140;
+
+function distributeIntegerTotal(total: number, count: number): number[] {
+  const safeCount = Math.max(1, count);
+  const safeTotal = Math.max(0, Math.round(total));
+  const baseValue = Math.floor(safeTotal / safeCount);
+  const remainder = safeTotal - baseValue * safeCount;
+  return Array.from({ length: safeCount }, (_, index) => baseValue + (index < remainder ? 1 : 0));
+}
+
+function buildDrinkSlotMinutes(durationMin: number, slotCount: number): number[] {
+  const safeDuration = Math.max(1, Math.round(durationMin));
+  const safeSlotCount = Math.max(1, slotCount);
+  return Array.from({ length: safeSlotCount }, (_, index) =>
+    Math.min(safeDuration, Math.max(1, Math.round(((index + 1) / safeSlotCount) * safeDuration))),
+  );
+}
+
+function isFluidProduct(product: PlanProduct | undefined) {
+  return product?.fuel_type === 'drink_mix' || product?.fuel_type === 'electrolyte';
+}
+
+function getAvailableWaterMl(target: PlanTarget, aidStations: AidStationFormItem[], waterBagLiters: number) {
+  return target === 'start' || aidStations[target]?.waterRefill ? waterBagLiters * 1000 : 0;
+}
+
+function summarizeSuppliesWithFluidConstraint(
+  supplies: Supply[],
+  productMap: Record<string, PlanProduct>,
+  availableWaterMl: number,
+) {
+  let solidCarbs = 0;
+  let solidSodium = 0;
+  const fluidEntries: Array<{
+    label: string;
+    carbs: number;
+    sodium: number;
+    requestedWaterMl: number;
+    densityScore: number;
+  }> = [];
+
+  supplies.forEach((supply) => {
+    const product = productMap[supply.productId];
+    if (!product || supply.quantity <= 0) return;
+
+    if (isFluidProduct(product)) {
+      fluidEntries.push({
+        label: product.name,
+        carbs: (product.carbs_g ?? 0) * supply.quantity,
+        sodium: (product.sodium_mg ?? 0) * supply.quantity,
+        requestedWaterMl: DEFAULT_FLUID_PRODUCT_VOLUME_ML * supply.quantity,
+        densityScore: (product.carbs_g ?? 0) + (product.sodium_mg ?? 0) / 100,
+      });
+      return;
+    }
+
+    solidCarbs += (product.carbs_g ?? 0) * supply.quantity;
+    solidSodium += (product.sodium_mg ?? 0) * supply.quantity;
+  });
+
+  const activeFluidEntry = fluidEntries.reduce<(typeof fluidEntries)[number] | null>((best, entry) => {
+    if (!best) return entry;
+    if (entry.requestedWaterMl !== best.requestedWaterMl) {
+      return entry.requestedWaterMl > best.requestedWaterMl ? entry : best;
+    }
+    if (entry.densityScore !== best.densityScore) {
+      return entry.densityScore > best.densityScore ? entry : best;
+    }
+    return entry.label.localeCompare(best.label) < 0 ? entry : best;
+  }, null);
+
+  const fluidCarbs = activeFluidEntry?.carbs ?? 0;
+  const fluidSodium = activeFluidEntry?.sodium ?? 0;
+  const requestedFluidWaterMl = activeFluidEntry?.requestedWaterMl ?? 0;
+
+  const fluidWaterBudgetMl = availableWaterMl * DEFAULT_FLUID_MIX_SHARE;
+  const effectiveFluidRatio =
+    requestedFluidWaterMl > 0 ? Math.min(1, fluidWaterBudgetMl / requestedFluidWaterMl) : 0;
+  const effectiveFluidWaterMl = requestedFluidWaterMl * effectiveFluidRatio;
+  const effectiveFluidCarbs = fluidCarbs * effectiveFluidRatio;
+  const effectiveFluidSodium = fluidSodium * effectiveFluidRatio;
+
+  return {
+    totalCarbs: solidCarbs + effectiveFluidCarbs,
+    totalSodium: solidSodium + effectiveFluidSodium,
+    requestedFluidWaterMl,
+    effectiveFluidWaterMl,
+    effectiveFluidCarbs,
+    effectiveFluidSodium,
+    fluidLabels: activeFluidEntry ? [activeFluidEntry.label] : [],
+  };
+}
 
 export function getGaugeColor(key: GaugeMetric['key'], ratio: number): string {
   if (key === 'water') {
@@ -62,16 +161,8 @@ export function buildGaugeMetrics({
   waterBagLiters,
 }: BuildGaugeMetricsArgs): GaugeMetric[] {
   const supplies = getSupplies(target);
-  const totalCarbs = supplies.reduce((sum, supply) => {
-    const product = productMap[supply.productId];
-    return sum + (product ? (product.carbs_g ?? 0) * supply.quantity : 0);
-  }, 0);
-  const totalSodium = supplies.reduce((sum, supply) => {
-    const product = productMap[supply.productId];
-    return sum + (product ? (product.sodium_mg ?? 0) * supply.quantity : 0);
-  }, 0);
-  const availableWaterMl =
-    target === 'start' || aidStations[target]?.waterRefill ? waterBagLiters * 1000 : 0;
+  const availableWaterMl = getAvailableWaterMl(target, aidStations, waterBagLiters);
+  const summarized = summarizeSuppliesWithFluidConstraint(supplies, productMap, availableWaterMl);
 
   return [
     {
@@ -79,18 +170,18 @@ export function buildGaugeMetrics({
       label: 'Glucides',
       unit: 'g',
       color: '#2D5016',
-      current: totalCarbs,
+      current: summarized.totalCarbs,
       target: sectionTarget?.targetCarbsG ?? 0,
-      ratio: sectionTarget && sectionTarget.targetCarbsG > 0 ? totalCarbs / sectionTarget.targetCarbsG : 0,
+      ratio: sectionTarget && sectionTarget.targetCarbsG > 0 ? summarized.totalCarbs / sectionTarget.targetCarbsG : 0,
     },
     {
       key: 'sodium',
       label: 'Sodium',
       unit: 'mg',
       color: '#3B82F6',
-      current: totalSodium,
+      current: summarized.totalSodium,
       target: sectionTarget?.targetSodiumMg ?? 0,
-      ratio: sectionTarget && sectionTarget.targetSodiumMg > 0 ? totalSodium / sectionTarget.targetSodiumMg : 0,
+      ratio: sectionTarget && sectionTarget.targetSodiumMg > 0 ? summarized.totalSodium / sectionTarget.targetSodiumMg : 0,
     },
     {
       key: 'water',
@@ -117,9 +208,9 @@ export function buildSectionIntakeTimelineV2({
   const safeDuration = Math.max(0, Math.round(sectionDurationMin));
   const totalTargetCarbs = Math.max(sectionTarget?.targetCarbsG ?? 0, 0);
   const totalTargetSodium = Math.max(sectionTarget?.targetSodiumMg ?? 0, 0);
-  const availableWaterMl =
-    target === 'start' || aidStations[target]?.waterRefill ? waterBagLiters * 1000 : 0;
+  const availableWaterMl = getAvailableWaterMl(target, aidStations, waterBagLiters);
   const totalTargetWater = Math.max(Math.min(sectionTarget?.targetWaterMl ?? 0, availableWaterMl), 0);
+  const summarized = summarizeSuppliesWithFluidConstraint(supplies, productMap, availableWaterMl);
 
   const expandedUnits = supplies.flatMap((supply) => {
     const product = productMap[supply.productId];
@@ -130,14 +221,22 @@ export function buildSectionIntakeTimelineV2({
       carbs: Math.max(product.carbs_g ?? 0, 0),
       sodium: Math.max(product.sodium_mg ?? 0, 0),
       fluid: product.fuel_type === 'drink_mix' || product.fuel_type === 'electrolyte',
+      fluidVolumeMl:
+        product.fuel_type === 'drink_mix' || product.fuel_type === 'electrolyte'
+          ? DEFAULT_FLUID_PRODUCT_VOLUME_ML
+          : 0,
     }));
   });
+
+  const solidUnits = expandedUnits.filter((unit) => !unit.fluid);
+  const fluidUnits = expandedUnits.filter((unit) => unit.fluid);
 
   const events: IntakeTimelineItem[] = [];
 
   if (safeDuration <= 0) {
     expandedUnits.forEach((unit) => {
       const detailParts: string[] = [];
+      if (unit.fluidVolumeMl > 0) detailParts.push(`${Math.round(unit.fluidVolumeMl)} ml`);
       if (unit.carbs > 0) detailParts.push(`${Math.round(unit.carbs)}g glucides`);
       if (unit.sodium > 0) detailParts.push(`${Math.round(unit.sodium)}mg sodium`);
       events.push({
@@ -152,9 +251,8 @@ export function buildSectionIntakeTimelineV2({
 
   let cumulativeCarbs = 0;
   let cumulativeSodium = 0;
-  const fluidEventMinutes: number[] = [];
 
-  expandedUnits.forEach((unit, index) => {
+  solidUnits.forEach((unit, index) => {
     const candidates: Array<{ minute: number; weight: number }> = [];
 
     if (totalTargetCarbs > 0 && unit.carbs > 0) {
@@ -195,54 +293,39 @@ export function buildSectionIntakeTimelineV2({
       label: unit.label,
       detail: detailParts.length > 0 ? detailParts.join(' - ') : '1 prise',
     });
-
-    if (unit.fluid) fluidEventMinutes.push(minute);
   });
 
-  if (totalTargetWater > 0) {
-    const waterRatePerMinute = totalTargetWater / safeDuration;
-    let remainingWaterMl = totalTargetWater;
-    let lastWaterMinute = 0;
-    const waterEvents: Array<{ minute: number; amountMl: number }> = [];
+  const totalFluidProductWaterMl = summarized.effectiveFluidWaterMl;
+  const totalFluidCarbs = summarized.effectiveFluidCarbs;
+  const totalFluidSodium = summarized.effectiveFluidSodium;
+  const totalDrinkMl = fluidUnits.length > 0 ? Math.max(totalTargetWater, totalFluidProductWaterMl) : totalTargetWater;
 
-    for (
-      let targetMinute = Math.min(10, safeDuration);
-      targetMinute <= safeDuration && remainingWaterMl > 0;
-      targetMinute += 10
-    ) {
-      let scheduledMinute = targetMinute;
+  if (totalDrinkMl > 0) {
+    const baseSlotCount = Math.max(1, Math.ceil(safeDuration / MAX_DRINK_INTERVAL_MIN));
+    const slotCount = Math.max(baseSlotCount, Math.ceil(totalDrinkMl / TARGET_DRINK_SIP_ML));
+    const slotMinutes = buildDrinkSlotMinutes(safeDuration, slotCount);
+    const fluidWaterPerSlot = distributeIntegerTotal(totalFluidProductWaterMl, slotCount);
+    const plainWaterPerSlot = distributeIntegerTotal(Math.max(totalDrinkMl - totalFluidProductWaterMl, 0), slotCount);
+    const carbsPerSlot = distributeIntegerTotal(totalFluidCarbs, slotCount);
+    const sodiumPerSlot = distributeIntegerTotal(totalFluidSodium, slotCount);
+    const uniqueFluidLabels = summarized.fluidLabels;
+    const fluidLabel = uniqueFluidLabels.length === 1 ? uniqueFluidLabels[0] : 'Boisson';
 
-      while (
-        scheduledMinute < safeDuration &&
-        fluidEventMinutes.some((fluidMinute) => Math.abs(fluidMinute - scheduledMinute) <= 1)
-      ) {
-        scheduledMinute = Math.min(safeDuration, scheduledMinute + 2);
-      }
+    slotMinutes.forEach((minute, index) => {
+      const slotWaterMl = fluidWaterPerSlot[index] + plainWaterPerSlot[index];
+      const slotCarbs = carbsPerSlot[index];
+      const slotSodium = sodiumPerSlot[index];
+      if (slotWaterMl <= 0 && slotCarbs <= 0 && slotSodium <= 0) return;
 
-      const elapsedMinutes = Math.max(1, scheduledMinute - lastWaterMinute);
-      const sipMl = Math.min(
-        remainingWaterMl,
-        Math.max(1, Math.round(waterRatePerMinute * elapsedMinutes)),
-      );
+      const detailParts: string[] = [];
+      if (slotWaterMl > 0) detailParts.push(`${slotWaterMl} ml`);
+      if (slotCarbs > 0) detailParts.push(`${slotCarbs}g glucides`);
+      if (slotSodium > 0) detailParts.push(`${slotSodium}mg sodium`);
 
-      waterEvents.push({ minute: scheduledMinute, amountMl: sipMl });
-      remainingWaterMl = Math.max(0, remainingWaterMl - sipMl);
-      lastWaterMinute = scheduledMinute;
-    }
-
-    if (remainingWaterMl > 0) {
-      if (waterEvents.length > 0) {
-        waterEvents[waterEvents.length - 1].amountMl += Math.round(remainingWaterMl);
-      } else {
-        waterEvents.push({ minute: Math.min(10, safeDuration), amountMl: Math.round(remainingWaterMl) });
-      }
-    }
-
-    waterEvents.forEach((waterEvent) => {
       events.push({
-        minute: waterEvent.minute,
-        label: 'Eau',
-        detail: `${Math.round(waterEvent.amountMl)} ml`,
+        minute,
+        label: fluidUnits.length > 0 ? fluidLabel : 'Eau',
+        detail: detailParts.join(' - '),
       });
     });
   }
@@ -311,6 +394,7 @@ export function buildPlanHighlights({
   }
 
   return {
+    totalDurationMin,
     totalDurationLabel: formatDurationLabel(totalDurationMin),
     totalProductUnits,
     distinctProductsCount,

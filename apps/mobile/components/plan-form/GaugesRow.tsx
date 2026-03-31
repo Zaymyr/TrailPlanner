@@ -7,9 +7,10 @@ type Props = {
   compact?: boolean;
   formatGaugeValue: (metric: GaugeMetric, value: number) => string;
   getGaugeColor: (key: GaugeMetric['key'], ratio: number) => string;
+  animateSignal?: number;
 };
 
-export function GaugesRow({ metrics, compact = false, formatGaugeValue, getGaugeColor }: Props) {
+export function GaugesRow({ metrics, compact = false, formatGaugeValue, getGaugeColor, animateSignal = 0 }: Props) {
   return (
     <View style={compact ? styles.gaugesRowCompact : styles.gaugesRow}>
       {metrics.map((metric) => (
@@ -19,6 +20,7 @@ export function GaugesRow({ metrics, compact = false, formatGaugeValue, getGauge
           formatGaugeValue={formatGaugeValue}
           getGaugeColor={getGaugeColor}
           compact={compact}
+          animateSignal={animateSignal}
         />
       ))}
     </View>

@@ -1,4 +1,6 @@
-import { Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { Colors } from '../../constants/colors';
 import { styles } from './styles';
 
 type ProductBreakdownItem = {
@@ -7,9 +9,10 @@ type ProductBreakdownItem = {
 };
 
 type Props = {
+  expanded: boolean;
+  onToggle: () => void;
   totalDurationLabel: string;
-  totalProductUnits: number;
-  distinctProductsCount: number;
+  paceLabel: string;
   intermediateCount: number;
   plannedCarbsG: number;
   plannedSodiumMg: number;
@@ -17,59 +20,109 @@ type Props = {
 };
 
 export function PlanHighlightsSection({
+  expanded,
+  onToggle,
   totalDurationLabel,
-  totalProductUnits,
-  distinctProductsCount,
+  paceLabel,
   intermediateCount,
   plannedCarbsG,
   plannedSodiumMg,
   productBreakdown,
 }: Props) {
+  const secondarySummaryChips = [
+    `${intermediateCount} ravitos`,
+    `${plannedCarbsG} g glucides`,
+    `${plannedSodiumMg} mg sodium`,
+  ];
+
   return (
     <View style={styles.highlightsSection}>
-      <View style={styles.highlightsHeader}>
-        <Text style={styles.sectionTitle}>Résumé du plan</Text>
-        <Text style={styles.highlightsSubtitle}>Les infos clés à garder en tête avant de finaliser le ravitaillement.</Text>
-      </View>
-
-      <View style={styles.highlightsGrid}>
-        <View style={styles.highlightCard}>
-          <Text style={styles.highlightValue}>{totalDurationLabel}</Text>
-          <Text style={styles.highlightLabel}>Temps total estime</Text>
-        </View>
-
-        <View style={styles.highlightCard}>
-          <Text style={styles.highlightValue}>{totalProductUnits}</Text>
-          <Text style={styles.highlightLabel}>Produits à emporter</Text>
-          <Text style={styles.highlightMeta}>{distinctProductsCount} référence{distinctProductsCount > 1 ? 's' : ''}</Text>
-        </View>
-
-        <View style={styles.highlightCard}>
-          <Text style={styles.highlightValue}>{plannedCarbsG} g</Text>
-          <Text style={styles.highlightLabel}>Glucides planifies</Text>
-        </View>
-
-        <View style={styles.highlightCard}>
-          <Text style={styles.highlightValue}>{intermediateCount}</Text>
-          <Text style={styles.highlightLabel}>Ravitos intermédiaires</Text>
-          <Text style={styles.highlightMeta}>{plannedSodiumMg} mg sodium prévus</Text>
-        </View>
-      </View>
-
-      {productBreakdown.length > 0 ? (
-        <View style={styles.highlightBreakdownSection}>
-        <Text style={styles.highlightBreakdownLabel}>Répartition produits</Text>
-          <View style={styles.highlightBreakdownRow}>
-            {productBreakdown.map((item) => (
-              <Text key={`${item.label}-${item.quantity}`} style={styles.highlightBreakdownChip}>
-                {item.quantity > 0 ? `${item.label} x${item.quantity}` : item.label}
-              </Text>
-            ))}
+      <TouchableOpacity
+        style={[
+          styles.sectionAccordionHeader,
+          styles.sectionAccordionHeaderSpaced,
+          styles.highlightsAccordionHeader,
+          !expanded && styles.sectionAccordionHeaderCollapsed,
+        ]}
+        onPress={onToggle}
+        activeOpacity={0.8}
+      >
+        <View style={styles.sectionAccordionHeaderContent}>
+          <View style={styles.sectionAccordionTitleRow}>
+            <Text style={[styles.sectionTitle, styles.sectionAccordionTitle]}>Resume du plan</Text>
+            {!expanded && (
+              <>
+                <View style={styles.highlightsInlinePrimaryBadge}>
+                  <Text style={styles.highlightsInlinePrimaryValue}>{totalDurationLabel}</Text>
+                  <Text style={styles.highlightsInlinePrimaryLabel}>Temps</Text>
+                </View>
+                <View style={styles.highlightsInlinePrimaryBadge}>
+                  <Text style={styles.highlightsInlinePrimaryValue}>{paceLabel}</Text>
+                  <Text style={styles.highlightsInlinePrimaryLabel}>min/km</Text>
+                </View>
+                {secondarySummaryChips.map((chip) => (
+                  <Text key={chip} style={styles.sectionSummaryChipInline}>
+                    {chip}
+                  </Text>
+                ))}
+              </>
+            )}
           </View>
         </View>
-      ) : (
-        <Text style={styles.highlightEmptyText}>Aucun produit ajouté pour le moment.</Text>
-      )}
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={Colors.textSecondary}
+        />
+      </TouchableOpacity>
+
+      {expanded ? (
+        <>
+          <Text style={styles.highlightsSubtitle}>Les infos cles a garder en tete avant de finaliser le ravitaillement.</Text>
+
+          <View style={styles.highlightsHeroRow}>
+            <View style={styles.highlightsHeroPrimary}>
+              <Text style={styles.highlightsHeroValue}>{totalDurationLabel}</Text>
+              <Text style={styles.highlightsHeroLabel}>Temps total estime</Text>
+            </View>
+
+            <View style={styles.highlightsHeroPrimary}>
+              <Text style={styles.highlightsHeroValue}>{paceLabel}</Text>
+              <Text style={styles.highlightsHeroLabel}>Allure moyenne</Text>
+            </View>
+          </View>
+
+          <View style={styles.highlightMetricsRow}>
+            <View style={styles.highlightMetricChip}>
+              <Text style={styles.highlightMetricChipLabel}>Glucides</Text>
+              <Text style={styles.highlightMetricChipValue}>{plannedCarbsG} g</Text>
+            </View>
+            <View style={styles.highlightMetricChip}>
+              <Text style={styles.highlightMetricChipLabel}>Sodium</Text>
+              <Text style={styles.highlightMetricChipValue}>{plannedSodiumMg} mg</Text>
+            </View>
+            <View style={styles.highlightMetricChip}>
+              <Text style={styles.highlightMetricChipLabel}>Ravitos</Text>
+              <Text style={styles.highlightMetricChipValue}>{intermediateCount}</Text>
+            </View>
+          </View>
+
+          {productBreakdown.length > 0 ? (
+            <View style={styles.highlightBreakdownSection}>
+              <Text style={styles.highlightBreakdownLabel}>Repartition produits</Text>
+              <View style={styles.highlightBreakdownRow}>
+                {productBreakdown.map((item) => (
+                  <Text key={`${item.label}-${item.quantity}`} style={styles.highlightBreakdownChip}>
+                    {item.quantity > 0 ? `${item.label} x${item.quantity}` : item.label}
+                  </Text>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.highlightEmptyText}>Aucun produit ajoute pour le moment.</Text>
+          )}
+        </>
+      ) : null}
     </View>
   );
 }

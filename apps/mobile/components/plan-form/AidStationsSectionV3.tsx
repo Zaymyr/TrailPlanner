@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { Animated, Easing, LayoutAnimation, Platform, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
+import { Animated, Easing, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
@@ -41,6 +41,7 @@ type Props = {
     sectionDurationMin: number,
     sectionTarget?: SectionTarget,
   ) => IntakeTimelineItem[];
+  gaugeAnimateSignal: number;
   onSplitSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
   onRemoveSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
   onUpdateSectionSegmentPaceAdjustment: (
@@ -74,6 +75,7 @@ export function AidStationsSectionV3({
   formatGaugeValue,
   getSectionSummary,
   getSectionIntakeTimeline,
+  gaugeAnimateSignal,
   onSplitSectionSegment,
   onRemoveSectionSegment,
   onUpdateSectionSegmentPaceAdjustment,
@@ -84,12 +86,26 @@ export function AidStationsSectionV3({
   const paceStepMinutes = 5 / 60;
   const tabTransition = useRef(new Animated.Value(1)).current;
   const isSwitchingView = useRef(false);
+  const hasMounted = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-      UIManager.setLayoutAnimationEnabledExperimental(true);
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
     }
-  }, []);
+
+    tabTransition.stopAnimation();
+    tabTransition.setValue(0);
+
+    Animated.timing(tabTransition, {
+      toValue: 1,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      isSwitchingView.current = false;
+    });
+  }, [displayedViewMode, tabTransition]);
 
   function formatTimelineMinute(minute: number) {
     if (minute <= 0) return 'Depart';
@@ -100,6 +116,17 @@ export function AidStationsSectionV3({
     const hours = Math.floor(durationMin / 60);
     const mins = Math.round(durationMin % 60);
     return hours > 0 ? `${hours}h${String(mins).padStart(2, '0')}` : `${mins}min`;
+  }
+
+  function renderPauseBadge(pauseMinutes: number | undefined) {
+    const safePause = Math.max(0, Math.round(pauseMinutes ?? 0));
+    if (safePause <= 0) return null;
+
+    return (
+      <View style={styles.stationPauseBadge}>
+        <Text style={styles.stationPauseText}>+{safePause} min</Text>
+      </View>
+    );
   }
 
   function formatPace(minutesPerKm: number) {
@@ -163,48 +190,11 @@ export function AidStationsSectionV3({
   }
 
   function switchViewMode(nextMode: 'stations' | 'sections' | 'profile') {
-    if (nextMode === selectedViewMode || isSwitchingView.current) return;
+    if (nextMode === displayedViewMode || isSwitchingView.current) return;
 
-    setSelectedViewMode(nextMode);
     isSwitchingView.current = true;
-
-    Animated.timing(tabTransition, {
-      toValue: 0,
-      duration: 90,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start(() => {
-      LayoutAnimation.configureNext({
-        duration: 190,
-        create: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-          property: LayoutAnimation.Properties.opacity,
-          duration: 140,
-        },
-        update: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-          springDamping: 0.88,
-          duration: 190,
-        },
-        delete: {
-          type: LayoutAnimation.Types.easeInEaseOut,
-          property: LayoutAnimation.Properties.opacity,
-          duration: 100,
-        },
-      });
-
-      setDisplayedViewMode(nextMode);
-      tabTransition.setValue(0);
-
-      Animated.timing(tabTransition, {
-        toValue: 1,
-        duration: 170,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start(() => {
-        isSwitchingView.current = false;
-      });
-    });
+    setSelectedViewMode(nextMode);
+    setDisplayedViewMode(nextMode);
   }
 
   function formatSectionTarget(summary: SectionSummary | null): SectionTarget {
@@ -257,6 +247,7 @@ export function AidStationsSectionV3({
             <TouchableOpacity onPress={() => toggleStation(stationKey)} activeOpacity={0.7} style={styles.stationHeaderRow}>
               <Text style={styles.stationIcon}>D</Text>
               <Text style={styles.stationName}>{station.name}</Text>
+              {renderPauseBadge(station.pauseMinutes)}
               <Text style={styles.stationKm}>{station.distanceKm} km</Text>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
             </TouchableOpacity>
@@ -267,6 +258,7 @@ export function AidStationsSectionV3({
                   metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
+                  animateSignal={gaugeAnimateSignal}
                 />
                 <SuppliesList
                   supplies={getSupplies('start')}
@@ -286,6 +278,7 @@ export function AidStationsSectionV3({
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
                   compact
+                  animateSignal={gaugeAnimateSignal}
                 />
               </View>
             )}
@@ -297,6 +290,7 @@ export function AidStationsSectionV3({
             <View style={styles.stationHeaderRow}>
               <Text style={styles.stationIcon}>A</Text>
               <Text style={styles.stationName}>{station.name}</Text>
+              {renderPauseBadge(station.pauseMinutes)}
               <Text style={styles.stationKm}>{station.distanceKm} km</Text>
             </View>
           </View>
@@ -310,9 +304,17 @@ export function AidStationsSectionV3({
               <Text style={styles.stationName} numberOfLines={1}>
                 {station.name}
               </Text>
+              {renderPauseBadge(station.pauseMinutes)}
               <TouchableOpacity
                 style={styles.headerIconBtn}
-                onPress={() => setEditingStation({ index, name: station.name, km: String(station.distanceKm) })}
+                onPress={() =>
+                  setEditingStation({
+                    index,
+                    name: station.name,
+                    km: String(station.distanceKm),
+                    pauseMinutes: String(station.pauseMinutes ?? 0),
+                  })
+                }
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
                 <Ionicons name="create-outline" size={16} color="#6B7280" />
@@ -334,6 +336,7 @@ export function AidStationsSectionV3({
                   metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
+                  animateSignal={gaugeAnimateSignal}
                 />
                 <SuppliesList
                   supplies={getSupplies(index)}
@@ -353,6 +356,7 @@ export function AidStationsSectionV3({
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
                   compact
+                  animateSignal={gaugeAnimateSignal}
                 />
               </View>
             )}
@@ -636,13 +640,13 @@ export function AidStationsSectionV3({
       {
         scale: tabTransition.interpolate({
           inputRange: [0, 1],
-          outputRange: [0.975, 1],
+          outputRange: [0.985, 1],
         }),
       },
       {
         translateY: tabTransition.interpolate({
           inputRange: [0, 1],
-          outputRange: [8, 0],
+          outputRange: [6, 0],
         }),
       },
     ],
@@ -686,7 +690,9 @@ export function AidStationsSectionV3({
         </TouchableOpacity>
       </View>
 
-      <Animated.View style={animatedContentStyle}>{renderActiveView()}</Animated.View>
+      <Animated.View key={displayedViewMode} style={animatedContentStyle}>
+        {renderActiveView()}
+      </Animated.View>
     </>
   );
 }

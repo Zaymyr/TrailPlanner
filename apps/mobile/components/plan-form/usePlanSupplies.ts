@@ -118,6 +118,7 @@ export function usePlanSupplies({
       name: `Ravito ${intermediates.length + 1}`,
       distanceKm: newKm > 0 ? newKm : 10,
       waterRefill: true,
+      pauseMinutes: 0,
       supplies: [],
     };
     const arriveeIndex = values.aidStations.findIndex((station) => station.id === ARRIVEE_ID);
@@ -144,6 +145,7 @@ export function usePlanSupplies({
       name: `Ravito ${index + 1}`,
       distanceKm: Math.round((index + 1) * interval * 10) / 10,
       waterRefill: true,
+      pauseMinutes: 0,
       supplies: [],
     }));
 
@@ -196,6 +198,7 @@ export function usePlanSupplies({
       name: product.name,
       carbsGrams: product.carbs_g ?? 0,
       sodiumMg: product.sodium_mg ?? 0,
+      fuelType: product.fuel_type,
     }));
 
     const intermediates = values.aidStations
@@ -208,6 +211,10 @@ export function usePlanSupplies({
             values.targetIntakePerHour * startDurationH,
             values.sodiumIntakePerHour * startDurationH,
             poolAsFavorites,
+            {
+              targetWaterMl: (buildSectionSummary('start')?.targetWaterMl ?? 0),
+              availableWaterMl: values.waterBagLiters * 1000,
+            },
           )
         : [];
 
@@ -220,6 +227,10 @@ export function usePlanSupplies({
           values.targetIntakePerHour * durationH,
           values.sodiumIntakePerHour * durationH,
           poolAsFavorites,
+          {
+            targetWaterMl: buildSectionSummary(index + 1)?.targetWaterMl ?? 0,
+            availableWaterMl: station.waterRefill ? values.waterBagLiters * 1000 : 0,
+          },
         ),
       };
     });
@@ -240,6 +251,7 @@ export function usePlanSupplies({
     values.raceDistanceKm,
     values.sodiumIntakePerHour,
     values.targetIntakePerHour,
+    values.waterBagLiters,
   ]);
 
   const removeAidStation = useCallback(

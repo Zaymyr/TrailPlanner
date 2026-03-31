@@ -29,6 +29,7 @@ type RacePlanRow = {
       name: string;
       distanceKm: number;
       waterRefill: boolean;
+      pauseMinutes?: number;
       supplies?: Array<{ productId: string; quantity: number }>;
     }>;
   };
@@ -54,6 +55,7 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
       name: s.name,
       distanceKm: s.distanceKm,
       waterRefill: s.waterRefill,
+      pauseMinutes: s.pauseMinutes ?? 0,
       supplies: (s.supplies ?? []).map((sup): Supply => ({ productId: sup.productId, quantity: sup.quantity ?? 1 })),
     })),
   };
@@ -143,6 +145,7 @@ export default function EditPlanScreen() {
         name: s.name,
         distanceKm: s.distanceKm,
         waterRefill: s.waterRefill,
+        pauseMinutes: s.pauseMinutes ?? 0,
         supplies: (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
       })),
     };
@@ -160,7 +163,7 @@ export default function EditPlanScreen() {
     setSaving(false);
 
     if (!err) {
-      router.back();
+      setPlanName(values.name);
     }
   }
 

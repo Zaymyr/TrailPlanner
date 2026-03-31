@@ -136,22 +136,27 @@ export default function NewPlanScreen() {
         name: s.name,
         distanceKm: s.distanceKm,
         waterRefill: s.waterRefill,
+        pauseMinutes: s.pauseMinutes ?? 0,
         supplies: (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
       })),
     };
 
-    const { error } = await supabase.from('race_plans').insert({
-      user_id: uid,
-      name: values.name,
-      planner_values: plannerValues,
-      elevation_profile: elevationProfile,
-      race_id: selectedRace?.id ?? resolvedRaceId ?? null,
-    });
+    const { data, error } = await supabase
+      .from('race_plans')
+      .insert({
+        user_id: uid,
+        name: values.name,
+        planner_values: plannerValues,
+        elevation_profile: elevationProfile,
+        race_id: selectedRace?.id ?? resolvedRaceId ?? null,
+      })
+      .select('id')
+      .single();
 
     setSaving(false);
 
-    if (!error) {
-      router.replace('/(app)/plans');
+    if (!error && data?.id) {
+      router.replace(`/(app)/plan/${data.id}/edit`);
     }
   }
 

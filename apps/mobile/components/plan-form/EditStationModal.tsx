@@ -6,6 +6,7 @@ export type EditingStation = {
   index: number;
   name: string;
   km: string;
+  pauseMinutes: string;
 } | null;
 
 type Props = {
@@ -43,6 +44,15 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
             style={[styles.textInput, { marginBottom: 20 }]}
             value={editingStation?.km ?? ''}
             onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, km: t } : prev))}
+            keyboardType="numeric"
+            placeholder="0"
+            placeholderTextColor={Colors.textMuted}
+          />
+          <Text style={styles.label}>Pause (min)</Text>
+          <TextInput
+            style={[styles.textInput, { marginBottom: 20 }]}
+            value={editingStation?.pauseMinutes ?? ''}
+            onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: t } : prev))}
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor={Colors.textMuted}

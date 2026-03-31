@@ -21,16 +21,50 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
       ? `${String(values.paceMinutes).padStart(2, '0')}:${String(values.paceSeconds).padStart(2, '0')} min/km`
       : `${values.speedKph.toFixed(1)} km/h`;
 
+  const renderAccordionHeader = (
+    section: AccordionSection,
+    title: string,
+    summaryChips: string[],
+    spaced = false,
+  ) => (
+    <TouchableOpacity
+      style={[
+        styles.sectionAccordionHeader,
+        spaced && styles.sectionAccordionHeaderSpaced,
+        !expandedSections[section] && styles.sectionAccordionHeaderCollapsed,
+      ]}
+      onPress={() => toggleSection(section)}
+      activeOpacity={0.8}
+    >
+      <View style={styles.sectionAccordionHeaderContent}>
+        <View style={styles.sectionAccordionTitleRow}>
+          <Text style={[styles.sectionTitle, styles.sectionAccordionTitle]}>{title}</Text>
+          {!expandedSections[section] && (
+            <View style={styles.sectionSummaryRowInline}>
+              {summaryChips.map((chip) => (
+                <Text key={`${section}-${chip}`} style={styles.sectionSummaryChipInline}>
+                  {chip}
+                </Text>
+              ))}
+            </View>
+          )}
+        </View>
+      </View>
+      <Ionicons
+        name={expandedSections[section] ? 'chevron-up' : 'chevron-down'}
+        size={18}
+        color={Colors.textSecondary}
+      />
+    </TouchableOpacity>
+  );
+
   return (
     <>
-      <TouchableOpacity style={styles.sectionAccordionHeader} onPress={() => toggleSection('course')} activeOpacity={0.8}>
-        <Text style={[styles.sectionTitle, styles.sectionAccordionTitle]}>Course</Text>
-        <Ionicons
-          name={expandedSections.course ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={Colors.textSecondary}
-        />
-      </TouchableOpacity>
+      {renderAccordionHeader('course', 'Course', [
+        values.name?.trim() || 'Sans nom',
+        `${values.raceDistanceKm || 0} km`,
+        `D+ ${values.elevationGain || 0} m`,
+      ])}
       {expandedSections.course && (
         <>
           <Text style={styles.label}>Nom du plan</Text>
@@ -58,26 +92,13 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
           </View>
         </>
       )}
-      {!expandedSections.course && (
-        <View style={styles.sectionSummaryRow}>
-          <Text style={styles.sectionSummaryChip}>{values.name?.trim() || 'Sans nom'}</Text>
-          <Text style={styles.sectionSummaryChip}>{values.raceDistanceKm || 0} km</Text>
-          <Text style={styles.sectionSummaryChip}>D+ {values.elevationGain || 0} m</Text>
-        </View>
-      )}
 
-      <TouchableOpacity
-        style={[styles.sectionAccordionHeader, styles.sectionAccordionHeaderSpaced]}
-        onPress={() => toggleSection('pace')}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.sectionTitle, styles.sectionAccordionTitle]}>Allure</Text>
-        <Ionicons
-          name={expandedSections.pace ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={Colors.textSecondary}
-        />
-      </TouchableOpacity>
+      {renderAccordionHeader(
+        'pace',
+        'Allure',
+        [paceSummary, values.paceType === 'pace' ? 'Mode allure' : 'Mode vitesse'],
+        true,
+      )}
       {expandedSections.pace && (
         <>
           <View style={styles.toggleRow}>
@@ -121,25 +142,18 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
           )}
         </>
       )}
-      {!expandedSections.pace && (
-        <View style={styles.sectionSummaryRow}>
-          <Text style={styles.sectionSummaryChip}>{paceSummary}</Text>
-          <Text style={styles.sectionSummaryChip}>{values.paceType === 'pace' ? 'Mode allure' : 'Mode vitesse'}</Text>
-        </View>
-      )}
 
-      <TouchableOpacity
-        style={[styles.sectionAccordionHeader, styles.sectionAccordionHeaderSpaced]}
-        onPress={() => toggleSection('nutrition')}
-        activeOpacity={0.8}
-      >
-        <Text style={[styles.sectionTitle, styles.sectionAccordionTitle]}>Nutrition (cibles/heure)</Text>
-        <Ionicons
-          name={expandedSections.nutrition ? 'chevron-up' : 'chevron-down'}
-          size={18}
-          color={Colors.textSecondary}
-        />
-      </TouchableOpacity>
+      {renderAccordionHeader(
+        'nutrition',
+        'Nutrition',
+        [
+          `${values.targetIntakePerHour || 0} g/h`,
+          `${values.waterIntakePerHour || 0} ml/h`,
+          `${values.sodiumIntakePerHour || 0} mg/h`,
+          `Sac ${values.waterBagLiters} L`,
+        ],
+        true,
+      )}
       {expandedSections.nutrition && (
         <>
           <View style={styles.row}>
@@ -187,14 +201,6 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
             ))}
           </View>
         </>
-      )}
-      {!expandedSections.nutrition && (
-        <View style={styles.sectionSummaryRow}>
-          <Text style={styles.sectionSummaryChip}>{values.targetIntakePerHour || 0} g/h</Text>
-          <Text style={styles.sectionSummaryChip}>{values.waterIntakePerHour || 0} ml/h</Text>
-          <Text style={styles.sectionSummaryChip}>{values.sodiumIntakePerHour || 0} mg/h</Text>
-          <Text style={styles.sectionSummaryChip}>Sac {values.waterBagLiters} L</Text>
-        </View>
       )}
     </>
   );

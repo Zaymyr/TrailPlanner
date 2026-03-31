@@ -2,7 +2,7 @@ import type { ElevationPoint, SectionSegment, SectionSubSegmentStats } from './p
 export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset } from './profile-utils';
 
 export type PlanTarget = 'start' | number;
-export type AccordionSection = 'course' | 'pace' | 'nutrition';
+export type AccordionSection = 'course' | 'pace' | 'nutrition' | 'summary';
 
 export type Supply = {
   productId: string;
@@ -14,6 +14,7 @@ export type AidStationFormItem = {
   name: string;
   distanceKm: number;
   waterRefill: boolean;
+  pauseMinutes?: number;
   supplies?: Supply[];
 };
 
@@ -22,6 +23,7 @@ export type FavProduct = {
   name: string;
   carbsGrams: number;
   sodiumMg: number;
+  fuelType?: string | null;
 };
 
 export type PlanFormValues = {
@@ -84,6 +86,7 @@ export type ProductBreakdownItem = {
 };
 
 export type PlanHighlights = {
+  totalDurationMin: number;
   totalDurationLabel: string;
   totalProductUnits: number;
   distinctProductsCount: number;
@@ -95,6 +98,8 @@ export type PlanHighlights = {
 
 export const DEPART_ID = 'depart';
 export const ARRIVEE_ID = 'arrivee';
+export const DEFAULT_FLUID_PRODUCT_VOLUME_ML = 500;
+export const DEFAULT_FLUID_MIX_SHARE = 0.5;
 
 export const FUEL_LABELS: Record<string, string> = {
   gel: 'GEL',

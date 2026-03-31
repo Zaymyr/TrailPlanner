@@ -9,6 +9,7 @@ type EditingStation = {
   index: number;
   name: string;
   km: string;
+  pauseMinutes: string;
 };
 
 type SectionTarget = {
@@ -172,7 +173,14 @@ export function AidStationsSectionV2({
               </Text>
               <TouchableOpacity
                 style={styles.headerIconBtn}
-                onPress={() => setEditingStation({ index, name: station.name, km: String(station.distanceKm) })}
+                onPress={() =>
+                  setEditingStation({
+                    index,
+                    name: station.name,
+                    km: String(station.distanceKm),
+                    pauseMinutes: String(station.pauseMinutes ?? 0),
+                  })
+                }
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
                 <Ionicons name="create-outline" size={16} color="#6B7280" />

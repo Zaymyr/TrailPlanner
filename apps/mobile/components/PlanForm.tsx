@@ -67,11 +67,17 @@ export default function PlanForm({
     course: !compactBasicsByDefault,
     pace: !compactBasicsByDefault,
     nutrition: !compactBasicsByDefault,
+    summary: !compactBasicsByDefault,
   });
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
+  const [gaugeAnimateSignal, setGaugeAnimateSignal] = useState(0);
 
   void favoriteProducts;
   void saveLabel;
+
+  const triggerGaugeAnimation = () => {
+    setGaugeAnimateSignal((prev) => prev + 1);
+  };
 
   const update = <K extends keyof PlanFormValues>(key: K, value: PlanFormValues[K]) => {
     setValues((prev) => {
@@ -130,6 +136,22 @@ export default function PlanForm({
   });
 
   const basePaceMinutesPerKm = 60 / baseSpeedKph;
+  const highlights = useMemo(
+    () =>
+      buildPlanHighlights({
+        values,
+        productMap,
+        buildSectionSummary,
+      }),
+    [buildSectionSummary, productMap, values],
+  );
+  const paceLabel = useMemo(() => {
+    const safeMinutesPerKm = highlights.totalDurationMin / Math.max(values.raceDistanceKm, 0.01);
+    const totalSeconds = Math.max(1, Math.round(safeMinutesPerKm * 60));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }, [highlights.totalDurationMin, values.raceDistanceKm]);
 
   const getGaugeMetricsForTarget = (
     target: PlanTarget,
@@ -159,16 +181,6 @@ export default function PlanForm({
       waterBagLiters: values.waterBagLiters,
     });
 
-  const highlights = useMemo(
-    () =>
-      buildPlanHighlights({
-        values,
-        productMap,
-        buildSectionSummary,
-      }),
-    [buildSectionSummary, productMap, values],
-  );
-
   const toggleSection = (section: AccordionSection) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
@@ -185,14 +197,17 @@ export default function PlanForm({
   const handleAddProductFromPicker = (product: PickerProduct) => {
     if (pickerTarget === null) return;
     addSupplyToStation(pickerTarget, product.id);
+    triggerGaugeAnimation();
   };
 
   const handleEditSave = () => {
     if (!editingStation) return;
     const km = parseFloat(editingStation.km.replace(',', '.'));
+    const pauseMinutes = parseFloat(editingStation.pauseMinutes.replace(',', '.'));
     updateAidStation(editingStation.index, {
       name: editingStation.name,
       distanceKm: Number.isNaN(km) ? 0 : km,
+      pauseMinutes: Number.isNaN(pauseMinutes) ? 0 : Math.max(0, pauseMinutes),
     });
     setEditingStation(null);
   };
@@ -203,7 +218,7 @@ export default function PlanForm({
       return;
     }
     if (!values.raceDistanceKm || values.raceDistanceKm <= 0) {
-      Alert.alert('Champ requis', 'La distance doit être supérieure à 0.');
+      Alert.alert('Champ requis', 'La distance doit etre superieure a 0.');
       return;
     }
 
@@ -216,16 +231,6 @@ export default function PlanForm({
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <PlanHighlightsSection
-          totalDurationLabel={highlights.totalDurationLabel}
-          totalProductUnits={highlights.totalProductUnits}
-          distinctProductsCount={highlights.distinctProductsCount}
-          intermediateCount={highlights.intermediateCount}
-          plannedCarbsG={highlights.plannedCarbsG}
-          plannedSodiumMg={highlights.plannedSodiumMg}
-          productBreakdown={highlights.productBreakdown}
-        />
-
         <PlanBasicsSection
           values={values}
           expandedSections={expandedSections}
@@ -233,6 +238,17 @@ export default function PlanForm({
           update={update}
           NumberInput={NumberInput}
           waterBagOptions={WATER_BAG_OPTIONS}
+        />
+
+        <PlanHighlightsSection
+          expanded={expandedSections.summary}
+          onToggle={() => toggleSection('summary')}
+          totalDurationLabel={highlights.totalDurationLabel}
+          paceLabel={paceLabel}
+          intermediateCount={highlights.intermediateCount}
+          plannedCarbsG={highlights.plannedCarbsG}
+          plannedSodiumMg={highlights.plannedSodiumMg}
+          productBreakdown={highlights.productBreakdown}
         />
 
         <AidStationsSection
@@ -249,9 +265,18 @@ export default function PlanForm({
           intermediateCount={highlights.intermediateCount}
           getSupplies={getSupplies}
           openPicker={openPicker}
-          increaseQty={increaseQty}
-          decreaseQty={decreaseQty}
-          removeSupply={removeSupply}
+          increaseQty={(target, productId) => {
+            increaseQty(target, productId);
+            triggerGaugeAnimation();
+          }}
+          decreaseQty={(target, productId) => {
+            decreaseQty(target, productId);
+            triggerGaugeAnimation();
+          }}
+          removeSupply={(target, productId) => {
+            removeSupply(target, productId);
+            triggerGaugeAnimation();
+          }}
           productMap={productMap}
           fuelLabels={FUEL_LABELS}
           getGaugeMetrics={getGaugeMetricsForTarget}
@@ -259,6 +284,7 @@ export default function PlanForm({
           formatGaugeValue={formatGaugeValue}
           getSectionSummary={buildSectionSummary}
           getSectionIntakeTimeline={getSectionIntakeTimeline}
+          gaugeAnimateSignal={gaugeAnimateSignal}
           onSplitSectionSegment={splitSectionSegment}
           onRemoveSectionSegment={removeSectionSegment}
           onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
