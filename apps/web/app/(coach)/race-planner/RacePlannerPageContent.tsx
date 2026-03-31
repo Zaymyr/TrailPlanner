@@ -23,6 +23,7 @@ import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { RaceSelector } from "../../../components/race-planner/RaceSelector";
+import { PlanSaveBar } from "../../../components/race-planner/PlanSaveBar";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
@@ -1317,9 +1318,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           userId: session?.id,
           deletingPlanId,
           sessionEmail: session?.email,
-          authStatus,
-          canSavePlan,
-          hasUnsavedChanges,
           showPlanLimitUpsell: planLimitReached && !isPremium,
           premiumCopy,
           planOwnerSelector: isCoach
@@ -1334,7 +1332,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
               }
             : undefined,
           onPlanNameChange: setPlanName,
-          onSavePlan: handleSavePlan,
           onRefreshPlans: handleRefreshPlans,
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
@@ -1377,13 +1374,24 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   if (isLoading) return <PageLoadingSkeleton />;
 
+  const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
+  const raceNameForSaveBar =
+    activePlan?.raceName ??
+    (activePlan?.catalogRaceId ? races.find((race) => race.id === activePlan.catalogRaceId)?.name : null) ??
+    "Sans course";
+  const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
+  const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
+  const shouldShowSaveBar = hasUnsavedChanges;
+  const saveBarDisabled = authStatus === "checking" || !canSavePlan;
+  const saveBarPaddingClass = shouldShowSaveBar ? "pb-28 sm:pb-24" : "";
+
   return (
     <>
       <Script id="software-application-ld" type="application/ld+json" strategy="afterInteractive">
         {JSON.stringify(structuredData)}
       </Script>
 
-      <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+      <div className={`space-y-6 ${pagePaddingClass} ${saveBarPaddingClass} print:hidden`}>
         <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
         <CourseProfileSection
           sectionId={sectionIds.courseProfile}
@@ -1613,6 +1621,16 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </div>
         )}
       </div>
+      <PlanSaveBar
+        isVisible={shouldShowSaveBar}
+        isSaving={planStatus === "saving"}
+        isDisabled={saveBarDisabled}
+        unsavedLabel={racePlannerCopy.account.plans.unsavedChanges}
+        saveLabel={racePlannerCopy.account.plans.save}
+        contextLabel={saveBarContextLabel}
+        errorMessage={accountError}
+        onSave={handleSavePlan}
+      />
 
       {segments.length > 0 ? (
         usePrintLayoutV2 ? (
