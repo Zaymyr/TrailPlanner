@@ -12,7 +12,7 @@ export function PlannerRightPanel({ planManagerProps }: PlannerRightPanelProps) 
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold">{planManagerProps.copy.title}</CardTitle>
+          <CardTitle className="text-base font-semibold">{planManagerProps.copy.plans.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <PlanManager {...planManagerProps} />

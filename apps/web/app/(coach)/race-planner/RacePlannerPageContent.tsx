@@ -11,7 +11,6 @@ import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
 import { useCoachIntakeTargets } from "../../hooks/useCoachIntakeTargets";
 import { useEffectiveIntakeTargets } from "../../hooks/useEffectiveIntakeTargets";
-import { useCoachCoachees } from "../../hooks/useCoachCoachees";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, StationSupply } from "./types";
@@ -23,6 +22,7 @@ import { mapProductToSelection } from "../../../lib/product-preferences";
 import { RacePlannerLayout } from "../../../components/race-planner/RacePlannerLayout";
 import { RaceCatalogModal } from "./components/RaceCatalogModal";
 import { RaceSelector } from "../../../components/race-planner/RaceSelector";
+import { PlanSaveBar } from "../../../components/race-planner/PlanSaveBar";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
@@ -472,37 +472,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isCoach = Boolean(isAdmin || session?.role === "coach" || session?.roles?.includes("coach"));
   const isAuthed = Boolean(session?.accessToken);
-  const { coachees, isLoading: isCoacheesLoading, error: coacheesError } = useCoachCoachees({
-    accessToken: session?.accessToken,
-    enabled: isCoach,
-  });
   const { targets: coachTargets } = useCoachIntakeTargets(session?.accessToken);
   const { effectiveTargets, isCoachManaged } = useEffectiveIntakeTargets(baseIntakeTargets, coachTargets);
   const canEditCoachComments = Boolean(
     isAdmin || session?.role === "coach" || session?.roles?.includes("coach")
   );
-  const planOwnerOptions = useMemo(() => {
-    if (!isCoach) {
-      return [];
-    }
-
-    const ownerOptions = [
-      { value: "self", label: racePlannerCopy.account.coach.myPlans },
-      ...coachees.map((coachee) => ({
-        value: coachee.id,
-        label:
-          coachee.fullName ??
-          coachee.invitedEmail ??
-          t.coachDashboard.coachees.unknownName,
-      })),
-    ];
-
-    return ownerOptions;
-  }, [coachees, isCoach, racePlannerCopy.account.coach.myPlans, t.coachDashboard.coachees.unknownName]);
-  const selectedPlanOwnerValue = selectedCoacheeId ?? "self";
-  const handlePlanOwnerChange = useCallback((value: string) => {
-    setSelectedCoacheeId(value === "self" ? null : value);
-  }, []);
   const coachCommentsCoacheeId = isCoach && selectedCoacheeId ? selectedCoacheeId : session?.id;
 
   useEffect(() => {
@@ -1317,24 +1291,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           userId: session?.id,
           deletingPlanId,
           sessionEmail: session?.email,
-          authStatus,
-          canSavePlan,
-          hasUnsavedChanges,
           showPlanLimitUpsell: planLimitReached && !isPremium,
           premiumCopy,
-          planOwnerSelector: isCoach
-            ? {
-                label: racePlannerCopy.account.coach.planOwnerLabel,
-                helper: racePlannerCopy.account.coach.planOwnerHelper,
-                options: planOwnerOptions,
-                value: selectedPlanOwnerValue,
-                isLoading: isCoacheesLoading,
-                errorMessage: coacheesError ? racePlannerCopy.account.coach.loadError : null,
-                onChange: handlePlanOwnerChange,
-              }
-            : undefined,
           onPlanNameChange: setPlanName,
-          onSavePlan: handleSavePlan,
           onRefreshPlans: handleRefreshPlans,
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
@@ -1377,6 +1336,30 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   if (isLoading) return <PageLoadingSkeleton />;
 
+  const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
+  const raceNameForSaveBar =
+    activePlan?.raceName ??
+    (activePlan?.catalogRaceId ? races.find((race) => race.id === activePlan.catalogRaceId)?.name : null) ??
+    "Sans course";
+  const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
+  const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
+  const hasBlockingOverlayOpen =
+    isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || onboardingOpen || upgradeDialogOpen;
+  const shouldShowSaveBar = hasUnsavedChanges && !hasBlockingOverlayOpen;
+  const saveBarDisabled = authStatus === "checking" || !canSavePlan;
+  const saveBarContent = (
+    <PlanSaveBar
+      isVisible={shouldShowSaveBar}
+      isSaving={planStatus === "saving"}
+      isDisabled={saveBarDisabled}
+      unsavedLabel={racePlannerCopy.account.plans.unsavedChanges}
+      saveLabel={racePlannerCopy.account.plans.save}
+      contextLabel={saveBarContextLabel}
+      errorMessage={accountError}
+      onSave={handleSavePlan}
+    />
+  );
+
   return (
     <>
       <Script id="software-application-ld" type="application/ld+json" strategy="afterInteractive">
@@ -1409,6 +1392,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           className="space-y-6"
           planContent={planPrimaryContent}
           settingsContent={settingsContent}
+          floatingFooter={saveBarContent}
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
@@ -1613,7 +1597,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </div>
         )}
       </div>
-
       {segments.length > 0 ? (
         usePrintLayoutV2 ? (
           <PrintablePlanV2

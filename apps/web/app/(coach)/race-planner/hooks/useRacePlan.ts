@@ -729,9 +729,8 @@ export const useRacePlan = ({
     setIsRaceCatalogOpen,
   ]);
 
-  // True when a plan is loaded and the user has made changes not yet saved
+  // True when the current planner state diverges from the latest saved/loaded baseline.
   const hasUnsavedChanges = useMemo(() => {
-    if (!activePlanId) return false;
     if (form.formState.isDirty) return true;
     const saved = savedElevationRef.current;
     if (elevationProfile.length !== saved.length) return true;
@@ -742,7 +741,7 @@ export const useRacePlan = ({
     );
     // savedElevationGeneration is intentionally included to re-run after save/load resets the baseline
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePlanId, elevationProfile, form.formState.isDirty, savedElevationGeneration]);
+  }, [elevationProfile, form.formState.isDirty, savedElevationGeneration]);
 
   return {
     session,

@@ -7,6 +7,7 @@ type RacePlannerLayoutProps = {
   planContent: ReactNode;
   planSecondaryContent?: ReactNode;
   settingsContent: ReactNode;
+  floatingFooter?: ReactNode;
   mobileView: "plan" | "settings";
   onMobileViewChange: (view: "plan" | "settings") => void;
   planLabel: string;
@@ -22,6 +23,7 @@ export function RacePlannerLayout({
   planContent,
   planSecondaryContent,
   settingsContent,
+  floatingFooter,
   mobileView,
   onMobileViewChange,
   planLabel,
@@ -68,6 +70,7 @@ export function RacePlannerLayout({
             {planSecondaryContent ? <div className="space-y-6">{planSecondaryContent}</div> : null}
           </div>
           <div className={mobileView === "settings" ? "space-y-6" : "hidden"}>{settingsContent}</div>
+          {floatingFooter ? <div className="sticky bottom-24 z-30 xl:hidden">{floatingFooter}</div> : null}
         </div>
       </div>
 
@@ -87,6 +90,7 @@ export function RacePlannerLayout({
           ) : (
             <div className="space-y-6">{planContent}</div>
           )}
+          {floatingFooter ? <div className="sticky bottom-4 z-30 hidden xl:block">{floatingFooter}</div> : null}
         </div>
         <div
           className={

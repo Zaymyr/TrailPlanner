@@ -19,22 +19,9 @@ export type PlanManagerProps = {
   userId?: string | null;
   deletingPlanId: string | null;
   sessionEmail?: string;
-  authStatus: "idle" | "signingIn" | "signingUp" | "checking";
-  canSavePlan: boolean;
-  hasUnsavedChanges: boolean;
   showPlanLimitUpsell: boolean;
   premiumCopy: RacePlannerTranslations["account"]["premium"];
-  planOwnerSelector?: {
-    label: string;
-    helper?: string;
-    options: { value: string; label: string }[];
-    value: string;
-    isLoading?: boolean;
-    errorMessage?: string | null;
-    onChange: (value: string) => void;
-  };
   onPlanNameChange: (name: string) => void;
-  onSavePlan: () => void;
   onRefreshPlans: () => void;
   onLoadPlan: (plan: SavedPlan) => void;
   onDeletePlan: (planId: string) => void;
@@ -63,14 +50,9 @@ export function PlanManager({
   userId,
   deletingPlanId,
   sessionEmail,
-  authStatus,
-  canSavePlan,
-  hasUnsavedChanges,
   showPlanLimitUpsell,
   premiumCopy,
-  planOwnerSelector,
   onPlanNameChange,
-  onSavePlan,
   onRefreshPlans,
   onLoadPlan,
   onDeletePlan,
@@ -80,7 +62,6 @@ export function PlanManager({
   onDeleteRace,
 }: PlanManagerProps) {
   const isSaving = planStatus === "saving";
-  const isAuthChecking = authStatus === "checking";
   const successMessage =
     accountMessage && accountMessage !== copy.messages.signedIn ? accountMessage : null;
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -169,38 +150,8 @@ export function PlanManager({
           <div className="space-y-4">
             {/* Save section */}
             <div className="space-y-2">
-              {planOwnerSelector ? (
-                <div className="space-y-2">
-                  <Label htmlFor="plan-owner">{planOwnerSelector.label}</Label>
-                  <select
-                    id="plan-owner"
-                    value={planOwnerSelector.value}
-                    onChange={(event) => planOwnerSelector.onChange(event.target.value)}
-                    disabled={planOwnerSelector.isLoading}
-                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                  >
-                    {planOwnerSelector.options.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  {planOwnerSelector.helper ? (
-                    <p className="text-xs text-muted-foreground dark:text-slate-400">{planOwnerSelector.helper}</p>
-                  ) : null}
-                  {planOwnerSelector.errorMessage ? (
-                    <p className="text-xs text-red-400">{planOwnerSelector.errorMessage}</p>
-                  ) : null}
-                </div>
-              ) : null}
               <div className="flex items-center justify-between gap-2">
                 <Label htmlFor="plan-name">{copy.plans.nameLabel}</Label>
-                {hasUnsavedChanges && (
-                  <span className="flex items-center gap-1 text-[10px] font-medium text-amber-400">
-                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
-                    {copy.plans.unsavedChanges}
-                  </span>
-                )}
               </div>
               <Input
                 id="plan-name"
@@ -208,14 +159,6 @@ export function PlanManager({
                 placeholder={copy.plans.defaultName}
                 onChange={(event) => onPlanNameChange(event.target.value)}
               />
-              <Button
-                type="button"
-                className="w-full"
-                onClick={onSavePlan}
-                disabled={isSaving || !canSavePlan || isAuthChecking}
-              >
-                {isSaving ? copy.plans.saving : copy.plans.save}
-              </Button>
               {showPlanLimitUpsell ? (
                 <p className="text-xs text-amber-200" role="status">
                   {premiumCopy.planLimitReached}
