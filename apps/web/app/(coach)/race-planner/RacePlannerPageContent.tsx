@@ -1345,7 +1345,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
   const shouldShowSaveBar = hasUnsavedChanges;
   const saveBarDisabled = authStatus === "checking" || !canSavePlan;
-  const saveBarPaddingClass = shouldShowSaveBar ? "pb-28 sm:pb-24" : "";
+  const saveBarContent = (
+    <PlanSaveBar
+      isVisible={shouldShowSaveBar}
+      isSaving={planStatus === "saving"}
+      isDisabled={saveBarDisabled}
+      unsavedLabel={racePlannerCopy.account.plans.unsavedChanges}
+      saveLabel={racePlannerCopy.account.plans.save}
+      contextLabel={saveBarContextLabel}
+      errorMessage={accountError}
+      onSave={handleSavePlan}
+    />
+  );
 
   return (
     <>
@@ -1353,7 +1364,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         {JSON.stringify(structuredData)}
       </Script>
 
-      <div className={`space-y-6 ${pagePaddingClass} ${saveBarPaddingClass} print:hidden`}>
+      <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
         <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
         <CourseProfileSection
           sectionId={sectionIds.courseProfile}
@@ -1379,6 +1390,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           className="space-y-6"
           planContent={planPrimaryContent}
           settingsContent={settingsContent}
+          floatingFooter={saveBarContent}
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
@@ -1583,17 +1595,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </div>
         )}
       </div>
-      <PlanSaveBar
-        isVisible={shouldShowSaveBar}
-        isSaving={planStatus === "saving"}
-        isDisabled={saveBarDisabled}
-        unsavedLabel={racePlannerCopy.account.plans.unsavedChanges}
-        saveLabel={racePlannerCopy.account.plans.save}
-        contextLabel={saveBarContextLabel}
-        errorMessage={accountError}
-        onSave={handleSavePlan}
-      />
-
       {segments.length > 0 ? (
         usePrintLayoutV2 ? (
           <PrintablePlanV2
