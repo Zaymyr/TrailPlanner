@@ -1,45 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import { Animated, Easing, LayoutAnimation, Platform, Text, TextInput, TouchableOpacity, UIManager, View } from 'react-native';
-import type { AidStationFormItem, ElevationPoint, SectionSegment, SectionSubSegmentStats } from '../PlanForm';
 import type { GaugeMetric } from './GaugeArc';
+import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
+import { SuppliesList } from './SuppliesList';
+import type { EditingStation } from './EditStationModal';
+import type { AidStationFormItem, PlanProduct, PlanTarget, SectionSummary, SectionTarget, SectionSegment, IntakeTimelineItem } from './contracts';
 import { getElevationSlice } from './profile-utils';
 import { styles } from './styles';
-
-type EditingStation = {
-  index: number;
-  name: string;
-  km: string;
-};
-
-type SectionTarget = {
-  targetCarbsG: number;
-  targetSodiumMg: number;
-  targetWaterMl: number;
-};
-
-type TimelineItem = {
-  minute: number;
-  label: string;
-  detail: string;
-  immediate?: boolean;
-};
-
-type SectionSummary = {
-  sectionIndex: number;
-  startKm: number;
-  endKm: number;
-  distanceKm: number;
-  durationMin: number;
-  targetCarbsG: number;
-  targetSodiumMg: number;
-  targetWaterMl: number;
-  profilePoints: ElevationPoint[];
-  segments: SectionSegment[];
-  segmentStats: SectionSubSegmentStats[];
-  hasStoredSegments: boolean;
-};
 
 type Props = {
   values: {
@@ -56,20 +25,26 @@ type Props = {
   addAidStation: () => void;
   fillSuppliesAuto: () => void;
   intermediateCount: number;
-  renderGauges: (target: 'start' | number, sectionTarget?: SectionTarget, compact?: boolean) => JSX.Element;
-  renderSupplies: (target: 'start' | number) => JSX.Element;
-  getGaugeMetrics: (target: 'start' | number, sectionTarget?: SectionTarget) => GaugeMetric[];
+  getSupplies: (target: PlanTarget) => { productId: string; quantity: number }[];
+  openPicker: (target: PlanTarget) => void;
+  increaseQty: (target: PlanTarget, productId: string) => void;
+  decreaseQty: (target: PlanTarget, productId: string) => void;
+  removeSupply: (target: PlanTarget, productId: string) => void;
+  productMap: Record<string, PlanProduct>;
+  fuelLabels: Record<string, string>;
+  getGaugeMetrics: (target: PlanTarget, sectionTarget?: SectionTarget) => GaugeMetric[];
   getGaugeColor: (key: GaugeMetric['key'], ratio: number) => string;
-  getSectionSummary: (target: 'start' | number) => SectionSummary | null;
+  formatGaugeValue: (metric: GaugeMetric, value: number) => string;
+  getSectionSummary: (target: PlanTarget) => SectionSummary | null;
   getSectionIntakeTimeline: (
-    target: 'start' | number,
+    target: PlanTarget,
     sectionDurationMin: number,
     sectionTarget?: SectionTarget,
-  ) => TimelineItem[];
-  onSplitSectionSegment: (target: 'start' | number, segmentIndex: number) => void;
-  onRemoveSectionSegment: (target: 'start' | number, segmentIndex: number) => void;
+  ) => IntakeTimelineItem[];
+  onSplitSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
+  onRemoveSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
   onUpdateSectionSegmentPaceAdjustment: (
-    target: 'start' | number,
+    target: PlanTarget,
     segmentIndex: number,
     paceAdjustmentMinutesPerKm: number | undefined,
   ) => void;
@@ -87,10 +62,16 @@ export function AidStationsSectionV3({
   addAidStation,
   fillSuppliesAuto,
   intermediateCount,
-  renderGauges,
-  renderSupplies,
+  getSupplies,
+  openPicker,
+  increaseQty,
+  decreaseQty,
+  removeSupply,
+  productMap,
+  fuelLabels,
   getGaugeMetrics,
   getGaugeColor,
+  formatGaugeValue,
   getSectionSummary,
   getSectionIntakeTimeline,
   onSplitSectionSegment,
@@ -257,17 +238,17 @@ export function AidStationsSectionV3({
   }
 
   function renderStationsView() {
-    const elements: JSX.Element[] = [];
+    const elements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const stationKey = station.id ?? String(index);
       const isExpanded = expandedStations.has(stationKey);
-      const targetKey: 'start' | number = isDepart ? 'start' : index;
+      const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
-      let card: JSX.Element;
+      let card: ReactElement;
 
       if (isDepart) {
         const collapsedTintStyle = getCollapsedTint('start', summary);
@@ -282,13 +263,30 @@ export function AidStationsSectionV3({
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
-                {renderGauges('start', formatSectionTarget(summary))}
-                {renderSupplies('start')}
+                <GaugesRow
+                  metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
+                  formatGaugeValue={formatGaugeValue}
+                  getGaugeColor={getGaugeColor}
+                />
+                <SuppliesList
+                  supplies={getSupplies('start')}
+                  productMap={productMap}
+                  fuelLabels={fuelLabels}
+                  onOpenPicker={() => openPicker('start')}
+                  onIncreaseQty={(productId) => increaseQty('start', productId)}
+                  onDecreaseQty={(productId) => decreaseQty('start', productId)}
+                  onRemoveSupply={(productId) => removeSupply('start', productId)}
+                />
               </>
             )}
             {!isExpanded && (
               <View style={styles.collapsedGaugeRow}>
-                {renderGauges('start', formatSectionTarget(summary), true)}
+                <GaugesRow
+                  metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
+                  formatGaugeValue={formatGaugeValue}
+                  getGaugeColor={getGaugeColor}
+                  compact
+                />
               </View>
             )}
           </View>
@@ -332,13 +330,30 @@ export function AidStationsSectionV3({
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
-                {renderGauges(index, formatSectionTarget(summary))}
-                {renderSupplies(index)}
+                <GaugesRow
+                  metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
+                  formatGaugeValue={formatGaugeValue}
+                  getGaugeColor={getGaugeColor}
+                />
+                <SuppliesList
+                  supplies={getSupplies(index)}
+                  productMap={productMap}
+                  fuelLabels={fuelLabels}
+                  onOpenPicker={() => openPicker(index)}
+                  onIncreaseQty={(productId) => increaseQty(index, productId)}
+                  onDecreaseQty={(productId) => decreaseQty(index, productId)}
+                  onRemoveSupply={(productId) => removeSupply(index, productId)}
+                />
               </>
             )}
             {!isExpanded && (
               <View style={styles.collapsedGaugeRow}>
-                {renderGauges(index, formatSectionTarget(summary), true)}
+                <GaugesRow
+                  metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
+                  formatGaugeValue={formatGaugeValue}
+                  getGaugeColor={getGaugeColor}
+                  compact
+                />
               </View>
             )}
           </View>
@@ -364,13 +379,13 @@ export function AidStationsSectionV3({
   }
 
   function renderSectionsView() {
-    const elements: JSX.Element[] = [];
+    const elements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
-      const targetKey: 'start' | number = isDepart ? 'start' : index;
+      const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
       elements.push(
@@ -425,13 +440,13 @@ export function AidStationsSectionV3({
   }
 
   function renderProfileView() {
-    const elements: JSX.Element[] = [];
+    const elements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
-      const targetKey: 'start' | number = isDepart ? 'start' : index;
+      const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
       elements.push(

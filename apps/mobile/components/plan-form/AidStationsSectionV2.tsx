@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { AidStationFormItem } from '../PlanForm';
 import type { GaugeMetric } from './GaugeArc';
@@ -44,8 +44,8 @@ type Props = {
   addAidStation: () => void;
   fillSuppliesAuto: () => void;
   intermediateCount: number;
-  renderGauges: (target: 'start' | number, sectionTarget?: SectionTarget, compact?: boolean) => JSX.Element;
-  renderSupplies: (target: 'start' | number) => JSX.Element;
+  renderGauges: (target: 'start' | number, sectionTarget?: SectionTarget, compact?: boolean) => ReactElement;
+  renderSupplies: (target: 'start' | number) => ReactElement;
   getGaugeMetrics: (target: 'start' | number, sectionTarget?: SectionTarget) => GaugeMetric[];
   getGaugeColor: (key: GaugeMetric['key'], ratio: number) => string;
   getSectionIntakeTimeline: (
@@ -113,7 +113,7 @@ export function AidStationsSectionV2({
   }
 
   function renderStationsView() {
-    const elements: JSX.Element[] = [];
+    const elements: ReactElement[] = [];
     const speedKph = getSpeedKph();
 
     values.aidStations.forEach((station, index) => {
@@ -125,7 +125,7 @@ export function AidStationsSectionV2({
       const nextSt = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
       const sectionTarget = getSectionTarget(station, nextSt);
 
-      let card: JSX.Element;
+      let card: ReactElement;
 
       if (isDepart) {
         const collapsedTintStyle = getCollapsedTint('start', sectionTarget);
@@ -224,7 +224,7 @@ export function AidStationsSectionV2({
   }
 
   function renderSectionsView() {
-    const elements: JSX.Element[] = [];
+    const elements: ReactElement[] = [];
     const speedKph = getSpeedKph();
 
     values.aidStations.forEach((station, index) => {

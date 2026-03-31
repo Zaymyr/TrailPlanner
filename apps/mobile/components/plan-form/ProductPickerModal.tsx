@@ -1,15 +1,9 @@
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import type { PlanProduct } from './contracts';
 import { styles } from './styles';
 
-export type PickerProduct = {
-  id: string;
-  name: string;
-  fuel_type: string;
-  carbs_g: number | null;
-  sodium_mg: number | null;
-  calories_kcal: number | null;
-};
+export type PickerProduct = PlanProduct;
 
 type Props = {
   visible: boolean;

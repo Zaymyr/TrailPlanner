@@ -1,22 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ReactElement } from 'react';
 import { Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
-import type { PlanFormValues } from '../PlanForm';
+import type { AccordionSection, PlanFormValues } from './contracts';
+import type { NumberInputProps } from './NumberInput';
 import { styles } from './styles';
-
-type NumberInputProps = {
-  value: number;
-  onChange: (value: number) => void;
-  placeholder?: string;
-  style?: object;
-};
 
 type Props = {
   values: PlanFormValues;
-  expandedSections: Record<'course' | 'pace' | 'nutrition', boolean>;
-  toggleSection: (section: 'course' | 'pace' | 'nutrition') => void;
+  expandedSections: Record<AccordionSection, boolean>;
+  toggleSection: (section: AccordionSection) => void;
   update: (key: keyof PlanFormValues, value: PlanFormValues[keyof PlanFormValues]) => void;
-  NumberInput: (props: NumberInputProps) => JSX.Element;
+  NumberInput: (props: NumberInputProps) => ReactElement;
   waterBagOptions: number[];
 };
 

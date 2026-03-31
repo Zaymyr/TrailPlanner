@@ -190,6 +190,7 @@ export default function EditPlanScreen() {
         loading={saving}
         saveLabel="Enregistrer les modifications"
         favoriteProducts={favoriteProducts}
+        compactBasicsByDefault
       />
     </>
   );

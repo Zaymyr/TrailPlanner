@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { ReactElement } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { AidStationFormItem } from '../PlanForm';
 import type { GaugeMetric } from './GaugeArc';
@@ -34,8 +35,8 @@ type Props = {
     target: 'start' | number,
     sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
     compact?: boolean,
-  ) => JSX.Element;
-  renderSupplies: (target: 'start' | number) => JSX.Element;
+  ) => ReactElement;
+  renderSupplies: (target: 'start' | number) => ReactElement;
   getGaugeMetrics: (
     target: 'start' | number,
     sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
