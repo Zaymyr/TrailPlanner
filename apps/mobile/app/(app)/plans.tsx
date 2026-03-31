@@ -14,11 +14,13 @@ import {
   ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
+import { getSession } from '../../lib/raceLiveSession';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -225,6 +227,7 @@ export default function PlansScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
 
   // Race picker modal state
   const [showRacePicker, setShowRacePicker] = useState(false);
@@ -275,6 +278,16 @@ export default function PlansScreen() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const syncActivePlan = useCallback(() => {
+    setActivePlanId(getSession()?.plan.id ?? null);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      syncActivePlan();
+    }, [syncActivePlan]),
+  );
 
   async function openRacePicker() {
     if (!isPremium && plans.length >= FREE_PLAN_LIMIT) {
@@ -479,30 +492,39 @@ export default function PlansScreen() {
           const key = section.raceId ?? '__orphan__';
           if (collapsedSections.has(key)) return null;
           const duration = estimateDuration(item.planner_values);
+          const isActivePlan = activePlanId === item.id;
+          const mainTarget = isActivePlan ? `/(app)/race/${item.id}` : `/(app)/plan/${item.id}/edit`;
           return (
             <View style={styles.card}>
-              <View style={styles.cardActionsLeft}>
-                <TouchableOpacity
-                  onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={styles.iconBtn}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="create-outline" size={16} color="#6B7280" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => handleDelete(item.id)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={styles.iconBtn}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="trash-outline" size={16} color="#EF4444" />
-                </TouchableOpacity>
-              </View>
+              {isActivePlan ? (
+                <View style={[styles.cardActionsLeft, styles.cardActionsActive]}>
+                  <Ionicons name="radio" size={18} color={Colors.warning} />
+                  <Text style={styles.cardActionsActiveText}>Live</Text>
+                </View>
+              ) : (
+                <View style={styles.cardActionsLeft}>
+                  <TouchableOpacity
+                    onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.iconBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="create-outline" size={16} color="#6B7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDelete(item.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.iconBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="trash-outline" size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              )}
               <TouchableOpacity
                 style={styles.cardMainButton}
                 activeOpacity={0.8}
-                onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
+                onPress={() => router.push(mainTarget as any)}
               >
               <View style={styles.cardContent}>
                 <Text style={styles.planName}>{item.name}</Text>
@@ -519,11 +541,13 @@ export default function PlansScreen() {
               </View>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.startButton}
+                style={[styles.startButton, isActivePlan ? styles.startButtonActive : null]}
                 onPress={() => router.push(`/(app)/race/${item.id}` as any)}
                 activeOpacity={0.85}
               >
-                <Text style={styles.startButtonText}>{t.plans.startButton}</Text>
+                <Text style={styles.startButtonText}>
+                  {isActivePlan ? 'En cours' : t.plans.startButton}
+                </Text>
               </TouchableOpacity>
             </View>
           );
@@ -656,6 +680,17 @@ const styles = StyleSheet.create({
     borderRightColor: Colors.border,
     backgroundColor: Colors.surfaceSecondary,
   },
+  cardActionsActive: {
+    minWidth: 54,
+    gap: 6,
+  },
+  cardActionsActiveText: {
+    color: Colors.warning,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
   cardMainButton: {
     flex: 1,
   },
@@ -691,6 +726,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandPrimary,
     borderLeftWidth: 1,
     borderLeftColor: Colors.brandLight,
+  },
+  startButtonActive: {
+    backgroundColor: Colors.warning,
+    borderLeftColor: '#F6C08A',
   },
   startButtonText: { color: Colors.textOnBrand, fontWeight: '700', fontSize: 12, textAlign: 'center' },
   fab: {
