@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -67,6 +67,15 @@ type Props = {
   onRequestParentScroll: (y: number) => void;
 };
 
+const VIEW_MODES: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
+const PAGER_MODES: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stations'> = [
+  'profile',
+  'stations',
+  'sections',
+  'profile',
+  'stations',
+];
+
 export function AidStationsSectionV3({
   values,
   basePaceMinutesPerKm,
@@ -101,20 +110,11 @@ export function AidStationsSectionV3({
   containerTopY,
   onRequestParentScroll,
 }: Props) {
-  const viewModes: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
-  const pagerModes: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stations'> = [
-    'profile',
-    'stations',
-    'sections',
-    'profile',
-    'stations',
-  ];
   const { width: windowWidth } = useWindowDimensions();
   const pageWidth = Math.max(280, windowWidth - 40);
   const pagerRef = useRef<ScrollView>(null);
   const [selectedViewMode, setSelectedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
   const [displayedViewMode, setDisplayedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
-  const [pagerOffsetX, setPagerOffsetX] = useState(pageWidth);
   const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
   const [viewHeights, setViewHeights] = useState<Record<'stations' | 'sections' | 'profile', number>>({
     stations: 0,
@@ -211,8 +211,8 @@ export function AidStationsSectionV3({
   }
 
   function getWrappedMode(index: number) {
-    const wrappedIndex = (index + viewModes.length) % viewModes.length;
-    return viewModes[wrappedIndex];
+    const wrappedIndex = (index + VIEW_MODES.length) % VIEW_MODES.length;
+    return VIEW_MODES[wrappedIndex];
   }
 
   function handleViewLayout(mode: 'stations' | 'sections' | 'profile', event: LayoutChangeEvent) {
@@ -257,44 +257,27 @@ export function AidStationsSectionV3({
     if (nextMode === displayedViewMode) return;
 
     alignParentScroll(nextMode, displayedViewMode);
-    const nextPageIndex = viewModes.indexOf(nextMode) + 1;
+    const nextPageIndex = VIEW_MODES.indexOf(nextMode) + 1;
     setSelectedViewMode(nextMode);
     setDisplayedViewMode(nextMode);
     pagerRef.current?.scrollTo({ x: nextPageIndex * pageWidth, animated: true });
   }
 
   function switchViewByDelta(delta: -1 | 1) {
-    const currentIndex = viewModes.indexOf(displayedViewMode);
+    const currentIndex = VIEW_MODES.indexOf(displayedViewMode);
     if (currentIndex < 0) return;
     switchViewMode(getWrappedMode(currentIndex + delta));
   }
 
   useEffect(() => {
-    const currentPageIndex = viewModes.indexOf(displayedViewMode) + 1;
+    const currentPageIndex = VIEW_MODES.indexOf(displayedViewMode) + 1;
     if (currentPageIndex <= 0) return;
-    setPagerOffsetX(currentPageIndex * pageWidth);
     pagerRef.current?.scrollTo({ x: currentPageIndex * pageWidth, animated: false });
   }, [displayedViewMode, pageWidth]);
 
-  function handlePagerScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    setPagerOffsetX(event.nativeEvent.contentOffset.x);
-  }
-
-  function getViewportHeight() {
-    const safePageWidth = Math.max(pageWidth, 1);
-    const rawIndex = pagerOffsetX / safePageWidth;
-    const fromIndex = Math.max(0, Math.min(pagerModes.length - 1, Math.floor(rawIndex)));
-    const toIndex = Math.max(0, Math.min(pagerModes.length - 1, Math.ceil(rawIndex)));
-    const progress = Math.max(0, Math.min(1, rawIndex - fromIndex));
-    const fromHeight = Math.max(1, viewHeights[pagerModes[fromIndex]] || 0);
-    const toHeight = Math.max(1, viewHeights[pagerModes[toIndex]] || 0);
-
-    return Math.round(fromHeight + (toHeight - fromHeight) * progress);
-  }
-
   function handlePagerMomentumEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const rawPageIndex = Math.round(event.nativeEvent.contentOffset.x / Math.max(pageWidth, 1));
-    const boundedPageIndex = Math.max(0, Math.min(pagerModes.length - 1, rawPageIndex));
+    const boundedPageIndex = Math.max(0, Math.min(PAGER_MODES.length - 1, rawPageIndex));
 
     let nextMode: 'stations' | 'sections' | 'profile';
     let resetPageIndex: number | null = null;
@@ -302,11 +285,11 @@ export function AidStationsSectionV3({
     if (boundedPageIndex === 0) {
       nextMode = 'profile';
       resetPageIndex = 3;
-    } else if (boundedPageIndex === pagerModes.length - 1) {
+    } else if (boundedPageIndex === PAGER_MODES.length - 1) {
       nextMode = 'stations';
       resetPageIndex = 1;
     } else {
-      nextMode = viewModes[boundedPageIndex - 1];
+      nextMode = VIEW_MODES[boundedPageIndex - 1];
     }
 
     if (nextMode !== displayedViewMode) {
@@ -317,7 +300,6 @@ export function AidStationsSectionV3({
 
     if (resetPageIndex !== null) {
       requestAnimationFrame(() => {
-        setPagerOffsetX(resetPageIndex * pageWidth);
         pagerRef.current?.scrollTo({ x: resetPageIndex * pageWidth, animated: false });
       });
     }
@@ -484,8 +466,7 @@ export function AidStationsSectionV3({
     );
   }
 
-  function getCollapsedTint(target: 'start' | number, summary: SectionSummary | null) {
-    const metrics = getGaugeMetrics(target, formatSectionTarget(summary));
+  function getCollapsedTint(metrics: GaugeMetric[]) {
     const statuses = metrics.map((metric) => getGaugeColor(metric.key, metric.statusRatio ?? metric.ratio));
     const allGreen = statuses.every((color) => color === '#2D5016');
     const hasRed = statuses.some((color) => color === '#EF4444');
@@ -516,11 +497,13 @@ export function AidStationsSectionV3({
       const isExpanded = expandedStations.has(stationKey);
       const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
+      const sectionTarget = formatSectionTarget(summary);
+      const metrics = isArrivee ? [] : getGaugeMetrics(targetKey, sectionTarget);
 
       let card: ReactElement;
 
       if (isDepart) {
-        const collapsedTintStyle = getCollapsedTint('start', summary);
+        const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
           <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]} onLayout={(event) => registerAnchor('stations', index, event)}>
             <TouchableOpacity onPress={() => toggleStation(stationKey)} activeOpacity={0.7} style={styles.stationHeaderRow}>
@@ -535,7 +518,7 @@ export function AidStationsSectionV3({
                 <View style={styles.cardDivider} />
                 {renderCoveragePanel('start', summary)}
                 <GaugesRow
-                  metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
+                  metrics={metrics}
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
                   animateSignal={gaugeAnimateSignal}
@@ -556,7 +539,7 @@ export function AidStationsSectionV3({
                 {renderCoveragePanel('start', summary, true)}
                 <View style={styles.collapsedGaugeRow}>
                   <GaugesRow
-                    metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
+                    metrics={metrics}
                     formatGaugeValue={formatGaugeValue}
                     getGaugeColor={getGaugeColor}
                     compact
@@ -579,7 +562,7 @@ export function AidStationsSectionV3({
           </View>
         );
       } else {
-        const collapsedTintStyle = getCollapsedTint(index, summary);
+        const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
           <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]} onLayout={(event) => registerAnchor('stations', index, event)}>
             <TouchableOpacity onPress={() => toggleStation(stationKey)} activeOpacity={0.7} style={styles.stationHeaderRow}>
@@ -617,7 +600,7 @@ export function AidStationsSectionV3({
                 <View style={styles.cardDivider} />
                 {renderCoveragePanel(index, summary)}
                 <GaugesRow
-                  metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
+                  metrics={metrics}
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
                   animateSignal={gaugeAnimateSignal}
@@ -638,7 +621,7 @@ export function AidStationsSectionV3({
                 {renderCoveragePanel(index, summary, true)}
                 <View style={styles.collapsedGaugeRow}>
                   <GaugesRow
-                    metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
+                    metrics={metrics}
                     formatGaugeValue={formatGaugeValue}
                     getGaugeColor={getGaugeColor}
                     compact
@@ -922,7 +905,15 @@ export function AidStationsSectionV3({
 
     return renderProfileView();
   }
-  const viewportHeight = getViewportHeight();
+  const viewportHeight = Math.max(1, viewHeights[displayedViewMode] || 0);
+  const activePageIndex = VIEW_MODES.indexOf(displayedViewMode) + 1;
+  const visiblePageRadius = 1;
+  const renderedPages = useMemo(() => {
+    return PAGER_MODES.map((mode, pageIndex) => {
+      const shouldRender = Math.abs(pageIndex - activePageIndex) <= visiblePageRadius;
+      return { mode, pageIndex, shouldRender };
+    });
+  }, [activePageIndex]);
 
   return (
     <>
@@ -970,14 +961,12 @@ export function AidStationsSectionV3({
           nestedScrollEnabled
           bounces={false}
           showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={handlePagerScroll}
           onMomentumScrollEnd={handlePagerMomentumEnd}
-          contentOffset={{ x: (viewModes.indexOf(displayedViewMode) + 1) * pageWidth, y: 0 }}
+          contentOffset={{ x: (VIEW_MODES.indexOf(displayedViewMode) + 1) * pageWidth, y: 0 }}
         >
-          {pagerModes.map((mode, pageIndex) => (
+          {renderedPages.map(({ mode, pageIndex, shouldRender }) => (
             <View key={`${mode}-${pageIndex}`} style={[styles.swipePage, { width: pageWidth }]}>
-              <View onLayout={(event) => handleViewLayout(mode, event)}>{renderViewForMode(mode)}</View>
+              {shouldRender ? <View onLayout={(event) => handleViewLayout(mode, event)}>{renderViewForMode(mode)}</View> : null}
             </View>
           ))}
         </ScrollView>

@@ -65,11 +65,13 @@ export function RacePlannerLayout({
         </div>
 
         <div className="space-y-6">
-          <div className={mobileView === "plan" ? "space-y-6" : "hidden"}>
-            <div className="space-y-6">{planContent}</div>
-            {planSecondaryContent ? <div className="space-y-6">{planSecondaryContent}</div> : null}
-          </div>
-          <div className={mobileView === "settings" ? "space-y-6" : "hidden"}>{settingsContent}</div>
+          {mobileView === "plan" ? (
+            <div className="space-y-6">
+              <div className="space-y-6">{planContent}</div>
+              {planSecondaryContent ? <div className="space-y-6">{planSecondaryContent}</div> : null}
+            </div>
+          ) : null}
+          {mobileView === "settings" ? <div className="space-y-6">{settingsContent}</div> : null}
           {floatingFooter ? <div className="sticky bottom-24 z-30 xl:hidden">{floatingFooter}</div> : null}
         </div>
       </div>
