@@ -8,6 +8,9 @@ on:
 jobs:
   update-production:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
 
     steps:
       - name: Checkout
@@ -18,9 +21,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-
-      - name: Install dependencies
-        run: npm install --legacy-peer-deps
+          cache-dependency-path: apps/mobile/package-lock.json
 
       - name: Setup EAS
         uses: expo/expo-github-action@v8
@@ -28,6 +29,8 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Publish production update
-        working-directory: apps/mobile
-        run: npx eas update --branch production --message "Production update ${{ github.ref_name }}" --non-interactive
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Publish production OTA update
+        run: eas update --branch production --message "Production OTA update ${{ github.ref_name }}" --non-interactive
