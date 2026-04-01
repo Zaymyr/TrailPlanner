@@ -37,4 +37,4 @@ jobs:
       - name: Publish preview OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas update --branch preview --message "${{ github.event.head_commit.message || 'Preview OTA update' }}" --non-interactive
+        run: eas update --branch preview --environment preview --message "${{ github.event.head_commit.message || 'Preview OTA update' }}" --non-interactive

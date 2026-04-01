@@ -32,4 +32,4 @@ jobs:
       - name: Publish production OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas update --branch production --message "Production OTA update ${{ github.ref_name }}" --non-interactive
+        run: eas update --branch production --environment production --message "Production OTA update ${{ github.ref_name }}" --non-interactive
