@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 type UserProfile = {
   full_name: string | null;
   age: number | null;
+  birth_date: string | null;
   water_bag_liters: number | null;
   role: string | null;
   trial_ends_at: string | null;
@@ -37,11 +38,63 @@ function formatDate(iso: string): string {
   });
 }
 
+function formatBirthDateInput(value: string | null): string {
+  if (!value) return '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return value;
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+function normalizeBirthDateInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function parseBirthDateInput(value: string): string | null {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+
+  const [, day, month, year] = match;
+  const iso = `${year}-${month}-${day}`;
+  const date = new Date(`${iso}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  if (
+    date.getUTCFullYear() !== Number(year) ||
+    date.getUTCMonth() + 1 !== Number(month) ||
+    date.getUTCDate() !== Number(day)
+  ) {
+    return null;
+  }
+
+  return iso;
+}
+
+function calculateAgeFromBirthDate(birthDate: string): number {
+  const today = new Date();
+  const birth = new Date(`${birthDate}T00:00:00`);
+  let age = today.getFullYear() - birth.getFullYear();
+  const hasHadBirthdayThisYear =
+    today.getMonth() > birth.getMonth() ||
+    (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+
+  if (!hasHadBirthdayThisYear) {
+    age -= 1;
+  }
+
+  return age;
+}
+
 export default function ProfileScreen() {
   const { locale, setLocale, t } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [fullName, setFullName] = useState('');
+  const [birthDateInput, setBirthDateInput] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
   const { isPremium, isTrialActive, trialEndsAt } = usePremium();
   const [loading, setLoading] = useState(true);
@@ -60,61 +113,106 @@ export default function ProfileScreen() {
 
       const profileResult = await supabase
         .from('user_profiles')
-        .select('full_name, age, water_bag_liters, role, trial_ends_at, trial_started_at')
+        .select('full_name, age, birth_date, water_bag_liters, role, trial_ends_at, trial_started_at')
         .eq('user_id', uid)
         .single();
 
       if (cancelled) return;
 
       if (!profileResult.error && profileResult.data) {
-        const p = profileResult.data as UserProfile;
-        setProfile(p);
-        setFullName(p.full_name ?? '');
-        setWaterBagLiters(p.water_bag_liters ?? 1.5);
+        const nextProfile = profileResult.data as UserProfile;
+        setProfile(nextProfile);
+        setFullName(nextProfile.full_name ?? '');
+        setBirthDateInput(formatBirthDateInput(nextProfile.birth_date));
+        setWaterBagLiters(nextProfile.water_bag_liters ?? 1.5);
       }
 
       setLoading(false);
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const parsedBirthDate = useMemo(() => {
+    const trimmedValue = birthDateInput.trim();
+    if (!trimmedValue) return null;
+    return parseBirthDateInput(trimmedValue);
+  }, [birthDateInput]);
+
+  const computedAge = useMemo(() => {
+    if (parsedBirthDate) {
+      return calculateAgeFromBirthDate(parsedBirthDate);
+    }
+    return profile?.age ?? null;
+  }, [parsedBirthDate, profile?.age]);
 
   async function handleSave() {
     if (!userId) return;
+
     setSaving(true);
     setSaved(false);
+    setError(null);
 
-    const { error: err } = await supabase
-      .from('user_profiles')
-      .update({
+    const trimmedBirthDate = birthDateInput.trim();
+    const birthDateIso = trimmedBirthDate ? parseBirthDateInput(trimmedBirthDate) : null;
+
+    if (trimmedBirthDate && !birthDateIso) {
+      setSaving(false);
+      setError('Entre une date valide au format JJ/MM/AAAA.');
+      return;
+    }
+
+    const nextAge = birthDateIso ? calculateAgeFromBirthDate(birthDateIso) : null;
+
+    if (nextAge !== null && (nextAge < 0 || nextAge > 120)) {
+      setSaving(false);
+      setError('La date de naissance doit correspondre a un age entre 0 et 120 ans.');
+      return;
+    }
+
+    const { error: saveError } = await supabase.from('user_profiles').upsert(
+      {
+        user_id: userId,
         full_name: fullName.trim() || null,
+        birth_date: birthDateIso,
+        age: nextAge,
         water_bag_liters: waterBagLiters,
-      })
-      .eq('user_id', userId);
+      },
+      { onConflict: 'user_id' }
+    );
 
     setSaving(false);
 
-    if (err) {
-      setError(err.message);
-    } else {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+    if (saveError) {
+      setError(saveError.message);
+      return;
     }
+
+    setProfile((current) => ({
+      full_name: fullName.trim() || null,
+      birth_date: birthDateIso,
+      age: nextAge,
+      water_bag_liters: waterBagLiters,
+      role: current?.role ?? null,
+      trial_ends_at: current?.trial_ends_at ?? null,
+      trial_started_at: current?.trial_started_at ?? null,
+    }));
+    setBirthDateInput(birthDateIso ? formatBirthDateInput(birthDateIso) : '');
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   }
 
   async function handleLogout() {
-    Alert.alert(
-      'Se déconnecter ?',
-      '',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Déconnexion',
-          style: 'destructive',
-          onPress: () => supabase.auth.signOut(),
-        },
-      ]
-    );
+    Alert.alert('Se deconnecter ?', '', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Deconnexion',
+        style: 'destructive',
+        onPress: () => supabase.auth.signOut(),
+      },
+    ]);
   }
 
   function handleUpgrade() {
@@ -124,18 +222,18 @@ export default function ProfileScreen() {
       return;
     }
     Linking.openURL(url).catch(() => {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le navigateur.');
+      Alert.alert('Erreur', "Impossible d'ouvrir le navigateur.");
     });
   }
 
   function handleManageSubscription() {
     const url = WEB_URL ? `${WEB_URL}/profile` : null;
     if (!url) {
-      Alert.alert('Abonnement', 'Rendez-vous sur notre site web pour gérer votre abonnement.');
+      Alert.alert('Abonnement', 'Rendez-vous sur notre site web pour gerer votre abonnement.');
       return;
     }
     Linking.openURL(url).catch(() => {
-      Alert.alert('Erreur', 'Impossible d\'ouvrir le navigateur.');
+      Alert.alert('Erreur', "Impossible d'ouvrir le navigateur.");
     });
   }
 
@@ -147,29 +245,39 @@ export default function ProfileScreen() {
     );
   }
 
-  const appVersion = Constants.expoConfig?.version ?? '—';
-
-  // Determine subscription display state
+  const appVersion = Constants.expoConfig?.version ?? '-';
   const showTrialActive = !isPremium && isTrialActive && trialEndsAt;
   const showTrialExpired = !isPremium && !isTrialActive && trialEndsAt;
   const showFree = !isPremium && !trialEndsAt;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Section profil */}
-
-      <Text style={styles.label}>Prénom</Text>
+      <Text style={styles.label}>Prenom</Text>
       <TextInput
         style={styles.textInput}
         value={fullName}
         onChangeText={setFullName}
-        placeholder="Ton prénom"
+        placeholder="Ton prenom"
         placeholderTextColor={Colors.textMuted}
         autoCapitalize="words"
         textContentType="givenName"
       />
 
-      <Text style={styles.label}>Volume sac à eau</Text>
+      <Text style={styles.label}>Date de naissance</Text>
+      <TextInput
+        style={styles.textInput}
+        value={birthDateInput}
+        onChangeText={(value) => setBirthDateInput(normalizeBirthDateInput(value))}
+        placeholder="JJ/MM/AAAA"
+        placeholderTextColor={Colors.textMuted}
+        keyboardType="number-pad"
+        maxLength={10}
+      />
+      <Text style={styles.helperText}>
+        {computedAge !== null ? `Age calcule : ${computedAge} ans` : "L'age sera calcule automatiquement."}
+      </Text>
+
+      <Text style={styles.label}>Volume sac a eau</Text>
       <View style={styles.waterBagRow}>
         {WATER_BAG_OPTIONS.map((opt) => (
           <TouchableOpacity
@@ -184,7 +292,7 @@ export default function ProfileScreen() {
         ))}
       </View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       <TouchableOpacity
         style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -194,60 +302,50 @@ export default function ProfileScreen() {
         {saving ? (
           <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
-          <Text style={styles.saveButtonText}>
-            {saved ? '✓ Enregistré' : 'Enregistrer'}
-          </Text>
+          <Text style={styles.saveButtonText}>{saved ? 'Profil enregistre' : 'Enregistrer'}</Text>
         )}
       </TouchableOpacity>
 
-      {/* Statut abonnement */}
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>Abonnement</Text>
 
-          {isPremium && (
+          {isPremium ? (
             <View style={[styles.statusBadge, styles.statusBadgePremium]}>
-              <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>
-                ⚡ Premium
-              </Text>
+              <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>Premium</Text>
             </View>
-          )}
+          ) : null}
 
-          {showTrialActive && (
+          {showTrialActive ? (
             <View style={[styles.statusBadge, styles.statusBadgeTrial]}>
-              <Text style={[styles.statusBadgeText, styles.statusBadgeTextTrial]}>
-                ⏳ Essai Premium
-              </Text>
+              <Text style={[styles.statusBadgeText, styles.statusBadgeTextTrial]}>Essai Premium</Text>
             </View>
-          )}
+          ) : null}
 
-          {(showTrialExpired || showFree) && (
+          {showTrialExpired || showFree ? (
             <View style={[styles.statusBadge, styles.statusBadgeFree]}>
               <Text style={[styles.statusBadgeText, styles.statusBadgeTextFree]}>
-                {showTrialExpired ? 'Essai expiré' : 'Gratuit'}
+                {showTrialExpired ? 'Essai expire' : 'Gratuit'}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
 
-        {showTrialActive && trialEndsAt && (
-          <Text style={styles.trialSubtitle}>
-            Expire le {formatDate(trialEndsAt)}
-          </Text>
-        )}
+        {showTrialActive && trialEndsAt ? (
+          <Text style={styles.trialSubtitle}>Expire le {formatDate(trialEndsAt)}</Text>
+        ) : null}
 
-        {(showTrialExpired || showFree) && (
+        {showTrialExpired || showFree ? (
           <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
-            <Text style={styles.upgradeButtonText}>Passer en Premium →</Text>
+            <Text style={styles.upgradeButtonText}>Passer en Premium</Text>
           </TouchableOpacity>
-        )}
+        ) : null}
 
         <TouchableOpacity style={styles.manageSubscriptionButton} onPress={handleManageSubscription}>
           <Text style={styles.manageSubscriptionButtonText}>Modifier mon abonnement</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Langue */}
       <Text style={styles.sectionTitle}>{t.profile.languageLabel}</Text>
       <View style={styles.langRow}>
         <TouchableOpacity
@@ -255,7 +353,7 @@ export default function ProfileScreen() {
           onPress={() => setLocale('fr')}
         >
           <Text style={[styles.langBtnText, locale === 'fr' && styles.langBtnTextActive]}>
-            🇫🇷 {t.profile.languageFr}
+            FR {t.profile.languageFr}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -263,17 +361,15 @@ export default function ProfileScreen() {
           onPress={() => setLocale('en')}
         >
           <Text style={[styles.langBtnText, locale === 'en' && styles.langBtnTextActive]}>
-            🇬🇧 {t.profile.languageEn}
+            EN {t.profile.languageEn}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Version */}
       <Text style={styles.versionText}>Pace Yourself v{appVersion}</Text>
 
-      {/* Déconnexion */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Se déconnecter</Text>
+        <Text style={styles.logoutButtonText}>Se deconnecter</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -316,6 +412,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
+  },
+  helperText: {
+    color: Colors.textMuted,
+    fontSize: 13,
+    marginTop: 6,
   },
   waterBagRow: {
     flexDirection: 'row',
