@@ -43,6 +43,28 @@ export type ContinuousIntakeEvent = IntakeTimelineItem & {
   endKm: number;
 };
 
+type SolidCandidate = {
+  productId?: string;
+  label: string;
+  carbs: number;
+  sodium: number;
+};
+
+type AvailableSolidUnit = SolidCandidate & {
+  availableFromMinute: number;
+  unitId?: string;
+};
+
+export type SuggestedSolidIntake = {
+  productId?: string;
+  label: string;
+  carbs: number;
+  sodium: number;
+  absoluteMinute: number;
+  sectionIndex: number;
+  target: PlanTarget;
+};
+
 type BuildSectionsArgs = {
   values: PlanFormValues;
   elevationProfile?: ElevationPoint[];
@@ -56,6 +78,12 @@ type BuildTimelineArgs = {
 
 const MAX_DRINK_INTERVAL_MIN = 10;
 const TARGET_DRINK_SIP_ML = 140;
+const TIMELINE_ROUNDING_STEP_MIN = 5;
+const MIN_SOLID_INTERVAL_MIN = 15;
+const MIN_NOTIFICATION_GAP_MIN = 4;
+const MIN_CARB_DEFICIT_BEFORE_SOLID_G = 16;
+const FIRST_SOLID_MIN = 20;
+const MAX_SOLID_GAP_MIN = 30;
 
 function isFluidProduct(product: PlanProduct | undefined) {
   return product?.fuel_type === 'drink_mix' || product?.fuel_type === 'electrolyte';
@@ -67,6 +95,14 @@ function getSuppliesForTarget(values: PlanFormValues, target: PlanTarget) {
 
 function getAvailableWaterMl(section: ContinuousSection, waterBagLiters: number) {
   return section.waterRefill ? waterBagLiters * 1000 : 0;
+}
+
+function roundToStep(minute: number, step = TIMELINE_ROUNDING_STEP_MIN) {
+  return Math.max(0, Math.round(minute / step) * step);
+}
+
+function clampMinute(minute: number, minMinute: number, maxMinute: number) {
+  return Math.min(maxMinute, Math.max(minMinute, minute));
 }
 
 function distributeIntegerTotal(total: number, count: number): number[] {
@@ -100,6 +136,188 @@ function buildAbsoluteDrinkSlots(startMinute: number, endMinute: number) {
   }
 
   return slots;
+}
+
+function mergeCloseEvents(events: ContinuousIntakeEvent[]) {
+  if (events.length <= 1) return events;
+
+  const sorted = [...events].sort((a, b) => a.absoluteMinute - b.absoluteMinute);
+  const merged: ContinuousIntakeEvent[] = [];
+
+  sorted.forEach((event) => {
+    const previous = merged[merged.length - 1];
+    if (!previous) {
+      merged.push(event);
+      return;
+    }
+
+    const shouldMerge =
+      event.absoluteMinute - previous.absoluteMinute <= MIN_NOTIFICATION_GAP_MIN &&
+      (event.waterMl ?? 0) > 0 !== (previous.waterMl ?? 0) > 0;
+
+    if (!shouldMerge) {
+      merged.push(event);
+      return;
+    }
+
+    const combinedProducts = [...(previous.products ?? []), ...(event.products ?? [])];
+    const combinedLabel =
+      previous.label === 'Eau'
+        ? `${event.label} + Eau`
+        : event.label === 'Eau'
+          ? `${previous.label} + Eau`
+          : `${previous.label} + ${event.label}`;
+    const detailParts = [
+      (previous.waterMl ?? 0) + (event.waterMl ?? 0) > 0
+        ? `${(previous.waterMl ?? 0) + (event.waterMl ?? 0)} ml`
+        : null,
+      (previous.carbsGrams ?? 0) + (event.carbsGrams ?? 0) > 0
+        ? `${(previous.carbsGrams ?? 0) + (event.carbsGrams ?? 0)}g glucides`
+        : null,
+      (previous.sodiumMg ?? 0) + (event.sodiumMg ?? 0) > 0
+        ? `${(previous.sodiumMg ?? 0) + (event.sodiumMg ?? 0)}mg sodium`
+        : null,
+    ].filter((part): part is string => part !== null);
+
+    merged[merged.length - 1] = {
+      ...previous,
+      id: previous.id,
+      label: combinedLabel,
+      detail: detailParts.join(' - '),
+      carbsGrams: (previous.carbsGrams ?? 0) + (event.carbsGrams ?? 0),
+      sodiumMg: (previous.sodiumMg ?? 0) + (event.sodiumMg ?? 0),
+      waterMl: (previous.waterMl ?? 0) + (event.waterMl ?? 0),
+      products: combinedProducts.length > 0 ? combinedProducts : undefined,
+    };
+  });
+
+  return merged;
+}
+
+function getSectionForMinute(sections: ContinuousSection[], minute: number) {
+  return (
+    sections.find((section) => minute > section.startMinute && minute <= section.endMinute) ??
+    sections[sections.length - 1] ??
+    null
+  );
+}
+
+function pickBestSolidCandidate(
+  pool: SolidCandidate[],
+  carbDeficit: number,
+  usageCounts: Map<string, number>,
+): SolidCandidate | null {
+  let best: SolidCandidate | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+
+  pool.forEach((candidate) => {
+    if (candidate.carbs <= 0) return;
+
+    const carbAfter = Math.max(0, carbDeficit - candidate.carbs);
+    const carbOvershoot = Math.max(0, candidate.carbs - carbDeficit);
+    const regularityPenalty =
+      Math.abs(candidate.carbs - Math.max(carbDeficit, 0)) / Math.max(Math.max(carbDeficit, 20), 1);
+    const repetitionPenalty = (usageCounts.get(candidate.productId ?? candidate.label) ?? 0) * 0.14;
+
+    const score =
+      carbAfter / Math.max(carbDeficit, 1) +
+      (carbOvershoot / Math.max(carbDeficit, 20)) * 0.35 +
+      regularityPenalty * 0.15 +
+      repetitionPenalty;
+
+    if (score < bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  });
+
+  return best;
+}
+
+function buildRegularSolidPlan(
+  sections: ContinuousSection[],
+  targetIntakePerHour: number,
+  getAvailableCandidates: (minute: number, section: ContinuousSection) => SolidCandidate[],
+  consumeCandidate: (minute: number, section: ContinuousSection, candidate: SolidCandidate) => void,
+) {
+  const events: SuggestedSolidIntake[] = [];
+  const totalDuration = sections.at(-1)?.endMinute ?? 0;
+  const carbRatePerMinute = Math.max(0, targetIntakePerHour / 60);
+  const carbTrigger = Math.max(targetIntakePerHour / 4, MIN_CARB_DEFICIT_BEFORE_SOLID_G);
+  let consumedCarbs = 0;
+  let lastSolidMinute = -MAX_SOLID_GAP_MIN;
+  const usageCounts = new Map<string, number>();
+
+  for (let minute = TIMELINE_ROUNDING_STEP_MIN; minute <= Math.ceil(totalDuration); minute += TIMELINE_ROUNDING_STEP_MIN) {
+    const roundedMinute = roundToStep(minute);
+    const section = getSectionForMinute(sections, roundedMinute);
+    if (!section) continue;
+    if (roundedMinute < FIRST_SOLID_MIN) continue;
+    if (roundedMinute - lastSolidMinute < MIN_SOLID_INTERVAL_MIN) continue;
+
+    const carbDeficit = roundedMinute * carbRatePerMinute - consumedCarbs;
+    const dueByDeficit = carbDeficit >= carbTrigger;
+    const dueByGap = roundedMinute - lastSolidMinute >= MAX_SOLID_GAP_MIN;
+
+    if (!dueByDeficit && !dueByGap) continue;
+
+    const candidates = getAvailableCandidates(roundedMinute, section);
+    if (candidates.length === 0) continue;
+
+    const picked = pickBestSolidCandidate(candidates, carbDeficit, usageCounts);
+    if (!picked) continue;
+
+    consumeCandidate(roundedMinute, section, picked);
+    consumedCarbs += Math.max(picked.carbs, 0);
+    lastSolidMinute = roundedMinute;
+    const usageKey = picked.productId ?? picked.label;
+    usageCounts.set(usageKey, (usageCounts.get(usageKey) ?? 0) + 1);
+
+    events.push({
+      productId: picked.productId,
+      label: picked.label,
+      carbs: Math.round(picked.carbs),
+      sodium: Math.round(picked.sodium),
+      absoluteMinute: roundedMinute,
+      sectionIndex: section.sectionIndex,
+      target: section.target,
+    });
+  }
+
+  return events;
+}
+
+export function buildSuggestedSolidIntakePlan(args: {
+  values: PlanFormValues;
+  solidProducts: Array<{
+    id: string;
+    name: string;
+    carbs_g?: number | null;
+    sodium_mg?: number | null;
+  }>;
+  elevationProfile?: ElevationPoint[];
+}) {
+  const sections = buildContinuousSections({
+    values: args.values,
+    elevationProfile: args.elevationProfile ?? [],
+  });
+  const pool: SolidCandidate[] = args.solidProducts
+    .map((product) => ({
+      productId: product.id,
+      label: product.name,
+      carbs: Math.max(product.carbs_g ?? 0, 0),
+      sodium: Math.max(product.sodium_mg ?? 0, 0),
+    }))
+    .filter((product) => product.carbs > 0);
+
+  const events = buildRegularSolidPlan(
+    sections,
+    args.values.targetIntakePerHour,
+    () => pool,
+    () => {},
+  );
+
+  return { sections, events };
 }
 
 function summarizeSuppliesWithFluidConstraint(
@@ -183,7 +401,8 @@ export function buildContinuousSections({
 
     const fromStation = values.aidStations[summary.sectionIndex];
     const toStation = values.aidStations[summary.sectionIndex + 1];
-    const endMinute = startMinute + summary.durationMin;
+    const roundedStartMinute = roundToStep(startMinute);
+    const roundedEndMinute = roundToStep(startMinute + summary.durationMin);
 
     sections.push({
       target,
@@ -194,8 +413,8 @@ export function buildContinuousSections({
       endKm: summary.endKm,
       distanceKm: summary.distanceKm,
       durationMin: summary.durationMin,
-      startMinute,
-      endMinute,
+      startMinute: roundedStartMinute,
+      endMinute: Math.max(roundedStartMinute + 1, roundedEndMinute),
       targetCarbsG: summary.targetCarbsG,
       targetSodiumMg: summary.targetSodiumMg,
       targetWaterMl: summary.targetWaterMl,
@@ -203,7 +422,7 @@ export function buildContinuousSections({
       waterRefill: target === 'start' || values.aidStations[summary.sectionIndex]?.waterRefill === true,
     });
 
-    startMinute = endMinute;
+    startMinute += summary.durationMin;
   }
 
   return sections;
@@ -235,8 +454,8 @@ function buildSectionDrinkEvents(
       ? slotMinutes
       : Array.from({ length: slotCount }, (_, index) =>
           Math.min(
-            Math.round(section.endMinute),
-            Math.max(Math.round(section.startMinute) + 1, Math.round(section.startMinute + ((index + 1) / slotCount) * section.durationMin)),
+            roundToStep(section.endMinute),
+            Math.max(roundToStep(section.startMinute) + 1, roundToStep(section.startMinute + ((index + 1) / slotCount) * section.durationMin)),
           ),
         );
   const fluidWaterPerSlot = distributeIntegerTotal(totalFluidProductWaterMl, slotCount);
@@ -261,8 +480,8 @@ function buildSectionDrinkEvents(
 
     events.push({
       id: `section-${section.sectionIndex}-drink-${index}`,
-      minute: Math.max(0, absoluteMinute - section.startMinute),
-      absoluteMinute,
+      minute: Math.max(0, roundToStep(absoluteMinute - section.startMinute)),
+      absoluteMinute: roundToStep(absoluteMinute),
       sectionIndex: section.sectionIndex,
       sectionTarget: section.target,
       fromName: section.fromName,
@@ -299,99 +518,93 @@ export function buildContinuousIntakeTimeline({
 }: BuildTimelineArgs): ContinuousIntakeEvent[] {
   const sections = buildContinuousSections({ values, elevationProfile });
   const allEvents: ContinuousIntakeEvent[] = [];
-  const carbsPerMinute = Math.max(0, values.targetIntakePerHour / 60);
-  const sodiumPerMinute = Math.max(0, values.sodiumIntakePerHour / 60);
-  let consumedCarbs = 0;
-  let consumedSodium = 0;
-  let fallbackIndex = 0;
-
-  sections.forEach((section) => {
-    const solidUnits = section.supplies.flatMap((supply) => {
+  const remainingUnits: AvailableSolidUnit[] = sections.flatMap((section) =>
+    section.supplies.flatMap((supply) => {
       const product = productMap[supply.productId];
       if (!product || supply.quantity <= 0 || isFluidProduct(product)) return [];
 
-      return Array.from({ length: supply.quantity }, () => ({
+      return Array.from({ length: supply.quantity }, (_, index) => ({
+        productId: supply.productId,
         label: product.name,
         carbs: Math.max(product.carbs_g ?? 0, 0),
         sodium: Math.max(product.sodium_mg ?? 0, 0),
+        availableFromMinute: roundToStep(section.startMinute),
+        unitId: `${section.sectionIndex}-${supply.productId}-${index}`,
       }));
-    });
+    }),
+  );
 
-    solidUnits.forEach((unit) => {
-      const candidates: Array<{ absoluteMinute: number; weight: number }> = [];
-
-      if (unit.carbs > 0 && carbsPerMinute > 0) {
-        candidates.push({
-          absoluteMinute: (consumedCarbs + unit.carbs) / carbsPerMinute,
-          weight: unit.carbs,
-        });
-      }
-
-      if (unit.sodium > 0 && sodiumPerMinute > 0) {
-        candidates.push({
-          absoluteMinute: (consumedSodium + unit.sodium) / sodiumPerMinute,
-          weight: unit.sodium / 100,
-        });
-      }
-
-      let absoluteMinute: number;
-      if (candidates.length > 0) {
-        const totalWeight = candidates.reduce((sum, candidate) => sum + candidate.weight, 0);
-        absoluteMinute =
-          candidates.reduce((sum, candidate) => sum + candidate.absoluteMinute * candidate.weight, 0) /
-          Math.max(totalWeight, 1);
-      } else {
-        fallbackIndex += 1;
-        absoluteMinute =
-          section.startMinute + ((fallbackIndex % Math.max(solidUnits.length + 1, 2)) / Math.max(solidUnits.length + 1, 2)) * section.durationMin;
-      }
-
-      absoluteMinute = Math.min(section.endMinute, Math.max(section.startMinute + 1, Math.round(absoluteMinute)));
-
-      consumedCarbs += unit.carbs;
-      consumedSodium += unit.sodium;
+  const solidEvents = buildRegularSolidPlan(
+    sections,
+    values.targetIntakePerHour,
+    (minute) =>
+      remainingUnits
+        .filter((unit) => unit.availableFromMinute <= minute)
+        .filter((unit) => unit.carbs > 0)
+        .map((unit) => ({
+          productId: unit.productId,
+          label: unit.label,
+          carbs: unit.carbs,
+          sodium: unit.sodium,
+        })),
+    (minute, section, candidate) => {
+      const unitIndex = remainingUnits.findIndex(
+        (unit) =>
+          unit.availableFromMinute <= minute &&
+          unit.productId === candidate.productId &&
+          unit.label === candidate.label &&
+          unit.carbs === candidate.carbs &&
+          unit.sodium === candidate.sodium,
+      );
+      if (unitIndex >= 0) remainingUnits.splice(unitIndex, 1);
 
       const detailParts: string[] = [];
-      if (unit.carbs > 0) detailParts.push(`${Math.round(unit.carbs)}g glucides`);
-      if (unit.sodium > 0) detailParts.push(`${Math.round(unit.sodium)}mg sodium`);
+      if (candidate.carbs > 0) detailParts.push(`${Math.round(candidate.carbs)}g glucides`);
+      if (candidate.sodium > 0) detailParts.push(`${Math.round(candidate.sodium)}mg sodium`);
 
       allEvents.push({
         id: `section-${section.sectionIndex}-solid-${allEvents.length}`,
-        minute: Math.max(0, absoluteMinute - section.startMinute),
-        absoluteMinute,
+        minute: Math.max(0, roundToStep(minute - section.startMinute)),
+        absoluteMinute: minute,
         sectionIndex: section.sectionIndex,
         sectionTarget: section.target,
         fromName: section.fromName,
         toName: section.toName,
         startKm: section.startKm,
         endKm: section.endKm,
-        label: unit.label,
+        label: candidate.label,
         detail: detailParts.length > 0 ? detailParts.join(' - ') : '1 prise',
-        carbsGrams: Math.round(unit.carbs),
-        sodiumMg: Math.round(unit.sodium),
+        carbsGrams: Math.round(candidate.carbs),
+        sodiumMg: Math.round(candidate.sodium),
         waterMl: 0,
         products: [
           {
-            name: unit.label,
+            name: candidate.label,
             quantity: 1,
-            carbsGrams: Math.round(unit.carbs),
-            sodiumMg: Math.round(unit.sodium),
+            carbsGrams: Math.round(candidate.carbs),
+            sodiumMg: Math.round(candidate.sodium),
             waterMl: 0,
           },
         ],
       });
-    });
+    },
+  );
 
+  void solidEvents;
+
+  sections.forEach((section) => {
     allEvents.push(...buildSectionDrinkEvents(section, values.waterBagLiters, productMap));
   });
 
-  return allEvents.sort((a, b) => {
-    if (a.absoluteMinute !== b.absoluteMinute) return a.absoluteMinute - b.absoluteMinute;
-    if ((a.label === 'Eau' ? 1 : 0) !== (b.label === 'Eau' ? 1 : 0)) {
-      return (a.label === 'Eau' ? 1 : 0) - (b.label === 'Eau' ? 1 : 0);
-    }
-    return a.label.localeCompare(b.label);
-  });
+  return mergeCloseEvents(
+    allEvents.sort((a, b) => {
+      if (a.absoluteMinute !== b.absoluteMinute) return a.absoluteMinute - b.absoluteMinute;
+      if ((a.label === 'Eau' ? 1 : 0) !== (b.label === 'Eau' ? 1 : 0)) {
+        return (a.label === 'Eau' ? 1 : 0) - (b.label === 'Eau' ? 1 : 0);
+      }
+      return a.label.localeCompare(b.label);
+    }),
+  );
 }
 
 export function buildSectionTimelineFromContinuous(
@@ -406,7 +619,7 @@ export function buildSectionTimelineFromContinuous(
         event.absoluteMinute <= section.endMinute,
     )
     .map((event) => ({
-      minute: Math.max(0, event.absoluteMinute - section.startMinute),
+      minute: Math.max(0, Math.round(event.absoluteMinute - section.startMinute)),
       label: event.label,
       detail: event.detail,
       carbsGrams: event.carbsGrams,

@@ -67,6 +67,10 @@ type ComboOption = {
   fluid: boolean;
 };
 
+export function getEffectiveSodiumTarget(targetSodiumMg: number) {
+  return Math.max(0, targetSodiumMg * 0.6);
+}
+
 function isFluidFuelType(fuelType: string | null | undefined) {
   return fuelType === 'drink_mix' || fuelType === 'electrolyte';
 }
@@ -102,7 +106,7 @@ function findBestCombo(
     const itemPenalty = units * 0.01;
     const score = carbDiff * 1.5 + sodiumDiff * 0.6 + underfillPenalty + itemPenalty;
 
-    if (score < best.score && carbs > 0) {
+    if (score < best.score && (carbs > 0 || sodium > 0)) {
       best = { score, combo: combo.slice(), carbs, sodium, units, fluidUnits };
     }
   };
@@ -128,43 +132,15 @@ function findBestCombo(
   return best;
 }
 
-function findBestSingleFluidCombo(
-  options: ComboOption[],
-  targetFuelGrams: number,
-  targetSodiumMg: number,
-  fluidUnitLimit: number,
-) {
-  let bestOptionId: string | null = null;
-  let bestResult = {
-    score: Number.POSITIVE_INFINITY,
-    combo: [] as number[],
-    carbs: 0,
-    sodium: 0,
-    units: 0,
-    fluidUnits: 0,
-  };
-
-  options.forEach((option) => {
-    const result = findBestCombo([option], targetFuelGrams, targetSodiumMg, fluidUnitLimit, fluidUnitLimit);
-    if (result.score < bestResult.score && (result.combo[0] ?? 0) > 0) {
-      bestOptionId = option.id;
-      bestResult = result;
-    }
-  });
-
-  return {
-    optionId: bestOptionId,
-    ...bestResult,
-  };
-}
-
 export function buildPlanForTarget(
   targetFuelGrams: number,
   targetSodiumMg: number,
   products: FavProduct[],
   options?: BuildPlanOptions,
 ): Supply[] {
-  if (!Number.isFinite(targetFuelGrams) || targetFuelGrams <= 0) return [];
+  const safeTargetFuel = Number.isFinite(targetFuelGrams) ? Math.max(0, targetFuelGrams) : 0;
+  const safeTargetSodium = Number.isFinite(targetSodiumMg) ? Math.max(0, targetSodiumMg) : 0;
+  if (safeTargetFuel <= 0 && safeTargetSodium <= 0) return [];
 
   const normalizedOptions = [...products]
     .map((product) => ({
@@ -185,7 +161,11 @@ export function buildPlanForTarget(
 
   const candidateOptions = [...fluidOptions, ...solidOptions];
   const minCarbs = Math.max(Math.min(...candidateOptions.map((option) => Math.max(option.carbs, 1))), 1);
-  const maxUnits = Math.min(12, Math.max(3, Math.ceil(targetFuelGrams / minCarbs) + 2));
+  const minSodium = Math.max(Math.min(...candidateOptions.map((option) => Math.max(option.sodium, 1))), 1);
+  const maxUnits = Math.min(
+    12,
+    Math.max(3, Math.ceil(safeTargetFuel / minCarbs) + 2, Math.ceil(safeTargetSodium / minSodium) + 1),
+  );
   const availableWaterMl = Math.max(0, options?.availableWaterMl ?? 0);
   const targetWaterMl = Math.max(0, options?.targetWaterMl ?? 0);
   const fluidBudgetMl =
@@ -197,16 +177,15 @@ export function buildPlanForTarget(
       : 0;
   const fluidUnitLimit = Math.floor(fluidBudgetMl / DEFAULT_FLUID_PRODUCT_VOLUME_ML);
 
-  const fluidCombo = findBestSingleFluidCombo(fluidOptions, targetFuelGrams, targetSodiumMg, fluidUnitLimit);
-  const remainingFuel = Math.max(0, targetFuelGrams - fluidCombo.carbs);
-  const remainingSodium = Math.max(0, targetSodiumMg - fluidCombo.sodium);
+  const fluidCombo = findBestCombo(fluidOptions, safeTargetFuel, safeTargetSodium, fluidUnitLimit, fluidUnitLimit);
+  const remainingFuel = Math.max(0, safeTargetFuel - fluidCombo.carbs);
+  const remainingSodium = Math.max(0, safeTargetSodium - fluidCombo.sodium);
   const remainingUnits = Math.max(0, maxUnits - fluidCombo.units);
   const solidCombo = findBestCombo(solidOptions, remainingFuel, remainingSodium, remainingUnits);
 
   const combined = [...fluidOptions, ...solidOptions].map((option) => {
-    if (fluidCombo.optionId && option.id === fluidCombo.optionId) {
-      return fluidCombo.combo[0] ?? 0;
-    }
+    const fluidIndex = fluidOptions.findIndex((fluidOption) => fluidOption.id === option.id);
+    if (fluidIndex >= 0) return fluidCombo.combo[fluidIndex] ?? 0;
     const solidIndex = solidOptions.findIndex((solidOption) => solidOption.id === option.id);
     return solidIndex >= 0 ? solidCombo.combo[solidIndex] ?? 0 : 0;
   });

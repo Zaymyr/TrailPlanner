@@ -42,6 +42,28 @@ type BuildPlanHighlightsArgs = {
 const MAX_DRINK_INTERVAL_MIN = 10;
 const TARGET_DRINK_SIP_ML = 140;
 
+function clampGaugeTolerance(target: number, rawTolerance: number, maxShare: number) {
+  const safeTarget = Math.max(0, target);
+  if (safeTarget <= 0) return 0;
+  return Math.min(rawTolerance, safeTarget * maxShare);
+}
+
+export function getGaugeTolerance(key: GaugeMetric['key'], target: number) {
+  if (key === 'carbs') {
+    return clampGaugeTolerance(target, Math.max(10, target * 0.12), 0.35);
+  }
+  if (key === 'sodium') {
+    return clampGaugeTolerance(target, Math.max(20, target * 0.18), 0.4);
+  }
+  return clampGaugeTolerance(target, Math.max(150, target * 0.12), 0.45);
+}
+
+function getTolerantGaugeRatio(key: GaugeMetric['key'], current: number, target: number) {
+  if (target <= 0) return 0;
+  const toleratedMinimum = Math.max(1, target - getGaugeTolerance(key, target));
+  return current / toleratedMinimum;
+}
+
 function distributeIntegerTotal(total: number, count: number): number[] {
   const safeCount = Math.max(1, count);
   const safeTotal = Math.max(0, Math.round(total));
@@ -135,11 +157,14 @@ function summarizeSuppliesWithFluidConstraint(
 
 export function getGaugeColor(key: GaugeMetric['key'], ratio: number): string {
   if (key === 'water') {
-    return ratio >= 0.8 ? '#2D5016' : '#EF4444';
+    if (ratio === 0) return '#D1D5DB';
+    if (ratio >= 1) return '#2D5016';
+    if (ratio >= 0.88) return '#F97316';
+    return '#EF4444';
   }
   if (ratio === 0) return '#D1D5DB';
-  if (ratio >= 0.8 && ratio <= 1.2) return '#2D5016';
-  if ((ratio >= 0.6 && ratio < 0.8) || (ratio > 1.2 && ratio <= 1.4)) return '#F97316';
+  if (ratio >= 1) return '#2D5016';
+  if (ratio >= 0.88) return '#F97316';
   return '#EF4444';
 }
 
@@ -173,6 +198,10 @@ export function buildGaugeMetrics({
       current: summarized.totalCarbs,
       target: sectionTarget?.targetCarbsG ?? 0,
       ratio: sectionTarget && sectionTarget.targetCarbsG > 0 ? summarized.totalCarbs / sectionTarget.targetCarbsG : 0,
+      statusRatio:
+        sectionTarget && sectionTarget.targetCarbsG > 0
+          ? getTolerantGaugeRatio('carbs', summarized.totalCarbs, sectionTarget.targetCarbsG)
+          : 0,
     },
     {
       key: 'sodium',
@@ -182,6 +211,10 @@ export function buildGaugeMetrics({
       current: summarized.totalSodium,
       target: sectionTarget?.targetSodiumMg ?? 0,
       ratio: sectionTarget && sectionTarget.targetSodiumMg > 0 ? summarized.totalSodium / sectionTarget.targetSodiumMg : 0,
+      statusRatio:
+        sectionTarget && sectionTarget.targetSodiumMg > 0
+          ? getTolerantGaugeRatio('sodium', summarized.totalSodium, sectionTarget.targetSodiumMg)
+          : 0,
     },
     {
       key: 'water',
@@ -191,6 +224,10 @@ export function buildGaugeMetrics({
       current: availableWaterMl,
       target: sectionTarget?.targetWaterMl ?? 0,
       ratio: sectionTarget && sectionTarget.targetWaterMl > 0 ? availableWaterMl / sectionTarget.targetWaterMl : 0,
+      statusRatio:
+        sectionTarget && sectionTarget.targetWaterMl > 0
+          ? getTolerantGaugeRatio('water', availableWaterMl, sectionTarget.targetWaterMl)
+          : 0,
     },
   ];
 }

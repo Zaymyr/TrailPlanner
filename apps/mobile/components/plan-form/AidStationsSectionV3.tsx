@@ -1,12 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { Animated, Easing, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
 import { SuppliesList } from './SuppliesList';
 import type { EditingStation } from './EditStationModal';
 import type { AidStationFormItem, PlanProduct, PlanTarget, SectionSummary, SectionTarget, SectionSegment, IntakeTimelineItem } from './contracts';
+import { getGaugeTolerance } from './metrics';
 import { getElevationSlice } from './profile-utils';
 import { styles } from './styles';
 
@@ -42,6 +53,8 @@ type Props = {
     sectionTarget?: SectionTarget,
   ) => IntakeTimelineItem[];
   gaugeAnimateSignal: number;
+  canSplitSectionSegment: (target: PlanTarget, segmentIndex: number) => boolean;
+  canRemoveSectionSegment: (target: PlanTarget, segmentIndex: number) => boolean;
   onSplitSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
   onRemoveSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
   onUpdateSectionSegmentPaceAdjustment: (
@@ -49,6 +62,9 @@ type Props = {
     segmentIndex: number,
     paceAdjustmentMinutesPerKm: number | undefined,
   ) => void;
+  parentScrollY: number;
+  containerTopY: number;
+  onRequestParentScroll: (y: number) => void;
 };
 
 export function AidStationsSectionV3({
@@ -76,36 +92,41 @@ export function AidStationsSectionV3({
   getSectionSummary,
   getSectionIntakeTimeline,
   gaugeAnimateSignal,
+  canSplitSectionSegment,
+  canRemoveSectionSegment,
   onSplitSectionSegment,
   onRemoveSectionSegment,
   onUpdateSectionSegmentPaceAdjustment,
+  parentScrollY,
+  containerTopY,
+  onRequestParentScroll,
 }: Props) {
+  const viewModes: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
+  const pagerModes: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stations'> = [
+    'profile',
+    'stations',
+    'sections',
+    'profile',
+    'stations',
+  ];
+  const { width: windowWidth } = useWindowDimensions();
+  const pageWidth = Math.max(280, windowWidth - 40);
+  const pagerRef = useRef<ScrollView>(null);
   const [selectedViewMode, setSelectedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
   const [displayedViewMode, setDisplayedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
+  const [pagerOffsetX, setPagerOffsetX] = useState(pageWidth);
   const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
+  const [viewHeights, setViewHeights] = useState<Record<'stations' | 'sections' | 'profile', number>>({
+    stations: 0,
+    sections: 0,
+    profile: 0,
+  });
+  const [viewAnchors, setViewAnchors] = useState<Record<'stations' | 'sections' | 'profile', Record<number, number>>>({
+    stations: {},
+    sections: {},
+    profile: {},
+  });
   const paceStepMinutes = 5 / 60;
-  const tabTransition = useRef(new Animated.Value(1)).current;
-  const isSwitchingView = useRef(false);
-  const hasMounted = useRef(false);
-
-  useEffect(() => {
-    if (!hasMounted.current) {
-      hasMounted.current = true;
-      return;
-    }
-
-    tabTransition.stopAnimation();
-    tabTransition.setValue(0);
-
-    Animated.timing(tabTransition, {
-      toValue: 1,
-      duration: 180,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(() => {
-      isSwitchingView.current = false;
-    });
-  }, [displayedViewMode, tabTransition]);
 
   function formatTimelineMinute(minute: number) {
     if (minute <= 0) return 'Depart';
@@ -189,12 +210,117 @@ export function AidStationsSectionV3({
     }
   }
 
-  function switchViewMode(nextMode: 'stations' | 'sections' | 'profile') {
-    if (nextMode === displayedViewMode || isSwitchingView.current) return;
+  function getWrappedMode(index: number) {
+    const wrappedIndex = (index + viewModes.length) % viewModes.length;
+    return viewModes[wrappedIndex];
+  }
 
-    isSwitchingView.current = true;
+  function handleViewLayout(mode: 'stations' | 'sections' | 'profile', event: LayoutChangeEvent) {
+    const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+    setViewHeights((prev) => {
+      if (prev[mode] === nextHeight) return prev;
+      return { ...prev, [mode]: nextHeight };
+    });
+  }
+
+  function registerAnchor(mode: 'stations' | 'sections' | 'profile', index: number, event: LayoutChangeEvent) {
+    const nextY = Math.round(event.nativeEvent.layout.y);
+    setViewAnchors((prev) => {
+      if (prev[mode][index] === nextY) return prev;
+      return {
+        ...prev,
+        [mode]: {
+          ...prev[mode],
+          [index]: nextY,
+        },
+      };
+    });
+  }
+
+  function getClosestAnchorIndex(mode: 'stations' | 'sections' | 'profile') {
+    const localScrollY = Math.max(0, parentScrollY - containerTopY);
+    const anchors = Object.entries(viewAnchors[mode]);
+    if (anchors.length === 0) return 0;
+
+    return anchors
+      .map(([index, y]) => ({ index: Number(index), distance: Math.abs(y - localScrollY) }))
+      .sort((left, right) => left.distance - right.distance)[0]?.index ?? 0;
+  }
+
+  function alignParentScroll(nextMode: 'stations' | 'sections' | 'profile', fromMode = displayedViewMode) {
+    const anchorIndex = getClosestAnchorIndex(fromMode);
+    const targetAnchorY = viewAnchors[nextMode][anchorIndex] ?? viewAnchors[nextMode][0] ?? 0;
+    onRequestParentScroll(containerTopY + targetAnchorY);
+  }
+
+  function switchViewMode(nextMode: 'stations' | 'sections' | 'profile') {
+    if (nextMode === displayedViewMode) return;
+
+    alignParentScroll(nextMode, displayedViewMode);
+    const nextPageIndex = viewModes.indexOf(nextMode) + 1;
     setSelectedViewMode(nextMode);
     setDisplayedViewMode(nextMode);
+    pagerRef.current?.scrollTo({ x: nextPageIndex * pageWidth, animated: true });
+  }
+
+  function switchViewByDelta(delta: -1 | 1) {
+    const currentIndex = viewModes.indexOf(displayedViewMode);
+    if (currentIndex < 0) return;
+    switchViewMode(getWrappedMode(currentIndex + delta));
+  }
+
+  useEffect(() => {
+    const currentPageIndex = viewModes.indexOf(displayedViewMode) + 1;
+    if (currentPageIndex <= 0) return;
+    setPagerOffsetX(currentPageIndex * pageWidth);
+    pagerRef.current?.scrollTo({ x: currentPageIndex * pageWidth, animated: false });
+  }, [displayedViewMode, pageWidth]);
+
+  function handlePagerScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    setPagerOffsetX(event.nativeEvent.contentOffset.x);
+  }
+
+  function getViewportHeight() {
+    const safePageWidth = Math.max(pageWidth, 1);
+    const rawIndex = pagerOffsetX / safePageWidth;
+    const fromIndex = Math.max(0, Math.min(pagerModes.length - 1, Math.floor(rawIndex)));
+    const toIndex = Math.max(0, Math.min(pagerModes.length - 1, Math.ceil(rawIndex)));
+    const progress = Math.max(0, Math.min(1, rawIndex - fromIndex));
+    const fromHeight = Math.max(1, viewHeights[pagerModes[fromIndex]] || 0);
+    const toHeight = Math.max(1, viewHeights[pagerModes[toIndex]] || 0);
+
+    return Math.round(fromHeight + (toHeight - fromHeight) * progress);
+  }
+
+  function handlePagerMomentumEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const rawPageIndex = Math.round(event.nativeEvent.contentOffset.x / Math.max(pageWidth, 1));
+    const boundedPageIndex = Math.max(0, Math.min(pagerModes.length - 1, rawPageIndex));
+
+    let nextMode: 'stations' | 'sections' | 'profile';
+    let resetPageIndex: number | null = null;
+
+    if (boundedPageIndex === 0) {
+      nextMode = 'profile';
+      resetPageIndex = 3;
+    } else if (boundedPageIndex === pagerModes.length - 1) {
+      nextMode = 'stations';
+      resetPageIndex = 1;
+    } else {
+      nextMode = viewModes[boundedPageIndex - 1];
+    }
+
+    if (nextMode !== displayedViewMode) {
+      alignParentScroll(nextMode, displayedViewMode);
+      setSelectedViewMode(nextMode);
+      setDisplayedViewMode(nextMode);
+    }
+
+    if (resetPageIndex !== null) {
+      requestAnimationFrame(() => {
+        setPagerOffsetX(resetPageIndex * pageWidth);
+        pagerRef.current?.scrollTo({ x: resetPageIndex * pageWidth, animated: false });
+      });
+    }
   }
 
   function formatSectionTarget(summary: SectionSummary | null): SectionTarget {
@@ -205,9 +331,162 @@ export function AidStationsSectionV3({
     };
   }
 
+  function formatCoveragePair(metric: {
+    key: GaugeMetric['key'];
+    current: number;
+    target: number;
+    unit: string;
+    label: string;
+  }) {
+    if (metric.key === 'water') {
+      const currentMl = Math.round(metric.current / 100) * 100;
+      const targetMl = Math.round(metric.target / 100) * 100;
+      return `${currentMl} / ${targetMl} ml eau`;
+    }
+
+    return `${Math.round(metric.current)} / ${Math.round(metric.target)} ${metric.unit} ${metric.label.toLowerCase()}`;
+  }
+
+  function summarizeCoverage(target: 'start' | number, summary: SectionSummary | null) {
+    const metrics = getGaugeMetrics(target, formatSectionTarget(summary));
+    const chips = metrics.map((metric) => formatCoveragePair(metric));
+    const deficits = metrics
+      .map((metric) => ({
+        key: metric.key,
+        label: metric.label,
+        unit: metric.unit,
+        ratio: metric.statusRatio ?? metric.ratio,
+        missing: Math.max(0, metric.target - metric.current),
+        tolerance: getGaugeTolerance(metric.key, metric.target),
+      }))
+      .filter((metric) => metric.missing > metric.tolerance);
+
+    const hasCritical = deficits.some((metric) => metric.ratio < 0.82);
+    const hasWarning = deficits.some((metric) => metric.ratio < 1);
+
+    const severity = hasCritical ? 'danger' : hasWarning ? 'warning' : 'ok';
+    const title =
+      severity === 'ok'
+        ? 'Couvert pour le prochain segment'
+        : severity === 'warning'
+          ? 'Un peu juste pour tenir'
+          : 'Risque de manque sur le segment';
+
+    const shortLabel =
+      severity === 'ok'
+        ? 'OK'
+        : severity === 'warning'
+          ? 'A ajuster'
+          : 'Insuffisant';
+
+    if (deficits.length === 0) {
+      return {
+        severity,
+        title,
+        shortLabel,
+        detail: 'Ce que tu emportes ici suffit pour couvrir le prochain segment avec une marge correcte.',
+        action: 'Tu peux repartir comme ca.',
+        chips,
+      };
+    }
+
+    const topDeficit = [...deficits].sort((a, b) => b.missing - a.missing)[0];
+    const deficitChips = deficits.slice(0, 2).map((metric) => {
+      if (metric.key === 'water') return `${Math.round(metric.missing / 100) * 100} ml manquants`;
+      return `${Math.round(metric.missing)} ${metric.unit} manquants`;
+    });
+
+    let action = 'Ajoute un peu de ravitaillement avant de repartir.';
+    if (topDeficit.key === 'carbs') {
+      action =
+        topDeficit.missing <= 30
+          ? 'Ajoute 1 prise sucree de plus pour eviter le deficit.'
+          : 'Ajoute au moins 2 prises glucides avant de repartir.';
+    } else if (topDeficit.key === 'water') {
+      action =
+        topDeficit.missing <= 300
+          ? 'Ajoute un petit complement d eau avant de repartir.'
+          : 'Remplis au moins 500 ml de plus avant de repartir.';
+    } else if (topDeficit.key === 'sodium') {
+      action =
+        topDeficit.missing <= 250
+          ? 'Ajoute un peu de sodium pour securiser ce segment.'
+          : 'Ajoute une source de sodium en plus avant de repartir.';
+    }
+
+    const detail =
+      topDeficit.key === 'water'
+        ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu au prochain point.`
+        : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir correctement.`;
+
+    return {
+      severity,
+      title,
+      shortLabel,
+      detail,
+      action,
+      chips: [...chips, ...deficitChips],
+    };
+  }
+
+  function renderCoveragePanel(target: 'start' | number, summary: SectionSummary | null, compact = false) {
+    const coverage = summarizeCoverage(target, summary);
+    const toneStyle =
+      coverage.severity === 'ok'
+        ? styles.coveragePanelOk
+        : coverage.severity === 'warning'
+          ? styles.coveragePanelWarning
+          : styles.coveragePanelDanger;
+    const pillStyle =
+      coverage.severity === 'ok'
+        ? styles.coveragePillOk
+        : coverage.severity === 'warning'
+          ? styles.coveragePillWarning
+          : styles.coveragePillDanger;
+    const pillTextStyle =
+      coverage.severity === 'ok'
+        ? styles.coveragePillTextOk
+        : coverage.severity === 'warning'
+          ? styles.coveragePillTextWarning
+          : styles.coveragePillTextDanger;
+
+    if (compact) {
+      return (
+        <View style={[styles.coverageCompactRow, toneStyle]}>
+          <View style={[styles.coveragePill, pillStyle]}>
+            <Text style={[styles.coveragePillText, pillTextStyle]}>{coverage.shortLabel}</Text>
+          </View>
+          <Text style={styles.coverageCompactTitle} numberOfLines={1}>
+            {coverage.title}
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={[styles.coveragePanel, toneStyle]}>
+        <View style={styles.coveragePanelHeader}>
+          <View style={[styles.coveragePill, pillStyle]}>
+            <Text style={[styles.coveragePillText, pillTextStyle]}>{coverage.shortLabel}</Text>
+          </View>
+          <Text style={styles.coveragePanelTitle}>{coverage.title}</Text>
+        </View>
+        <Text style={styles.coveragePanelDetail}>{coverage.detail}</Text>
+        <Text style={styles.coveragePanelAction}>{coverage.action}</Text>
+        <View style={styles.coverageChipRow}>
+          {coverage.chips.map((chip) => (
+            <View key={chip} style={styles.coverageChip}>
+              <Text style={styles.coverageChipText}>{chip}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
+  }
+
   function getCollapsedTint(target: 'start' | number, summary: SectionSummary | null) {
     const metrics = getGaugeMetrics(target, formatSectionTarget(summary));
-    const statuses = metrics.map((metric) => getGaugeColor(metric.key, metric.ratio));
+    const statuses = metrics.map((metric) => getGaugeColor(metric.key, metric.statusRatio ?? metric.ratio));
     const allGreen = statuses.every((color) => color === '#2D5016');
     const hasRed = statuses.some((color) => color === '#EF4444');
     if (allGreen) return styles.stationCardCollapsedGreen;
@@ -243,7 +522,7 @@ export function AidStationsSectionV3({
       if (isDepart) {
         const collapsedTintStyle = getCollapsedTint('start', summary);
         card = (
-          <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]}>
+          <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]} onLayout={(event) => registerAnchor('stations', index, event)}>
             <TouchableOpacity onPress={() => toggleStation(stationKey)} activeOpacity={0.7} style={styles.stationHeaderRow}>
               <Text style={styles.stationIcon}>D</Text>
               <Text style={styles.stationName}>{station.name}</Text>
@@ -254,6 +533,7 @@ export function AidStationsSectionV3({
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
+                {renderCoveragePanel('start', summary)}
                 <GaugesRow
                   metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
                   formatGaugeValue={formatGaugeValue}
@@ -272,21 +552,24 @@ export function AidStationsSectionV3({
               </>
             )}
             {!isExpanded && (
-              <View style={styles.collapsedGaugeRow}>
-                <GaugesRow
-                  metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
-                  formatGaugeValue={formatGaugeValue}
-                  getGaugeColor={getGaugeColor}
-                  compact
-                  animateSignal={gaugeAnimateSignal}
-                />
-              </View>
+              <>
+                {renderCoveragePanel('start', summary, true)}
+                <View style={styles.collapsedGaugeRow}>
+                  <GaugesRow
+                    metrics={getGaugeMetrics('start', formatSectionTarget(summary))}
+                    formatGaugeValue={formatGaugeValue}
+                    getGaugeColor={getGaugeColor}
+                    compact
+                    animateSignal={gaugeAnimateSignal}
+                  />
+                </View>
+              </>
             )}
           </View>
         );
       } else if (isArrivee) {
         card = (
-          <View key={stationKey} style={styles.stationCard}>
+          <View key={stationKey} style={styles.stationCard} onLayout={(event) => registerAnchor('stations', index, event)}>
             <View style={styles.stationHeaderRow}>
               <Text style={styles.stationIcon}>A</Text>
               <Text style={styles.stationName}>{station.name}</Text>
@@ -298,7 +581,7 @@ export function AidStationsSectionV3({
       } else {
         const collapsedTintStyle = getCollapsedTint(index, summary);
         card = (
-          <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]}>
+          <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]} onLayout={(event) => registerAnchor('stations', index, event)}>
             <TouchableOpacity onPress={() => toggleStation(stationKey)} activeOpacity={0.7} style={styles.stationHeaderRow}>
               <Text style={styles.stationIcon}>R</Text>
               <Text style={styles.stationName} numberOfLines={1}>
@@ -332,6 +615,7 @@ export function AidStationsSectionV3({
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
+                {renderCoveragePanel(index, summary)}
                 <GaugesRow
                   metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
                   formatGaugeValue={formatGaugeValue}
@@ -350,15 +634,18 @@ export function AidStationsSectionV3({
               </>
             )}
             {!isExpanded && (
-              <View style={styles.collapsedGaugeRow}>
-                <GaugesRow
-                  metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
-                  formatGaugeValue={formatGaugeValue}
-                  getGaugeColor={getGaugeColor}
-                  compact
-                  animateSignal={gaugeAnimateSignal}
-                />
-              </View>
+              <>
+                {renderCoveragePanel(index, summary, true)}
+                <View style={styles.collapsedGaugeRow}>
+                  <GaugesRow
+                    metrics={getGaugeMetrics(index, formatSectionTarget(summary))}
+                    formatGaugeValue={formatGaugeValue}
+                    getGaugeColor={getGaugeColor}
+                    compact
+                    animateSignal={gaugeAnimateSignal}
+                  />
+                </View>
+              </>
             )}
           </View>
         );
@@ -393,7 +680,7 @@ export function AidStationsSectionV3({
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
       elements.push(
-        <View key={`station-line-${station.id ?? index}`} style={styles.sectionStationRow}>
+        <View key={`station-line-${station.id ?? index}`} style={styles.sectionStationRow} onLayout={(event) => registerAnchor('sections', index, event)}>
           <View style={styles.sectionStationLine} />
           <Text style={styles.sectionStationLabel} numberOfLines={1}>
             {station.name}
@@ -454,7 +741,7 @@ export function AidStationsSectionV3({
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
       elements.push(
-        <View key={`profile-station-line-${station.id ?? index}`} style={styles.sectionStationRow}>
+        <View key={`profile-station-line-${station.id ?? index}`} style={styles.sectionStationRow} onLayout={(event) => registerAnchor('profile', index, event)}>
           <View style={styles.sectionStationLine} />
           <Text style={styles.sectionStationLabel} numberOfLines={1}>
             {station.name}
@@ -500,8 +787,8 @@ export function AidStationsSectionV3({
                   segmentStat.startDistanceKm,
                   segmentStat.endDistanceKm,
                 );
-                const canSplit = segment.segmentKm > 0.02;
-                const canRemove = segmentIndex > 0 && summary.segments.length > 1;
+                const canSplit = canSplitSectionSegment(targetKey, segmentIndex);
+                const canRemove = canRemoveSectionSegment(targetKey, segmentIndex);
 
                 return (
                   <View key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`} style={styles.profileCard}>
@@ -589,7 +876,9 @@ export function AidStationsSectionV3({
                           activeOpacity={0.8}
                           disabled={!canSplit}
                         >
-                          <Text style={styles.profileActionBtnText}>Decouper plus finement</Text>
+                          <Text style={styles.profileActionBtnText}>
+                            {canSplit ? 'Decouper plus finement' : 'Decoupage indisponible sur ce segment'}
+                          </Text>
                         </TouchableOpacity>
 
                         {canRemove ? (
@@ -615,8 +904,8 @@ export function AidStationsSectionV3({
     return elements;
   }
 
-  function renderActiveView() {
-    if (displayedViewMode === 'stations') {
+  function renderViewForMode(mode: 'stations' | 'sections' | 'profile') {
+    if (mode === 'stations') {
       return (
         <>
           {intermediateCount === 0 && (
@@ -627,30 +916,13 @@ export function AidStationsSectionV3({
       );
     }
 
-    if (displayedViewMode === 'sections') {
+    if (mode === 'sections') {
       return renderSectionsView();
     }
 
     return renderProfileView();
   }
-
-  const animatedContentStyle = {
-    opacity: tabTransition,
-    transform: [
-      {
-        scale: tabTransition.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0.985, 1],
-        }),
-      },
-      {
-        translateY: tabTransition.interpolate({
-          inputRange: [0, 1],
-          outputRange: [6, 0],
-        }),
-      },
-    ],
-  };
+  const viewportHeight = getViewportHeight();
 
   return (
     <>
@@ -690,9 +962,26 @@ export function AidStationsSectionV3({
         </TouchableOpacity>
       </View>
 
-      <Animated.View key={displayedViewMode} style={animatedContentStyle}>
-        {renderActiveView()}
-      </Animated.View>
+      <View style={[styles.swipeViewport, { height: viewportHeight }]}>
+        <ScrollView
+          ref={pagerRef}
+          horizontal
+          pagingEnabled
+          nestedScrollEnabled
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={handlePagerScroll}
+          onMomentumScrollEnd={handlePagerMomentumEnd}
+          contentOffset={{ x: (viewModes.indexOf(displayedViewMode) + 1) * pageWidth, y: 0 }}
+        >
+          {pagerModes.map((mode, pageIndex) => (
+            <View key={`${mode}-${pageIndex}`} style={[styles.swipePage, { width: pageWidth }]}>
+              <View onLayout={(event) => handleViewLayout(mode, event)}>{renderViewForMode(mode)}</View>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import type { ElevationPoint, SectionSegment } from './profile-utils';
+import type { ElevationPoint, SectionSegment, SegmentPreset } from './profile-utils';
 import { autoSegmentSection, buildSectionKey, getElevationSlice, normalizeSectionSegments } from './profile-utils';
 import type { PlanFormValues, PlanTarget, SectionSummary } from './contracts';
 import { buildPlanSectionSummary, getBaseSpeedKph } from './section-summary';
@@ -10,6 +10,8 @@ type Args = {
   setValues: Dispatch<SetStateAction<PlanFormValues>>;
   elevationProfile: ElevationPoint[];
 };
+
+const SPLIT_PRESET_ORDER: SegmentPreset[] = ['grossier', 'moyen', 'fin'];
 
 export function usePlanSections({ values, setValues, elevationProfile }: Args) {
   const baseSpeedKph = useMemo(
@@ -34,6 +36,48 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
       values.targetIntakePerHour,
       values.waterIntakePerHour,
     ],
+  );
+
+  const getSplitReplacementSegments = useCallback(
+    (target: PlanTarget, segmentIndex: number) => {
+      const summary = buildSectionSummary(target);
+      if (!summary) return null;
+
+      const segment = summary.segments[segmentIndex];
+      const segmentStat = summary.segmentStats[segmentIndex];
+      if (!segment || !segmentStat || segment.segmentKm <= 0.02) return null;
+
+      const segmentProfile = getElevationSlice(elevationProfile, segmentStat.startDistanceKm, segmentStat.endDistanceKm);
+      if (segmentProfile.length <= 1) return null;
+
+      for (const preset of SPLIT_PRESET_ORDER) {
+        const replacementSegments = autoSegmentSection(segmentProfile, preset);
+        if (replacementSegments.length <= 1) continue;
+
+        return replacementSegments.map((replacementSegment) => ({
+          ...replacementSegment,
+          ...(typeof segment.paceAdjustmentMinutesPerKm === 'number'
+            ? { paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm }
+            : {}),
+        }));
+      }
+
+      return null;
+    },
+    [buildSectionSummary, elevationProfile],
+  );
+
+  const canSplitSectionSegment = useCallback(
+    (target: PlanTarget, segmentIndex: number) => Boolean(getSplitReplacementSegments(target, segmentIndex)?.length),
+    [getSplitReplacementSegments],
+  );
+
+  const canRemoveSectionSegment = useCallback(
+    (target: PlanTarget, segmentIndex: number) => {
+      const summary = buildSectionSummary(target);
+      return Boolean(summary && segmentIndex > 0 && summary.segments.length > 1);
+    },
+    [buildSectionSummary],
   );
 
   const updateSectionSegmentPaceAdjustment = useCallback(
@@ -69,29 +113,9 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
       const summary = buildSectionSummary(target);
       if (!summary) return;
 
-      const segment = summary.segments[segmentIndex];
-      const segmentStat = summary.segmentStats[segmentIndex];
-      if (!segment || !segmentStat || segment.segmentKm <= 0.02) return;
+      const propagatedSegments = getSplitReplacementSegments(target, segmentIndex);
+      if (!propagatedSegments || propagatedSegments.length <= 1) return;
 
-      const segmentProfile = getElevationSlice(elevationProfile, segmentStat.startDistanceKm, segmentStat.endDistanceKm);
-      let replacementSegments = segmentProfile.length > 1 ? autoSegmentSection(segmentProfile, 'moyen') : [];
-
-      if (replacementSegments.length <= 1) {
-        const firstKm = Number((segment.segmentKm / 2).toFixed(3));
-        const secondKm = Number((segment.segmentKm - firstKm).toFixed(3));
-        if (firstKm > 0.01 && secondKm > 0.01) {
-          replacementSegments = [{ segmentKm: firstKm }, { segmentKm: secondKm }];
-        }
-      }
-
-      if (replacementSegments.length <= 1) return;
-
-      const propagatedSegments = replacementSegments.map((replacementSegment) => ({
-        ...replacementSegment,
-        ...(typeof segment.paceAdjustmentMinutesPerKm === 'number'
-          ? { paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm }
-          : {}),
-      }));
       const sectionKey = buildSectionKey(summary.sectionIndex);
       const nextSegments = normalizeSectionSegments(
         [
@@ -110,7 +134,7 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
         },
       }));
     },
-    [buildSectionSummary, elevationProfile, setValues],
+    [buildSectionSummary, getSplitReplacementSegments, setValues],
   );
 
   const removeSectionSegment = useCallback(
@@ -150,6 +174,8 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
   return {
     baseSpeedKph,
     buildSectionSummary,
+    canSplitSectionSegment,
+    canRemoveSectionSegment,
     updateSectionSegmentPaceAdjustment,
     splitSectionSegment,
     removeSectionSegment,

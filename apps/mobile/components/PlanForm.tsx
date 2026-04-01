@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -17,7 +17,7 @@ import {
   type Supply,
 } from './plan-form/contracts';
 import { EditStationModal, type EditingStation } from './plan-form/EditStationModal';
-import { buildInitialPlanValues } from './plan-form/helpers';
+import { buildInitialPlanValues, getEffectiveSodiumTarget } from './plan-form/helpers';
 import {
   buildGaugeMetrics,
   buildPlanHighlights,
@@ -68,6 +68,7 @@ export default function PlanForm({
   compactBasicsByDefault = false,
 }: Props) {
   const { isPremium } = usePremium();
+  const scrollRef = useRef<ScrollView>(null);
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set([DEPART_ID]));
   const [expandedSections, setExpandedSections] = useState<Record<AccordionSection, boolean>>({
@@ -78,6 +79,8 @@ export default function PlanForm({
   });
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
   const [gaugeAnimateSignal, setGaugeAnimateSignal] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
+  const [aidStationsTopY, setAidStationsTopY] = useState(0);
 
   void favoriteProducts;
   void saveLabel;
@@ -118,6 +121,8 @@ export default function PlanForm({
   const {
     baseSpeedKph,
     buildSectionSummary,
+    canSplitSectionSegment,
+    canRemoveSectionSegment,
     updateSectionSegmentPaceAdjustment,
     splitSectionSegment,
     removeSectionSegment,
@@ -191,15 +196,25 @@ export default function PlanForm({
   const getGaugeMetricsForTarget = (
     target: PlanTarget,
     sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
-  ) =>
-    buildGaugeMetrics({
+  ) => {
+    // Keep the displayed sodium need aligned with the effective planning target
+    // so the gauge and the ravito verdict talk about the same reference.
+    const effectiveSectionTarget = sectionTarget
+      ? {
+          ...sectionTarget,
+          targetSodiumMg: getEffectiveSodiumTarget(sectionTarget.targetSodiumMg),
+        }
+      : undefined;
+
+    return buildGaugeMetrics({
       target,
-      sectionTarget,
+      sectionTarget: effectiveSectionTarget,
       getSupplies,
       productMap,
       aidStations: values.aidStations,
       waterBagLiters: values.waterBagLiters,
     });
+  };
 
   const getSectionIntakeTimeline = (
     target: PlanTarget,
@@ -273,7 +288,14 @@ export default function PlanForm({
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
+      >
         <PlanBasicsSection
           values={values}
           expandedSections={expandedSections}
@@ -294,44 +316,51 @@ export default function PlanForm({
           productBreakdown={highlights.productBreakdown}
         />
 
-        <AidStationsSection
-          values={values}
-          basePaceMinutesPerKm={basePaceMinutesPerKm}
-          departId={DEPART_ID}
-          arriveeId={ARRIVEE_ID}
-          expandedStations={expandedStations}
-          toggleStation={toggleStation}
-          setEditingStation={setEditingStation}
-          removeAidStation={removeAidStation}
-          addAidStation={addAidStation}
-          fillSuppliesAuto={fillSuppliesAuto}
-          intermediateCount={highlights.intermediateCount}
-          getSupplies={getSupplies}
-          openPicker={openPicker}
-          increaseQty={(target, productId) => {
-            increaseQty(target, productId);
-            triggerGaugeAnimation();
-          }}
-          decreaseQty={(target, productId) => {
-            decreaseQty(target, productId);
-            triggerGaugeAnimation();
-          }}
-          removeSupply={(target, productId) => {
-            removeSupply(target, productId);
-            triggerGaugeAnimation();
-          }}
-          productMap={productMap}
-          fuelLabels={FUEL_LABELS}
-          getGaugeMetrics={getGaugeMetricsForTarget}
-          getGaugeColor={getGaugeColor}
-          formatGaugeValue={formatGaugeValue}
-          getSectionSummary={buildSectionSummary}
-          getSectionIntakeTimeline={getSectionIntakeTimeline}
-          gaugeAnimateSignal={gaugeAnimateSignal}
-          onSplitSectionSegment={splitSectionSegment}
-          onRemoveSectionSegment={removeSectionSegment}
-          onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
-        />
+        <View onLayout={(event) => setAidStationsTopY(event.nativeEvent.layout.y)}>
+          <AidStationsSection
+            values={values}
+            basePaceMinutesPerKm={basePaceMinutesPerKm}
+            departId={DEPART_ID}
+            arriveeId={ARRIVEE_ID}
+            expandedStations={expandedStations}
+            toggleStation={toggleStation}
+            setEditingStation={setEditingStation}
+            removeAidStation={removeAidStation}
+            addAidStation={addAidStation}
+            fillSuppliesAuto={fillSuppliesAuto}
+            intermediateCount={highlights.intermediateCount}
+            getSupplies={getSupplies}
+            openPicker={openPicker}
+            increaseQty={(target, productId) => {
+              increaseQty(target, productId);
+              triggerGaugeAnimation();
+            }}
+            decreaseQty={(target, productId) => {
+              decreaseQty(target, productId);
+              triggerGaugeAnimation();
+            }}
+            removeSupply={(target, productId) => {
+              removeSupply(target, productId);
+              triggerGaugeAnimation();
+            }}
+            productMap={productMap}
+            fuelLabels={FUEL_LABELS}
+            getGaugeMetrics={getGaugeMetricsForTarget}
+            getGaugeColor={getGaugeColor}
+            formatGaugeValue={formatGaugeValue}
+            getSectionSummary={buildSectionSummary}
+            getSectionIntakeTimeline={getSectionIntakeTimeline}
+            gaugeAnimateSignal={gaugeAnimateSignal}
+            canSplitSectionSegment={canSplitSectionSegment}
+            canRemoveSectionSegment={canRemoveSectionSegment}
+            onSplitSectionSegment={splitSectionSegment}
+            onRemoveSectionSegment={removeSectionSegment}
+            onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
+            parentScrollY={scrollY}
+            containerTopY={aidStationsTopY}
+            onRequestParentScroll={(nextY) => scrollRef.current?.scrollTo({ y: Math.max(0, nextY), animated: false })}
+          />
+        </View>
 
         <View style={styles.saveSpacer} />
       </ScrollView>

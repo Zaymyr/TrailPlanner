@@ -10,6 +10,7 @@ export type GaugeMetric = {
   current: number;
   target: number;
   ratio: number;
+  statusRatio?: number;
 };
 
 type Props = {
@@ -86,14 +87,15 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
   const innerRadius = compact ? 11 : 24;
   const overflowRadius = compact ? 15 : 31;
   const safeRatio = Number.isFinite(metric.ratio) ? Math.max(0, metric.ratio) : 0;
+  const safeStatusRatio = Number.isFinite(metric.statusRatio) ? Math.max(0, metric.statusRatio ?? 0) : safeRatio;
   const visualRatio = Math.min(safeRatio, MAX_VISUAL_RATIO);
-  const displayPct = Math.round(safeRatio * 100);
+  const displayPct = metric.target > 0 ? Math.round((metric.current / metric.target) * 100) : 0;
   const animatedRatio = useRef(new Animated.Value(visualRatio)).current;
   const hasMounted = useRef(false);
   const lastAnimateSignal = useRef(animateSignal);
   const [isAnimating, setIsAnimating] = useState(false);
 
-  const fillColor = getGaugeColor(metric.key, safeRatio);
+  const fillColor = getGaugeColor(metric.key, safeStatusRatio);
   const overflowColor = darkenHex(fillColor);
 
   useEffect(() => {
@@ -237,6 +239,10 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
           )}
         </View>
       </View>
+
+      {!compact && (
+        <Text style={styles.gaugeValueCaption}>Emporte / Besoin</Text>
+      )}
 
       {!compact && (
         <Text style={styles.gaugeValue}>
