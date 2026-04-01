@@ -1,4 +1,5 @@
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useMemo } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, SectionList, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
 import { styles } from './styles';
@@ -20,7 +21,7 @@ type Props = {
   onAddProduct: (product: PickerProduct) => void;
 };
 
-export function ProductPickerModal({
+export const ProductPickerModal = React.memo(function ProductPickerModal({
   visible,
   pickerSearch,
   setPickerSearch,
@@ -40,12 +41,12 @@ export function ProductPickerModal({
     { key: 'sodium', label: 'Sodium' },
   ];
 
-  const renderPickerRow = (product: PickerProduct) => {
+  const renderPickerRow = useCallback(({ item: product }: { item: PickerProduct }) => {
     const added = currentSupplyIds.has(product.id);
     const carbs = Math.round(product.carbs_g ?? 0);
     const sodium = Math.round(product.sodium_mg ?? 0);
     return (
-      <View key={product.id} style={styles.pickerRow}>
+      <View style={styles.pickerRow}>
         <View style={styles.pickerRowInfo}>
           <Text style={styles.pickerRowName} numberOfLines={1}>
             {product.name}
@@ -66,7 +67,29 @@ export function ProductPickerModal({
         </TouchableOpacity>
       </View>
     );
-  };
+  }, [currentSupplyIds, fuelLabels, onAddProduct]);
+
+  const sections = useMemo(() => {
+    const result: Array<{ title: string; data: PickerProduct[] }> = [];
+    if (pickerFavorites.length > 0) {
+      result.push({ title: 'Mes favoris', data: pickerFavorites });
+    }
+    result.push({ title: 'Tous les produits', data: filteredAllProducts });
+    return result;
+  }, [pickerFavorites, filteredAllProducts]);
+
+  const renderSectionHeader = useCallback(({ section: { title } }: { section: { title: string } }) => (
+    <Text style={styles.pickerSectionTitle}>{title}</Text>
+  ), []);
+
+  const renderSectionFooter = useCallback(({ section }: { section: { title: string; data: PickerProduct[] } }) => {
+    if (section.title === 'Tous les produits' && section.data.length === 0) {
+      return <Text style={styles.pickerEmpty}>Aucun produit trouvé.</Text>;
+    }
+    return null;
+  }, []);
+
+  const keyExtractor = useCallback((item: PickerProduct) => item.id, []);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -106,23 +129,21 @@ export function ProductPickerModal({
           {productsLoading ? (
             <ActivityIndicator color={Colors.brandPrimary} style={{ marginTop: 24 }} />
           ) : (
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              {pickerFavorites.length > 0 && (
-                <>
-                  <Text style={styles.pickerSectionTitle}>Mes favoris</Text>
-                  {pickerFavorites.map(renderPickerRow)}
-                </>
-              )}
-              <Text style={styles.pickerSectionTitle}>Tous les produits</Text>
-              {filteredAllProducts.length === 0 ? (
-                <Text style={styles.pickerEmpty}>Aucun produit trouvé.</Text>
-              ) : (
-                filteredAllProducts.map(renderPickerRow)
-              )}
-            </ScrollView>
+            <SectionList
+              sections={sections}
+              keyExtractor={keyExtractor}
+              renderItem={renderPickerRow}
+              renderSectionHeader={renderSectionHeader}
+              renderSectionFooter={renderSectionFooter}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              initialNumToRender={15}
+              maxToRenderPerBatch={10}
+              windowSize={5}
+            />
           )}
         </View>
       </KeyboardAvoidingView>
     </Modal>
   );
-}
+});

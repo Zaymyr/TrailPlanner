@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
@@ -57,6 +57,15 @@ type Props = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 
+function useDebounced<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
+
 export default function PlanForm({
   initialValues,
   onSave,
@@ -70,6 +79,7 @@ export default function PlanForm({
   const { isPremium } = usePremium();
   const scrollRef = useRef<ScrollView>(null);
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
+  const debouncedValues = useDebounced(values, 300);
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set([DEPART_ID]));
   const [expandedSections, setExpandedSections] = useState<Record<AccordionSection, boolean>>({
     course: !compactBasicsByDefault,
@@ -102,9 +112,9 @@ export default function PlanForm({
     onValuesChange?.(values);
   }, [onValuesChange, values]);
 
-  const triggerGaugeAnimation = () => {
+  const triggerGaugeAnimation = useCallback(() => {
     setGaugeAnimateSignal((prev) => prev + 1);
-  };
+  }, []);
 
   const update = <K extends keyof PlanFormValues>(key: K, value: PlanFormValues[K]) => {
     setValues((prev) => {
@@ -171,19 +181,19 @@ export default function PlanForm({
   const highlights = useMemo(
     () =>
       buildPlanHighlights({
-        values,
+        values: debouncedValues,
         productMap,
         buildSectionSummary,
       }),
-    [buildSectionSummary, productMap, values],
+    [buildSectionSummary, productMap, debouncedValues],
   );
   const continuousSections = useMemo(
-    () => buildContinuousSections({ values, elevationProfile }),
-    [elevationProfile, values],
+    () => buildContinuousSections({ values: debouncedValues, elevationProfile }),
+    [elevationProfile, debouncedValues],
   );
   const continuousTimeline = useMemo(
-    () => buildContinuousIntakeTimeline({ values, productMap, elevationProfile }),
-    [elevationProfile, productMap, values],
+    () => buildContinuousIntakeTimeline({ values: debouncedValues, productMap, elevationProfile }),
+    [elevationProfile, productMap, debouncedValues],
   );
   const paceLabel = useMemo(() => {
     const safeMinutesPerKm = highlights.totalDurationMin / Math.max(values.raceDistanceKm, 0.01);
@@ -252,11 +262,38 @@ export default function PlanForm({
     });
   };
 
-  const handleAddProductFromPicker = (product: PickerProduct) => {
+  const handleAddProductFromPicker = useCallback((product: PickerProduct) => {
     if (pickerTarget === null) return;
     addSupplyToStation(pickerTarget, product.id);
     triggerGaugeAnimation();
-  };
+  }, [pickerTarget, addSupplyToStation, triggerGaugeAnimation]);
+
+  const handleIncreaseQty = useCallback((target: Parameters<typeof increaseQty>[0], productId: string) => {
+    increaseQty(target, productId);
+    triggerGaugeAnimation();
+  }, [increaseQty, triggerGaugeAnimation]);
+
+  const handleDecreaseQty = useCallback((target: Parameters<typeof decreaseQty>[0], productId: string) => {
+    decreaseQty(target, productId);
+    triggerGaugeAnimation();
+  }, [decreaseQty, triggerGaugeAnimation]);
+
+  const handleRemoveSupply = useCallback((target: Parameters<typeof removeSupply>[0], productId: string) => {
+    removeSupply(target, productId);
+    triggerGaugeAnimation();
+  }, [removeSupply, triggerGaugeAnimation]);
+
+  const handleScrollY = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    setScrollY(event.nativeEvent.contentOffset.y);
+  }, []);
+
+  const handleAidStationsLayout = useCallback((event: { nativeEvent: { layout: { y: number } } }) => {
+    setAidStationsTopY(event.nativeEvent.layout.y);
+  }, []);
+
+  const handleRequestParentScroll = useCallback((nextY: number) => {
+    scrollRef.current?.scrollTo({ y: Math.max(0, nextY), animated: false });
+  }, []);
 
   const handleEditSave = () => {
     if (!editingStation) return;
@@ -294,7 +331,7 @@ export default function PlanForm({
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
-        onScroll={(event) => setScrollY(event.nativeEvent.contentOffset.y)}
+        onScroll={handleScrollY}
       >
         <PlanBasicsSection
           values={values}
@@ -316,7 +353,7 @@ export default function PlanForm({
           productBreakdown={highlights.productBreakdown}
         />
 
-        <View onLayout={(event) => setAidStationsTopY(event.nativeEvent.layout.y)}>
+        <View onLayout={handleAidStationsLayout}>
           <AidStationsSection
             values={values}
             basePaceMinutesPerKm={basePaceMinutesPerKm}
@@ -331,18 +368,9 @@ export default function PlanForm({
             intermediateCount={highlights.intermediateCount}
             getSupplies={getSupplies}
             openPicker={openPicker}
-            increaseQty={(target, productId) => {
-              increaseQty(target, productId);
-              triggerGaugeAnimation();
-            }}
-            decreaseQty={(target, productId) => {
-              decreaseQty(target, productId);
-              triggerGaugeAnimation();
-            }}
-            removeSupply={(target, productId) => {
-              removeSupply(target, productId);
-              triggerGaugeAnimation();
-            }}
+            increaseQty={handleIncreaseQty}
+            decreaseQty={handleDecreaseQty}
+            removeSupply={handleRemoveSupply}
             productMap={productMap}
             fuelLabels={FUEL_LABELS}
             getGaugeMetrics={getGaugeMetricsForTarget}
@@ -358,7 +386,7 @@ export default function PlanForm({
             onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
             parentScrollY={scrollY}
             containerTopY={aidStationsTopY}
-            onRequestParentScroll={(nextY) => scrollRef.current?.scrollTo({ y: Math.max(0, nextY), animated: false })}
+            onRequestParentScroll={handleRequestParentScroll}
           />
         </View>
 

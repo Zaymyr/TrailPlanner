@@ -1,3 +1,4 @@
+import React from 'react';
 import { View } from 'react-native';
 import { GaugeArc, type GaugeMetric } from './GaugeArc';
 import { styles } from './styles';
@@ -10,7 +11,7 @@ type Props = {
   animateSignal?: number;
 };
 
-export function GaugesRow({ metrics, compact = false, formatGaugeValue, getGaugeColor, animateSignal = 0 }: Props) {
+export const GaugesRow = React.memo(function GaugesRow({ metrics, compact = false, formatGaugeValue, getGaugeColor, animateSignal = 0 }: Props) {
   return (
     <View style={compact ? styles.gaugesRowCompact : styles.gaugesRow}>
       {metrics.map((metric) => (
@@ -25,4 +26,4 @@ export function GaugesRow({ metrics, compact = false, formatGaugeValue, getGauge
       ))}
     </View>
   );
-}
+});

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { styles } from './styles';
@@ -19,7 +20,7 @@ type Props = {
   productBreakdown: ProductBreakdownItem[];
 };
 
-export function PlanHighlightsSection({
+export const PlanHighlightsSection = React.memo(function PlanHighlightsSection({
   expanded,
   onToggle,
   totalDurationLabel,
@@ -125,4 +126,4 @@ export function PlanHighlightsSection({
       ) : null}
     </View>
   );
-}
+});
