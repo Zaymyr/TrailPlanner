@@ -290,13 +290,14 @@ const computeElevationDelta = (samples: ElevationSample[]): { dPlus: number; dMi
 export function computeSegmentStats(
   segment: SectionSegment & { startDistanceKm?: number; endDistanceKm?: number },
   samples: ElevationSample[],
-  paceModel?: PaceModel
+  paceModel?: PaceModel,
+  sortedSamples?: ElevationSample[]
 ): { distKm: number; dPlus: number; dMinus: number; etaSeconds: number } {
   if (samples.length === 0) {
     return { distKm: segment.segmentKm, dPlus: 0, dMinus: 0, etaSeconds: 0 };
   }
 
-  const sorted = [...samples].sort(byDistance);
+  const sorted = sortedSamples ?? [...samples].sort(byDistance);
   const startDistance =
     typeof segment.startDistanceKm === "number" && Number.isFinite(segment.startDistanceKm)
       ? segment.startDistanceKm
