@@ -31,4 +31,5 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Publish preview update
+        working-directory: apps/mobile
         run: npx eas update --branch preview --message "${{ github.event.head_commit.message }}" --non-interactive
