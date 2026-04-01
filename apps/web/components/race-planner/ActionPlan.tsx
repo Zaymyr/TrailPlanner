@@ -1383,7 +1383,7 @@ export function ActionPlan({
       return matchesSearch && matchesType && matchesOwnership;
     });
   }, [fuelProducts, localProductIds, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
-  const renderItems = buildRenderItems(segments);
+  const renderItems = useMemo(() => buildRenderItems(segments), [segments]);
   const {
     data: coachCommentsData,
     createComment,
@@ -1548,6 +1548,56 @@ export function ActionPlan({
       totalCalories,
     };
   }, [productById, raceTotals?.durationMinutes, segments, startSupplies]);
+  const sectionComputationByItemId = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        sectionSegment: Segment | undefined;
+        upcomingSegmentIndex: number | null;
+        sectionKey: string | null;
+        storedSectionSegments: SectionSegment[] | null;
+        resolvedSectionSegments: SectionSegment[];
+        hasStoredSubSections: boolean;
+        sectionStats: ReturnType<typeof recomputeSectionFromSubSections> | null;
+        sectionTotals: ReturnType<typeof recomputeSectionFromSubSections>["totals"] | null;
+      }
+    >();
+
+    renderItems.forEach((item) => {
+      const sectionSegment = item.upcomingSegment;
+      const upcomingSegmentIndex =
+        typeof item.upcomingSegmentIndex === "number" && item.upcomingSegmentIndex >= 0 ? item.upcomingSegmentIndex : null;
+      const sectionKey = upcomingSegmentIndex !== null ? buildSectionKey(upcomingSegmentIndex) : null;
+      const storedSectionSegments = sectionKey ? sectionSegmentsMap[sectionKey] ?? null : null;
+      const resolvedSectionSegments =
+        sectionSegment && sectionKey
+          ? normalizeSectionSegments(storedSectionSegments ?? [{ segmentKm: sectionSegment.segmentKm }], sectionSegment.segmentKm)
+          : [];
+      const hasStoredSubSections = Boolean(storedSectionSegments && storedSectionSegments.length > 0);
+      const sectionStats =
+        sectionSegment && resolvedSectionSegments.length > 0
+          ? recomputeSectionFromSubSections({
+              segments: resolvedSectionSegments,
+              startDistanceKm: sectionSegment.startDistanceKm,
+              elevationProfile: sortedElevationProfile,
+              paceModel,
+            })
+          : null;
+
+      map.set(item.id, {
+        sectionSegment,
+        upcomingSegmentIndex,
+        sectionKey,
+        storedSectionSegments,
+        resolvedSectionSegments,
+        hasStoredSubSections,
+        sectionStats,
+        sectionTotals: hasStoredSubSections && sectionStats ? sectionStats.totals : null,
+      });
+    });
+
+    return map;
+  }, [normalizeSectionSegments, paceModel, renderItems, sectionSegmentsMap, sortedElevationProfile]);
   const metricIcons = {
     carbs: (
       <Image
@@ -1684,9 +1734,17 @@ export function ActionPlan({
     return { items, totals };
   };
 
+  const aidSuppliesByStationIndex = useMemo(() => {
+    const map = new Map<number, StationSupply[]>();
+    segments.forEach((segment) => {
+      if (typeof segment.aidStationIndex !== "number") return;
+      map.set(segment.aidStationIndex, segment.supplies ?? []);
+    });
+    return map;
+  }, [segments]);
   const getAidSupplies = useCallback(
-    (aidStationIndex: number) => segments.find((seg) => seg.aidStationIndex === aidStationIndex)?.supplies ?? [],
-    [segments]
+    (aidStationIndex: number) => aidSuppliesByStationIndex.get(aidStationIndex) ?? [],
+    [aidSuppliesByStationIndex]
   );
   const supplyPickerSupplies = useMemo(() => {
     if (!supplyPicker) return null;
@@ -2016,31 +2074,15 @@ export function ActionPlan({
                     </div>
                   ) : null;
 
-                const sectionSegment = nextSegment;
-                const upcomingSegmentIndex =
-                  typeof item.upcomingSegmentIndex === "number" && item.upcomingSegmentIndex >= 0
-                    ? item.upcomingSegmentIndex
-                    : null;
-                const sectionKey = upcomingSegmentIndex !== null ? buildSectionKey(upcomingSegmentIndex) : null;
-                const storedSectionSegments = sectionKey ? sectionSegmentsMap[sectionKey] ?? null : null;
-                const resolvedSectionSegments =
-                  sectionSegment && sectionKey
-                    ? normalizeSectionSegments(
-                        storedSectionSegments ?? [{ segmentKm: sectionSegment.segmentKm }],
-                        sectionSegment.segmentKm
-                      )
-                    : [];
-                const hasStoredSubSections = Boolean(storedSectionSegments && storedSectionSegments.length > 0);
-                const sectionStats =
-                  sectionSegment && resolvedSectionSegments.length > 0
-                    ? recomputeSectionFromSubSections({
-                        segments: resolvedSectionSegments,
-                        startDistanceKm: sectionSegment.startDistanceKm,
-                        elevationProfile: sortedElevationProfile,
-                        paceModel,
-                      })
-                    : null;
-                const sectionTotals = hasStoredSubSections && sectionStats ? sectionStats.totals : null;
+                const sectionComputation = sectionComputationByItemId.get(item.id);
+                const sectionSegment = sectionComputation?.sectionSegment;
+                const upcomingSegmentIndex = sectionComputation?.upcomingSegmentIndex ?? null;
+                const sectionKey = sectionComputation?.sectionKey ?? null;
+                const storedSectionSegments = sectionComputation?.storedSectionSegments ?? null;
+                const resolvedSectionSegments = sectionComputation?.resolvedSectionSegments ?? [];
+                const hasStoredSubSections = sectionComputation?.hasStoredSubSections ?? false;
+                const sectionStats = sectionComputation?.sectionStats ?? null;
+                const sectionTotals = sectionComputation?.sectionTotals ?? null;
                 const sectionSummaryDistanceKm = sectionTotals?.distanceKm ?? sectionSegment?.segmentKm ?? 0;
                 const sectionSummaryMinutes =
                   sectionTotals?.etaSeconds !== undefined

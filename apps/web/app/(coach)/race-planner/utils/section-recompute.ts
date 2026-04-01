@@ -38,6 +38,7 @@ export function recomputeSectionFromSubSections({
   paceModel?: PaceModel;
 }): { totals: SectionTotals; segmentStats: SectionSubSegmentStats[] } {
   let cursor = Number.isFinite(startDistanceKm) ? startDistanceKm : 0;
+  const sortedElevationProfile = [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm);
 
   const segmentStats = segments.map((segment, index) => {
     const startDistance = cursor;
@@ -50,8 +51,9 @@ export function recomputeSectionFromSubSections({
         startDistanceKm: startDistance,
         endDistanceKm: endDistance,
       },
-      elevationProfile,
-      paceModel
+      sortedElevationProfile,
+      paceModel,
+      sortedElevationProfile
     );
 
     return {
