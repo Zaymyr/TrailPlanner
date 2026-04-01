@@ -1,0 +1,12 @@
+name: Build Android Production
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-production-android:
+    name: Build Android production AAB
+    type: build
+    params:
+      platform: android
+      profile: production

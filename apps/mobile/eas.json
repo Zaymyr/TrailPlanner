@@ -20,17 +20,7 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "ios": {
-        "buildConfiguration": "Release"
-      },
       "channel": "production"
-    }
-  },
-  "submit": {
-    "production": {
-      "android": {
-        "track": "internal"
-      }
     }
   }
 }
