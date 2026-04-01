@@ -36,9 +36,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     supportsTablet: false,
     bundleIdentifier: 'com.paceyourself.app',
     infoPlist: {
-      NSLocationWhenInUseUsageDescription:
-        'Pace Yourself uses your location to track race progress and trigger nutrition alerts based on distance.',
-      UIBackgroundModes: ['location', 'fetch'],
+      UIBackgroundModes: ['fetch'],
     },
   },
   android: {
@@ -48,10 +46,11 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       backgroundColor: '#0f172a',
     },
     package: 'com.paceyourself.app',
-    permissions: [
-      'ACCESS_FINE_LOCATION',
-      'ACCESS_BACKGROUND_LOCATION',
-      'FOREGROUND_SERVICE',
+    blockedPermissions: [
+      'android.permission.ACCESS_COARSE_LOCATION',
+      'android.permission.ACCESS_FINE_LOCATION',
+      'android.permission.ACCESS_BACKGROUND_LOCATION',
+      'android.permission.FOREGROUND_SERVICE_LOCATION',
     ],
   },
   plugins: [
@@ -61,14 +60,6 @@ export default ({ config }: ConfigContext): ExpoConfig =>
       'expo-notifications',
       {
         color: '#22c55e',
-      },
-    ],
-    [
-      'expo-location',
-      {
-        locationAlwaysAndWhenInUsePermission:
-          'Pace Yourself uses your location to track race progress and trigger nutrition alerts based on distance.',
-        isAndroidBackgroundLocationEnabled: true,
       },
     ],
   ],
