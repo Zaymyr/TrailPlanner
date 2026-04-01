@@ -1,3 +1,4 @@
+import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type { PlanProduct, Supply } from './contracts';
 import { styles } from './styles';
@@ -12,7 +13,7 @@ type Props = {
   onRemoveSupply: (productId: string) => void;
 };
 
-export function SuppliesList({
+export const SuppliesList = React.memo(function SuppliesList({
   supplies,
   productMap,
   fuelLabels,
@@ -76,4 +77,4 @@ export function SuppliesList({
       )}
     </View>
   );
-}
+});
