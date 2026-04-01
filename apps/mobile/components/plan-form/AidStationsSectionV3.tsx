@@ -114,7 +114,6 @@ export function AidStationsSectionV3({
   const pagerRef = useRef<ScrollView>(null);
   const [selectedViewMode, setSelectedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
   const [displayedViewMode, setDisplayedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
-  const [pagerOffsetX, setPagerOffsetX] = useState(pageWidth);
   const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
   const [viewHeights, setViewHeights] = useState<Record<'stations' | 'sections' | 'profile', number>>({
     stations: 0,
@@ -272,25 +271,8 @@ export function AidStationsSectionV3({
   useEffect(() => {
     const currentPageIndex = viewModes.indexOf(displayedViewMode) + 1;
     if (currentPageIndex <= 0) return;
-    setPagerOffsetX(currentPageIndex * pageWidth);
     pagerRef.current?.scrollTo({ x: currentPageIndex * pageWidth, animated: false });
   }, [displayedViewMode, pageWidth]);
-
-  function handlePagerScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    setPagerOffsetX(event.nativeEvent.contentOffset.x);
-  }
-
-  function getViewportHeight() {
-    const safePageWidth = Math.max(pageWidth, 1);
-    const rawIndex = pagerOffsetX / safePageWidth;
-    const fromIndex = Math.max(0, Math.min(pagerModes.length - 1, Math.floor(rawIndex)));
-    const toIndex = Math.max(0, Math.min(pagerModes.length - 1, Math.ceil(rawIndex)));
-    const progress = Math.max(0, Math.min(1, rawIndex - fromIndex));
-    const fromHeight = Math.max(1, viewHeights[pagerModes[fromIndex]] || 0);
-    const toHeight = Math.max(1, viewHeights[pagerModes[toIndex]] || 0);
-
-    return Math.round(fromHeight + (toHeight - fromHeight) * progress);
-  }
 
   function handlePagerMomentumEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const rawPageIndex = Math.round(event.nativeEvent.contentOffset.x / Math.max(pageWidth, 1));
@@ -317,7 +299,6 @@ export function AidStationsSectionV3({
 
     if (resetPageIndex !== null) {
       requestAnimationFrame(() => {
-        setPagerOffsetX(resetPageIndex * pageWidth);
         pagerRef.current?.scrollTo({ x: resetPageIndex * pageWidth, animated: false });
       });
     }
@@ -922,7 +903,7 @@ export function AidStationsSectionV3({
 
     return renderProfileView();
   }
-  const viewportHeight = getViewportHeight();
+  const viewportHeight = Math.max(1, viewHeights[displayedViewMode] || 0);
 
   return (
     <>
@@ -971,7 +952,6 @@ export function AidStationsSectionV3({
           bounces={false}
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
-          onScroll={handlePagerScroll}
           onMomentumScrollEnd={handlePagerMomentumEnd}
           contentOffset={{ x: (viewModes.indexOf(displayedViewMode) + 1) * pageWidth, y: 0 }}
         >

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../../../locales/types";
@@ -65,7 +66,7 @@ type PlanPrimaryContentProps = {
   };
 };
 
-export function PlanPrimaryContent({
+export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   profileError,
   showProfileError,
   copy,
@@ -162,4 +163,6 @@ export function PlanPrimaryContent({
       />
     </div>
   );
-}
+});
+
+PlanPrimaryContent.displayName = "PlanPrimaryContent";

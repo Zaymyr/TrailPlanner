@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode, SVGProps } from "react";
@@ -17,7 +17,6 @@ import type {
 } from "../../app/(coach)/race-planner/types";
 import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
-import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
 import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
 import { SubSectionElevationChart } from "../../app/(coach)/race-planner/components/SubSectionElevationChart";
 import type { CoachComment } from "../../lib/coach-comments";
@@ -37,6 +36,7 @@ import { AutoSegmentModal } from "./AutoSegmentModal";
 import { EditSubSectionModal } from "./EditSubSectionModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
+import { useActionPlanDerivedData } from "./useActionPlanDerivedData";
 import {
   BoltIcon,
   ChevronDownIcon,
@@ -314,55 +314,6 @@ const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
     return `aidStations.${segment.aidStationIndex}.${field}` as const;
   }
   return null;
-};
-
-type RenderItem =
-  | {
-      id: string;
-      title: string;
-      distanceKm: number;
-      etaMinutes: number;
-      isStart?: boolean;
-      isFinish?: boolean;
-      aidStationIndex?: number;
-      pickupGels?: number;
-      checkpointSegment?: Segment;
-      upcomingSegment?: Segment;
-      upcomingSegmentIndex?: number;
-    };
-
-const buildRenderItems = (segments: Segment[]): RenderItem[] => {
-  if (segments.length === 0) return [];
-
-  const items: RenderItem[] = [];
-  const startSegment = segments[0];
-
-  items.push({
-    id: `point-${startSegment.from}-start`,
-    title: startSegment.from,
-    distanceKm: startSegment.startDistanceKm,
-    etaMinutes: 0,
-    isStart: true,
-    upcomingSegment: startSegment,
-    upcomingSegmentIndex: 0,
-  });
-
-  segments.forEach((segment, index) => {
-    items.push({
-      id: `point-${segment.checkpoint}-${segment.distanceKm}`,
-      title: segment.checkpoint,
-      distanceKm: segment.distanceKm,
-      etaMinutes: segment.etaMinutes,
-      isFinish: segment.isFinish,
-      aidStationIndex: segment.aidStationIndex,
-      pickupGels: segment.pickupGels,
-      checkpointSegment: segment,
-      upcomingSegment: segments[index + 1],
-      upcomingSegmentIndex: index + 1,
-    });
-  });
-
-  return items;
 };
 
 const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -1067,6 +1018,7 @@ export function ActionPlan({
   >(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [supplyPicker, setSupplyPicker] = useState<{ type: "start" | "aid"; index?: number } | null>(null);
+  const [, startUiTransition] = useTransition();
   const [pickerFavorites, setPickerFavorites] = useState<string[]>([]);
   const [pickerFavoriteLimitHit, setPickerFavoriteLimitHit] = useState(false);
   const [pickerSearch, setPickerSearch] = useState("");
@@ -1383,7 +1335,24 @@ export function ActionPlan({
       return matchesSearch && matchesType && matchesOwnership;
     });
   }, [fuelProducts, localProductIds, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
-  const renderItems = buildRenderItems(segments);
+  const {
+    renderItems,
+    collapsibleKeys,
+    productById,
+    finishSummary,
+    sectionComputationByItemId,
+    summarizedSuppliesByItemId,
+    aidSuppliesByStationIndex,
+  } = useActionPlanDerivedData({
+    segments,
+    fuelProducts,
+    startSupplies,
+    raceDurationMinutes: raceTotals?.durationMinutes,
+    sectionSegmentsMap,
+    sortedElevationProfile,
+    normalizeSectionSegments,
+    paceModel,
+  });
   const {
     data: coachCommentsData,
     createComment,
@@ -1497,57 +1466,6 @@ export function ActionPlan({
     },
     [coachCommentsContext?.coacheeId, coachCommentsContext?.planId, deleteComment]
   );
-  const collapsibleKeys = useMemo(() => {
-    const keys = new Set<string>();
-    renderItems.forEach((item) => {
-      if (!item.upcomingSegment) return;
-      if (item.isStart) {
-        keys.add("start");
-        return;
-      }
-      if (typeof item.aidStationIndex === "number" && !item.isFinish) {
-        keys.add(String(item.aidStationIndex));
-      }
-    });
-    return Array.from(keys);
-  }, [renderItems]);
-  const productById = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.id, product])), [fuelProducts]);
-  const finishSummary = useMemo(() => {
-    if (segments.length === 0) return null;
-
-    const finishDistanceKm = segments[segments.length - 1]?.distanceKm ?? 0;
-    const totalPauseMinutes = segments.reduce((total, segment) => total + (segment.pauseMinutes ?? 0), 0);
-    const totalMovingMinutes = raceTotals?.durationMinutes ?? 0;
-    const totalTimeMinutes = totalMovingMinutes + totalPauseMinutes;
-    const averagePaceMinPerKm =
-      finishDistanceKm > 0 && totalTimeMinutes > 0 ? totalTimeMinutes / finishDistanceKm : null;
-    const averageSpeedKph =
-      finishDistanceKm > 0 && totalTimeMinutes > 0 ? finishDistanceKm / (totalTimeMinutes / 60) : null;
-    const totalGels = segments.reduce((total, segment) => total + (segment.gelsPlanned ?? 0), 0);
-    const totalElevationGain = segments.reduce((total, segment) => total + (segment.elevationGainM ?? 0), 0);
-    const totalElevationLoss = segments.reduce((total, segment) => total + (segment.elevationLossM ?? 0), 0);
-    const allSupplies = [...startSupplies, ...segments.flatMap((segment) => segment.supplies ?? [])];
-    const totalCalories = allSupplies.reduce((total, supply) => {
-      const product = productById[supply.productId];
-      if (!product) return total;
-      const quantity = Number.isFinite(supply.quantity) ? supply.quantity : 0;
-      if (quantity <= 0) return total;
-      return total + (product.caloriesKcal ?? 0) * quantity;
-    }, 0);
-
-    return {
-      finishDistanceKm,
-      totalPauseMinutes,
-      totalMovingMinutes,
-      totalTimeMinutes,
-      averagePaceMinPerKm,
-      averageSpeedKph,
-      totalGels,
-      totalElevationGain,
-      totalElevationLoss,
-      totalCalories,
-    };
-  }, [productById, raceTotals?.durationMinutes, segments, startSupplies]);
   const metricIcons = {
     carbs: (
       <Image
@@ -1604,10 +1522,12 @@ export function ActionPlan({
     return { label: timelineCopy.status.aboveTarget, tone: "danger" as const };
   };
   const toggleAidStationCollapse = (collapseKey: string) => {
-    setCollapsedAidStations((current) => ({
-      ...current,
-      [collapseKey]: !current[collapseKey],
-    }));
+    startUiTransition(() => {
+      setCollapsedAidStations((current) => ({
+        ...current,
+        [collapseKey]: !current[collapseKey],
+      }));
+    });
   };
   const hasCollapsibleAidStations = collapsibleKeys.length > 0;
   const areAllAidStationsCollapsed = hasCollapsibleAidStations
@@ -1616,12 +1536,14 @@ export function ActionPlan({
   const toggleAidStationsCollapseAll = () => {
     if (!hasCollapsibleAidStations) return;
     const nextValue = !areAllAidStationsCollapsed;
-    setCollapsedAidStations((current) =>
-      collapsibleKeys.reduce<Record<string, boolean>>((acc, key) => {
-        acc[key] = nextValue;
-        return acc;
-      }, { ...current })
-    );
+    startUiTransition(() => {
+      setCollapsedAidStations((current) =>
+        collapsibleKeys.reduce<Record<string, boolean>>((acc, key) => {
+          acc[key] = nextValue;
+          return acc;
+        }, { ...current })
+      );
+    });
   };
   const closeEditor = useCallback(() => {
     setEditorState(null);
@@ -1656,37 +1578,9 @@ export function ActionPlan({
     closeEditor();
   }, [closeEditor, copy.validation.nonNegative, copy.validation.required, editorState, onAddAidStation, setValue]);
 
-  const summarizeSupplies = (supplies?: StationSupply[]) => {
-    const grouped: Record<string, { product: FuelProduct; quantity: number }> = {};
-    supplies?.forEach((supply) => {
-      const product = productById[supply.productId];
-      if (!product) return;
-      const safeQuantity = Number.isFinite(supply.quantity) ? supply.quantity : 0;
-      if (safeQuantity <= 0) return;
-      if (!grouped[product.id]) {
-        grouped[product.id] = { product, quantity: 0 };
-      }
-      grouped[product.id].quantity += safeQuantity;
-    });
-
-    const items = Object.values(grouped).sort((a, b) => a.product.name.localeCompare(b.product.name));
-    const totals = items.reduce(
-      (acc, item) => ({
-        carbs: acc.carbs + item.product.carbsGrams * item.quantity,
-        water: acc.water + (item.product.waterMl ?? 0) * item.quantity,
-        sodium: acc.sodium + item.product.sodiumMg * item.quantity,
-      }),
-      { carbs: 0, water: 0, sodium: 0 }
-    );
-
-    if (!items.length) return null;
-
-    return { items, totals };
-  };
-
   const getAidSupplies = useCallback(
-    (aidStationIndex: number) => segments.find((seg) => seg.aidStationIndex === aidStationIndex)?.supplies ?? [],
-    [segments]
+    (aidStationIndex: number) => aidSuppliesByStationIndex.get(aidStationIndex) ?? [],
+    [aidSuppliesByStationIndex]
   );
   const supplyPickerSupplies = useMemo(() => {
     if (!supplyPicker) return null;
@@ -1844,8 +1738,7 @@ export function ActionPlan({
                 const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
-                const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
-                const summarized = summarizeSupplies(supplies);
+                const summarized = summarizedSuppliesByItemId.get(item.id) ?? null;
                 const isCollapsible =
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
@@ -2016,31 +1909,15 @@ export function ActionPlan({
                     </div>
                   ) : null;
 
-                const sectionSegment = nextSegment;
-                const upcomingSegmentIndex =
-                  typeof item.upcomingSegmentIndex === "number" && item.upcomingSegmentIndex >= 0
-                    ? item.upcomingSegmentIndex
-                    : null;
-                const sectionKey = upcomingSegmentIndex !== null ? buildSectionKey(upcomingSegmentIndex) : null;
-                const storedSectionSegments = sectionKey ? sectionSegmentsMap[sectionKey] ?? null : null;
-                const resolvedSectionSegments =
-                  sectionSegment && sectionKey
-                    ? normalizeSectionSegments(
-                        storedSectionSegments ?? [{ segmentKm: sectionSegment.segmentKm }],
-                        sectionSegment.segmentKm
-                      )
-                    : [];
-                const hasStoredSubSections = Boolean(storedSectionSegments && storedSectionSegments.length > 0);
-                const sectionStats =
-                  sectionSegment && resolvedSectionSegments.length > 0
-                    ? recomputeSectionFromSubSections({
-                        segments: resolvedSectionSegments,
-                        startDistanceKm: sectionSegment.startDistanceKm,
-                        elevationProfile: sortedElevationProfile,
-                        paceModel,
-                      })
-                    : null;
-                const sectionTotals = hasStoredSubSections && sectionStats ? sectionStats.totals : null;
+                const sectionComputation = isCollapsed ? null : sectionComputationByItemId.get(item.id);
+                const sectionSegment = sectionComputation?.sectionSegment;
+                const upcomingSegmentIndex = sectionComputation?.upcomingSegmentIndex ?? null;
+                const sectionKey = sectionComputation?.sectionKey ?? null;
+                const storedSectionSegments = sectionComputation?.storedSectionSegments ?? null;
+                const resolvedSectionSegments = sectionComputation?.resolvedSectionSegments ?? [];
+                const hasStoredSubSections = sectionComputation?.hasStoredSubSections ?? false;
+                const sectionStats = sectionComputation?.sectionStats ?? null;
+                const sectionTotals = sectionComputation?.sectionTotals ?? null;
                 const sectionSummaryDistanceKm = sectionTotals?.distanceKm ?? sectionSegment?.segmentKm ?? 0;
                 const sectionSummaryMinutes =
                   sectionTotals?.etaSeconds !== undefined
@@ -2255,10 +2132,12 @@ export function ActionPlan({
                       variant="ghost"
                       className="h-8 rounded-full border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-100 dark:hover:bg-slate-800/60"
                       onClick={() =>
-                        setExpandedSegments((prev) => ({
-                          ...prev,
-                          [segmentToggleKey]: !isSegmentsExpanded,
-                        }))
+                        startUiTransition(() => {
+                          setExpandedSegments((prev) => ({
+                            ...prev,
+                            [segmentToggleKey]: !isSegmentsExpanded,
+                          }));
+                        })
                       }
                     >
                       {segmentToggleLabel}
