@@ -13,10 +13,12 @@ import { makeRedirectUri } from 'expo-auth-session';
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../lib/i18n';
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function LoginScreen() {
         path: 'auth/callback',
       });
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: redirectUri,
@@ -39,16 +41,12 @@ export default function LoginScreen() {
         },
       });
 
-      if (error) throw error;
-      if (!data.url) throw new Error('No OAuth URL returned');
+      if (oauthError) throw oauthError;
+      if (!data.url) throw new Error(t.auth.noOauthUrl);
 
-      const result = await WebBrowser.openAuthSessionAsync(
-        data.url,
-        redirectUri,
-      );
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
 
       if (result.type === 'success' && result.url) {
-        // Avoid new URL() — custom schemes can throw in some RN environments
         const fragment = result.url.includes('#') ? result.url.split('#')[1] : '';
         const query = result.url.includes('?') ? result.url.split('?')[1] : '';
         const params = new URLSearchParams(fragment || query);
@@ -66,9 +64,9 @@ export default function LoginScreen() {
           await supabase.auth.exchangeCodeForSession(code);
         }
       }
-    } catch (e: any) {
-      console.error('Google login error:', e.message);
-      setError('Erreur de connexion Google. Réessaie.');
+    } catch (e) {
+      console.error('Google login error:', e);
+      setError(t.auth.googleError);
     } finally {
       setLoading(false);
     }
@@ -77,14 +75,14 @@ export default function LoginScreen() {
   async function handleLogin() {
     setError(null);
     setLoading(true);
-    const { error: err } = await supabase.auth.signInWithPassword({
+    const { error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     setLoading(false);
 
-    if (err) {
-      setError(err.message);
+    if (loginError) {
+      setError(loginError.message);
     }
   }
 
@@ -95,11 +93,11 @@ export default function LoginScreen() {
     >
       <View style={styles.inner}>
         <Text style={styles.title}>Pace Yourself</Text>
-        <Text style={styles.subtitle}>Connexion</Text>
+        <Text style={styles.subtitle}>{t.auth.loginSubtitle}</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t.auth.emailPlaceholder}
           placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
@@ -110,7 +108,7 @@ export default function LoginScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Mot de passe"
+          placeholder={t.auth.passwordPlaceholder}
           placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
@@ -118,21 +116,19 @@ export default function LoginScreen() {
           textContentType="password"
         />
 
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </Text>
+          <Text style={styles.buttonText}>{loading ? t.auth.loggingIn : t.auth.loginCta}</Text>
         </TouchableOpacity>
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>ou</Text>
+          <Text style={styles.dividerText}>or</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -141,14 +137,14 @@ export default function LoginScreen() {
           onPress={handleGoogleLogin}
           disabled={loading}
         >
-          <Text style={styles.googleButtonText}>🔵 Continuer avec Google</Text>
+          <Text style={styles.googleButtonText}>Google {t.auth.googleCta}</Text>
         </TouchableOpacity>
 
         <View style={styles.signupRow}>
-          <Text style={styles.signupText}>Pas encore de compte ? </Text>
+          <Text style={styles.signupText}>{t.auth.noAccount} </Text>
           <Link href="/(auth)/signup" asChild>
             <TouchableOpacity>
-              <Text style={styles.signupLink}>S'inscrire</Text>
+              <Text style={styles.signupLink}>{t.auth.signUpLink}</Text>
             </TouchableOpacity>
           </Link>
         </View>

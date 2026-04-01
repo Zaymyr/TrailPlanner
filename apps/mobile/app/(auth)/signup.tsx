@@ -12,8 +12,10 @@ import {
 import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../lib/i18n';
 
 export default function SignupScreen() {
+  const { t } = useI18n();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -25,12 +27,12 @@ export default function SignupScreen() {
     setError(null);
 
     if (password.length < 8) {
-      setError('Le mot de passe doit faire au moins 8 caractères.');
+      setError(t.auth.passwordTooShort);
       return;
     }
 
     setLoading(true);
-    const { error: err } = await supabase.auth.signUp({
+    const { error: signupError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -39,17 +41,19 @@ export default function SignupScreen() {
     });
     setLoading(false);
 
-    if (err) {
-      if (err.message.toLowerCase().includes('already registered') || err.message.toLowerCase().includes('already exists')) {
-        setError('Cet email est déjà utilisé. Connecte-toi plutôt.');
-      } else if (err.message.toLowerCase().includes('password')) {
-        setError('Le mot de passe doit faire au moins 8 caractères.');
+    if (signupError) {
+      const lowered = signupError.message.toLowerCase();
+      if (lowered.includes('already registered') || lowered.includes('already exists')) {
+        setError(t.auth.emailInUse);
+      } else if (lowered.includes('password')) {
+        setError(t.auth.passwordTooShort);
       } else {
-        setError(err.message);
+        setError(signupError.message);
       }
-    } else {
-      setSuccess(true);
+      return;
     }
+
+    setSuccess(true);
   }
 
   if (success) {
@@ -57,14 +61,12 @@ export default function SignupScreen() {
       <View style={styles.container}>
         <View style={styles.inner}>
           <Text style={styles.title}>Pace Yourself</Text>
-          <Text style={styles.successIcon}>✅</Text>
-          <Text style={styles.successTitle}>Compte créé !</Text>
-          <Text style={styles.successText}>
-            Vérifie ton email pour confirmer ton compte, puis connecte-toi.
-          </Text>
+          <Text style={styles.successIcon}>OK</Text>
+          <Text style={styles.successTitle}>{t.auth.accountCreated}</Text>
+          <Text style={styles.successText}>{t.auth.verifyEmail}</Text>
           <Link href="/(auth)/login" asChild>
             <TouchableOpacity style={styles.button}>
-              <Text style={styles.buttonText}>Se connecter</Text>
+              <Text style={styles.buttonText}>{t.auth.loginLink}</Text>
             </TouchableOpacity>
           </Link>
         </View>
@@ -79,11 +81,11 @@ export default function SignupScreen() {
     >
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Pace Yourself</Text>
-        <Text style={styles.subtitle}>Créer un compte</Text>
+        <Text style={styles.subtitle}>{t.auth.signUpSubtitle}</Text>
 
         <TextInput
           style={styles.input}
-          placeholder="Prénom (optionnel)"
+          placeholder={t.auth.firstNamePlaceholder}
           placeholderTextColor={Colors.textMuted}
           value={fullName}
           onChangeText={setFullName}
@@ -93,7 +95,7 @@ export default function SignupScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Email"
+          placeholder={t.auth.emailPlaceholder}
           placeholderTextColor={Colors.textMuted}
           value={email}
           onChangeText={setEmail}
@@ -104,7 +106,7 @@ export default function SignupScreen() {
 
         <TextInput
           style={styles.input}
-          placeholder="Mot de passe (min. 8 caractères)"
+          placeholder={t.auth.passwordMin}
           placeholderTextColor={Colors.textMuted}
           value={password}
           onChangeText={setPassword}
@@ -112,23 +114,21 @@ export default function SignupScreen() {
           textContentType="newPassword"
         />
 
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleSignup}
           disabled={loading}
         >
-          <Text style={styles.buttonText}>
-            {loading ? 'Création...' : 'Créer mon compte'}
-          </Text>
+          <Text style={styles.buttonText}>{loading ? t.auth.signingUp : t.auth.signUpCta}</Text>
         </TouchableOpacity>
 
         <View style={styles.loginRow}>
-          <Text style={styles.loginText}>Déjà un compte ? </Text>
+          <Text style={styles.loginText}>{t.auth.alreadyAccount} </Text>
           <Link href="/(auth)/login" asChild>
             <TouchableOpacity>
-              <Text style={styles.loginLink}>Se connecter</Text>
+              <Text style={styles.loginLink}>{t.auth.loginLink}</Text>
             </TouchableOpacity>
           </Link>
         </View>
@@ -208,9 +208,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   successIcon: {
-    fontSize: 48,
+    fontSize: 42,
     textAlign: 'center',
     marginBottom: 16,
+    color: Colors.brandPrimary,
+    fontWeight: '800',
   },
   successTitle: {
     fontSize: 24,

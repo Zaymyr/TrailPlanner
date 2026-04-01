@@ -34,6 +34,11 @@ import { usePlanProducts } from './plan-form/usePlanProducts';
 import { usePlanSections } from './plan-form/usePlanSections';
 import { usePlanSupplies } from './plan-form/usePlanSupplies';
 import type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset } from './plan-form/profile-utils';
+import {
+  buildContinuousIntakeTimeline,
+  buildContinuousSections,
+  buildSectionTimelineFromContinuous,
+} from '../lib/continuousNutrition';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };
 export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset };
@@ -154,6 +159,7 @@ export default function PlanForm({
     setFavoriteProductIds,
     buildSectionSummary,
     isPremium,
+    elevationProfile,
   });
 
   const basePaceMinutesPerKm = 60 / baseSpeedKph;
@@ -165,6 +171,14 @@ export default function PlanForm({
         buildSectionSummary,
       }),
     [buildSectionSummary, productMap, values],
+  );
+  const continuousSections = useMemo(
+    () => buildContinuousSections({ values, elevationProfile }),
+    [elevationProfile, values],
+  );
+  const continuousTimeline = useMemo(
+    () => buildContinuousIntakeTimeline({ values, productMap, elevationProfile }),
+    [elevationProfile, productMap, values],
   );
   const paceLabel = useMemo(() => {
     const safeMinutesPerKm = highlights.totalDurationMin / Math.max(values.raceDistanceKm, 0.01);
@@ -191,8 +205,15 @@ export default function PlanForm({
     target: PlanTarget,
     sectionDurationMin: number,
     sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
-  ) =>
-    buildSectionIntakeTimelineV2({
+  ) => {
+    const targetIndex = target === 'start' ? 0 : target;
+    const section = continuousSections.find((candidate) => candidate.sectionIndex === targetIndex);
+
+    if (section) {
+      return buildSectionTimelineFromContinuous(continuousTimeline, section);
+    }
+
+    return buildSectionIntakeTimelineV2({
       target,
       sectionDurationMin,
       sectionTarget,
@@ -201,6 +222,7 @@ export default function PlanForm({
       aidStations: values.aidStations,
       waterBagLiters: values.waterBagLiters,
     });
+  };
 
   const toggleSection = (section: AccordionSection) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));

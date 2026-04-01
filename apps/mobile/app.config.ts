@@ -37,6 +37,7 @@ export default ({ config }: ConfigContext): ExpoConfig =>
     supportsTablet: false,
     bundleIdentifier: 'com.paceyourself.app',
     infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
       UIBackgroundModes: ['fetch'],
     },
   },

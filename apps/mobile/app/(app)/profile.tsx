@@ -30,8 +30,8 @@ type UserProfile = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
+function formatDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -47,20 +47,34 @@ function formatBirthDateInput(value: string | null): string {
 
 function normalizeBirthDateInput(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 8);
-
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
 function parseBirthDateInput(value: string): string | null {
-  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim());
-  if (!match) return null;
+  const trimmedValue = value.trim();
+  const frenchMatch = /^(\d{2})[\/.\-](\d{2})[\/.\-](\d{4})$/.exec(trimmedValue);
+  const isoMatch = /^(\d{4})[\/.\-](\d{2})[\/.\-](\d{2})$/.exec(trimmedValue);
 
-  const [, day, month, year] = match;
+  let day: string;
+  let month: string;
+  let year: string;
+
+  if (frenchMatch) {
+    [, day, month, year] = frenchMatch;
+  } else if (isoMatch) {
+    [, year, month, day] = isoMatch;
+  } else {
+    const digits = trimmedValue.replace(/\D/g, '');
+    if (digits.length !== 8) return null;
+    day = digits.slice(0, 2);
+    month = digits.slice(2, 4);
+    year = digits.slice(4, 8);
+  }
+
   const iso = `${year}-${month}-${day}`;
   const date = new Date(`${iso}T00:00:00`);
-
   if (Number.isNaN(date.getTime())) return null;
 
   if (
@@ -82,10 +96,7 @@ function calculateAgeFromBirthDate(birthDate: string): number {
     today.getMonth() > birth.getMonth() ||
     (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
 
-  if (!hasHadBirthdayThisYear) {
-    age -= 1;
-  }
-
+  if (!hasHadBirthdayThisYear) age -= 1;
   return age;
 }
 
@@ -142,9 +153,7 @@ export default function ProfileScreen() {
   }, [birthDateInput]);
 
   const computedAge = useMemo(() => {
-    if (parsedBirthDate) {
-      return calculateAgeFromBirthDate(parsedBirthDate);
-    }
+    if (parsedBirthDate) return calculateAgeFromBirthDate(parsedBirthDate);
     return profile?.age ?? null;
   }, [parsedBirthDate, profile?.age]);
 
@@ -160,15 +169,14 @@ export default function ProfileScreen() {
 
     if (trimmedBirthDate && !birthDateIso) {
       setSaving(false);
-      setError('Entre une date valide au format JJ/MM/AAAA.');
+      setError(t.profile.birthDateInvalid);
       return;
     }
 
     const nextAge = birthDateIso ? calculateAgeFromBirthDate(birthDateIso) : null;
-
     if (nextAge !== null && (nextAge < 0 || nextAge > 120)) {
       setSaving(false);
-      setError('La date de naissance doit correspondre a un age entre 0 et 120 ans.');
+      setError(t.profile.birthDateRange);
       return;
     }
 
@@ -205,10 +213,10 @@ export default function ProfileScreen() {
   }
 
   async function handleLogout() {
-    Alert.alert('Se deconnecter ?', '', [
-      { text: 'Annuler', style: 'cancel' },
+    Alert.alert(t.profile.logoutPrompt, '', [
+      { text: t.common.cancel, style: 'cancel' },
       {
-        text: 'Deconnexion',
+        text: t.profile.logoutCta,
         style: 'destructive',
         onPress: () => supabase.auth.signOut(),
       },
@@ -218,22 +226,22 @@ export default function ProfileScreen() {
   function handleUpgrade() {
     const url = WEB_URL ? `${WEB_URL}/premium` : null;
     if (!url) {
-      Alert.alert('Premium', 'Rendez-vous sur notre site web pour passer en Premium.');
+      Alert.alert(t.profile.premiumLabel, t.profile.premiumFallback);
       return;
     }
     Linking.openURL(url).catch(() => {
-      Alert.alert('Erreur', "Impossible d'ouvrir le navigateur.");
+      Alert.alert(t.common.error, t.profile.browserError);
     });
   }
 
   function handleManageSubscription() {
     const url = WEB_URL ? `${WEB_URL}/profile` : null;
     if (!url) {
-      Alert.alert('Abonnement', 'Rendez-vous sur notre site web pour gerer votre abonnement.');
+      Alert.alert(t.profile.subscriptionLabel, t.profile.subscriptionFallback);
       return;
     }
     Linking.openURL(url).catch(() => {
-      Alert.alert('Erreur', "Impossible d'ouvrir le navigateur.");
+      Alert.alert(t.common.error, t.profile.browserError);
     });
   }
 
@@ -252,32 +260,34 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.label}>Prenom</Text>
+      <Text style={styles.label}>{t.profile.firstNameLabel}</Text>
       <TextInput
         style={styles.textInput}
         value={fullName}
         onChangeText={setFullName}
-        placeholder="Ton prenom"
+        placeholder={t.profile.namePlaceholder}
         placeholderTextColor={Colors.textMuted}
         autoCapitalize="words"
         textContentType="givenName"
       />
 
-      <Text style={styles.label}>Date de naissance</Text>
+      <Text style={styles.label}>{t.profile.birthDateLabel}</Text>
       <TextInput
         style={styles.textInput}
         value={birthDateInput}
         onChangeText={(value) => setBirthDateInput(normalizeBirthDateInput(value))}
-        placeholder="JJ/MM/AAAA"
+        placeholder={t.profile.birthDatePlaceholder}
         placeholderTextColor={Colors.textMuted}
         keyboardType="number-pad"
         maxLength={10}
       />
       <Text style={styles.helperText}>
-        {computedAge !== null ? `Age calcule : ${computedAge} ans` : "L'age sera calcule automatiquement."}
+        {computedAge !== null
+          ? t.profile.ageCalculated.replace('{age}', String(computedAge))
+          : t.profile.birthDateHelp}
       </Text>
 
-      <Text style={styles.label}>Volume sac a eau</Text>
+      <Text style={styles.label}>{t.profile.waterBagLabel}</Text>
       <View style={styles.waterBagRow}>
         {WATER_BAG_OPTIONS.map((opt) => (
           <TouchableOpacity
@@ -302,47 +312,49 @@ export default function ProfileScreen() {
         {saving ? (
           <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
-          <Text style={styles.saveButtonText}>{saved ? 'Profil enregistre' : 'Enregistrer'}</Text>
+          <Text style={styles.saveButtonText}>{saved ? t.profile.saved : t.common.save}</Text>
         )}
       </TouchableOpacity>
 
       <View style={styles.statusCard}>
         <View style={styles.statusRow}>
-          <Text style={styles.statusLabel}>Abonnement</Text>
+          <Text style={styles.statusLabel}>{t.profile.subscriptionLabel}</Text>
 
           {isPremium ? (
             <View style={[styles.statusBadge, styles.statusBadgePremium]}>
-              <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>Premium</Text>
+              <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>{t.profile.premiumLabel}</Text>
             </View>
           ) : null}
 
           {showTrialActive ? (
             <View style={[styles.statusBadge, styles.statusBadgeTrial]}>
-              <Text style={[styles.statusBadgeText, styles.statusBadgeTextTrial]}>Essai Premium</Text>
+              <Text style={[styles.statusBadgeText, styles.statusBadgeTextTrial]}>{t.profile.trialLabel}</Text>
             </View>
           ) : null}
 
           {showTrialExpired || showFree ? (
             <View style={[styles.statusBadge, styles.statusBadgeFree]}>
               <Text style={[styles.statusBadgeText, styles.statusBadgeTextFree]}>
-                {showTrialExpired ? 'Essai expire' : 'Gratuit'}
+                {showTrialExpired ? t.profile.trialExpiredLabel : t.profile.freeLabel}
               </Text>
             </View>
           ) : null}
         </View>
 
         {showTrialActive && trialEndsAt ? (
-          <Text style={styles.trialSubtitle}>Expire le {formatDate(trialEndsAt)}</Text>
+          <Text style={styles.trialSubtitle}>
+            {t.profile.trialExpiresOn.replace('{date}', formatDate(trialEndsAt, locale))}
+          </Text>
         ) : null}
 
         {showTrialExpired || showFree ? (
           <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
-            <Text style={styles.upgradeButtonText}>Passer en Premium</Text>
+            <Text style={styles.upgradeButtonText}>{t.profile.upgradeCta}</Text>
           </TouchableOpacity>
         ) : null}
 
         <TouchableOpacity style={styles.manageSubscriptionButton} onPress={handleManageSubscription}>
-          <Text style={styles.manageSubscriptionButtonText}>Modifier mon abonnement</Text>
+          <Text style={styles.manageSubscriptionButtonText}>{t.profile.manageSubscription}</Text>
         </TouchableOpacity>
       </View>
 
@@ -366,10 +378,10 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.versionText}>Pace Yourself v{appVersion}</Text>
+      <Text style={styles.versionText}>{t.profile.versionLabel.replace('{version}', appVersion)}</Text>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Se deconnecter</Text>
+        <Text style={styles.logoutButtonText}>{t.profile.logoutCta}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

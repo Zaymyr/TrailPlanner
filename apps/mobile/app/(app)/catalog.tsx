@@ -9,9 +9,13 @@ import {
   RefreshControl,
   Image,
   TextInput,
+  Modal,
+  SafeAreaView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
 
 type Race = {
@@ -34,9 +38,9 @@ type EventGroup = {
   races: Race[];
 };
 
-function formatEventDate(isoDate: string | null): string | null {
+function formatEventDate(isoDate: string | null, locale: 'fr' | 'en'): string | null {
   if (!isoDate) return null;
-  return new Date(isoDate).toLocaleDateString('fr-FR', {
+  return new Date(isoDate).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -44,10 +48,7 @@ function formatEventDate(isoDate: string | null): string | null {
 }
 
 function getRaceShortLabel(raceName: string, eventName: string): string {
-  const cleaned = raceName
-    .replace(eventName, '')
-    .replace(/[\s\-–—·]+/g, ' ')
-    .trim();
+  const cleaned = raceName.replace(eventName, '').replace(/[\s\-–—·]+/g, ' ').trim();
   return cleaned.length > 2 ? cleaned : raceName;
 }
 
@@ -68,14 +69,70 @@ function isUpcomingOrUndated(isoDate: string | null | undefined) {
   return raceDate >= today;
 }
 
-function matchesDistanceFilter(distanceKm: number, distanceFilter: string) {
-  const trimmed = distanceFilter.trim().replace(',', '.');
-  if (!trimmed) return true;
+function parseNumberFilter(value: string): number | null {
+  const trimmed = value.trim().replace(',', '.');
+  if (!trimmed) return null;
 
-  const targetDistance = Number(trimmed);
-  if (!Number.isFinite(targetDistance)) return true;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
-  return Math.abs(distanceKm - targetDistance) <= 2;
+function parseDateFilter(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  const localMatch = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})$/.exec(trimmed);
+
+  let year: string;
+  let month: string;
+  let day: string;
+
+  if (isoMatch) {
+    [, year, month, day] = isoMatch;
+  } else if (localMatch) {
+    [, day, month, year] = localMatch;
+  } else {
+    return null;
+  }
+
+  const parsed = new Date(`${year}-${month}-${day}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  if (
+    parsed.getUTCFullYear() !== Number(year) ||
+    parsed.getUTCMonth() + 1 !== Number(month) ||
+    parsed.getUTCDate() !== Number(day)
+  ) {
+    return null;
+  }
+
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
+function matchesDistanceRange(distanceKm: number, minDistance: string, maxDistance: string) {
+  const min = parseNumberFilter(minDistance);
+  const max = parseNumberFilter(maxDistance);
+
+  if (min !== null && distanceKm < min) return false;
+  if (max !== null && distanceKm > max) return false;
+  return true;
+}
+
+function matchesDateRange(isoDate: string | null | undefined, minDate: string, maxDate: string) {
+  if (!isoDate) return true;
+
+  const raceDate = new Date(isoDate);
+  if (Number.isNaN(raceDate.getTime())) return true;
+  raceDate.setHours(0, 0, 0, 0);
+
+  const min = parseDateFilter(minDate);
+  const max = parseDateFilter(maxDate);
+
+  if (min && raceDate < min) return false;
+  if (max && raceDate > max) return false;
+  return true;
 }
 
 function SkeletonEventCard() {
@@ -95,14 +152,17 @@ function SkeletonEventCard() {
 function RaceSubCard({
   race,
   eventName,
+  createPlanLabel,
   flex,
 }: {
   race: Race;
   eventName: string;
+  createPlanLabel: string;
   flex?: boolean;
 }) {
   const router = useRouter();
   const label = getRaceShortLabel(race.name, eventName);
+
   return (
     <View style={[styles.raceCard, flex ? { flex: 1 } : styles.raceCardFixed]}>
       <Text style={styles.raceLabel} numberOfLines={2}>
@@ -120,17 +180,28 @@ function RaceSubCard({
           })
         }
       >
-        <Text style={styles.createButtonText}>+ Créer un plan</Text>
+        <Text style={styles.createButtonText}>{createPlanLabel}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function PersonalRaceCard({ race, flex }: { race: Race; flex?: boolean }) {
+function PersonalRaceCard({
+  race,
+  createPlanLabel,
+  flex,
+}: {
+  race: Race;
+  createPlanLabel: string;
+  flex?: boolean;
+}) {
   const router = useRouter();
+
   return (
     <View style={[styles.raceCard, flex ? { flex: 1 } : styles.raceCardFixed]}>
-      <Text style={styles.raceLabel} numberOfLines={2}>{race.name}</Text>
+      <Text style={styles.raceLabel} numberOfLines={2}>
+        {race.name}
+      </Text>
       <Text style={styles.raceStats}>
         {race.distance_km}km{'  '}D+{race.elevation_gain_m}m
       </Text>
@@ -143,27 +214,36 @@ function PersonalRaceCard({ race, flex }: { race: Race; flex?: boolean }) {
           })
         }
       >
-        <Text style={styles.createButtonText}>➕ Créer un plan</Text>
+        <Text style={styles.createButtonText}>{createPlanLabel}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
-function PersonalRacesSection({ races }: { races: Race[] }) {
+function PersonalRacesSection({
+  races,
+  myRacesLabel,
+  createPlanLabel,
+}: {
+  races: Race[];
+  myRacesLabel: string;
+  createPlanLabel: string;
+}) {
   const useFlex = races.length <= 2;
+
   return (
     <View style={[styles.eventCard, styles.personalCard]}>
       <View style={styles.eventHeader}>
         <Text style={styles.eventHeaderEmoji}>🗺️</Text>
         <View style={styles.eventHeaderText}>
-          <Text style={styles.eventName}>Mes courses</Text>
+          <Text style={styles.eventName}>{myRacesLabel}</Text>
         </View>
       </View>
       <View style={styles.divider} />
       {useFlex ? (
         <View style={styles.racesRow}>
           {races.map((race) => (
-            <PersonalRaceCard key={race.id} race={race} flex />
+            <PersonalRaceCard key={race.id} race={race} flex createPlanLabel={createPlanLabel} />
           ))}
         </View>
       ) : (
@@ -173,7 +253,7 @@ function PersonalRacesSection({ races }: { races: Race[] }) {
           contentContainerStyle={styles.racesScrollContent}
         >
           {races.map((race) => (
-            <PersonalRaceCard key={race.id} race={race} />
+            <PersonalRaceCard key={race.id} race={race} createPlanLabel={createPlanLabel} />
           ))}
         </ScrollView>
       )}
@@ -182,16 +262,22 @@ function PersonalRacesSection({ races }: { races: Race[] }) {
 }
 
 export default function CatalogScreen() {
+  const { locale, t } = useI18n();
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
   const [nameFilter, setNameFilter] = useState('');
-  const [distanceFilter, setDistanceFilter] = useState('');
+  const [distanceMinFilter, setDistanceMinFilter] = useState('');
+  const [distanceMaxFilter, setDistanceMaxFilter] = useState('');
+  const [dateMinFilter, setDateMinFilter] = useState('');
+  const [dateMaxFilter, setDateMaxFilter] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function fetchEvents() {
     let cancelled = false;
+
     (async () => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
@@ -239,10 +325,11 @@ export default function CatalogScreen() {
 
         const groups: EventGroup[] = (eventsResult.data ?? []) as EventGroup[];
         const orphans = (orphansResult.data ?? []) as Race[];
+
         if (orphans.length > 0) {
           groups.push({
             id: '__orphans__',
-            name: 'Autres courses',
+            name: t.catalog.otherRaces,
             location: null,
             race_date: null,
             races: orphans,
@@ -254,7 +341,7 @@ export default function CatalogScreen() {
         setError(null);
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Erreur inconnue');
+          setError(err instanceof Error ? err.message : t.common.error);
         }
       } finally {
         if (!cancelled) {
@@ -263,6 +350,7 @@ export default function CatalogScreen() {
         }
       }
     })();
+
     return () => {
       cancelled = true;
     };
@@ -270,13 +358,17 @@ export default function CatalogScreen() {
 
   useEffect(() => {
     return fetchEvents();
-  }, []);
+  }, [t.catalog.otherRaces, t.common.error]);
 
   const filteredEventGroups = useMemo(() => {
     const normalizedName = nameFilter.trim().toLowerCase();
 
     return eventGroups
-      .filter((event) => isUpcomingOrUndated(event.race_date))
+      .filter(
+        (event) =>
+          isUpcomingOrUndated(event.race_date) &&
+          matchesDateRange(event.race_date, dateMinFilter, dateMaxFilter),
+      )
       .map((event) => {
         const eventMatchesName =
           normalizedName.length === 0 ||
@@ -289,13 +381,17 @@ export default function CatalogScreen() {
             eventMatchesName ||
             race.name.toLowerCase().includes(normalizedName);
 
-          return raceMatchesName && matchesDistanceFilter(race.distance_km, distanceFilter);
+          return (
+            raceMatchesName &&
+            matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&
+            matchesDateRange(race.race_date ?? event.race_date, dateMinFilter, dateMaxFilter)
+          );
         });
 
         return { ...event, races };
       })
       .filter((event) => event.races.length > 0);
-  }, [distanceFilter, eventGroups, nameFilter]);
+  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, eventGroups, nameFilter]);
 
   const filteredPersonalRaces = useMemo(() => {
     const normalizedName = nameFilter.trim().toLowerCase();
@@ -307,10 +403,24 @@ export default function CatalogScreen() {
       return (
         isUpcomingOrUndated(race.race_date) &&
         raceMatchesName &&
-        matchesDistanceFilter(race.distance_km, distanceFilter)
+        matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&
+        matchesDateRange(race.race_date, dateMinFilter, dateMaxFilter)
       );
     });
-  }, [distanceFilter, nameFilter, personalRaces]);
+  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, nameFilter, personalRaces]);
+
+  const activeFiltersCount = useMemo(() => {
+    return [distanceMinFilter, distanceMaxFilter, dateMinFilter, dateMaxFilter].filter(
+      (value) => value.trim().length > 0,
+    ).length;
+  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter]);
+
+  function resetFilters() {
+    setDistanceMinFilter('');
+    setDistanceMaxFilter('');
+    setDateMinFilter('');
+    setDateMaxFilter('');
+  }
 
   if (loading) {
     return (
@@ -327,7 +437,7 @@ export default function CatalogScreen() {
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorText}>Impossible de charger les courses</Text>
+        <Text style={styles.errorText}>{t.catalog.loadError}</Text>
         <TouchableOpacity
           style={styles.retryButton}
           onPress={() => {
@@ -336,7 +446,7 @@ export default function CatalogScreen() {
             fetchEvents();
           }}
         >
-          <Text style={styles.retryButtonText}>Réessayer</Text>
+          <Text style={styles.retryButtonText}>{t.common.retry}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -366,22 +476,28 @@ export default function CatalogScreen() {
             <TextInput
               value={nameFilter}
               onChangeText={setNameFilter}
-              placeholder="Rechercher une course"
+              placeholder={t.catalog.searchPlaceholder}
               placeholderTextColor={Colors.textMuted}
               style={styles.filterInput}
             />
-            <TextInput
-              value={distanceFilter}
-              onChangeText={setDistanceFilter}
-              placeholder="Distance (km)"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="decimal-pad"
-              style={styles.filterInput}
-            />
-            <Text style={styles.filterHint}>Courses futures uniquement</Text>
+            <View style={styles.filterActionsRow}>
+              <TouchableOpacity style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
+                <Ionicons name="options-outline" size={16} color={Colors.brandPrimary} />
+                <Text style={styles.filterButtonText}>
+                  {activeFiltersCount > 0
+                    ? `${t.catalog.filters} (${activeFiltersCount})`
+                    : t.catalog.filters}
+                </Text>
+              </TouchableOpacity>
+              <Text style={styles.filterHint}>{t.catalog.futureOnly}</Text>
+            </View>
           </View>
           {filteredPersonalRaces.length > 0 ? (
-            <PersonalRacesSection races={filteredPersonalRaces} />
+            <PersonalRacesSection
+              races={filteredPersonalRaces}
+              myRacesLabel={t.catalog.myRaces}
+              createPlanLabel={t.catalog.createPlan}
+            />
           ) : null}
         </View>
       }
@@ -389,26 +505,24 @@ export default function CatalogScreen() {
         filteredPersonalRaces.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyIcon}>🏁</Text>
-            <Text style={styles.emptyTitle}>Aucune course disponible</Text>
-            <Text style={styles.emptySubtitle}>Le catalogue sera bientôt enrichi.</Text>
+            <Text style={styles.emptyTitle}>{t.catalog.noCatalogTitle}</Text>
+            <Text style={styles.emptySubtitle}>{t.catalog.noCatalogSubtitle}</Text>
           </View>
         ) : null
       }
       renderItem={({ item: event }) => {
-        const dateStr = formatEventDate(event.race_date);
+        const dateStr = formatEventDate(event.race_date, locale);
         const headerMeta = [event.location, dateStr].filter(Boolean).join(' · ');
         const useFlex = event.races.length <= 2;
         const eventImageUrl = getEventImageUrl(event);
+
         return (
           <View style={styles.eventCard}>
-            {/* Event header */}
             <View style={styles.eventHeader}>
               <Text style={styles.eventHeaderEmoji}>🏔️</Text>
               <View style={styles.eventHeaderText}>
                 <Text style={styles.eventName}>{event.name}</Text>
-                {headerMeta ? (
-                  <Text style={styles.eventMeta}>{headerMeta}</Text>
-                ) : null}
+                {headerMeta ? <Text style={styles.eventMeta}>{headerMeta}</Text> : null}
               </View>
               {eventImageUrl ? (
                 <Image source={{ uri: eventImageUrl }} style={styles.eventThumbnail} resizeMode="cover" />
@@ -417,11 +531,16 @@ export default function CatalogScreen() {
 
             <View style={styles.divider} />
 
-            {/* Race format sub-cards */}
             {useFlex ? (
               <View style={styles.racesRow}>
                 {event.races.map((race) => (
-                  <RaceSubCard key={race.id} race={race} eventName={event.name} flex />
+                  <RaceSubCard
+                    key={race.id}
+                    race={race}
+                    eventName={event.name}
+                    createPlanLabel={t.catalog.createPlan}
+                    flex
+                  />
                 ))}
               </View>
             ) : (
@@ -431,13 +550,87 @@ export default function CatalogScreen() {
                 contentContainerStyle={styles.racesScrollContent}
               >
                 {event.races.map((race) => (
-                  <RaceSubCard key={race.id} race={race} eventName={event.name} />
+                  <RaceSubCard
+                    key={race.id}
+                    race={race}
+                    eventName={event.name}
+                    createPlanLabel={t.catalog.createPlan}
+                  />
                 ))}
               </ScrollView>
             )}
           </View>
         );
       }}
+      ListFooterComponent={
+        <Modal
+          visible={filtersOpen}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setFiltersOpen(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <SafeAreaView style={styles.modalSheet}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{t.catalog.modalTitle}</Text>
+                <TouchableOpacity onPress={() => setFiltersOpen(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={styles.modalContent}>
+                <Text style={styles.modalSectionTitle}>{t.catalog.distanceTitle}</Text>
+                <View style={styles.rangeRow}>
+                  <TextInput
+                    value={distanceMinFilter}
+                    onChangeText={setDistanceMinFilter}
+                    placeholder={t.catalog.minKm}
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="decimal-pad"
+                    style={[styles.filterInput, styles.rangeInput]}
+                  />
+                  <TextInput
+                    value={distanceMaxFilter}
+                    onChangeText={setDistanceMaxFilter}
+                    placeholder={t.catalog.maxKm}
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="decimal-pad"
+                    style={[styles.filterInput, styles.rangeInput]}
+                  />
+                </View>
+
+                <Text style={styles.modalSectionTitle}>{t.catalog.dateTitle}</Text>
+                <View style={styles.rangeRow}>
+                  <TextInput
+                    value={dateMinFilter}
+                    onChangeText={setDateMinFilter}
+                    placeholder={t.catalog.minDate}
+                    placeholderTextColor={Colors.textMuted}
+                    style={[styles.filterInput, styles.rangeInput]}
+                  />
+                  <TextInput
+                    value={dateMaxFilter}
+                    onChangeText={setDateMaxFilter}
+                    placeholder={t.catalog.maxDate}
+                    placeholderTextColor={Colors.textMuted}
+                    style={[styles.filterInput, styles.rangeInput]}
+                  />
+                </View>
+                <Text style={styles.modalHint}>{t.catalog.dateHint}</Text>
+              </ScrollView>
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity style={styles.secondaryActionButton} onPress={resetFilters}>
+                  <Text style={styles.secondaryActionButtonText}>{t.catalog.reset}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.primaryActionButton} onPress={() => setFiltersOpen(false)}>
+                  <Text style={styles.primaryActionButtonText}>{t.catalog.apply}</Text>
+                </TouchableOpacity>
+              </View>
+            </SafeAreaView>
+          </View>
+        </Modal>
+      }
     />
   );
 }
@@ -484,6 +677,28 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
+  filterActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  filterButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   filterInput: {
     backgroundColor: Colors.surfaceSecondary,
     borderRadius: 12,
@@ -497,6 +712,8 @@ const styles = StyleSheet.create({
   filterHint: {
     fontSize: 12,
     color: Colors.textSecondary,
+    flexShrink: 1,
+    textAlign: 'right',
   },
   listEmpty: {
     flex: 1,
@@ -525,7 +742,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  // Event card
   eventCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -577,12 +793,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
     marginVertical: 12,
   },
-  // Race sub-cards — flex row (≤ 2 races)
   racesRow: {
     flexDirection: 'row',
     gap: 10,
   },
-  // Race sub-cards — horizontal scroll (3+ races)
   racesScrollContent: {
     flexDirection: 'row',
     gap: 10,
@@ -622,7 +836,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  // Skeleton placeholders
   skeletonTitle: {
     height: 18,
     backgroundColor: Colors.surfaceSecondary,
@@ -640,5 +853,94 @@ const styles = StyleSheet.create({
     height: 100,
     backgroundColor: Colors.surfaceSecondary,
     borderRadius: 12,
+  },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(18, 24, 16, 0.24)',
+  },
+  modalSheet: {
+    maxHeight: '78%',
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  modalTitle: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalContent: {
+    padding: 20,
+    gap: 14,
+  },
+  modalSectionTitle: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  rangeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  rangeInput: {
+    flex: 1,
+  },
+  modalHint: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  secondaryActionButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  secondaryActionButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  primaryActionButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandPrimary,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  primaryActionButtonText: {
+    color: Colors.textOnBrand,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

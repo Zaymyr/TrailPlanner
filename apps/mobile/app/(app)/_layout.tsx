@@ -2,6 +2,7 @@ import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, Text } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../lib/i18n';
 
 export const unstable_settings = {
   initialRouteName: 'plans',
@@ -9,6 +10,9 @@ export const unstable_settings = {
 
 export default function AppLayout() {
   const router = useRouter();
+  const { locale, t } = useI18n();
+  const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
+  const plansTabLabel = locale === 'fr' ? 'Plans' : 'Plans';
 
   return (
     <Tabs
@@ -42,8 +46,8 @@ export default function AppLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profil',
-          tabBarLabel: 'Profil',
+          title: t.profile.title,
+          tabBarLabel: t.profile.title,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
@@ -54,8 +58,8 @@ export default function AppLayout() {
       <Tabs.Screen
         name="catalog"
         options={{
-          title: 'Courses',
-          tabBarLabel: 'Courses',
+          title: catalogLabel,
+          tabBarLabel: catalogLabel,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trail-sign" size={size} color={color} />
           ),
@@ -74,8 +78,8 @@ export default function AppLayout() {
       <Tabs.Screen
         name="plans"
         options={{
-          title: 'Mes plans',
-          tabBarLabel: 'Plans',
+          title: t.plans.title,
+          tabBarLabel: plansTabLabel,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map" size={size} color={color} />
           ),

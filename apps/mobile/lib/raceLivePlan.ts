@@ -2,9 +2,12 @@ import type { IntakeTimelineItem, PlanFormValues, PlanProduct, PlanTarget } from
 import { DEFAULT_PLAN_VALUES } from '../components/plan-form/contracts';
 import type { AidStationFormItem } from '../components/plan-form/contracts';
 import { buildInitialPlanValues } from '../components/plan-form/helpers';
-import { buildSectionIntakeTimelineV2 } from '../components/plan-form/metrics';
 import { buildPlanSectionSummary, getBaseSpeedKph } from '../components/plan-form/section-summary';
 import type { ElevationPoint } from '../components/plan-form/profile-utils';
+import {
+  buildContinuousIntakeTimeline,
+  buildContinuousSections,
+} from './continuousNutrition';
 
 export type StoredRacePlan = {
   id: string;
@@ -117,12 +120,10 @@ export function buildLiveRaceSections(
   const values = normalizeStoredPlanValues(plan);
   const elevationProfile = plan.elevationProfile ?? [];
   const baseSpeedKph = getBaseSpeedKph(values);
-  const getSupplies = (target: PlanTarget) =>
-    target === 'start' ? values.startSupplies ?? [] : values.aidStations[target]?.supplies ?? [];
+  const continuousSections = buildContinuousSections({ values, elevationProfile });
+  const continuousTimeline = buildContinuousIntakeTimeline({ values, productMap, elevationProfile });
 
   const sections: LiveRaceSection[] = [];
-  let sectionStartMinute = 0;
-
   for (let sectionIndex = 0; sectionIndex < values.aidStations.length - 1; sectionIndex += 1) {
     const target: PlanTarget = sectionIndex === 0 ? 'start' : sectionIndex;
     const summary = buildPlanSectionSummary({
@@ -135,23 +136,16 @@ export function buildLiveRaceSections(
 
     const fromStation = values.aidStations[summary.sectionIndex];
     const toStation = values.aidStations[summary.sectionIndex + 1];
-    const timeline = buildSectionIntakeTimelineV2({
-      target,
-      sectionDurationMin: Math.max(0, summary.durationMin),
-      sectionTarget: {
-        targetCarbsG: summary.targetCarbsG,
-        targetSodiumMg: summary.targetSodiumMg,
-        targetWaterMl: summary.targetWaterMl,
-      },
-      getSupplies,
-      productMap,
-      aidStations: values.aidStations,
-      waterBagLiters: values.waterBagLiters,
-    }).map<LiveIntakeEvent>((event, eventIndex) => ({
+    const continuousSection = continuousSections.find((section) => section.sectionIndex === summary.sectionIndex);
+    const sectionStartMinute = continuousSection?.startMinute ?? sections.at(-1)?.endMinute ?? 0;
+    const sectionTimeline = continuousSection
+      ? continuousTimeline.filter((event) => event.sectionIndex === continuousSection.sectionIndex)
+      : [];
+    const timeline = sectionTimeline.map<LiveIntakeEvent>((event, eventIndex) => ({
       ...event,
       id: `section-${summary.sectionIndex}-intake-${eventIndex}`,
       sectionIndex: summary.sectionIndex,
-      absoluteMinute: sectionStartMinute + event.minute,
+      absoluteMinute: event.absoluteMinute,
       sectionStartMinute,
       sectionEndMinute: sectionStartMinute + summary.durationMin,
       fromName: fromStation?.name ?? 'Depart',
@@ -179,7 +173,6 @@ export function buildLiveRaceSections(
       timeline,
     });
 
-    sectionStartMinute += summary.durationMin;
   }
 
   return sections;

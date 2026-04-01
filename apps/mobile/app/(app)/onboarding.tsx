@@ -12,15 +12,18 @@ import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../lib/i18n';
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0];
 
 function OnboardingShell({
   children,
   step,
+  stepLabel,
 }: {
   children: React.ReactNode;
   step: number;
+  stepLabel: string;
 }) {
   return (
     <SafeAreaView style={styles.container}>
@@ -28,7 +31,7 @@ function OnboardingShell({
       <View style={styles.inner}>
         <View style={styles.hero}>
           <Text style={styles.logo}>Pace Yourself</Text>
-          <Text style={styles.stepIndicator}>Etape {step} sur 3</Text>
+          <Text style={styles.stepIndicator}>{stepLabel.replace('{step}', String(step))}</Text>
         </View>
         <View style={styles.card}>{children}</View>
       </View>
@@ -37,6 +40,7 @@ function OnboardingShell({
 }
 
 export default function OnboardingScreen() {
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
@@ -68,11 +72,9 @@ export default function OnboardingScreen() {
 
   if (step === 0) {
     return (
-      <OnboardingShell step={1}>
-        <Text style={styles.title}>Bienvenue</Text>
-        <Text style={styles.subtitle}>
-          L'app qui vous aide a rester alimente, hydrate et lucide jusqu'a la ligne d'arrivee.
-        </Text>
+      <OnboardingShell step={1} stepLabel={t.onboarding.stepLabel}>
+        <Text style={styles.title}>{t.onboarding.welcomeTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.welcomeSubtitle}</Text>
 
         <View style={styles.bullets}>
           <View style={styles.bullet}>
@@ -80,8 +82,8 @@ export default function OnboardingScreen() {
               <Text style={styles.bulletBadgeText}>1</Text>
             </View>
             <View style={styles.bulletBody}>
-              <Text style={styles.bulletTitle}>Planifiez votre strategie</Text>
-              <Text style={styles.bulletText}>Construisez votre plan ravito selon la distance, le denivele et votre allure.</Text>
+              <Text style={styles.bulletTitle}>{t.onboarding.bulletPlanTitle}</Text>
+              <Text style={styles.bulletText}>{t.onboarding.bulletPlanText}</Text>
             </View>
           </View>
           <View style={styles.bullet}>
@@ -89,8 +91,8 @@ export default function OnboardingScreen() {
               <Text style={styles.bulletBadgeText}>2</Text>
             </View>
             <View style={styles.bulletBody}>
-              <Text style={styles.bulletTitle}>Suivez le plan en course</Text>
-              <Text style={styles.bulletText}>Recevez des rappels clairs pour les glucides, l'eau et le sodium.</Text>
+              <Text style={styles.bulletTitle}>{t.onboarding.bulletRaceTitle}</Text>
+              <Text style={styles.bulletText}>{t.onboarding.bulletRaceText}</Text>
             </View>
           </View>
           <View style={styles.bullet}>
@@ -98,14 +100,14 @@ export default function OnboardingScreen() {
               <Text style={styles.bulletBadgeText}>3</Text>
             </View>
             <View style={styles.bulletBody}>
-              <Text style={styles.bulletTitle}>Evitez le coup de barre</Text>
-              <Text style={styles.bulletText}>Gardez une routine simple pour ne plus subir votre nutrition au hasard.</Text>
+              <Text style={styles.bulletTitle}>{t.onboarding.bulletFuelTitle}</Text>
+              <Text style={styles.bulletText}>{t.onboarding.bulletFuelText}</Text>
             </View>
           </View>
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(1)}>
-          <Text style={styles.primaryButtonText}>Commencer</Text>
+          <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
         </TouchableOpacity>
       </OnboardingShell>
     );
@@ -113,23 +115,23 @@ export default function OnboardingScreen() {
 
   if (step === 1) {
     return (
-      <OnboardingShell step={2}>
-        <Text style={styles.title}>Votre profil</Text>
-        <Text style={styles.subtitle}>Quelques infos rapides pour personnaliser vos plans.</Text>
+      <OnboardingShell step={2} stepLabel={t.onboarding.stepLabel}>
+        <Text style={styles.title}>{t.onboarding.profileTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.profileSubtitle}</Text>
 
-        <Text style={styles.label}>Prenom</Text>
+        <Text style={styles.label}>{t.onboarding.firstNameLabel}</Text>
         <TextInput
           style={styles.textInput}
           value={fullName}
           onChangeText={setFullName}
-          placeholder="Ex : Marie"
+          placeholder={t.onboarding.firstNamePlaceholder}
           placeholderTextColor={Colors.textMuted}
           autoCapitalize="words"
           textContentType="givenName"
         />
 
-        <Text style={styles.label}>Volume du sac a eau</Text>
-        <Text style={styles.labelHint}>Utilise pour estimer vos besoins et vos remplissages.</Text>
+        <Text style={styles.label}>{t.onboarding.waterBagLabel}</Text>
+        <Text style={styles.labelHint}>{t.onboarding.waterBagHint}</Text>
         <View style={styles.waterBagRow}>
           {WATER_BAG_OPTIONS.map((opt) => (
             <TouchableOpacity
@@ -145,27 +147,25 @@ export default function OnboardingScreen() {
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
-          <Text style={styles.primaryButtonText}>Continuer</Text>
+          <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
         </TouchableOpacity>
       </OnboardingShell>
     );
   }
 
   return (
-    <OnboardingShell step={3}>
+    <OnboardingShell step={3} stepLabel={t.onboarding.stepLabel}>
       <View style={styles.notificationIconWrap}>
         <Text style={styles.notificationIcon}>!</Text>
       </View>
-      <Text style={styles.title}>Alertes nutrition</Text>
-      <Text style={styles.subtitle}>
-        Activez les notifications pour recevoir vos rappels pendant la course, meme ecran verrouille.
-      </Text>
+      <Text style={styles.title}>{t.onboarding.notificationsTitle}</Text>
+      <Text style={styles.subtitle}>{t.onboarding.notificationsSubtitle}</Text>
 
       <View style={styles.noticeBox}>
-        <Text style={styles.noticeTitle}>Ce que vous recevrez</Text>
-        <Text style={styles.noticeText}>Rappels de gels au bon moment</Text>
-        <Text style={styles.noticeText}>Alertes eau et sodium pendant l'effort</Text>
-        <Text style={styles.noticeText}>Confirmation ou snooze directement depuis la notification</Text>
+        <Text style={styles.noticeTitle}>{t.onboarding.notificationsBoxTitle}</Text>
+        <Text style={styles.noticeText}>{t.onboarding.notificationsItem1}</Text>
+        <Text style={styles.noticeText}>{t.onboarding.notificationsItem2}</Text>
+        <Text style={styles.noticeText}>{t.onboarding.notificationsItem3}</Text>
       </View>
 
       <TouchableOpacity
@@ -176,12 +176,12 @@ export default function OnboardingScreen() {
         {saving ? (
           <ActivityIndicator color={Colors.textOnBrand} />
         ) : (
-          <Text style={styles.primaryButtonText}>Activer les notifications</Text>
+          <Text style={styles.primaryButtonText}>{t.onboarding.notificationsCta}</Text>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.secondaryButton} onPress={finishOnboarding} disabled={saving}>
-        <Text style={styles.secondaryButtonText}>Passer cette etape</Text>
+        <Text style={styles.secondaryButtonText}>{t.onboarding.skipCta}</Text>
       </TouchableOpacity>
     </OnboardingShell>
   );
