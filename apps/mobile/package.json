@@ -25,6 +25,7 @@
     "expo-secure-store": "~14.2.4",
     "expo-status-bar": "~2.2.3",
     "expo-task-manager": "~13.1.6",
+    "expo-updates": "~0.28.18",
     "expo-web-browser": "~14.2.0",
     "react": "19.0.0",
     "react-native": "0.79.6",
