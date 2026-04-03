@@ -33,6 +33,7 @@ import { styles } from './plan-form/styles';
 import { usePlanProducts } from './plan-form/usePlanProducts';
 import { usePlanSections } from './plan-form/usePlanSections';
 import { usePlanSupplies } from './plan-form/usePlanSupplies';
+import type { GaugeMetric } from './plan-form/GaugeArc';
 import type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset } from './plan-form/profile-utils';
 import {
   buildContinuousIntakeTimeline,
@@ -57,6 +58,10 @@ type Props = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 
+function getTargetCacheKey(target: PlanTarget) {
+  return target === 'start' ? 'start' : String(target);
+}
+
 function useDebounced<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState<T>(value);
   useEffect(() => {
@@ -77,7 +82,6 @@ export default function PlanForm({
   compactBasicsByDefault = false,
 }: Props) {
   const { isPremium } = usePremium();
-  const scrollRef = useRef<ScrollView>(null);
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const debouncedValues = useDebounced(values, 300);
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set([DEPART_ID]));
@@ -88,9 +92,7 @@ export default function PlanForm({
     summary: !compactBasicsByDefault,
   });
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
-  const [gaugeAnimateSignal, setGaugeAnimateSignal] = useState(0);
-  const [scrollY, setScrollY] = useState(0);
-  const [aidStationsTopY, setAidStationsTopY] = useState(0);
+  const [gaugeAnimateSignals, setGaugeAnimateSignals] = useState<Record<string, number>>({});
 
   void favoriteProducts;
   void saveLabel;
@@ -105,15 +107,16 @@ export default function PlanForm({
       summary: !compactBasicsByDefault,
     });
     setEditingStation(null);
-    setGaugeAnimateSignal(0);
+    setGaugeAnimateSignals({});
   }, [compactBasicsByDefault, initialValues]);
 
   useEffect(() => {
     onValuesChange?.(values);
   }, [onValuesChange, values]);
 
-  const triggerGaugeAnimation = useCallback(() => {
-    setGaugeAnimateSignal((prev) => prev + 1);
+  const triggerGaugeAnimation = useCallback((target: PlanTarget) => {
+    const key = getTargetCacheKey(target);
+    setGaugeAnimateSignals((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
   }, []);
 
   const update = <K extends keyof PlanFormValues>(key: K, value: PlanFormValues[K]) => {
@@ -131,8 +134,7 @@ export default function PlanForm({
   const {
     baseSpeedKph,
     buildSectionSummary,
-    canSplitSectionSegment,
-    canRemoveSectionSegment,
+    getSectionSegmentControls,
     updateSectionSegmentPaceAdjustment,
     splitSectionSegment,
     removeSectionSegment,
@@ -178,14 +180,40 @@ export default function PlanForm({
   });
 
   const basePaceMinutesPerKm = 60 / baseSpeedKph;
+  const aidStationsSummaryKey = useMemo(
+    () =>
+      values.aidStations
+        .map((station) => `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}`)
+        .join(';'),
+    [values.aidStations],
+  );
+  const liveSectionSummaries = useMemo(
+    () =>
+      values.aidStations
+        .slice(0, -1)
+        .map((_, index) => buildSectionSummary(index === 0 ? 'start' : index))
+        .filter((summary): summary is NonNullable<typeof summary> => summary !== null),
+    [buildSectionSummary, aidStationsSummaryKey],
+  );
+  const liveSectionSummaryMap = useMemo(() => {
+    const map = new Map<number, (typeof liveSectionSummaries)[number]>();
+    liveSectionSummaries.forEach((summary) => {
+      map.set(summary.sectionIndex, summary);
+    });
+    return map;
+  }, [liveSectionSummaries]);
+  const getSectionSummaryForTarget = useCallback(
+    (target: PlanTarget) => liveSectionSummaryMap.get(target === 'start' ? 0 : target) ?? null,
+    [liveSectionSummaryMap],
+  );
   const highlights = useMemo(
     () =>
       buildPlanHighlights({
         values: debouncedValues,
         productMap,
-        buildSectionSummary,
+        buildSectionSummary: getSectionSummaryForTarget,
       }),
-    [buildSectionSummary, productMap, debouncedValues],
+    [getSectionSummaryForTarget, productMap, debouncedValues],
   );
   const continuousSections = useMemo(
     () => buildContinuousSections({ values: debouncedValues, elevationProfile }),
@@ -203,39 +231,76 @@ export default function PlanForm({
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }, [highlights.totalDurationMin, values.raceDistanceKm]);
 
-  const getGaugeMetricsForTarget = (
-    target: PlanTarget,
-    sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
-  ) => {
-    // Keep the displayed sodium need aligned with the effective planning target
-    // so the gauge and the ravito verdict talk about the same reference.
-    const effectiveSectionTarget = sectionTarget
-      ? {
-          ...sectionTarget,
-          targetSodiumMg: getEffectiveSodiumTarget(sectionTarget.targetSodiumMg),
-        }
-      : undefined;
+  const gaugeMetricsMap = useMemo(() => {
+    const map = new Map<string, GaugeMetric[]>();
 
-    return buildGaugeMetrics({
-      target,
-      sectionTarget: effectiveSectionTarget,
-      getSupplies,
-      productMap,
-      aidStations: values.aidStations,
-      waterBagLiters: values.waterBagLiters,
+    liveSectionSummaries.forEach((summary) => {
+      const target: PlanTarget = summary.sectionIndex === 0 ? 'start' : summary.sectionIndex;
+      map.set(
+        getTargetCacheKey(target),
+        buildGaugeMetrics({
+          target,
+          sectionTarget: {
+            targetCarbsG: summary.targetCarbsG,
+            targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
+            targetWaterMl: summary.targetWaterMl,
+          },
+          getSupplies,
+          productMap,
+          aidStations: values.aidStations,
+          waterBagLiters: values.waterBagLiters,
+        }),
+      );
     });
-  };
 
-  const getSectionIntakeTimeline = (
+    return map;
+  }, [getSupplies, liveSectionSummaries, productMap, values.aidStations, values.waterBagLiters]);
+
+  const getGaugeMetricsForTarget = useCallback(
+    (
+      target: PlanTarget,
+      sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
+    ) => {
+      const cached = gaugeMetricsMap.get(getTargetCacheKey(target));
+      if (cached) return cached;
+
+      const effectiveSectionTarget = sectionTarget
+        ? {
+            ...sectionTarget,
+            targetSodiumMg: getEffectiveSodiumTarget(sectionTarget.targetSodiumMg),
+          }
+        : undefined;
+
+      return buildGaugeMetrics({
+        target,
+        sectionTarget: effectiveSectionTarget,
+        getSupplies,
+        productMap,
+        aidStations: values.aidStations,
+        waterBagLiters: values.waterBagLiters,
+      });
+    },
+    [gaugeMetricsMap, getSupplies, productMap, values.aidStations, values.waterBagLiters],
+  );
+
+  const sectionTimelineMap = useMemo(() => {
+    const map = new Map<number, ReturnType<typeof buildSectionTimelineFromContinuous>>();
+    continuousSections.forEach((section) => {
+      map.set(section.sectionIndex, buildSectionTimelineFromContinuous(continuousTimeline, section));
+    });
+    return map;
+  }, [continuousSections, continuousTimeline]);
+
+  const getSectionIntakeTimeline = useCallback((
     target: PlanTarget,
     sectionDurationMin: number,
     sectionTarget?: { targetCarbsG: number; targetSodiumMg: number; targetWaterMl: number },
   ) => {
     const targetIndex = target === 'start' ? 0 : target;
-    const section = continuousSections.find((candidate) => candidate.sectionIndex === targetIndex);
+    const sectionTimeline = sectionTimelineMap.get(targetIndex);
 
-    if (section) {
-      return buildSectionTimelineFromContinuous(continuousTimeline, section);
+    if (sectionTimeline) {
+      return sectionTimeline;
     }
 
     return buildSectionIntakeTimelineV2({
@@ -247,53 +312,45 @@ export default function PlanForm({
       aidStations: values.aidStations,
       waterBagLiters: values.waterBagLiters,
     });
-  };
+  }, [getSupplies, productMap, sectionTimelineMap, values.aidStations, values.waterBagLiters]);
 
   const toggleSection = (section: AccordionSection) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
-  const toggleStation = (stationKey: string) => {
+  const toggleStation = useCallback((stationKey: string) => {
     setExpandedStations((prev) => {
       const next = new Set(prev);
       if (next.has(stationKey)) next.delete(stationKey);
       else next.add(stationKey);
       return next;
     });
-  };
+  }, []);
 
   const handleAddProductFromPicker = useCallback((product: PickerProduct) => {
     if (pickerTarget === null) return;
     addSupplyToStation(pickerTarget, product.id);
-    triggerGaugeAnimation();
+    triggerGaugeAnimation(pickerTarget);
   }, [pickerTarget, addSupplyToStation, triggerGaugeAnimation]);
 
   const handleIncreaseQty = useCallback((target: Parameters<typeof increaseQty>[0], productId: string) => {
     increaseQty(target, productId);
-    triggerGaugeAnimation();
+    triggerGaugeAnimation(target);
   }, [increaseQty, triggerGaugeAnimation]);
 
   const handleDecreaseQty = useCallback((target: Parameters<typeof decreaseQty>[0], productId: string) => {
     decreaseQty(target, productId);
-    triggerGaugeAnimation();
+    triggerGaugeAnimation(target);
   }, [decreaseQty, triggerGaugeAnimation]);
 
   const handleRemoveSupply = useCallback((target: Parameters<typeof removeSupply>[0], productId: string) => {
     removeSupply(target, productId);
-    triggerGaugeAnimation();
+    triggerGaugeAnimation(target);
   }, [removeSupply, triggerGaugeAnimation]);
 
-  const handleScrollY = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
-    setScrollY(event.nativeEvent.contentOffset.y);
-  }, []);
-
-  const handleAidStationsLayout = useCallback((event: { nativeEvent: { layout: { y: number } } }) => {
-    setAidStationsTopY(event.nativeEvent.layout.y);
-  }, []);
-
-  const handleRequestParentScroll = useCallback((nextY: number) => {
-    scrollRef.current?.scrollTo({ y: Math.max(0, nextY), animated: false });
-  }, []);
+  const getGaugeAnimateSignal = useCallback((target: PlanTarget) => {
+    return gaugeAnimateSignals[getTargetCacheKey(target)] ?? 0;
+  }, [gaugeAnimateSignals]);
 
   const handleEditSave = () => {
     if (!editingStation) return;
@@ -326,12 +383,9 @@ export default function PlanForm({
   return (
     <>
       <ScrollView
-        ref={scrollRef}
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={16}
-        onScroll={handleScrollY}
       >
         <PlanBasicsSection
           values={values}
@@ -353,7 +407,7 @@ export default function PlanForm({
           productBreakdown={highlights.productBreakdown}
         />
 
-        <View onLayout={handleAidStationsLayout}>
+        <View>
           <AidStationsSection
             values={values}
             basePaceMinutesPerKm={basePaceMinutesPerKm}
@@ -376,17 +430,13 @@ export default function PlanForm({
             getGaugeMetrics={getGaugeMetricsForTarget}
             getGaugeColor={getGaugeColor}
             formatGaugeValue={formatGaugeValue}
-            getSectionSummary={buildSectionSummary}
+            getSectionSummary={getSectionSummaryForTarget}
             getSectionIntakeTimeline={getSectionIntakeTimeline}
-            gaugeAnimateSignal={gaugeAnimateSignal}
-            canSplitSectionSegment={canSplitSectionSegment}
-            canRemoveSectionSegment={canRemoveSectionSegment}
+            getGaugeAnimateSignal={getGaugeAnimateSignal}
+            getSectionSegmentControls={getSectionSegmentControls}
             onSplitSectionSegment={splitSectionSegment}
             onRemoveSectionSegment={removeSectionSegment}
             onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
-            parentScrollY={scrollY}
-            containerTopY={aidStationsTopY}
-            onRequestParentScroll={handleRequestParentScroll}
           />
         </View>
 

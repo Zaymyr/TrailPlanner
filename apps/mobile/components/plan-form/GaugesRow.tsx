@@ -26,4 +26,25 @@ export const GaugesRow = React.memo(function GaugesRow({ metrics, compact = fals
       ))}
     </View>
   );
+}, (prev, next) => {
+  if (
+    prev.compact !== next.compact ||
+    prev.animateSignal !== next.animateSignal ||
+    prev.formatGaugeValue !== next.formatGaugeValue ||
+    prev.getGaugeColor !== next.getGaugeColor ||
+    prev.metrics.length !== next.metrics.length
+  ) {
+    return false;
+  }
+
+  return prev.metrics.every((metric, index) => {
+    const nextMetric = next.metrics[index];
+    return (
+      metric.key === nextMetric.key &&
+      metric.current === nextMetric.current &&
+      metric.target === nextMetric.target &&
+      metric.ratio === nextMetric.ratio &&
+      metric.statusRatio === nextMetric.statusRatio
+    );
+  });
 });

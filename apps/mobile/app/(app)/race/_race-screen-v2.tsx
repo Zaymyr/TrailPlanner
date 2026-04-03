@@ -15,6 +15,7 @@ import type { PlanProduct } from '../../../components/plan-form/contracts';
 import { LiveFuelGauge } from '../../../components/race/LiveFuelGauge';
 import { LiveNextIntakeCard } from '../../../components/race/LiveNextIntakeCard';
 import { RaceStartSheet, type RaceStartConfig } from '../../../components/race/RaceStartSheet';
+import { FeedbackHeaderButton } from '../../../components/feedback/FeedbackHeaderButton';
 import { Colors } from '../../../constants/colors';
 import {
   checkAndFireAlerts,
@@ -283,9 +284,14 @@ export default function RaceScreenV2() {
           options={{
             title: plan.name,
             headerRight: () => (
-              <TouchableOpacity onPress={() => router.push(`/(app)/plan/${id}/edit`)}>
-                <Text style={styles.headerAction}>Modifier</Text>
-              </TouchableOpacity>
+              <FeedbackHeaderButton
+                contextLabel={plan.name}
+                leading={(
+                  <TouchableOpacity onPress={() => router.push(`/(app)/plan/${id}/edit`)}>
+                    <Text style={styles.headerAction}>Modifier</Text>
+                  </TouchableOpacity>
+                )}
+              />
             ),
           }}
         />

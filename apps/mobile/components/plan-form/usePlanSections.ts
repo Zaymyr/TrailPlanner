@@ -14,6 +14,14 @@ type Args = {
 const SPLIT_PRESET_ORDER: SegmentPreset[] = ['grossier', 'moyen', 'fin'];
 
 export function usePlanSections({ values, setValues, elevationProfile }: Args) {
+  const aidStationsSummaryKey = useMemo(
+    () =>
+      values.aidStations
+        .map((station) => `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}`)
+        .join(';'),
+    [values.aidStations],
+  );
+
   const baseSpeedKph = useMemo(
     () => getBaseSpeedKph(values),
     [values.paceMinutes, values.paceSeconds, values.paceType, values.speedKph],
@@ -30,7 +38,7 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
     [
       baseSpeedKph,
       elevationProfile,
-      values.aidStations,
+      aidStationsSummaryKey,
       values.sectionSegments,
       values.sodiumIntakePerHour,
       values.targetIntakePerHour,
@@ -38,11 +46,8 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
     ],
   );
 
-  const getSplitReplacementSegments = useCallback(
-    (target: PlanTarget, segmentIndex: number) => {
-      const summary = buildSectionSummary(target);
-      if (!summary) return null;
-
+  const getSplitReplacementSegmentsFromSummary = useCallback(
+    (summary: SectionSummary, segmentIndex: number) => {
       const segment = summary.segments[segmentIndex];
       const segmentStat = summary.segmentStats[segmentIndex];
       if (!segment || !segmentStat || segment.segmentKm <= 0.02) return null;
@@ -64,7 +69,16 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
 
       return null;
     },
-    [buildSectionSummary, elevationProfile],
+    [elevationProfile],
+  );
+
+  const getSplitReplacementSegments = useCallback(
+    (target: PlanTarget, segmentIndex: number) => {
+      const summary = buildSectionSummary(target);
+      if (!summary) return null;
+      return getSplitReplacementSegmentsFromSummary(summary, segmentIndex);
+    },
+    [buildSectionSummary, getSplitReplacementSegmentsFromSummary],
   );
 
   const canSplitSectionSegment = useCallback(
@@ -78,6 +92,19 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
       return Boolean(summary && segmentIndex > 0 && summary.segments.length > 1);
     },
     [buildSectionSummary],
+  );
+
+  const getSectionSegmentControls = useCallback(
+    (target: PlanTarget) => {
+      const summary = buildSectionSummary(target);
+      if (!summary) return [];
+
+      return summary.segments.map((_, segmentIndex) => ({
+        canSplit: Boolean(getSplitReplacementSegmentsFromSummary(summary, segmentIndex)?.length),
+        canRemove: segmentIndex > 0 && summary.segments.length > 1,
+      }));
+    },
+    [buildSectionSummary, getSplitReplacementSegmentsFromSummary],
   );
 
   const updateSectionSegmentPaceAdjustment = useCallback(
@@ -176,6 +203,7 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
     buildSectionSummary,
     canSplitSectionSegment,
     canRemoveSectionSegment,
+    getSectionSegmentControls,
     updateSectionSegmentPaceAdjustment,
     splitSectionSegment,
     removeSectionSegment,

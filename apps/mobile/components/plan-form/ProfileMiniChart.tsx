@@ -1,3 +1,4 @@
+import React from 'react';
 import { View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import type { ElevationPoint } from './profile-utils';
@@ -7,7 +8,7 @@ type Props = {
   points: ElevationPoint[];
 };
 
-export function ProfileMiniChart({ points }: Props) {
+export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }: Props) {
   if (points.length < 2) {
     return <View style={styles.profileChartEmpty} />;
   }
@@ -50,4 +51,10 @@ export function ProfileMiniChart({ points }: Props) {
       })}
     </View>
   );
-}
+}, (prev, next) => {
+  if (prev.points.length !== next.points.length) return false;
+  return prev.points.every((point, index) => {
+    const nextPoint = next.points[index];
+    return point.distanceKm === nextPoint.distanceKm && point.elevationM === nextPoint.elevationM;
+  });
+});

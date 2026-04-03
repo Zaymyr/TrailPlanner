@@ -192,4 +192,24 @@ export type MobileTranslations = {
     selectRaceSubtitle: string;
     selectRaceCta: string;
   };
+  feedback: {
+    triggerLabel: string;
+    modalTitle: string;
+    modalSubtitle: string;
+    bugOption: string;
+    feedbackOption: string;
+    subjectLabel: string;
+    subjectPlaceholder: string;
+    detailLabel: string;
+    detailPlaceholder: string;
+    sendBug: string;
+    sendFeedback: string;
+    missingFields: string;
+    successTitle: string;
+    bugSent: string;
+    feedbackSent: string;
+    sendFailed: string;
+    sourceLabel: string;
+    screenLabel: string;
+  };
 };

@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, Text } from 'react-native';
+import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 
@@ -13,12 +14,32 @@ export default function AppLayout() {
   const { locale, t } = useI18n();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const plansTabLabel = locale === 'fr' ? 'Plans' : 'Plans';
+  const nutritionLabel = 'Nutrition';
+  const getFeedbackContext = (routeName: string) => {
+    switch (routeName) {
+      case 'profile':
+        return t.profile.title;
+      case 'catalog':
+        return catalogLabel;
+      case 'plans':
+      case 'plan':
+        return t.plans.title;
+      case 'nutrition':
+        return nutritionLabel;
+      case 'plan/new':
+        return t.plans.newPlan;
+      case 'plan/[id]/edit':
+        return locale === 'fr' ? 'Edition du plan' : 'Edit plan';
+      default:
+        return routeName;
+    }
+  };
 
   return (
     <Tabs
       backBehavior="initialRoute"
       initialRouteName="plans"
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerStyle: { backgroundColor: Colors.background },
         headerTintColor: Colors.textPrimary,
         headerShadowVisible: false,
@@ -40,7 +61,10 @@ export default function AppLayout() {
         },
         tabBarActiveTintColor: Colors.brandPrimary,
         tabBarInactiveTintColor: Colors.textMuted,
-      }}
+        headerRight: () => (
+          <FeedbackHeaderButton contextLabel={getFeedbackContext(route.name)} />
+        ),
+      })}
     >
       {/* Far left: Profile */}
       <Tabs.Screen
@@ -64,12 +88,17 @@ export default function AppLayout() {
             <Ionicons name="trail-sign" size={size} color={color} />
           ),
           headerRight: () => (
-            <TouchableOpacity
-              onPress={() => router.push('/(app)/race/new')}
-              style={{ paddingHorizontal: 12, paddingVertical: 4 }}
-            >
-              <Text style={{ color: Colors.brandPrimary, fontSize: 26, fontWeight: '600' }}>+</Text>
-            </TouchableOpacity>
+            <FeedbackHeaderButton
+              contextLabel={catalogLabel}
+              leading={(
+                <TouchableOpacity
+                  onPress={() => router.push('/(app)/race/new')}
+                  style={{ paddingHorizontal: 12, paddingVertical: 4 }}
+                >
+                  <Text style={{ color: Colors.brandPrimary, fontSize: 26, fontWeight: '600' }}>+</Text>
+                </TouchableOpacity>
+              )}
+            />
           ),
         }}
       />
@@ -91,7 +120,7 @@ export default function AppLayout() {
         name="nutrition"
         options={{
           title: 'Nutrition',
-          tabBarLabel: 'Nutrition',
+          tabBarLabel: nutritionLabel,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="nutrition" size={size} color={color} />
           ),

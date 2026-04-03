@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -52,9 +52,13 @@ type Props = {
     sectionDurationMin: number,
     sectionTarget?: SectionTarget,
   ) => IntakeTimelineItem[];
-  gaugeAnimateSignal: number;
-  canSplitSectionSegment: (target: PlanTarget, segmentIndex: number) => boolean;
-  canRemoveSectionSegment: (target: PlanTarget, segmentIndex: number) => boolean;
+  getGaugeAnimateSignal: (target: PlanTarget) => number;
+  getSectionSegmentControls: (
+    target: PlanTarget,
+  ) => Array<{
+    canSplit: boolean;
+    canRemove: boolean;
+  }>;
   onSplitSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
   onRemoveSectionSegment: (target: PlanTarget, segmentIndex: number) => void;
   onUpdateSectionSegmentPaceAdjustment: (
@@ -62,9 +66,6 @@ type Props = {
     segmentIndex: number,
     paceAdjustmentMinutesPerKm: number | undefined,
   ) => void;
-  parentScrollY: number;
-  containerTopY: number;
-  onRequestParentScroll: (y: number) => void;
 };
 
 const VIEW_MODES: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
@@ -100,33 +101,85 @@ export function AidStationsSectionV3({
   formatGaugeValue,
   getSectionSummary,
   getSectionIntakeTimeline,
-  gaugeAnimateSignal,
-  canSplitSectionSegment,
-  canRemoveSectionSegment,
+  getGaugeAnimateSignal,
+  getSectionSegmentControls,
   onSplitSectionSegment,
   onRemoveSectionSegment,
   onUpdateSectionSegmentPaceAdjustment,
-  parentScrollY,
-  containerTopY,
-  onRequestParentScroll,
 }: Props) {
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const pageWidth = Math.max(280, windowWidth - 40);
+  const defaultViewportHeight = Math.max(360, Math.min(Math.round(windowHeight * 0.68), 760));
   const pagerRef = useRef<ScrollView>(null);
-  const [selectedViewMode, setSelectedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
-  const [displayedViewMode, setDisplayedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
-  const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
-  const [viewHeights, setViewHeights] = useState<Record<'stations' | 'sections' | 'profile', number>>({
+  const lastPagerWidthRef = useRef(pageWidth);
+  const currentPagerPageIndexRef = useRef(1);
+  const pageScrollRefs = useRef<Record<number, ScrollView | null>>({});
+  const pageScrollYRef = useRef<Record<'stations' | 'sections' | 'profile', number>>({
     stations: 0,
     sections: 0,
     profile: 0,
   });
-  const [viewAnchors, setViewAnchors] = useState<Record<'stations' | 'sections' | 'profile', Record<number, number>>>({
+  const pageContentHeightRef = useRef<Record<'stations' | 'sections' | 'profile', number>>({
+    stations: 0,
+    sections: 0,
+    profile: 0,
+  });
+  const pageUserScrollingRef = useRef<Record<'stations' | 'sections' | 'profile', boolean>>({
+    stations: false,
+    sections: false,
+    profile: false,
+  });
+  const userDraggingRef = useRef(false);
+  const dragStartModeRef = useRef<'stations' | 'sections' | 'profile'>('stations');
+  const previewTargetModeRef = useRef<null | 'stations' | 'sections' | 'profile'>(null);
+  const pendingSyncRef = useRef<null | { mode: 'stations' | 'sections' | 'profile'; stationId: string | null; viewportOffset: number }>(null);
+  const focusedAidStationIdRef = useRef<string | null>(values.aidStations[0]?.id ?? null);
+  const focusedViewportOffsetRef = useRef(0);
+  const viewAnchorsRef = useRef<
+    Record<
+      'stations' | 'sections' | 'profile',
+      Record<
+        number,
+        {
+          top: number;
+          bottom: number;
+        }
+      >
+    >
+  >({
     stations: {},
     sections: {},
     profile: {},
   });
+  const [selectedViewMode, setSelectedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
+  const [displayedViewMode, setDisplayedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
+  const [focusedAidStationId, setFocusedAidStationId] = useState<string | null>(values.aidStations[0]?.id ?? null);
+  const [pagerHoldPageIndex, setPagerHoldPageIndex] = useState<number | null>(null);
+  const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
+  const [viewportHeight, setViewportHeight] = useState(defaultViewportHeight);
+  const [anchorsVersion, setAnchorsVersion] = useState(0);
+  const aidStationsMetaKey = useMemo(
+    () =>
+      values.aidStations
+        .map((station) => `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}`)
+        .join(';'),
+    [values.aidStations],
+  );
   const paceStepMinutes = 5 / 60;
+
+  function getStationBadge(index: number, stationId: string | undefined) {
+    if (stationId === departId) return 'D';
+    if (stationId === arriveeId) return 'A';
+    return `R${index}`;
+  }
+
+  function renderStationBadge(label: string, compact = false) {
+    return (
+      <View style={compact ? styles.stationBadgeMini : styles.stationBadge}>
+        <Text style={compact ? styles.stationBadgeMiniText : styles.stationBadgeText}>{label}</Text>
+      </View>
+    );
+  }
 
   function formatTimelineMinute(minute: number) {
     if (minute <= 0) return 'Depart';
@@ -210,99 +263,290 @@ export function AidStationsSectionV3({
     }
   }
 
-  function getWrappedMode(index: number) {
-    const wrappedIndex = (index + VIEW_MODES.length) % VIEW_MODES.length;
-    return VIEW_MODES[wrappedIndex];
+  function getStationIdentity(index: number) {
+    const station = values.aidStations[index];
+    if (!station) return null;
+    return station.id ?? `__station_index_${index}`;
   }
 
-  function handleViewLayout(mode: 'stations' | 'sections' | 'profile', event: LayoutChangeEvent) {
-    const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-    setViewHeights((prev) => {
-      if (prev[mode] === nextHeight) return prev;
-      return { ...prev, [mode]: nextHeight };
+  function getStationIdAtIndex(index: number) {
+    return getStationIdentity(index);
+  }
+
+  function getPagerPageIndicesForMode(mode: 'stations' | 'sections' | 'profile') {
+    return PAGER_MODES.map((pageMode, pageIndex) => (pageMode === mode ? pageIndex : -1)).filter((pageIndex) => pageIndex >= 0);
+  }
+
+  function getStationIndexById(stationId: string | null | undefined, fallbackIndex = 0) {
+    if (!stationId) return fallbackIndex;
+    const resolvedIndex = values.aidStations.findIndex((_, index) => getStationIdentity(index) === stationId);
+    return resolvedIndex >= 0 ? resolvedIndex : fallbackIndex;
+  }
+
+  function getFocusLineOffset() {
+    return Math.round(Math.min(240, Math.max(92, windowHeight * 0.25)));
+  }
+
+  function commitFocusedAidStation(index: number, viewportOffset = focusedViewportOffsetRef.current || getFocusLineOffset()) {
+    const nextStationId = getStationIdAtIndex(index);
+    focusedAidStationIdRef.current = nextStationId;
+    focusedViewportOffsetRef.current = viewportOffset;
+    setFocusedAidStationId((prev) => (prev === nextStationId ? prev : nextStationId));
+    return nextStationId;
+  }
+
+  const contextAnchorIndex = useMemo(() => {
+    return getStationIndexById(focusedAidStationId, 0);
+  }, [focusedAidStationId, values.aidStations]);
+
+  useEffect(() => {
+    const nextIndex = getStationIndexById(focusedAidStationIdRef.current, -1);
+    if (nextIndex >= 0) {
+      setFocusedAidStationId((prev) => (prev === focusedAidStationIdRef.current ? prev : focusedAidStationIdRef.current));
+      return;
+    }
+
+    const fallbackStationId = values.aidStations[0]?.id ?? null;
+    focusedAidStationIdRef.current = fallbackStationId;
+    focusedViewportOffsetRef.current = getFocusLineOffset();
+    setFocusedAidStationId((prev) => (prev === fallbackStationId ? prev : fallbackStationId));
+  }, [values.aidStations]);
+
+  const handleViewportLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextHeight = Math.max(1, Math.ceil(event.nativeEvent.layout.height));
+    setViewportHeight((prev) => (prev === nextHeight ? prev : nextHeight));
+  }, []);
+
+  const registerAnchor = useCallback((mode: 'stations' | 'sections' | 'profile', index: number, event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    const nextTop = Math.round(y);
+    const nextBottom = Math.round(y + height);
+    const prev = viewAnchorsRef.current[mode][index];
+    if (prev?.top === nextTop && prev?.bottom === nextBottom) return;
+    viewAnchorsRef.current[mode][index] = { top: nextTop, bottom: nextBottom };
+    setAnchorsVersion((prevVersion) => prevVersion + 1);
+  }, []);
+
+  function getPageScrollY(mode: 'stations' | 'sections' | 'profile') {
+    return pageScrollYRef.current[mode];
+  }
+
+  function getTopVisibleAnchor(mode: 'stations' | 'sections' | 'profile', pageScrollY = getPageScrollY(mode)) {
+    const focusOffset = getFocusLineOffset();
+    const focusLineY = pageScrollY + focusOffset;
+
+    const anchors = Object.entries(viewAnchorsRef.current[mode])
+      .map(([index, anchor]) => ({ index: Number(index), top: anchor.top, bottom: anchor.bottom }))
+      .sort((a, b) => a.top - b.top);
+
+    if (anchors.length === 0) {
+      return { index: 0, stationId: getStationIdAtIndex(0), viewportOffset: getFocusLineOffset() };
+    }
+
+    const containing = anchors.find((anchor) => anchor.top <= focusLineY && focusLineY <= anchor.bottom);
+    const previous = [...anchors].reverse().find((anchor) => anchor.top <= focusLineY);
+    const chosen = containing ?? previous ?? anchors[0];
+    return {
+      index: chosen.index,
+      stationId: getStationIdAtIndex(chosen.index),
+      viewportOffset: chosen.top - pageScrollY,
+    };
+  }
+
+  function getBottomSpacerHeight() {
+    return Math.max(72, Math.round(viewportHeight - getFocusLineOffset() + 32));
+  }
+
+  function getAnchorTopForStation(mode: 'stations' | 'sections' | 'profile', stationId: string | null | undefined) {
+    const anchorIndex = getStationIndexById(stationId, 0);
+    const anchor = viewAnchorsRef.current[mode][anchorIndex];
+    if (!anchor) return null;
+    return { anchorIndex, top: anchor.top };
+  }
+
+  function alignParentScroll(
+    nextMode: 'stations' | 'sections' | 'profile',
+    stationId = focusedAidStationIdRef.current,
+    viewportOffset = focusedViewportOffsetRef.current || getFocusLineOffset(),
+  ) {
+    const targetAnchor = getAnchorTopForStation(nextMode, stationId);
+    if (!targetAnchor) return false;
+    const rawScrollY = Math.max(0, Math.round(targetAnchor.top - viewportOffset));
+    const maxScrollY = Math.max(0, pageContentHeightRef.current[nextMode] - viewportHeight);
+    const nextPageScrollY = Math.min(maxScrollY, rawScrollY);
+    pageScrollYRef.current[nextMode] = nextPageScrollY;
+    getPagerPageIndicesForMode(nextMode).forEach((pageIndex) => {
+      pageScrollRefs.current[pageIndex]?.scrollTo({ y: nextPageScrollY, animated: false });
     });
+    return true;
   }
 
-  function registerAnchor(mode: 'stations' | 'sections' | 'profile', index: number, event: LayoutChangeEvent) {
-    const nextY = Math.round(event.nativeEvent.layout.y);
-    setViewAnchors((prev) => {
-      if (prev[mode][index] === nextY) return prev;
-      return {
-        ...prev,
-        [mode]: {
-          ...prev[mode],
-          [index]: nextY,
-        },
-      };
-    });
+  function captureFocusedStation(mode: 'stations' | 'sections' | 'profile', pageScrollY = getPageScrollY(mode)) {
+    const anchor = getTopVisibleAnchor(mode, pageScrollY);
+    commitFocusedAidStation(anchor.index, anchor.viewportOffset);
+    return anchor;
   }
 
-  function getClosestAnchorIndex(mode: 'stations' | 'sections' | 'profile') {
-    const localScrollY = Math.max(0, parentScrollY - containerTopY);
-    const anchors = Object.entries(viewAnchors[mode]);
-    if (anchors.length === 0) return 0;
-
-    return anchors
-      .map(([index, y]) => ({ index: Number(index), distance: Math.abs(y - localScrollY) }))
-      .sort((left, right) => left.distance - right.distance)[0]?.index ?? 0;
+  function queueModeSync(
+    mode: 'stations' | 'sections' | 'profile',
+    stationId = focusedAidStationIdRef.current,
+    viewportOffset = focusedViewportOffsetRef.current || getFocusLineOffset(),
+    deferUntilSettled = false,
+  ) {
+    pendingSyncRef.current = { mode, stationId, viewportOffset };
+    if (deferUntilSettled) return;
+    if (alignParentScroll(mode, stationId, viewportOffset)) {
+      pendingSyncRef.current = null;
+    }
   }
 
-  function alignParentScroll(nextMode: 'stations' | 'sections' | 'profile', fromMode = displayedViewMode) {
-    const anchorIndex = getClosestAnchorIndex(fromMode);
-    const targetAnchorY = viewAnchors[nextMode][anchorIndex] ?? viewAnchors[nextMode][0] ?? 0;
-    onRequestParentScroll(containerTopY + targetAnchorY);
+  function getNearestPagerPageIndex(nextMode: 'stations' | 'sections' | 'profile') {
+    const currentPageIndex = currentPagerPageIndexRef.current;
+    const candidates = getPagerPageIndicesForMode(nextMode);
+    if (candidates.length === 0) {
+      return VIEW_MODES.indexOf(nextMode) + 1;
+    }
+
+    return candidates.reduce((best, candidate) => {
+      const bestDistance = Math.abs(best - currentPageIndex);
+      const candidateDistance = Math.abs(candidate - currentPageIndex);
+      if (candidateDistance !== bestDistance) {
+        return candidateDistance < bestDistance ? candidate : best;
+      }
+      return candidate < best ? candidate : best;
+    }, candidates[0]);
   }
 
   function switchViewMode(nextMode: 'stations' | 'sections' | 'profile') {
     if (nextMode === displayedViewMode) return;
 
-    alignParentScroll(nextMode, displayedViewMode);
-    const nextPageIndex = VIEW_MODES.indexOf(nextMode) + 1;
+    const nextPageIndex = getNearestPagerPageIndex(nextMode);
+    const capturedFocus = captureFocusedStation(displayedViewMode);
+    dragStartModeRef.current = displayedViewMode;
+    previewTargetModeRef.current = nextMode;
     setSelectedViewMode(nextMode);
-    setDisplayedViewMode(nextMode);
+    queueModeSync(nextMode, capturedFocus.stationId, capturedFocus.viewportOffset, true);
     pagerRef.current?.scrollTo({ x: nextPageIndex * pageWidth, animated: true });
   }
 
-  function switchViewByDelta(delta: -1 | 1) {
-    const currentIndex = VIEW_MODES.indexOf(displayedViewMode);
-    if (currentIndex < 0) return;
-    switchViewMode(getWrappedMode(currentIndex + delta));
+  function resolvePagerMode(pageIndex: number) {
+    const boundedPageIndex = Math.max(0, Math.min(PAGER_MODES.length - 1, pageIndex));
+    if (boundedPageIndex === 0) {
+      return { mode: 'profile' as const, resetPageIndex: 3 };
+    }
+    if (boundedPageIndex === PAGER_MODES.length - 1) {
+      return { mode: 'stations' as const, resetPageIndex: 1 };
+    }
+    return { mode: VIEW_MODES[boundedPageIndex - 1], resetPageIndex: null };
   }
+
+  useEffect(() => {
+    const pendingSync = pendingSyncRef.current;
+    if (!pendingSync) return;
+    if (userDraggingRef.current) return;
+    if (alignParentScroll(pendingSync.mode, pendingSync.stationId, pendingSync.viewportOffset)) {
+      pendingSyncRef.current = null;
+    }
+  }, [aidStationsMetaKey, anchorsVersion, displayedViewMode, pageWidth, selectedViewMode, viewportHeight, windowHeight]);
 
   useEffect(() => {
     const currentPageIndex = VIEW_MODES.indexOf(displayedViewMode) + 1;
     if (currentPageIndex <= 0) return;
+    if (lastPagerWidthRef.current === pageWidth) return;
+    lastPagerWidthRef.current = pageWidth;
+    currentPagerPageIndexRef.current = currentPageIndex;
     pagerRef.current?.scrollTo({ x: currentPageIndex * pageWidth, animated: false });
-  }, [displayedViewMode, pageWidth]);
+  }, [pageWidth, displayedViewMode]);
+
+  function handlePagerBeginDrag() {
+    userDraggingRef.current = true;
+    dragStartModeRef.current = displayedViewMode;
+    previewTargetModeRef.current = null;
+    setSelectedViewMode(displayedViewMode);
+    captureFocusedStation(displayedViewMode);
+  }
+
+  function handlePagerScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (!userDraggingRef.current || previewTargetModeRef.current !== null) return;
+
+    const dragStartMode = dragStartModeRef.current;
+    const startPageIndex = VIEW_MODES.indexOf(dragStartMode) + 1;
+    if (startPageIndex <= 0) return;
+
+    const currentX = event.nativeEvent.contentOffset.x;
+    const deltaX = currentX - startPageIndex * pageWidth;
+    const activationThreshold = Math.max(12, Math.round(pageWidth * 0.04));
+    if (Math.abs(deltaX) < activationThreshold) return;
+
+    const previewPageIndex = deltaX > 0 ? startPageIndex + 1 : startPageIndex - 1;
+    const { mode: previewMode } = resolvePagerMode(previewPageIndex);
+    if (previewMode === dragStartMode) return;
+
+    if (previewTargetModeRef.current === previewMode) return;
+    previewTargetModeRef.current = previewMode;
+    setSelectedViewMode(previewMode);
+    queueModeSync(previewMode, focusedAidStationIdRef.current, focusedViewportOffsetRef.current || getFocusLineOffset(), false);
+  }
 
   function handlePagerMomentumEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const rawPageIndex = Math.round(event.nativeEvent.contentOffset.x / Math.max(pageWidth, 1));
     const boundedPageIndex = Math.max(0, Math.min(PAGER_MODES.length - 1, rawPageIndex));
+    const dragStartMode = dragStartModeRef.current;
+    const previewTargetMode = previewTargetModeRef.current;
+    userDraggingRef.current = false;
+    previewTargetModeRef.current = null;
 
-    let nextMode: 'stations' | 'sections' | 'profile';
-    let resetPageIndex: number | null = null;
+    const { mode: nextMode, resetPageIndex } = resolvePagerMode(boundedPageIndex);
 
-    if (boundedPageIndex === 0) {
-      nextMode = 'profile';
-      resetPageIndex = 3;
-    } else if (boundedPageIndex === PAGER_MODES.length - 1) {
-      nextMode = 'stations';
-      resetPageIndex = 1;
-    } else {
-      nextMode = VIEW_MODES[boundedPageIndex - 1];
+    if (resetPageIndex !== null) {
+      setPagerHoldPageIndex(boundedPageIndex);
     }
 
     if (nextMode !== displayedViewMode) {
-      alignParentScroll(nextMode, displayedViewMode);
+      queueModeSync(nextMode, focusedAidStationIdRef.current, focusedViewportOffsetRef.current || getFocusLineOffset(), true);
       setSelectedViewMode(nextMode);
       setDisplayedViewMode(nextMode);
+      currentPagerPageIndexRef.current = resetPageIndex ?? boundedPageIndex;
+    } else if (previewTargetMode !== null && previewTargetMode !== dragStartMode) {
+      pendingSyncRef.current = null;
+      setSelectedViewMode(displayedViewMode);
+      currentPagerPageIndexRef.current = VIEW_MODES.indexOf(displayedViewMode) + 1;
     }
 
     if (resetPageIndex !== null) {
       requestAnimationFrame(() => {
         pagerRef.current?.scrollTo({ x: resetPageIndex * pageWidth, animated: false });
+        currentPagerPageIndexRef.current = resetPageIndex;
+        requestAnimationFrame(() => {
+          setPagerHoldPageIndex((prev) => (prev === boundedPageIndex ? null : prev));
+        });
       });
+    } else if (nextMode === displayedViewMode) {
+      currentPagerPageIndexRef.current = boundedPageIndex;
     }
+  }
+
+  function handlePageScroll(mode: 'stations' | 'sections' | 'profile', event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const nextY = event.nativeEvent.contentOffset.y;
+    pageScrollYRef.current[mode] = nextY;
+    if (mode !== displayedViewMode || !pageUserScrollingRef.current[mode]) return;
+    const anchor = getTopVisibleAnchor(mode, nextY);
+    commitFocusedAidStation(anchor.index, anchor.viewportOffset);
+  }
+
+  function handlePageScrollBeginDrag(mode: 'stations' | 'sections' | 'profile') {
+    pageUserScrollingRef.current[mode] = true;
+  }
+
+  function handlePageScrollEnd(mode: 'stations' | 'sections' | 'profile') {
+    pageUserScrollingRef.current[mode] = false;
+  }
+
+  function handlePageContentSizeChange(mode: 'stations' | 'sections' | 'profile', _: number, height: number) {
+    const nextHeight = Math.ceil(height);
+    if (pageContentHeightRef.current[mode] === nextHeight) return;
+    pageContentHeightRef.current[mode] = nextHeight;
+    setAnchorsVersion((prevVersion) => prevVersion + 1);
   }
 
   function formatSectionTarget(summary: SectionSummary | null): SectionTarget {
@@ -495,19 +739,29 @@ export function AidStationsSectionV3({
       const isArrivee = station.id === arriveeId;
       const stationKey = station.id ?? String(index);
       const isExpanded = expandedStations.has(stationKey);
+      const isFocused = index === contextAnchorIndex;
       const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
       const sectionTarget = formatSectionTarget(summary);
       const metrics = isArrivee ? [] : getGaugeMetrics(targetKey, sectionTarget);
+      const animateSignal = isArrivee ? 0 : getGaugeAnimateSignal(targetKey);
 
       let card: ReactElement;
 
       if (isDepart) {
         const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
-          <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]} onLayout={(event) => registerAnchor('stations', index, event)}>
-            <TouchableOpacity onPress={() => toggleStation(stationKey)} activeOpacity={0.7} style={styles.stationHeaderRow}>
-              <Text style={styles.stationIcon}>D</Text>
+          <View
+            key={stationKey}
+            style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
+            onLayout={(event) => registerAnchor('stations', index, event)}
+          >
+            <TouchableOpacity
+              onPress={() => toggleStation(stationKey)}
+              activeOpacity={0.7}
+              style={styles.stationHeaderRow}
+            >
+              {renderStationBadge(getStationBadge(index, station.id))}
               <Text style={styles.stationName}>{station.name}</Text>
               {renderPauseBadge(station.pauseMinutes)}
               <Text style={styles.stationKm}>{station.distanceKm} km</Text>
@@ -521,7 +775,7 @@ export function AidStationsSectionV3({
                   metrics={metrics}
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
-                  animateSignal={gaugeAnimateSignal}
+                  animateSignal={animateSignal}
                 />
                 <SuppliesList
                   supplies={getSupplies('start')}
@@ -543,7 +797,6 @@ export function AidStationsSectionV3({
                     formatGaugeValue={formatGaugeValue}
                     getGaugeColor={getGaugeColor}
                     compact
-                    animateSignal={gaugeAnimateSignal}
                   />
                 </View>
               </>
@@ -552,9 +805,13 @@ export function AidStationsSectionV3({
         );
       } else if (isArrivee) {
         card = (
-          <View key={stationKey} style={styles.stationCard} onLayout={(event) => registerAnchor('stations', index, event)}>
+          <View
+            key={stationKey}
+            style={[styles.stationCard, isFocused && styles.stationCardFocused]}
+            onLayout={(event) => registerAnchor('stations', index, event)}
+          >
             <View style={styles.stationHeaderRow}>
-              <Text style={styles.stationIcon}>A</Text>
+              {renderStationBadge(getStationBadge(index, station.id))}
               <Text style={styles.stationName}>{station.name}</Text>
               {renderPauseBadge(station.pauseMinutes)}
               <Text style={styles.stationKm}>{station.distanceKm} km</Text>
@@ -564,9 +821,17 @@ export function AidStationsSectionV3({
       } else {
         const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
-          <View key={stationKey} style={[styles.stationCard, !isExpanded && collapsedTintStyle]} onLayout={(event) => registerAnchor('stations', index, event)}>
-            <TouchableOpacity onPress={() => toggleStation(stationKey)} activeOpacity={0.7} style={styles.stationHeaderRow}>
-              <Text style={styles.stationIcon}>R</Text>
+          <View
+            key={stationKey}
+            style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
+            onLayout={(event) => registerAnchor('stations', index, event)}
+          >
+            <TouchableOpacity
+              onPress={() => toggleStation(stationKey)}
+              activeOpacity={0.7}
+              style={styles.stationHeaderRow}
+            >
+              {renderStationBadge(getStationBadge(index, station.id))}
               <Text style={styles.stationName} numberOfLines={1}>
                 {station.name}
               </Text>
@@ -603,7 +868,7 @@ export function AidStationsSectionV3({
                   metrics={metrics}
                   formatGaugeValue={formatGaugeValue}
                   getGaugeColor={getGaugeColor}
-                  animateSignal={gaugeAnimateSignal}
+                  animateSignal={animateSignal}
                 />
                 <SuppliesList
                   supplies={getSupplies(index)}
@@ -625,7 +890,6 @@ export function AidStationsSectionV3({
                     formatGaugeValue={formatGaugeValue}
                     getGaugeColor={getGaugeColor}
                     compact
-                    animateSignal={gaugeAnimateSignal}
                   />
                 </View>
               </>
@@ -663,8 +927,13 @@ export function AidStationsSectionV3({
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
       elements.push(
-        <View key={`station-line-${station.id ?? index}`} style={styles.sectionStationRow} onLayout={(event) => registerAnchor('sections', index, event)}>
+        <View
+          key={`station-line-${station.id ?? index}`}
+          style={[styles.sectionStationRow, index === contextAnchorIndex && styles.sectionStationRowFocused]}
+          onLayout={(event) => registerAnchor('sections', index, event)}
+        >
           <View style={styles.sectionStationLine} />
+          {renderStationBadge(getStationBadge(index, station.id), true)}
           <Text style={styles.sectionStationLabel} numberOfLines={1}>
             {station.name}
           </Text>
@@ -724,8 +993,13 @@ export function AidStationsSectionV3({
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
       elements.push(
-        <View key={`profile-station-line-${station.id ?? index}`} style={styles.sectionStationRow} onLayout={(event) => registerAnchor('profile', index, event)}>
+        <View
+          key={`profile-station-line-${station.id ?? index}`}
+          style={[styles.sectionStationRow, index === contextAnchorIndex && styles.sectionStationRowFocused]}
+          onLayout={(event) => registerAnchor('profile', index, event)}
+        >
           <View style={styles.sectionStationLine} />
+          {renderStationBadge(getStationBadge(index, station.id), true)}
           <Text style={styles.sectionStationLabel} numberOfLines={1}>
             {station.name}
           </Text>
@@ -735,6 +1009,7 @@ export function AidStationsSectionV3({
       );
 
       if (!nextStation || isArrivee || !summary) return;
+      const segmentControls = getSectionSegmentControls(targetKey);
 
       elements.push(
         <View key={`profile-section-${station.id ?? index}`} style={styles.profileSectionBlock}>
@@ -770,8 +1045,9 @@ export function AidStationsSectionV3({
                   segmentStat.startDistanceKm,
                   segmentStat.endDistanceKm,
                 );
-                const canSplit = canSplitSectionSegment(targetKey, segmentIndex);
-                const canRemove = canRemoveSectionSegment(targetKey, segmentIndex);
+                const controls = segmentControls[segmentIndex] ?? { canSplit: false, canRemove: false };
+                const canSplit = controls.canSplit;
+                const canRemove = controls.canRemove;
 
                 return (
                   <View key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`} style={styles.profileCard}>
@@ -887,6 +1163,56 @@ export function AidStationsSectionV3({
     return elements;
   }
 
+  const stationsElements = useMemo(() => renderStationsView(), [
+    values.aidStations,
+    departId,
+    arriveeId,
+    contextAnchorIndex,
+    expandedStations,
+    toggleStation,
+    setEditingStation,
+    removeAidStation,
+    intermediateCount,
+    getSupplies,
+    openPicker,
+    increaseQty,
+    decreaseQty,
+    removeSupply,
+    productMap,
+    fuelLabels,
+    getGaugeMetrics,
+    getGaugeColor,
+    formatGaugeValue,
+    getSectionSummary,
+    getGaugeAnimateSignal,
+    registerAnchor,
+  ]);
+
+  const sectionsElements = useMemo(() => renderSectionsView(), [
+    values.aidStations,
+    departId,
+    arriveeId,
+    contextAnchorIndex,
+    getSectionSummary,
+    getSectionIntakeTimeline,
+    registerAnchor,
+  ]);
+
+  const profileElements = useMemo(() => renderProfileView(), [
+    aidStationsMetaKey,
+    departId,
+    arriveeId,
+    contextAnchorIndex,
+    basePaceMinutesPerKm,
+    paceDrafts,
+    getSectionSummary,
+    getSectionSegmentControls,
+    onSplitSectionSegment,
+    onRemoveSectionSegment,
+    onUpdateSectionSegmentPaceAdjustment,
+    registerAnchor,
+  ]);
+
   function renderViewForMode(mode: 'stations' | 'sections' | 'profile') {
     if (mode === 'stations') {
       return (
@@ -894,26 +1220,53 @@ export function AidStationsSectionV3({
           {intermediateCount === 0 && (
             <Text style={styles.emptyText}>Pas de ravito intermediaire. Utilise "+ Ajouter" pour en creer.</Text>
           )}
-          {renderStationsView()}
+          {stationsElements}
         </>
       );
     }
 
     if (mode === 'sections') {
-      return renderSectionsView();
+      return sectionsElements;
     }
 
-    return renderProfileView();
+    return profileElements;
   }
-  const viewportHeight = Math.max(1, viewHeights[displayedViewMode] || 0);
   const activePageIndex = VIEW_MODES.indexOf(displayedViewMode) + 1;
+  const targetPageIndex = VIEW_MODES.indexOf(selectedViewMode) + 1;
   const visiblePageRadius = 1;
   const renderedPages = useMemo(() => {
     return PAGER_MODES.map((mode, pageIndex) => {
-      const shouldRender = Math.abs(pageIndex - activePageIndex) <= visiblePageRadius;
-      return { mode, pageIndex, shouldRender };
+      const shouldRender =
+        Math.abs(pageIndex - activePageIndex) <= visiblePageRadius ||
+        Math.abs(pageIndex - targetPageIndex) <= visiblePageRadius;
+      const shouldHold = pagerHoldPageIndex !== null && pageIndex === pagerHoldPageIndex;
+      return { mode, pageIndex, shouldRender: shouldRender || shouldHold };
     });
-  }, [activePageIndex]);
+  }, [activePageIndex, pagerHoldPageIndex, targetPageIndex]);
+
+  const contextInfo = useMemo(() => {
+    const station = values.aidStations[contextAnchorIndex];
+    if (!station) {
+      return { badge: 'R', label: 'Segment', meta: '' };
+    }
+
+    const badge = getStationBadge(contextAnchorIndex, station.id);
+    const nextStation = values.aidStations[contextAnchorIndex + 1];
+    const startKm = Number.isFinite(station.distanceKm) ? station.distanceKm : 0;
+    const endKm =
+      nextStation && Number.isFinite(nextStation.distanceKm) && nextStation.distanceKm > startKm
+        ? nextStation.distanceKm
+        : null;
+    const meta = endKm !== null ? `${startKm.toFixed(1)}–${endKm.toFixed(1)} km` : `${startKm.toFixed(1)} km`;
+    const label = nextStation && station.id !== arriveeId ? `${station.name} → ${nextStation.name}` : station.name;
+
+    return { badge, label, meta };
+  }, [arriveeId, contextAnchorIndex, values.aidStations]);
+
+  // `contentOffset` is treated as an initial value by RN; keep it stable so we
+  // don't accidentally "re-snap" the pager at the end of a swipe.
+  const initialPagerOffset = useMemo(() => ({ x: pageWidth, y: 0 }), [pageWidth]);
+  const bottomSpacerHeight = useMemo(() => getBottomSpacerHeight(), [viewportHeight, windowHeight]);
 
   return (
     <>
@@ -953,7 +1306,15 @@ export function AidStationsSectionV3({
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.swipeViewport, { height: viewportHeight }]}>
+      <View style={styles.scrollContextBar}>
+        {renderStationBadge(contextInfo.badge, true)}
+        <Text style={styles.scrollContextLabel} numberOfLines={1}>
+          {contextInfo.label}
+        </Text>
+        <Text style={styles.scrollContextMeta}>{contextInfo.meta}</Text>
+      </View>
+
+      <View style={[styles.swipeViewport, { height: viewportHeight }]} onLayout={handleViewportLayout}>
         <ScrollView
           ref={pagerRef}
           horizontal
@@ -961,12 +1322,34 @@ export function AidStationsSectionV3({
           nestedScrollEnabled
           bounces={false}
           showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScrollBeginDrag={handlePagerBeginDrag}
+          onScroll={handlePagerScroll}
           onMomentumScrollEnd={handlePagerMomentumEnd}
-          contentOffset={{ x: (VIEW_MODES.indexOf(displayedViewMode) + 1) * pageWidth, y: 0 }}
+          contentOffset={initialPagerOffset}
         >
           {renderedPages.map(({ mode, pageIndex, shouldRender }) => (
             <View key={`${mode}-${pageIndex}`} style={[styles.swipePage, { width: pageWidth }]}>
-              {shouldRender ? <View onLayout={(event) => handleViewLayout(mode, event)}>{renderViewForMode(mode)}</View> : null}
+              {shouldRender ? (
+                <ScrollView
+                  ref={(node) => {
+                    pageScrollRefs.current[pageIndex] = node;
+                  }}
+                  nestedScrollEnabled
+                  showsVerticalScrollIndicator
+                  keyboardShouldPersistTaps="handled"
+                  scrollEventThrottle={16}
+                  onScroll={(event) => handlePageScroll(mode, event)}
+                  onScrollBeginDrag={() => handlePageScrollBeginDrag(mode)}
+                  onScrollEndDrag={() => handlePageScrollEnd(mode)}
+                  onMomentumScrollBegin={() => handlePageScrollBeginDrag(mode)}
+                  onMomentumScrollEnd={() => handlePageScrollEnd(mode)}
+                  onContentSizeChange={(width, height) => handlePageContentSizeChange(mode, width, height)}
+                  contentContainerStyle={{ paddingBottom: bottomSpacerHeight }}
+                >
+                  {renderViewForMode(mode)}
+                </ScrollView>
+              ) : null}
             </View>
           ))}
         </ScrollView>

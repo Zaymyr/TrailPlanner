@@ -22,6 +22,7 @@ type Props = {
 };
 
 const PRIMARY_SEGMENTS = 28;
+const COMPACT_PRIMARY_SEGMENTS = 12;
 const OVERFLOW_SEGMENTS = 14;
 const MAX_VISUAL_RATIO = 2;
 const BASE_SEGMENT_COLOR = '#D7D4CC';
@@ -81,11 +82,19 @@ function RingSegment({
   );
 }
 
-export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = false, animateSignal = 0 }: Props) {
+export const GaugeArc = React.memo(function GaugeArc({
+  metric,
+  formatGaugeValue,
+  getGaugeColor,
+  compact = false,
+  animateSignal = 0,
+}: Props) {
   const size = compact ? 32 : 66;
   const center = size / 2;
   const innerRadius = compact ? 11 : 24;
   const overflowRadius = compact ? 15 : 31;
+  const primarySegmentCount = compact ? COMPACT_PRIMARY_SEGMENTS : PRIMARY_SEGMENTS;
+  const overflowSegmentCount = compact ? 0 : OVERFLOW_SEGMENTS;
   const safeRatio = Number.isFinite(metric.ratio) ? Math.max(0, metric.ratio) : 0;
   const safeStatusRatio = Number.isFinite(metric.statusRatio) ? Math.max(0, metric.statusRatio ?? 0) : safeRatio;
   const visualRatio = Math.min(safeRatio, MAX_VISUAL_RATIO);
@@ -133,20 +142,25 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
           justifyContent: 'center',
         }}
       >
-        {Array.from({ length: PRIMARY_SEGMENTS }, (_, index) => {
-          const angle = -90 + (360 / PRIMARY_SEGMENTS) * index;
-          const start = index / PRIMARY_SEGMENTS;
-          const end = (index + 1) / PRIMARY_SEGMENTS;
-          const opacity = animatedRatio.interpolate({
-            inputRange: [0, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0, 0, 1, 1],
-            extrapolate: 'clamp',
-          });
-          const scale = animatedRatio.interpolate({
-            inputRange: [0, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0.75, 0.75, 1, 1],
-            extrapolate: 'clamp',
-          });
+        {Array.from({ length: primarySegmentCount }, (_, index) => {
+          const angle = -90 + (360 / primarySegmentCount) * index;
+          const start = index / primarySegmentCount;
+          const end = (index + 1) / primarySegmentCount;
+          const staticOpacity = visualRatio >= end ? 1 : visualRatio <= start ? 0 : (visualRatio - start) / Math.max(end - start, 0.0001);
+          const opacity = compact
+            ? staticOpacity
+            : animatedRatio.interpolate({
+                inputRange: [0, start, end, MAX_VISUAL_RATIO],
+                outputRange: [0, 0, 1, 1],
+                extrapolate: 'clamp',
+              });
+          const scale = compact
+            ? 0.8 + staticOpacity * 0.2
+            : animatedRatio.interpolate({
+                inputRange: [0, start, end, MAX_VISUAL_RATIO],
+                outputRange: [0.75, 0.75, 1, 1],
+                extrapolate: 'clamp',
+              });
 
           return (
             <React.Fragment key={`primary-${index}`}>
@@ -171,10 +185,10 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
           );
         })}
 
-        {Array.from({ length: OVERFLOW_SEGMENTS }, (_, index) => {
-          const angle = -90 + (360 / OVERFLOW_SEGMENTS) * index;
-          const start = 1 + index / OVERFLOW_SEGMENTS;
-          const end = 1 + (index + 1) / OVERFLOW_SEGMENTS;
+        {Array.from({ length: overflowSegmentCount }, (_, index) => {
+          const angle = -90 + (360 / overflowSegmentCount) * index;
+          const start = 1 + index / overflowSegmentCount;
+          const end = 1 + (index + 1) / overflowSegmentCount;
           const opacity = animatedRatio.interpolate({
             inputRange: [0, 1, start, end, MAX_VISUAL_RATIO],
             outputRange: [0, 0, 0, 1, 1],
@@ -235,4 +249,18 @@ export function GaugeArc({ metric, formatGaugeValue, getGaugeColor, compact = fa
       )}
     </View>
   );
-}
+}, (prev, next) => {
+  return (
+    prev.compact === next.compact &&
+    prev.animateSignal === next.animateSignal &&
+    prev.metric.current === next.metric.current &&
+    prev.metric.target === next.metric.target &&
+    prev.metric.ratio === next.metric.ratio &&
+    prev.metric.statusRatio === next.metric.statusRatio &&
+    prev.metric.label === next.metric.label &&
+    prev.metric.unit === next.metric.unit &&
+    prev.metric.key === next.metric.key &&
+    prev.formatGaugeValue === next.formatGaugeValue &&
+    prev.getGaugeColor === next.getGaugeColor
+  );
+});
