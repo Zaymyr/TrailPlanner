@@ -9,14 +9,18 @@ import {
   Alert,
   ScrollView,
   Linking,
+  Platform,
 } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
+import { useRevenueCatBilling } from '../../hooks/useRevenueCatBilling';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
+const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
+const PLAY_SUBSCRIPTIONS_URL = `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE_NAME}`;
 
 type UserProfile = {
   full_name: string | null;
@@ -108,6 +112,7 @@ export default function ProfileScreen() {
   const [birthDateInput, setBirthDateInput] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
   const { isPremium, isTrialActive, trialEndsAt } = usePremium();
+  const billing = useRevenueCatBilling();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,26 +228,87 @@ export default function ProfileScreen() {
     ]);
   }
 
-  function handleUpgrade() {
-    const url = WEB_URL ? `${WEB_URL}/premium` : null;
+  async function openExternalUrl(url: string | null, fallbackMessage: string) {
     if (!url) {
-      Alert.alert(t.profile.premiumLabel, t.profile.premiumFallback);
-      return;
+      Alert.alert(t.profile.subscriptionLabel, fallbackMessage);
+      return false;
     }
-    Linking.openURL(url).catch(() => {
+
+    try {
+      await Linking.openURL(url);
+      return true;
+    } catch {
       Alert.alert(t.common.error, t.profile.browserError);
-    });
+      return false;
+    }
   }
 
-  function handleManageSubscription() {
-    const url = WEB_URL ? `${WEB_URL}/profile` : null;
-    if (!url) {
+  const inAppBillingEnabled = Platform.OS === 'android' && billing.isAvailable;
+  const billingActionBusy = billing.isLoading || billing.isPurchasing || billing.isRestoring;
+  const upgradeLabel = billing.currentPackage
+    ? t.profile.upgradeCtaWithPrice.replace('{price}', billing.currentPackage.product.priceString)
+    : t.profile.upgradeCta;
+
+  async function handleUpgrade() {
+    if (inAppBillingEnabled) {
+      try {
+        const result = await billing.purchase();
+
+        if (result === 'purchased') {
+          Alert.alert(t.common.ok, t.profile.purchaseSuccess);
+          return;
+        }
+
+        if (result === 'unavailable') {
+          Alert.alert(t.profile.subscriptionLabel, t.profile.purchaseUnavailable);
+        }
+
+        return;
+      } catch (purchaseError) {
+        console.error('RevenueCat purchase error:', purchaseError);
+        Alert.alert(t.common.error, t.profile.purchaseFailed);
+        return;
+      }
+    }
+
+    const webUrl = WEB_URL ? `${WEB_URL}/premium` : null;
+    await openExternalUrl(webUrl, t.profile.premiumFallback);
+  }
+
+  async function handleManageSubscription() {
+    if (inAppBillingEnabled) {
+      const storeUrl = billing.managementUrl ?? PLAY_SUBSCRIPTIONS_URL;
+      const openedStore = await openExternalUrl(storeUrl, t.profile.subscriptionFallback);
+      if (openedStore) {
+        return;
+      }
+    }
+
+    const webUrl = WEB_URL ? `${WEB_URL}/profile` : null;
+    await openExternalUrl(webUrl, t.profile.subscriptionFallback);
+  }
+
+  async function handleRestorePurchases() {
+    if (!inAppBillingEnabled) {
       Alert.alert(t.profile.subscriptionLabel, t.profile.subscriptionFallback);
       return;
     }
-    Linking.openURL(url).catch(() => {
-      Alert.alert(t.common.error, t.profile.browserError);
-    });
+
+    try {
+      const result = await billing.restore();
+
+      if (result === 'restored') {
+        Alert.alert(t.common.ok, t.profile.restoreSuccess);
+        return;
+      }
+
+      if (result === 'unavailable') {
+        Alert.alert(t.profile.subscriptionLabel, t.profile.purchaseUnavailable);
+      }
+    } catch (restoreError) {
+      console.error('RevenueCat restore error:', restoreError);
+      Alert.alert(t.common.error, t.profile.restoreFailed);
+    }
   }
 
   if (loading) {
@@ -348,14 +414,40 @@ export default function ProfileScreen() {
         ) : null}
 
         {showTrialExpired || showFree ? (
-          <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
-            <Text style={styles.upgradeButtonText}>{t.profile.upgradeCta}</Text>
+          <TouchableOpacity
+            style={[styles.upgradeButton, billingActionBusy && styles.actionButtonDisabled]}
+            onPress={() => void handleUpgrade()}
+            disabled={billingActionBusy}
+          >
+            {billing.isPurchasing ? (
+              <ActivityIndicator color={Colors.brandPrimary} />
+            ) : (
+              <Text style={styles.upgradeButtonText}>{upgradeLabel}</Text>
+            )}
           </TouchableOpacity>
         ) : null}
 
-        <TouchableOpacity style={styles.manageSubscriptionButton} onPress={handleManageSubscription}>
+        <TouchableOpacity
+          style={[styles.manageSubscriptionButton, billingActionBusy && styles.actionButtonDisabled]}
+          onPress={() => void handleManageSubscription()}
+          disabled={billingActionBusy}
+        >
           <Text style={styles.manageSubscriptionButtonText}>{t.profile.manageSubscription}</Text>
         </TouchableOpacity>
+
+        {inAppBillingEnabled ? (
+          <TouchableOpacity
+            style={[styles.restorePurchasesButton, billingActionBusy && styles.actionButtonDisabled]}
+            onPress={() => void handleRestorePurchases()}
+            disabled={billingActionBusy}
+          >
+            {billing.isRestoring ? (
+              <ActivityIndicator color={Colors.textSecondary} />
+            ) : (
+              <Text style={styles.restorePurchasesButtonText}>{t.profile.restorePurchases}</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <Text style={styles.sectionTitle}>{t.profile.languageLabel}</Text>
@@ -500,6 +592,9 @@ const styles = StyleSheet.create({
   saveButtonDisabled: {
     opacity: 0.6,
   },
+  actionButtonDisabled: {
+    opacity: 0.6,
+  },
   saveButtonText: {
     color: Colors.textOnBrand,
     fontSize: 16,
@@ -586,6 +681,18 @@ const styles = StyleSheet.create({
   },
   manageSubscriptionButtonText: {
     color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  restorePurchasesButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  restorePurchasesButtonText: {
+    color: Colors.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },

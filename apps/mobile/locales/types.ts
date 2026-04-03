@@ -102,9 +102,16 @@ export type MobileTranslations = {
     freeLabel: string;
     trialExpiresOn: string;
     upgradeCta: string;
+    upgradeCtaWithPrice: string;
     manageSubscription: string;
+    restorePurchases: string;
     premiumFallback: string;
     subscriptionFallback: string;
+    purchaseUnavailable: string;
+    purchaseSuccess: string;
+    purchaseFailed: string;
+    restoreSuccess: string;
+    restoreFailed: string;
     browserError: string;
     logoutPrompt: string;
     logoutCta: string;

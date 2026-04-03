@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react';
+import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
+import type { CustomerInfo } from 'react-native-purchases';
 import { supabase } from '../lib/supabase';
+import {
+  addRevenueCatCustomerInfoListener,
+  canUseRevenueCat,
+  getRevenueCatCustomerInfo,
+  hasRevenueCatPremiumEntitlement,
+} from '../lib/revenueCat';
 
 interface PremiumState {
   isPremium: boolean;
@@ -18,14 +26,31 @@ export function usePremium(): PremiumState {
 
   useEffect(() => {
     let cancelled = false;
+    let removeCustomerInfoListener: (() => void) | null = null;
 
-    async function checkPremium() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user || cancelled) return;
+    async function checkPremium(userOverride?: User | null, customerInfoOverride?: CustomerInfo | null) {
+      const user =
+        userOverride !== undefined
+          ? userOverride
+          : (await supabase.auth.getUser()).data.user;
+
+      if (!user) {
+        if (!cancelled) {
+          setState({
+            isPremium: false,
+            isTrialActive: false,
+            trialEndsAt: null,
+            isLoading: false,
+          });
+        }
+        return;
+      }
+
+      if (cancelled) return;
 
       const uid = user.id;
 
-      const [profileResult, subResult] = await Promise.all([
+      const [profileResult, subResult, revenueCatCustomerInfo] = await Promise.all([
         supabase
           .from('user_profiles')
           .select('trial_ends_at')
@@ -37,6 +62,14 @@ export function usePremium(): PremiumState {
           .eq('user_id', uid)
           .eq('status', 'active')
           .maybeSingle(),
+        customerInfoOverride !== undefined
+          ? Promise.resolve(customerInfoOverride)
+          : canUseRevenueCat()
+            ? getRevenueCatCustomerInfo(uid).catch((error) => {
+                console.warn('Unable to load RevenueCat premium state.', error);
+                return null;
+              })
+            : Promise.resolve(null),
       ]);
 
       if (cancelled) return;
@@ -53,8 +86,9 @@ export function usePremium(): PremiumState {
         : false;
       const hasActiveSubscription =
         !subResult.error && subResult.data?.status === 'active';
+      const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
 
-      const isPremium = isAdmin || isTrialActive || hasActiveSubscription;
+      const isPremium = isAdmin || isTrialActive || hasActiveSubscription || hasActiveRevenueCatEntitlement;
 
       setState({
         isPremium,
@@ -64,8 +98,40 @@ export function usePremium(): PremiumState {
       });
     }
 
-    void checkPremium();
-    return () => { cancelled = true; };
+    async function attachRevenueCatListener(user: User | null) {
+      removeCustomerInfoListener?.();
+      removeCustomerInfoListener = null;
+
+      if (!user || !canUseRevenueCat()) return;
+
+      removeCustomerInfoListener =
+        (await addRevenueCatCustomerInfoListener(user.id, (customerInfo) => {
+          void checkPremium(user, customerInfo);
+        })) ?? null;
+    }
+
+    void (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      await attachRevenueCatListener(user);
+      await checkPremium(user);
+    })();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+      const nextUser = session?.user ?? null;
+      void attachRevenueCatListener(nextUser);
+      void checkPremium(nextUser);
+    });
+
+    return () => {
+      cancelled = true;
+      removeCustomerInfoListener?.();
+      subscription.unsubscribe();
+    };
   }, []);
 
   return state;
