@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri } from 'expo-auth-session';
 import { Link } from 'expo-router';
@@ -17,54 +18,152 @@ import { useI18n } from '../../lib/i18n';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ?? '';
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() ?? '';
+
+function canUseNativeGoogleSignIn() {
+  if (Platform.OS === 'web') return false;
+  if (Constants.executionEnvironment === 'storeClient') return false;
+  if (!GOOGLE_WEB_CLIENT_ID) return false;
+  if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) return false;
+  return true;
+}
+
+type GoogleSignInModule = typeof import('@react-native-google-signin/google-signin');
+
 export default function LoginScreen() {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const nativeGoogleEnabled = canUseNativeGoogleSignIn();
+  const [googleModule, setGoogleModule] = useState<GoogleSignInModule | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!nativeGoogleEnabled) {
+      setGoogleModule(null);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    (async () => {
+      try {
+        const nextGoogleModule = await import('@react-native-google-signin/google-signin');
+        nextGoogleModule.GoogleSignin.configure({
+          webClientId: GOOGLE_WEB_CLIENT_ID,
+          iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+          scopes: ['email', 'profile'],
+        });
+
+        if (mounted) {
+          setGoogleModule(nextGoogleModule);
+        }
+      } catch (googleImportError) {
+        console.warn('Native Google Sign-In unavailable, falling back to browser auth.', googleImportError);
+        if (mounted) {
+          setGoogleModule(null);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [nativeGoogleEnabled]);
+
+  async function handleNativeGoogleLogin() {
+    if (!googleModule) {
+      throw new Error('Native Google Sign-In module is not available.');
+    }
+
+    if (Platform.OS === 'android') {
+      await googleModule.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+    }
+
+    const signInResponse = await googleModule.GoogleSignin.signIn();
+    if (!googleModule.isSuccessResponse(signInResponse)) {
+      return;
+    }
+
+    const tokenResponse = await googleModule.GoogleSignin.getTokens().catch(() => null);
+    const idToken = tokenResponse?.idToken ?? signInResponse.data.idToken;
+    const accessToken = tokenResponse?.accessToken;
+
+    if (!idToken) {
+      throw new Error('Google did not return an ID token.');
+    }
+
+    const { error: idTokenError } = await supabase.auth.signInWithIdToken({
+      provider: 'google',
+      token: idToken,
+      access_token: accessToken,
+    });
+
+    if (idTokenError) throw idTokenError;
+  }
+
+  async function handleBrowserGoogleLogin() {
+    const redirectUri = makeRedirectUri({
+      scheme: 'paceyourself',
+      path: 'auth/callback',
+    });
+
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUri,
+        skipBrowserRedirect: true,
+      },
+    });
+
+    if (oauthError) throw oauthError;
+    if (!data.url) throw new Error(t.auth.noOauthUrl);
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+
+    if (result.type === 'success' && result.url) {
+      const fragment = result.url.includes('#') ? result.url.split('#')[1] : '';
+      const query = result.url.includes('?') ? result.url.split('?')[1] : '';
+      const params = new URLSearchParams(fragment || query);
+
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+      const code = new URLSearchParams(query).get('code');
+
+      if (accessToken && refreshToken) {
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+      } else if (code) {
+        await supabase.auth.exchangeCodeForSession(code);
+      }
+    }
+  }
 
   async function handleGoogleLogin() {
     setError(null);
     setLoading(true);
     try {
-      const redirectUri = makeRedirectUri({
-        scheme: 'paceyourself',
-        path: 'auth/callback',
-      });
-
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUri,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (oauthError) throw oauthError;
-      if (!data.url) throw new Error(t.auth.noOauthUrl);
-
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-
-      if (result.type === 'success' && result.url) {
-        const fragment = result.url.includes('#') ? result.url.split('#')[1] : '';
-        const query = result.url.includes('?') ? result.url.split('?')[1] : '';
-        const params = new URLSearchParams(fragment || query);
-
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        const code = new URLSearchParams(query).get('code');
-
-        if (accessToken && refreshToken) {
-          await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-        } else if (code) {
-          await supabase.auth.exchangeCodeForSession(code);
-        }
+      if (nativeGoogleEnabled && googleModule) {
+        await handleNativeGoogleLogin();
+      } else {
+        await handleBrowserGoogleLogin();
       }
     } catch (e) {
+      if (googleModule?.isErrorWithCode(e)) {
+        if (
+          e.code === googleModule.statusCodes.SIGN_IN_CANCELLED ||
+          e.code === googleModule.statusCodes.IN_PROGRESS
+        ) {
+          setLoading(false);
+          return;
+        }
+      }
       console.error('Google login error:', e);
       setError(t.auth.googleError);
     } finally {
@@ -132,13 +231,25 @@ export default function LoginScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        <TouchableOpacity
-          style={[styles.googleButton, loading && styles.buttonDisabled]}
-          onPress={handleGoogleLogin}
-          disabled={loading}
-        >
-          <Text style={styles.googleButtonText}>Google {t.auth.googleCta}</Text>
-        </TouchableOpacity>
+        {nativeGoogleEnabled && googleModule ? (
+          <View style={[styles.googleNativeButtonWrap, loading && styles.buttonDisabled]}>
+            <googleModule.GoogleSigninButton
+              color={googleModule.GoogleSigninButton.Color.Light}
+              disabled={loading}
+              onPress={handleGoogleLogin}
+              size={googleModule.GoogleSigninButton.Size.Wide}
+              style={styles.googleNativeButton}
+            />
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.googleButton, loading && styles.buttonDisabled]}
+            onPress={handleGoogleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.googleButtonText}>{t.auth.googleCta}</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.signupRow}>
           <Text style={styles.signupText}>{t.auth.noAccount} </Text>
@@ -235,6 +346,14 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 16,
     fontWeight: '600',
+  },
+  googleNativeButtonWrap: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  googleNativeButton: {
+    width: '100%',
+    height: 52,
   },
   signupRow: {
     flexDirection: 'row',
