@@ -59,6 +59,18 @@ function formatBirthDateInput(value: string | null): string {
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
+function parseIsoBirthDateParts(value: string): { year: number; month: number; day: number } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+
+  const [, yearValue, monthValue, dayValue] = match;
+  return {
+    year: Number(yearValue),
+    month: Number(monthValue),
+    day: Number(dayValue),
+  };
+}
+
 function normalizeBirthDateInput(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 8);
   if (digits.length <= 2) return digits;
@@ -87,28 +99,40 @@ function parseBirthDateInput(value: string): string | null {
     year = digits.slice(4, 8);
   }
 
-  const iso = `${year}-${month}-${day}`;
-  const date = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(date.getTime())) return null;
-
+  const yearNumber = Number(year);
+  const monthNumber = Number(month);
+  const dayNumber = Number(day);
   if (
-    date.getUTCFullYear() !== Number(year) ||
-    date.getUTCMonth() + 1 !== Number(month) ||
-    date.getUTCDate() !== Number(day)
+    !Number.isInteger(yearNumber) ||
+    !Number.isInteger(monthNumber) ||
+    !Number.isInteger(dayNumber)
   ) {
     return null;
   }
 
-  return iso;
+  const date = new Date(Date.UTC(yearNumber, monthNumber - 1, dayNumber));
+  if (Number.isNaN(date.getTime())) return null;
+
+  if (
+    date.getUTCFullYear() !== yearNumber ||
+    date.getUTCMonth() + 1 !== monthNumber ||
+    date.getUTCDate() !== dayNumber
+  ) {
+    return null;
+  }
+
+  return `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
 function calculateAgeFromBirthDate(birthDate: string): number {
+  const birthParts = parseIsoBirthDateParts(birthDate);
+  if (!birthParts) return 0;
+
   const today = new Date();
-  const birth = new Date(`${birthDate}T00:00:00`);
-  let age = today.getFullYear() - birth.getFullYear();
+  let age = today.getFullYear() - birthParts.year;
   const hasHadBirthdayThisYear =
-    today.getMonth() > birth.getMonth() ||
-    (today.getMonth() === birth.getMonth() && today.getDate() >= birth.getDate());
+    today.getMonth() + 1 > birthParts.month ||
+    (today.getMonth() + 1 === birthParts.month && today.getDate() >= birthParts.day);
 
   if (!hasHadBirthdayThisYear) age -= 1;
   return age;
