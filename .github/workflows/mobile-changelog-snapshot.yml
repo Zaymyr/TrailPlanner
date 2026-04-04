@@ -87,18 +87,19 @@ jobs:
             -e CHANGELOG_TITLE="$CHANGELOG_TITLE" \
             -e CHANGELOG_DETAIL="$CHANGELOG_DETAIL" \
             postgres:17-alpine \
-            sh -lc 'psql "$SUPABASE_DB_URL_SESSION" \
-              -v ON_ERROR_STOP=1 \
-              -v version="$CHANGELOG_VERSION" \
-              -v title="$CHANGELOG_TITLE" \
-              -v detail="$CHANGELOG_DETAIL" <<'"'"'"'"'"'"'"'"'SQL'"'"'"'"'"'"'"'"'
-            do $$
-            begin
-              if to_regclass('"'"'public.app_changelog'"'"') is null then
-                raise notice '"'"'public.app_changelog does not exist yet. Skipping snapshot insert.'"'"';
-                return;
-              end if;
+            sh -lc '
+              TABLE_EXISTS=$(psql "$SUPABASE_DB_URL_SESSION" -tAc "select to_regclass('"'"'"'"'"'"'"'"'public.app_changelog'"'"'"'"'"'"'"'"') is not null;")
 
+              if [ "$TABLE_EXISTS" != "t" ]; then
+                echo "public.app_changelog does not exist yet. Skipping snapshot insert."
+                exit 0
+              fi
+
+              psql "$SUPABASE_DB_URL_SESSION" \
+                -v ON_ERROR_STOP=1 \
+                -v version="$CHANGELOG_VERSION" \
+                -v title="$CHANGELOG_TITLE" \
+                -v detail="$CHANGELOG_DETAIL" <<'"'"'"'"'"'"'"'"'SQL'"'"'"'"'"'"'"'"'
               insert into public.app_changelog (version, title, detail, published_at)
               values (:'"'"'version'"'"', :'"'"'title'"'"', :'"'"'detail'"'"', timezone('"'"'utc'"'"', now()))
               on conflict (version) do update
@@ -106,6 +107,5 @@ jobs:
                   detail = excluded.detail,
                   published_at = excluded.published_at,
                   is_published = true;
-            end
-            $$;
-            SQL'
+              SQL
+            '
