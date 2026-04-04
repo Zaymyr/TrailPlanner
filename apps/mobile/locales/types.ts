@@ -116,6 +116,13 @@ export type MobileTranslations = {
     logoutPrompt: string;
     logoutCta: string;
     versionLabel: string;
+    changelogButton: string;
+    changelogTitle: string;
+    changelogSubtitle: string;
+    changelogLoading: string;
+    changelogEmpty: string;
+    changelogLoadFailed: string;
+    changelogVersionMeta: string;
     saved: string;
     saveFailed: string;
   };

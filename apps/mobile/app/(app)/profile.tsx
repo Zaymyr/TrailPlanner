@@ -9,7 +9,9 @@ import {
   Alert,
   ScrollView,
   Linking,
+  Modal,
   Platform,
+  Pressable,
 } from 'react-native';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
@@ -30,6 +32,14 @@ type UserProfile = {
   role: string | null;
   trial_ends_at: string | null;
   trial_started_at: string | null;
+};
+
+type ChangelogEntry = {
+  id: number;
+  published_at: string;
+  version: string;
+  title: string;
+  detail: string;
 };
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
@@ -117,6 +127,11 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
+  const [changelogLoading, setChangelogLoading] = useState(false);
+  const [changelogLoaded, setChangelogLoaded] = useState(false);
+  const [changelogError, setChangelogError] = useState<string | null>(null);
+  const [changelogEntries, setChangelogEntries] = useState<ChangelogEntry[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -311,6 +326,35 @@ export default function ProfileScreen() {
     }
   }
 
+  async function loadChangelog() {
+    if (!supabase || changelogLoading) return;
+
+    setChangelogLoading(true);
+    setChangelogError(null);
+
+    const { data, error: loadError } = await supabase
+      .from('app_changelog')
+      .select('id, published_at, version, title, detail')
+      .order('published_at', { ascending: false });
+
+    setChangelogLoading(false);
+
+    if (loadError) {
+      setChangelogError(loadError.message || t.profile.changelogLoadFailed);
+      return;
+    }
+
+    setChangelogEntries((data as ChangelogEntry[] | null) ?? []);
+    setChangelogLoaded(true);
+  }
+
+  function handleOpenChangelog() {
+    setShowChangelog(true);
+    if (!changelogLoaded) {
+      void loadChangelog();
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -471,10 +515,68 @@ export default function ProfileScreen() {
       </View>
 
       <Text style={styles.versionText}>{t.profile.versionLabel.replace('{version}', appVersion)}</Text>
+      <TouchableOpacity style={styles.changelogButton} onPress={handleOpenChangelog}>
+        <Text style={styles.changelogButtonText}>{t.profile.changelogButton}</Text>
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutButtonText}>{t.profile.logoutCta}</Text>
       </TouchableOpacity>
+
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setShowChangelog(false)}
+        transparent
+        visible={showChangelog}
+      >
+        <View style={styles.modalWrapper}>
+          <Pressable style={styles.modalOverlay} onPress={() => setShowChangelog(false)} />
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderContent}>
+                <Text style={styles.modalTitle}>{t.profile.changelogTitle}</Text>
+                <Text style={styles.modalSubtitle}>{t.profile.changelogSubtitle}</Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowChangelog(false)}>
+                <Text style={styles.modalCloseButtonText}>{t.common.close}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {changelogLoading ? (
+              <View style={styles.changelogState}>
+                <ActivityIndicator color={Colors.brandPrimary} />
+                <Text style={styles.changelogStateText}>{t.profile.changelogLoading}</Text>
+              </View>
+            ) : null}
+
+            {!changelogLoading && changelogError ? (
+              <View style={styles.changelogState}>
+                <Text style={styles.changelogErrorText}>{changelogError || t.profile.changelogLoadFailed}</Text>
+              </View>
+            ) : null}
+
+            {!changelogLoading && !changelogError ? (
+              <ScrollView contentContainerStyle={styles.changelogList}>
+                {changelogEntries.length === 0 ? (
+                  <Text style={styles.changelogEmptyText}>{t.profile.changelogEmpty}</Text>
+                ) : (
+                  changelogEntries.map((entry) => (
+                    <View key={entry.id} style={styles.changelogCard}>
+                      <Text style={styles.changelogCardTitle}>{entry.title}</Text>
+                      <Text style={styles.changelogCardMeta}>
+                        {t.profile.changelogVersionMeta
+                          .replace('{version}', entry.version)
+                          .replace('{date}', formatDate(entry.published_at, locale))}
+                      </Text>
+                      <Text style={styles.changelogCardDetail}>{entry.detail}</Text>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -702,6 +804,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
   },
+  changelogButton: {
+    marginTop: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  changelogButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   logoutButton: {
     marginTop: 12,
     paddingVertical: 16,
@@ -715,5 +832,109 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontSize: 16,
     fontWeight: '500',
+  },
+  modalWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+  },
+  modalSheet: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 28,
+    maxHeight: '78%',
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 16,
+  },
+  modalHeaderContent: {
+    flex: 1,
+  },
+  modalTitle: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  modalSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 6,
+  },
+  modalCloseButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalCloseButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  changelogList: {
+    paddingBottom: 12,
+    gap: 12,
+  },
+  changelogCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    padding: 14,
+  },
+  changelogCardTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  changelogCardMeta: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  changelogCardDetail: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 10,
+  },
+  changelogState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    gap: 10,
+  },
+  changelogStateText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
+  changelogEmptyText: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  changelogErrorText: {
+    color: Colors.danger,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });
