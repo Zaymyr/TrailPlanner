@@ -1,14 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-export type AlertConfirmMode =
-  | 'manual'
-  | 'auto_5'
-  | 'auto_10'
-  | 'fire_forget';
+export type AlertConfirmMode = 'manual' | 'auto_5' | 'auto_10' | 'fire_forget';
 
 export type RaceConfig = {
-  timingMode: 'time' | 'gps' | 'auto';
+  timingMode: 'time';
   confirmMode: AlertConfirmMode;
 };
 
@@ -27,100 +23,75 @@ const CONFIRM_MODES: Array<{
 }> = [
   {
     value: 'manual',
-    label: '✋ Manuel',
-    description: "Je confirme depuis l'app après chaque prise",
+    label: 'Manuel',
+    description: "Je confirme depuis l'app apres chaque prise.",
   },
   {
     value: 'auto_5',
-    label: '⏱ Auto-confirm 5 min',
-    description: "Idéal pour Garmin — confirmé automatiquement si pas d'action",
+    label: 'Auto-confirm 5 min',
+    description: "Ideal pour Garmin - confirme automatiquement si pas d'action.",
     tag: 'Garmin',
   },
   {
     value: 'auto_10',
-    label: '⏱ Auto-confirm 10 min',
-    description: 'Confirmé automatiquement après 10 min sans action',
+    label: 'Auto-confirm 10 min',
+    description: 'Confirme automatiquement apres 10 min sans action.',
   },
   {
     value: 'fire_forget',
-    label: '🔕 Sans suivi',
-    description: 'Notifications envoyées, aucune confirmation requise',
+    label: 'Sans suivi',
+    description: 'Notifications envoyees, aucune confirmation requise.',
   },
 ];
 
-const TIMING_MODES: Array<{ value: 'time' | 'gps' | 'auto'; label: string }> = [
-  { value: 'time', label: '⏱ Temps' },
-  { value: 'auto', label: '🔀 Auto' },
-  { value: 'gps', label: '📍 GPS' },
-];
-
 export default function RaceStartConfig({ visible, raceName, onStart, onCancel }: Props) {
-  const [timingMode, setTimingMode] = useState<'time' | 'gps' | 'auto'>('auto');
   const [confirmMode, setConfirmMode] = useState<AlertConfirmMode>('manual');
 
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
         <View style={styles.sheet}>
-          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>▶ Démarrer</Text>
+            <Text style={styles.headerTitle}>Demarrer</Text>
             <Text style={styles.headerSubtitle} numberOfLines={2}>
               {raceName}
             </Text>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
-            {/* Timing mode */}
-            <Text style={styles.sectionLabel}>MODE DE TIMING</Text>
-            <View style={styles.pillRow}>
-              {TIMING_MODES.map((m) => (
-                <TouchableOpacity
-                  key={m.value}
-                  style={[styles.pill, timingMode === m.value && styles.pillActive]}
-                  onPress={() => setTimingMode(m.value)}
-                >
-                  <Text style={[styles.pillText, timingMode === m.value && styles.pillTextActive]}>
-                    {m.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={styles.description}>
+              Le suivi de course est maintenant entierement base sur la timeline horaire du plan.
+            </Text>
 
-            {/* Confirm modes */}
             <Text style={styles.sectionLabel}>VALIDATION DES PRISES</Text>
-            {CONFIRM_MODES.map((cm) => (
+            {CONFIRM_MODES.map((mode) => (
               <TouchableOpacity
-                key={cm.value}
-                style={[styles.modeCard, confirmMode === cm.value && styles.modeCardActive]}
-                onPress={() => setConfirmMode(cm.value)}
+                key={mode.value}
                 activeOpacity={0.8}
+                style={[styles.modeCard, confirmMode === mode.value && styles.modeCardActive]}
+                onPress={() => setConfirmMode(mode.value)}
               >
                 <View style={styles.modeCardHeader}>
-                  <Text style={styles.modeCardLabel}>{cm.label}</Text>
-                  {cm.tag && (
+                  <Text style={styles.modeCardLabel}>{mode.label}</Text>
+                  {mode.tag ? (
                     <View style={styles.tag}>
-                      <Text style={styles.tagText}>{cm.tag}</Text>
+                      <Text style={styles.tagText}>{mode.tag}</Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
-                <Text style={styles.modeCardDesc}>{cm.description}</Text>
+                <Text style={styles.modeCardDesc}>{mode.description}</Text>
               </TouchableOpacity>
             ))}
 
             <View style={{ height: 8 }} />
           </ScrollView>
 
-          {/* Actions */}
           <View style={styles.actions}>
             <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
               <Text style={styles.cancelBtnText}>Annuler</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.startBtn}
-              onPress={() => onStart({ timingMode, confirmMode })}
-            >
-              <Text style={styles.startBtnText}>▶ Démarrer</Text>
+            <TouchableOpacity style={styles.startBtn} onPress={() => onStart({ timingMode: 'time', confirmMode })}>
+              <Text style={styles.startBtnText}>Demarrer</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -164,6 +135,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
   },
+  description: {
+    color: '#94a3b8',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 18,
+  },
   sectionLabel: {
     color: '#64748b',
     fontSize: 11,
@@ -171,29 +148,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: 10,
     marginTop: 4,
-  },
-  pillRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
-  pill: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#1e293b',
-    alignItems: 'center',
-  },
-  pillActive: {
-    backgroundColor: '#14532d',
-  },
-  pillText: {
-    color: '#94a3b8',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  pillTextActive: {
-    color: '#22c55e',
   },
   modeCard: {
     backgroundColor: '#1e293b',

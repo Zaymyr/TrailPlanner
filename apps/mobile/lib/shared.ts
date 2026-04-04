@@ -1,5 +1,3 @@
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 export type SegmentPlanData = {
   carbsGrams: number;
   waterMl: number;
@@ -46,13 +44,12 @@ export type RacePlan = {
   elevationProfile: Array<{ distanceKm: number; elevationM: number }>;
 };
 
-export type AlertTimingMode = 'time' | 'gps' | 'auto';
+export type AlertTimingMode = 'time';
 
 export type FuelAlert = {
   id: string;
   segmentIndex: number;
-  triggerMinutes?: number;
-  triggerDistanceKm?: number;
+  triggerMinutes: number;
   title: string;
   body: string;
   payload: Record<string, unknown>;
@@ -63,72 +60,45 @@ export type ActiveAlert = FuelAlert & {
   snoozedUntilMinutes?: number;
 };
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 export const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 
-// ─── Alert logic ─────────────────────────────────────────────────────────────
-
-/**
- * Build an alert schedule from a race plan.
- * One alert per segment (at the beginning of each segment between aid stations).
- */
-export function buildAlertSchedule(
-  plan: RacePlan,
-  mode: AlertTimingMode,
-): FuelAlert[] {
+export function buildAlertSchedule(plan: RacePlan, _mode: AlertTimingMode): FuelAlert[] {
   const { plannerValues } = plan;
-  const { aidStations, paceMinutes, paceSeconds, raceDistanceKm } =
-    plannerValues;
-
+  const { aidStations, paceMinutes, paceSeconds, raceDistanceKm } = plannerValues;
   const paceMinPerKm = paceMinutes + paceSeconds / 60;
   const alerts: FuelAlert[] = [];
 
-  // Build waypoints: start → aid stations (sorted by distance) → finish
-  const sortedStations = [...aidStations].sort(
-    (a, b) => a.distanceKm - b.distanceKm,
-  );
-
+  const sortedStations = [...aidStations].sort((left, right) => left.distanceKm - right.distanceKm);
   const waypoints: Array<{ name: string; distanceKm: number; segmentPlan?: SegmentPlanData }> = [
-    { name: 'Départ', distanceKm: 0 },
+    { name: 'Depart', distanceKm: 0 },
     ...sortedStations,
-    { name: 'Arrivée', distanceKm: raceDistanceKm, segmentPlan: plannerValues.finishPlan },
+    { name: 'Arrivee', distanceKm: raceDistanceKm, segmentPlan: plannerValues.finishPlan },
   ];
 
-  for (let i = 0; i < waypoints.length - 1; i++) {
-    const from = waypoints[i];
-    const to = waypoints[i + 1];
+  for (let index = 0; index < waypoints.length - 1; index += 1) {
+    const from = waypoints[index];
+    const to = waypoints[index + 1];
     const segmentDistanceKm = to.distanceKm - from.distanceKm;
     const segmentMinutes = segmentDistanceKm * paceMinPerKm;
     const cumulativeMinutes = from.distanceKm * paceMinPerKm;
-    const cumulativeKm = from.distanceKm;
-
-    // Compute nutrition targets for this segment
     const hours = segmentMinutes / 60;
     const carbsGrams = to.segmentPlan?.carbsGrams ?? Math.round(plannerValues.targetIntakePerHour * hours);
     const waterMl = to.segmentPlan?.waterMl ?? Math.round(plannerValues.waterIntakePerHour * hours);
     const sodiumMg = to.segmentPlan?.sodiumMg ?? Math.round(plannerValues.sodiumIntakePerHour * hours);
 
-    // Build product summary line
     let productsLine = '';
-    if (to.segmentPlan?.products && to.segmentPlan.products.length > 0) {
-      productsLine =
-        ' · 📦 ' +
-        to.segmentPlan.products
-          .map((p) => `${p.quantity}x ${p.name}`)
-          .join(', ');
+    if (to.segmentPlan?.products?.length) {
+      productsLine = ` · ${to.segmentPlan.products.map((product) => `${product.quantity}x ${product.name}`).join(', ')}`;
     } else if (to.segmentPlan?.gelsCount) {
-      productsLine = ` · 📦 ${to.segmentPlan.gelsCount}x Gel`;
+      productsLine = ` · ${to.segmentPlan.gelsCount}x Gel`;
     }
 
-    const body = `🍬 ${carbsGrams}g glucides · 💧 ${waterMl}ml eau · 🧂 ${sodiumMg}mg sodium${productsLine}`;
-    const title = `Seg ${i + 1} → ${to.name}`;
-
-    const alert: FuelAlert = {
-      id: `seg-${i}`,
-      segmentIndex: i,
-      title,
-      body,
+    alerts.push({
+      id: `seg-${index}`,
+      segmentIndex: index,
+      triggerMinutes: Math.round(cumulativeMinutes),
+      title: `Seg ${index + 1} -> ${to.name}`,
+      body: `${carbsGrams}g glucides · ${waterMl}ml eau · ${sodiumMg}mg sodium${productsLine}`,
       payload: {
         fromName: from.name,
         toName: to.name,
@@ -137,52 +107,22 @@ export function buildAlertSchedule(
         waterMl,
         sodiumMg,
       },
-    };
-
-    // Set trigger based on mode
-    if (mode === 'time' || mode === 'auto') {
-      alert.triggerMinutes = Math.round(cumulativeMinutes);
-    }
-    if (mode === 'gps' || mode === 'auto') {
-      alert.triggerDistanceKm = cumulativeKm;
-    }
-
-    alerts.push(alert);
+    });
   }
 
   return alerts;
 }
 
-/**
- * Returns alerts that should fire now.
- * - Pending alerts whose trigger has been reached
- * - Snoozed alerts whose snooze period has expired
- */
-export function getAlertsToFire(
-  alerts: ActiveAlert[],
-  elapsedMinutes: number,
-  elapsedKm?: number,
-): ActiveAlert[] {
+export function getAlertsToFire(alerts: ActiveAlert[], elapsedMinutes: number): ActiveAlert[] {
   return alerts.filter((alert) => {
     if (alert.status === 'confirmed' || alert.status === 'skipped') {
       return false;
     }
 
     if (alert.status === 'snoozed') {
-      return (
-        alert.snoozedUntilMinutes != null &&
-        elapsedMinutes >= alert.snoozedUntilMinutes
-      );
+      return alert.snoozedUntilMinutes != null && elapsedMinutes >= alert.snoozedUntilMinutes;
     }
 
-    // status === 'pending'
-    const timeTriggered =
-      alert.triggerMinutes != null && elapsedMinutes >= alert.triggerMinutes;
-    const gpsTriggered =
-      alert.triggerDistanceKm != null &&
-      elapsedKm != null &&
-      elapsedKm >= alert.triggerDistanceKm;
-
-    return timeTriggered || gpsTriggered;
+    return elapsedMinutes >= alert.triggerMinutes;
   });
 }
