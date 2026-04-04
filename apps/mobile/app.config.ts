@@ -41,7 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     userInterfaceStyle: 'dark',
     splash: {
       image: './assets/splash.png',
-      backgroundColor: '#0f172a',
+      backgroundColor: '#f7efe8',
     },
     ios: {
       supportsTablet: false,
@@ -55,7 +55,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       versionCode: 1,
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#0f172a',
+        backgroundColor: '#f7efe8',
       },
       package: 'com.paceyourself.app',
       blockedPermissions: [
