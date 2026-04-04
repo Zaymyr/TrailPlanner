@@ -9,6 +9,7 @@
     "dev:web": "npm run dev -w @trailplanner/web",
     "build:web": "npm run build -w @trailplanner/web",
     "dev:mobile": "npm run start -w @trailplanner/mobile",
+    "changelog:add": "node ./scripts/create-app-changelog.mjs",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
     "test": "turbo run test"
