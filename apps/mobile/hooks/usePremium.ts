@@ -74,12 +74,6 @@ export function usePremium(): PremiumState {
 
       if (cancelled) return;
 
-      // Read role from JWT app_metadata (set by Supabase admin)
-      const appMeta = user.app_metadata ?? {};
-      const isAdmin =
-        appMeta['role'] === 'admin' ||
-        (Array.isArray(appMeta['roles']) && appMeta['roles'].includes('admin'));
-
       const trialEndsAt = profileResult.data?.trial_ends_at ?? null;
       const isTrialActive = trialEndsAt
         ? new Date(trialEndsAt).getTime() > Date.now()
@@ -88,7 +82,7 @@ export function usePremium(): PremiumState {
         !subResult.error && subResult.data?.status === 'active';
       const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
 
-      const isPremium = isAdmin || isTrialActive || hasActiveSubscription || hasActiveRevenueCatEntitlement;
+      const isPremium = isTrialActive || hasActiveSubscription || hasActiveRevenueCatEntitlement;
 
       setState({
         isPremium,
