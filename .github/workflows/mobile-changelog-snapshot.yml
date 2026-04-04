@@ -1,0 +1,111 @@
+name: Mobile Changelog Snapshot
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/mobile-changelog-snapshot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Read mobile app version
+        id: app_version
+        shell: bash
+        run: |
+          node - <<'NODE' >> "$GITHUB_OUTPUT"
+          const fs = require('node:fs');
+          const content = fs.readFileSync('apps/mobile/app.config.ts', 'utf8');
+          const match = content.match(/version:\s*'([^']+)'/);
+
+          if (!match) {
+            throw new Error('Unable to read apps/mobile/app.config.ts version');
+          }
+
+          console.log(`value=${match[1]}`);
+          NODE
+
+      - name: Prepare changelog payload
+        id: payload
+        shell: bash
+        env:
+          APP_VERSION: ${{ steps.app_version.outputs.value }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_SHA: ${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          short_sha="${COMMIT_SHA::7}"
+          first_line="$(printf '%s' "$COMMIT_MESSAGE" | head -n 1 | tr '\r' ' ' | sed 's/[[:space:]]\+/ /g')"
+
+          if [ -z "$first_line" ]; then
+            first_line="Mobile snapshot $short_sha"
+          fi
+
+          snapshot_version="${APP_VERSION}+${short_sha}"
+
+          {
+            echo "short_sha=$short_sha"
+            echo "title=$first_line"
+            echo "version=$snapshot_version"
+            echo "detail<<EOF"
+            printf -- "- Commit: %s\n" "$short_sha"
+            printf -- "- Branch: %s\n" "$REF_NAME"
+            printf -- "- Source: automatic push snapshot\n"
+            printf -- "- Message: %s\n" "$first_line"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Insert changelog snapshot
+        env:
+          SUPABASE_DB_URL_SESSION: ${{ secrets.SUPABASE_DB_URL_SESSION }}
+          CHANGELOG_VERSION: ${{ steps.payload.outputs.version }}
+          CHANGELOG_TITLE: ${{ steps.payload.outputs.title }}
+          CHANGELOG_DETAIL: ${{ steps.payload.outputs.detail }}
+        run: |
+          docker run --rm \
+            -e SUPABASE_DB_URL_SESSION="$SUPABASE_DB_URL_SESSION" \
+            -e CHANGELOG_VERSION="$CHANGELOG_VERSION" \
+            -e CHANGELOG_TITLE="$CHANGELOG_TITLE" \
+            -e CHANGELOG_DETAIL="$CHANGELOG_DETAIL" \
+            postgres:17-alpine \
+            sh -lc 'psql "$SUPABASE_DB_URL_SESSION" \
+              -v ON_ERROR_STOP=1 \
+              -v version="$CHANGELOG_VERSION" \
+              -v title="$CHANGELOG_TITLE" \
+              -v detail="$CHANGELOG_DETAIL" <<'"'"'"'"'"'"'"'"'SQL'"'"'"'"'"'"'"'"'
+            do $$
+            begin
+              if to_regclass('"'"'public.app_changelog'"'"') is null then
+                raise notice '"'"'public.app_changelog does not exist yet. Skipping snapshot insert.'"'"';
+                return;
+              end if;
+
+              insert into public.app_changelog (version, title, detail, published_at)
+              values (:'"'"'version'"'"', :'"'"'title'"'"', :'"'"'detail'"'"', timezone('"'"'utc'"'"', now()))
+              on conflict (version) do update
+              set title = excluded.title,
+                  detail = excluded.detail,
+                  published_at = excluded.published_at,
+                  is_published = true;
+            end
+            $$;
+            SQL'
