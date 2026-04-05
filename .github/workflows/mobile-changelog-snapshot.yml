@@ -80,14 +80,15 @@ jobs:
           CHANGELOG_VERSION: ${{ steps.payload.outputs.version }}
           CHANGELOG_TITLE: ${{ steps.payload.outputs.title }}
           CHANGELOG_DETAIL: ${{ steps.payload.outputs.detail }}
-          run: |
-            docker run --rm \
-              -e SUPABASE_DB_URL_SESSION="$SUPABASE_DB_URL_SESSION" \
-              -e CHANGELOG_VERSION="$CHANGELOG_VERSION" \
-              -e CHANGELOG_TITLE="$CHANGELOG_TITLE" \
+        shell: bash
+        run: |
+          docker run --rm \
+            -e SUPABASE_DB_URL_SESSION="$SUPABASE_DB_URL_SESSION" \
+            -e CHANGELOG_VERSION="$CHANGELOG_VERSION" \
+            -e CHANGELOG_TITLE="$CHANGELOG_TITLE" \
             -e CHANGELOG_DETAIL="$CHANGELOG_DETAIL" \
-              postgres:17-alpine \
-              sh -lc '
+            postgres:17-alpine \
+            sh -lc '
               echo "Connected as: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_user;")"
               echo "Database: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_database();")"
               TABLE_EXISTS=$(psql "$SUPABASE_DB_URL_SESSION" -tAc "select exists (select 1 from information_schema.tables where table_schema = '"'"'"'"'"'"'"'"'public'"'"'"'"'"'"'"'"' and table_name = '"'"'"'"'"'"'"'"'app_changelog'"'"'"'"'"'"'"'"');" | tr -d '"'"'"'"'"'"'"'"'[:space:]'"'"'"'"'"'"'"'"')
