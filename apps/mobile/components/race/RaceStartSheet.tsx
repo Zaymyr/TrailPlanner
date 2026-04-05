@@ -60,7 +60,7 @@ export function RaceStartSheet({ visible, raceName, onStart, onCancel }: Props) 
 
           <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
             <Text style={styles.description}>
-              Les notifications suivent la timeline nutrition definie dans les sections du plan.
+              Les notifications suivent la timeline nutrition définie dans les sections du plan.
             </Text>
 
             <Text style={styles.sectionLabel}>VALIDATION DES PRISES</Text>

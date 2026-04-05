@@ -38,6 +38,21 @@ type SubscriptionRow = {
   provider?: string | null;
 };
 
+async function fetchActivePremiumGrant(userId: string) {
+  const result = await supabase
+    .from('premium_grants')
+    .select('id')
+    .eq('user_id', userId)
+    .limit(1)
+    .maybeSingle();
+
+  if (result.error) {
+    return false;
+  }
+
+  return Boolean(result.data);
+}
+
 async function fetchServerEntitlements(accessToken: string | null) {
   if (!WEB_URL || !accessToken) return null;
 
@@ -143,7 +158,8 @@ export function usePremium(): PremiumState {
       } = await supabase.auth.getSession();
       const accessToken = session?.access_token ?? null;
 
-      const [profileResult, subscriptionRow, serverEntitlements, revenueCatCustomerInfo] = await Promise.all([
+      const [profileResult, subscriptionRow, serverEntitlements, hasActivePremiumGrant, revenueCatCustomerInfo] =
+        await Promise.all([
         supabase
           .from('user_profiles')
           .select('trial_ends_at')
@@ -151,6 +167,7 @@ export function usePremium(): PremiumState {
           .maybeSingle(),
         fetchServerSubscription(uid),
         fetchServerEntitlements(accessToken),
+        fetchActivePremiumGrant(uid),
         customerInfoOverride !== undefined
           ? Promise.resolve(customerInfoOverride)
           : canUseRevenueCat()
@@ -159,7 +176,7 @@ export function usePremium(): PremiumState {
                 return null;
               })
             : Promise.resolve(null),
-      ]);
+        ]);
 
       if (cancelled) return;
 
@@ -220,7 +237,7 @@ export function usePremium(): PremiumState {
               : null
           : null;
 
-      const fallbackPremium = isTrialActive || hasActiveSubscription;
+      const fallbackPremium = isTrialActive || hasActiveSubscription || hasActivePremiumGrant;
       const isPremium = (resolvedServerEntitlements?.isPremium ?? fallbackPremium) || hasActiveRevenueCatEntitlement;
 
       setState({

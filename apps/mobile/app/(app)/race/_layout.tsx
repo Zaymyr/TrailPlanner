@@ -19,7 +19,7 @@ export default function RaceLayout() {
               route.name === 'new'
                 ? locale === 'fr' ? 'Nouvelle course' : 'New race'
                 : route.name === '[id]/edit'
-                  ? locale === 'fr' ? 'Edition de course' : 'Edit race'
+                  ? locale === 'fr' ? 'Édition de course' : 'Edit race'
                   : locale === 'fr' ? 'Course' : 'Race'
             }
           />

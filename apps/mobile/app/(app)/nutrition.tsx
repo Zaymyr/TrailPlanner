@@ -222,7 +222,7 @@ export default function NutritionScreen() {
       }
 
       if (!body?.product) {
-        throw new Error('Impossible de creer le produit.');
+        throw new Error('Impossible de créer le produit.');
       }
 
       const created: Product = {

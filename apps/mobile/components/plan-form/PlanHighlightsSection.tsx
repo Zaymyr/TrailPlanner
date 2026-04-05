@@ -120,7 +120,7 @@ export const PlanHighlightsSection = React.memo(function PlanHighlightsSection({
               </View>
             </View>
           ) : (
-            <Text style={styles.highlightEmptyText}>Aucun produit ajoute pour le moment.</Text>
+            <Text style={styles.highlightEmptyText}>Aucun produit ajouté pour le moment.</Text>
           )}
         </>
       ) : null}

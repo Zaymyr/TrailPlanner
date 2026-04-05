@@ -275,7 +275,7 @@ export function usePlanSupplies({
     const interval = values.raceDistanceKm > 60 ? 15 : values.raceDistanceKm > 30 ? 10 : 8;
     const count = Math.floor((values.raceDistanceKm - 1) / interval);
     if (count === 0) {
-      Alert.alert('Course trop courte', 'La distance est trop courte pour generer des ravitos automatiquement.');
+      Alert.alert('Course trop courte', 'La distance est trop courte pour générer des ravitos automatiquement.');
       return;
     }
 
@@ -289,7 +289,7 @@ export function usePlanSupplies({
 
     Alert.alert(
       'Generer automatiquement',
-      `Creer ${count} ravito(s) tous les ${interval} km ? Les ravitos existants seront remplaces.`,
+      `Créer ${count} ravito(s) tous les ${interval} km ? Les ravitos existants seront remplacés.`,
       [
         { text: 'Annuler', style: 'cancel' },
         {

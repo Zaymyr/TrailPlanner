@@ -270,7 +270,7 @@ export function AidStationsSectionV2({
             </Text>
           </View>
           {sectionTimeline.length === 0 ? (
-            <Text style={styles.sectionTimelineEmpty}>Aucune prise prevue</Text>
+            <Text style={styles.sectionTimelineEmpty}>Aucune prise prévue</Text>
           ) : (
             sectionTimeline.map((item, timelineIndex) => (
               <View
@@ -327,7 +327,7 @@ export function AidStationsSectionV2({
       </View>
 
       {intermediateCount === 0 && viewMode === 'stations' && (
-        <Text style={styles.emptyText}>Pas de ravito intermediaire. Utilise "+ Ajouter" pour en creer.</Text>
+        <Text style={styles.emptyText}>Pas de ravito intermédiaire. Utilise "+ Ajouter" pour en créer.</Text>
       )}
 
       {viewMode === 'stations' ? renderStationsView() : renderSectionsView()}

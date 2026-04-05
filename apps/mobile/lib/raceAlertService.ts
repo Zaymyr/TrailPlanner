@@ -193,7 +193,7 @@ export async function startRace(
 
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Course demarree',
+      title: 'Course démarrée',
       body: `${plan.name} - suivi horaire actif`,
     },
     trigger: null,

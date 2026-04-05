@@ -959,7 +959,7 @@ export function AidStationsSectionV3({
             </Text>
           </View>
           {sectionTimeline.length === 0 ? (
-            <Text style={styles.sectionTimelineEmpty}>Aucune prise prevue</Text>
+            <Text style={styles.sectionTimelineEmpty}>Aucune prise prévue</Text>
           ) : (
             sectionTimeline.map((item, timelineIndex) => (
               <View
@@ -1025,7 +1025,7 @@ export function AidStationsSectionV3({
           </View>
 
           {summary.segmentStats.length === 0 ? (
-            <Text style={styles.profileEmptyText}>Aucun decoupage disponible pour cette section.</Text>
+            <Text style={styles.profileEmptyText}>Aucun découpage disponible pour cette section.</Text>
           ) : (
             <View style={styles.profileSegmentsList}>
               {summary.segmentStats.map((segmentStat, segmentIndex) => {
@@ -1220,7 +1220,7 @@ export function AidStationsSectionV3({
       return (
         <>
           {intermediateCount === 0 && (
-            <Text style={styles.emptyText}>Pas de ravito intermediaire. Utilise "+ Ajouter" pour en creer.</Text>
+            <Text style={styles.emptyText}>Pas de ravito intermédiaire. Utilise "+ Ajouter" pour en créer.</Text>
           )}
           {stationsElements}
         </>

@@ -60,7 +60,7 @@ export default function RaceStartConfig({ visible, raceName, onStart, onCancel }
 
           <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollArea}>
             <Text style={styles.description}>
-              Le suivi de course est maintenant entierement base sur la timeline horaire du plan.
+              Le suivi de course est maintenant entièrement basé sur la timeline horaire du plan.
             </Text>
 
             <Text style={styles.sectionLabel}>VALIDATION DES PRISES</Text>

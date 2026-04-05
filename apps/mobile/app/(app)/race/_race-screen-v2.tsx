@@ -242,7 +242,7 @@ export default function RaceScreenV2() {
       if (!granted) {
         Alert.alert(
           'Notifications requises',
-          "Active les notifications pour recevoir les rappels de nutrition pendant la course.",
+          'Active les notifications pour recevoir les rappels de nutrition pendant la course.',
         );
         return;
       }
@@ -256,10 +256,10 @@ export default function RaceScreenV2() {
   );
 
   const handleStop = useCallback(() => {
-    Alert.alert('Arreter la course ?', 'Le suivi live et les notifications seront stoppes.', [
+    Alert.alert('Arrêter la course ?', 'Le suivi live et les notifications seront stoppés.', [
       { text: 'Annuler', style: 'cancel' },
       {
-        text: 'Arreter',
+        text: 'Arrêter',
         style: 'destructive',
         onPress: async () => {
           await stopRace();
@@ -362,7 +362,7 @@ export default function RaceScreenV2() {
               </View>
             </View>
 
-            <Text style={styles.sectionHeading}>Apercu des prises</Text>
+            <Text style={styles.sectionHeading}>Aperçu des prises</Text>
             {liveSections.length === 0 ? (
               <View style={styles.emptyCard}>
                 <Text style={styles.emptyText}>Aucune section exploitable dans ce plan.</Text>
@@ -394,7 +394,7 @@ export default function RaceScreenV2() {
                   </View>
 
                   {section.timeline.length === 0 ? (
-                    <Text style={styles.timelineEmpty}>Aucune prise planifiee sur cette section.</Text>
+                    <Text style={styles.timelineEmpty}>Aucune prise planifiée sur cette section.</Text>
                   ) : (
                     section.timeline.map((event) => (
                       <View key={event.id} style={styles.timelineRow}>
@@ -549,7 +549,7 @@ export default function RaceScreenV2() {
         )}
 
         <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
-          <Text style={styles.stopButtonText}>Arreter la course</Text>
+          <Text style={styles.stopButtonText}>Arrêter la course</Text>
         </TouchableOpacity>
       </ScrollView>
     </>
