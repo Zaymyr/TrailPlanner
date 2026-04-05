@@ -91,11 +91,11 @@ jobs:
             sh -lc '
               echo "Connected as: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_user;")"
               echo "Database: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_database();")"
+              VERSION_SQL=$(printf "%s" "$CHANGELOG_VERSION" | sed "s/'"'"'/'"'"''"'"'/g")
+              TITLE_SQL=$(printf "%s" "$CHANGELOG_TITLE" | sed "s/'"'"'/'"'"''"'"'/g")
+              DETAIL_SQL=$(printf "%s" "$CHANGELOG_DETAIL" | sed "s/'"'"'/'"'"''"'"'/g")
 
               psql "$SUPABASE_DB_URL_SESSION" \
                 -v ON_ERROR_STOP=1 \
-                -v version="$CHANGELOG_VERSION" \
-                -v title="$CHANGELOG_TITLE" \
-                -v detail="$CHANGELOG_DETAIL" \
-                -c "insert into public.app_changelog (version, title, detail, published_at) values (:'"'"'version'"'"', :'"'"'title'"'"', :'"'"'detail'"'"', timezone('"'"'utc'"'"', now())) on conflict (version) do update set title = excluded.title, detail = excluded.detail, published_at = excluded.published_at, is_published = true;"
+                -c "insert into public.app_changelog (version, title, detail, published_at) values ('"'$VERSION_SQL'"', '"'$TITLE_SQL'"', '"'$DETAIL_SQL'"', timezone('"'utc'"', now())) on conflict (version) do update set title = excluded.title, detail = excluded.detail, published_at = excluded.published_at, is_published = true;"
             '
