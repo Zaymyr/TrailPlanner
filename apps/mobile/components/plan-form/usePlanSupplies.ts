@@ -27,6 +27,7 @@ type Args = {
   buildSectionSummary: (target: PlanTarget) => SectionSummary | null;
   isPremium: boolean;
   elevationProfile?: ElevationPoint[];
+  onRequirePremium: () => void;
 };
 
 type PoolProduct = FavProduct & {
@@ -159,6 +160,7 @@ export function usePlanSupplies({
   buildSectionSummary,
   isPremium,
   elevationProfile = [],
+  onRequirePremium,
 }: Args) {
   const replaceAidStations = useCallback(
     (aidStations: AidStationFormItem[], resetSectionSegments = false) => {
@@ -299,7 +301,10 @@ export function usePlanSupplies({
   }, [replaceAidStations, values.raceDistanceKm]);
 
   const fillSuppliesAuto = useCallback(async () => {
-    if (!isPremium) return;
+    if (!isPremium) {
+      onRequirePremium();
+      return;
+    }
 
     let latestFavoriteIds = favoriteProductIds;
     const {
@@ -425,6 +430,7 @@ export function usePlanSupplies({
     elevationProfile,
     favoriteProductIds,
     isPremium,
+    onRequirePremium,
     setFavoriteProductIds,
     setValues,
     values,

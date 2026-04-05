@@ -42,6 +42,13 @@ export type MobileTranslations = {
     chooseRaceTitle: string;
     createNewRace: string;
     noCatalogRace: string;
+    freeAccessTitle: string;
+    freeAccessMessage: string;
+    freeAccessHint: string;
+    freeLockedBadge: string;
+    unlockButton: string;
+    autoFillPremiumTitle: string;
+    autoFillPremiumMessage: string;
   };
   races: {
     title: string;
@@ -103,6 +110,8 @@ export type MobileTranslations = {
     trialExpiresOn: string;
     upgradeCta: string;
     upgradeCtaWithPrice: string;
+    premiumAnnualCta: string;
+    premiumAnnualFallbackCta: string;
     webManagedSubscription: string;
     manageSubscription: string;
     restorePurchases: string;
@@ -124,6 +133,10 @@ export type MobileTranslations = {
     changelogEmpty: string;
     changelogLoadFailed: string;
     changelogVersionMeta: string;
+    premiumBenefitsTitle: string;
+    premiumBenefitPlans: string;
+    premiumBenefitFavorites: string;
+    premiumBenefitAutoFill: string;
     saved: string;
     saveFailed: string;
   };
@@ -202,6 +215,11 @@ export type MobileTranslations = {
     noCatalogSubtitle: string;
     loadError: string;
   };
+  nutrition: {
+    favoritesLimitBanner: string;
+    favoriteLimitMessage: string;
+    createProductPremiumHint: string;
+  };
   planForm: {
     selectRaceTitle: string;
     selectRaceSubtitle: string;
@@ -226,5 +244,24 @@ export type MobileTranslations = {
     sendFailed: string;
     sourceLabel: string;
     screenLabel: string;
+  };
+  raceRequests: {
+    triggerLabel: string;
+    modalTitle: string;
+    modalSubtitle: string;
+    raceNameLabel: string;
+    raceNamePlaceholder: string;
+    locationLabel: string;
+    locationPlaceholder: string;
+    dateLabel: string;
+    datePlaceholder: string;
+    dateHint: string;
+    missingFields: string;
+    invalidDate: string;
+    submit: string;
+    successTitle: string;
+    successMessage: string;
+    sendFailed: string;
+    sessionExpired: string;
   };
 };

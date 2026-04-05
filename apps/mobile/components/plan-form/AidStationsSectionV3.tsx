@@ -35,6 +35,7 @@ type Props = {
   removeAidStation: (index: number) => void;
   addAidStation: () => void;
   fillSuppliesAuto: () => void;
+  isPremium: boolean;
   intermediateCount: number;
   getSupplies: (target: PlanTarget) => { productId: string; quantity: number }[];
   openPicker: (target: PlanTarget) => void;
@@ -88,6 +89,7 @@ export function AidStationsSectionV3({
   removeAidStation,
   addAidStation,
   fillSuppliesAuto,
+  isPremium,
   intermediateCount,
   getSupplies,
   openPicker,
@@ -1273,8 +1275,13 @@ export function AidStationsSectionV3({
       <View style={[styles.sectionHeader, { marginTop: 24 }]}>
         <Text style={styles.sectionTitle}>Ravitaillements</Text>
         <View style={styles.sectionActions}>
-          <TouchableOpacity style={styles.fillBtn} onPress={fillSuppliesAuto}>
-            <Text style={styles.fillBtnText}>Remplir</Text>
+          <TouchableOpacity
+            style={[styles.fillBtn, !isPremium && styles.fillBtnPremiumLocked]}
+            onPress={fillSuppliesAuto}
+          >
+            <Text style={[styles.fillBtnText, !isPremium && styles.fillBtnTextPremiumLocked]}>
+              {isPremium ? 'Remplir' : 'Auto · Premium'}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
             <Text style={styles.addBtnText}>+ Ajouter</Text>

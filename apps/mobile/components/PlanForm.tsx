@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 're
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { usePremium } from '../hooks/usePremium';
+import { useI18n } from '../lib/i18n';
 import { AidStationsSectionV3 as AidStationsSection } from './plan-form/AidStationsSectionV3';
 import {
   ARRIVEE_ID,
@@ -29,6 +30,7 @@ import { NumberInput } from './plan-form/NumberInput';
 import { PlanBasicsSection } from './plan-form/PlanBasicsSection';
 import { PlanHighlightsSection } from './plan-form/PlanHighlightsSection';
 import { ProductPickerModal, type PickerProduct } from './plan-form/ProductPickerModal';
+import { PremiumUpsellModal } from './premium/PremiumUpsellModal';
 import { styles } from './plan-form/styles';
 import { usePlanProducts } from './plan-form/usePlanProducts';
 import { usePlanSections } from './plan-form/usePlanSections';
@@ -82,6 +84,7 @@ export default function PlanForm({
   compactBasicsByDefault = false,
 }: Props) {
   const { isPremium } = usePremium();
+  const { t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const debouncedValues = useDebounced(values, 300);
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set([DEPART_ID]));
@@ -93,6 +96,7 @@ export default function PlanForm({
   });
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
   const [gaugeAnimateSignals, setGaugeAnimateSignals] = useState<Record<string, number>>({});
+  const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
 
   void favoriteProducts;
   void saveLabel;
@@ -108,7 +112,12 @@ export default function PlanForm({
     });
     setEditingStation(null);
     setGaugeAnimateSignals({});
+    setShowPremiumUpsell(false);
   }, [compactBasicsByDefault, initialValues]);
+
+  const openPremiumUpsell = useCallback(() => {
+    setShowPremiumUpsell(true);
+  }, []);
 
   useEffect(() => {
     onValuesChange?.(values);
@@ -177,6 +186,7 @@ export default function PlanForm({
     buildSectionSummary,
     isPremium,
     elevationProfile,
+    onRequirePremium: openPremiumUpsell,
   });
 
   const basePaceMinutesPerKm = 60 / baseSpeedKph;
@@ -419,6 +429,7 @@ export default function PlanForm({
             removeAidStation={removeAidStation}
             addAidStation={addAidStation}
             fillSuppliesAuto={fillSuppliesAuto}
+            isPremium={isPremium}
             intermediateCount={highlights.intermediateCount}
             getSupplies={getSupplies}
             openPicker={openPicker}
@@ -472,6 +483,12 @@ export default function PlanForm({
       />
 
       <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} />
+      <PremiumUpsellModal
+        visible={showPremiumUpsell}
+        title={t.plans.autoFillPremiumTitle}
+        message={t.plans.autoFillPremiumMessage}
+        onClose={() => setShowPremiumUpsell(false)}
+      />
     </>
   );
 }

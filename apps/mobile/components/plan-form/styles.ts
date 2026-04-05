@@ -272,9 +272,16 @@ export const styles = StyleSheet.create({
     paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#7C3AED',
+    borderColor: Colors.brandPrimary,
   },
-  fillBtnText: { color: '#7C3AED', fontSize: 13, fontWeight: '600' },
+  fillBtnText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '600' },
+  fillBtnPremiumLocked: {
+    borderColor: Colors.warning,
+    backgroundColor: Colors.warningSurface,
+  },
+  fillBtnTextPremiumLocked: {
+    color: Colors.warning,
+  },
   addBtn: {
     backgroundColor: 'transparent',
     paddingHorizontal: 14,

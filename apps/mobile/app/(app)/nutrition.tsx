@@ -16,9 +16,11 @@ import {
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
+import { useI18n } from '../../lib/i18n';
+import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
-const FREE_FAVORITE_LIMIT = 3;
+const FREE_FAVORITE_LIMIT = 2;
 
 type FuelType = 'gel' | 'drink_mix' | 'electrolyte' | 'capsule' | 'bar' | 'real_food' | 'other';
 
@@ -57,6 +59,7 @@ const FUEL_TYPE_OPTIONS: FuelType[] = [
 ];
 
 export default function NutritionScreen() {
+  const { t } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const { isPremium } = usePremium();
@@ -77,6 +80,7 @@ export default function NutritionScreen() {
   const [newCarbsG, setNewCarbsG] = useState('');
   const [newSodiumMg, setNewSodiumMg] = useState('');
   const [newCaloriesKcal, setNewCaloriesKcal] = useState('');
+  const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
 
   const fetchData = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -142,11 +146,7 @@ export default function NutritionScreen() {
     } else {
       // Check free tier limit before adding
       if (!isPremium && favoriteIds.size >= FREE_FAVORITE_LIMIT) {
-        Alert.alert(
-          'Limite atteinte',
-          `Les utilisateurs gratuits peuvent avoir ${FREE_FAVORITE_LIMIT} favoris. Passez en Premium pour des favoris illimités.`,
-          [{ text: 'OK' }],
-        );
+        setShowFavoriteLimitModal(true);
         return;
       }
 
@@ -260,7 +260,7 @@ export default function NutritionScreen() {
           {!isPremium && (
             <View style={styles.limitBanner}>
               <Text style={styles.limitBannerText}>
-                {favoriteIds.size}/{FREE_FAVORITE_LIMIT} favoris · Passez en Premium pour des favoris illimités
+                {t.nutrition.favoritesLimitBanner.replace('{count}', String(FREE_FAVORITE_LIMIT))}
               </Text>
             </View>
           )}
@@ -320,7 +320,7 @@ export default function NutritionScreen() {
       {!isPremium && (
         <View style={styles.premiumBanner}>
           <Text style={styles.premiumBannerText}>
-            ⚡ La création de produits personnalisés est réservée aux abonnés Premium.
+            {t.nutrition.createProductPremiumHint}
           </Text>
         </View>
       )}
@@ -398,6 +398,13 @@ export default function NutritionScreen() {
       )}
 
       {/* Create product modal */}
+      <PremiumUpsellModal
+        visible={showFavoriteLimitModal}
+        title={t.plans.freeAccessTitle}
+        message={t.nutrition.favoriteLimitMessage.replace('{count}', String(FREE_FAVORITE_LIMIT))}
+        onClose={() => setShowFavoriteLimitModal(false)}
+      />
+
       <Modal
         visible={showCreateModal}
         transparent
@@ -564,6 +571,7 @@ const styles = StyleSheet.create({
   premiumBannerText: {
     color: Colors.warning,
     fontSize: 13,
+    lineHeight: 18,
   },
   createButton: {
     backgroundColor: 'transparent',

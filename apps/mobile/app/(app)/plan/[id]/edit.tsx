@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../../../lib/supabase';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, Supply, type ElevationPoint } from '../../../../components/PlanForm';
 import { Colors } from '../../../../constants/colors';
 import { fetchRaceElevationProfile } from '../../../../lib/raceProfile';
+import { usePremium } from '../../../../hooks/usePremium';
+import { getCurrentUserLatestAccessiblePlanId } from '../../../../lib/planAccess';
+import { useI18n } from '../../../../lib/i18n';
 
 type RacePlanRow = {
   id: string;
@@ -68,6 +71,8 @@ function serializePlanValues(values: PlanFormValues): string {
 
 export default function EditPlanScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
+  const { t } = useI18n();
   const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
   const [planName, setPlanName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -89,6 +94,16 @@ export default function EditPlanScreen() {
     if (!id) return;
     setLoading(true);
     setError(null);
+
+    const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
+    if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
+      Alert.alert(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+      setInitialValues(null);
+      setElevationProfile([]);
+      setLoading(false);
+      router.replace('/(app)/plans');
+      return;
+    }
 
     const [planResult, sessionData] = await Promise.all([
       supabase.from('race_plans').select('id, name, planner_values, elevation_profile, race_id').eq('id', id).single(),
@@ -140,7 +155,7 @@ export default function EditPlanScreen() {
     }
 
     setLoading(false);
-  }, [id]);
+  }, [id, isPremium, router, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
 
   const persistPlan = useCallback(
     async (values: PlanFormValues, silent = false) => {
@@ -199,6 +214,8 @@ export default function EditPlanScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (premiumLoading) return undefined;
+
       void loadPlan();
 
       return () => {
@@ -218,7 +235,7 @@ export default function EditPlanScreen() {
         setElevationProfile([]);
         setLoading(true);
       };
-    }, [loadPlan, persistPlan]),
+    }, [loadPlan, persistPlan, premiumLoading]),
   );
 
   async function handleSave(values: PlanFormValues) {

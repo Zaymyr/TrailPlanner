@@ -1,7 +1,8 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity, Text } from 'react-native';
+import { TouchableOpacity, Text, View } from 'react-native';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
+import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 
@@ -91,12 +92,15 @@ export default function AppLayout() {
             <FeedbackHeaderButton
               contextLabel={catalogLabel}
               leading={(
-                <TouchableOpacity
-                  onPress={() => router.push('/(app)/race/new')}
-                  style={{ paddingHorizontal: 12, paddingVertical: 4 }}
-                >
-                  <Text style={{ color: Colors.brandPrimary, fontSize: 26, fontWeight: '600' }}>+</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <TouchableOpacity
+                    onPress={() => router.push('/(app)/race/new')}
+                    style={{ paddingHorizontal: 12, paddingVertical: 4 }}
+                  >
+                    <Text style={{ color: Colors.brandPrimary, fontSize: 26, fontWeight: '600' }}>+</Text>
+                  </TouchableOpacity>
+                  <RaceRequestHeaderButton />
+                </View>
               )}
             />
           ),

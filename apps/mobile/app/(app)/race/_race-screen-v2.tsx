@@ -17,6 +17,8 @@ import { LiveNextIntakeCard } from '../../../components/race/LiveNextIntakeCard'
 import { RaceStartSheet, type RaceStartConfig } from '../../../components/race/RaceStartSheet';
 import { FeedbackHeaderButton } from '../../../components/feedback/FeedbackHeaderButton';
 import { Colors } from '../../../constants/colors';
+import { usePremium } from '../../../hooks/usePremium';
+import { getCurrentUserLatestAccessiblePlanId } from '../../../lib/planAccess';
 import {
   checkAndFireAlerts,
   getNutritionStats,
@@ -34,6 +36,7 @@ import {
   type StoredRacePlan,
 } from '../../../lib/raceLivePlan';
 import { supabase } from '../../../lib/supabase';
+import { useI18n } from '../../../lib/i18n';
 
 function formatElapsedFromMinutes(totalMinutes: number): string {
   const safeMinutes = Math.max(0, Math.floor(totalMinutes));
@@ -102,6 +105,8 @@ type StatsState = ReturnType<typeof getNutritionStats>;
 export default function RaceScreenV2() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
+  const { t } = useI18n();
   const [plan, setPlan] = useState<StoredRacePlan | null>(null);
   const [productMap, setProductMap] = useState<Record<string, PlanProduct>>({});
   const [loading, setLoading] = useState(true);
@@ -119,7 +124,19 @@ export default function RaceScreenV2() {
     let cancelled = false;
 
     (async () => {
+      if (premiumLoading) return;
+
       setLoading(true);
+      const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
+      if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
+        if (!cancelled) {
+          Alert.alert(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+          setLoading(false);
+          router.replace('/(app)/plans');
+        }
+        return;
+      }
+
       const { data } = await supabase
         .from('race_plans')
         .select('id, name, updated_at, planner_values, elevation_profile')
@@ -169,7 +186,7 @@ export default function RaceScreenV2() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, isPremium, premiumLoading, router, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
 
   const refreshSession = useCallback(() => {
     const currentSession = getSession();

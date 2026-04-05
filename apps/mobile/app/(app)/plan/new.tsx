@@ -8,6 +8,9 @@ import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, type Elevati
 import { RaceSelector } from '../../../components/RaceSelector';
 import { useI18n } from '../../../lib/i18n';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
+import { usePremium } from '../../../hooks/usePremium';
+import { currentUserHasReachedFreePlanLimit, FREE_PLAN_LIMIT } from '../../../lib/planAccess';
+import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
 
 type RaceInfo = {
   id: string;
@@ -20,6 +23,7 @@ export default function NewPlanScreen() {
   const { raceId, catalogRaceId } = useLocalSearchParams<{ raceId?: string; catalogRaceId?: string }>();
   const resolvedRaceId = raceId ?? catalogRaceId ?? null;
   const { t } = useI18n();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
 
   const [selectedRace, setSelectedRace] = useState<RaceInfo | null>(null);
   const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
@@ -29,6 +33,7 @@ export default function NewPlanScreen() {
   const [userId, setUserId] = useState<string | null>(null);
   const [favoriteProducts, setFavoriteProducts] = useState<FavProduct[]>([]);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
+  const [showPremiumLimitModal, setShowPremiumLimitModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -101,6 +106,30 @@ export default function NewPlanScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (premiumLoading) return undefined;
+
+      if (!isPremium) {
+        void (async () => {
+          const reachedLimit = await currentUserHasReachedFreePlanLimit();
+          if (!reachedLimit) {
+            void loadRaceSeed();
+            return;
+          }
+
+          setLoading(false);
+          setShowRaceSelector(false);
+          setShowPremiumLimitModal(true);
+        })();
+
+        return () => {
+          setSelectedRace(null);
+          setElevationProfile([]);
+          setInitialValues(null);
+          setLoading(!!resolvedRaceId);
+          setShowRaceSelector(!resolvedRaceId);
+        };
+      }
+
       void loadRaceSeed();
 
       return () => {
@@ -110,7 +139,7 @@ export default function NewPlanScreen() {
         setLoading(!!resolvedRaceId);
         setShowRaceSelector(!resolvedRaceId);
       };
-    }, [loadRaceSeed, resolvedRaceId]),
+    }, [isPremium, loadRaceSeed, premiumLoading, resolvedRaceId]),
   );
 
   async function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
@@ -201,6 +230,14 @@ export default function NewPlanScreen() {
         }}
       />
 
+      {!isPremium ? (
+        <View style={styles.limitInfo}>
+          <Text style={styles.limitInfoText}>
+            {t.plans.limitReachedMessage.replace('{count}', String(FREE_PLAN_LIMIT))}
+          </Text>
+        </View>
+      ) : null}
+
       <RaceSelector
         visible={showRaceSelector}
         onClose={() => {
@@ -225,6 +262,16 @@ export default function NewPlanScreen() {
           favoriteProducts={favoriteProducts}
         />
       )}
+
+      <PremiumUpsellModal
+        visible={showPremiumLimitModal}
+        title={t.plans.limitReachedTitle}
+        message={t.plans.limitReachedMessage.replace('{count}', String(FREE_PLAN_LIMIT))}
+        onClose={() => {
+          setShowPremiumLimitModal(false);
+          router.replace('/(app)/plans');
+        }}
+      />
     </>
   );
 }
@@ -235,5 +282,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
+  },
+  limitInfo: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+    backgroundColor: Colors.warningSurface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  limitInfoText: {
+    color: Colors.warning,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
 });

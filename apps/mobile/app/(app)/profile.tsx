@@ -14,6 +14,7 @@ import {
   Pressable,
 } from 'react-native';
 import Constants from 'expo-constants';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
@@ -285,8 +286,8 @@ export default function ProfileScreen() {
   const inAppBillingEnabled = Platform.OS === 'android' && billing.isAvailable;
   const billingActionBusy = billing.isLoading || billing.isPurchasing || billing.isRestoring;
   const upgradeLabel = billing.currentPackage
-    ? t.profile.upgradeCtaWithPrice.replace('{price}', billing.currentPackage.product.priceString)
-    : t.profile.upgradeCta;
+    ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
+    : t.profile.premiumAnnualFallbackCta;
   const isWebManagedPremium = hasPaidPremium && paidPremiumSource === 'web';
   const canManageStoreSubscription = hasPaidPremium && paidPremiumSource !== 'web';
 
@@ -481,6 +482,24 @@ export default function ProfileScreen() {
           <Text style={styles.trialSubtitle}>
             {t.profile.trialExpiresOn.replace('{date}', formatDate(trialEndsAt, locale))}
           </Text>
+        ) : null}
+
+        {!hasPaidPremium ? (
+          <View style={styles.premiumBenefitsCard}>
+            <Text style={styles.premiumBenefitsTitle}>{t.profile.premiumBenefitsTitle}</Text>
+            <View style={styles.premiumBenefitRow}>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.brandPrimary} />
+              <Text style={styles.premiumBenefitText}>{t.profile.premiumBenefitPlans}</Text>
+            </View>
+            <View style={styles.premiumBenefitRow}>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.brandPrimary} />
+              <Text style={styles.premiumBenefitText}>{t.profile.premiumBenefitFavorites}</Text>
+            </View>
+            <View style={styles.premiumBenefitRow}>
+              <Ionicons name="checkmark-circle" size={16} color={Colors.brandPrimary} />
+              <Text style={styles.premiumBenefitText}>{t.profile.premiumBenefitAutoFill}</Text>
+            </View>
+          </View>
         ) : null}
 
         {!hasPaidPremium ? (
@@ -797,7 +816,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   upgradeButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: Colors.brandSurface,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -808,7 +827,33 @@ const styles = StyleSheet.create({
   upgradeButtonText: {
     color: Colors.brandPrimary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  premiumBenefitsCard: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+    marginTop: 14,
+  },
+  premiumBenefitsTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  premiumBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 8,
+  },
+  premiumBenefitText: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   manageSubscriptionButton: {
     backgroundColor: Colors.surfaceSecondary,

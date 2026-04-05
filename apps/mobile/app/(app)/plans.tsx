@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -21,11 +21,14 @@ import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
 import { getSession } from '../../lib/raceLiveSession';
+import { FREE_PLAN_LIMIT, getLatestAccessiblePlanId } from '../../lib/planAccess';
+import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PlanRow = {
   id: string;
+  created_at: string;
   name: string;
   updated_at: string;
   race_id: string | null;
@@ -109,8 +112,6 @@ function getRacePickerLabel(raceName: string, eventName: string): string {
 function getPickerEventImageUrl(event: Pick<PickerEventGroup, 'thumbnail_url' | 'races'>): string | null {
   return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
 }
-
-const FREE_PLAN_LIMIT = 1;
 
 // ─── Race Picker sub-components ───────────────────────────────────────────────
 
@@ -266,6 +267,7 @@ export default function PlansScreen() {
   const [pickerEvents, setPickerEvents] = useState<PickerEventGroup[]>([]);
   const [pickerPersonal, setPickerPersonal] = useState<PickerRace[]>([]);
   const [pickerLoading, setPickerLoading] = useState(false);
+  const [premiumModalCopy, setPremiumModalCopy] = useState<{ title: string; message: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     let cancelled = false;
@@ -277,7 +279,7 @@ export default function PlansScreen() {
     const [planResult] = await Promise.all([
       supabase
         .from('race_plans')
-        .select('id, name, updated_at, race_id, planner_values, races(name)')
+        .select('id, created_at, name, updated_at, race_id, planner_values, races(name)')
         .order('updated_at', { ascending: false }),
     ]);
 
@@ -321,12 +323,15 @@ export default function PlansScreen() {
     }, [syncActivePlan]),
   );
 
+  function openPremiumModal(title: string, message: string) {
+    setPremiumModalCopy({ title, message });
+  }
+
   async function openRacePicker() {
     if (!isPremium && plans.length >= FREE_PLAN_LIMIT) {
-      Alert.alert(
+      openPremiumModal(
         t.plans.limitReachedTitle,
         t.plans.limitReachedMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
-        [{ text: t.common.ok }],
       );
       return;
     }
@@ -372,6 +377,14 @@ export default function PlansScreen() {
   }
 
   function handleCreatePlan(raceId: string) {
+    if (!isPremium && plans.length >= FREE_PLAN_LIMIT) {
+      openPremiumModal(
+        t.plans.limitReachedTitle,
+        t.plans.limitReachedMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
+      );
+      return;
+    }
+
     router.push({ pathname: '/(app)/plan/new', params: { raceId } });
   }
 
@@ -436,6 +449,11 @@ export default function PlansScreen() {
 
     return result;
   })();
+
+  const latestAccessiblePlanId = useMemo(
+    () => getLatestAccessiblePlanId(plans, isPremium),
+    [isPremium, plans],
+  );
 
   if (loading) {
     return <View style={styles.center}><ActivityIndicator color={Colors.brandPrimary} size="large" /></View>;
@@ -525,6 +543,7 @@ export default function PlansScreen() {
           if (collapsedSections.has(key)) return null;
           const duration = estimateDuration(item.planner_values);
           const isActivePlan = activePlanId === item.id;
+          const isAccessible = isPremium || latestAccessiblePlanId === null || latestAccessiblePlanId === item.id;
           const mainTarget = isActivePlan ? `/(app)/race/${item.id}` : `/(app)/plan/${item.id}/edit`;
           return (
             <View style={styles.card}>
@@ -535,14 +554,20 @@ export default function PlansScreen() {
                 </View>
               ) : (
                 <View style={styles.cardActionsLeft}>
-                  <TouchableOpacity
-                    onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.iconBtn}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons name="create-outline" size={16} color="#6B7280" />
-                  </TouchableOpacity>
+                  {isAccessible ? (
+                    <TouchableOpacity
+                      onPress={() => router.push(`/(app)/plan/${item.id}/edit` as any)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.iconBtn}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="create-outline" size={16} color="#6B7280" />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={[styles.iconBtn, styles.iconBtnLocked]}>
+                      <Ionicons name="lock-closed-outline" size={16} color={Colors.warning} />
+                    </View>
+                  )}
                   <TouchableOpacity
                     onPress={() => handleDelete(item.id)}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -556,7 +581,14 @@ export default function PlansScreen() {
               <TouchableOpacity
                 style={styles.cardMainButton}
                 activeOpacity={0.8}
-                onPress={() => router.push(mainTarget as any)}
+                onPress={() => {
+                  if (!isAccessible) {
+                    openPremiumModal(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+                    return;
+                  }
+
+                  router.push(mainTarget as any);
+                }}
               >
               <View style={styles.cardContent}>
                 <Text style={styles.planName}>{item.name}</Text>
@@ -573,13 +605,28 @@ export default function PlansScreen() {
               </View>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.startButton, isActivePlan ? styles.startButtonActive : null]}
-                onPress={() => router.push(`/(app)/race/${item.id}` as any)}
+                style={[
+                  styles.startButton,
+                  isActivePlan ? styles.startButtonActive : null,
+                  !isAccessible && styles.startButtonLocked,
+                ]}
+                onPress={() => {
+                  if (!isAccessible) {
+                    openPremiumModal(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+                    return;
+                  }
+
+                  router.push(`/(app)/race/${item.id}` as any);
+                }}
                 activeOpacity={0.85}
               >
-                <Text style={styles.startButtonText}>
-                  {isActivePlan ? t.plans.inProgress : t.plans.startButton}
-                </Text>
+                {!isAccessible ? (
+                  <Ionicons name="lock-closed" size={18} color={Colors.warning} />
+                ) : (
+                  <Text style={styles.startButtonText}>
+                    {isActivePlan ? t.plans.inProgress : t.plans.startButton}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           );
@@ -660,6 +707,13 @@ export default function PlansScreen() {
           )}
         </SafeAreaView>
       </Modal>
+
+      <PremiumUpsellModal
+        visible={premiumModalCopy !== null}
+        title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
+        message={premiumModalCopy?.message ?? t.plans.freeAccessMessage}
+        onClose={() => setPremiumModalCopy(null)}
+      />
     </View>
   );
 }
@@ -759,6 +813,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  iconBtnLocked: {
+    backgroundColor: Colors.warningSurface,
+    borderColor: Colors.warning,
+  },
   startButton: {
     width: 76,
     minHeight: 76,
@@ -774,7 +832,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.warning,
     borderLeftColor: '#F6C08A',
   },
+  startButtonLocked: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderLeftColor: Colors.warning,
+  },
   startButtonText: { color: Colors.textOnBrand, fontWeight: '700', fontSize: 12, textAlign: 'center' },
+  startButtonTextLocked: { color: Colors.warning },
   fab: {
     position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28,
     backgroundColor: Colors.brandPrimary, justifyContent: 'center', alignItems: 'center',
