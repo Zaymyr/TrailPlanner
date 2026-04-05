@@ -145,7 +145,7 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
-  const { isPremium, isTrialActive, trialEndsAt } = usePremium();
+  const { isPremium, hasPaidPremium, isTrialActive, trialEndsAt } = usePremium();
   const billing = useRevenueCatBilling();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -388,7 +388,7 @@ export default function ProfileScreen() {
   }
 
   const appVersion = Constants.expoConfig?.version ?? '-';
-  const showTrialActive = !isPremium && isTrialActive && trialEndsAt;
+  const showTrialActive = !hasPaidPremium && isTrialActive && trialEndsAt;
   const showTrialExpired = !isPremium && !isTrialActive && trialEndsAt;
   const showFree = !isPremium && !trialEndsAt;
 
@@ -454,7 +454,7 @@ export default function ProfileScreen() {
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>{t.profile.subscriptionLabel}</Text>
 
-          {isPremium ? (
+          {hasPaidPremium ? (
             <View style={[styles.statusBadge, styles.statusBadgePremium]}>
               <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>{t.profile.premiumLabel}</Text>
             </View>
@@ -481,7 +481,7 @@ export default function ProfileScreen() {
           </Text>
         ) : null}
 
-        {showTrialExpired || showFree ? (
+        {!hasPaidPremium ? (
           <TouchableOpacity
             style={[styles.upgradeButton, billingActionBusy && styles.actionButtonDisabled]}
             onPress={() => void handleUpgrade()}

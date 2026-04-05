@@ -11,6 +11,7 @@ import {
 
 interface PremiumState {
   isPremium: boolean;
+  hasPaidPremium: boolean;
   isTrialActive: boolean;
   trialEndsAt: string | null;
   isLoading: boolean;
@@ -19,6 +20,7 @@ interface PremiumState {
 export function usePremium(): PremiumState {
   const [state, setState] = useState<PremiumState>({
     isPremium: false,
+    hasPaidPremium: false,
     isTrialActive: false,
     trialEndsAt: null,
     isLoading: true,
@@ -38,6 +40,7 @@ export function usePremium(): PremiumState {
         if (!cancelled) {
           setState({
             isPremium: false,
+            hasPaidPremium: false,
             isTrialActive: false,
             trialEndsAt: null,
             isLoading: false,
@@ -81,11 +84,13 @@ export function usePremium(): PremiumState {
       const hasActiveSubscription =
         !subResult.error && subResult.data?.status === 'active';
       const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
+      const hasPaidPremium = hasActiveSubscription || hasActiveRevenueCatEntitlement;
 
-      const isPremium = isTrialActive || hasActiveSubscription || hasActiveRevenueCatEntitlement;
+      const isPremium = isTrialActive || hasPaidPremium;
 
       setState({
         isPremium,
+        hasPaidPremium,
         isTrialActive,
         trialEndsAt,
         isLoading: false,
