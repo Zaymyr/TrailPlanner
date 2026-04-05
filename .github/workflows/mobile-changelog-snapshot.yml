@@ -91,12 +91,6 @@ jobs:
             sh -lc '
               echo "Connected as: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_user;")"
               echo "Database: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_database();")"
-              TABLE_EXISTS=$(psql "$SUPABASE_DB_URL_SESSION" -tAc "select exists (select 1 from information_schema.tables where table_schema = '"'"'"'"'"'"'"'"'public'"'"'"'"'"'"'"'"' and table_name = '"'"'"'"'"'"'"'"'app_changelog'"'"'"'"'"'"'"'"');" | tr -d '"'"'"'"'"'"'"'"'[:space:]'"'"'"'"'"'"'"'"')
-
-              if [ "$TABLE_EXISTS" != "true" ]; then
-                echo "::error::public.app_changelog does not exist in the database targeted by SUPABASE_DB_URL_SESSION. Apply migration 20260404123000_create_app_changelog.sql or point the secret to the correct database."
-                exit 1
-              fi
 
               psql "$SUPABASE_DB_URL_SESSION" \
                 -v ON_ERROR_STOP=1 \
