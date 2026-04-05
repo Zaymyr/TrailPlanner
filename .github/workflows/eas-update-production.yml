@@ -2,8 +2,13 @@ name: EAS Update Production
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'apps/mobile/**'
+      - 'packages/**'
+      - 'package-lock.json'
+      - '.github/workflows/eas-update-production.yml'
   workflow_dispatch:
 
 jobs:
@@ -33,4 +38,4 @@ jobs:
       - name: Publish production OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas update --branch production --environment production --message "Production OTA update ${{ github.ref_name }}" --non-interactive
+        run: eas update --branch production --environment production --message "${{ github.event.head_commit.message || 'Production OTA update' }}" --non-interactive
