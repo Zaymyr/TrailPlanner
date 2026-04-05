@@ -51,8 +51,47 @@ jobs:
           APP_VERSION: ${{ steps.app_version.outputs.value }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
           COMMIT_SHA: ${{ github.sha }}
+          COMMIT_BEFORE: ${{ github.event.before }}
           REF_NAME: ${{ github.ref_name }}
         run: |
+          describe_path() {
+            case "$1" in
+              apps/mobile/app/*)
+                printf 'Mobile screen updated: %s\n' "$(basename "$1")"
+                ;;
+              apps/mobile/components/*)
+                printf 'Mobile component updated: %s\n' "$(basename "$1")"
+                ;;
+              apps/mobile/hooks/*)
+                printf 'Mobile logic updated: %s\n' "$(basename "$1")"
+                ;;
+              apps/mobile/lib/*)
+                printf 'Mobile service updated: %s\n' "$(basename "$1")"
+                ;;
+              apps/web/app/*)
+                printf 'Web flow updated: %s\n' "${1#apps/web/app/}"
+                ;;
+              apps/web/lib/*)
+                printf 'Web logic updated: %s\n' "$(basename "$1")"
+                ;;
+              supabase/migrations/*)
+                printf 'Database migration added: %s\n' "$(basename "$1")"
+                ;;
+              .github/workflows/*)
+                printf 'Automation updated: %s\n' "$(basename "$1")"
+                ;;
+              packages/*)
+                printf 'Shared package updated: %s\n' "${1#packages/}"
+                ;;
+              package.json|package-lock.json|apps/mobile/package-lock.json)
+                printf 'Dependencies updated\n'
+                ;;
+              *)
+                printf 'Updated: %s\n' "$(basename "$1")"
+                ;;
+            esac
+          }
+
           short_sha="${COMMIT_SHA::7}"
           first_line="$(printf '%s' "$COMMIT_MESSAGE" | head -n 1 | tr '\r' ' ' | sed 's/[[:space:]]\+/ /g')"
 
@@ -61,16 +100,43 @@ jobs:
           fi
 
           snapshot_version="${APP_VERSION}+${short_sha}"
+          summary_lines="$(printf '%s\n' "$COMMIT_MESSAGE" | awk 'BEGIN {capture=0} tolower($0) ~ /^summary:[[:space:]]*$/ {capture=1; next} capture {print}')"
+
+          detail_lines=""
+
+          if [ -n "$(printf '%s' "$summary_lines" | tr -d '[:space:]')" ]; then
+            while IFS= read -r line; do
+              normalized="$(printf '%s' "$line" | sed 's/^[[:space:]]*[-*]\{0,1\}[[:space:]]*//; s/[[:space:]]\+/ /g; s/^ //; s/ $//')"
+              if [ -n "$normalized" ]; then
+                detail_lines="${detail_lines}- ${normalized}"$'\n'
+              fi
+            done <<< "$summary_lines"
+          else
+            diff_base="$COMMIT_BEFORE"
+
+            if [ -z "$diff_base" ] || [ "$diff_base" = "0000000000000000000000000000000000000000" ]; then
+              diff_base="$(git rev-list --max-count=1 "${COMMIT_SHA}^" 2>/dev/null || true)"
+            fi
+
+            if [ -n "$diff_base" ]; then
+              while IFS= read -r path; do
+                [ -n "$path" ] || continue
+                detail_lines="${detail_lines}- $(describe_path "$path")"$'\n'
+              done < <(git diff --name-only "$diff_base" "$COMMIT_SHA" | head -n 5)
+            fi
+
+            if [ -z "$detail_lines" ]; then
+              detail_lines="- Automatic mobile snapshot generated"$'\n'
+            fi
+          fi
 
           {
             echo "short_sha=$short_sha"
             echo "title=$first_line"
             echo "version=$snapshot_version"
             echo "detail<<EOF"
-            printf -- "- Commit: %s\n" "$short_sha"
-            printf -- "- Branch: %s\n" "$REF_NAME"
-            printf -- "- Source: automatic push snapshot\n"
-            printf -- "- Message: %s\n" "$first_line"
+            printf '%s' "$detail_lines"
+            printf -- "- Snapshot: %s (%s)\n" "$short_sha" "$REF_NAME"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
