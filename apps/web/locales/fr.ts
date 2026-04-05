@@ -625,20 +625,19 @@ export const fr: Translations = {
       limits: {
         plans: "Gratuit : 1 plan sauvegardé au total",
         favorites: "Favoris : produits illimités pour tous les forfaits",
-        customProducts: "Gratuit : 1 produit personnalisé",
+        customProducts: "Produits personnalisés : disponibles pour tous les forfaits",
         export: "Gratuit : impression et export désactivés",
         autoFill: "Gratuit : remplissage automatique désactivé",
       },
       premiumModal: {
         title: "Passer en Premium",
-        description: "Débloquez les plans illimités, les exports, le remplissage automatique et des produits personnalisés illimités.",
+        description: "Débloquez les plans illimités, les exports et le remplissage automatique.",
         priceLabel: "Prix",
         priceValue: "7,99 $/mois",
         featuresTitle: "Inclus dans Premium",
         features: [
           "Plans enregistrés et exports illimités",
           "Remplissage automatique avec vos favoris",
-          "Produits personnalisés illimités",
           "Impression et export GPX activés",
         ],
         subscribe: "S'abonner avec Stripe",
@@ -1135,14 +1134,13 @@ export const fr: Translations = {
     },
   premiumModal: {
     title: "Passer en Premium",
-    description: "Débloquez les plans illimités, les exports, le remplissage automatique et des produits personnalisés illimités.",
+    description: "Débloquez les plans illimités, les exports et le remplissage automatique.",
     priceLabel: "Prix",
     priceValue: "7,99 $/mois",
     featuresTitle: "Inclus dans Premium",
     features: [
       "Plans enregistrés et exports illimités",
       "Remplissage automatique avec vos favoris",
-      "Produits personnalisés illimités",
       "Impression et export GPX activés",
     ],
       subscribe: "S'abonner avec Stripe",

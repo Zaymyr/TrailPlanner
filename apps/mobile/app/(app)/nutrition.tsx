@@ -39,6 +39,20 @@ type FavoriteRow = {
   products: Product;
 };
 
+type CreateProductResponse = {
+  product?: {
+    id: string;
+    name: string;
+    fuelType: FuelType;
+    carbsGrams: number;
+    sodiumMg: number;
+    caloriesKcal: number;
+    createdBy?: string | null;
+  };
+  message?: string;
+  error?: string;
+};
+
 const FUEL_TYPE_LABELS: Record<FuelType | 'all', string> = {
   all: 'Tous',
   gel: 'Gel',
@@ -124,7 +138,7 @@ export default function NutritionScreen() {
     fetchData();
   }, [fetchData]);
 
-  async function toggleFavorite(productId: string) {
+  async function toggleFavorite(productId: string, productOverride?: Product) {
     if (!userId) return;
 
     if (favoriteIds.has(productId)) {
@@ -156,7 +170,7 @@ export default function NutritionScreen() {
         .insert({ user_id: userId, product_id: productId });
 
       if (!err) {
-        const product = products.find((p) => p.id === productId);
+        const product = productOverride ?? products.find((p) => p.id === productId);
         if (product) {
           setFavoriteIds((prev) => new Set([...prev, productId]));
           setFavorites((prev) => [...prev, { product_id: productId, products: product }]);
@@ -201,15 +215,29 @@ export default function NutritionScreen() {
         }),
       });
 
+      const body = (await res.json().catch(() => null)) as CreateProductResponse | null;
+
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body?.error ?? `Erreur ${res.status}`);
+        throw new Error(body?.message ?? body?.error ?? `Erreur ${res.status}`);
       }
 
-      const created: Product = await res.json();
+      if (!body?.product) {
+        throw new Error('Impossible de creer le produit.');
+      }
+
+      const created: Product = {
+        id: body.product.id,
+        name: body.product.name,
+        fuel_type: body.product.fuelType,
+        carbs_g: body.product.carbsGrams,
+        sodium_mg: body.product.sodiumMg,
+        calories_kcal: body.product.caloriesKcal,
+        created_by: body.product.createdBy ?? userId,
+      };
+
       // Append to products list and auto-favorite
       setProducts((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      await toggleFavorite(created.id);
+      await toggleFavorite(created.id, created);
       resetCreateForm();
       setShowCreateModal(false);
     } catch (err: any) {
@@ -303,27 +331,13 @@ export default function NutritionScreen() {
       {/* Catalogue produits */}
       <View style={styles.catalogHeader}>
         <Text style={[styles.sectionTitle, { marginTop: 28 }]}>Catalogue produits</Text>
-        {isPremium ? (
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={() => setShowCreateModal(true)}
-          >
-            <Text style={styles.createButtonText}>+ Mon produit</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={styles.premiumTag}>
-            <Text style={styles.premiumTagText}>Premium</Text>
-          </View>
-        )}
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => setShowCreateModal(true)}
+        >
+          <Text style={styles.createButtonText}>+ Mon produit</Text>
+        </TouchableOpacity>
       </View>
-
-      {!isPremium && (
-        <View style={styles.premiumBanner}>
-          <Text style={styles.premiumBannerText}>
-            {t.nutrition.createProductPremiumHint}
-          </Text>
-        </View>
-      )}
 
       <TextInput
         style={styles.catalogSearchInput}
@@ -559,20 +573,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
   },
-  premiumBanner: {
-    backgroundColor: Colors.warningSurface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: Colors.warning,
-  },
-  premiumBannerText: {
-    color: Colors.warning,
-    fontSize: 13,
-    lineHeight: 18,
-  },
   createButton: {
     backgroundColor: 'transparent',
     paddingHorizontal: 12,
@@ -585,20 +585,6 @@ const styles = StyleSheet.create({
   createButtonText: {
     color: Colors.brandPrimary,
     fontSize: 13,
-    fontWeight: '600',
-  },
-  premiumTag: {
-    backgroundColor: Colors.warningSurface,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.warning,
-    marginBottom: 4,
-  },
-  premiumTagText: {
-    color: Colors.warning,
-    fontSize: 11,
     fontWeight: '600',
   },
   emptyFavorites: {

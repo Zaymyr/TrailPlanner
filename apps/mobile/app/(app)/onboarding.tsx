@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   SafeAreaView,
+  ScrollView,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
@@ -19,22 +20,43 @@ const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0];
 function OnboardingShell({
   children,
   step,
+  totalSteps,
   stepLabel,
 }: {
   children: React.ReactNode;
   step: number;
+  totalSteps: number;
   stepLabel: string;
 }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.topGlow} />
-      <View style={styles.inner}>
-        <View style={styles.hero}>
-          <Text style={styles.logo}>Pace Yourself</Text>
-          <Text style={styles.stepIndicator}>{stepLabel.replace('{step}', String(step))}</Text>
+      <ScrollView
+        contentContainerStyle={styles.shellScrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.inner}>
+          <View style={styles.hero}>
+            <Text style={styles.logo}>Pace Yourself</Text>
+            <Text style={styles.stepIndicator}>
+              {stepLabel.replace('{step}', String(step)).replace('{total}', String(totalSteps))}
+            </Text>
+            <View style={styles.progressRow}>
+              {Array.from({ length: totalSteps }).map((_, index) => (
+                <View
+                  key={`progress-${index + 1}`}
+                  style={[
+                    styles.progressSegment,
+                    index < step ? styles.progressSegmentActive : styles.progressSegmentInactive,
+                  ]}
+                />
+              ))}
+            </View>
+          </View>
+          <View style={styles.card}>{children}</View>
         </View>
-        <View style={styles.card}>{children}</View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -46,6 +68,68 @@ export default function OnboardingScreen() {
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
+  const totalSteps = 4;
+  const workflowSteps = [
+    {
+      title: t.onboarding.workflowStep1Title,
+      text: t.onboarding.workflowStep1Text,
+    },
+    {
+      title: t.onboarding.workflowStep2Title,
+      text: t.onboarding.workflowStep2Text,
+    },
+    {
+      title: t.onboarding.workflowStep3Title,
+      text: t.onboarding.workflowStep3Text,
+    },
+    {
+      title: t.onboarding.workflowStep4Title,
+      text: t.onboarding.workflowStep4Text,
+    },
+    {
+      title: t.onboarding.workflowStep5Title,
+      text: t.onboarding.workflowStep5Text,
+    },
+    {
+      title: t.onboarding.workflowStep6Title,
+      text: t.onboarding.workflowStep6Text,
+    },
+    {
+      title: t.onboarding.workflowStep7Title,
+      text: t.onboarding.workflowStep7Text,
+    },
+  ];
+  const overviewPhases = [
+    {
+      index: 1,
+      title: t.onboarding.phase1Title,
+      text: t.onboarding.phase1Text,
+    },
+    {
+      index: 2,
+      title: t.onboarding.phase2Title,
+      text: t.onboarding.phase2Text,
+    },
+    {
+      index: 3,
+      title: t.onboarding.phase3Title,
+      text: t.onboarding.phase3Text,
+    },
+  ];
+  const workflowGroups = [
+    {
+      label: t.onboarding.workflowGroup1Label,
+      items: workflowSteps.slice(0, 3),
+    },
+    {
+      label: t.onboarding.workflowGroup2Label,
+      items: workflowSteps.slice(3, 6),
+    },
+    {
+      label: t.onboarding.workflowGroup3Label,
+      items: workflowSteps.slice(6),
+    },
+  ];
 
   async function finishOnboarding() {
     setSaving(true);
@@ -72,42 +156,32 @@ export default function OnboardingScreen() {
 
   if (step === 0) {
     return (
-      <OnboardingShell step={1} stepLabel={t.onboarding.stepLabel}>
+      <OnboardingShell step={1} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <Text style={styles.kicker}>{t.onboarding.welcomeKicker}</Text>
         <Text style={styles.title}>{t.onboarding.welcomeTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.welcomeSubtitle}</Text>
 
-        <View style={styles.bullets}>
-          <View style={styles.bullet}>
-            <View style={styles.bulletBadge}>
-              <Text style={styles.bulletBadgeText}>1</Text>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>{t.onboarding.overviewCardTitle}</Text>
+          <Text style={styles.summaryText}>{t.onboarding.overviewCardText}</Text>
+        </View>
+
+        <View style={styles.phaseList}>
+          {overviewPhases.map((item) => (
+            <View key={item.title} style={styles.phaseCard}>
+              <View style={styles.phaseBadge}>
+                <Text style={styles.phaseBadgeText}>{item.index}</Text>
+              </View>
+              <View style={styles.phaseBody}>
+                <Text style={styles.phaseTitle}>{item.title}</Text>
+                <Text style={styles.phaseText}>{item.text}</Text>
+              </View>
             </View>
-            <View style={styles.bulletBody}>
-              <Text style={styles.bulletTitle}>{t.onboarding.bulletPlanTitle}</Text>
-              <Text style={styles.bulletText}>{t.onboarding.bulletPlanText}</Text>
-            </View>
-          </View>
-          <View style={styles.bullet}>
-            <View style={styles.bulletBadge}>
-              <Text style={styles.bulletBadgeText}>2</Text>
-            </View>
-            <View style={styles.bulletBody}>
-              <Text style={styles.bulletTitle}>{t.onboarding.bulletRaceTitle}</Text>
-              <Text style={styles.bulletText}>{t.onboarding.bulletRaceText}</Text>
-            </View>
-          </View>
-          <View style={styles.bullet}>
-            <View style={styles.bulletBadge}>
-              <Text style={styles.bulletBadgeText}>3</Text>
-            </View>
-            <View style={styles.bulletBody}>
-              <Text style={styles.bulletTitle}>{t.onboarding.bulletFuelTitle}</Text>
-              <Text style={styles.bulletText}>{t.onboarding.bulletFuelText}</Text>
-            </View>
-          </View>
+          ))}
         </View>
 
         <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(1)}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
+          <Text style={styles.primaryButtonText}>{t.onboarding.overviewCta}</Text>
         </TouchableOpacity>
       </OnboardingShell>
     );
@@ -115,7 +189,52 @@ export default function OnboardingScreen() {
 
   if (step === 1) {
     return (
-      <OnboardingShell step={2} stepLabel={t.onboarding.stepLabel}>
+      <OnboardingShell step={2} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <Text style={styles.kicker}>{t.onboarding.workflowKicker}</Text>
+        <Text style={styles.title}>{t.onboarding.workflowTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.workflowSubtitle}</Text>
+
+        <View style={styles.timelineGroups}>
+          {workflowGroups.map((group) => (
+            <View key={group.label} style={styles.timelineGroup}>
+              <Text style={styles.timelineGroupLabel}>{group.label}</Text>
+
+              <View style={styles.timelineGroupBody}>
+                {group.items.map((item) => {
+                  const globalIndex = workflowSteps.findIndex((workflowStep) => workflowStep.title === item.title);
+                  const isLast = group.items[group.items.length - 1]?.title === item.title;
+
+                  return (
+                    <View key={item.title} style={styles.timelineItem}>
+                      <View style={styles.timelineMarkerColumn}>
+                        <View style={styles.timelineBadge}>
+                          <Text style={styles.timelineBadgeText}>{globalIndex + 1}</Text>
+                        </View>
+                        {!isLast ? <View style={styles.timelineLine} /> : null}
+                      </View>
+
+                      <View style={styles.timelineCard}>
+                        <Text style={styles.timelineTitle}>{item.title}</Text>
+                        <Text style={styles.timelineText}>{item.text}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
+          <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
+        </TouchableOpacity>
+      </OnboardingShell>
+    );
+  }
+
+  if (step === 2) {
+    return (
+      <OnboardingShell step={3} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <Text style={styles.title}>{t.onboarding.profileTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.profileSubtitle}</Text>
 
@@ -146,7 +265,7 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(3)}>
           <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
         </TouchableOpacity>
       </OnboardingShell>
@@ -154,7 +273,7 @@ export default function OnboardingScreen() {
   }
 
   return (
-    <OnboardingShell step={3} stepLabel={t.onboarding.stepLabel}>
+    <OnboardingShell step={4} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
       <View style={styles.notificationIconWrap}>
         <Text style={styles.notificationIcon}>!</Text>
       </View>
@@ -202,8 +321,11 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 120,
     borderBottomRightRadius: 120,
   },
+  shellScrollContent: {
+    flexGrow: 1,
+  },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 20,
     paddingVertical: 24,
     justifyContent: 'center',
@@ -211,6 +333,23 @@ const styles = StyleSheet.create({
   hero: {
     alignItems: 'center',
     marginBottom: 18,
+  },
+  progressRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+    width: '100%',
+  },
+  progressSegment: {
+    flex: 1,
+    height: 6,
+    borderRadius: 999,
+  },
+  progressSegmentActive: {
+    backgroundColor: Colors.brandPrimary,
+  },
+  progressSegmentInactive: {
+    backgroundColor: Colors.surfaceMuted,
   },
   logo: {
     fontSize: 28,
@@ -236,6 +375,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 4,
+    marginBottom: 12,
   },
   title: {
     fontSize: 28,
@@ -244,6 +384,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
+  kicker: {
+    alignSelf: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
   subtitle: {
     fontSize: 15,
     color: Colors.textSecondary,
@@ -251,11 +405,30 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-  bullets: {
+  summaryCard: {
+    backgroundColor: Colors.brandSurface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    padding: 16,
+    marginBottom: 20,
+  },
+  summaryTitle: {
+    color: Colors.brandPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  summaryText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+  },
+  phaseList: {
     gap: 14,
     marginBottom: 28,
   },
-  bullet: {
+  phaseCard: {
     flexDirection: 'row',
     gap: 12,
     alignItems: 'flex-start',
@@ -265,30 +438,95 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  bulletBadge: {
+  phaseBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: Colors.brandPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  phaseBadgeText: {
+    color: Colors.textOnBrand,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  phaseBody: {
+    flex: 1,
+  },
+  phaseTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  phaseText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  timelineGroups: {
+    gap: 16,
+    marginBottom: 28,
+  },
+  timelineGroup: {
+    gap: 10,
+  },
+  timelineGroupLabel: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  timelineGroupBody: {
+    gap: 12,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'stretch',
+  },
+  timelineMarkerColumn: {
+    alignItems: 'center',
+    width: 30,
+  },
+  timelineBadge: {
     width: 28,
     height: 28,
     borderRadius: 14,
     backgroundColor: Colors.brandPrimary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 2,
   },
-  bulletBadgeText: {
+  timelineBadgeText: {
     color: Colors.textOnBrand,
     fontSize: 13,
     fontWeight: '700',
   },
-  bulletBody: {
+  timelineLine: {
+    width: 2,
     flex: 1,
+    backgroundColor: Colors.brandBorder,
+    marginTop: 6,
+    marginBottom: -6,
   },
-  bulletTitle: {
+  timelineCard: {
+    flex: 1,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 16,
+    padding: 14,
+  },
+  timelineTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 4,
   },
-  bulletText: {
+  timelineText: {
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,

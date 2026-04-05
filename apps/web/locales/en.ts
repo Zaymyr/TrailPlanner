@@ -615,20 +615,19 @@ export const en: Translations = {
       limits: {
         plans: "Free: save 1 plan total",
         favorites: "Favorites: unlimited products for all plans",
-        customProducts: "Free: 1 custom product",
+        customProducts: "Custom products: available on all plans",
         export: "Free: printing and exports locked",
         autoFill: "Free: automatic fill locked",
       },
       premiumModal: {
         title: "Upgrade to Premium",
-        description: "Unlock unlimited plans, exports, automatic fill, and unlimited custom products.",
+        description: "Unlock unlimited plans, exports, and automatic fill.",
         priceLabel: "Price",
         priceValue: "$7.99/month",
         featuresTitle: "Included in Premium",
         features: [
           "Unlimited saved plans and exports",
           "Automatic fill with your favorite products",
-          "Unlimited custom products",
           "Printing and GPX export enabled",
         ],
         subscribe: "Subscribe with Stripe",
@@ -1126,14 +1125,13 @@ export const en: Translations = {
     },
     premiumModal: {
       title: "Upgrade to Premium",
-      description: "Unlock unlimited plans, exports, automatic fill, and unlimited custom products.",
+      description: "Unlock unlimited plans, exports, and automatic fill.",
       priceLabel: "Price",
       priceValue: "$7.99/month",
       featuresTitle: "Included in Premium",
       features: [
         "Unlimited saved plans and exports",
         "Automatic fill with your favorite products",
-        "Unlimited custom products",
         "Printing and GPX export enabled",
       ],
       subscribe: "Subscribe with Stripe",

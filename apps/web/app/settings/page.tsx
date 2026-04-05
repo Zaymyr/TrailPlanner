@@ -344,7 +344,6 @@ export default function SettingsPage() {
   });
 
   const authMissing = !session?.accessToken;
-  const canCreateProduct = authMissing || entitlements.isPremium;
   const productList = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
 
   const localProductIds = useMemo(
@@ -610,13 +609,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">{t.productSettings.formDescription}</p>
           </CardHeader>
           <CardContent>
-            {!canCreateProduct && (
-              <div className="rounded-md border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-700 dark:text-amber-200">
-                <p className="font-medium">Fonctionnalité Premium</p>
-                <p className="mt-1">La création de produits personnalisés est réservée aux abonnés Premium.</p>
-              </div>
-            )}
-            <form onSubmit={onSubmit} className={`space-y-4 ${!canCreateProduct ? "hidden" : ""}`}>
+            <form onSubmit={onSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">{t.productSettings.fields.name}</Label>
                 <Input id="name" placeholder="Gel, boisson, barre..." {...register("name")} disabled={authMissing} />

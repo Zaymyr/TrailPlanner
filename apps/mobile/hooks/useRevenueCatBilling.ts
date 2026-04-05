@@ -12,6 +12,7 @@ import {
   purchaseRevenueCatPackage,
   restoreRevenueCatPurchases,
 } from '../lib/revenueCat';
+import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
 
 type PurchaseResult = 'purchased' | 'restored' | 'cancelled' | 'unavailable';
 
@@ -41,6 +42,16 @@ const DEFAULT_STATE: BillingState = {
 
 export function useRevenueCatBilling() {
   const [state, setState] = useState<BillingState>(DEFAULT_STATE);
+
+  async function syncRevenueCatStateToServer(customerInfo: CustomerInfo | null | undefined) {
+    if (!hasRevenueCatPremiumEntitlement(customerInfo)) return;
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    await syncRevenueCatSubscriptionToServer(session?.access_token ?? null, getCurrentRevenueCatProviderHint());
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +109,8 @@ export function useRevenueCatBilling() {
 
       const nextPackage = pickRevenueCatPrimaryPackage(offering);
 
+      await syncRevenueCatStateToServer(customerInfo);
+
       setState((current) => ({
         ...current,
         isAvailable: true,
@@ -113,6 +126,8 @@ export function useRevenueCatBilling() {
       removeCustomerInfoListener =
         (await addRevenueCatCustomerInfoListener(user.id, (nextCustomerInfo) => {
           if (cancelled) return;
+
+          void syncRevenueCatStateToServer(nextCustomerInfo);
 
           setState((current) => ({
             ...current,
@@ -167,6 +182,8 @@ export function useRevenueCatBilling() {
       }),
     ]);
 
+    await syncRevenueCatStateToServer(customerInfo);
+
     setState((current) => ({
       ...current,
       isAvailable: true,
@@ -193,6 +210,8 @@ export function useRevenueCatBilling() {
     try {
       const result = await purchaseRevenueCatPackage(user.id, state.currentPackage);
       const customerInfo = result?.customerInfo ?? null;
+
+      await syncRevenueCatStateToServer(customerInfo);
 
       setState((current) => ({
         ...current,
@@ -226,6 +245,8 @@ export function useRevenueCatBilling() {
 
     try {
       const customerInfo = await restoreRevenueCatPurchases(user.id);
+
+      await syncRevenueCatStateToServer(customerInfo);
 
       setState((current) => ({
         ...current,

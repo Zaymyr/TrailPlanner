@@ -289,7 +289,8 @@ export default function ProfileScreen() {
     ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
     : t.profile.premiumAnnualFallbackCta;
   const isWebManagedPremium = hasPaidPremium && paidPremiumSource === 'web';
-  const canManageStoreSubscription = hasPaidPremium && paidPremiumSource !== 'web';
+  const canManageStoreSubscription =
+    hasPaidPremium && paidPremiumSource !== 'web' && paidPremiumSource !== null;
 
   async function handleUpgrade() {
     if (inAppBillingEnabled) {
@@ -394,6 +395,7 @@ export default function ProfileScreen() {
   const showTrialActive = !hasPaidPremium && isTrialActive && trialEndsAt;
   const showTrialExpired = !isPremium && !isTrialActive && trialEndsAt;
   const showFree = !isPremium && !trialEndsAt;
+  const showPremiumBadge = isPremium && !showTrialActive;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -457,7 +459,7 @@ export default function ProfileScreen() {
         <View style={styles.statusRow}>
           <Text style={styles.statusLabel}>{t.profile.subscriptionLabel}</Text>
 
-          {hasPaidPremium ? (
+          {showPremiumBadge ? (
             <View style={[styles.statusBadge, styles.statusBadgePremium]}>
               <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>{t.profile.premiumLabel}</Text>
             </View>
@@ -484,7 +486,7 @@ export default function ProfileScreen() {
           </Text>
         ) : null}
 
-        {!hasPaidPremium ? (
+        {!isPremium ? (
           <View style={styles.premiumBenefitsCard}>
             <Text style={styles.premiumBenefitsTitle}>{t.profile.premiumBenefitsTitle}</Text>
             <View style={styles.premiumBenefitRow}>
@@ -502,7 +504,7 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
-        {!hasPaidPremium ? (
+        {!isPremium ? (
           <TouchableOpacity
             style={[styles.upgradeButton, billingActionBusy && styles.actionButtonDisabled]}
             onPress={() => void handleUpgrade()}
@@ -530,7 +532,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ) : null}
 
-        {inAppBillingEnabled && !isWebManagedPremium ? (
+        {inAppBillingEnabled && !isWebManagedPremium && !isPremium ? (
           <TouchableOpacity
             style={[styles.restorePurchasesButton, billingActionBusy && styles.actionButtonDisabled]}
             onPress={() => void handleRestorePurchases()}

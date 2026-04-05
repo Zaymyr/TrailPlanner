@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Platform } from 'react-native';
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import { supabase } from '../lib/supabase';
@@ -9,6 +9,9 @@ import {
   getRevenueCatCustomerInfo,
   hasRevenueCatPremiumEntitlement,
 } from '../lib/revenueCat';
+import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
+
+const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.trim() ?? '';
 
 export type PaidPremiumSource = 'web' | 'google' | 'apple' | null;
 
@@ -21,6 +24,82 @@ interface PremiumState {
   isLoading: boolean;
 }
 
+type ServerEntitlementsResponse = {
+  entitlements?: {
+    isPremium?: boolean;
+    trialEndsAt?: string | null;
+  };
+};
+
+type SubscriptionRow = {
+  current_period_end?: string | null;
+  price_id?: string | null;
+  status?: string | null;
+  provider?: string | null;
+};
+
+async function fetchServerEntitlements(accessToken: string | null) {
+  if (!WEB_URL || !accessToken) return null;
+
+  try {
+    const response = await fetch(`${WEB_URL}/api/entitlements`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json().catch(() => null)) as ServerEntitlementsResponse | null;
+    const entitlements = payload?.entitlements;
+
+    if (!entitlements) {
+      return null;
+    }
+
+    return {
+      isPremium: Boolean(entitlements.isPremium),
+      trialEndsAt: entitlements.trialEndsAt ?? null,
+    };
+  } catch (error) {
+    console.warn('Unable to load server entitlements.', error);
+    return null;
+  }
+}
+
+async function fetchServerSubscription(userId: string) {
+  const result = await supabase
+    .from('subscriptions')
+    .select('status, provider, current_period_end, price_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (result.error) {
+    return null;
+  }
+
+  return (result.data as SubscriptionRow | null) ?? null;
+}
+
+function isActiveSubscription(subscription: SubscriptionRow | null) {
+  if (!subscription?.status) return false;
+
+  const normalizedStatus = subscription.status.trim().toLowerCase();
+
+  if (normalizedStatus !== 'active' && normalizedStatus !== 'trialing') {
+    return false;
+  }
+
+  if (!subscription.current_period_end) {
+    return true;
+  }
+
+  const periodEnd = Date.parse(subscription.current_period_end);
+  return Number.isFinite(periodEnd) ? periodEnd > Date.now() : false;
+}
+
 export function usePremium(): PremiumState {
   const [state, setState] = useState<PremiumState>({
     isPremium: false,
@@ -30,6 +109,7 @@ export function usePremium(): PremiumState {
     trialEndsAt: null,
     isLoading: true,
   });
+  const revenueCatSyncInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,19 +138,19 @@ export function usePremium(): PremiumState {
       if (cancelled) return;
 
       const uid = user.id;
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const accessToken = session?.access_token ?? null;
 
-      const [profileResult, subResult, revenueCatCustomerInfo] = await Promise.all([
+      const [profileResult, subscriptionRow, serverEntitlements, revenueCatCustomerInfo] = await Promise.all([
         supabase
           .from('user_profiles')
           .select('trial_ends_at')
           .eq('user_id', uid)
           .maybeSingle(),
-        supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('user_id', uid)
-          .eq('status', 'active')
-          .maybeSingle(),
+        fetchServerSubscription(uid),
+        fetchServerEntitlements(accessToken),
         customerInfoOverride !== undefined
           ? Promise.resolve(customerInfoOverride)
           : canUseRevenueCat()
@@ -83,17 +163,50 @@ export function usePremium(): PremiumState {
 
       if (cancelled) return;
 
-      const trialEndsAt = profileResult.data?.trial_ends_at ?? null;
+      let resolvedServerEntitlements = serverEntitlements;
+      let resolvedSubscriptionRow = subscriptionRow;
+      const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
+      const hasSyncedSubscription = isActiveSubscription(resolvedSubscriptionRow);
+
+      if (
+        hasActiveRevenueCatEntitlement &&
+        accessToken &&
+        !revenueCatSyncInFlightRef.current &&
+        (!hasSyncedSubscription || !resolvedServerEntitlements?.isPremium)
+      ) {
+        revenueCatSyncInFlightRef.current = true;
+
+        try {
+          const syncResult = await syncRevenueCatSubscriptionToServer(
+            accessToken,
+            getCurrentRevenueCatProviderHint()
+          );
+
+          if (syncResult?.synced) {
+            const [nextSubscriptionRow, nextServerEntitlements] = await Promise.all([
+              fetchServerSubscription(uid),
+              fetchServerEntitlements(accessToken),
+            ]);
+
+            resolvedSubscriptionRow = nextSubscriptionRow ?? resolvedSubscriptionRow;
+            resolvedServerEntitlements = nextServerEntitlements ?? resolvedServerEntitlements;
+          }
+        } finally {
+          revenueCatSyncInFlightRef.current = false;
+        }
+      }
+
+      if (cancelled) return;
+
+      const trialEndsAt = resolvedServerEntitlements?.trialEndsAt ?? profileResult.data?.trial_ends_at ?? null;
       const isTrialActive = trialEndsAt
         ? new Date(trialEndsAt).getTime() > Date.now()
         : false;
-      const hasActiveSubscription =
-        !subResult.error && subResult.data?.status === 'active';
-      const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
+      const hasActiveSubscription = isActiveSubscription(resolvedSubscriptionRow);
       const hasPaidPremium = hasActiveSubscription || hasActiveRevenueCatEntitlement;
       const subscriptionProvider =
-        hasActiveSubscription && typeof subResult.data?.provider === 'string'
-          ? subResult.data.provider.trim().toLowerCase()
+        hasActiveSubscription && typeof resolvedSubscriptionRow?.provider === 'string'
+          ? (resolvedSubscriptionRow?.provider ?? '').trim().toLowerCase()
           : '';
       const paidPremiumSource: PaidPremiumSource = hasActiveSubscription
         ? subscriptionProvider === 'google' || subscriptionProvider === 'apple'
@@ -107,7 +220,8 @@ export function usePremium(): PremiumState {
               : null
           : null;
 
-      const isPremium = isTrialActive || hasPaidPremium;
+      const fallbackPremium = isTrialActive || hasActiveSubscription;
+      const isPremium = (resolvedServerEntitlements?.isPremium ?? fallbackPremium) || hasActiveRevenueCatEntitlement;
 
       setState({
         isPremium,
@@ -148,10 +262,18 @@ export function usePremium(): PremiumState {
       void checkPremium(nextUser);
     });
 
+    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void checkPremium();
+      }
+    });
+
     return () => {
       cancelled = true;
+      revenueCatSyncInFlightRef.current = false;
       removeCustomerInfoListener?.();
       subscription.unsubscribe();
+      appStateSubscription.remove();
     };
   }, []);
 

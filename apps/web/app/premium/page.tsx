@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useCallback, useState } from "react";
 
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 
@@ -9,7 +9,7 @@ const FEATURES = [
   {
     icon: "∞",
     title: "Unlimited race plans",
-    description: "Create and manage as many race plans as you need — no cap, no restrictions.",
+    description: "Create and manage as many race plans as you need - no cap, no restrictions.",
   },
   {
     icon: "⚡",
@@ -20,11 +20,6 @@ const FEATURES = [
     icon: "📤",
     title: "Export to PDF & CSV",
     description: "Download your race plan as a PDF or CSV to share with your coach or print for race day.",
-  },
-  {
-    icon: "🧪",
-    title: "Unlimited custom products",
-    description: "Add and track as many custom nutrition products as you want to your personal library.",
   },
   {
     icon: "⭐",
@@ -40,14 +35,14 @@ const FEATURES = [
 
 const FREE_LIMITS = [
   "1 race plan",
-  "1 custom product",
+  "Custom products included",
   "No PDF / CSV export",
   "No auto-fill",
 ];
 
 const PREMIUM_LIMITS = [
   "Unlimited race plans",
-  "Unlimited custom products",
+  "Priority updates",
   "PDF & CSV export",
   "Auto-fill nutrition",
 ];
@@ -96,7 +91,6 @@ export default function PremiumPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-12 py-4">
-      {/* Hero */}
       <div className="text-center space-y-4">
         <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-300">
           <span>✦</span>
@@ -106,12 +100,11 @@ export default function PremiumPage() {
           Take your race prep to the next level
         </h1>
         <p className="mx-auto max-w-xl text-base text-muted-foreground">
-          Premium unlocks everything in Pace Yourself — unlimited plans, smart auto-fill, and full export support.
+          Premium unlocks everything in Pace Yourself - unlimited plans, smart auto-fill, and full export support.
           One subscription, no surprises.
         </p>
       </div>
 
-      {/* Feature grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((feature) => (
           <div
@@ -125,22 +118,19 @@ export default function PremiumPage() {
         ))}
       </div>
 
-      {/* Free vs Premium comparison */}
       <div className="grid gap-4 sm:grid-cols-2">
-        {/* Free */}
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">Free</p>
           <ul className="space-y-2">
             {FREE_LIMITS.map((item) => (
               <li key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="text-muted-foreground/40">✗</span>
+                <span className="text-muted-foreground/40">✕</span>
                 {item}
               </li>
             ))}
           </ul>
         </div>
 
-        {/* Premium */}
         <div className="rounded-xl border border-amber-300/40 bg-amber-50/40 p-6 shadow-sm dark:border-amber-400/20 dark:bg-amber-500/5">
           <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400">
             Premium
@@ -156,7 +146,6 @@ export default function PremiumPage() {
         </div>
       </div>
 
-      {/* CTA */}
       <div className="flex flex-col items-center gap-4 text-center">
         {session ? (
           <>
@@ -169,7 +158,7 @@ export default function PremiumPage() {
               {upgradeStatus === "opening" ? (
                 <>
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950/30 border-t-slate-950" />
-                  Opening checkout…
+                  Opening checkout...
                 </>
               ) : (
                 <>✦ Get Premium</>
