@@ -96,13 +96,6 @@ jobs:
                 -v ON_ERROR_STOP=1 \
                 -v version="$CHANGELOG_VERSION" \
                 -v title="$CHANGELOG_TITLE" \
-                -v detail="$CHANGELOG_DETAIL" <<'"'"'"'"'"'"'"'"'SQL'"'"'"'"'"'"'"'"'
-              insert into public.app_changelog (version, title, detail, published_at)
-              values (:'"'"'version'"'"', :'"'"'title'"'"', :'"'"'detail'"'"', timezone('"'"'utc'"'"', now()))
-              on conflict (version) do update
-              set title = excluded.title,
-                  detail = excluded.detail,
-                  published_at = excluded.published_at,
-                  is_published = true;
-              SQL
+                -v detail="$CHANGELOG_DETAIL" \
+                -c "insert into public.app_changelog (version, title, detail, published_at) values (:'"'"'version'"'"', :'"'"'title'"'"', :'"'"'detail'"'"', timezone('"'"'utc'"'"', now())) on conflict (version) do update set title = excluded.title, detail = excluded.detail, published_at = excluded.published_at, is_published = true;"
             '
