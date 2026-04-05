@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
 import { supabase } from '../lib/supabase';
@@ -9,9 +10,12 @@ import {
   hasRevenueCatPremiumEntitlement,
 } from '../lib/revenueCat';
 
+export type PaidPremiumSource = 'web' | 'google' | 'apple' | null;
+
 interface PremiumState {
   isPremium: boolean;
   hasPaidPremium: boolean;
+  paidPremiumSource: PaidPremiumSource;
   isTrialActive: boolean;
   trialEndsAt: string | null;
   isLoading: boolean;
@@ -21,6 +25,7 @@ export function usePremium(): PremiumState {
   const [state, setState] = useState<PremiumState>({
     isPremium: false,
     hasPaidPremium: false,
+    paidPremiumSource: null,
     isTrialActive: false,
     trialEndsAt: null,
     isLoading: true,
@@ -41,6 +46,7 @@ export function usePremium(): PremiumState {
           setState({
             isPremium: false,
             hasPaidPremium: false,
+            paidPremiumSource: null,
             isTrialActive: false,
             trialEndsAt: null,
             isLoading: false,
@@ -61,7 +67,7 @@ export function usePremium(): PremiumState {
           .maybeSingle(),
         supabase
           .from('subscriptions')
-          .select('status')
+          .select('*')
           .eq('user_id', uid)
           .eq('status', 'active')
           .maybeSingle(),
@@ -85,12 +91,28 @@ export function usePremium(): PremiumState {
         !subResult.error && subResult.data?.status === 'active';
       const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
       const hasPaidPremium = hasActiveSubscription || hasActiveRevenueCatEntitlement;
+      const subscriptionProvider =
+        hasActiveSubscription && typeof subResult.data?.provider === 'string'
+          ? subResult.data.provider.trim().toLowerCase()
+          : '';
+      const paidPremiumSource: PaidPremiumSource = hasActiveSubscription
+        ? subscriptionProvider === 'google' || subscriptionProvider === 'apple'
+          ? (subscriptionProvider as PaidPremiumSource)
+          : 'web'
+        : hasActiveRevenueCatEntitlement
+          ? Platform.OS === 'android'
+            ? 'google'
+            : Platform.OS === 'ios'
+              ? 'apple'
+              : null
+          : null;
 
       const isPremium = isTrialActive || hasPaidPremium;
 
       setState({
         isPremium,
         hasPaidPremium,
+        paidPremiumSource,
         isTrialActive,
         trialEndsAt,
         isLoading: false,

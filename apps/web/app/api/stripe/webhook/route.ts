@@ -66,6 +66,7 @@ const upsertSubscription = async (params: {
 
   const payload = {
     user_id: params.userId,
+    provider: "web",
     stripe_customer_id: params.customerId,
     stripe_subscription_id: params.subscriptionId,
     status: params.status,

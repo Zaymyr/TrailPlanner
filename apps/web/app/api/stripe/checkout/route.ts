@@ -32,6 +32,7 @@ const upsertSubscriptionCustomer = async (userId: string, customerId: string) =>
     body: JSON.stringify({
       user_id: userId,
       stripe_customer_id: customerId,
+      provider: "web",
     }),
   }).catch((error) => {
     console.error("Unable to upsert subscription customer", error);

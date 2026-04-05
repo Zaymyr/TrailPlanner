@@ -103,6 +103,7 @@ export const fr: MobileTranslations = {
     trialExpiresOn: 'Expire le {date}',
     upgradeCta: 'Passer en Premium',
     upgradeCtaWithPrice: 'Passer en Premium ({price})',
+    webManagedSubscription: 'Votre abonnement Premium est gere sur le web.',
     manageSubscription: 'Modifier mon abonnement',
     restorePurchases: 'Restaurer mes achats',
     premiumFallback: 'Rendez-vous sur notre site web pour passer en Premium.',

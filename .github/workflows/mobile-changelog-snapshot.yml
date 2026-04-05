@@ -80,19 +80,21 @@ jobs:
           CHANGELOG_VERSION: ${{ steps.payload.outputs.version }}
           CHANGELOG_TITLE: ${{ steps.payload.outputs.title }}
           CHANGELOG_DETAIL: ${{ steps.payload.outputs.detail }}
-        run: |
-          docker run --rm \
-            -e SUPABASE_DB_URL_SESSION="$SUPABASE_DB_URL_SESSION" \
-            -e CHANGELOG_VERSION="$CHANGELOG_VERSION" \
-            -e CHANGELOG_TITLE="$CHANGELOG_TITLE" \
+          run: |
+            docker run --rm \
+              -e SUPABASE_DB_URL_SESSION="$SUPABASE_DB_URL_SESSION" \
+              -e CHANGELOG_VERSION="$CHANGELOG_VERSION" \
+              -e CHANGELOG_TITLE="$CHANGELOG_TITLE" \
             -e CHANGELOG_DETAIL="$CHANGELOG_DETAIL" \
-            postgres:17-alpine \
-            sh -lc '
-              TABLE_EXISTS=$(psql "$SUPABASE_DB_URL_SESSION" -tAc "select to_regclass('"'"'"'"'"'"'"'"'public.app_changelog'"'"'"'"'"'"'"'"') is not null;")
+              postgres:17-alpine \
+              sh -lc '
+              echo "Connected as: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_user;")"
+              echo "Database: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_database();")"
+              TABLE_EXISTS=$(psql "$SUPABASE_DB_URL_SESSION" -tAc "select exists (select 1 from information_schema.tables where table_schema = '"'"'"'"'"'"'"'"'public'"'"'"'"'"'"'"'"' and table_name = '"'"'"'"'"'"'"'"'app_changelog'"'"'"'"'"'"'"'"');" | tr -d '"'"'"'"'"'"'"'"'[:space:]'"'"'"'"'"'"'"'"')
 
-              if [ "$TABLE_EXISTS" != "t" ]; then
-                echo "public.app_changelog does not exist yet. Skipping snapshot insert."
-                exit 0
+              if [ "$TABLE_EXISTS" != "true" ]; then
+                echo "::error::public.app_changelog does not exist in the database targeted by SUPABASE_DB_URL_SESSION. Apply migration 20260404123000_create_app_changelog.sql or point the secret to the correct database."
+                exit 1
               fi
 
               psql "$SUPABASE_DB_URL_SESSION" \

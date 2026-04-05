@@ -145,7 +145,7 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
-  const { isPremium, hasPaidPremium, isTrialActive, trialEndsAt } = usePremium();
+  const { isPremium, hasPaidPremium, paidPremiumSource, isTrialActive, trialEndsAt } = usePremium();
   const billing = useRevenueCatBilling();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -287,6 +287,8 @@ export default function ProfileScreen() {
   const upgradeLabel = billing.currentPackage
     ? t.profile.upgradeCtaWithPrice.replace('{price}', billing.currentPackage.product.priceString)
     : t.profile.upgradeCta;
+  const isWebManagedPremium = hasPaidPremium && paidPremiumSource === 'web';
+  const canManageStoreSubscription = hasPaidPremium && paidPremiumSource !== 'web';
 
   async function handleUpgrade() {
     if (inAppBillingEnabled) {
@@ -495,15 +497,21 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ) : null}
 
-        <TouchableOpacity
-          style={[styles.manageSubscriptionButton, billingActionBusy && styles.actionButtonDisabled]}
-          onPress={() => void handleManageSubscription()}
-          disabled={billingActionBusy}
-        >
-          <Text style={styles.manageSubscriptionButtonText}>{t.profile.manageSubscription}</Text>
-        </TouchableOpacity>
+        {isWebManagedPremium ? (
+          <Text style={styles.subscriptionHint}>{t.profile.webManagedSubscription}</Text>
+        ) : null}
 
-        {inAppBillingEnabled ? (
+        {canManageStoreSubscription ? (
+          <TouchableOpacity
+            style={[styles.manageSubscriptionButton, billingActionBusy && styles.actionButtonDisabled]}
+            onPress={() => void handleManageSubscription()}
+            disabled={billingActionBusy}
+          >
+            <Text style={styles.manageSubscriptionButtonText}>{t.profile.manageSubscription}</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {inAppBillingEnabled && !isWebManagedPremium ? (
           <TouchableOpacity
             style={[styles.restorePurchasesButton, billingActionBusy && styles.actionButtonDisabled]}
             onPress={() => void handleRestorePurchases()}
@@ -781,6 +789,12 @@ const styles = StyleSheet.create({
     color: Colors.warning,
     fontSize: 13,
     marginTop: 8,
+  },
+  subscriptionHint: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 12,
   },
   upgradeButton: {
     backgroundColor: 'transparent',

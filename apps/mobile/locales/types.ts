@@ -103,6 +103,7 @@ export type MobileTranslations = {
     trialExpiresOn: string;
     upgradeCta: string;
     upgradeCtaWithPrice: string;
+    webManagedSubscription: string;
     manageSubscription: string;
     restorePurchases: string;
     premiumFallback: string;
