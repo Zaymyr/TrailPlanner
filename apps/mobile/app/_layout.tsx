@@ -20,6 +20,7 @@ import * as Notifications from 'expo-notifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider } from '../lib/i18n';
+import { ensureTrialStatusForSession } from '../lib/trial';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 
@@ -99,6 +100,12 @@ export default function RootLayout() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+
+    void ensureTrialStatusForSession(session);
+  }, [session]);
 
   // Route guard
   useEffect(() => {

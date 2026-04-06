@@ -15,6 +15,7 @@ import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { ensureTrialStatusForSession } from '../../lib/trial';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -97,13 +98,15 @@ export default function LoginScreen() {
       throw new Error('Google did not return an ID token.');
     }
 
-    const { error: idTokenError } = await supabase.auth.signInWithIdToken({
+    const { data, error: idTokenError } = await supabase.auth.signInWithIdToken({
       provider: 'google',
       token: idToken,
       access_token: accessToken,
     });
 
     if (idTokenError) throw idTokenError;
+
+    await ensureTrialStatusForSession(data.session);
   }
 
   async function handleBrowserGoogleLogin() {
@@ -135,12 +138,14 @@ export default function LoginScreen() {
       const code = new URLSearchParams(query).get('code');
 
       if (accessToken && refreshToken) {
-        await supabase.auth.setSession({
+        const { data } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
         });
+        await ensureTrialStatusForSession(data.session);
       } else if (code) {
-        await supabase.auth.exchangeCodeForSession(code);
+        const { data } = await supabase.auth.exchangeCodeForSession(code);
+        await ensureTrialStatusForSession(data.session);
       }
     }
   }
@@ -174,7 +179,7 @@ export default function LoginScreen() {
   async function handleLogin() {
     setError(null);
     setLoading(true);
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    const { data, error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -182,7 +187,10 @@ export default function LoginScreen() {
 
     if (loginError) {
       setError(loginError.message);
+      return;
     }
+
+    await ensureTrialStatusForSession(data.session);
   }
 
   return (

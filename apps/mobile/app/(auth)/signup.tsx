@@ -13,6 +13,7 @@ import { Link } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { ensureTrialStatusForSession } from '../../lib/trial';
 
 export default function SignupScreen() {
   const { t } = useI18n();
@@ -32,7 +33,7 @@ export default function SignupScreen() {
     }
 
     setLoading(true);
-    const { error: signupError } = await supabase.auth.signUp({
+    const { data, error: signupError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -51,6 +52,10 @@ export default function SignupScreen() {
         setError(signupError.message);
       }
       return;
+    }
+
+    if (data.session) {
+      await ensureTrialStatusForSession(data.session);
     }
 
     setSuccess(true);

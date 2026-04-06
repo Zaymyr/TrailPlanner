@@ -10,6 +10,7 @@ import {
   hasRevenueCatPremiumEntitlement,
 } from '../lib/revenueCat';
 import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
+import { ensureTrialStatusForSession } from '../lib/trial';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.trim() ?? '';
 
@@ -38,19 +39,46 @@ type SubscriptionRow = {
   provider?: string | null;
 };
 
+type PremiumGrantRow = {
+  ends_at?: string | null;
+  initial_duration_days?: number | null;
+  starts_at?: string | null;
+};
+
+function isActivePremiumGrant(grant: PremiumGrantRow) {
+  const startsAt = grant.starts_at ? Date.parse(grant.starts_at) : Number.NaN;
+
+  if (!Number.isFinite(startsAt) || startsAt > Date.now()) {
+    return false;
+  }
+
+  const explicitEndAt = grant.ends_at ? Date.parse(grant.ends_at) : Number.NaN;
+  if (Number.isFinite(explicitEndAt)) {
+    return explicitEndAt > Date.now();
+  }
+
+  if (!grant.initial_duration_days || grant.initial_duration_days <= 0) {
+    return false;
+  }
+
+  const computedEndAt =
+    startsAt + grant.initial_duration_days * 24 * 60 * 60 * 1000;
+
+  return computedEndAt > Date.now();
+}
+
 async function fetchActivePremiumGrant(userId: string) {
   const result = await supabase
     .from('premium_grants')
-    .select('id')
+    .select('starts_at, ends_at, initial_duration_days')
     .eq('user_id', userId)
-    .limit(1)
-    .maybeSingle();
+    .order('starts_at', { ascending: false });
 
   if (result.error) {
     return false;
   }
 
-  return Boolean(result.data);
+  return ((result.data as PremiumGrantRow[] | null) ?? []).some(isActivePremiumGrant);
 }
 
 async function fetchServerEntitlements(accessToken: string | null) {
@@ -157,6 +185,10 @@ export function usePremium(): PremiumState {
         data: { session },
       } = await supabase.auth.getSession();
       const accessToken = session?.access_token ?? null;
+
+      if (session) {
+        await ensureTrialStatusForSession(session);
+      }
 
       const [profileResult, subscriptionRow, serverEntitlements, hasActivePremiumGrant, revenueCatCustomerInfo] =
         await Promise.all([

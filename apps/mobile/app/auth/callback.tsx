@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
+import { ensureTrialStatusForSession } from '../../lib/trial';
 
 export default function AuthCallback() {
   const router = useRouter();
@@ -14,6 +15,8 @@ export default function AuthCallback() {
         router.replace('/(auth)/login');
         return;
       }
+
+      await ensureTrialStatusForSession(session);
 
       const { data: profile } = await supabase
         .from('user_profiles')

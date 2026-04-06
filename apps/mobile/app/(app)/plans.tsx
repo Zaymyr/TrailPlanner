@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -311,16 +311,17 @@ export default function PlansScreen() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-
   const syncActivePlan = useCallback(() => {
     setActivePlanId(getSession()?.plan.id ?? null);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
+      void fetchData();
       syncActivePlan();
-    }, [syncActivePlan]),
+
+      return undefined;
+    }, [fetchData, syncActivePlan]),
   );
 
   function openPremiumModal(title: string, message: string) {
