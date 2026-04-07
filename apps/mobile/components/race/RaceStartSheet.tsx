@@ -3,14 +3,19 @@ import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { Colors } from '../../constants/colors';
 import type { AlertConfirmMode } from '../../lib/raceLiveSession';
+import type { WaterOnlyReminderIntervalMinutes } from '../../lib/raceLivePlan';
 
 export type RaceStartConfig = {
   confirmMode: AlertConfirmMode;
+  includeWaterOnlyAlerts: boolean;
+  waterOnlyReminderIntervalMinutes: WaterOnlyReminderIntervalMinutes;
 };
 
 type Props = {
   visible: boolean;
   raceName: string;
+  includeWaterOnlyAlerts: boolean;
+  waterOnlyReminderIntervalMinutes: WaterOnlyReminderIntervalMinutes;
   onStart: (config: RaceStartConfig) => void;
   onCancel: () => void;
 };
@@ -44,7 +49,14 @@ const CONFIRM_MODES: Array<{
   },
 ];
 
-export function RaceStartSheet({ visible, raceName, onStart, onCancel }: Props) {
+export function RaceStartSheet({
+  visible,
+  raceName,
+  includeWaterOnlyAlerts,
+  waterOnlyReminderIntervalMinutes,
+  onStart,
+  onCancel,
+}: Props) {
   const [confirmMode, setConfirmMode] = useState<AlertConfirmMode>('manual');
 
   return (
@@ -62,6 +74,19 @@ export function RaceStartSheet({ visible, raceName, onStart, onCancel }: Props) 
             <Text style={styles.description}>
               Les notifications suivent la timeline nutrition définie dans les sections du plan.
             </Text>
+
+            <View style={styles.noticeCard}>
+              <Text style={styles.noticeTitle}>
+                {includeWaterOnlyAlerts
+                  ? `Rappels eau seule toutes les ${waterOnlyReminderIntervalMinutes} min`
+                  : 'Rappels eau seule desactives'}
+              </Text>
+              <Text style={styles.noticeText}>
+                {includeWaterOnlyAlerts
+                  ? "Le volume par prise est ajuste pour garder l'objectif d'eau du plan."
+                  : "Les prises d'eau grisees dans l'apercu ne genereront pas de notification."}
+              </Text>
+            </View>
 
             <Text style={styles.sectionLabel}>VALIDATION DES PRISES</Text>
             {CONFIRM_MODES.map((mode) => (
@@ -88,7 +113,10 @@ export function RaceStartSheet({ visible, raceName, onStart, onCancel }: Props) 
             <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
               <Text style={styles.cancelText}>Annuler</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.startButton} onPress={() => onStart({ confirmMode })}>
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={() => onStart({ confirmMode, includeWaterOnlyAlerts, waterOnlyReminderIntervalMinutes })}
+            >
               <Text style={styles.startText}>Demarrer</Text>
             </TouchableOpacity>
           </View>
@@ -144,6 +172,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1,
     marginBottom: 10,
+  },
+  noticeCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+    marginBottom: 18,
+  },
+  noticeTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  noticeText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   modeCard: {
     backgroundColor: Colors.surface,

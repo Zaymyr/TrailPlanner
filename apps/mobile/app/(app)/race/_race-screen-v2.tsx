@@ -27,13 +27,18 @@ import {
   respondToAlert,
   startRace,
   stopRace,
+  updateWaterOnlyAlertSchedule,
 } from '../../../lib/raceLiveSession';
 import type { ActiveAlert } from '../../../lib/raceLiveSession';
 import {
   buildLiveRaceSections,
+  DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN,
+  isWaterOnlyIntakeEvent,
   normalizeStoredPlanValues,
+  WATER_ONLY_REMINDER_INTERVALS,
   type LiveRaceSection,
   type StoredRacePlan,
+  type WaterOnlyReminderIntervalMinutes,
 } from '../../../lib/raceLivePlan';
 import { supabase } from '../../../lib/supabase';
 import { useI18n } from '../../../lib/i18n';
@@ -149,6 +154,9 @@ export default function RaceScreenV2() {
   const [loadingPlanName, setLoadingPlanName] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [showConfig, setShowConfig] = useState(false);
+  const [includeWaterOnlyAlerts, setIncludeWaterOnlyAlerts] = useState(true);
+  const [waterOnlyReminderIntervalMinutes, setWaterOnlyReminderIntervalMinutes] =
+    useState<WaterOnlyReminderIntervalMinutes>(DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN);
   const [racing, setRacing] = useState(false);
   const [stats, setStats] = useState<StatsState | null>(null);
   const [startedAt, setStartedAt] = useState(new Date());
@@ -167,6 +175,9 @@ export default function RaceScreenV2() {
       setLoading(true);
       setLoadingPlanName(null);
       setLoadingProgress(0.12);
+      setShowConfig(false);
+      setIncludeWaterOnlyAlerts(true);
+      setWaterOnlyReminderIntervalMinutes(DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN);
       const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
       if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
         if (!cancelled) {
@@ -222,6 +233,9 @@ export default function RaceScreenV2() {
 
       const existingSession = getSession();
       if (existingSession?.plan.id === nextPlan.id) {
+        const sessionWaterInterval = existingSession.waterOnlyReminderIntervalMinutes;
+        setIncludeWaterOnlyAlerts(sessionWaterInterval !== null);
+        setWaterOnlyReminderIntervalMinutes(sessionWaterInterval ?? DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN);
         setRacing(true);
         setStartedAt(new Date(existingSession.startedAt));
         setStats(getNutritionStats(existingSession));
@@ -277,16 +291,39 @@ export default function RaceScreenV2() {
   }, [racing, refreshSession]);
 
   const liveSections = useMemo<LiveRaceSection[]>(
-    () => (plan ? buildLiveRaceSections(plan, productMap) : []),
-    [plan, productMap],
+    () =>
+      plan
+        ? buildLiveRaceSections(plan, productMap, {
+            waterOnlyReminderIntervalMinutes,
+          })
+        : [],
+    [plan, productMap, waterOnlyReminderIntervalMinutes],
   );
   const totalDurationMin = useMemo(
     () => liveSections.reduce((sum, section) => sum + section.durationMin, 0),
     [liveSections],
   );
   const totalAlerts = useMemo(
-    () => liveSections.reduce((sum, section) => sum + section.timeline.length, 0),
-    [liveSections],
+    () =>
+      liveSections.reduce(
+        (sum, section) =>
+          sum + section.timeline.filter((event) => includeWaterOnlyAlerts || !isWaterOnlyIntakeEvent(event)).length,
+        0,
+      ),
+    [includeWaterOnlyAlerts, liveSections],
+  );
+
+  const applyWaterReminderConfig = useCallback(
+    (nextIncludeWaterOnlyAlerts: boolean, nextIntervalMinutes: WaterOnlyReminderIntervalMinutes) => {
+      setIncludeWaterOnlyAlerts(nextIncludeWaterOnlyAlerts);
+      setWaterOnlyReminderIntervalMinutes(nextIntervalMinutes);
+
+      if (racing) {
+        updateWaterOnlyAlertSchedule(productMap, nextIncludeWaterOnlyAlerts ? nextIntervalMinutes : null);
+        refreshSession();
+      }
+    },
+    [productMap, racing, refreshSession],
   );
 
   const handleStart = useCallback(
@@ -302,7 +339,10 @@ export default function RaceScreenV2() {
         return;
       }
 
-      await startRace(plan, productMap, config.confirmMode);
+      await startRace(plan, productMap, config.confirmMode, {
+        includeWaterOnlyAlerts: config.includeWaterOnlyAlerts,
+        waterOnlyReminderIntervalMinutes: config.waterOnlyReminderIntervalMinutes,
+      });
       setShowConfig(false);
       setRacing(true);
       refreshSession();
@@ -422,6 +462,50 @@ export default function RaceScreenV2() {
                 <Text style={styles.summaryChip}>{Math.round(plan.targetWaterPerHour)} ml/h</Text>
                 <Text style={styles.summaryChip}>{Math.round(plan.targetSodiumPerHour)} mg/h</Text>
               </View>
+              <View style={[styles.waterToggleCard, !includeWaterOnlyAlerts && styles.waterToggleCardDisabled]}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={styles.waterToggleHeader}
+                  onPress={() => applyWaterReminderConfig(!includeWaterOnlyAlerts, waterOnlyReminderIntervalMinutes)}
+                >
+                  <View style={styles.waterToggleCopy}>
+                    <Text style={styles.waterToggleTitle}>Rappels eau seule</Text>
+                    <Text style={styles.waterToggleText}>
+                      {includeWaterOnlyAlerts
+                        ? `Toutes les ${waterOnlyReminderIntervalMinutes} min, volume ajuste par prise.`
+                        : "Les prises d'eau seule sont grisees et sans notification."}
+                    </Text>
+                  </View>
+                  <View style={[styles.waterToggleSwitch, includeWaterOnlyAlerts && styles.waterToggleSwitchActive]}>
+                    <View style={[styles.waterToggleKnob, includeWaterOnlyAlerts && styles.waterToggleKnobActive]} />
+                  </View>
+                </TouchableOpacity>
+                <View style={styles.waterIntervalRow}>
+                  {WATER_ONLY_REMINDER_INTERVALS.map((minutes) => (
+                    <TouchableOpacity
+                      key={minutes}
+                      activeOpacity={0.85}
+                      disabled={!includeWaterOnlyAlerts}
+                      style={[
+                        styles.waterIntervalButton,
+                        waterOnlyReminderIntervalMinutes === minutes && includeWaterOnlyAlerts && styles.waterIntervalButtonActive,
+                        !includeWaterOnlyAlerts && styles.waterIntervalButtonDisabled,
+                      ]}
+                      onPress={() => applyWaterReminderConfig(true, minutes)}
+                    >
+                      <Text
+                        style={[
+                          styles.waterIntervalText,
+                          waterOnlyReminderIntervalMinutes === minutes && includeWaterOnlyAlerts && styles.waterIntervalTextActive,
+                          !includeWaterOnlyAlerts && styles.waterIntervalTextDisabled,
+                        ]}
+                      >
+                        {minutes} min
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
             </View>
 
             <Text style={styles.sectionHeading}>Aperçu des prises</Text>
@@ -458,17 +542,28 @@ export default function RaceScreenV2() {
                   {section.timeline.length === 0 ? (
                     <Text style={styles.timelineEmpty}>Aucune prise planifiée sur cette section.</Text>
                   ) : (
-                    section.timeline.map((event) => (
-                      <View key={event.id} style={styles.timelineRow}>
-                        <View style={styles.timelineMinute}>
-                          <Text style={styles.timelineMinuteText}>{Math.round(event.minute)} min</Text>
+                    section.timeline.map((event) => {
+                      const waterOnlyDisabled = !includeWaterOnlyAlerts && isWaterOnlyIntakeEvent(event);
+
+                      return (
+                        <View key={event.id} style={[styles.timelineRow, waterOnlyDisabled && styles.timelineRowDisabled]}>
+                          <View style={styles.timelineMinute}>
+                            <Text style={[styles.timelineMinuteText, waterOnlyDisabled && styles.timelineTextDisabled]}>
+                              {Math.round(event.minute)} min
+                            </Text>
+                          </View>
+                          <View style={styles.timelineContent}>
+                            <Text style={[styles.timelineLabel, waterOnlyDisabled && styles.timelineTextDisabled]}>
+                              {event.label}
+                              {waterOnlyDisabled ? ' - pas de notif' : ''}
+                            </Text>
+                            <Text style={[styles.timelineDetail, waterOnlyDisabled && styles.timelineTextDisabled]}>
+                              {event.detail}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={styles.timelineContent}>
-                          <Text style={styles.timelineLabel}>{event.label}</Text>
-                          <Text style={styles.timelineDetail}>{event.detail}</Text>
-                        </View>
-                      </View>
-                    ))
+                      );
+                    })
                   )}
                 </View>
               ))
@@ -484,7 +579,14 @@ export default function RaceScreenV2() {
           </View>
         </View>
 
-        <RaceStartSheet visible={showConfig} raceName={plan.name} onStart={handleStart} onCancel={() => setShowConfig(false)} />
+        <RaceStartSheet
+          visible={showConfig}
+          raceName={plan.name}
+          includeWaterOnlyAlerts={includeWaterOnlyAlerts}
+          waterOnlyReminderIntervalMinutes={waterOnlyReminderIntervalMinutes}
+          onStart={handleStart}
+          onCancel={() => setShowConfig(false)}
+        />
 
         <Modal visible={showTimePicker} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -552,6 +654,51 @@ export default function RaceScreenV2() {
           <Text style={styles.liveSummary}>
             {Math.round(stats?.totalCarbsConsumed ?? 0)} g glucides pris · {Math.round(stats?.totalWaterConsumed ?? 0)} ml eau
           </Text>
+        </View>
+
+        <View style={[styles.waterToggleCard, !includeWaterOnlyAlerts && styles.waterToggleCardDisabled]}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.waterToggleHeader}
+            onPress={() => applyWaterReminderConfig(!includeWaterOnlyAlerts, waterOnlyReminderIntervalMinutes)}
+          >
+            <View style={styles.waterToggleCopy}>
+              <Text style={styles.waterToggleTitle}>Rappels eau seule</Text>
+              <Text style={styles.waterToggleText}>
+                {includeWaterOnlyAlerts
+                  ? `Toutes les ${waterOnlyReminderIntervalMinutes} min pour les prochains rappels.`
+                  : "Les prochains rappels d'eau seule sont coupes."}
+              </Text>
+            </View>
+            <View style={[styles.waterToggleSwitch, includeWaterOnlyAlerts && styles.waterToggleSwitchActive]}>
+              <View style={[styles.waterToggleKnob, includeWaterOnlyAlerts && styles.waterToggleKnobActive]} />
+            </View>
+          </TouchableOpacity>
+          <View style={styles.waterIntervalRow}>
+            {WATER_ONLY_REMINDER_INTERVALS.map((minutes) => (
+              <TouchableOpacity
+                key={minutes}
+                activeOpacity={0.85}
+                disabled={!includeWaterOnlyAlerts}
+                style={[
+                  styles.waterIntervalButton,
+                  waterOnlyReminderIntervalMinutes === minutes && includeWaterOnlyAlerts && styles.waterIntervalButtonActive,
+                  !includeWaterOnlyAlerts && styles.waterIntervalButtonDisabled,
+                ]}
+                onPress={() => applyWaterReminderConfig(true, minutes)}
+              >
+                <Text
+                  style={[
+                    styles.waterIntervalText,
+                    waterOnlyReminderIntervalMinutes === minutes && includeWaterOnlyAlerts && styles.waterIntervalTextActive,
+                    !includeWaterOnlyAlerts && styles.waterIntervalTextDisabled,
+                  ]}
+                >
+                  {minutes} min
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <Text style={styles.sectionHeading}>Prochaine prise</Text>
@@ -795,6 +942,94 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
+  waterToggleCard: {
+    marginTop: 14,
+    marginBottom: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    padding: 14,
+    gap: 12,
+  },
+  waterToggleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  waterToggleCardDisabled: {
+    backgroundColor: Colors.surfaceMuted,
+  },
+  waterToggleCopy: {
+    flex: 1,
+  },
+  waterToggleTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  waterToggleText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  waterToggleSwitch: {
+    width: 46,
+    height: 28,
+    borderRadius: 999,
+    padding: 3,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  waterToggleSwitchActive: {
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
+  },
+  waterToggleKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.textMuted,
+  },
+  waterToggleKnobActive: {
+    backgroundColor: Colors.textOnBrand,
+    transform: [{ translateX: 18 }],
+  },
+  waterIntervalRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  waterIntervalButton: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  waterIntervalButtonActive: {
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
+  },
+  waterIntervalButtonDisabled: {
+    backgroundColor: Colors.surfaceMuted,
+  },
+  waterIntervalText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  waterIntervalTextActive: {
+    color: Colors.brandPrimary,
+  },
+  waterIntervalTextDisabled: {
+    color: Colors.textMuted,
+  },
   sectionCard: {
     backgroundColor: Colors.surface,
     borderRadius: 18,
@@ -856,6 +1091,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
+  timelineRowDisabled: {
+    opacity: 0.42,
+  },
   timelineMinute: {
     width: 62,
     borderRadius: 12,
@@ -883,6 +1121,9 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
+  },
+  timelineTextDisabled: {
+    color: Colors.textMuted,
   },
   timelineEmpty: {
     color: Colors.textSecondary,
