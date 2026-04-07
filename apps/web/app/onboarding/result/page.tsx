@@ -6,6 +6,7 @@ import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition, getInsightMessage, formatEstimatedTime, formatAveragePace } from "../../../lib/nutrition";
 import { ElevationProfileChart } from "../../(coach)/race-planner/components/ElevationProfileChart";
 import type { RacePlannerTranslations } from "../../../locales/types";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 const ELEVATION_COPY = {
   sections: {
@@ -105,6 +106,18 @@ export default function ResultPage() {
     { name: "Arrivée", distanceKm: distance },
   ];
 
+  function trackResultAction(action: "result_improve_plan" | "result_continue_app") {
+    trackOnboardingEvent("action", {
+      action,
+      aid_station_count: state.checkpoints?.length ?? 0,
+      distance_km: distance,
+      elevation_gain_m: elevation,
+      goal,
+      has_elevation_profile: Boolean(state.elevationProfile && state.elevationProfile.length > 1),
+      step_name: "result",
+    });
+  }
+
   return (
     <div className="flex flex-col gap-3 px-6 pt-10 pb-8">
       <div className="flex flex-col gap-1">
@@ -193,14 +206,20 @@ export default function ResultPage() {
       >
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => router.push("/onboarding/nutrition")}
+            onClick={() => {
+              trackResultAction("result_improve_plan");
+              router.push("/onboarding/nutrition");
+            }}
             className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80"
             style={{ backgroundColor: "#2D5016" }}
           >
             Améliorer mon plan
           </button>
           <button
-            onClick={() => router.push("/onboarding/account")}
+            onClick={() => {
+              trackResultAction("result_continue_app");
+              router.push("/onboarding/account");
+            }}
             className="text-center text-sm font-medium underline underline-offset-2"
             style={{ color: "#2D5016" }}
           >

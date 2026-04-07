@@ -53,6 +53,12 @@ function formatDate(iso: string, locale: string): string {
   });
 }
 
+function getRemainingDays(iso: string): number {
+  const endTime = new Date(iso).getTime();
+  if (!Number.isFinite(endTime)) return 0;
+  return Math.max(0, Math.ceil((endTime - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
 function formatBirthDateInput(value: string | null): string {
   if (!value) return '';
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -146,7 +152,15 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
-  const { isPremium, hasPaidPremium, paidPremiumSource, isTrialActive, trialEndsAt } = usePremium();
+  const {
+    isPremium,
+    hasPaidPremium,
+    paidPremiumSource,
+    subscriptionRenewalAt,
+    premiumGrant,
+    isTrialActive,
+    trialEndsAt,
+  } = usePremium();
   const billing = useRevenueCatBilling();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -289,8 +303,6 @@ export default function ProfileScreen() {
     ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
     : t.profile.premiumAnnualFallbackCta;
   const isWebManagedPremium = hasPaidPremium && paidPremiumSource === 'web';
-  const canManageStoreSubscription =
-    hasPaidPremium && paidPremiumSource !== 'web' && paidPremiumSource !== null;
 
   async function handleUpgrade() {
     if (inAppBillingEnabled) {
@@ -319,7 +331,7 @@ export default function ProfileScreen() {
   }
 
   async function handleManageSubscription() {
-    if (inAppBillingEnabled) {
+    if (paidPremiumSource !== 'web' && inAppBillingEnabled) {
       const storeUrl = billing.managementUrl ?? PLAY_SUBSCRIPTIONS_URL;
       const openedStore = await openExternalUrl(storeUrl, t.profile.subscriptionFallback);
       if (openedStore) {
@@ -392,10 +404,14 @@ export default function ProfileScreen() {
   }
 
   const appVersion = Constants.expoConfig?.version ?? '-';
-  const showTrialActive = !hasPaidPremium && isTrialActive && trialEndsAt;
+  const showAdminGrant = !hasPaidPremium && premiumGrant !== null;
+  const showTrialActive = !hasPaidPremium && !showAdminGrant && isTrialActive && trialEndsAt;
   const showTrialExpired = !isPremium && !isTrialActive && trialEndsAt;
   const showFree = !isPremium && !trialEndsAt;
   const showPremiumBadge = isPremium && !showTrialActive;
+  const trialRemainingDays = trialEndsAt ? getRemainingDays(trialEndsAt) : 0;
+  const canManagePaidSubscription = hasPaidPremium;
+  const showUpgradeAction = !hasPaidPremium && !showAdminGrant;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -481,12 +497,44 @@ export default function ProfileScreen() {
         </View>
 
         {showTrialActive && trialEndsAt ? (
-          <Text style={styles.trialSubtitle}>
-            {t.profile.trialExpiresOn.replace('{date}', formatDate(trialEndsAt, locale))}
-          </Text>
+          <View style={styles.premiumSourceCard}>
+            <Text style={styles.premiumSourceTitle}>{t.profile.premiumSourceTrial}</Text>
+            <Text style={styles.premiumSourceText}>
+              {t.profile.trialDaysRemaining.replace('{days}', String(trialRemainingDays))}
+            </Text>
+            <Text style={styles.premiumSourceMeta}>
+              {t.profile.trialExpiresOn.replace('{date}', formatDate(trialEndsAt, locale))}
+            </Text>
+          </View>
         ) : null}
 
-        {!isPremium ? (
+        {hasPaidPremium ? (
+          <View style={styles.premiumSourceCard}>
+            <Text style={styles.premiumSourceTitle}>{t.profile.premiumSourceSubscription}</Text>
+            <Text style={styles.premiumSourceText}>
+              {subscriptionRenewalAt
+                ? t.profile.subscriptionRenewsOn.replace('{date}', formatDate(subscriptionRenewalAt, locale))
+                : t.profile.subscriptionActive}
+            </Text>
+          </View>
+        ) : null}
+
+        {showAdminGrant && premiumGrant ? (
+          <View style={styles.premiumSourceCard}>
+            <Text style={styles.premiumSourceTitle}>{t.profile.premiumSourceAdminGrant}</Text>
+            <Text style={styles.premiumSourceText}>
+              {t.profile.adminGrantReason.replace(
+                '{reason}',
+                premiumGrant.reason || t.profile.adminGrantReasonFallback,
+              )}
+            </Text>
+            <Text style={styles.premiumSourceMeta}>
+              {t.profile.adminGrantDaysRemaining.replace('{days}', String(premiumGrant.remainingDays))}
+            </Text>
+          </View>
+        ) : null}
+
+        {showUpgradeAction ? (
           <View style={styles.premiumBenefitsCard}>
             <Text style={styles.premiumBenefitsTitle}>{t.profile.premiumBenefitsTitle}</Text>
             <View style={styles.premiumBenefitRow}>
@@ -504,7 +552,7 @@ export default function ProfileScreen() {
           </View>
         ) : null}
 
-        {!isPremium ? (
+        {showUpgradeAction ? (
           <TouchableOpacity
             style={[styles.upgradeButton, billingActionBusy && styles.actionButtonDisabled]}
             onPress={() => void handleUpgrade()}
@@ -522,7 +570,7 @@ export default function ProfileScreen() {
           <Text style={styles.subscriptionHint}>{t.profile.webManagedSubscription}</Text>
         ) : null}
 
-        {canManageStoreSubscription ? (
+        {canManagePaidSubscription ? (
           <TouchableOpacity
             style={[styles.manageSubscriptionButton, billingActionBusy && styles.actionButtonDisabled]}
             onPress={() => void handleManageSubscription()}
@@ -806,10 +854,31 @@ const styles = StyleSheet.create({
   statusBadgeTextTrial: {
     color: Colors.warning,
   },
-  trialSubtitle: {
-    color: Colors.warning,
+  premiumSourceCard: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 14,
+    marginTop: 14,
+  },
+  premiumSourceTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 6,
+  },
+  premiumSourceText: {
+    color: Colors.textSecondary,
     fontSize: 13,
-    marginTop: 8,
+    lineHeight: 18,
+  },
+  premiumSourceMeta: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginTop: 6,
   },
   subscriptionHint: {
     color: Colors.textSecondary,

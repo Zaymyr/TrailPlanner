@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import type { Goal } from "../../../contexts/OnboardingContext";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 type GoalOption = {
   value: Goal;
@@ -55,7 +56,14 @@ export default function GoalPage() {
           return (
             <button
               key={goal.value}
-              onClick={() => setSelectedGoal(goal.value)}
+              onClick={() => {
+                setSelectedGoal(goal.value);
+                trackOnboardingEvent("action", {
+                  action: "goal_selected",
+                  goal: goal.value,
+                  step_name: "goal",
+                });
+              }}
               className="flex w-full items-center gap-4 rounded-2xl p-5 text-left transition-all active:scale-[0.98]"
               style={{
                 backgroundColor: "#ffffff",
@@ -97,7 +105,18 @@ export default function GoalPage() {
       >
         <button
           onClick={() => {
-            if (!selectedGoal) return;
+            if (!selectedGoal) {
+              trackOnboardingEvent("validation_error", {
+                reason: "missing_goal",
+                step_name: "goal",
+              });
+              return;
+            }
+            trackOnboardingEvent("action", {
+              action: "goal_continue",
+              goal: selectedGoal,
+              step_name: "goal",
+            });
             setGoal(selectedGoal);
             router.push("/onboarding/loading");
           }}

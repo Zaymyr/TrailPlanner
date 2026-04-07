@@ -56,6 +56,7 @@ type Props = {
   productData?: PlanProductsBootstrap | null;
   elevationProfile?: ElevationPoint[];
   compactBasicsByDefault?: boolean;
+  onMissingFavoriteProducts?: () => void;
 };
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
@@ -83,6 +84,7 @@ export default function PlanForm({
   productData,
   elevationProfile = [],
   compactBasicsByDefault = false,
+  onMissingFavoriteProducts,
 }: Props) {
   const { t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
@@ -190,6 +192,7 @@ export default function PlanForm({
     isPremium,
     elevationProfile,
     onRequirePremium: openPremiumUpsell,
+    onMissingFavoriteProducts,
   });
 
   const basePaceMinutesPerKm = 60 / baseSpeedKph;

@@ -28,6 +28,7 @@ type Args = {
   isPremium: boolean;
   elevationProfile?: ElevationPoint[];
   onRequirePremium: () => void;
+  onMissingFavoriteProducts?: () => void;
 };
 
 type PoolProduct = FavProduct & {
@@ -161,6 +162,7 @@ export function usePlanSupplies({
   isPremium,
   elevationProfile = [],
   onRequirePremium,
+  onMissingFavoriteProducts,
 }: Args) {
   const replaceAidStations = useCallback(
     (aidStations: AidStationFormItem[], resetSectionSegments = false) => {
@@ -326,17 +328,20 @@ export function usePlanSupplies({
       (product) => (product.carbs_g ?? 0) > 0 || (product.sodium_mg ?? 0) > 0,
     );
     const favoriteUsableProducts = allUsableProducts.filter((product) => latestFavoriteIds.has(product.id));
-    const pool = favoriteUsableProducts.length > 0 ? favoriteUsableProducts : allUsableProducts;
 
-    if (pool.length === 0) {
-      Alert.alert(
-        'Aucun produit disponible',
-        'Ajoutez des produits a vos favoris pour utiliser le remplissage automatique',
-      );
+    if (favoriteUsableProducts.length === 0) {
+      if (onMissingFavoriteProducts) {
+        onMissingFavoriteProducts();
+      } else {
+        Alert.alert(
+          'Aucun favori nutrition',
+          "Ajoutez des produits a vos favoris dans l'onglet Nutrition pour utiliser le remplissage automatique.",
+        );
+      }
       return;
     }
 
-    const poolAsFavorites: PoolProduct[] = pool.map((product) => ({
+    const poolAsFavorites: PoolProduct[] = favoriteUsableProducts.map((product) => ({
       id: product.id,
       name: product.name,
       carbsGrams: product.carbs_g ?? 0,
@@ -430,6 +435,7 @@ export function usePlanSupplies({
     elevationProfile,
     favoriteProductIds,
     isPremium,
+    onMissingFavoriteProducts,
     onRequirePremium,
     setFavoriteProductIds,
     setValues,

@@ -118,6 +118,15 @@ export type MobileTranslations = {
     trialExpiredLabel: string;
     freeLabel: string;
     trialExpiresOn: string;
+    trialDaysRemaining: string;
+    premiumSourceTrial: string;
+    premiumSourceSubscription: string;
+    premiumSourceAdminGrant: string;
+    subscriptionActive: string;
+    subscriptionRenewsOn: string;
+    adminGrantReason: string;
+    adminGrantReasonFallback: string;
+    adminGrantDaysRemaining: string;
     upgradeCta: string;
     upgradeCtaWithPrice: string;
     premiumAnnualCta: string;

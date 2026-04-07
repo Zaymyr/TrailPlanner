@@ -1,5 +1,6 @@
 import React from "react";
 import { OnboardingProvider } from "../../contexts/OnboardingContext";
+import { OnboardingAnalyticsTracker } from "./onboarding-analytics-tracker";
 
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         flexDirection: 'column',
         zIndex: 9999,
       }}>
+        <OnboardingAnalyticsTracker />
         {children}
       </div>
     </OnboardingProvider>

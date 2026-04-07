@@ -7,6 +7,7 @@ import {
   addRevenueCatCustomerInfoListener,
   canUseRevenueCat,
   getRevenueCatCustomerInfo,
+  getRevenueCatPremiumExpiration,
   hasRevenueCatPremiumEntitlement,
 } from '../lib/revenueCat';
 import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
@@ -17,10 +18,20 @@ const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.trim() ?? '';
 
 export type PaidPremiumSource = 'web' | 'google' | 'apple' | null;
 
+export type ActivePremiumGrant = {
+  startsAt: string;
+  endsAt: string;
+  initialDurationDays: number;
+  reason: string;
+  remainingDays: number;
+};
+
 interface PremiumState {
   isPremium: boolean;
   hasPaidPremium: boolean;
   paidPremiumSource: PaidPremiumSource;
+  subscriptionRenewalAt: string | null;
+  premiumGrant: ActivePremiumGrant | null;
   isTrialActive: boolean;
   trialEndsAt: string | null;
   isLoading: boolean;
@@ -43,43 +54,64 @@ type SubscriptionRow = {
 type PremiumGrantRow = {
   ends_at?: string | null;
   initial_duration_days?: number | null;
+  reason?: string | null;
   starts_at?: string | null;
 };
 
-function isActivePremiumGrant(grant: PremiumGrantRow) {
+function getPremiumGrantEndAt(grant: PremiumGrantRow) {
   const startsAt = grant.starts_at ? Date.parse(grant.starts_at) : Number.NaN;
 
-  if (!Number.isFinite(startsAt) || startsAt > Date.now()) {
-    return false;
+  if (!Number.isFinite(startsAt)) {
+    return null;
   }
 
   const explicitEndAt = grant.ends_at ? Date.parse(grant.ends_at) : Number.NaN;
   if (Number.isFinite(explicitEndAt)) {
-    return explicitEndAt > Date.now();
+    return new Date(explicitEndAt);
   }
 
   if (!grant.initial_duration_days || grant.initial_duration_days <= 0) {
-    return false;
+    return null;
   }
 
   const computedEndAt =
     startsAt + grant.initial_duration_days * 24 * 60 * 60 * 1000;
 
-  return computedEndAt > Date.now();
+  return new Date(computedEndAt);
+}
+
+function buildActivePremiumGrant(grant: PremiumGrantRow): ActivePremiumGrant | null {
+  const startsAt = grant.starts_at ? Date.parse(grant.starts_at) : Number.NaN;
+  const endsAt = getPremiumGrantEndAt(grant);
+  const now = Date.now();
+
+  if (!Number.isFinite(startsAt) || startsAt > now || !endsAt || endsAt.getTime() <= now) {
+    return null;
+  }
+
+  return {
+    startsAt: grant.starts_at ?? new Date(startsAt).toISOString(),
+    endsAt: endsAt.toISOString(),
+    initialDurationDays: grant.initial_duration_days ?? 0,
+    reason: grant.reason?.trim() ?? '',
+    remainingDays: Math.max(0, Math.ceil((endsAt.getTime() - now) / (24 * 60 * 60 * 1000))),
+  };
 }
 
 async function fetchActivePremiumGrant(userId: string) {
   const result = await supabase
     .from('premium_grants')
-    .select('starts_at, ends_at, initial_duration_days')
+    .select('starts_at, ends_at, initial_duration_days, reason')
     .eq('user_id', userId)
     .order('starts_at', { ascending: false });
 
   if (result.error) {
-    return false;
+    return null;
   }
 
-  return ((result.data as PremiumGrantRow[] | null) ?? []).some(isActivePremiumGrant);
+  return ((result.data as PremiumGrantRow[] | null) ?? [])
+    .map(buildActivePremiumGrant)
+    .find((grant): grant is ActivePremiumGrant => grant !== null) ?? null;
 }
 
 async function fetchServerEntitlements(accessToken: string | null) {
@@ -149,6 +181,8 @@ export function usePremium(): PremiumState {
     isPremium: false,
     hasPaidPremium: false,
     paidPremiumSource: null,
+    subscriptionRenewalAt: null,
+    premiumGrant: null,
     isTrialActive: false,
     trialEndsAt: null,
     isLoading: true,
@@ -171,6 +205,8 @@ export function usePremium(): PremiumState {
             isPremium: false,
             hasPaidPremium: false,
             paidPremiumSource: null,
+            subscriptionRenewalAt: null,
+            premiumGrant: null,
             isTrialActive: false,
             trialEndsAt: null,
             isLoading: false,
@@ -191,7 +227,7 @@ export function usePremium(): PremiumState {
         await ensureTrialStatusForSession(session);
       }
 
-      const [profileResult, subscriptionRow, serverEntitlements, hasActivePremiumGrant, revenueCatCustomerInfo] =
+      const [profileResult, subscriptionRow, serverEntitlements, activePremiumGrant, revenueCatCustomerInfo] =
         await Promise.all([
         supabase
           .from('user_profiles')
@@ -254,6 +290,11 @@ export function usePremium(): PremiumState {
         : false;
       const hasActiveSubscription = isActiveSubscription(resolvedSubscriptionRow);
       const hasPaidPremium = hasActiveSubscription || hasActiveRevenueCatEntitlement;
+      const subscriptionRenewalAt = hasActiveSubscription
+        ? (resolvedSubscriptionRow?.current_period_end ?? getRevenueCatPremiumExpiration(revenueCatCustomerInfo))
+        : hasActiveRevenueCatEntitlement
+          ? getRevenueCatPremiumExpiration(revenueCatCustomerInfo)
+          : null;
       const subscriptionProvider =
         hasActiveSubscription && typeof resolvedSubscriptionRow?.provider === 'string'
           ? (resolvedSubscriptionRow?.provider ?? '').trim().toLowerCase()
@@ -270,13 +311,15 @@ export function usePremium(): PremiumState {
               : null
           : null;
 
-      const fallbackPremium = isTrialActive || hasActiveSubscription || hasActivePremiumGrant;
+      const fallbackPremium = isTrialActive || hasActiveSubscription || activePremiumGrant !== null;
       const isPremium = (resolvedServerEntitlements?.isPremium ?? fallbackPremium) || hasActiveRevenueCatEntitlement;
 
       setState({
         isPremium,
         hasPaidPremium,
         paidPremiumSource,
+        subscriptionRenewalAt,
+        premiumGrant: activePremiumGrant,
         isTrialActive,
         trialEndsAt,
         isLoading: false,

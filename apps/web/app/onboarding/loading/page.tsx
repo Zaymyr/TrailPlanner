@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 const STEPS = [
   "Analyse de ta course",
@@ -26,6 +27,11 @@ export default function LoadingPage() {
     });
 
     const redirectTimer = setTimeout(() => {
+      trackOnboardingEvent("action", {
+        action: "loading_complete",
+        completed_steps: STEPS.length,
+        step_name: "loading",
+      });
       router.push("/onboarding/result");
     }, STEPS.length * 800 + 600);
 
