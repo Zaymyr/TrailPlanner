@@ -14,6 +14,7 @@ import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
 import { Button } from "../../../components/ui/button";
 import type { FuelProduct } from "../../../lib/product-types";
 import type { NutritionItem } from "../../../lib/nutrition-planner";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 const FUEL_TYPE_COLOR: Record<string, string> = {
   gel: "#fbbf24",
@@ -145,6 +146,15 @@ export default function ImprovePage() {
   }, [allStationsWithNutrition]);
 
   function handleCTA() {
+    trackOnboardingEvent("action", {
+      action: "improve_continue_account",
+      fuel_type_count: state.fuelTypes.length,
+      fuel_types: state.fuelTypes.join(","),
+      hidden_station_count: hiddenCount,
+      preview_station_count: previewStations.length,
+      station_count: allStationsWithNutrition.length,
+      step_name: "improve",
+    });
     setComputedNutrition(
       allStationsWithNutrition.map((s) => ({
         name: s.name,

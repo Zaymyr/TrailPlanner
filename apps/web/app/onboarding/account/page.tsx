@@ -7,6 +7,7 @@ import { calculateNutrition, calculateAdjustedPace } from "../../../lib/nutritio
 import { saveOnboardingToLocalStorage, clearOnboardingFromLocalStorage } from "../../../lib/supabase-onboarding";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
 import { buildSupabaseOAuthUrl } from "../../../lib/oauth";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 // Module-level guard survives React StrictMode double-mount within the same session.
 let _planSaved = false;
@@ -64,6 +65,14 @@ export default function AccountPage() {
     fuelTypes: state.fuelTypes,
   };
 
+  const getAccountAnalyticsParams = () => ({
+    distance_km: distance,
+    elevation_gain_m: elevation,
+    goal,
+    is_mobile_device: isMobileDevice ?? undefined,
+    step_name: "account",
+  });
+
   useEffect(() => {
     setIsMobileDevice(detectMobileDevice());
   }, []);
@@ -72,6 +81,11 @@ export default function AccountPage() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    let planSaved = false;
+    trackOnboardingEvent("action", {
+      ...getAccountAnalyticsParams(),
+      action: "signup_email_submit",
+    });
 
     try {
       console.log("[onboarding-signup] form submitted");
@@ -107,6 +121,12 @@ export default function AccountPage() {
       console.log("[onboarding-signup] all localStorage keys:", Object.keys(localStorage));
 
       if (!response.ok) {
+        trackOnboardingEvent("error", {
+          ...getAccountAnalyticsParams(),
+          action: "signup_email_error",
+          error_message: data?.message ?? "unknown",
+          response_status: response.status,
+        });
         setError(data?.message ?? "Impossible de créer le compte.");
         return;
       }
@@ -162,6 +182,7 @@ export default function AccountPage() {
           });
           console.log("[onboarding-signup] save-plan response:", planRes.status);
           if (planRes.ok) {
+            planSaved = true;
             const { plan } = (await planRes.json().catch(() => null)) as { plan?: { id?: string } } ?? {};
             if (plan?.id) localStorage.setItem("trailplanner.pendingPlanId", plan.id);
             sessionStorage.setItem('onboarding_plan_saved', '1');
@@ -177,9 +198,21 @@ export default function AccountPage() {
         }
       }
 
+      trackOnboardingEvent("action", {
+        ...getAccountAnalyticsParams(),
+        action: "signup_email_success",
+        plan_saved: planSaved,
+        requires_email_confirmation: Boolean(data?.requiresEmailConfirmation),
+        response_status: response.status,
+      });
       setConfirmed(true);
     } catch (err) {
       console.error("Sign up error", err);
+      trackOnboardingEvent("error", {
+        ...getAccountAnalyticsParams(),
+        action: "signup_email_exception",
+        error_message: err instanceof Error ? err.message : "unknown",
+      });
       setError("Une erreur est survenue. Réessaie.");
     } finally {
       setSubmitting(false);
@@ -187,6 +220,10 @@ export default function AccountPage() {
   }
 
   function handleGoogleSignUp() {
+    trackOnboardingEvent("action", {
+      ...getAccountAnalyticsParams(),
+      action: "signup_google_clicked",
+    });
     saveOnboardingToLocalStorage(planData);
     try {
       const url = buildSupabaseOAuthUrl({
@@ -196,16 +233,29 @@ export default function AccountPage() {
       window.location.href = url;
     } catch (err) {
       setError("Impossible de lancer la connexion Google.");
+      trackOnboardingEvent("error", {
+        ...getAccountAnalyticsParams(),
+        action: "signup_google_error",
+        error_message: err instanceof Error ? err.message : "unknown",
+      });
       console.error(err);
     }
   }
 
   function handleSkip() {
+    trackOnboardingEvent("action", {
+      ...getAccountAnalyticsParams(),
+      action: "account_skip",
+    });
     saveOnboardingToLocalStorage(planData);
     router.push("/app" as any);
   }
 
   function handleDownloadApp() {
+    trackOnboardingEvent("action", {
+      ...getAccountAnalyticsParams(),
+      action: "download_app_clicked",
+    });
     saveOnboardingToLocalStorage(planData);
     window.location.href = PLAY_STORE_URL;
   }

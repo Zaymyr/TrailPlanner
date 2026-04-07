@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import { trackOnboardingEvent } from "../../lib/google-analytics";
+
 export default function OnboardingLandingPage() {
   return (
     <div style={{
@@ -76,6 +78,12 @@ export default function OnboardingLandingPage() {
       }}>
         <Link
           href="/onboarding/race"
+          onClick={() =>
+            trackOnboardingEvent("action", {
+              action: "start_plan_clicked",
+              step_name: "landing",
+            })
+          }
           style={{
             display: 'flex',
             height: 56,

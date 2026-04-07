@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import type { RaceCheckpoint, OnboardingElevationPoint } from "../../../contexts/OnboardingContext";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 type AidStation = {
   id: string;
@@ -89,6 +90,16 @@ export default function RacePage() {
   const selectedRace = races.find((r) => r.id === selectedRaceId) ?? null;
 
   function handleSelectRace(race: Race) {
+    trackOnboardingEvent("action", {
+      action: "race_selected",
+      aid_station_count: race.race_aid_stations.length,
+      distance_km: race.distance_km,
+      elevation_gain_m: race.elevation_gain_m,
+      race_id: race.id,
+      race_name: race.name,
+      selection_type: "catalog",
+      step_name: "race",
+    });
     selectedRaceRef.current = race;
     setSelectedRaceId(race.id);
     setIsManual(false);
@@ -104,6 +115,11 @@ export default function RacePage() {
   }
 
   function handleSelectManual() {
+    trackOnboardingEvent("action", {
+      action: "manual_race_selected",
+      selection_type: "manual",
+      step_name: "race",
+    });
     selectedRaceRef.current = null;
     setSelectedRaceId(null);
     setIsManual(true);
@@ -118,7 +134,13 @@ export default function RacePage() {
       Number(distanceInput) > 0 &&
       Number(elevationInput) >= 0;
 
-    if (!race && !manualValid) return;
+    if (!race && !manualValid) {
+      trackOnboardingEvent("validation_error", {
+        reason: "missing_race_or_manual_values",
+        step_name: "race",
+      });
+      return;
+    }
 
     if (race) {
       const checkpoints: RaceCheckpoint[] = race.race_aid_stations.map((s) => ({
@@ -136,6 +158,15 @@ export default function RacePage() {
       setDistance(Number(distanceInput));
       setElevation(Number(elevationInput));
     }
+    trackOnboardingEvent("action", {
+      action: "race_continue",
+      aid_station_count: race?.race_aid_stations.length ?? 0,
+      distance_km: race?.distance_km ?? Number(distanceInput),
+      elevation_gain_m: race?.elevation_gain_m ?? Number(elevationInput),
+      race_id: race?.id,
+      selection_type: race ? "catalog" : "manual",
+      step_name: "race",
+    });
     router.push("/onboarding/goal");
   }
 

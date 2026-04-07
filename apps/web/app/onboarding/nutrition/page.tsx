@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { useI18n } from "../../i18n-provider";
 import { fuelTypeValues } from "../../../lib/fuel-types";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 const FUEL_TYPE_EMOJI: Record<string, string> = {
   gel: "🟡",
@@ -24,16 +25,35 @@ export default function NutritionPage() {
   const [showError, setShowError] = useState(false);
   const toggle = (type: string) => {
     setShowError(false);
-    setSelected((prev) =>
-      prev.includes(type) ? prev.filter((v) => v !== type) : [...prev, type]
-    );
+    const wasSelected = selected.includes(type);
+    const nextSelected = wasSelected
+      ? selected.filter((value) => value !== type)
+      : [...selected, type];
+
+    trackOnboardingEvent("action", {
+      action: wasSelected ? "fuel_type_removed" : "fuel_type_added",
+      fuel_type: type,
+      selected_count: nextSelected.length,
+      step_name: "nutrition",
+    });
+    setSelected(nextSelected);
   };
 
   const handleContinue = () => {
     if (selected.length === 0) {
+      trackOnboardingEvent("validation_error", {
+        reason: "missing_fuel_type",
+        step_name: "nutrition",
+      });
       setShowError(true);
       return;
     }
+    trackOnboardingEvent("action", {
+      action: "nutrition_continue",
+      fuel_types: selected.join(","),
+      selected_count: selected.length,
+      step_name: "nutrition",
+    });
     setFuelTypes(selected);
     router.push("/onboarding/improve");
   };

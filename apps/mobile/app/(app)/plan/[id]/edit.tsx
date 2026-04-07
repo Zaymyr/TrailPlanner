@@ -366,6 +366,20 @@ export default function EditPlanScreen() {
     await saveAndLeaveToPlans();
   }
 
+  const handleMissingFavoriteProducts = useCallback(() => {
+    Alert.alert(
+      'Favoris nutrition requis',
+      "Choisis au moins un produit favori dans l'onglet Nutrition pour utiliser le remplissage automatique.",
+      [
+        { text: t.common.cancel, style: 'cancel' },
+        {
+          text: 'Ajouter des favoris',
+          onPress: () => router.push('/(app)/nutrition'),
+        },
+      ],
+    );
+  }, [router, t.common.cancel]);
+
   if (loading || premiumLoading || (!error && (loadedPlanId !== id || (initialValues && !planProductData)))) {
     const currentLoadingPlanName = loadingPlanNameId === id ? loadingPlanName : null;
     const visiblePlanName =
@@ -430,6 +444,7 @@ export default function EditPlanScreen() {
         saveLabel="Enregistrer les modifications"
         productData={planProductData}
         compactBasicsByDefault
+        onMissingFavoriteProducts={handleMissingFavoriteProducts}
       />
     </>
   );

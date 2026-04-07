@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -24,13 +25,26 @@ export default function InstallPage() {
 
   async function handleInstall() {
     if (!installPrompt) {
+      trackOnboardingEvent("action", {
+        action: "install_prompt_unavailable",
+        step_name: "install",
+      });
       router.push("/onboarding/account");
       return;
     }
+    trackOnboardingEvent("action", {
+      action: "install_prompt_opened",
+      step_name: "install",
+    });
     setInstalling(true);
     await installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     setInstalling(false);
+    trackOnboardingEvent("action", {
+      action: "install_prompt_result",
+      outcome,
+      step_name: "install",
+    });
     if (outcome === "accepted") {
       router.push("/onboarding/account");
     }
@@ -98,7 +112,13 @@ export default function InstallPage() {
             {installing ? "Installation..." : "Installer l'application"}
           </button>
           <button
-            onClick={() => router.push("/onboarding/account")}
+            onClick={() => {
+              trackOnboardingEvent("action", {
+                action: "install_continue_web",
+                step_name: "install",
+              });
+              router.push("/onboarding/account");
+            }}
             className="text-center text-sm font-medium underline underline-offset-2"
             style={{ color: "#2D5016" }}
           >
