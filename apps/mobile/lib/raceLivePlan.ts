@@ -7,7 +7,13 @@ import type { ElevationPoint } from '../components/plan-form/profile-utils';
 import {
   buildContinuousIntakeTimeline,
   buildContinuousSections,
+  DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN,
+  WATER_ONLY_REMINDER_INTERVALS,
+  type WaterOnlyReminderIntervalMinutes,
 } from './continuousNutrition';
+
+export { DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN, WATER_ONLY_REMINDER_INTERVALS };
+export type { WaterOnlyReminderIntervalMinutes };
 
 export type StoredRacePlan = {
   id: string;
@@ -83,6 +89,30 @@ export type LiveMetricState = {
   ratio: number;
 };
 
+type LiveRacePlanOptions = {
+  waterOnlyReminderIntervalMinutes?: WaterOnlyReminderIntervalMinutes;
+};
+
+export function isWaterOnlyIntakeEvent(
+  event: Pick<IntakeTimelineItem, 'carbsGrams' | 'sodiumMg' | 'waterMl' | 'products'>,
+) {
+  return (
+    (event.waterMl ?? 0) > 0 &&
+    (event.carbsGrams ?? 0) <= 0 &&
+    (event.sodiumMg ?? 0) <= 0 &&
+    (event.products ?? []).length === 0
+  );
+}
+
+export function isWaterOnlyAlertSpec(alert: Pick<LiveAlertSpec, 'payload'>) {
+  return (
+    alert.payload.waterMl > 0 &&
+    alert.payload.carbsGrams <= 0 &&
+    alert.payload.sodiumMg <= 0 &&
+    alert.payload.products.length === 0
+  );
+}
+
 function getStoredAidStations(raw: Partial<PlanFormValues>['aidStations'] | undefined) {
   return Array.isArray(raw) ? (raw as AidStationFormItem[]) : [];
 }
@@ -116,12 +146,19 @@ export function normalizeStoredPlanValues(plan: StoredRacePlan): PlanFormValues 
 export function buildLiveRaceSections(
   plan: StoredRacePlan,
   productMap: Record<string, PlanProduct>,
+  options: LiveRacePlanOptions = {},
 ): LiveRaceSection[] {
   const values = normalizeStoredPlanValues(plan);
   const elevationProfile = plan.elevationProfile ?? [];
   const baseSpeedKph = getBaseSpeedKph(values);
   const continuousSections = buildContinuousSections({ values, elevationProfile });
-  const continuousTimeline = buildContinuousIntakeTimeline({ values, productMap, elevationProfile });
+  const continuousTimeline = buildContinuousIntakeTimeline({
+    values,
+    productMap,
+    elevationProfile,
+    waterOnlyReminderIntervalMinutes:
+      options.waterOnlyReminderIntervalMinutes ?? DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN,
+  });
 
   const sections: LiveRaceSection[] = [];
   for (let sectionIndex = 0; sectionIndex < values.aidStations.length - 1; sectionIndex += 1) {
@@ -141,9 +178,9 @@ export function buildLiveRaceSections(
     const sectionTimeline = continuousSection
       ? continuousTimeline.filter((event) => event.sectionIndex === continuousSection.sectionIndex)
       : [];
-    const timeline = sectionTimeline.map<LiveIntakeEvent>((event, eventIndex) => ({
+    const timeline = sectionTimeline.map<LiveIntakeEvent>((event) => ({
       ...event,
-      id: `section-${summary.sectionIndex}-intake-${eventIndex}`,
+      id: event.id,
       sectionIndex: summary.sectionIndex,
       absoluteMinute: event.absoluteMinute,
       sectionStartMinute,
@@ -190,8 +227,9 @@ function buildAlertBody(event: LiveIntakeEvent) {
 export function buildLiveAlertSpecs(
   plan: StoredRacePlan,
   productMap: Record<string, PlanProduct>,
+  options: LiveRacePlanOptions = {},
 ): LiveAlertSpec[] {
-  return buildLiveRaceSections(plan, productMap).flatMap((section) =>
+  return buildLiveRaceSections(plan, productMap, options).flatMap((section) =>
     section.timeline.map((event) => ({
       id: event.id,
       triggerMinutes: Math.max(0, Math.round(event.absoluteMinute)),

@@ -74,9 +74,15 @@ type BuildTimelineArgs = {
   values: PlanFormValues;
   productMap: Record<string, PlanProduct>;
   elevationProfile?: ElevationPoint[];
+  waterOnlyReminderIntervalMinutes?: WaterOnlyReminderIntervalMinutes;
 };
 
-const MAX_DRINK_INTERVAL_MIN = 10;
+export const WATER_ONLY_REMINDER_INTERVALS = [5, 10, 15] as const;
+export type WaterOnlyReminderIntervalMinutes = (typeof WATER_ONLY_REMINDER_INTERVALS)[number];
+
+export const DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN: WaterOnlyReminderIntervalMinutes = 10;
+
+const MAX_DRINK_INTERVAL_MIN = DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN;
 const TARGET_DRINK_SIP_ML = 140;
 const TIMELINE_ROUNDING_STEP_MIN = 5;
 const MIN_SOLID_INTERVAL_MIN = 15;
@@ -136,6 +142,33 @@ function buildAbsoluteDrinkSlots(startMinute: number, endMinute: number) {
   }
 
   return slots;
+}
+
+function buildConfiguredWaterOnlySlots(
+  startMinute: number,
+  endMinute: number,
+  intervalMinutes: WaterOnlyReminderIntervalMinutes,
+) {
+  const slots: number[] = [];
+  const safeStart = Math.max(0, roundToStep(startMinute));
+  const safeEnd = Math.max(safeStart + 1, roundToStep(endMinute));
+  const targetCount = Math.max(1, Math.ceil((safeEnd - safeStart) / intervalMinutes));
+  let minute = safeStart + intervalMinutes;
+
+  while (minute <= safeEnd) {
+    slots.push(roundToStep(minute));
+    minute += intervalMinutes;
+  }
+
+  if (slots.length < targetCount && slots[slots.length - 1] !== safeEnd) {
+    slots.push(safeEnd);
+  }
+
+  if (slots.length === 0) {
+    return [Math.min(safeEnd, Math.max(safeStart + 1, roundToStep((safeStart + safeEnd) / 2)))];
+  }
+
+  return slots.slice(0, targetCount);
 }
 
 function mergeCloseEvents(events: ContinuousIntakeEvent[]) {
@@ -432,6 +465,7 @@ function buildSectionDrinkEvents(
   section: ContinuousSection,
   waterBagLiters: number,
   productMap: Record<string, PlanProduct>,
+  waterOnlyReminderIntervalMinutes?: WaterOnlyReminderIntervalMinutes,
 ): ContinuousIntakeEvent[] {
   const availableWaterMl = getAvailableWaterMl(section, waterBagLiters);
   const totalTargetWater = Math.max(Math.min(section.targetWaterMl, availableWaterMl), 0);
@@ -446,9 +480,16 @@ function buildSectionDrinkEvents(
 
   if (totalDrinkMl <= 0) return [];
 
+  const hasFluidProducts = summarized.fluidLabels.length > 0;
+  const configuredWaterOnlySlots =
+    !hasFluidProducts && waterOnlyReminderIntervalMinutes
+      ? buildConfiguredWaterOnlySlots(section.startMinute, section.endMinute, waterOnlyReminderIntervalMinutes)
+      : null;
   const baseSlotCount = Math.max(1, Math.ceil(section.durationMin / MAX_DRINK_INTERVAL_MIN));
-  const slotCount = Math.max(baseSlotCount, Math.ceil(totalDrinkMl / TARGET_DRINK_SIP_ML));
-  const slotMinutes = buildAbsoluteDrinkSlots(section.startMinute, section.endMinute).slice(0, slotCount);
+  const slotCount = configuredWaterOnlySlots
+    ? configuredWaterOnlySlots.length
+    : Math.max(baseSlotCount, Math.ceil(totalDrinkMl / TARGET_DRINK_SIP_ML));
+  const slotMinutes = configuredWaterOnlySlots ?? buildAbsoluteDrinkSlots(section.startMinute, section.endMinute).slice(0, slotCount);
   const adjustedSlotMinutes =
     slotMinutes.length === slotCount
       ? slotMinutes
@@ -515,6 +556,7 @@ export function buildContinuousIntakeTimeline({
   values,
   productMap,
   elevationProfile = [],
+  waterOnlyReminderIntervalMinutes,
 }: BuildTimelineArgs): ContinuousIntakeEvent[] {
   const sections = buildContinuousSections({ values, elevationProfile });
   const allEvents: ContinuousIntakeEvent[] = [];
@@ -593,7 +635,7 @@ export function buildContinuousIntakeTimeline({
   void solidEvents;
 
   sections.forEach((section) => {
-    allEvents.push(...buildSectionDrinkEvents(section, values.waterBagLiters, productMap));
+    allEvents.push(...buildSectionDrinkEvents(section, values.waterBagLiters, productMap, waterOnlyReminderIntervalMinutes));
   });
 
   return mergeCloseEvents(

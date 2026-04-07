@@ -6,9 +6,12 @@ import type { PlanProduct } from '../components/plan-form/contracts';
 import {
   buildLiveAlertSpecs,
   buildLiveMetrics,
+  DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN,
+  isWaterOnlyAlertSpec,
   type LiveAlertSpec,
   type LiveMetricState,
   type StoredRacePlan,
+  type WaterOnlyReminderIntervalMinutes,
 } from './raceLivePlan';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
@@ -34,9 +37,15 @@ type IntakeRecord = {
 
 export type AlertConfirmMode = 'manual' | 'auto_5' | 'auto_10' | 'fire_forget';
 
+type RaceStartOptions = {
+  includeWaterOnlyAlerts?: boolean;
+  waterOnlyReminderIntervalMinutes?: WaterOnlyReminderIntervalMinutes;
+};
+
 export type RaceSession = {
   plan: StoredRacePlan;
   confirmMode: AlertConfirmMode;
+  waterOnlyReminderIntervalMinutes: WaterOnlyReminderIntervalMinutes | null;
   startedAt: number;
   alerts: ActiveAlert[];
   intakeHistory: IntakeRecord[];
@@ -111,6 +120,13 @@ function getAlertsToFire(alerts: ActiveAlert[], elapsedMinutes: number) {
   return alerts.filter((alert) => alert.status === 'pending' && elapsedMinutes >= alert.triggerMinutes);
 }
 
+function toPendingActiveAlert(alert: LiveAlertSpec): ActiveAlert {
+  return {
+    ...alert,
+    status: 'pending',
+  };
+}
+
 function applyAutoConfirm(sessionToUpdate: RaceSession, elapsedMinutes: number) {
   if (sessionToUpdate.confirmMode !== 'auto_5' && sessionToUpdate.confirmMode !== 'auto_10') return;
 
@@ -144,15 +160,22 @@ export async function startRace(
   plan: StoredRacePlan,
   productMap: Record<string, PlanProduct>,
   confirmMode: AlertConfirmMode = 'manual',
+  options: RaceStartOptions = {},
 ): Promise<void> {
-  const alerts = buildLiveAlertSpecs(plan, productMap).map<ActiveAlert>((alert) => ({
-    ...alert,
-    status: 'pending',
-  }));
+  const waterOnlyReminderIntervalMinutes =
+    options.includeWaterOnlyAlerts === false
+      ? null
+      : (options.waterOnlyReminderIntervalMinutes ?? DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN);
+  const alerts = buildLiveAlertSpecs(plan, productMap, {
+    waterOnlyReminderIntervalMinutes: waterOnlyReminderIntervalMinutes ?? DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN,
+  })
+    .filter((alert) => waterOnlyReminderIntervalMinutes !== null || !isWaterOnlyAlertSpec(alert))
+    .map<ActiveAlert>(toPendingActiveAlert);
 
   session = {
     plan,
     confirmMode,
+    waterOnlyReminderIntervalMinutes,
     startedAt: Date.now(),
     alerts,
     intakeHistory: [],
@@ -180,6 +203,31 @@ export async function stopRace(): Promise<void> {
 
 export function getSession(): RaceSession | null {
   return session;
+}
+
+export function updateWaterOnlyAlertSchedule(
+  productMap: Record<string, PlanProduct>,
+  waterOnlyReminderIntervalMinutes: WaterOnlyReminderIntervalMinutes | null,
+): void {
+  if (!session) return;
+
+  const elapsedMinutes = getElapsedMinutes(session.startedAt);
+  const alertsToKeep = session.alerts.filter(
+    (alert) => alert.status !== 'pending' || alert.firedAt || alert.triggerMinutes <= elapsedMinutes,
+  );
+  const keptAlertIds = new Set(alertsToKeep.map((alert) => alert.id));
+  const futureAlerts = buildLiveAlertSpecs(session.plan, productMap, {
+    waterOnlyReminderIntervalMinutes: waterOnlyReminderIntervalMinutes ?? DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN,
+  })
+    .filter((alert) => waterOnlyReminderIntervalMinutes !== null || !isWaterOnlyAlertSpec(alert))
+    .filter((alert) => alert.triggerMinutes > elapsedMinutes && !keptAlertIds.has(alert.id))
+    .map<ActiveAlert>(toPendingActiveAlert);
+
+  session.waterOnlyReminderIntervalMinutes = waterOnlyReminderIntervalMinutes;
+  session.alerts = [...alertsToKeep, ...futureAlerts].sort((left, right) => {
+    if (left.triggerMinutes !== right.triggerMinutes) return left.triggerMinutes - right.triggerMinutes;
+    return left.id.localeCompare(right.id);
+  });
 }
 
 export async function respondToAlert(
@@ -217,6 +265,7 @@ export function getNutritionStats(currentSession: RaceSession): {
   recentIntakes: IntakeRecord[];
   completedCount: number;
   totalCount: number;
+  waterOnlyReminderIntervalMinutes: WaterOnlyReminderIntervalMinutes | null;
 } {
   const elapsedMinutes = getElapsedMinutes(currentSession.startedAt);
   const totalCarbsConsumed = currentSession.intakeHistory.reduce((sum, intake) => sum + intake.carbsGrams, 0);
@@ -244,6 +293,7 @@ export function getNutritionStats(currentSession: RaceSession): {
       .slice(0, 6),
     completedCount: currentSession.intakeHistory.length,
     totalCount: currentSession.alerts.length,
+    waterOnlyReminderIntervalMinutes: currentSession.waterOnlyReminderIntervalMinutes,
   };
 }
 
