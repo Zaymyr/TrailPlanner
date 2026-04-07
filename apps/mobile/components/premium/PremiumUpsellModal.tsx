@@ -37,6 +37,26 @@ export function PremiumUpsellModal({
   onClose,
   benefits,
 }: Props) {
+  if (!visible) return null;
+
+  return (
+    <PremiumUpsellModalContent
+      visible={visible}
+      title={title}
+      message={message}
+      onClose={onClose}
+      benefits={benefits}
+    />
+  );
+}
+
+function PremiumUpsellModalContent({
+  visible,
+  title,
+  message,
+  onClose,
+  benefits,
+}: Props) {
   const { t } = useI18n();
   const billing = useRevenueCatBilling();
 

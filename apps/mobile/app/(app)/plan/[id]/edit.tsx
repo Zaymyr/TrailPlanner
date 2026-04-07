@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../lib/supabase';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, Supply, type ElevationPoint } from '../../../../components/PlanForm';
+import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';
+import { PlanLoadingScreen } from '../../../../components/PlanLoadingScreen';
 import { Colors } from '../../../../constants/colors';
 import { fetchRaceElevationProfile } from '../../../../lib/raceProfile';
 import { usePremium } from '../../../../hooks/usePremium';
 import { getCurrentUserLatestAccessiblePlanId } from '../../../../lib/planAccess';
 import { useI18n } from '../../../../lib/i18n';
+import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import {
   clearActivePlanEditSession,
   clearPlanEditDraft,
@@ -82,16 +84,22 @@ export default function EditPlanScreen() {
   const { t } = useI18n();
   const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
   const [planName, setPlanName] = useState('');
+  const [loadedPlanId, setLoadedPlanId] = useState<string | null>(null);
+  const [loadingPlanName, setLoadingPlanName] = useState<string | null>(null);
+  const [loadingPlanNameId, setLoadingPlanNameId] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [favoriteProducts, setFavoriteProducts] = useState<FavProduct[]>([]);
+  const [planProductData, setPlanProductData] = useState<PlanProductsBootstrap | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const latestDraftRef = useRef<PlanFormValues | null>(null);
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const elevationProfileRef = useRef<ElevationPoint[]>([]);
   const isSavingRef = useRef(false);
   const loadedPlanIdRef = useRef<string | null>(null);
+  const activeRouteIdRef = useRef<string | null>(id ?? null);
+  const loadRequestIdRef = useRef(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -101,21 +109,51 @@ export default function EditPlanScreen() {
   useEffect(() => {
     if (!id) return;
 
+    activeRouteIdRef.current = id;
+    loadRequestIdRef.current += 1;
+    loadedPlanIdRef.current = null;
+    latestDraftRef.current = null;
+    lastSavedSnapshotRef.current = null;
+    elevationProfileRef.current = [];
+    setLoadedPlanId(null);
+    setInitialValues(null);
+    setPlanName('');
+    setLoadingPlanName(null);
+    setLoadingPlanNameId(id);
+    setLoadingProgress(0.08);
+    setLoading(true);
+    setError(null);
+    setPlanProductData(null);
+    setElevationProfile([]);
     setActivePlanEditSession(id);
   }, [id]);
 
   const loadPlan = useCallback(async () => {
     if (!id) return;
+    const loadRequestId = ++loadRequestIdRef.current;
+    activeRouteIdRef.current = id;
+    const isStaleLoad = () => loadRequestIdRef.current !== loadRequestId || activeRouteIdRef.current !== id;
+
     setLoading(true);
     setError(null);
+    setLoadingProgress(0.12);
+    setLoadingPlanName(null);
+    setLoadingPlanNameId(id);
 
     const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
+    if (isStaleLoad()) return;
+
+    setLoadingProgress(0.26);
     if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
       Alert.alert(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
       clearActivePlanEditSession(id);
       clearPlanEditDraft(id);
       setInitialValues(null);
       setElevationProfile([]);
+      setPlanProductData(null);
+      loadedPlanIdRef.current = null;
+      setLoadedPlanId(null);
+      setLoadingProgress(1);
       setLoading(false);
       router.replace('/(app)/plans');
       return;
@@ -123,66 +161,71 @@ export default function EditPlanScreen() {
 
     const cachedDraft = getPlanEditDraft(id);
     const sessionData = await supabase.auth.getSession();
+    if (isStaleLoad()) return;
+
+    const uid = sessionData.data?.session?.user?.id ?? null;
+    const productDataPromise = loadPlanProductsBootstrap(uid);
 
     if (cachedDraft) {
+      setLoadingProgress(0.48);
+      setLoadingPlanName(cachedDraft.planName);
+      setLoadingPlanNameId(id);
       setPlanName(cachedDraft.planName);
       setInitialValues(cachedDraft.values);
       setElevationProfile(cachedDraft.elevationProfile);
       latestDraftRef.current = cachedDraft.values;
       lastSavedSnapshotRef.current = cachedDraft.lastSavedSnapshot;
-      loadedPlanIdRef.current = id;
     } else {
+      setLoadingProgress(0.38);
       const planResult = await supabase
         .from('race_plans')
         .select('id, name, planner_values, elevation_profile, race_id')
         .eq('id', id)
         .single();
+      if (isStaleLoad()) return;
 
       if (planResult.error) {
         setError(planResult.error.message);
         setInitialValues(null);
         setElevationProfile([]);
+        setPlanProductData(null);
+        loadedPlanIdRef.current = null;
+        setLoadedPlanId(null);
+        setLoadingProgress(1);
         setLoading(false);
         return;
       }
 
       if (planResult.data) {
         const plan = planResult.data as RacePlanRow;
+        setLoadingPlanName(plan.name);
+        setLoadingPlanNameId(id);
+        setLoadingProgress(0.56);
         const nextValues = planRowToFormValues(plan);
         const nextElevationProfile =
           Array.isArray(plan.elevation_profile) && plan.elevation_profile.length > 0
             ? plan.elevation_profile
             : await fetchRaceElevationProfile(plan.race_id ?? null);
+        if (isStaleLoad()) return;
+
+        setLoadingProgress(0.72);
 
         setPlanName(plan.name);
         setInitialValues(nextValues);
         setElevationProfile(nextElevationProfile);
         latestDraftRef.current = nextValues;
         lastSavedSnapshotRef.current = serializePlanValues(nextValues);
-        loadedPlanIdRef.current = id;
       }
     }
 
-    const uid = sessionData.data?.session?.user?.id;
-    if (uid) {
-      const { data: favsData } = await supabase
-        .from('user_favorite_products')
-        .select('products(id, name, carbs_g, sodium_mg)')
-        .eq('user_id', uid);
-      if (favsData) {
-        setFavoriteProducts(
-          (favsData as any[])
-            .map((row) => row.products)
-            .filter(Boolean)
-            .map((p: any) => ({
-              id: p.id,
-              name: p.name,
-              carbsGrams: p.carbs_g ?? 0,
-              sodiumMg: p.sodium_mg ?? 0,
-            })),
-        );
-      }
-    }
+    setLoadingProgress(0.86);
+    const nextProductData = await productDataPromise;
+    if (isStaleLoad()) return;
+
+    setPlanProductData(nextProductData);
+    loadedPlanIdRef.current = id;
+    setLoadedPlanId(id);
+    setLoadingProgress(1);
 
     setLoading(false);
   }, [id, isPremium, router, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
@@ -323,11 +366,21 @@ export default function EditPlanScreen() {
     await saveAndLeaveToPlans();
   }
 
-  if (loading) {
+  if (loading || premiumLoading || (!error && (loadedPlanId !== id || (initialValues && !planProductData)))) {
+    const currentLoadingPlanName = loadingPlanNameId === id ? loadingPlanName : null;
+    const visiblePlanName =
+      currentLoadingPlanName ?? (loadedPlanId === id ? planName || initialValues?.name || null : null);
+    const loadingTitle = visiblePlanName
+      ? t.plans.planLoadingNamed.replace('{name}', visiblePlanName)
+      : t.plans.planLoadingGeneric;
+
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.brandPrimary} size="large" />
-      </View>
+      <PlanLoadingScreen
+        planName={visiblePlanName}
+        progress={loadingProgress}
+        stage={t.plans.planLoadingStage}
+        title={loadingTitle}
+      />
     );
   }
 
@@ -361,6 +414,7 @@ export default function EditPlanScreen() {
         initialValues={initialValues}
         elevationProfile={elevationProfile}
         onSave={handleSave}
+        isPremium={isPremium}
         onValuesChange={(values) => {
           latestDraftRef.current = values;
           if (id) {
@@ -374,7 +428,7 @@ export default function EditPlanScreen() {
         }}
         loading={saving}
         saveLabel="Enregistrer les modifications"
-        favoriteProducts={favoriteProducts}
+        productData={planProductData}
         compactBasicsByDefault
       />
     </>

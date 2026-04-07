@@ -53,6 +53,9 @@ export const fr: MobileTranslations = {
     editUnsavedMessage: 'Des modifications ne sont pas enregistrées.',
     editUnsavedDiscard: 'Continuer sans sauvegarder',
     editUnsavedSaveAndLeave: 'Sauvegarder et continuer',
+    planLoadingGeneric: 'Préparation du plan',
+    planLoadingNamed: 'Préparation de {name}',
+    planLoadingStage: 'Chargement du parcours, des produits et du statut Premium...',
   },
   races: {
     title: 'Mes courses',

@@ -67,6 +67,7 @@ type Props = {
     segmentIndex: number,
     paceAdjustmentMinutesPerKm: number | undefined,
   ) => void;
+  onNestedScrollInteractionStart?: () => void;
 };
 
 const VIEW_MODES: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
@@ -108,6 +109,7 @@ export function AidStationsSectionV3({
   onSplitSectionSegment,
   onRemoveSectionSegment,
   onUpdateSectionSegmentPaceAdjustment,
+  onNestedScrollInteractionStart,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const pageWidth = Math.max(280, windowWidth - 40);
@@ -461,6 +463,7 @@ export function AidStationsSectionV3({
   }, [pageWidth, displayedViewMode]);
 
   function handlePagerBeginDrag() {
+    onNestedScrollInteractionStart?.();
     userDraggingRef.current = true;
     dragStartModeRef.current = displayedViewMode;
     previewTargetModeRef.current = null;
@@ -537,6 +540,7 @@ export function AidStationsSectionV3({
   }
 
   function handlePageScrollBeginDrag(mode: 'stations' | 'sections' | 'profile') {
+    onNestedScrollInteractionStart?.();
     pageUserScrollingRef.current[mode] = true;
   }
 

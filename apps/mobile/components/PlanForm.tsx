@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { usePremium } from '../hooks/usePremium';
 import { useI18n } from '../lib/i18n';
 import { AidStationsSectionV3 as AidStationsSection } from './plan-form/AidStationsSectionV3';
 import {
@@ -32,7 +31,7 @@ import { PlanHighlightsSection } from './plan-form/PlanHighlightsSection';
 import { ProductPickerModal, type PickerProduct } from './plan-form/ProductPickerModal';
 import { PremiumUpsellModal } from './premium/PremiumUpsellModal';
 import { styles } from './plan-form/styles';
-import { usePlanProducts } from './plan-form/usePlanProducts';
+import { type PlanProductsBootstrap, usePlanProducts } from './plan-form/usePlanProducts';
 import { usePlanSections } from './plan-form/usePlanSections';
 import { usePlanSupplies } from './plan-form/usePlanSupplies';
 import type { GaugeMetric } from './plan-form/GaugeArc';
@@ -52,8 +51,9 @@ type Props = {
   onSave: (values: PlanFormValues) => void;
   onValuesChange?: (values: PlanFormValues) => void;
   loading?: boolean;
+  isPremium: boolean;
   saveLabel?: string;
-  favoriteProducts?: FavProduct[];
+  productData?: PlanProductsBootstrap | null;
   elevationProfile?: ElevationPoint[];
   compactBasicsByDefault?: boolean;
 };
@@ -78,12 +78,12 @@ export default function PlanForm({
   onSave,
   onValuesChange,
   loading,
+  isPremium,
   saveLabel,
-  favoriteProducts,
+  productData,
   elevationProfile = [],
   compactBasicsByDefault = false,
 }: Props) {
-  const { isPremium } = usePremium();
   const { t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const debouncedValues = useDebounced(values, 300);
@@ -97,8 +97,11 @@ export default function PlanForm({
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
   const [gaugeAnimateSignals, setGaugeAnimateSignals] = useState<Record<string, number>>({});
   const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
+  const mainScrollRef = useRef<ScrollView>(null);
+  const mainScrollYRef = useRef(0);
+  const aidStationsSectionYRef = useRef(0);
+  const lastAidStationsAlignAtRef = useRef(0);
 
-  void favoriteProducts;
   void saveLabel;
 
   useEffect(() => {
@@ -165,7 +168,7 @@ export default function PlanForm({
     pickerFavorites,
     currentSupplyIds,
     openPicker,
-  } = usePlanProducts({ values });
+  } = usePlanProducts({ values, initialData: productData });
 
   const {
     updateAidStation,
@@ -337,6 +340,17 @@ export default function PlanForm({
     });
   }, []);
 
+  const alignAidStationsSection = useCallback(() => {
+    const targetY = Math.max(0, aidStationsSectionYRef.current - 12);
+    const now = Date.now();
+
+    if (Math.abs(mainScrollYRef.current - targetY) < 24) return;
+    if (now - lastAidStationsAlignAtRef.current < 300) return;
+
+    lastAidStationsAlignAtRef.current = now;
+    mainScrollRef.current?.scrollTo({ y: targetY, animated: true });
+  }, []);
+
   const handleAddProductFromPicker = useCallback((product: PickerProduct) => {
     if (pickerTarget === null) return;
     addSupplyToStation(pickerTarget, product.id);
@@ -393,9 +407,14 @@ export default function PlanForm({
   return (
     <>
       <ScrollView
+        ref={mainScrollRef}
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          mainScrollYRef.current = event.nativeEvent.contentOffset.y;
+        }}
       >
         <PlanBasicsSection
           values={values}
@@ -417,7 +436,11 @@ export default function PlanForm({
           productBreakdown={highlights.productBreakdown}
         />
 
-        <View>
+        <View
+          onLayout={(event) => {
+            aidStationsSectionYRef.current = event.nativeEvent.layout.y;
+          }}
+        >
           <AidStationsSection
             values={values}
             basePaceMinutesPerKm={basePaceMinutesPerKm}
@@ -448,6 +471,7 @@ export default function PlanForm({
             onSplitSectionSegment={splitSectionSegment}
             onRemoveSectionSegment={removeSectionSegment}
             onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
+            onNestedScrollInteractionStart={alignAidStationsSection}
           />
         </View>
 
@@ -483,12 +507,14 @@ export default function PlanForm({
       />
 
       <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} />
-      <PremiumUpsellModal
-        visible={showPremiumUpsell}
-        title={t.plans.autoFillPremiumTitle}
-        message={t.plans.autoFillPremiumMessage}
-        onClose={() => setShowPremiumUpsell(false)}
-      />
+      {showPremiumUpsell ? (
+        <PremiumUpsellModal
+          visible={showPremiumUpsell}
+          title={t.plans.autoFillPremiumTitle}
+          message={t.plans.autoFillPremiumMessage}
+          onClose={() => setShowPremiumUpsell(false)}
+        />
+      ) : null}
     </>
   );
 }

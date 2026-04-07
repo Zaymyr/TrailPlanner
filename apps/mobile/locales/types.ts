@@ -53,6 +53,9 @@ export type MobileTranslations = {
     editUnsavedMessage: string;
     editUnsavedDiscard: string;
     editUnsavedSaveAndLeave: string;
+    planLoadingGeneric: string;
+    planLoadingNamed: string;
+    planLoadingStage: string;
   };
   races: {
     title: string;

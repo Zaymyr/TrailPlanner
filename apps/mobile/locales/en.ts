@@ -53,6 +53,9 @@ export const en: MobileTranslations = {
     editUnsavedMessage: 'Some changes have not been saved.',
     editUnsavedDiscard: 'Continue without saving',
     editUnsavedSaveAndLeave: 'Save and continue',
+    planLoadingGeneric: 'Preparing plan',
+    planLoadingNamed: 'Preparing {name}',
+    planLoadingStage: 'Loading route, products, and Premium status...',
   },
   races: {
     title: 'My races',
