@@ -11,6 +11,7 @@ import {
 } from '../lib/revenueCat';
 import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
 import { ensureTrialStatusForSession } from '../lib/trial';
+import { addPremiumStatusChangeListener } from '../lib/premiumEvents';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.trim() ?? '';
 
@@ -316,11 +317,15 @@ export function usePremium(): PremiumState {
         void checkPremium();
       }
     });
+    const removePremiumStatusChangeListener = addPremiumStatusChangeListener(({ customerInfo }) => {
+      void checkPremium(undefined, customerInfo);
+    });
 
     return () => {
       cancelled = true;
       revenueCatSyncInFlightRef.current = false;
       removeCustomerInfoListener?.();
+      removePremiumStatusChangeListener();
       subscription.unsubscribe();
       appStateSubscription.remove();
     };

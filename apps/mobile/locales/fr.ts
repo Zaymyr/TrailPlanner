@@ -49,6 +49,10 @@ export const fr: MobileTranslations = {
     unlockButton: 'Débloquer',
     autoFillPremiumTitle: 'Remplissage auto Premium',
     autoFillPremiumMessage: 'Le remplissage automatique des ravitos est réservé au Premium.',
+    editUnsavedTitle: 'Attention',
+    editUnsavedMessage: 'Des modifications ne sont pas enregistrées.',
+    editUnsavedDiscard: 'Continuer sans sauvegarder',
+    editUnsavedSaveAndLeave: 'Sauvegarder et continuer',
   },
   races: {
     title: 'Mes courses',
@@ -87,6 +91,9 @@ export const fr: MobileTranslations = {
     updateFailed: 'Impossible de modifier la course.',
     deleteFailed: 'Impossible de supprimer la course.',
     noGpx: 'Aucun fichier GPX',
+    planLoadingGeneric: 'Chargement du plan en cours',
+    planLoadingNamed: 'Chargement {name} en cours',
+    planLoadingStage: 'Préparation des ravitos, statuts et rappels live...',
   },
   profile: {
     title: 'Profil',

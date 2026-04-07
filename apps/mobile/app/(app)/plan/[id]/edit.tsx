@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { View, Text, ActivityIndicator, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../lib/supabase';
 import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, Supply, type ElevationPoint } from '../../../../components/PlanForm';
 import { Colors } from '../../../../constants/colors';
@@ -9,6 +9,13 @@ import { fetchRaceElevationProfile } from '../../../../lib/raceProfile';
 import { usePremium } from '../../../../hooks/usePremium';
 import { getCurrentUserLatestAccessiblePlanId } from '../../../../lib/planAccess';
 import { useI18n } from '../../../../lib/i18n';
+import {
+  clearActivePlanEditSession,
+  clearPlanEditDraft,
+  getPlanEditDraft,
+  setActivePlanEditSession,
+  setPlanEditDraft,
+} from '../../../../lib/planEditSession';
 
 type RacePlanRow = {
   id: string;
@@ -84,11 +91,18 @@ export default function EditPlanScreen() {
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const elevationProfileRef = useRef<ElevationPoint[]>([]);
   const isSavingRef = useRef(false);
+  const loadedPlanIdRef = useRef<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     elevationProfileRef.current = elevationProfile;
   }, [elevationProfile]);
+
+  useEffect(() => {
+    if (!id) return;
+
+    setActivePlanEditSession(id);
+  }, [id]);
 
   const loadPlan = useCallback(async () => {
     if (!id) return;
@@ -98,6 +112,8 @@ export default function EditPlanScreen() {
     const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
     if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
       Alert.alert(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+      clearActivePlanEditSession(id);
+      clearPlanEditDraft(id);
       setInitialValues(null);
       setElevationProfile([]);
       setLoading(false);
@@ -105,32 +121,46 @@ export default function EditPlanScreen() {
       return;
     }
 
-    const [planResult, sessionData] = await Promise.all([
-      supabase.from('race_plans').select('id, name, planner_values, elevation_profile, race_id').eq('id', id).single(),
-      supabase.auth.getSession(),
-    ]);
+    const cachedDraft = getPlanEditDraft(id);
+    const sessionData = await supabase.auth.getSession();
 
-    if (planResult.error) {
-      setError(planResult.error.message);
-      setInitialValues(null);
-      setElevationProfile([]);
-      setLoading(false);
-      return;
-    }
+    if (cachedDraft) {
+      setPlanName(cachedDraft.planName);
+      setInitialValues(cachedDraft.values);
+      setElevationProfile(cachedDraft.elevationProfile);
+      latestDraftRef.current = cachedDraft.values;
+      lastSavedSnapshotRef.current = cachedDraft.lastSavedSnapshot;
+      loadedPlanIdRef.current = id;
+    } else {
+      const planResult = await supabase
+        .from('race_plans')
+        .select('id, name, planner_values, elevation_profile, race_id')
+        .eq('id', id)
+        .single();
 
-    if (planResult.data) {
-      const plan = planResult.data as RacePlanRow;
-      const nextValues = planRowToFormValues(plan);
-      const nextElevationProfile =
-        Array.isArray(plan.elevation_profile) && plan.elevation_profile.length > 0
-          ? plan.elevation_profile
-          : await fetchRaceElevationProfile(plan.race_id ?? null);
+      if (planResult.error) {
+        setError(planResult.error.message);
+        setInitialValues(null);
+        setElevationProfile([]);
+        setLoading(false);
+        return;
+      }
 
-      setPlanName(plan.name);
-      setInitialValues(nextValues);
-      setElevationProfile(nextElevationProfile);
-      latestDraftRef.current = nextValues;
-      lastSavedSnapshotRef.current = serializePlanValues(nextValues);
+      if (planResult.data) {
+        const plan = planResult.data as RacePlanRow;
+        const nextValues = planRowToFormValues(plan);
+        const nextElevationProfile =
+          Array.isArray(plan.elevation_profile) && plan.elevation_profile.length > 0
+            ? plan.elevation_profile
+            : await fetchRaceElevationProfile(plan.race_id ?? null);
+
+        setPlanName(plan.name);
+        setInitialValues(nextValues);
+        setElevationProfile(nextElevationProfile);
+        latestDraftRef.current = nextValues;
+        lastSavedSnapshotRef.current = serializePlanValues(nextValues);
+        loadedPlanIdRef.current = id;
+      }
     }
 
     const uid = sessionData.data?.session?.user?.id;
@@ -204,6 +234,7 @@ export default function EditPlanScreen() {
         setPlanName(values.name);
         latestDraftRef.current = values;
         lastSavedSnapshotRef.current = serializePlanValues(values);
+        clearPlanEditDraft(id);
         return true;
       }
 
@@ -212,34 +243,84 @@ export default function EditPlanScreen() {
     [id],
   );
 
-  useFocusEffect(
-    useCallback(() => {
-      if (premiumLoading) return undefined;
+  useEffect(() => {
+    if (premiumLoading || !id || loadedPlanIdRef.current === id) return;
 
-      void loadPlan();
+    void loadPlan();
+  }, [id, loadPlan, premiumLoading]);
 
-      return () => {
-        const draft = latestDraftRef.current;
-        const currentSnapshot = draft ? serializePlanValues(draft) : null;
-        const shouldSave =
-          Boolean(draft) &&
-          !isSavingRef.current &&
-          currentSnapshot !== null &&
-          currentSnapshot !== lastSavedSnapshotRef.current;
+  const leaveToPlans = useCallback(() => {
+    clearActivePlanEditSession(id);
+    if (id) {
+      clearPlanEditDraft(id);
+    }
+    router.replace('/(app)/plans');
+  }, [id, router]);
 
-        if (shouldSave && draft) {
-          void persistPlan(draft, true);
-        }
+  const hasUnsavedChanges = useCallback(() => {
+    const draft = latestDraftRef.current;
+    const currentSnapshot = draft ? serializePlanValues(draft) : null;
 
-        setInitialValues(null);
-        setElevationProfile([]);
-        setLoading(true);
-      };
-    }, [loadPlan, persistPlan, premiumLoading]),
-  );
+    return (
+      Boolean(draft) &&
+      currentSnapshot !== null &&
+      currentSnapshot !== lastSavedSnapshotRef.current
+    );
+  }, []);
+
+  const saveAndLeaveToPlans = useCallback(async () => {
+    const draft = latestDraftRef.current;
+
+    if (!draft) {
+      leaveToPlans();
+      return;
+    }
+
+    const saved = await persistPlan(draft);
+
+    if (saved) {
+      clearActivePlanEditSession(id);
+      router.replace('/(app)/plans');
+      return;
+    }
+
+    Alert.alert(t.common.error, t.profile.saveFailed);
+  }, [id, leaveToPlans, persistPlan, router, t.common.error, t.profile.saveFailed]);
+
+  const handleBackToPlans = useCallback(() => {
+    if (!hasUnsavedChanges()) {
+      leaveToPlans();
+      return;
+    }
+
+    Alert.alert(t.plans.editUnsavedTitle, t.plans.editUnsavedMessage, [
+      { text: t.common.cancel, style: 'cancel' },
+      {
+        text: t.plans.editUnsavedDiscard,
+        style: 'destructive',
+        onPress: leaveToPlans,
+      },
+      {
+        text: t.plans.editUnsavedSaveAndLeave,
+        onPress: () => {
+          void saveAndLeaveToPlans();
+        },
+      },
+    ]);
+  }, [
+    hasUnsavedChanges,
+    leaveToPlans,
+    saveAndLeaveToPlans,
+    t.common.cancel,
+    t.plans.editUnsavedDiscard,
+    t.plans.editUnsavedMessage,
+    t.plans.editUnsavedSaveAndLeave,
+    t.plans.editUnsavedTitle,
+  ]);
 
   async function handleSave(values: PlanFormValues) {
-    await persistPlan(values);
+    latestDraftRef.current = values;
+    await saveAndLeaveToPlans();
   }
 
   if (loading) {
@@ -260,7 +341,21 @@ export default function EditPlanScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: `Modifier : ${planName}` }} />
+      <Stack.Screen
+        options={{
+          title: `Modifier : ${planName}`,
+          headerLeft: () => (
+            <TouchableOpacity
+              accessibilityLabel={t.common.back}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              onPress={handleBackToPlans}
+              style={styles.headerBackButton}
+            >
+              <Ionicons name="chevron-back" size={26} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
       <PlanForm
         key={id}
         initialValues={initialValues}
@@ -268,6 +363,14 @@ export default function EditPlanScreen() {
         onSave={handleSave}
         onValuesChange={(values) => {
           latestDraftRef.current = values;
+          if (id) {
+            setPlanEditDraft(id, {
+              elevationProfile: elevationProfileRef.current,
+              lastSavedSnapshot: lastSavedSnapshotRef.current,
+              planName: values.name || planName,
+              values,
+            });
+          }
         }}
         loading={saving}
         saveLabel="Enregistrer les modifications"
@@ -290,5 +393,10 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
+  },
+  headerBackButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
 });

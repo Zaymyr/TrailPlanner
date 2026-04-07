@@ -5,6 +5,7 @@ import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderBu
 import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { getActivePlanEditHref } from '../../lib/planEditSession';
 
 export const unstable_settings = {
   initialRouteName: 'plans',
@@ -110,6 +111,15 @@ export default function AppLayout() {
       {/* Center: My Plans — big green standout button */}
       <Tabs.Screen
         name="plans"
+        listeners={() => ({
+          tabPress: (event) => {
+            const activePlanEditHref = getActivePlanEditHref();
+            if (!activePlanEditHref) return;
+
+            event.preventDefault();
+            router.push(activePlanEditHref as any);
+          },
+        })}
         options={{
           title: t.plans.title,
           tabBarLabel: plansTabLabel,

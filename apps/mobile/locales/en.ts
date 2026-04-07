@@ -49,6 +49,10 @@ export const en: MobileTranslations = {
     unlockButton: 'Unlock',
     autoFillPremiumTitle: 'Premium auto-fill',
     autoFillPremiumMessage: 'Automatic aid-station filling is a Premium feature.',
+    editUnsavedTitle: 'Careful',
+    editUnsavedMessage: 'Some changes have not been saved.',
+    editUnsavedDiscard: 'Continue without saving',
+    editUnsavedSaveAndLeave: 'Save and continue',
   },
   races: {
     title: 'My races',
@@ -87,6 +91,9 @@ export const en: MobileTranslations = {
     updateFailed: 'Unable to update race.',
     deleteFailed: 'Unable to delete race.',
     noGpx: 'No GPX file',
+    planLoadingGeneric: 'Loading plan',
+    planLoadingNamed: 'Loading {name}',
+    planLoadingStage: 'Preparing aid stations, status, and live reminders...',
   },
   profile: {
     title: 'Profile',

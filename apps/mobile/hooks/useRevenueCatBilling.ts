@@ -13,6 +13,7 @@ import {
   restoreRevenueCatPurchases,
 } from '../lib/revenueCat';
 import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
+import { emitPremiumStatusChange } from '../lib/premiumEvents';
 
 type PurchaseResult = 'purchased' | 'restored' | 'cancelled' | 'unavailable';
 
@@ -44,13 +45,17 @@ export function useRevenueCatBilling() {
   const [state, setState] = useState<BillingState>(DEFAULT_STATE);
 
   async function syncRevenueCatStateToServer(customerInfo: CustomerInfo | null | undefined) {
-    if (!hasRevenueCatPremiumEntitlement(customerInfo)) return;
+    if (!customerInfo) return;
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
+    if (hasRevenueCatPremiumEntitlement(customerInfo)) {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-    await syncRevenueCatSubscriptionToServer(session?.access_token ?? null, getCurrentRevenueCatProviderHint());
+      await syncRevenueCatSubscriptionToServer(session?.access_token ?? null, getCurrentRevenueCatProviderHint());
+    }
+
+    emitPremiumStatusChange({ customerInfo });
   }
 
   useEffect(() => {

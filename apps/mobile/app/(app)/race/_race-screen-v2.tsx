@@ -102,6 +102,42 @@ function buildStoredRacePlan(data: {
 
 type StatsState = ReturnType<typeof getNutritionStats>;
 
+function waitForNextPaint() {
+  return new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+function PlanLoadingScreen({
+  planName,
+  progress,
+  title,
+  stage,
+}: {
+  planName: string | null;
+  progress: number;
+  title: string;
+  stage: string;
+}) {
+  const safeProgress = Math.max(0.08, Math.min(1, progress));
+
+  return (
+    <View style={styles.loadingScreen}>
+      <View style={styles.loadingCard}>
+        <ActivityIndicator color={Colors.brandPrimary} size="large" />
+        <Text style={styles.loadingTitle}>{title}</Text>
+        {planName ? <Text style={styles.loadingPlanName}>{planName}</Text> : null}
+        <View style={styles.loadingProgressTrack}>
+          <View style={[styles.loadingProgressFill, { width: `${safeProgress * 100}%` }]} />
+        </View>
+        <Text style={styles.loadingStage}>{stage}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function RaceScreenV2() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -110,6 +146,8 @@ export default function RaceScreenV2() {
   const [plan, setPlan] = useState<StoredRacePlan | null>(null);
   const [productMap, setProductMap] = useState<Record<string, PlanProduct>>({});
   const [loading, setLoading] = useState(true);
+  const [loadingPlanName, setLoadingPlanName] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [showConfig, setShowConfig] = useState(false);
   const [racing, setRacing] = useState(false);
   const [stats, setStats] = useState<StatsState | null>(null);
@@ -127,6 +165,8 @@ export default function RaceScreenV2() {
       if (premiumLoading) return;
 
       setLoading(true);
+      setLoadingPlanName(null);
+      setLoadingProgress(0.12);
       const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
       if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
         if (!cancelled) {
@@ -135,6 +175,10 @@ export default function RaceScreenV2() {
           router.replace('/(app)/plans');
         }
         return;
+      }
+
+      if (!cancelled) {
+        setLoadingProgress(0.28);
       }
 
       const { data } = await supabase
@@ -149,6 +193,10 @@ export default function RaceScreenV2() {
       }
 
       const nextPlan = buildStoredRacePlan(data);
+      if (!cancelled) {
+        setLoadingPlanName(nextPlan.name);
+        setLoadingProgress(0.48);
+      }
       const productIds = collectUsedProductIds(nextPlan);
       let nextProductMap: Record<string, PlanProduct> = {};
 
@@ -167,6 +215,8 @@ export default function RaceScreenV2() {
 
       if (cancelled) return;
 
+      setLoadingProgress(0.72);
+
       setPlan(nextPlan);
       setProductMap(nextProductMap);
 
@@ -180,6 +230,11 @@ export default function RaceScreenV2() {
         setStats(null);
       }
 
+      setLoadingProgress(0.92);
+      await waitForNextPaint();
+      if (cancelled) return;
+
+      setLoadingProgress(1);
       setLoading(false);
     })();
 
@@ -279,10 +334,17 @@ export default function RaceScreenV2() {
   );
 
   if (loading) {
+    const loadingTitle = loadingPlanName
+      ? t.races.planLoadingNamed.replace('{name}', loadingPlanName)
+      : t.races.planLoadingGeneric;
+
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.brandPrimary} size="large" />
-      </View>
+      <PlanLoadingScreen
+        planName={loadingPlanName}
+        progress={loadingProgress}
+        stage={t.races.planLoadingStage}
+        title={loadingTitle}
+      />
     );
   }
 
@@ -562,6 +624,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.background,
+  },
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.background,
+    paddingHorizontal: 24,
+  },
+  loadingCard: {
+    width: '100%',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    padding: 24,
+    alignItems: 'center',
+  },
+  loadingTitle: {
+    color: Colors.textPrimary,
+    fontSize: 19,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginTop: 18,
+  },
+  loadingPlanName: {
+    color: Colors.brandPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  loadingProgressTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.surfaceSecondary,
+    overflow: 'hidden',
+    marginTop: 22,
+  },
+  loadingProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: Colors.brandPrimary,
+  },
+  loadingStage: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 12,
   },
   errorText: {
     color: Colors.danger,

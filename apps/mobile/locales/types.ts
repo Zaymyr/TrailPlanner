@@ -49,6 +49,10 @@ export type MobileTranslations = {
     unlockButton: string;
     autoFillPremiumTitle: string;
     autoFillPremiumMessage: string;
+    editUnsavedTitle: string;
+    editUnsavedMessage: string;
+    editUnsavedDiscard: string;
+    editUnsavedSaveAndLeave: string;
   };
   races: {
     title: string;
@@ -87,6 +91,9 @@ export type MobileTranslations = {
     updateFailed: string;
     deleteFailed: string;
     noGpx: string;
+    planLoadingGeneric: string;
+    planLoadingNamed: string;
+    planLoadingStage: string;
   };
   profile: {
     title: string;

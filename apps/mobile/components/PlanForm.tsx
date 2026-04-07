@@ -87,7 +87,7 @@ export default function PlanForm({
   const { t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const debouncedValues = useDebounced(values, 300);
-  const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set([DEPART_ID]));
+  const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Record<AccordionSection, boolean>>({
     course: !compactBasicsByDefault,
     pace: !compactBasicsByDefault,
@@ -103,7 +103,7 @@ export default function PlanForm({
 
   useEffect(() => {
     setValues(buildInitialPlanValues(initialValues));
-    setExpandedStations(new Set([DEPART_ID]));
+    setExpandedStations(new Set());
     setExpandedSections({
       course: !compactBasicsByDefault,
       pace: !compactBasicsByDefault,
