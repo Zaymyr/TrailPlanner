@@ -2,15 +2,56 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import type { PlanFormValues, PlanProduct, PlanTarget } from './contracts';
 
-type Args = {
-  values: PlanFormValues;
+export type PlanProductsBootstrap = {
+  allProducts: PlanProduct[];
+  favoriteProductIds: Set<string>;
 };
 
-export function usePlanProducts({ values }: Args) {
-  const [productMap, setProductMap] = useState<Record<string, PlanProduct>>({});
-  const [allProducts, setAllProducts] = useState<PlanProduct[]>([]);
-  const [favoriteProductIds, setFavoriteProductIds] = useState<Set<string>>(new Set());
-  const [productsLoading, setProductsLoading] = useState(true);
+type Args = {
+  values: PlanFormValues;
+  initialData?: PlanProductsBootstrap | null;
+};
+
+function buildProductMap(products: PlanProduct[]) {
+  return products.reduce<Record<string, PlanProduct>>((map, product) => {
+    map[product.id] = product;
+    return map;
+  }, {});
+}
+
+export async function loadPlanProductsBootstrap(userId: string | null | undefined): Promise<PlanProductsBootstrap> {
+  const [productsResult, favoriteRowsResult] = await Promise.all([
+    supabase
+      .from('products')
+      .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal')
+      .eq('is_live', true)
+      .eq('is_archived', false)
+      .order('name'),
+    userId
+      ? supabase
+          .from('user_favorite_products')
+          .select('product_id')
+          .eq('user_id', userId)
+      : Promise.resolve({ data: [] as Array<{ product_id: string }> }),
+  ]);
+
+  return {
+    allProducts: (productsResult.data ?? []) as PlanProduct[],
+    favoriteProductIds: new Set(
+      ((favoriteRowsResult.data ?? []) as Array<{ product_id: string }>).map((row) => row.product_id),
+    ),
+  };
+}
+
+export function usePlanProducts({ values, initialData }: Args) {
+  const [productMap, setProductMap] = useState<Record<string, PlanProduct>>(() =>
+    buildProductMap(initialData?.allProducts ?? []),
+  );
+  const [allProducts, setAllProducts] = useState<PlanProduct[]>(() => initialData?.allProducts ?? []);
+  const [favoriteProductIds, setFavoriteProductIds] = useState<Set<string>>(
+    () => new Set(initialData?.favoriteProductIds ?? []),
+  );
+  const [productsLoading, setProductsLoading] = useState(!initialData);
   const [pickerTarget, setPickerTarget] = useState<PlanTarget | null>(null);
   const [pickerSearch, setPickerSearch] = useState('');
   const [pickerSort, setPickerSort] = useState<'name' | 'carbs' | 'sodium'>('name');
@@ -18,51 +59,34 @@ export function usePlanProducts({ values }: Args) {
   useEffect(() => {
     let cancelled = false;
 
+    if (initialData) {
+      setAllProducts(initialData.allProducts);
+      setProductMap(buildProductMap(initialData.allProducts));
+      setFavoriteProductIds(new Set(initialData.favoriteProductIds));
+      setProductsLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     (async () => {
-      const [
-        {
-          data: { user },
-        },
-        productsResult,
-      ] = await Promise.all([
-        supabase.auth.getUser(),
-        supabase
-          .from('products')
-          .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal')
-          .eq('is_live', true)
-          .eq('is_archived', false)
-          .order('name'),
-      ]);
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const nextData = await loadPlanProductsBootstrap(user?.id ?? null);
 
       if (cancelled) return;
 
-      const products = (productsResult.data ?? []) as PlanProduct[];
-      setAllProducts(products);
-      setProductMap(
-        products.reduce<Record<string, PlanProduct>>((map, product) => {
-          map[product.id] = product;
-          return map;
-        }, {}),
-      );
-
-      if (user) {
-        const { data: favoriteRows } = await supabase
-          .from('user_favorite_products')
-          .select('product_id')
-          .eq('user_id', user.id);
-
-        if (!cancelled && favoriteRows) {
-          setFavoriteProductIds(new Set((favoriteRows as Array<{ product_id: string }>).map((row) => row.product_id)));
-        }
-      }
-
-      if (!cancelled) setProductsLoading(false);
+      setAllProducts(nextData.allProducts);
+      setProductMap(buildProductMap(nextData.allProducts));
+      setFavoriteProductIds(new Set(nextData.favoriteProductIds));
+      setProductsLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialData]);
 
   const pickerSearchLower = pickerSearch.trim().toLowerCase();
   const filteredAllProducts = useMemo(() => {

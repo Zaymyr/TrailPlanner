@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '../../../lib/supabase';
 import { Colors } from '../../../constants/colors';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, FavProduct, type ElevationPoint } from '../../../components/PlanForm';
+import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, type ElevationPoint } from '../../../components/PlanForm';
+import { PlanLoadingScreen } from '../../../components/PlanLoadingScreen';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { useI18n } from '../../../lib/i18n';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
 import { usePremium } from '../../../hooks/usePremium';
 import { currentUserHasReachedFreePlanLimit, FREE_PLAN_LIMIT } from '../../../lib/planAccess';
 import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
+import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../components/plan-form/usePlanProducts';
 
 type RaceInfo = {
   id: string;
@@ -29,42 +31,27 @@ export default function NewPlanScreen() {
   const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!!resolvedRaceId);
+  const [loadingPlanName, setLoadingPlanName] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
   const [userId, setUserId] = useState<string | null>(null);
-  const [favoriteProducts, setFavoriteProducts] = useState<FavProduct[]>([]);
+  const [planProductData, setPlanProductData] = useState<PlanProductsBootstrap | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const [showPremiumLimitModal, setShowPremiumLimitModal] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      const uid = data?.session?.user?.id ?? null;
-      setUserId(uid);
-      if (uid) {
-        const { data: favsData } = await supabase
-          .from('user_favorite_products')
-          .select('products(id, name, carbs_g, sodium_mg)')
-          .eq('user_id', uid);
-        if (favsData) {
-          setFavoriteProducts(
-            (favsData as any[])
-              .map((row) => row.products)
-              .filter(Boolean)
-              .map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                carbsGrams: p.carbs_g ?? 0,
-                sodiumMg: p.sodium_mg ?? 0,
-              }))
-          );
-        }
-      }
-    })();
-  }, []);
-
   const loadRaceSeed = useCallback(async () => {
+    setLoadingProgress(0.12);
+    setLoadingPlanName(null);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const uid = sessionData?.session?.user?.id ?? null;
+    setUserId(uid);
+    const productDataPromise = loadPlanProductsBootstrap(uid);
+
     if (!resolvedRaceId) {
+      setLoadingProgress(0.48);
+      setPlanProductData(await productDataPromise);
+      setLoadingProgress(0.9);
       setSelectedRace(null);
       setLoading(false);
       setShowRaceSelector(true);
@@ -74,15 +61,28 @@ export default function NewPlanScreen() {
     }
 
     setLoading(true);
-    const [{ data, error }, fetchedElevationProfile, fetchedAidStations] = await Promise.all([
-      supabase
-        .from('races')
-        .select('id, name, distance_km, elevation_gain_m')
-        .eq('id', resolvedRaceId)
-        .single(),
-      fetchRaceElevationProfile(resolvedRaceId),
-      fetchRaceAidStations(resolvedRaceId),
+    setLoadingProgress(0.24);
+    const raceResultPromise = supabase
+      .from('races')
+      .select('id, name, distance_km, elevation_gain_m')
+      .eq('id', resolvedRaceId)
+      .single();
+    const elevationProfilePromise = fetchRaceElevationProfile(resolvedRaceId);
+    const aidStationsPromise = fetchRaceAidStations(resolvedRaceId);
+    const { data, error } = await raceResultPromise;
+
+    if (!error && data) {
+      setLoadingPlanName((data as RaceInfo).name);
+      setLoadingProgress(0.52);
+    }
+
+    const [fetchedElevationProfile, fetchedAidStations, nextProductData] = await Promise.all([
+      elevationProfilePromise,
+      aidStationsPromise,
+      productDataPromise,
     ]);
+    setPlanProductData(nextProductData);
+    setLoadingProgress(0.82);
 
     if (!error && data) {
       const race = data as RaceInfo;
@@ -101,6 +101,7 @@ export default function NewPlanScreen() {
       setElevationProfile([]);
       setInitialValues(DEFAULT_PLAN_VALUES);
     }
+    setLoadingProgress(1);
     setLoading(false);
   }, [resolvedRaceId]);
 
@@ -119,12 +120,17 @@ export default function NewPlanScreen() {
           setLoading(false);
           setShowRaceSelector(false);
           setShowPremiumLimitModal(true);
+          setPlanProductData(null);
+          setLoadingProgress(1);
         })();
 
         return () => {
           setSelectedRace(null);
           setElevationProfile([]);
+          setPlanProductData(null);
           setInitialValues(null);
+          setLoadingPlanName(null);
+          setLoadingProgress(0.08);
           setLoading(!!resolvedRaceId);
           setShowRaceSelector(!resolvedRaceId);
         };
@@ -135,7 +141,10 @@ export default function NewPlanScreen() {
       return () => {
         setSelectedRace(null);
         setElevationProfile([]);
+        setPlanProductData(null);
         setInitialValues(null);
+        setLoadingPlanName(null);
+        setLoadingProgress(0.08);
         setLoading(!!resolvedRaceId);
         setShowRaceSelector(!resolvedRaceId);
       };
@@ -143,11 +152,21 @@ export default function NewPlanScreen() {
   );
 
   async function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
+    setLoading(true);
+    setLoadingPlanName(race.name);
+    setLoadingProgress(0.22);
     setSelectedRace(race);
-    const [nextElevationProfile, nextAidStations] = await Promise.all([
+    const { data: sessionData } = await supabase.auth.getSession();
+    const uid = sessionData?.session?.user?.id ?? userId;
+    setUserId(uid);
+    setLoadingProgress(0.42);
+    const [nextElevationProfile, nextAidStations, nextProductData] = await Promise.all([
       fetchRaceElevationProfile(race.id),
       fetchRaceAidStations(race.id),
+      planProductData ? Promise.resolve(planProductData) : loadPlanProductsBootstrap(uid),
     ]);
+    setLoadingProgress(0.82);
+    setPlanProductData(nextProductData);
     setElevationProfile(nextElevationProfile);
     setInitialValues({
       ...DEFAULT_PLAN_VALUES,
@@ -157,6 +176,8 @@ export default function NewPlanScreen() {
       aidStations: nextAidStations,
     });
     setShowRaceSelector(false);
+    setLoadingProgress(1);
+    setLoading(false);
   }
 
   async function handleSave(values: PlanFormValues) {
@@ -211,11 +232,19 @@ export default function NewPlanScreen() {
     }
   }
 
-  if (loading) {
+  if (loading || premiumLoading || (!showRaceSelector && initialValues && !planProductData)) {
+    const visiblePlanName = loadingPlanName ?? selectedRace?.name ?? initialValues?.name ?? null;
+    const loadingTitle = visiblePlanName
+      ? t.plans.planLoadingNamed.replace('{name}', visiblePlanName)
+      : t.plans.planLoadingGeneric;
+
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color="#22c55e" size="large" />
-      </View>
+      <PlanLoadingScreen
+        planName={visiblePlanName}
+        progress={loadingProgress}
+        stage={t.plans.planLoadingStage}
+        title={loadingTitle}
+      />
     );
   }
 
@@ -251,38 +280,35 @@ export default function NewPlanScreen() {
         userId={userId}
       />
 
-      {!showRaceSelector && initialValues && (
+      {!showRaceSelector && initialValues && planProductData && (
         <PlanForm
           key={selectedRace?.id ?? resolvedRaceId ?? 'new-plan'}
           initialValues={initialValues}
           elevationProfile={elevationProfile}
           onSave={handleSave}
+          isPremium={isPremium}
           loading={saving}
           saveLabel={t.common.create}
-          favoriteProducts={favoriteProducts}
+          productData={planProductData}
         />
       )}
 
-      <PremiumUpsellModal
-        visible={showPremiumLimitModal}
-        title={t.plans.limitReachedTitle}
-        message={t.plans.limitReachedMessage.replace('{count}', String(FREE_PLAN_LIMIT))}
-        onClose={() => {
-          setShowPremiumLimitModal(false);
-          router.replace('/(app)/plans');
-        }}
-      />
+      {showPremiumLimitModal ? (
+        <PremiumUpsellModal
+          visible={showPremiumLimitModal}
+          title={t.plans.limitReachedTitle}
+          message={t.plans.limitReachedMessage.replace('{count}', String(FREE_PLAN_LIMIT))}
+          onClose={() => {
+            setShowPremiumLimitModal(false);
+            router.replace('/(app)/plans');
+          }}
+        />
+      ) : null}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-  },
   limitInfo: {
     marginHorizontal: 16,
     marginTop: 12,
