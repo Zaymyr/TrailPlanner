@@ -837,6 +837,7 @@ export type AdminTranslations = {
     table: {
       name: string;
       location: string;
+      event: string;
       distance: string;
       elevation: string;
       status: string;
@@ -850,6 +851,7 @@ export type AdminTranslations = {
       add: string;
       addUtmb: string;
       edit: string;
+      editEvent: string;
       delete: string;
       setLive: string;
       setDraft: string;
@@ -860,13 +862,31 @@ export type AdminTranslations = {
       save: string;
       saving: string;
       cancel: string;
+      addAidStation: string;
+      remove: string;
     };
     fields: {
       name: string;
+      event: string;
+      eventMode: string;
+      noEvent: string;
+      existingEvent: string;
+      newEvent: string;
+      eventName: string;
+      eventLocation: string;
+      eventDate: string;
+      eventThumbnailUrl: string;
       location: string;
+      raceDate: string;
+      elevationGain: string;
+      elevationLoss: string;
       traceId: string;
       externalUrl: string;
       thumbnailUrl: string;
+      thumbnailFile: string;
+      aidStationName: string;
+      aidStationDistance: string;
+      aidStationWater: string;
       isLive: string;
       gpxFile: string;
       utmbUrl: string;
@@ -879,7 +899,12 @@ export type AdminTranslations = {
     utmbTitle: string;
     utmbDescription: string;
     editTitle: string;
+    editEventTitle: string;
     gpxSection: string;
+    gpxWaypoints: string;
+    noGpxWaypoints: string;
+    aidStationsTitle: string;
+    aidStationsDescription: string;
     imageSection: string;
     currentThumbnail: string;
     uploadingGpx: string;
@@ -903,11 +928,13 @@ export type AdminTranslations = {
       deleteFailed: string;
       invalidGpx: string;
       missingGpx: string;
+      missingEvent: string;
       confirmDelete: string;
       gpxUploadFailed: string;
       imageUploadFailed: string;
       imageTooLarge: string;
       imageInvalidType: string;
+      invalidAidStations: string;
     };
   };
 };

@@ -29,7 +29,10 @@ const optionalUrl = z
 
 const updateRaceSchema = z.object({
   name: z.string().trim().min(1).optional(),
+  event_id: z.string().uuid().nullable().optional(),
   location_text: optionalText,
+  elevation_gain_m: z.number().nonnegative().optional(),
+  elevation_loss_m: z.number().nonnegative().nullable().optional(),
   trace_id: z
     .string()
     .trim()
@@ -45,6 +48,7 @@ const updateRaceSchema = z.object({
 const raceRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
+  event_id: z.string().uuid().nullable().optional(),
   location_text: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   distance_km: z.number(),
@@ -109,7 +113,10 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
 
   const updatePayload: Record<string, unknown> = {};
   if (parsed.data.name !== undefined) updatePayload.name = parsed.data.name;
+  if (parsed.data.event_id !== undefined) updatePayload.event_id = parsed.data.event_id;
   if (parsed.data.location_text !== undefined) updatePayload.location_text = parsed.data.location_text;
+  if (parsed.data.elevation_gain_m !== undefined) updatePayload.elevation_gain_m = parsed.data.elevation_gain_m;
+  if (parsed.data.elevation_loss_m !== undefined) updatePayload.elevation_loss_m = parsed.data.elevation_loss_m;
   if (parsed.data.trace_id !== undefined) updatePayload.trace_id = parsed.data.trace_id;
   if (parsed.data.external_site_url !== undefined) updatePayload.external_site_url = parsed.data.external_site_url;
   if (parsed.data.thumbnail_url !== undefined) updatePayload.thumbnail_url = parsed.data.thumbnail_url;
