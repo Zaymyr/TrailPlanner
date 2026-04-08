@@ -304,6 +304,13 @@ const handleCheckoutSessionCompleted = async (payload: StripeCheckoutSessionEven
   const coachTierId = planName ? await fetchCoachTierIdByName(planName) : null;
   const subscriptionStatus = getCheckoutSubscriptionStatus(payload);
 
+  await upsertSubscription({
+    userId,
+    customerId,
+    subscriptionId,
+    status: subscriptionStatus,
+  });
+
   await upsertCoachProfile({
     userId,
     customerId,

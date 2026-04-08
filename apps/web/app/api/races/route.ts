@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
     resolvedGain = parsedGpx.stats.gainM || resolvedGain;
     resolvedLoss = parsedGpx.stats.lossM ?? resolvedLoss;
 
-    if (parsedGpx.waypoints.length > 0 && resolvedAidStations.length === 0) {
+    if (parsedGpx.pointSource !== "waypoint" && parsedGpx.waypoints.length > 0 && resolvedAidStations.length === 0) {
       resolvedAidStations = mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints);
     }
 

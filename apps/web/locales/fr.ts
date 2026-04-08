@@ -7,6 +7,14 @@ export const fr: Translations = {
       "Rendez-vous dans le planificateur de course pour estimer vos passages aux ravitos, vos objectifs énergétiques et votre allure.",
     cta: "Ouvrir le planificateur de course",
   },
+  mobileAppPrompt: {
+    title: "Emporte Pace Yourself dans ta poche",
+    description:
+      "Sur téléphone, l'app est plus pratique pour retrouver tes plans, lancer le suivi live et recevoir tes rappels.",
+    cta: "Télécharger l'app",
+    later: "Plus tard",
+    dismissLabel: "Masquer l'invitation à télécharger l'app",
+  },
   landing: {
     hero: {
       eyebrow: "Pace Yourself",

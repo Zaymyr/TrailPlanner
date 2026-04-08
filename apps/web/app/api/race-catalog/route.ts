@@ -438,7 +438,7 @@ export async function POST(request: NextRequest) {
   const resolvedAidStations =
     parsedManualAidStations.aidStations.length > 0
       ? parsedManualAidStations.aidStations
-      : parsedGpx.waypoints.length > 0
+      : parsedGpx.pointSource !== "waypoint" && parsedGpx.waypoints.length > 0
         ? mapGpxWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints)
         : [];
 

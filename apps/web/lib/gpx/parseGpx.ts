@@ -32,11 +32,12 @@ export type ParsedGpx = {
   waypoints: GpxWaypoint[];
   stats: GpxStats;
   name?: string | null;
+  pointSource: "track" | "route" | "waypoint";
 };
 
 const toNumber = (value: string | null | undefined): number | null => {
   if (!value) return null;
-  const parsed = Number(value);
+  const parsed = Number(value.trim().replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
 };
 
@@ -52,6 +53,21 @@ const decodeEntities = (text: string | null | undefined) => {
 };
 
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+const roundNullable = (value: number | null): number | null =>
+  typeof value === "number" ? Number(value.toFixed(1)) : null;
+
+const readAttribute = (attributes: string, name: string): string | null => {
+  const match = attributes.match(
+    new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]+)"|'([^']+)'|([^\\s"'>/]+))`, "i")
+  );
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+};
+
+const readTagText = (content: string, name: string): string | null => {
+  const match = content.match(new RegExp(`<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}>`, "i"));
+  return match?.[1] ?? null;
+};
 
 export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const R = 6371e3;
@@ -84,19 +100,7 @@ export const parseGpx = (content: string): ParsedGpx => {
     content.match(/<trk>[\s\S]*?<name>([\s\S]*?)<\/name>/i);
   const trackName = decodeEntities(trackNameMatch?.[1]) || null;
 
-  const trkptRegex = /<trkpt\b([^>]*)(?:>([\s\S]*?)<\/trkpt>|\s*\/>)/gi;
-  let trkptMatch: RegExpExecArray | null = null;
-  while ((trkptMatch = trkptRegex.exec(content))) {
-    const attributes = trkptMatch[1];
-    const inner = trkptMatch[2] ?? "";
-    const lat = toNumber(attributes.match(/\blat=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blat='([^']+)'/i)?.[1]);
-    const lng = toNumber(attributes.match(/\blon=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blon='([^']+)'/i)?.[1]);
-
-    if (lat === null || lng === null) continue;
-
-    const ele = toNumber(inner.match(/<ele>([^<]+)<\/ele>/i)?.[1]);
-    const time = inner.match(/<time>([^<]+)<\/time>/i)?.[1] ?? null;
-
+  const appendPoint = (lat: number, lng: number, ele: number | null, time: string | null) => {
     if (points.length > 0) {
       const prev = points[points.length - 1];
       totalMeters += haversineMeters(prev.lat, prev.lng, lat, lng);
@@ -136,23 +140,61 @@ export const parseGpx = (content: string): ParsedGpx => {
       boundsMinLng = lng;
       boundsMaxLng = lng;
     }
+  };
+
+  const appendPointElements = (tagName: "trkpt" | "rtept" | "wpt") => {
+    const pointRegex = new RegExp(
+      `<(?:[\\w.-]+:)?${tagName}\\b([^>]*)(?:>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${tagName}>|\\s*\\/>)`,
+      "gi"
+    );
+    let pointMatch: RegExpExecArray | null = null;
+    let count = 0;
+
+    while ((pointMatch = pointRegex.exec(content))) {
+      const attributes = pointMatch[1];
+      const inner = pointMatch[2] ?? "";
+      const lat = toNumber(readAttribute(attributes, "lat"));
+      const lng = toNumber(readAttribute(attributes, "lon"));
+
+      if (lat === null || lng === null) continue;
+
+      const ele = toNumber(readTagText(inner, "ele"));
+      const time = readTagText(inner, "time");
+      appendPoint(lat, lng, ele, time);
+      count += 1;
+    }
+
+    return count;
+  };
+
+  let pointSource: ParsedGpx["pointSource"] = "track";
+  const parsedTrackPointCount = appendPointElements("trkpt");
+
+  if (parsedTrackPointCount === 0) {
+    pointSource = "route";
+    appendPointElements("rtept");
   }
 
   if (points.length === 0) {
-    throw new Error("No track points found in GPX.");
+    pointSource = "waypoint";
+    appendPointElements("wpt");
+  }
+
+  if (points.length === 0) {
+    throw new Error("No track, route, or waypoint coordinates found in GPX.");
   }
 
   const waypoints: GpxWaypoint[] = [];
-  const wptRegex = /<wpt\b([^>]*)>([\s\S]*?)<\/wpt>/gi;
+  const wptRegex = /<(?:[\w.-]+:)?wpt\b([^>]*)(?:>([\s\S]*?)<\/(?:[\w.-]+:)?wpt>|\s*\/>)/gi;
   let wptMatch: RegExpExecArray | null = null;
   while ((wptMatch = wptRegex.exec(content))) {
     const attributes = wptMatch[1];
-    const inner = wptMatch[2];
-    const lat = toNumber(attributes.match(/\blat=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blat='([^']+)'/i)?.[1]);
-    const lng = toNumber(attributes.match(/\blon=\"([^\"]+)\"/i)?.[1] ?? attributes.match(/\blon='([^']+)'/i)?.[1]);
+    const inner = wptMatch[2] ?? "";
+    const lat = toNumber(readAttribute(attributes, "lat"));
+    const lng = toNumber(readAttribute(attributes, "lon"));
     if (lat === null || lng === null) continue;
-    const name = decodeEntities(inner.match(/<name>([\s\S]*?)<\/name>/i)?.[1]) || null;
-    const desc = decodeEntities(inner.match(/<desc>([\s\S]*?)<\/desc>/i)?.[1]) || null;
+    const name = decodeEntities(readTagText(inner, "name")) || null;
+    const desc = decodeEntities(readTagText(inner, "desc")) || null;
     waypoints.push({ lat, lng, name, desc });
   }
 
@@ -163,8 +205,8 @@ export const parseGpx = (content: string): ParsedGpx => {
       distanceKm: Number((totalMeters / 1000).toFixed(2)),
       gainM: Number(gainM.toFixed(1)),
       lossM: Number(lossM.toFixed(1)),
-      minAltM: minAltM === null ? null : Number(minAltM.toFixed(1)),
-      maxAltM: maxAltM === null ? null : Number(maxAltM.toFixed(1)),
+      minAltM: roundNullable(minAltM),
+      maxAltM: roundNullable(maxAltM),
       startLat: points[0]?.lat ?? null,
       startLng: points[0]?.lng ?? null,
       boundsMinLat,
@@ -173,5 +215,6 @@ export const parseGpx = (content: string): ParsedGpx => {
       boundsMaxLng,
     },
     name: trackName || null,
+    pointSource,
   };
 };

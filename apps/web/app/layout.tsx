@@ -15,6 +15,7 @@ import { QueryProvider } from "./query-client-provider";
 import { HeaderTabs } from "./header-tabs";
 import { SiteFooter } from "../components/SiteFooter";
 import { CookieBanner } from "../components/CookieBanner";
+import { MobileAppPrompt } from "../components/MobileAppPrompt";
 import { GTagLoader } from "./gtag-loader";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { ThemeDebugPanel } from "../components/ThemeDebugPanel";
@@ -88,6 +89,7 @@ export default function RootLayout({
               <SessionExpiredDialog />
               <TrialWelcomeDialog />
               <TrialExpiredNotice />
+              <MobileAppPrompt />
               <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 sm:gap-6 sm:px-6 sm:py-6 lg:gap-8 lg:py-10">
                 <header className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 flex-shrink-0">

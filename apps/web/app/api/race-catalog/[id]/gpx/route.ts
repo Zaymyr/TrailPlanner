@@ -230,7 +230,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     }
 
     // Insert new aid stations from GPX waypoints
-    if (parsedGpx.waypoints.length > 0) {
+    if (parsedGpx.pointSource !== "waypoint" && parsedGpx.waypoints.length > 0) {
       const normalized = normalizeImportedWaypoints(parsedGpx.points, parsedGpx.waypoints);
       const aidStations = normalized.aidStations.map((station, index) => ({
         race_id: parsedParams.data.id,
