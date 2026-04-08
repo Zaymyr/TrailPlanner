@@ -228,7 +228,6 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const editAidStationsQuery = useQuery({
     queryKey: ["admin", "race-catalog", editRace?.id, "aid-stations"],
     enabled: Boolean(editRace?.id),
-    refetchOnWindowFocus: false,
     queryFn: async () => {
       if (!editRace) return [];
       const response = await fetch(`/api/race-catalog/${editRace.id}/aid-stations`, {
