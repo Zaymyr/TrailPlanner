@@ -68,9 +68,17 @@ const rpcDayRowSchema = z.object({
   count: z.union([z.number(), z.string()]).transform((v) => Number(v)),
 });
 
-const isSubscriptionActive = (status: string | null | undefined): boolean => {
+const coachProfileRowSchema = z.object({
+  user_id: z.string().uuid(),
+  subscription_status: z.string().nullable().optional(),
+});
+
+const isSubscriptionActive = (status: string | null | undefined, currentPeriodEnd?: string | null): boolean => {
   const normalizedStatus = status?.toLowerCase() ?? null;
-  return normalizedStatus === "active" || normalizedStatus === "trialing";
+  if (normalizedStatus !== "active" && normalizedStatus !== "trialing") return false;
+  if (!currentPeriodEnd) return true;
+  const endDate = new Date(currentPeriodEnd);
+  return Number.isFinite(endDate.getTime()) ? endDate.getTime() > Date.now() : false;
 };
 
 const callRpc = async (
@@ -97,6 +105,44 @@ const callRpc = async (
   }
 
   return payload;
+};
+
+const fetchCoachSubscriptionStatuses = async (
+  supabaseUrl: string,
+  serviceRoleKey: string
+): Promise<Map<string, string>> => {
+  const response = await fetch(`${supabaseUrl}/rest/v1/coach_profiles?select=user_id,subscription_status`, {
+    headers: {
+      apikey: serviceRoleKey,
+      Authorization: `Bearer ${serviceRoleKey}`,
+    },
+    cache: "no-store",
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    console.error("Unable to load coach subscriptions for growth analytics", payload);
+    return new Map();
+  }
+
+  const parsed = z.array(coachProfileRowSchema).safeParse(payload);
+
+  if (!parsed.success) {
+    console.error("Unable to parse coach subscriptions for growth analytics", parsed.error.flatten().fieldErrors);
+    return new Map();
+  }
+
+  const statuses = new Map<string, string>();
+
+  for (const row of parsed.data) {
+    if (!row.subscription_status) continue;
+    const existing = statuses.get(row.user_id);
+    if (existing && isSubscriptionActive(existing)) continue;
+    statuses.set(row.user_id, row.subscription_status);
+  }
+
+  return statuses;
 };
 
 export async function GET(request: NextRequest) {
@@ -131,20 +177,32 @@ export async function GET(request: NextRequest) {
       return withSecurityHeaders(NextResponse.json({ message: "Unable to load growth data." }, { status: 500 }));
     }
 
-    const userRows = parsedUserRows.data.map((row) => ({
-      userId: row.user_id,
-      email: row.email ?? null,
-      createdAt: row.created_at,
-      lastSignInAt: row.last_sign_in_at ?? null,
-      planCount: row.plan_count,
-      hasProfile: row.has_profile,
-      subscriptionStatus: row.subscription_status ?? null,
-      subscriptionPeriodEnd: row.subscription_period_end ?? null,
-      grantReason: row.grant_reason ?? null,
-      isAdmin:
-        row.app_metadata?.role === "admin" ||
-        (Array.isArray(row.app_metadata?.roles) && (row.app_metadata.roles as string[]).includes("admin")),
-    }));
+    const coachSubscriptionStatuses = await fetchCoachSubscriptionStatuses(supabaseUrl, supabaseServiceRoleKey);
+
+    const userRows = parsedUserRows.data.map((row) => {
+      const subscriptionStatus = row.subscription_status ?? null;
+      const subscriptionPeriodEnd = row.subscription_period_end ?? null;
+      const coachSubscriptionStatus = coachSubscriptionStatuses.get(row.user_id) ?? null;
+      const shouldUseCoachSubscription =
+        coachSubscriptionStatus !== null &&
+        (!isSubscriptionActive(subscriptionStatus, subscriptionPeriodEnd) ||
+          isSubscriptionActive(coachSubscriptionStatus));
+
+      return {
+        userId: row.user_id,
+        email: row.email ?? null,
+        createdAt: row.created_at,
+        lastSignInAt: row.last_sign_in_at ?? null,
+        planCount: row.plan_count,
+        hasProfile: row.has_profile,
+        subscriptionStatus: shouldUseCoachSubscription ? coachSubscriptionStatus : subscriptionStatus,
+        subscriptionPeriodEnd: shouldUseCoachSubscription ? null : subscriptionPeriodEnd,
+        grantReason: row.grant_reason ?? null,
+        isAdmin:
+          row.app_metadata?.role === "admin" ||
+          (Array.isArray(row.app_metadata?.roles) && (row.app_metadata.roles as string[]).includes("admin")),
+      };
+    });
 
     const signupsByMonth = parsedMonths.data.map((r) => ({ month: r.month, count: r.count }));
     const signupsByDay = parsedDays.data.map((r) => ({ day: r.day, count: r.count }));
@@ -154,7 +212,7 @@ export async function GET(request: NextRequest) {
       usersWithPlan: userRows.filter((r) => r.planCount > 0).length,
       usersWithProfile: userRows.filter((r) => r.hasProfile).length,
       activeSubscriptions: userRows.filter((r) =>
-        isSubscriptionActive(r.subscriptionStatus)
+        isSubscriptionActive(r.subscriptionStatus, r.subscriptionPeriodEnd)
       ).length,
       premiumGrants: userRows.filter((r) => r.grantReason !== null).length,
     };

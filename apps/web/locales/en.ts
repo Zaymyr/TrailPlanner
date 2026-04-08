@@ -7,6 +7,13 @@ export const en: Translations = {
       "Head to the race planner to estimate aid-station timing, fueling targets, and pace for your next race.",
     cta: "Open race planner",
   },
+  mobileAppPrompt: {
+    title: "Take Pace Yourself with you",
+    description: "On your phone, the app is simpler for finding plans, starting live tracking, and getting reminders.",
+    cta: "Download the app",
+    later: "Later",
+    dismissLabel: "Hide app download prompt",
+  },
   landing: {
     hero: {
       eyebrow: "Pace Yourself",

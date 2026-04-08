@@ -36,7 +36,10 @@ const isWithinDays = (value: string | null, days: number): boolean => {
 
 const isActiveSubscription = (row: AdminGrowthResponse["userRows"][number]): boolean => {
   const normalizedStatus = row.subscriptionStatus?.toLowerCase() ?? null;
-  return normalizedStatus === "active" || normalizedStatus === "trialing";
+  if (normalizedStatus !== "active" && normalizedStatus !== "trialing") return false;
+  if (!row.subscriptionPeriodEnd) return true;
+  const periodEnd = new Date(row.subscriptionPeriodEnd);
+  return Number.isFinite(periodEnd.getTime()) ? periodEnd.getTime() > Date.now() : false;
 };
 
 const hasSubscriptionRecord = (row: AdminGrowthResponse["userRows"][number]): boolean => {

@@ -90,6 +90,14 @@ export type HomeHeroTranslations = {
   cta: string;
 };
 
+export type MobileAppPromptTranslations = {
+  title: string;
+  description: string;
+  cta: string;
+  later: string;
+  dismissLabel: string;
+};
+
 export type RacePlannerTranslations = {
   defaults: {
     aidStationName: string;
@@ -1331,6 +1339,7 @@ export type CoachCoacheeDetailTranslations = {
 
 export type Translations = {
   homeHero: HomeHeroTranslations;
+  mobileAppPrompt: MobileAppPromptTranslations;
   racePlanner: RacePlannerTranslations;
   landing: LandingPageTranslations;
   auth: AuthTranslations;

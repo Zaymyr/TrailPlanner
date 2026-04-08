@@ -33,7 +33,9 @@ describe("shared GPX parser", () => {
   });
 
   it("rejects clearly invalid GPX content", () => {
-    expect(() => parseGpx("<gpx><trk></trk></gpx>")).toThrow("No track points found in GPX.");
+    expect(() => parseGpx("<gpx><trk></trk></gpx>")).toThrow(
+      "No track, route, or waypoint coordinates found in GPX."
+    );
   });
 
   it("parses self-closing track points (trkpt />)", () => {
@@ -49,7 +51,37 @@ describe("shared GPX parser", () => {
 
     const parsed = parseGpx(gpx);
     expect(parsed.points.length).toBe(3);
+    expect(parsed.pointSource).toBe("track");
     expect(parsed.waypoints.length).toBe(1);
+    expect(parsed.stats.distanceKm).toBeGreaterThan(0);
+  });
+
+  it("falls back to route points when a GPX has no track", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <rte><name>Route only</name>
+    <rtept lon='3,0000' lat='45,0000'><ele>-10</ele></rtept>
+    <rtept lon='3,0010' lat='45,0010'><ele>20</ele></rtept>
+  </rte>
+</gpx>`;
+
+    const parsed = parseGpx(gpx);
+    expect(parsed.pointSource).toBe("route");
+    expect(parsed.points.length).toBe(2);
+    expect(parsed.stats.distanceKm).toBeGreaterThan(0);
+    expect(parsed.stats.gainM).toBeGreaterThan(0);
+  });
+
+  it("falls back to waypoint coordinates when no track or route exists", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="45.0000" lon="3.0000"><name>A</name></wpt>
+  <wpt lat="45.0010" lon="3.0010"><name>B</name></wpt>
+</gpx>`;
+
+    const parsed = parseGpx(gpx);
+    expect(parsed.pointSource).toBe("waypoint");
+    expect(parsed.points.length).toBe(2);
     expect(parsed.stats.distanceKm).toBeGreaterThan(0);
   });
 

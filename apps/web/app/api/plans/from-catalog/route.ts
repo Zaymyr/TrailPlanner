@@ -263,7 +263,9 @@ export async function POST(request: NextRequest) {
             distanceKm: station.km,
             waterRefill: station.water_available !== false,
           }))
-      : mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints);
+      : parsedGpx.pointSource !== "waypoint"
+        ? mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints)
+        : [];
 
   const plannerValues = {
     raceDistanceKm: parsedGpx.stats.distanceKm || Number(catalogRace.distance_km),
