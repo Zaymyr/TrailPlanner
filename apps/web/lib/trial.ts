@@ -1,4 +1,4 @@
-export const TRIAL_DURATION_DAYS = 14;
+export const TRIAL_DURATION_DAYS = 15;
 
 export type TrialStatus = {
   trialStartedAt: string | null;

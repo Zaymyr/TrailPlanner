@@ -221,6 +221,40 @@ before update on public.user_profiles
 for each row
 execute function public.set_user_profiles_updated_at();
 
+create or replace function public.handle_new_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  trial_start timestamptz := coalesce(new.created_at, timezone('utc', now()));
+  profile_name text := nullif(
+    trim(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name', '')),
+    ''
+  );
+begin
+  insert into public.user_profiles (user_id, full_name, trial_started_at, trial_ends_at)
+  values (new.id, profile_name, trial_start, trial_start + interval '15 days')
+  on conflict (user_id) do update
+  set
+    full_name = coalesce(public.user_profiles.full_name, excluded.full_name),
+    trial_started_at = coalesce(public.user_profiles.trial_started_at, excluded.trial_started_at),
+    trial_ends_at = coalesce(
+      public.user_profiles.trial_ends_at,
+      coalesce(public.user_profiles.trial_started_at, excluded.trial_started_at) + interval '15 days'
+    );
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created_create_profile on auth.users;
+create trigger on_auth_user_created_create_profile
+after insert on auth.users
+for each row
+execute function public.handle_new_user_profile();
+
 create table public.coach_tiers (
   id uuid primary key default gen_random_uuid(),
   name text not null,

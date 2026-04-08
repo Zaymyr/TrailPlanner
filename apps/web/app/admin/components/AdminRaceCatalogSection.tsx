@@ -23,7 +23,7 @@ import { Label } from "../../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import type { AdminTranslations } from "../../../locales/types";
 
-const basePillClass = "rounded-full px-3 py-1 text-xs font-semibold";
+const basePillClass = "whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/avif"];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -62,7 +62,10 @@ type RaceEventRow = z.infer<typeof raceEventSchema>;
 
 const editFormSchema = z.object({
   name: z.string().trim().min(1),
+  event_id: z.string().trim().optional(),
   location_text: z.string().trim().optional(),
+  elevation_gain_m: z.string().trim().optional(),
+  elevation_loss_m: z.string().trim().optional(),
   trace_id: z.string().trim().optional(),
   external_site_url: z.string().trim().optional(),
   thumbnail_url: z.string().trim().optional(),
@@ -83,7 +86,15 @@ type EditEventFormValues = z.infer<typeof editEventFormSchema>;
 
 const addFormSchema = z.object({
   name: z.string().trim().optional(),
+  event_id: z.string().trim().optional(),
+  event_name: z.string().trim().optional(),
+  event_location: z.string().trim().optional(),
+  event_race_date: z.string().trim().optional(),
+  event_thumbnail_url: z.string().trim().optional(),
+  race_date: z.string().trim().optional(),
   location_text: z.string().trim().optional(),
+  elevation_gain_m: z.string().trim().optional(),
+  elevation_loss_m: z.string().trim().optional(),
   trace_id: z.string().trim().optional(),
   external_site_url: z.string().trim().optional(),
   thumbnail_url: z.string().trim().optional(),
@@ -92,7 +103,9 @@ const addFormSchema = z.object({
 
 type AddFormValues = z.infer<typeof addFormSchema>;
 
-type ParsedPreview = { distanceKm: number; gainM: number; lossM: number };
+type ParsedPreview = { distanceKm: number; gainM: number; lossM: number; waypointCount: number };
+type EventMode = "none" | "existing" | "new";
+type AidStationDraft = { name: string; distanceKm: string; waterRefill: boolean };
 type UtmbPreview = {
   url: string;
   courseName: string;
@@ -135,6 +148,11 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [addGpxFile, setAddGpxFile] = useState<File | null>(null);
   const [addGpxPreview, setAddGpxPreview] = useState<ParsedPreview | null>(null);
   const [addGpxError, setAddGpxError] = useState<string | null>(null);
+  const [addEventMode, setAddEventMode] = useState<EventMode>("none");
+  const [addAidStations, setAddAidStations] = useState<AidStationDraft[]>([]);
+  const [addImageFile, setAddImageFile] = useState<File | null>(null);
+  const [addImagePreview, setAddImagePreview] = useState<string | null>(null);
+  const [addImageError, setAddImageError] = useState<string | null>(null);
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
 
   // Edit dialog file states
@@ -163,9 +181,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       if (!response.ok) {
         throw new Error((data as { message?: string } | null)?.message ?? t.loadError);
       }
-      const parsed = z.object({ races: z.array(raceRowSchema) }).safeParse(data);
+      const parsed = z.object({ races: z.array(raceRowSchema), events: z.array(raceEventSchema) }).safeParse(data);
       if (!parsed.success) throw new Error(t.loadError);
-      return parsed.data.races;
+      return parsed.data;
     },
   });
 
@@ -174,7 +192,14 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       const { id, ...fields } = payload;
       const body: Record<string, unknown> = {};
       if (fields.name !== undefined) body.name = fields.name;
+      if (fields.event_id !== undefined) body.event_id = fields.event_id || null;
       if (fields.location_text !== undefined) body.location_text = fields.location_text || null;
+      if (fields.elevation_gain_m !== undefined && fields.elevation_gain_m !== "") {
+        body.elevation_gain_m = Number(fields.elevation_gain_m.replace(",", "."));
+      }
+      if (fields.elevation_loss_m !== undefined) {
+        body.elevation_loss_m = fields.elevation_loss_m === "" ? null : Number(fields.elevation_loss_m.replace(",", "."));
+      }
       if (fields.trace_id !== undefined) body.trace_id = fields.trace_id || null;
       if (fields.external_site_url !== undefined) body.external_site_url = fields.external_site_url || null;
       if (fields.thumbnail_url !== undefined) body.thumbnail_url = fields.thumbnail_url || null;
@@ -343,7 +368,15 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     resolver: zodResolver(addFormSchema),
     defaultValues: {
       name: "",
+      event_id: "",
+      event_name: "",
+      event_location: "",
+      event_race_date: "",
+      event_thumbnail_url: "",
+      race_date: "",
       location_text: "",
+      elevation_gain_m: "",
+      elevation_loss_m: "",
       trace_id: "",
       external_site_url: "",
       thumbnail_url: "",
@@ -355,7 +388,10 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setEditRace(race);
     editForm.reset({
       name: race.name,
+      event_id: race.event_id ?? "",
       location_text: race.location_text ?? "",
+      elevation_gain_m: Math.round(race.elevation_gain_m).toString(),
+      elevation_loss_m: race.elevation_loss_m != null ? Math.round(race.elevation_loss_m).toString() : "",
       trace_id: race.trace_id?.toString() ?? "",
       external_site_url: race.external_site_url ?? "",
       thumbnail_url: race.thumbnail_url ?? "",
@@ -414,9 +450,20 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     try {
       const content = await file.text();
       const parsed = parseGpx(content);
-      setAddGpxPreview({ distanceKm: parsed.stats.distanceKm, gainM: parsed.stats.gainM, lossM: parsed.stats.lossM });
+      setAddGpxPreview({
+        distanceKm: parsed.stats.distanceKm,
+        gainM: parsed.stats.gainM,
+        lossM: parsed.stats.lossM,
+        waypointCount: parsed.waypoints.length,
+      });
       if (!addForm.getValues("name") && parsed.name) {
         addForm.setValue("name", parsed.name, { shouldDirty: true });
+      }
+      if (!addForm.getValues("elevation_gain_m")) {
+        addForm.setValue("elevation_gain_m", Math.round(parsed.stats.gainM).toString(), { shouldDirty: true });
+      }
+      if (!addForm.getValues("elevation_loss_m")) {
+        addForm.setValue("elevation_loss_m", Math.round(parsed.stats.lossM).toString(), { shouldDirty: true });
       }
     } catch (error) {
       setAddGpxPreview(null);
@@ -433,11 +480,35 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     try {
       const content = await file.text();
       const parsed = parseGpx(content);
-      setEditGpxPreview({ distanceKm: parsed.stats.distanceKm, gainM: parsed.stats.gainM, lossM: parsed.stats.lossM });
+      setEditGpxPreview({
+        distanceKm: parsed.stats.distanceKm,
+        gainM: parsed.stats.gainM,
+        lossM: parsed.stats.lossM,
+        waypointCount: parsed.waypoints.length,
+      });
     } catch (error) {
       setEditGpxPreview(null);
       setEditGpxError(error instanceof Error ? `${t.errors.invalidGpx} (${error.message})` : t.errors.invalidGpx);
     }
+  };
+
+  const handleAddImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAddImageError(null);
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setAddImageError(t.errors.imageInvalidType);
+      return;
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setAddImageError(t.errors.imageTooLarge);
+      return;
+    }
+
+    setAddImageFile(file);
+    if (addImagePreview) URL.revokeObjectURL(addImagePreview);
+    setAddImagePreview(URL.createObjectURL(file));
   };
 
   // Image file change for edit form
@@ -575,21 +646,103 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     updateEventMutation.mutate({ id: editEvent.id, ...values });
   });
 
+  const resetAddDialog = () => {
+    addForm.reset();
+    setAddEventMode("none");
+    setAddAidStations([]);
+    setAddGpxFile(null);
+    setAddGpxPreview(null);
+    setAddGpxError(null);
+    setAddImageFile(null);
+    if (addImagePreview) URL.revokeObjectURL(addImagePreview);
+    setAddImagePreview(null);
+    setAddImageError(null);
+  };
+
+  const handleAddAidStation = () => {
+    setAddAidStations((stations) => [
+      ...stations,
+      { name: `Ravito ${stations.length + 1}`, distanceKm: "", waterRefill: true },
+    ]);
+  };
+
+  const updateAddAidStation = (index: number, patch: Partial<AidStationDraft>) => {
+    setAddAidStations((stations) =>
+      stations.map((station, stationIndex) => (stationIndex === index ? { ...station, ...patch } : station))
+    );
+  };
+
+  const removeAddAidStation = (index: number) => {
+    setAddAidStations((stations) => stations.filter((_, stationIndex) => stationIndex !== index));
+  };
+
   const handleAddSubmit = addForm.handleSubmit(async (values) => {
     if (!addGpxFile) {
       setAddGpxError(t.errors.missingGpx);
       return;
     }
+    if (addImageError) {
+      return;
+    }
+    if (addEventMode === "existing" && !values.event_id) {
+      setError(t.errors.missingEvent);
+      return;
+    }
+    if (addEventMode === "new" && !values.event_name?.trim()) {
+      setError(t.errors.missingEvent);
+      return;
+    }
+    const aidStations = addAidStations
+      .map((station) => {
+        const name = station.name.trim();
+        const distanceText = station.distanceKm.trim();
+        return {
+          name,
+          distanceKm: distanceText ? Number(distanceText.replace(",", ".")) : Number.NaN,
+          waterRefill: station.waterRefill,
+          hasValue: name.length > 0 || distanceText.length > 0,
+        };
+      })
+      .filter((station) => station.hasValue);
+
+    if (aidStations.some((station) => station.name.length === 0 || !Number.isFinite(station.distanceKm))) {
+      setAddGpxError(t.errors.invalidAidStations);
+      return;
+    }
+
     setIsSubmittingAdd(true);
     setError(null);
     try {
       const formData = new FormData();
       formData.append("gpx", addGpxFile);
+      if (addImageFile) formData.append("image", addImageFile);
       if (values.name) formData.append("name", values.name);
+      if (addEventMode === "existing" && values.event_id) formData.append("event_id", values.event_id);
+      if (addEventMode === "new" && values.event_name) formData.append("event_name", values.event_name);
+      if (addEventMode === "new" && values.event_location) formData.append("event_location", values.event_location);
+      if (addEventMode === "new" && values.event_race_date) formData.append("event_race_date", values.event_race_date);
+      if (addEventMode === "new" && values.event_thumbnail_url) {
+        formData.append("event_thumbnail_url", values.event_thumbnail_url);
+      }
+      if (values.race_date) formData.append("race_date", values.race_date);
       if (values.location_text) formData.append("location_text", values.location_text);
+      if (values.elevation_gain_m) formData.append("elevation_gain_m", values.elevation_gain_m);
+      if (values.elevation_loss_m) formData.append("elevation_loss_m", values.elevation_loss_m);
       if (values.trace_id) formData.append("trace_id", values.trace_id);
       if (values.external_site_url) formData.append("external_site_url", values.external_site_url);
       if (values.thumbnail_url) formData.append("thumbnail_url", values.thumbnail_url);
+      if (aidStations.length > 0) {
+        formData.append(
+          "aid_stations",
+          JSON.stringify(
+            aidStations.map((station) => ({
+              name: station.name,
+              distanceKm: station.distanceKm,
+              waterRefill: station.waterRefill,
+            }))
+          )
+        );
+      }
       formData.append("is_live", String(values.is_live));
 
       const response = await fetch("/api/race-catalog", {
@@ -602,9 +755,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       setMessage(t.messages.created);
       setError(null);
       setAddOpen(false);
-      addForm.reset();
-      setAddGpxFile(null);
-      setAddGpxPreview(null);
+      resetAddDialog();
       void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
     } catch (err) {
       setError(err instanceof Error ? err.message : t.errors.createFailed);
@@ -626,7 +777,8 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setUtmbError(null);
   };
 
-  const raceRows = racesQuery.data ?? [];
+  const raceRows = racesQuery.data?.races ?? [];
+  const eventRows = racesQuery.data?.events ?? [];
   const filteredRaces = search
     ? raceRows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
     : raceRows;
@@ -691,22 +843,22 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
         ) : null}
 
         {filteredRaces.length > 0 ? (
-          <Table>
+          <Table className="table-fixed" containerClassName="overflow-x-hidden rounded-lg border border-border">
             <TableHeader>
               <TableRow>
-                <TableHead className="text-slate-600 dark:text-slate-300">{t.table.name}</TableHead>
-                <TableHead className="text-slate-600 dark:text-slate-300">{t.table.location}</TableHead>
-                <TableHead className="text-slate-600 dark:text-slate-300">Evenement</TableHead>
-                <TableHead className="text-slate-600 dark:text-slate-300">{t.table.distance}</TableHead>
-                <TableHead className="text-slate-600 dark:text-slate-300">{t.table.elevation}</TableHead>
-                <TableHead className="text-slate-600 dark:text-slate-300">{t.table.status}</TableHead>
-                <TableHead className="text-right text-slate-600 dark:text-slate-300">{t.table.actions}</TableHead>
+                <TableHead className="w-[31%] text-slate-600 dark:text-slate-300">{t.table.name}</TableHead>
+                <TableHead className="w-[21%] text-slate-600 dark:text-slate-300">{t.table.location}</TableHead>
+                <TableHead className="hidden">{t.table.event}</TableHead>
+                <TableHead className="w-[13%] text-slate-600 dark:text-slate-300">{t.table.distance}</TableHead>
+                <TableHead className="hidden">{t.table.elevation}</TableHead>
+                <TableHead className="w-[10%] text-slate-600 dark:text-slate-300">{t.table.status}</TableHead>
+                <TableHead className="w-[25%] text-right text-slate-600 dark:text-slate-300">{t.table.actions}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredRaces.map((race) => (
                 <TableRow key={race.id}>
-                  <TableCell className="font-semibold text-slate-900 dark:text-slate-50">
+                  <TableCell className="align-middle font-semibold text-slate-900 dark:text-slate-50">
                     <div className="flex items-center gap-2">
                       {race.race_events?.thumbnail_url ?? race.thumbnail_url ? (
                         <Image
@@ -728,19 +880,29 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-slate-700 dark:text-slate-200">
-                    {race.location_text ?? race.location ?? "—"}
+                  <TableCell className="align-middle text-slate-700 dark:text-slate-200">
+                    <div className="space-y-1">
+                      <p>{race.location_text ?? race.location ?? "—"}</p>
+                      {race.race_events?.location || race.race_events?.race_date ? (
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {t.table.event}: {[race.race_events?.location, race.race_events?.race_date].filter(Boolean).join(" · ")}
+                        </p>
+                      ) : null}
+                    </div>
                   </TableCell>
-                  <TableCell className="text-slate-700 dark:text-slate-200">
+                  <TableCell className="hidden text-slate-700 dark:text-slate-200">
                     {race.race_events?.location ?? race.location_text ?? race.location ?? "—"}
                   </TableCell>
-                  <TableCell className="text-slate-700 dark:text-slate-200">
-                    {race.distance_km.toFixed(1)} km
+                  <TableCell className="align-middle text-slate-700 dark:text-slate-200">
+                    <div className="space-y-1">
+                      <p>{race.distance_km.toFixed(1)} km</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">D+ {Math.round(race.elevation_gain_m)} m</p>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-slate-700 dark:text-slate-200">
+                  <TableCell className="hidden text-slate-700 dark:text-slate-200">
                     {Math.round(race.elevation_gain_m)} m
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="align-middle">
                     {race.is_live ? (
                       <span
                         className={`${basePillClass} bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200`}
@@ -755,35 +917,37 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                       </span>
                     )}
                   </TableCell>
-                  <TableCell className="flex justify-end gap-2">
-                    {race.race_events ? (
+                  <TableCell className="align-middle">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {race.race_events ? (
+                        <Button
+                          variant="outline"
+                          className="h-8 px-3 text-xs"
+                          onClick={() => handleOpenEditEvent(race.race_events!)}
+                        >
+                          {t.actions.editEvent}
+                        </Button>
+                      ) : null}
+                      <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => handleOpenEdit(race)}>
+                        {t.actions.edit}
+                      </Button>
                       <Button
                         variant="outline"
                         className="h-8 px-3 text-xs"
-                        onClick={() => handleOpenEditEvent(race.race_events!)}
+                        disabled={updateMutation.isPending}
+                        onClick={() => updateMutation.mutate({ id: race.id, is_live: !race.is_live })}
                       >
-                        Modifier l'événement
+                        {race.is_live ? t.actions.setDraft : t.actions.setLive}
                       </Button>
-                    ) : null}
-                    <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => handleOpenEdit(race)}>
-                      {t.actions.edit}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-8 px-3 text-xs"
-                      disabled={updateMutation.isPending}
-                      onClick={() => updateMutation.mutate({ id: race.id, is_live: !race.is_live })}
-                    >
-                      {race.is_live ? t.actions.setDraft : t.actions.setLive}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      className="h-8 px-3 text-xs text-red-600 hover:text-red-600"
-                      disabled={deleteMutation.isPending && deletingId === race.id}
-                      onClick={() => handleDelete(race.id)}
-                    >
-                      {t.actions.delete}
-                    </Button>
+                      <Button
+                        variant="ghost"
+                        className="h-8 px-3 text-xs text-red-600 hover:text-red-600"
+                        disabled={deleteMutation.isPending && deletingId === race.id}
+                        onClick={() => handleDelete(race.id)}
+                      >
+                        {t.actions.delete}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -880,14 +1044,11 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
         onOpenChange={(open) => {
           setAddOpen(open);
           if (!open) {
-            addForm.reset();
-            setAddGpxFile(null);
-            setAddGpxPreview(null);
-            setAddGpxError(null);
+            resetAddDialog();
           }
         }}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.addTitle}</DialogTitle>
             <DialogDescription>{t.description}</DialogDescription>
@@ -903,6 +1064,18 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 <Input className="h-9 text-sm" {...addForm.register("location_text")} />
               </div>
               <div className="space-y-1">
+                <Label className="text-xs">{t.fields.raceDate}</Label>
+                <Input type="date" className="h-9 text-sm" {...addForm.register("race_date")} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t.fields.elevationGain}</Label>
+                <Input className="h-9 text-sm" inputMode="numeric" {...addForm.register("elevation_gain_m")} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">{t.fields.elevationLoss}</Label>
+                <Input className="h-9 text-sm" inputMode="numeric" {...addForm.register("elevation_loss_m")} />
+              </div>
+              <div className="space-y-1">
                 <Label className="text-xs">{t.fields.traceId}</Label>
                 <Input className="h-9 text-sm" {...addForm.register("trace_id")} />
               </div>
@@ -913,6 +1086,80 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
               <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">{t.fields.thumbnailUrl}</Label>
                 <Input className="h-9 text-sm" placeholder="https://…" {...addForm.register("thumbnail_url")} />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs">{t.fields.thumbnailFile}</Label>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  className="h-9 text-sm"
+                  onChange={handleAddImageChange}
+                />
+                {addImagePreview ? (
+                  <Image
+                    src={addImagePreview}
+                    alt="preview"
+                    width={120}
+                    height={80}
+                    className="h-20 w-auto rounded border border-slate-200 object-cover dark:border-slate-700"
+                    unoptimized
+                  />
+                ) : null}
+                {addImageError ? <p className="text-xs text-red-500">{addImageError}</p> : null}
+              </div>
+              <div className="space-y-2 rounded-lg border border-slate-200 p-3 dark:border-slate-800 sm:col-span-2">
+                <Label className="text-xs">{t.fields.eventMode}</Label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {(["none", "existing", "new"] as EventMode[]).map((mode) => (
+                    <label key={mode} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                      <input
+                        type="radio"
+                        name="add-event-mode"
+                        checked={addEventMode === mode}
+                        onChange={() => setAddEventMode(mode)}
+                      />
+                      {mode === "none" ? t.fields.noEvent : mode === "existing" ? t.fields.existingEvent : t.fields.newEvent}
+                    </label>
+                  ))}
+                </div>
+                {addEventMode === "existing" ? (
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    {...addForm.register("event_id")}
+                  >
+                    <option value="">{t.fields.event}</option>
+                    {eventRows.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.name}
+                        {event.race_date ? ` - ${event.race_date}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                {addEventMode === "new" ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.fields.eventName}</Label>
+                      <Input className="h-9 text-sm" {...addForm.register("event_name")} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.fields.eventLocation}</Label>
+                      <Input className="h-9 text-sm" {...addForm.register("event_location")} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.fields.eventDate}</Label>
+                      <Input type="date" className="h-9 text-sm" {...addForm.register("event_race_date")} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t.fields.eventThumbnailUrl}</Label>
+                      <Input
+                        className="h-9 text-sm"
+                        placeholder="https://..."
+                        {...addForm.register("event_thumbnail_url")}
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-1 sm:col-span-2">
                 <Label className="text-xs">{t.fields.gpxFile}</Label>
@@ -928,9 +1175,61 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                     <span className="ml-2">{addGpxPreview.distanceKm.toFixed(1)} km</span>
                     <span className="ml-2">D+ {Math.round(addGpxPreview.gainM)} m</span>
                     <span className="ml-2">D- {Math.round(addGpxPreview.lossM)} m</span>
+                    <span className="ml-2">
+                      {t.gpxWaypoints.replace("{count}", String(addGpxPreview.waypointCount))}
+                    </span>
                   </p>
                 ) : null}
+                {addGpxPreview?.waypointCount === 0 ? (
+                  <p className="text-xs text-amber-600 dark:text-amber-300">{t.noGpxWaypoints}</p>
+                ) : null}
                 {addGpxError ? <p className="text-xs text-red-500">{addGpxError}</p> : null}
+              </div>
+              <div className="space-y-2 rounded-lg border border-dashed border-slate-200 p-3 dark:border-slate-800 sm:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                      {t.aidStationsTitle}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{t.aidStationsDescription}</p>
+                  </div>
+                  <Button type="button" variant="outline" className="h-8 px-3 text-xs" onClick={handleAddAidStation}>
+                    {t.actions.addAidStation}
+                  </Button>
+                </div>
+                {addAidStations.map((station, index) => (
+                  <div key={index} className="grid gap-2 sm:grid-cols-[1fr_120px_auto_auto]">
+                    <Input
+                      className="h-9 text-sm"
+                      placeholder={t.fields.aidStationName}
+                      value={station.name}
+                      onChange={(event) => updateAddAidStation(index, { name: event.target.value })}
+                    />
+                    <Input
+                      className="h-9 text-sm"
+                      inputMode="decimal"
+                      placeholder={t.fields.aidStationDistance}
+                      value={station.distanceKm}
+                      onChange={(event) => updateAddAidStation(index, { distanceKm: event.target.value })}
+                    />
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={station.waterRefill}
+                        onChange={(event) => updateAddAidStation(index, { waterRefill: event.target.checked })}
+                      />
+                      {t.fields.aidStationWater}
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs text-red-600 hover:text-red-600"
+                      onClick={() => removeAddAidStation(index)}
+                    >
+                      {t.actions.remove}
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
@@ -974,6 +1273,29 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 <div className="space-y-1">
                   <Label className="text-xs">{t.fields.location}</Label>
                   <Input className="h-9 text-sm" {...editForm.register("location_text")} />
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <Label className="text-xs">{t.fields.event}</Label>
+                  <select
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                    {...editForm.register("event_id")}
+                  >
+                    <option value="">{t.fields.noEvent}</option>
+                    {eventRows.map((event) => (
+                      <option key={event.id} value={event.id}>
+                        {event.name}
+                        {event.race_date ? ` - ${event.race_date}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.elevationGain}</Label>
+                  <Input className="h-9 text-sm" inputMode="numeric" {...editForm.register("elevation_gain_m")} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t.fields.elevationLoss}</Label>
+                  <Input className="h-9 text-sm" inputMode="numeric" {...editForm.register("elevation_loss_m")} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">{t.fields.traceId}</Label>
@@ -1031,6 +1353,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   <span className="ml-2">{editGpxPreview.distanceKm.toFixed(1)} km</span>
                   <span className="ml-2">D+ {Math.round(editGpxPreview.gainM)} m</span>
                   <span className="ml-2">D- {Math.round(editGpxPreview.lossM)} m</span>
+                  <span className="ml-2">
+                    {t.gpxWaypoints.replace("{count}", String(editGpxPreview.waypointCount))}
+                  </span>
                 </p>
               ) : null}
               {editGpxError ? <p className="text-xs text-red-500">{editGpxError}</p> : null}
@@ -1105,7 +1430,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       <Dialog open={editEvent !== null} onOpenChange={(open) => { if (!open) handleCloseEditEvent(); }}>
         <DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Modifier l'événement</DialogTitle>
+            <DialogTitle>{t.editEventTitle}</DialogTitle>
             <DialogDescription>{editEvent?.name}</DialogDescription>
           </DialogHeader>
           <div className="space-y-6">

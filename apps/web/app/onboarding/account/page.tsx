@@ -469,7 +469,7 @@ export default function AccountPage() {
             </button>
 
             <p className="text-center text-sm" style={{ color: "#16a34a" }}>
-              🎁 14 jours Premium offerts à la création de ton compte
+              🎁 15 jours Premium offerts à la création de ton compte
             </p>
           </form>
         </>

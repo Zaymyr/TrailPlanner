@@ -12,8 +12,8 @@ const COACH_INVITE_SEEN_KEY = "trailplanner.coachInviteWelcomeSeen";
 
 const TRIAL_COPY = {
   title: "Bienvenue ! / Welcome!",
-  introFr: "Merci d'avoir créé votre compte. Vous avez accès pendant 14 jours aux fonctions Premium :",
-  introEn: "Thanks for creating your account. You get 14 days of Premium features:",
+  introFr: "Merci d'avoir créé votre compte. Vous avez accès pendant 15 jours aux fonctions Premium :",
+  introEn: "Thanks for creating your account. You get 15 days of Premium features:",
   featuresFr: [
     "Export GPX",
     "Remplissage automatique des ravitos avec vos produits favoris",

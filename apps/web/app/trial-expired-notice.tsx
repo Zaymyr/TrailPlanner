@@ -11,7 +11,7 @@ const COPY = {
   banner: "Ton essai Premium est terminé. Abonne-toi pour réactiver les fonctions Premium.",
   modalTitle: "Essai Premium terminé",
   modalBody:
-    "Ton essai Premium de 14 jours est terminé. Abonne-toi pour réactiver : export GPX, remplissage automatique des ravitos avec tes produits favoris, et impression de ton plan de course.",
+    "Ton essai Premium de 15 jours est terminé. Abonne-toi pour réactiver : export GPX, remplissage automatique des ravitos avec tes produits favoris, et impression de ton plan de course.",
   cta: "S’abonner",
   opening: "Ouverture de la page d’abonnement…",
   later: "Plus tard",
