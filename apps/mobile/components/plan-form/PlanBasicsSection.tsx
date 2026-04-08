@@ -150,7 +150,7 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
           `${values.targetIntakePerHour || 0} g/h`,
           `${values.waterIntakePerHour || 0} ml/h`,
           `${values.sodiumIntakePerHour || 0} mg/h`,
-          `Sac ${values.waterBagLiters} L`,
+          `Poche eau ${values.waterBagLiters} L`,
         ],
         true,
       )}
@@ -186,7 +186,8 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
             <View style={[styles.rowItem, { marginLeft: 12 }]} />
           </View>
 
-          <Text style={styles.label}>Volume sac à eau</Text>
+          <Text style={styles.label}>Volume de la poche à eau</Text>
+          <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
           <View style={styles.waterBagRow}>
             {waterBagOptions.map((opt) => (
               <TouchableOpacity

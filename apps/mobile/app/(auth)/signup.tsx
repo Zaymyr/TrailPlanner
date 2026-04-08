@@ -15,6 +15,9 @@ import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { ensureTrialStatusForSession } from '../../lib/trial';
 
+const passwordHasRequiredShape = (value: string) =>
+  value.length >= 8 && /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(value) && /\d/.test(value);
+
 export default function SignupScreen() {
   const { t } = useI18n();
   const [fullName, setFullName] = useState('');
@@ -27,7 +30,7 @@ export default function SignupScreen() {
   async function handleSignup() {
     setError(null);
 
-    if (password.length < 8) {
+    if (!passwordHasRequiredShape(password)) {
       setError(t.auth.passwordTooShort);
       return;
     }

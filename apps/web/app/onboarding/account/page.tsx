@@ -22,6 +22,9 @@ function detectMobileDevice() {
   return /android|iphone|ipod|ipad|mobile|windows phone/.test(userAgent);
 }
 
+const passwordHasRequiredShape = (value: string) =>
+  value.length >= 8 && /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(value) && /\d/.test(value);
+
 export default function AccountPage() {
   const router = useRouter();
   const { state } = useOnboarding();
@@ -80,6 +83,12 @@ export default function AccountPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!passwordHasRequiredShape(password)) {
+      setError("Le mot de passe doit contenir au moins 8 caractères, une lettre et un chiffre.");
+      return;
+    }
+
     setSubmitting(true);
     let planSaved = false;
     trackOnboardingEvent("action", {
@@ -438,7 +447,7 @@ export default function AccountPage() {
               </label>
               <input
                 type="password"
-                placeholder="8 caractères minimum"
+                placeholder="8 caractères min., une lettre et un chiffre"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

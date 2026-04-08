@@ -265,6 +265,7 @@ export const styles = StyleSheet.create({
   waterBagBtnActive: { backgroundColor: Colors.brandPrimary, borderColor: Colors.brandPrimary },
   waterBagBtnText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '500' },
   waterBagBtnTextActive: { color: Colors.textOnBrand },
+  waterBagHint: { color: Colors.textMuted, fontSize: 12, marginTop: -2, marginBottom: 8 },
   sectionActions: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   fillBtn: {
     backgroundColor: 'transparent',

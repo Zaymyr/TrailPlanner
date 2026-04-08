@@ -112,6 +112,7 @@ export type MobileTranslations = {
     birthDateRange: string;
     ageCalculated: string;
     waterBagLabel: string;
+    waterBagHint: string;
     subscriptionLabel: string;
     premiumLabel: string;
     trialLabel: string;

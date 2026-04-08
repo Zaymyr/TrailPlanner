@@ -14,6 +14,9 @@ import { persistSessionToStorage } from "../../lib/auth-storage";
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
 
+const createPasswordSchema = (message: string) =>
+  z.string().min(8, message).regex(/[A-Za-zÀ-ÖØ-öø-ÿ]/, message).regex(/\d/, message);
+
 type ResetTokens = {
   accessToken: string;
   refreshToken?: string;
@@ -22,8 +25,8 @@ type ResetTokens = {
 const createResetSchema = (authCopy: Translations["auth"]) =>
   z
     .object({
-      password: z.string().min(8, authCopy.shared.passwordRequirement),
-      confirmPassword: z.string().min(8, authCopy.shared.passwordRequirement),
+      password: createPasswordSchema(authCopy.shared.passwordRequirement),
+      confirmPassword: createPasswordSchema(authCopy.shared.passwordRequirement),
     })
     .refine((values) => values.password === values.confirmPassword, {
       message: authCopy.passwordReset.mismatchError,

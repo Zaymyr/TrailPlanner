@@ -4,15 +4,20 @@ import { z } from "zod";
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { extractBearerToken, getSupabaseAnonConfig } from "../../../../lib/supabase";
 
+const passwordRequirement = "Password must be at least 8 characters and include a letter and a number";
+
 const passwordUpdateSchema = z.object({
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(8, passwordRequirement).regex(/[A-Za-zÀ-ÖØ-öø-ÿ]/, passwordRequirement).regex(/\d/, passwordRequirement),
 });
 
 export async function POST(request: NextRequest) {
   const parsedBody = passwordUpdateSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {
-    return withSecurityHeaders(NextResponse.json({ message: "Invalid password update request." }, { status: 400 }));
+    const passwordError = parsedBody.error.flatten().fieldErrors.password?.[0];
+    return withSecurityHeaders(
+      NextResponse.json({ message: passwordError ?? "Invalid password update request." }, { status: 400 })
+    );
   }
 
   const token = extractBearerToken(request.headers.get("authorization"));
