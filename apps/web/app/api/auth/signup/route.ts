@@ -4,9 +4,11 @@ import { z } from "zod";
 import { getSupabaseAnonConfig } from "../../../../lib/supabase";
 import { ensureTrialStatus } from "../../../../lib/trial-server";
 
+const passwordRequirement = "Password must be at least 8 characters and include a letter and a number";
+
 const signUpSchema = z.object({
   email: z.string().trim().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(8, passwordRequirement).regex(/[A-Za-zÀ-ÖØ-öø-ÿ]/, passwordRequirement).regex(/\d/, passwordRequirement),
   fullName: z.string().trim().min(2).max(120).optional(),
 });
 
@@ -14,7 +16,8 @@ export async function POST(request: Request) {
   const parsedBody = signUpSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {
-    return NextResponse.json({ message: "Invalid sign up request." }, { status: 400 });
+    const passwordError = parsedBody.error.flatten().fieldErrors.password?.[0];
+    return NextResponse.json({ message: passwordError ?? "Invalid sign up request." }, { status: 400 });
   }
 
   const supabaseConfig = getSupabaseAnonConfig();

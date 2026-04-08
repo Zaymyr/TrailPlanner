@@ -443,6 +443,7 @@ export default function ProfileScreen() {
       </Text>
 
       <Text style={styles.label}>{t.profile.waterBagLabel}</Text>
+      <Text style={styles.helperText}>{t.profile.waterBagHint}</Text>
       <View style={styles.waterBagRow}>
         {WATER_BAG_OPTIONS.map((opt) => (
           <TouchableOpacity

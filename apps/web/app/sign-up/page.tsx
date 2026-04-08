@@ -16,6 +16,9 @@ import { clearOnboardingFromLocalStorage, loadOnboardingFromLocalStorage } from 
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
 
+const createPasswordSchema = (message: string) =>
+  z.string().min(8, message).regex(/[A-Za-zÀ-ÖØ-öø-ÿ]/, message).regex(/\d/, message);
+
 const createSignUpSchema = (authCopy: Translations["auth"]) =>
   z
     .object({
@@ -25,8 +28,8 @@ const createSignUpSchema = (authCopy: Translations["auth"]) =>
         .min(2, authCopy.signUp.fullNameRequirement)
         .max(120),
       email: z.string().trim().email({ message: authCopy.shared.emailInvalid }),
-      password: z.string().min(8, authCopy.shared.passwordRequirement),
-      confirmPassword: z.string().min(8, authCopy.shared.passwordRequirement),
+      password: createPasswordSchema(authCopy.shared.passwordRequirement),
+      confirmPassword: createPasswordSchema(authCopy.shared.passwordRequirement),
     })
     .refine((values) => values.password === values.confirmPassword, {
       message: authCopy.signUp.mismatchError,
