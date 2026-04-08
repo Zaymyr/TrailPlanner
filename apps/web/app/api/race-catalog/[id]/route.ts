@@ -220,13 +220,33 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     return withSecurityHeaders(NextResponse.json({ message: "Race not found." }, { status: 404 }));
   }
 
+  const detachPlansResponse = await fetch(
+    `${supabaseService.supabaseUrl}/rest/v1/race_plans?race_id=eq.${parsedParams.data.id}`,
+    {
+      method: "PATCH",
+      headers: {
+        apikey: supabaseService.supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ race_id: null }),
+      cache: "no-store",
+    }
+  );
+
+  if (!detachPlansResponse.ok) {
+    console.error("Unable to detach race plans before deleting race", await detachPlansResponse.text());
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to detach race plans." }, { status: 502 }));
+  }
+
   const deleteResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
+    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
     {
       method: "DELETE",
       headers: {
-        apikey: supabaseAnon.supabaseAnonKey,
-        Authorization: `Bearer ${token}`,
+        apikey: supabaseService.supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
       },
       cache: "no-store",
     }

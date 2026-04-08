@@ -905,6 +905,10 @@ export type AdminTranslations = {
     noGpxWaypoints: string;
     aidStationsTitle: string;
     aidStationsDescription: string;
+    aidStationsEditTitle: string;
+    aidStationsEditDescription: string;
+    aidStationsLoading: string;
+    aidStationsEmpty: string;
     imageSection: string;
     currentThumbnail: string;
     uploadingGpx: string;
@@ -935,6 +939,7 @@ export type AdminTranslations = {
       imageTooLarge: string;
       imageInvalidType: string;
       invalidAidStations: string;
+      aidStationsUpdateFailed: string;
     };
   };
 };

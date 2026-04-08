@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -57,8 +57,18 @@ const raceRowSchema = z.object({
   race_events: raceEventSchema.nullable().optional(),
 });
 
+const aidStationRowSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  km: z.number(),
+  water_available: z.boolean(),
+  notes: z.string().nullable().optional(),
+  order_index: z.number(),
+});
+
 type RaceRow = z.infer<typeof raceRowSchema>;
 type RaceEventRow = z.infer<typeof raceEventSchema>;
+type AidStationRow = z.infer<typeof aidStationRowSchema>;
 
 const editFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -106,6 +116,7 @@ type AddFormValues = z.infer<typeof addFormSchema>;
 type ParsedPreview = { distanceKm: number; gainM: number; lossM: number; waypointCount: number };
 type EventMode = "none" | "existing" | "new";
 type AidStationDraft = { name: string; distanceKm: string; waterRefill: boolean };
+type PreparedAidStation = AidStationDraft & { distanceKmValue: number; hasValue: boolean };
 type UtmbPreview = {
   url: string;
   courseName: string;
@@ -128,6 +139,30 @@ type Props = {
   accessToken?: string;
   t: AdminTranslations["raceCatalog"];
 };
+
+const normalizeAidStationDrafts = (stations: AidStationDraft[]): PreparedAidStation[] =>
+  stations
+    .map((station) => {
+      const name = station.name.trim();
+      const distanceText = station.distanceKm.trim();
+      return {
+        name,
+        distanceKm: distanceText,
+        distanceKmValue: distanceText ? Number(distanceText.replace(",", ".")) : Number.NaN,
+        waterRefill: station.waterRefill,
+        hasValue: name.length > 0 || distanceText.length > 0,
+      };
+    })
+    .filter((station) => station.hasValue);
+
+const aidStationRowsToDrafts = (stations: AidStationRow[]): AidStationDraft[] =>
+  [...stations]
+    .sort((a, b) => a.order_index - b.order_index)
+    .map((station) => ({
+      name: station.name,
+      distanceKm: String(station.km),
+      waterRefill: station.water_available,
+    }));
 
 export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const queryClient = useQueryClient();
@@ -164,6 +199,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [editImageError, setEditImageError] = useState<string | null>(null);
   const [isUploadingGpx, setIsUploadingGpx] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [editAidStations, setEditAidStations] = useState<AidStationDraft[]>([]);
+  const [editAidStationsError, setEditAidStationsError] = useState<string | null>(null);
+  const [isSavingAidStations, setIsSavingAidStations] = useState(false);
   const [editEventImageFile, setEditEventImageFile] = useState<File | null>(null);
   const [editEventImagePreview, setEditEventImagePreview] = useState<string | null>(null);
   const [editEventImageError, setEditEventImageError] = useState<string | null>(null);
@@ -186,6 +224,32 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       return parsed.data;
     },
   });
+
+  const editAidStationsQuery = useQuery({
+    queryKey: ["admin", "race-catalog", editRace?.id, "aid-stations"],
+    enabled: Boolean(editRace?.id),
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      if (!editRace) return [];
+      const response = await fetch(`/api/race-catalog/${editRace.id}/aid-stations`, {
+        headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+        cache: "no-store",
+      });
+      const data = (await response.json().catch(() => null)) as unknown;
+      if (!response.ok) {
+        throw new Error((data as { message?: string } | null)?.message ?? t.errors.loadFailed);
+      }
+      const parsed = z.object({ aidStations: z.array(aidStationRowSchema) }).safeParse(data);
+      if (!parsed.success) throw new Error(t.errors.loadFailed);
+      return parsed.data.aidStations;
+    },
+  });
+
+  useEffect(() => {
+    if (!editAidStationsQuery.data) return;
+    setEditAidStations(aidStationRowsToDrafts(editAidStationsQuery.data));
+    setEditAidStationsError(null);
+  }, [editAidStationsQuery.data]);
 
   const updateMutation = useMutation({
     mutationFn: async (payload: { id: string } & Partial<EditFormValues>) => {
@@ -403,6 +467,8 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setEditImageFile(null);
     setEditImagePreview(null);
     setEditImageError(null);
+    setEditAidStations([]);
+    setEditAidStationsError(null);
     setMessage(null);
     setError(null);
   };
@@ -415,6 +481,8 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setEditImageFile(null);
     setEditImagePreview(null);
     setEditImageError(null);
+    setEditAidStations([]);
+    setEditAidStationsError(null);
   };
 
   const handleOpenEditEvent = (event: RaceEventRow) => {
@@ -569,10 +637,60 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       setEditGpxFile(null);
       setEditGpxPreview(null);
       void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", editRace.id, "aid-stations"] });
     } catch (err) {
       setError(err instanceof Error ? err.message : t.errors.gpxUploadFailed);
     } finally {
       setIsUploadingGpx(false);
+    }
+  };
+
+  const handleSaveEditAidStations = async () => {
+    if (!editRace) return;
+
+    const aidStations = normalizeAidStationDrafts(editAidStations);
+    if (
+      aidStations.some(
+        (station) => station.name.length === 0 || !Number.isFinite(station.distanceKmValue) || station.distanceKmValue < 0
+      )
+    ) {
+      setEditAidStationsError(t.errors.invalidAidStations);
+      return;
+    }
+
+    setIsSavingAidStations(true);
+    setEditAidStationsError(null);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/race-catalog/${editRace.id}/aid-stations`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          aidStations: aidStations.map((station) => ({
+            name: station.name,
+            distanceKm: station.distanceKmValue,
+            waterRefill: station.waterRefill,
+          })),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { message?: string; aidStations?: AidStationRow[] }
+        | null;
+      if (!response.ok) {
+        throw new Error(data?.message ?? t.errors.aidStationsUpdateFailed);
+      }
+
+      setMessage(t.messages.updated);
+      setEditAidStations(data?.aidStations ? aidStationRowsToDrafts(data.aidStations) : editAidStations);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", editRace.id, "aid-stations"] });
+    } catch (err) {
+      setEditAidStationsError(err instanceof Error ? err.message : t.errors.aidStationsUpdateFailed);
+    } finally {
+      setIsSavingAidStations(false);
     }
   };
 
@@ -676,6 +794,23 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setAddAidStations((stations) => stations.filter((_, stationIndex) => stationIndex !== index));
   };
 
+  const handleAddEditAidStation = () => {
+    setEditAidStations((stations) => [
+      ...stations,
+      { name: `Ravito ${stations.length + 1}`, distanceKm: "", waterRefill: true },
+    ]);
+  };
+
+  const updateEditAidStation = (index: number, patch: Partial<AidStationDraft>) => {
+    setEditAidStations((stations) =>
+      stations.map((station, stationIndex) => (stationIndex === index ? { ...station, ...patch } : station))
+    );
+  };
+
+  const removeEditAidStation = (index: number) => {
+    setEditAidStations((stations) => stations.filter((_, stationIndex) => stationIndex !== index));
+  };
+
   const handleAddSubmit = addForm.handleSubmit(async (values) => {
     if (!addGpxFile) {
       setAddGpxError(t.errors.missingGpx);
@@ -692,20 +827,13 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       setError(t.errors.missingEvent);
       return;
     }
-    const aidStations = addAidStations
-      .map((station) => {
-        const name = station.name.trim();
-        const distanceText = station.distanceKm.trim();
-        return {
-          name,
-          distanceKm: distanceText ? Number(distanceText.replace(",", ".")) : Number.NaN,
-          waterRefill: station.waterRefill,
-          hasValue: name.length > 0 || distanceText.length > 0,
-        };
-      })
-      .filter((station) => station.hasValue);
+    const aidStations = normalizeAidStationDrafts(addAidStations);
 
-    if (aidStations.some((station) => station.name.length === 0 || !Number.isFinite(station.distanceKm))) {
+    if (
+      aidStations.some(
+        (station) => station.name.length === 0 || !Number.isFinite(station.distanceKmValue) || station.distanceKmValue < 0
+      )
+    ) {
       setAddGpxError(t.errors.invalidAidStations);
       return;
     }
@@ -737,7 +865,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
           JSON.stringify(
             aidStations.map((station) => ({
               name: station.name,
-              distanceKm: station.distanceKm,
+              distanceKm: station.distanceKmValue,
               waterRefill: station.waterRefill,
             }))
           )
@@ -1369,6 +1497,88 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   {isUploadingGpx ? t.uploadingGpx : t.actions.save}
                 </Button>
               ) : null}
+            </div>
+
+            <hr className="border-slate-200 dark:border-slate-800" />
+
+            {/* Aid stations */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                    {t.aidStationsEditTitle}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{t.aidStationsEditDescription}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={handleAddEditAidStation}
+                >
+                  {t.actions.addAidStation}
+                </Button>
+              </div>
+
+              {editAidStationsQuery.isPending ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">{t.aidStationsLoading}</p>
+              ) : null}
+              {editAidStationsQuery.error ? (
+                <p className="text-xs text-red-500">
+                  {editAidStationsQuery.error instanceof Error ? editAidStationsQuery.error.message : t.errors.loadFailed}
+                </p>
+              ) : null}
+              {!editAidStationsQuery.isPending && editAidStations.length === 0 ? (
+                <p className="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                  {t.aidStationsEmpty}
+                </p>
+              ) : null}
+              <div className="space-y-2">
+                {editAidStations.map((station, index) => (
+                  <div key={index} className="grid gap-2 sm:grid-cols-[1fr_120px_auto_auto]">
+                    <Input
+                      className="h-9 text-sm"
+                      placeholder={t.fields.aidStationName}
+                      value={station.name}
+                      onChange={(event) => updateEditAidStation(index, { name: event.target.value })}
+                    />
+                    <Input
+                      className="h-9 text-sm"
+                      inputMode="decimal"
+                      placeholder={t.fields.aidStationDistance}
+                      value={station.distanceKm}
+                      onChange={(event) => updateEditAidStation(index, { distanceKm: event.target.value })}
+                    />
+                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={station.waterRefill}
+                        onChange={(event) => updateEditAidStation(index, { waterRefill: event.target.checked })}
+                      />
+                      {t.fields.aidStationWater}
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 px-2 text-xs text-red-600 hover:text-red-600"
+                      onClick={() => removeEditAidStation(index)}
+                    >
+                      {t.actions.remove}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+              {editAidStationsError ? <p className="text-xs text-red-500">{editAidStationsError}</p> : null}
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  className="h-8 px-4 text-xs"
+                  disabled={isSavingAidStations || editAidStationsQuery.isPending}
+                  onClick={() => void handleSaveEditAidStations()}
+                >
+                  {isSavingAidStations ? t.actions.saving : t.actions.save}
+                </Button>
+              </div>
             </div>
 
             <hr className="border-slate-200 dark:border-slate-800" />

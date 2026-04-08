@@ -943,6 +943,10 @@ export const fr: Translations = {
       noGpxWaypoints: "Aucun ravito detecte dans le GPX : ajoutez-les rapidement ci-dessous.",
       aidStationsTitle: "Ravitos rapides",
       aidStationsDescription: "Ajoutez les ravitos si le GPX officiel ne contient pas de points.",
+      aidStationsEditTitle: "Ravitos de la course",
+      aidStationsEditDescription: "Ajoutez, modifiez ou retirez les ravitos associes au GPX.",
+      aidStationsLoading: "Chargement des ravitos...",
+      aidStationsEmpty: "Aucun ravito defini pour cette course.",
       imageSection: "Miniature",
       currentThumbnail: "Miniature actuelle",
       uploadingGpx: "Envoi du GPX…",
@@ -973,6 +977,7 @@ export const fr: Translations = {
         imageTooLarge: "Image trop volumineuse (max 5 Mo).",
         imageInvalidType: "Type d'image invalide. Utilisez JPEG, PNG, WebP ou AVIF.",
         invalidAidStations: "Verifiez les noms et distances des ravitos.",
+        aidStationsUpdateFailed: "Impossible de mettre a jour les ravitos.",
       },
     },
     growth: {

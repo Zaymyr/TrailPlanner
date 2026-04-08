@@ -933,6 +933,10 @@ export const en: Translations = {
       noGpxWaypoints: "No aid stations detected in this GPX: add them quickly below.",
       aidStationsTitle: "Quick aid stations",
       aidStationsDescription: "Add aid stations when the official GPX does not include waypoints.",
+      aidStationsEditTitle: "Race aid stations",
+      aidStationsEditDescription: "Add, edit, or remove the aid stations attached to the GPX.",
+      aidStationsLoading: "Loading aid stations...",
+      aidStationsEmpty: "No aid stations defined for this race.",
       imageSection: "Thumbnail image",
       currentThumbnail: "Current thumbnail",
       uploadingGpx: "Uploading GPX…",
@@ -963,6 +967,7 @@ export const en: Translations = {
         imageTooLarge: "Image is too large (max 5 MB).",
         imageInvalidType: "Invalid image type. Use JPEG, PNG, WebP or AVIF.",
         invalidAidStations: "Check aid station names and distances.",
+        aidStationsUpdateFailed: "Unable to update aid stations.",
       },
     },
     growth: {
