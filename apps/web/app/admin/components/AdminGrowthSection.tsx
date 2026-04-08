@@ -15,14 +15,36 @@ type Props = {
 };
 
 const formatDate = (value: string | null): string => {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString();
 };
 
+const formatPercent = (value: number, total: number): string => {
+  if (total <= 0) return "0%";
+  return `${Math.round((value / total) * 100)}%`;
+};
+
+const isWithinDays = (value: string | null, days: number): boolean => {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const elapsedMs = Date.now() - date.getTime();
+  return elapsedMs >= 0 && elapsedMs <= days * 24 * 60 * 60 * 1000;
+};
+
 const isActiveSubscription = (row: AdminGrowthResponse["userRows"][number]): boolean => {
+  const normalizedStatus = row.subscriptionStatus?.toLowerCase() ?? null;
+  return normalizedStatus === "active" || normalizedStatus === "trialing";
+};
+
+const hasSubscriptionRecord = (row: AdminGrowthResponse["userRows"][number]): boolean => {
   return row.subscriptionStatus !== null && row.subscriptionStatus !== undefined;
+};
+
+const hasPremiumAccess = (row: AdminGrowthResponse["userRows"][number]): boolean => {
+  return isActiveSubscription(row) || row.grantReason !== null;
 };
 
 type StatusKey = "admin" | "premium" | "grant" | "active" | "profileOnly" | "inactive";
@@ -112,11 +134,39 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
   });
 
   const growth = growthQuery.data;
+  const userRows = growth?.userRows ?? [];
+  const totalUsers = growth?.totals.users ?? 0;
+  const activatedUsers = userRows.filter((row) => row.planCount > 0).length;
+  const profileOnlyUsers = userRows.filter((row) => row.hasProfile && row.planCount === 0).length;
+  const premiumUsers = userRows.filter(hasPremiumAccess).length;
+  const recentSignups7d = userRows.filter((row) => isWithinDays(row.createdAt, 7)).length;
+  const recentSignups30d = userRows.filter((row) => isWithinDays(row.createdAt, 30)).length;
+  const activeUsers30d = userRows.filter((row) => isWithinDays(row.lastSignInAt, 30)).length;
 
-  const conversionRate =
-    growth && growth.totals.users > 0
-      ? Math.round((growth.totals.usersWithPlan / growth.totals.users) * 100)
-      : 0;
+  const funnelData = growth
+    ? [
+        {
+          label: t.funnel.accounts,
+          count: totalUsers,
+          rate: "100%",
+        },
+        {
+          label: t.funnel.profile,
+          count: growth.totals.usersWithProfile,
+          rate: formatPercent(growth.totals.usersWithProfile, totalUsers),
+        },
+        {
+          label: t.funnel.plan,
+          count: activatedUsers,
+          rate: formatPercent(activatedUsers, totalUsers),
+        },
+        {
+          label: t.funnel.premium,
+          count: premiumUsers,
+          rate: formatPercent(premiumUsers, totalUsers),
+        },
+      ]
+    : [];
 
   const monthChartData = (growth?.signupsByMonth ?? []).map((d) => ({
     label: d.month,
@@ -143,16 +193,60 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
 
         {growth ? (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <KpiCard label={t.totals.users} value={growth.totals.users} />
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <KpiCard label={t.totals.users} value={totalUsers} />
               <KpiCard
-                label={t.totals.usersWithPlan}
-                value={growth.totals.usersWithPlan}
-                sub={`${conversionRate}%`}
+                label={t.totals.recentSignups}
+                value={recentSignups7d}
+                sub={t.totals.recentSignupsSub.replace("{count}", String(recentSignups30d))}
               />
-              <KpiCard label={t.totals.usersWithProfile} value={growth.totals.usersWithProfile} />
-              <KpiCard label={t.totals.activeSubscriptions} value={growth.totals.activeSubscriptions} />
-              <KpiCard label={t.totals.premiumGrants} value={growth.totals.premiumGrants} />
+              <KpiCard
+                label={t.totals.activatedUsers}
+                value={activatedUsers}
+                sub={formatPercent(activatedUsers, totalUsers)}
+              />
+              <KpiCard
+                label={t.totals.profileOnly}
+                value={profileOnlyUsers}
+                sub={formatPercent(profileOnlyUsers, totalUsers)}
+              />
+              <KpiCard
+                label={t.totals.premiumUsers}
+                value={premiumUsers}
+                sub={t.totals.premiumUsersSub
+                  .replace("{subscriptions}", String(growth.totals.activeSubscriptions))
+                  .replace("{grants}", String(growth.totals.premiumGrants))}
+              />
+              <KpiCard
+                label={t.totals.activeUsers30d}
+                value={activeUsers30d}
+                sub={formatPercent(activeUsers30d, totalUsers)}
+              />
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">{t.funnel.title}</p>
+              <div className="space-y-3">
+                {funnelData.map((step) => (
+                  <div key={step.label} className="grid gap-2 sm:grid-cols-[160px_1fr_72px] sm:items-center">
+                    <div className="text-sm font-medium text-slate-700 dark:text-slate-200">{step.label}</div>
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                      <div
+                        className="h-full rounded-full bg-emerald-500 dark:bg-emerald-400"
+                        style={{
+                          width:
+                            totalUsers > 0 && step.count > 0
+                              ? `${Math.max(4, Math.round((step.count / totalUsers) * 100))}%`
+                              : "0%",
+                        }}
+                      />
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">
+                      {step.count} - {step.rate}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="grid gap-6 md:grid-cols-2">
@@ -187,19 +281,52 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
                       <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.email}</TableHead>
                       <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.createdAt}</TableHead>
                       <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.lastSignInAt}</TableHead>
-                      <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.plans}</TableHead>
-                      <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.profile}</TableHead>
-                      <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.status}</TableHead>
+                      <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.activation}</TableHead>
+                      <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.premium}</TableHead>
+                      <TableHead className="text-slate-600 dark:text-slate-300">{t.userTable.segment}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {growth.userRows.map((row) => {
                       const status = getStatus(row);
-                      const statusLabel = t.statusLabels[status === "profileOnly" ? "profileOnly" : status];
+                      const statusLabel = t.statusLabels[status];
+                      const activationLabel =
+                        row.planCount > 0
+                          ? t.activation.withPlans.replace("{count}", String(row.planCount))
+                          : row.hasProfile
+                            ? t.activation.profileOnly
+                            : t.activation.noProfile;
+                      const activationHint =
+                        row.planCount > 0
+                          ? t.activation.withPlansHint
+                          : row.hasProfile
+                            ? t.activation.profileOnlyHint
+                            : t.activation.noProfileHint;
+                      const premiumLabel = row.isAdmin
+                        ? t.premium.admin
+                        : isActiveSubscription(row)
+                          ? t.premium.subscription
+                          : row.grantReason !== null
+                            ? t.premium.grant
+                            : hasSubscriptionRecord(row)
+                              ? t.premium.inactiveSubscription
+                              : t.premium.free;
+                      const premiumHint = row.isAdmin
+                        ? t.premium.adminHint
+                        : isActiveSubscription(row)
+                          ? row.subscriptionPeriodEnd
+                            ? t.premium.renewsOn.replace("{date}", formatDate(row.subscriptionPeriodEnd))
+                            : t.premium.subscriptionHint
+                          : row.grantReason !== null
+                            ? t.premium.reason.replace("{reason}", row.grantReason)
+                            : hasSubscriptionRecord(row)
+                              ? t.premium.inactiveSubscriptionHint.replace("{status}", row.subscriptionStatus ?? "-")
+                              : t.premium.freeHint;
+
                       return (
                         <TableRow key={row.userId}>
                           <TableCell className="font-semibold text-slate-900 dark:text-slate-100">
-                            {row.email ?? "—"}
+                            {row.email ?? "-"}
                           </TableCell>
                           <TableCell className="text-slate-700 dark:text-slate-200">
                             {formatDate(row.createdAt)}
@@ -207,9 +334,17 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
                           <TableCell className="text-slate-700 dark:text-slate-200">
                             {formatDate(row.lastSignInAt)}
                           </TableCell>
-                          <TableCell className="text-slate-700 dark:text-slate-200">{row.planCount}</TableCell>
                           <TableCell className="text-slate-700 dark:text-slate-200">
-                            {row.hasProfile ? "✓" : "—"}
+                            <div className="space-y-1">
+                              <p className="font-medium">{activationLabel}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">{activationHint}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-slate-700 dark:text-slate-200">
+                            <div className="space-y-1">
+                              <p className="font-medium">{premiumLabel}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400">{premiumHint}</p>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <span

@@ -806,6 +806,20 @@ export type AdminTranslations = {
       usersWithPlan: string;
       activeSubscriptions: string;
       premiumGrants: string;
+      recentSignups: string;
+      recentSignupsSub: string;
+      activatedUsers: string;
+      profileOnly: string;
+      premiumUsers: string;
+      premiumUsersSub: string;
+      activeUsers30d: string;
+    };
+    funnel: {
+      title: string;
+      accounts: string;
+      profile: string;
+      plan: string;
+      premium: string;
     };
     signupsByMonthTitle: string;
     signupsByDayTitle: string;
@@ -817,6 +831,30 @@ export type AdminTranslations = {
       plans: string;
       profile: string;
       status: string;
+      activation: string;
+      premium: string;
+      segment: string;
+    };
+    activation: {
+      withPlans: string;
+      withPlansHint: string;
+      profileOnly: string;
+      profileOnlyHint: string;
+      noProfile: string;
+      noProfileHint: string;
+    };
+    premium: {
+      admin: string;
+      adminHint: string;
+      subscription: string;
+      subscriptionHint: string;
+      renewsOn: string;
+      grant: string;
+      reason: string;
+      inactiveSubscription: string;
+      inactiveSubscriptionHint: string;
+      free: string;
+      freeHint: string;
     };
     statusLabels: {
       premium: string;

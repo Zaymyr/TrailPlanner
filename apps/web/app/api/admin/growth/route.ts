@@ -69,7 +69,8 @@ const rpcDayRowSchema = z.object({
 });
 
 const isSubscriptionActive = (status: string | null | undefined): boolean => {
-  return Boolean(status);
+  const normalizedStatus = status?.toLowerCase() ?? null;
+  return normalizedStatus === "active" || normalizedStatus === "trialing";
 };
 
 const callRpc = async (
