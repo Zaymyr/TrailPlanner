@@ -54,6 +54,9 @@ const decodeEntities = (text: string | null | undefined) => {
 
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
+const roundNullable = (value: number | null): number | null =>
+  typeof value === "number" ? Number(value.toFixed(1)) : null;
+
 const readAttribute = (attributes: string, name: string): string | null => {
   const match = attributes.match(
     new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]+)"|'([^']+)'|([^\\s"'>/]+))`, "i")
@@ -202,8 +205,8 @@ export const parseGpx = (content: string): ParsedGpx => {
       distanceKm: Number((totalMeters / 1000).toFixed(2)),
       gainM: Number(gainM.toFixed(1)),
       lossM: Number(lossM.toFixed(1)),
-      minAltM: minAltM === null ? null : Number(minAltM.toFixed(1)),
-      maxAltM: maxAltM === null ? null : Number(maxAltM.toFixed(1)),
+      minAltM: roundNullable(minAltM),
+      maxAltM: roundNullable(maxAltM),
       startLat: points[0]?.lat ?? null,
       startLng: points[0]?.lng ?? null,
       boundsMinLat,
