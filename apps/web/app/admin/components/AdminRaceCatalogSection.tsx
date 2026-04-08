@@ -1519,7 +1519,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 </Button>
               </div>
 
-              {editAidStationsQuery.isPending ? (
+              {editAidStationsQuery.isLoading ? (
                 <p className="text-xs text-slate-500 dark:text-slate-400">{t.aidStationsLoading}</p>
               ) : null}
               {editAidStationsQuery.error ? (
@@ -1527,7 +1527,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   {editAidStationsQuery.error instanceof Error ? editAidStationsQuery.error.message : t.errors.loadFailed}
                 </p>
               ) : null}
-              {!editAidStationsQuery.isPending && editAidStations.length === 0 ? (
+              {!editAidStationsQuery.isLoading && editAidStations.length === 0 ? (
                 <p className="rounded-md border border-dashed border-slate-200 px-3 py-2 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
                   {t.aidStationsEmpty}
                 </p>
@@ -1572,7 +1572,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 <Button
                   type="button"
                   className="h-8 px-4 text-xs"
-                  disabled={isSavingAidStations || editAidStationsQuery.isPending}
+                  disabled={isSavingAidStations || editAidStationsQuery.isLoading}
                   onClick={() => void handleSaveEditAidStations()}
                 >
                   {isSavingAidStations ? t.actions.saving : t.actions.save}
