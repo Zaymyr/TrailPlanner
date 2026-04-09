@@ -21,7 +21,7 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
     return '#8FAEBC';
   };
 
-  const maxBars = 36;
+  const maxBars = 52;
   const step = Math.max(1, Math.ceil(points.length / maxBars));
   const sampled = points.filter((_, index) => index % step === 0);
   const lastPoint = points[points.length - 1];
