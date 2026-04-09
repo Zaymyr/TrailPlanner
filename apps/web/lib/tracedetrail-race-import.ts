@@ -266,9 +266,9 @@ function getTraceDeTrailAidStations(
       const distanceKm = Number(nearestDistanceKm.toFixed(1));
       if (distanceKm <= 0.05 || distanceKm >= totalDistanceKm - 0.05) return [];
 
+      const normalizedWaypointType = normalizeComparableName(waypoint.type ?? "");
       const name =
-        waypoint.name ??
-        (normalizeComparableName(waypoint.type).includes("eau") ? "Point d'eau" : "Ravitaillement");
+        waypoint.name ?? (normalizedWaypointType.includes("eau") ? "Point d'eau" : "Ravitaillement");
       const dedupeKey = `${normalizeComparableName(name)}:${distanceKm.toFixed(1)}`;
 
       if (seen.has(dedupeKey)) return [];
