@@ -885,6 +885,7 @@ export const en: Translations = {
       actions: {
         add: "Add race",
         addUtmb: "Add UTMB race",
+        addTraceDeTrail: "Add via Trace de Trail",
         edit: "Edit",
         editEvent: "Edit event",
         delete: "Delete",
@@ -925,6 +926,7 @@ export const en: Translations = {
         isLive: "Published (live)",
         gpxFile: "GPX file",
         utmbUrl: "UTMB URL",
+        traceDeTrailUrl: "Trace de Trail URL",
         replaceGpx: "Replace GPX file",
         replaceImage: "Replace thumbnail image",
       },
@@ -933,6 +935,9 @@ export const en: Translations = {
       addTitle: "Add a new race",
       utmbTitle: "Add a UTMB race",
       utmbDescription: "Paste a UTMB race URL to automatically import its official race data.",
+      traceDeTrailTitle: "Add a Trace de Trail race",
+      traceDeTrailDescription:
+        "Paste a Trace de Trail course URL to automatically import the official GPX and race details.",
       editTitle: "Edit race",
       editEventTitle: "Edit event",
       gpxSection: "GPX file",
@@ -952,6 +957,10 @@ export const en: Translations = {
         title: "UTMB preview",
         aidStations: "{count} aid stations detected",
       },
+      traceDeTrailPreview: {
+        title: "Trace de Trail preview",
+        aidStations: "{count} aid stations detected",
+      },
       messages: {
         created: "Race created.",
         imported: "Race imported successfully.",
@@ -963,6 +972,8 @@ export const en: Translations = {
         createFailed: "Unable to create race.",
         utmbImportFailed: "Unable to retrieve UTMB race data for this race.",
         utmbDuplicate: "This race already exists in the catalogue: {name}",
+        traceDeTrailImportFailed: "Unable to retrieve Trace de Trail race data for this race.",
+        traceDeTrailDuplicate: "This Trace de Trail race already exists in the catalogue: {name}",
         updateFailed: "Unable to update race.",
         deleteFailed: "Unable to delete race.",
         invalidGpx: "Invalid GPX file.",

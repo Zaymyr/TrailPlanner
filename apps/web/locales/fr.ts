@@ -896,6 +896,7 @@ export const fr: Translations = {
       actions: {
         add: "Ajouter une course",
         addUtmb: "Ajouter une course UTMB",
+        addTraceDeTrail: "Ajouter via Trace de Trail",
         edit: "Modifier",
         editEvent: "Modifier l'evenement",
         delete: "Supprimer",
@@ -936,6 +937,7 @@ export const fr: Translations = {
         isLive: "Publiée (en ligne)",
         gpxFile: "Fichier GPX",
         utmbUrl: "URL UTMB",
+        traceDeTrailUrl: "URL Trace de Trail",
         replaceGpx: "Remplacer le fichier GPX",
         replaceImage: "Remplacer la miniature",
       },
@@ -944,6 +946,9 @@ export const fr: Translations = {
       addTitle: "Ajouter une course",
       utmbTitle: "Ajouter une course UTMB",
       utmbDescription: "Collez l’URL d’une course UTMB pour récupérer automatiquement ses données officielles.",
+      traceDeTrailTitle: "Ajouter une course Trace de Trail",
+      traceDeTrailDescription:
+        "Collez l'URL d'une trace Trace de Trail pour récupérer automatiquement le GPX officiel et les infos de course.",
       editTitle: "Modifier la course",
       editEventTitle: "Modifier l'evenement",
       gpxSection: "Fichier GPX",
@@ -963,6 +968,10 @@ export const fr: Translations = {
         title: "Aperçu UTMB",
         aidStations: "{count} ravitos détectés",
       },
+      traceDeTrailPreview: {
+        title: "Aperçu Trace de Trail",
+        aidStations: "{count} ravitos détectés",
+      },
       messages: {
         created: "Course créée.",
         imported: "Course importée avec succès.",
@@ -974,6 +983,8 @@ export const fr: Translations = {
         createFailed: "Impossible de créer la course.",
         utmbImportFailed: "Impossible de récupérer les données UTMB pour cette course.",
         utmbDuplicate: "Cette course existe déjà dans le catalogue : {name}",
+        traceDeTrailImportFailed: "Impossible de récupérer les données Trace de Trail pour cette course.",
+        traceDeTrailDuplicate: "Cette course Trace de Trail existe déjà dans le catalogue : {name}",
         updateFailed: "Impossible de mettre à jour la course.",
         deleteFailed: "Impossible de supprimer la course.",
         invalidGpx: "Fichier GPX invalide.",

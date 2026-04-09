@@ -896,6 +896,7 @@ export type AdminTranslations = {
     actions: {
       add: string;
       addUtmb: string;
+      addTraceDeTrail: string;
       edit: string;
       editEvent: string;
       delete: string;
@@ -936,6 +937,7 @@ export type AdminTranslations = {
       isLive: string;
       gpxFile: string;
       utmbUrl: string;
+      traceDeTrailUrl: string;
       replaceGpx: string;
       replaceImage: string;
     };
@@ -944,6 +946,8 @@ export type AdminTranslations = {
     addTitle: string;
     utmbTitle: string;
     utmbDescription: string;
+    traceDeTrailTitle: string;
+    traceDeTrailDescription: string;
     editTitle: string;
     editEventTitle: string;
     gpxSection: string;
@@ -963,6 +967,10 @@ export type AdminTranslations = {
       title: string;
       aidStations: string;
     };
+    traceDeTrailPreview: {
+      title: string;
+      aidStations: string;
+    };
     messages: {
       created: string;
       imported: string;
@@ -974,6 +982,8 @@ export type AdminTranslations = {
       createFailed: string;
       utmbImportFailed: string;
       utmbDuplicate: string;
+      traceDeTrailImportFailed: string;
+      traceDeTrailDuplicate: string;
       updateFailed: string;
       deleteFailed: string;
       invalidGpx: string;

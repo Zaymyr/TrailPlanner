@@ -117,7 +117,7 @@ type ParsedPreview = { distanceKm: number; gainM: number; lossM: number; waypoin
 type EventMode = "none" | "existing" | "new";
 type AidStationDraft = { name: string; distanceKm: string; waterRefill: boolean };
 type PreparedAidStation = AidStationDraft & { distanceKmValue: number; hasValue: boolean };
-type UtmbPreview = {
+type ImportedRacePreview = {
   url: string;
   courseName: string;
   eventName: string;
@@ -126,7 +126,6 @@ type UtmbPreview = {
   elevationLossM: number;
   date: string | null;
   location: string | null;
-  gpxUrl: string;
   aidStationCount: number;
 };
 type ExistingRacePreview = {
@@ -171,13 +170,18 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [addUtmbOpen, setAddUtmbOpen] = useState(false);
+  const [addTraceDeTrailOpen, setAddTraceDeTrailOpen] = useState(false);
   const [editRace, setEditRace] = useState<RaceRow | null>(null);
   const [editEvent, setEditEvent] = useState<RaceEventRow | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [utmbUrl, setUtmbUrl] = useState("");
-  const [utmbPreview, setUtmbPreview] = useState<UtmbPreview | null>(null);
+  const [utmbPreview, setUtmbPreview] = useState<ImportedRacePreview | null>(null);
   const [utmbDuplicateRace, setUtmbDuplicateRace] = useState<ExistingRacePreview | null>(null);
   const [utmbError, setUtmbError] = useState<string | null>(null);
+  const [traceDeTrailUrl, setTraceDeTrailUrl] = useState("");
+  const [traceDeTrailPreview, setTraceDeTrailPreview] = useState<ImportedRacePreview | null>(null);
+  const [traceDeTrailDuplicateRace, setTraceDeTrailDuplicateRace] = useState<ExistingRacePreview | null>(null);
+  const [traceDeTrailError, setTraceDeTrailError] = useState<string | null>(null);
 
   // Add form GPX state
   const [addGpxFile, setAddGpxFile] = useState<File | null>(null);
@@ -363,7 +367,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
         body: JSON.stringify({ url, action: "preview" }),
       });
       const data = (await response.json().catch(() => null)) as
-        | { message?: string; preview?: UtmbPreview; duplicateRace?: ExistingRacePreview | null }
+        | { message?: string; preview?: ImportedRacePreview; duplicateRace?: ExistingRacePreview | null }
         | null;
 
       if (!response.ok || !data?.preview) {
@@ -416,6 +420,73 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     },
     onError: (err) => {
       setUtmbError(err instanceof Error ? err.message : t.errors.utmbImportFailed);
+    },
+  });
+
+  const traceDeTrailPreviewMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await fetch("/api/admin/race-catalog/tracedetrail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ url, action: "preview" }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { message?: string; preview?: ImportedRacePreview; duplicateRace?: ExistingRacePreview | null }
+        | null;
+
+      if (!response.ok || !data?.preview) {
+        throw new Error(data?.message ?? t.errors.traceDeTrailImportFailed);
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      setTraceDeTrailPreview(data.preview ?? null);
+      setTraceDeTrailDuplicateRace(data.duplicateRace ?? null);
+      setTraceDeTrailError(null);
+    },
+    onError: (err) => {
+      setTraceDeTrailPreview(null);
+      setTraceDeTrailDuplicateRace(null);
+      setTraceDeTrailError(err instanceof Error ? err.message : t.errors.traceDeTrailImportFailed);
+    },
+  });
+
+  const traceDeTrailImportMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const response = await fetch("/api/admin/race-catalog/tracedetrail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ url, action: "import" }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { message?: string; race?: RaceRow }
+        | null;
+
+      if (!response.ok || !data?.race) {
+        throw new Error(data?.message ?? t.errors.traceDeTrailImportFailed);
+      }
+
+      return data;
+    },
+    onSuccess: () => {
+      setMessage(t.messages.imported);
+      setError(null);
+      setTraceDeTrailError(null);
+      setTraceDeTrailPreview(null);
+      setTraceDeTrailDuplicateRace(null);
+      setTraceDeTrailUrl("");
+      setAddTraceDeTrailOpen(false);
+      void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
+    },
+    onError: (err) => {
+      setTraceDeTrailError(err instanceof Error ? err.message : t.errors.traceDeTrailImportFailed);
     },
   });
 
@@ -904,6 +975,13 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setUtmbError(null);
   };
 
+  const resetTraceDeTrailDialog = () => {
+    setTraceDeTrailUrl("");
+    setTraceDeTrailPreview(null);
+    setTraceDeTrailDuplicateRace(null);
+    setTraceDeTrailError(null);
+  };
+
   const raceRows = racesQuery.data?.races ?? [];
   const eventRows = racesQuery.data?.events ?? [];
   const filteredRaces = search
@@ -919,6 +997,18 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
             <p className="text-sm text-slate-600 dark:text-slate-400">{t.description}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-9 px-4 text-sm"
+              onClick={() => {
+                resetTraceDeTrailDialog();
+                setAddTraceDeTrailOpen(true);
+                setMessage(null);
+                setError(null);
+              }}
+            >
+              {t.actions.addTraceDeTrail}
+            </Button>
             <Button
               variant="outline"
               className="h-9 px-4 text-sm"
@@ -1084,6 +1174,98 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       </CardContent>
 
       {/* ── Add dialog ── */}
+      <Dialog
+        open={addTraceDeTrailOpen}
+        onOpenChange={(open) => {
+          setAddTraceDeTrailOpen(open);
+          if (!open) resetTraceDeTrailDialog();
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t.traceDeTrailTitle}</DialogTitle>
+            <DialogDescription>{t.traceDeTrailDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">{t.fields.traceDeTrailUrl}</Label>
+              <Input
+                className="h-9 text-sm"
+                placeholder="https://tracedetrail.fr/fr/trace/312934"
+                value={traceDeTrailUrl}
+                onChange={(event) => {
+                  setTraceDeTrailUrl(event.target.value);
+                  setTraceDeTrailPreview(null);
+                  setTraceDeTrailDuplicateRace(null);
+                  setTraceDeTrailError(null);
+                }}
+              />
+            </div>
+
+            {traceDeTrailError ? (
+              <p className="text-sm text-red-600 dark:text-red-300">{traceDeTrailError}</p>
+            ) : null}
+
+            {traceDeTrailPreview ? (
+              <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  {t.traceDeTrailPreview.title}
+                </p>
+                <div className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                  <p className="font-medium">{traceDeTrailPreview.courseName}</p>
+                  <p>{traceDeTrailPreview.eventName}</p>
+                  <p>
+                    {traceDeTrailPreview.distanceKm.toFixed(1)} km · D+{" "}
+                    {Math.round(traceDeTrailPreview.elevationGainM)} m · D-{" "}
+                    {Math.round(traceDeTrailPreview.elevationLossM)} m
+                  </p>
+                  <p>
+                    {traceDeTrailPreview.location ?? "—"}
+                    {traceDeTrailPreview.date ? ` · ${traceDeTrailPreview.date}` : ""}
+                  </p>
+                  <p>
+                    {t.traceDeTrailPreview.aidStations.replace(
+                      "{count}",
+                      String(traceDeTrailPreview.aidStationCount)
+                    )}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {traceDeTrailDuplicateRace ? (
+              <p className="text-sm text-amber-700 dark:text-amber-200">
+                {t.errors.traceDeTrailDuplicate.replace("{name}", traceDeTrailDuplicateRace.name)}
+              </p>
+            ) : null}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddTraceDeTrailOpen(false)}>
+                {t.actions.cancel}
+              </Button>
+              {!traceDeTrailPreview ? (
+                <Button
+                  type="button"
+                  disabled={!traceDeTrailUrl.trim() || traceDeTrailPreviewMutation.isPending}
+                  onClick={() => traceDeTrailPreviewMutation.mutate(traceDeTrailUrl.trim())}
+                >
+                  {traceDeTrailPreviewMutation.isPending ? t.actions.loadingImport : t.actions.import}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  disabled={Boolean(traceDeTrailDuplicateRace) || traceDeTrailImportMutation.isPending}
+                  onClick={() => traceDeTrailImportMutation.mutate(traceDeTrailUrl.trim())}
+                >
+                  {traceDeTrailImportMutation.isPending ? t.actions.importing : t.actions.confirmImport}
+                </Button>
+              )}
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={addUtmbOpen}
         onOpenChange={(open) => {

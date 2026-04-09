@@ -8,6 +8,7 @@ import {
 } from "../../../../lib/supabase";
 import { withSecurityHeaders } from "../../../../lib/http";
 import { getUtmbRaceData } from "../../../../lib/utmb-race-import";
+import { getTraceDeTrailRaceData } from "../../../../lib/tracedetrail-race-import";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
   const currentUser = token ? await fetchSupabaseUser(token, supabaseAnon) : null;
 
   const raceRes = await fetch(
-    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=gpx_storage_path,trace_provider,source_url,external_site_url,is_live,is_public,created_by,race_events(is_live)&limit=1`,
+    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=gpx_storage_path,trace_provider,trace_id,source_url,external_site_url,is_live,is_public,created_by,race_events(is_live)&limit=1`,
     {
       headers: {
         apikey: supabaseService.supabaseServiceRoleKey,
@@ -58,6 +59,7 @@ export async function GET(request: NextRequest) {
   const rows = (await raceRes.json().catch(() => [])) as Array<{
     gpx_storage_path?: string | null;
     trace_provider?: string | null;
+    trace_id?: number | null;
     source_url?: string | null;
     external_site_url?: string | null;
     is_live?: boolean | null;
@@ -82,6 +84,7 @@ export async function GET(request: NextRequest) {
   const gpxPath = race?.gpx_storage_path ?? null;
   const sourceUrl = race?.source_url ?? race?.external_site_url ?? null;
   const traceProvider = race?.trace_provider ?? null;
+  const traceId = typeof race?.trace_id === "number" && Number.isFinite(race.trace_id) ? race.trace_id : null;
   let elevationProfile: Array<{ distanceKm: number; elevationM: number }> = [];
 
   if (gpxPath) {
@@ -117,6 +120,19 @@ export async function GET(request: NextRequest) {
       elevationProfile = samplePoints(utmbRace.elevationProfile, 400);
     } catch {
       elevationProfile = [];
+    }
+  }
+
+  if (elevationProfile.length === 0 && traceProvider === "tracedetrail") {
+    const traceDeTrailUrl = sourceUrl ?? (traceId ? `https://tracedetrail.fr/fr/trace/${traceId}` : null);
+
+    if (traceDeTrailUrl) {
+      try {
+        const traceDeTrailRace = await getTraceDeTrailRaceData(traceDeTrailUrl);
+        elevationProfile = samplePoints(traceDeTrailRace.elevationProfile, 400);
+      } catch {
+        elevationProfile = [];
+      }
     }
   }
 
