@@ -1,12 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { ChevronDownIcon, ChevronUpIcon } from "../../../components/race-planner/TimelineIcons";
 import { parseGpx } from "../../../lib/gpx/parseGpx";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -134,6 +135,15 @@ type ExistingRacePreview = {
   name: string;
   slug?: string | null;
 };
+type RaceGroup = {
+  key: string;
+  title: string;
+  meta: string | null;
+  event: RaceEventRow | null;
+  thumbnailUrl: string | null;
+  races: RaceRow[];
+  isWithoutEvent: boolean;
+};
 
 type Props = {
   accessToken?: string;
@@ -214,6 +224,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [editEventImagePreview, setEditEventImagePreview] = useState<string | null>(null);
   const [editEventImageError, setEditEventImageError] = useState<string | null>(null);
   const [isUploadingEventImage, setIsUploadingEventImage] = useState(false);
+  const [collapsedRaceGroups, setCollapsedRaceGroups] = useState<Record<string, boolean>>({});
 
   const racesQuery = useQuery({
     queryKey: ["admin", "race-catalog", accessToken],
@@ -1006,6 +1017,107 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     ? raceRows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
     : raceRows;
   const hasTraceDeTrailCredentials = traceDeTrailLogin.trim().length > 0 && traceDeTrailPassword.length > 0;
+  const groupedRaces = useMemo(() => {
+    const eventById = new Map(eventRows.map((event) => [event.id, event]));
+    const groups = new Map<string, RaceGroup>();
+
+    for (const race of filteredRaces) {
+      const event = race.event_id ? (eventById.get(race.event_id) ?? race.race_events ?? null) : race.race_events ?? null;
+      const key = event?.id ? `event:${event.id}` : "event:none";
+      const existingGroup = groups.get(key);
+
+      if (existingGroup) {
+        existingGroup.races.push(race);
+        continue;
+      }
+
+      groups.set(key, {
+        key,
+        title: event?.name ?? t.noEventGroupTitle,
+        meta: event ? [event.location, event.race_date].filter(Boolean).join(" - ") || null : null,
+        event,
+        thumbnailUrl: event?.thumbnail_url ?? null,
+        races: [race],
+        isWithoutEvent: !event,
+      });
+    }
+
+    return [...groups.values()].sort((left, right) => {
+      if (left.isWithoutEvent !== right.isWithoutEvent) return left.isWithoutEvent ? 1 : -1;
+      return left.title.localeCompare(right.title, undefined, { sensitivity: "base" });
+    });
+  }, [eventRows, filteredRaces, t.noEventGroupTitle]);
+
+  const renderRaceRow = (race: RaceRow) => (
+    <TableRow key={race.id}>
+      <TableCell className="align-middle font-semibold text-slate-900 dark:text-slate-50">
+        <div className="flex items-center gap-2">
+          {race.thumbnail_url ? (
+            <Image
+              src={race.thumbnail_url}
+              alt={race.name}
+              width={32}
+              height={32}
+              className="h-8 w-8 rounded object-cover"
+              unoptimized
+            />
+          ) : null}
+          <div className="min-w-0">
+            <p className="truncate">{race.name}</p>
+          </div>
+        </div>
+      </TableCell>
+      <TableCell className="align-middle text-slate-700 dark:text-slate-200">
+        {race.location_text ?? race.location ?? "-"}
+      </TableCell>
+      <TableCell className="hidden text-slate-700 dark:text-slate-200">
+        {race.race_events?.location ?? race.location_text ?? race.location ?? "-"}
+      </TableCell>
+      <TableCell className="align-middle text-slate-700 dark:text-slate-200">
+        <div className="space-y-1">
+          <p>{race.distance_km.toFixed(1)} km</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">D+ {Math.round(race.elevation_gain_m)} m</p>
+        </div>
+      </TableCell>
+      <TableCell className="hidden text-slate-700 dark:text-slate-200">{Math.round(race.elevation_gain_m)} m</TableCell>
+      <TableCell className="align-middle">
+        {race.is_live ? (
+          <span
+            className={`${basePillClass} bg-emerald-100 text-emerald-700 dark:bg-emerald-400/20 dark:text-emerald-200`}
+          >
+            {t.status.live}
+          </span>
+        ) : (
+          <span className={`${basePillClass} bg-amber-100 text-amber-800 dark:bg-amber-400/20 dark:text-amber-200`}>
+            {t.status.draft}
+          </span>
+        )}
+      </TableCell>
+      <TableCell className="align-middle">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => handleOpenEdit(race)}>
+            {t.actions.edit}
+          </Button>
+          <Button
+            variant="outline"
+            className="h-8 px-3 text-xs"
+            disabled={updateMutation.isPending}
+            onClick={() => updateMutation.mutate({ id: race.id, is_live: !race.is_live })}
+          >
+            {race.is_live ? t.actions.setDraft : t.actions.setLive}
+          </Button>
+          <Button
+            variant="ghost"
+            className="h-8 px-3 text-xs text-red-600 hover:text-red-600"
+            disabled={deleteMutation.isPending && deletingId === race.id}
+            onClick={() => handleDelete(race.id)}
+          >
+            {t.actions.delete}
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 
   return (
     <Card>
@@ -1078,7 +1190,82 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
           <p className="text-sm text-slate-500 dark:text-slate-400">{t.empty}</p>
         ) : null}
 
-        {filteredRaces.length > 0 ? (
+        {groupedRaces.length > 0 ? (
+          <div className="space-y-3">
+            {groupedRaces.map((group) => {
+              const isCollapsed = Boolean(collapsedRaceGroups[group.key]);
+              return (
+                <div key={group.key} className="overflow-hidden rounded-lg border border-border">
+                  <div className="flex flex-wrap items-center justify-between gap-3 bg-muted/40 px-4 py-3">
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      aria-expanded={!isCollapsed}
+                      onClick={() =>
+                        setCollapsedRaceGroups((current) => ({
+                          ...current,
+                          [group.key]: !current[group.key],
+                        }))
+                      }
+                    >
+                      {group.thumbnailUrl ? (
+                        <Image
+                          src={group.thumbnailUrl}
+                          alt={group.title}
+                          width={40}
+                          height={40}
+                          className="h-10 w-10 rounded object-cover"
+                          unoptimized
+                        />
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-50">{group.title}</p>
+                          <span className="rounded-full bg-background px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                            {t.groupRaceCount.replace("{count}", String(group.races.length))}
+                          </span>
+                        </div>
+                        {group.meta ? (
+                          <p className="truncate text-xs text-slate-500 dark:text-slate-400">{group.meta}</p>
+                        ) : null}
+                      </div>
+                      {isCollapsed ? (
+                        <ChevronDownIcon className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                      ) : (
+                        <ChevronUpIcon className="h-4 w-4 shrink-0 text-slate-500" aria-hidden />
+                      )}
+                    </button>
+
+                    {group.event ? (
+                      <Button variant="outline" className="h-8 px-3 text-xs" onClick={() => handleOpenEditEvent(group.event!)}>
+                        {t.actions.editEvent}
+                      </Button>
+                    ) : null}
+                  </div>
+
+                  {!isCollapsed ? (
+                    <Table className="table-fixed" containerClassName="overflow-x-hidden rounded-none border-0">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[33%] text-slate-600 dark:text-slate-300">{t.table.name}</TableHead>
+                          <TableHead className="w-[22%] text-slate-600 dark:text-slate-300">{t.table.location}</TableHead>
+                          <TableHead className="hidden">{t.table.event}</TableHead>
+                          <TableHead className="w-[13%] text-slate-600 dark:text-slate-300">{t.table.distance}</TableHead>
+                          <TableHead className="hidden">{t.table.elevation}</TableHead>
+                          <TableHead className="w-[10%] text-slate-600 dark:text-slate-300">{t.table.status}</TableHead>
+                          <TableHead className="w-[22%] text-right text-slate-600 dark:text-slate-300">{t.table.actions}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>{group.races.map(renderRaceRow)}</TableBody>
+                    </Table>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+
+        {false ? (
           <Table className="table-fixed" containerClassName="overflow-x-hidden rounded-lg border border-border">
             <TableHeader>
               <TableRow>

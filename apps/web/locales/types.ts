@@ -957,6 +957,8 @@ export type AdminTranslations = {
     traceDeTrailCredentialsSaved: string;
     traceDeTrailProtectedNotice: string;
     traceDeTrailAuthenticatedNotice: string;
+    noEventGroupTitle: string;
+    groupRaceCount: string;
     editTitle: string;
     editEventTitle: string;
     gpxSection: string;

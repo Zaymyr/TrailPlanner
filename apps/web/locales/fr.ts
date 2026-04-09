@@ -960,6 +960,8 @@ export const fr: Translations = {
       traceDeTrailProtectedNotice:
         "Le GPX officiel est protege pour cette trace. Sans connexion, l'import utilise le profil embarque dans la page.",
       traceDeTrailAuthenticatedNotice: "GPX officiel accessible avec vos identifiants Trace de Trail.",
+      noEventGroupTitle: "Courses sans evenement",
+      groupRaceCount: "{count} courses",
       editTitle: "Modifier la course",
       editEventTitle: "Modifier l'evenement",
       gpxSection: "Fichier GPX",

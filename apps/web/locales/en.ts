@@ -949,6 +949,8 @@ export const en: Translations = {
       traceDeTrailProtectedNotice:
         "The official GPX is protected for this course. Without sign-in, the import uses the profile embedded in the page.",
       traceDeTrailAuthenticatedNotice: "Official GPX access enabled with your Trace de Trail credentials.",
+      noEventGroupTitle: "Standalone races",
+      groupRaceCount: "{count} races",
       editTitle: "Edit race",
       editEventTitle: "Edit event",
       gpxSection: "GPX file",
