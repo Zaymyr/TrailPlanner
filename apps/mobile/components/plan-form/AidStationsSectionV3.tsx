@@ -18,7 +18,7 @@ import { SuppliesList } from './SuppliesList';
 import type { EditingStation } from './EditStationModal';
 import type { AidStationFormItem, PlanProduct, PlanTarget, SectionSummary, SectionTarget, SectionSegment, IntakeTimelineItem } from './contracts';
 import { getGaugeTolerance } from './metrics';
-import { getElevationSlice } from './profile-utils';
+import { adjustedPaceMinutesPerKm, getElevationSlice } from './profile-utils';
 import { styles } from './styles';
 
 type Props = {
@@ -252,6 +252,7 @@ export function AidStationsSectionV3({
     target: 'start' | number,
     segmentIndex: number,
     paceMinutesPerKm: number | undefined,
+    referencePaceMinutesPerKm: number,
     draftKey?: string,
   ) {
     if (paceMinutesPerKm === undefined) {
@@ -261,7 +262,7 @@ export function AidStationsSectionV3({
     }
 
     const nextPace = Math.max(0.01, paceMinutesPerKm);
-    onUpdateSectionSegmentPaceAdjustment(target, segmentIndex, nextPace - basePaceMinutesPerKm);
+    onUpdateSectionSegmentPaceAdjustment(target, segmentIndex, nextPace - referencePaceMinutesPerKm);
     if (draftKey) {
       setPaceDraft(draftKey, formatPace(nextPace));
     }
@@ -1036,10 +1037,15 @@ export function AidStationsSectionV3({
                 const segment = summary.segments[segmentIndex];
                 if (!segment) return null;
 
+                const baseAdjustedPaceMinutes =
+                  adjustedPaceMinutesPerKm(basePaceMinutesPerKm, {
+                    distKm: segmentStat.distKm,
+                    dPlus: segmentStat.dPlus,
+                  }) ?? basePaceMinutesPerKm;
                 const currentPaceMinutes =
                   Math.max(
                     0.01,
-                    basePaceMinutesPerKm +
+                    baseAdjustedPaceMinutes +
                       (typeof segment.paceAdjustmentMinutesPerKm === 'number' && Number.isFinite(segment.paceAdjustmentMinutesPerKm)
                         ? segment.paceAdjustmentMinutesPerKm
                         : 0),
@@ -1068,7 +1074,15 @@ export function AidStationsSectionV3({
                         <View style={styles.profilePaceControlRow}>
                           <TouchableOpacity
                             style={styles.profilePaceStepBtn}
-                            onPress={() => applyAbsolutePace(targetKey, segmentIndex, currentPaceMinutes - paceStepMinutes, paceDraftKey)}
+                            onPress={() =>
+                              applyAbsolutePace(
+                                targetKey,
+                                segmentIndex,
+                                currentPaceMinutes - paceStepMinutes,
+                                baseAdjustedPaceMinutes,
+                                paceDraftKey,
+                              )
+                            }
                             activeOpacity={0.8}
                           >
                             <Text style={styles.profilePaceStepBtnText}>-</Text>
@@ -1084,7 +1098,7 @@ export function AidStationsSectionV3({
                                 return;
                               }
                               if (parsed !== null) {
-                                applyAbsolutePace(targetKey, segmentIndex, parsed);
+                                applyAbsolutePace(targetKey, segmentIndex, parsed, baseAdjustedPaceMinutes);
                               }
                             }}
                             onBlur={() => {
@@ -1093,7 +1107,7 @@ export function AidStationsSectionV3({
                               if (parsed === undefined) {
                                 onUpdateSectionSegmentPaceAdjustment(targetKey, segmentIndex, undefined);
                               } else if (parsed !== null) {
-                                applyAbsolutePace(targetKey, segmentIndex, parsed);
+                                applyAbsolutePace(targetKey, segmentIndex, parsed, baseAdjustedPaceMinutes);
                               }
                               clearPaceDraft(paceDraftKey);
                             }}
@@ -1105,7 +1119,15 @@ export function AidStationsSectionV3({
                           />
                           <TouchableOpacity
                             style={styles.profilePaceStepBtn}
-                            onPress={() => applyAbsolutePace(targetKey, segmentIndex, currentPaceMinutes + paceStepMinutes, paceDraftKey)}
+                            onPress={() =>
+                              applyAbsolutePace(
+                                targetKey,
+                                segmentIndex,
+                                currentPaceMinutes + paceStepMinutes,
+                                baseAdjustedPaceMinutes,
+                                paceDraftKey,
+                              )
+                            }
                             activeOpacity={0.8}
                           >
                             <Text style={styles.profilePaceStepBtnText}>+</Text>

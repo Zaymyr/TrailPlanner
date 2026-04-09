@@ -1,4 +1,9 @@
-import { getElevationSlice, getSectionSegments, recomputeSectionFromSubSections } from './profile-utils';
+import {
+  estimateEffortDurationSeconds,
+  getElevationSlice,
+  getSectionSegments,
+  recomputeSectionFromSubSections,
+} from './profile-utils';
 import type { ElevationPoint } from './profile-utils';
 import type { PlanFormValues, PlanTarget, SectionSummary } from './contracts';
 
@@ -45,7 +50,11 @@ export function buildPlanSectionSummary({
     segments,
     startDistanceKm: startKm,
     elevationProfile: profilePoints,
-    paceModel: { secondsPerKm: 3600 / baseSpeedKph },
+    paceModel: {
+      secondsPerKm: 3600 / baseSpeedKph,
+      estimateSeconds: ({ distKm, dPlus, dMinus }) =>
+        estimateEffortDurationSeconds(3600 / baseSpeedKph, { distKm, dPlus, dMinus }),
+    },
   });
   const durationMin = recomputed.totals.etaSeconds / 60 + pauseMinutes;
 

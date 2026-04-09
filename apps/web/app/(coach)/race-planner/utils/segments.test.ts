@@ -40,4 +40,23 @@ describe("buildSegments", () => {
     expect(firstSegment.plannedMinutesOverride).toBe(30);
     expect(firstSegment.estimatedSegmentMinutes).toBe(25);
   });
+
+  it("slows default timing on climbs using flat-equivalent distance", () => {
+    const segments = buildSegments(
+      {
+        ...baseValues,
+        aidStations: [{ name: "Aid 1", distanceKm: 1 }],
+      },
+      "Start",
+      "Finish",
+      [
+        { distanceKm: 0, elevationM: 0 },
+        { distanceKm: 1, elevationM: 100 },
+        { distanceKm: 2, elevationM: 100 },
+      ]
+    );
+
+    expect(segments[0].estimatedSegmentMinutes).toBeCloseTo(10);
+    expect(segments[0].segmentMinutes).toBeCloseTo(10);
+  });
 });

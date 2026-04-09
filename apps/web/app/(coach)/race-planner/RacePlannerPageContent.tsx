@@ -128,6 +128,25 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   finishPlan: {},
 });
 
+const buildPacingDefaultsFromFlatPace = (comfortableFlatPaceMinPerKm: number) => {
+  const totalSeconds = Math.round(comfortableFlatPaceMinPerKm * 60);
+  const paceMinutes = Math.floor(totalSeconds / 60);
+  const paceSeconds = totalSeconds % 60;
+
+  return {
+    paceType: "pace" as const,
+    paceMinutes,
+    paceSeconds,
+    speedKph: Number((60 / comfortableFlatPaceMinPerKm).toFixed(1)),
+  };
+};
+
+const isUsingPlannerDefaultPacing = (values: FormValues, defaults: FormValues) =>
+  values.paceType === defaults.paceType &&
+  values.paceMinutes === defaults.paceMinutes &&
+  values.paceSeconds === defaults.paceSeconds &&
+  values.speedKph === defaults.speedKph;
+
 const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation"]) =>
   z.object({
     segmentMinutesOverride: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
@@ -255,6 +274,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const queryPlanIdRef = useRef<string | null>(null);
   const queryCatalogRaceIdRef = useRef<string | null>(null);
   const initializedQueryRef = useRef(false);
+  const hasStoredPlannerDraftRef = useRef(false);
 
   const sectionIds = {
     timeline: "race-timeline",
@@ -514,9 +534,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const sanitized = sanitizeRacePlannerStorage(storedPlanner);
 
     if (!sanitized) {
+      hasStoredPlannerDraftRef.current = false;
       clearRacePlannerStorage();
       return;
     }
+
+    hasStoredPlannerDraftRef.current = true;
 
     const storedValues = sanitized.values;
     const sanitizedAidStations = sanitizeAidStations(storedValues.aidStations) ?? [];
@@ -564,6 +587,22 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         if (abortController.signal.aborted) return;
         if (typeof data.waterBagLiters === "number") {
           form.setValue("waterBagLiters", data.waterBagLiters);
+        }
+        if (
+          typeof data.comfortableFlatPaceMinPerKm === "number" &&
+          Number.isFinite(data.comfortableFlatPaceMinPerKm) &&
+          data.comfortableFlatPaceMinPerKm > 0 &&
+          !hasStoredPlannerDraftRef.current &&
+          !queryPlanIdRef.current
+        ) {
+          const currentValues = form.getValues();
+          if (isUsingPlannerDefaultPacing(currentValues, defaultValues)) {
+            const profilePacing = buildPacingDefaultsFromFlatPace(data.comfortableFlatPaceMinPerKm);
+            form.setValue("paceType", profilePacing.paceType);
+            form.setValue("paceMinutes", profilePacing.paceMinutes);
+            form.setValue("paceSeconds", profilePacing.paceSeconds);
+            form.setValue("speedKph", profilePacing.speedKph);
+          }
         }
         replaceSelection(data.favoriteProducts.map((product) => mapProductToSelection(product)));
       } catch (error) {

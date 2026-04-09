@@ -128,6 +128,11 @@ export type MobileTranslations = {
     ageCalculated: string;
     waterBagLabel: string;
     waterBagHint: string;
+    comfortableFlatPaceLabel: string;
+    comfortableFlatPaceHint: string;
+    comfortableFlatPaceMinutesLabel: string;
+    comfortableFlatPaceSecondsLabel: string;
+    comfortableFlatPaceInvalid: string;
     subscriptionLabel: string;
     premiumLabel: string;
     trialLabel: string;
@@ -168,6 +173,7 @@ export type MobileTranslations = {
     changelogEmpty: string;
     changelogLoadFailed: string;
     changelogVersionMeta: string;
+    changelogSnapshotFallback: string;
     premiumBenefitsTitle: string;
     premiumBenefitPlans: string;
     premiumBenefitFavorites: string;

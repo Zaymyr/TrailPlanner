@@ -94,6 +94,18 @@ jobs:
             esac
           }
 
+          collect_changed_paths() {
+            local base_ref="$1"
+
+            if [ -n "$base_ref" ]; then
+              git diff --name-only "$base_ref" "$COMMIT_SHA" 2>/dev/null || true
+            fi
+
+            git diff --name-only "${COMMIT_SHA}^1" "$COMMIT_SHA" 2>/dev/null || true
+            git show --pretty='' --name-only "$COMMIT_SHA" 2>/dev/null || true
+            git diff-tree --root --no-commit-id --name-only -r -m "$COMMIT_SHA" 2>/dev/null || true
+          }
+
           short_sha="${COMMIT_SHA::7}"
           first_line="$(printf '%s' "$COMMIT_MESSAGE" | head -n 1 | tr '\r' ' ' | sed 's/[[:space:]]\+/ /g')"
 
@@ -124,15 +136,23 @@ jobs:
               diff_base="$(git rev-list --max-count=1 "${COMMIT_SHA}^" 2>/dev/null || true)"
             fi
 
-            if [ -n "$diff_base" ]; then
-              while IFS= read -r path; do
+            mapfile -t changed_paths < <(
+              collect_changed_paths "$diff_base" \
+                | awk 'NF { print }' \
+                | awk '!seen[$0]++' \
+                | head -n 5
+            )
+
+            if [ "${#changed_paths[@]}" -gt 0 ]; then
+              for path in "${changed_paths[@]}"; do
                 [ -n "$path" ] || continue
                 detail_lines="${detail_lines}- $(describe_path "$path")"$'\n'
-              done < <(git diff --name-only "$diff_base" "$COMMIT_SHA" | head -n 5)
+              done
             fi
 
             if [ -z "$detail_lines" ]; then
-              detail_lines="- Automatic mobile snapshot generated"$'\n'
+              detail_lines="- ${first_line}"$'\n'
+              detail_lines="${detail_lines}- Automatic mobile snapshot generated"$'\n'
             fi
           fi
 
@@ -163,6 +183,13 @@ jobs:
             sh -lc '
               echo "Connected as: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_user;")"
               echo "Database: $(psql "$SUPABASE_DB_URL_SESSION" -tAc "select current_database();")"
+              if [ -z "$(printf "%s" "$CHANGELOG_TITLE" | tr -d "[:space:]")" ]; then
+                CHANGELOG_TITLE="Mobile snapshot ${CHANGELOG_VERSION}"
+              fi
+              if [ -z "$(printf "%s" "$CHANGELOG_DETAIL" | tr -d "[:space:]")" ]; then
+                CHANGELOG_DETAIL="- ${CHANGELOG_TITLE}
+- Snapshot generated automatically"
+              fi
               VERSION_SQL=$(printf "%s" "$CHANGELOG_VERSION" | sed "s/'"'"'/'"'"''"'"'/g")
               TITLE_SQL=$(printf "%s" "$CHANGELOG_TITLE" | sed "s/'"'"'/'"'"''"'"'/g")
               DETAIL_SQL=$(printf "%s" "$CHANGELOG_DETAIL" | sed "s/'"'"'/'"'"''"'"'/g")

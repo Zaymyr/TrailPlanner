@@ -63,6 +63,32 @@ const formatIntervalLabel = (interval: StripeInterval | null, count: number | nu
   return label.plural;
 };
 
+const splitPaceMinutesPerKm = (value: number | null | undefined) => {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return { minutes: undefined, seconds: undefined };
+  }
+
+  const totalSeconds = Math.round(value * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return { minutes, seconds };
+};
+
+const buildComfortableFlatPaceMinPerKm = (
+  minutes?: number,
+  seconds?: number
+): number | null => {
+  const safeMinutes = typeof minutes === "number" ? minutes : undefined;
+  const safeSeconds = typeof seconds === "number" ? seconds : undefined;
+
+  if (typeof safeMinutes !== "number" && typeof safeSeconds !== "number") {
+    return null;
+  }
+
+  return Number(((safeMinutes ?? 0) + (safeSeconds ?? 0) / 60).toFixed(4));
+};
+
 const profileFormSchema = z.object({
   fullName: z
     .string()
@@ -75,6 +101,12 @@ const profileFormSchema = z.object({
     .optional(),
   waterBagLiters: z
     .union([z.coerce.number().min(0).max(20), z.literal("").transform(() => undefined)])
+    .optional(),
+  comfortableFlatPaceMinutes: z
+    .union([z.coerce.number().int().min(0).max(999), z.literal("").transform(() => undefined)])
+    .optional(),
+  comfortableFlatPaceSeconds: z
+    .union([z.coerce.number().int().min(0).max(999), z.literal("").transform(() => undefined)])
     .optional(),
 });
 
@@ -107,6 +139,8 @@ export default function ProfilePage() {
       fullName: "",
       age: undefined,
       waterBagLiters: undefined,
+      comfortableFlatPaceMinutes: undefined,
+      comfortableFlatPaceSeconds: undefined,
     },
   });
 
@@ -131,10 +165,13 @@ export default function ProfilePage() {
     },
     staleTime: 60_000,
     onSuccess: (profile) => {
+      const comfortableFlatPace = splitPaceMinutesPerKm(profile.comfortableFlatPaceMinPerKm);
       form.reset({
         fullName: profile.fullName ?? "",
         age: profile.age ?? undefined,
         waterBagLiters: profile.waterBagLiters ?? undefined,
+        comfortableFlatPaceMinutes: comfortableFlatPace.minutes,
+        comfortableFlatPaceSeconds: comfortableFlatPace.seconds,
       });
       setFavoriteProducts(profile.favoriteProducts);
       replaceSelection(profile.favoriteProducts.map((product) => mapProductToSelection(product)));
@@ -232,10 +269,15 @@ export default function ProfilePage() {
         fullName: values.fullName ?? null,
         age: typeof values.age === "number" ? values.age : null,
         waterBagLiters: typeof values.waterBagLiters === "number" ? values.waterBagLiters : null,
+        comfortableFlatPaceMinPerKm: buildComfortableFlatPaceMinPerKm(
+          values.comfortableFlatPaceMinutes,
+          values.comfortableFlatPaceSeconds
+        ),
         favoriteProductIds: favoriteProducts.map((product) => product.id),
       });
     },
     onSuccess: (profile) => {
+      const comfortableFlatPace = splitPaceMinutesPerKm(profile.comfortableFlatPaceMinPerKm);
       setSaveMessage(t.profile.success);
       setSaveError(null);
       setFavoriteProducts(profile.favoriteProducts);
@@ -244,6 +286,8 @@ export default function ProfilePage() {
         fullName: profile.fullName ?? "",
         age: profile.age ?? undefined,
         waterBagLiters: profile.waterBagLiters ?? undefined,
+        comfortableFlatPaceMinutes: comfortableFlatPace.minutes,
+        comfortableFlatPaceSeconds: comfortableFlatPace.seconds,
       });
       queryClient.setQueryData(["profile", session?.accessToken], profile);
     },
@@ -506,6 +550,21 @@ export default function ProfilePage() {
   const onSubmit = form.handleSubmit((values) => {
     if (!session?.accessToken) {
       setSaveError(t.profile.authRequired);
+      return;
+    }
+
+    const hasFlatPaceMinutes = typeof values.comfortableFlatPaceMinutes === "number";
+    const hasFlatPaceSeconds = typeof values.comfortableFlatPaceSeconds === "number";
+    const comfortableFlatPaceTotal =
+      (values.comfortableFlatPaceMinutes ?? 0) + (values.comfortableFlatPaceSeconds ?? 0) / 60;
+
+    if (
+      (hasFlatPaceSeconds && !hasFlatPaceMinutes) ||
+      (typeof values.comfortableFlatPaceSeconds === "number" && values.comfortableFlatPaceSeconds > 59) ||
+      ((hasFlatPaceMinutes || hasFlatPaceSeconds) && comfortableFlatPaceTotal <= 0)
+    ) {
+      setSaveError(t.profile.basics.comfortableFlatPaceInvalid);
+      setSaveMessage(null);
       return;
     }
 
@@ -828,6 +887,45 @@ export default function ProfilePage() {
                 })}
               />
               <p className="text-xs text-muted-foreground">{t.profile.basics.waterBagHelper}</p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>{t.profile.basics.comfortableFlatPaceLabel}</Label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="comfortableFlatPaceMinutes" className="text-xs text-muted-foreground">
+                    {t.profile.basics.comfortableFlatPaceMinutesLabel}
+                  </Label>
+                  <Input
+                    id="comfortableFlatPaceMinutes"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="6"
+                    disabled={authMissing}
+                    {...form.register("comfortableFlatPaceMinutes", {
+                      setValueAs: (value) => (value === "" || value === null ? undefined : Number(value)),
+                    })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="comfortableFlatPaceSeconds" className="text-xs text-muted-foreground">
+                    {t.profile.basics.comfortableFlatPaceSecondsLabel}
+                  </Label>
+                  <Input
+                    id="comfortableFlatPaceSeconds"
+                    type="number"
+                    min="0"
+                    max="59"
+                    step="1"
+                    placeholder="00"
+                    disabled={authMissing}
+                    {...form.register("comfortableFlatPaceSeconds", {
+                      setValueAs: (value) => (value === "" || value === null ? undefined : Number(value)),
+                    })}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">{t.profile.basics.comfortableFlatPaceHelper}</p>
             </div>
           </CardContent>
         </Card>

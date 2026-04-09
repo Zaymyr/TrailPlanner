@@ -1118,6 +1118,11 @@ export const en: Translations = {
       agePlaceholder: "Age",
       waterBagLabel: "Hydration bladder volume (L)",
       waterBagHelper: "Water bladder capacity, not the total backpack/vest volume.",
+      comfortableFlatPaceLabel: "Comfortable flat pace",
+      comfortableFlatPaceHelper: "Used as the default base pace when creating a new plan.",
+      comfortableFlatPaceMinutesLabel: "Minutes",
+      comfortableFlatPaceSecondsLabel: "Seconds",
+      comfortableFlatPaceInvalid: "Enter a valid pace with minutes and seconds.",
     },
     favorites: {
       title: "Favorite nutrition",

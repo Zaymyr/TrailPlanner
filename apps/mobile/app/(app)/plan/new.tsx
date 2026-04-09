@@ -21,6 +21,28 @@ type RaceInfo = {
   elevation_gain_m: number;
 };
 
+function buildDefaultPlanValues(comfortableFlatPaceMinPerKm: number | null | undefined): PlanFormValues {
+  if (
+    typeof comfortableFlatPaceMinPerKm !== 'number' ||
+    !Number.isFinite(comfortableFlatPaceMinPerKm) ||
+    comfortableFlatPaceMinPerKm <= 0
+  ) {
+    return DEFAULT_PLAN_VALUES;
+  }
+
+  const totalSeconds = Math.round(comfortableFlatPaceMinPerKm * 60);
+  const paceMinutes = Math.floor(totalSeconds / 60);
+  const paceSeconds = totalSeconds % 60;
+
+  return {
+    ...DEFAULT_PLAN_VALUES,
+    paceType: 'pace',
+    paceMinutes,
+    paceSeconds,
+    speedKph: Number((60 / comfortableFlatPaceMinPerKm).toFixed(1)),
+  };
+}
+
 export default function NewPlanScreen() {
   const { raceId, catalogRaceId } = useLocalSearchParams<{ raceId?: string; catalogRaceId?: string }>();
   const resolvedRaceId = raceId ?? catalogRaceId ?? null;
@@ -35,6 +57,7 @@ export default function NewPlanScreen() {
   const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
   const [userId, setUserId] = useState<string | null>(null);
+  const [defaultPlanValues, setDefaultPlanValues] = useState<PlanFormValues>(DEFAULT_PLAN_VALUES);
   const [planProductData, setPlanProductData] = useState<PlanProductsBootstrap | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const [showPremiumLimitModal, setShowPremiumLimitModal] = useState(false);
@@ -46,6 +69,19 @@ export default function NewPlanScreen() {
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id ?? null;
     setUserId(uid);
+    let nextDefaultPlanValues = DEFAULT_PLAN_VALUES;
+    if (uid) {
+      const profileResult = await supabase
+        .from('user_profiles')
+        .select('comfortable_flat_pace_min_per_km')
+        .eq('user_id', uid)
+        .maybeSingle();
+      nextDefaultPlanValues = buildDefaultPlanValues(
+        (profileResult.data as { comfortable_flat_pace_min_per_km?: number | null } | null)
+          ?.comfortable_flat_pace_min_per_km ?? null,
+      );
+    }
+    setDefaultPlanValues(nextDefaultPlanValues);
     const productDataPromise = loadPlanProductsBootstrap(uid);
 
     if (!resolvedRaceId) {
@@ -56,7 +92,7 @@ export default function NewPlanScreen() {
       setLoading(false);
       setShowRaceSelector(true);
       setElevationProfile([]);
-      setInitialValues(DEFAULT_PLAN_VALUES);
+      setInitialValues(nextDefaultPlanValues);
       return;
     }
 
@@ -90,7 +126,7 @@ export default function NewPlanScreen() {
       setShowRaceSelector(false);
       setElevationProfile(fetchedElevationProfile);
       setInitialValues({
-        ...DEFAULT_PLAN_VALUES,
+        ...nextDefaultPlanValues,
         name: race.name,
         raceDistanceKm: race.distance_km,
         elevationGain: race.elevation_gain_m,
@@ -99,7 +135,7 @@ export default function NewPlanScreen() {
     } else {
       setSelectedRace(null);
       setElevationProfile([]);
-      setInitialValues(DEFAULT_PLAN_VALUES);
+      setInitialValues(nextDefaultPlanValues);
     }
     setLoadingProgress(1);
     setLoading(false);
@@ -131,6 +167,7 @@ export default function NewPlanScreen() {
           setInitialValues(null);
           setLoadingPlanName(null);
           setLoadingProgress(0.08);
+          setDefaultPlanValues(DEFAULT_PLAN_VALUES);
           setLoading(!!resolvedRaceId);
           setShowRaceSelector(!resolvedRaceId);
         };
@@ -145,6 +182,7 @@ export default function NewPlanScreen() {
         setInitialValues(null);
         setLoadingPlanName(null);
         setLoadingProgress(0.08);
+        setDefaultPlanValues(DEFAULT_PLAN_VALUES);
         setLoading(!!resolvedRaceId);
         setShowRaceSelector(!resolvedRaceId);
       };
@@ -169,7 +207,7 @@ export default function NewPlanScreen() {
     setPlanProductData(nextProductData);
     setElevationProfile(nextElevationProfile);
     setInitialValues({
-      ...DEFAULT_PLAN_VALUES,
+      ...defaultPlanValues,
       name: race.name,
       raceDistanceKm: race.distance_km,
       elevationGain: race.elevation_gain_m,

@@ -1129,8 +1129,13 @@ export const fr: Translations = {
       agePlaceholder: "Âge",
       waterBagLabel: "Volume de la poche à eau (L)",
       waterBagHelper: "Capacité de la poche à eau, pas le volume total du sac/gilet.",
+      comfortableFlatPaceLabel: "Allure confortable sur plat",
+      comfortableFlatPaceHelper: "Utilisee comme allure de base par defaut lors de la creation d'un plan.",
+      comfortableFlatPaceMinutesLabel: "Minutes",
+      comfortableFlatPaceSecondsLabel: "Secondes",
+      comfortableFlatPaceInvalid: "Entre une allure valide avec minutes et secondes.",
     },
-  favorites: {
+    favorites: {
     title: "Nutrition favorite",
     subtitle: "Choisissez les produits que vous souhaitez voir en premier dans le planner.",
     add: "Ajouter des favoris",

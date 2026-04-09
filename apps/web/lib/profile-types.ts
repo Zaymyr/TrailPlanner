@@ -6,6 +6,7 @@ export const userProfileSchema = z.object({
   fullName: z.string().trim().min(1).max(150).optional().nullable(),
   age: z.number().int().min(0).max(120).optional().nullable(),
   waterBagLiters: z.number().min(0).max(20).optional().nullable(),
+  comfortableFlatPaceMinPerKm: z.number().positive().max(60).optional().nullable(),
   favoriteProducts: z.array(fuelProductSchema).default([]),
 });
 
@@ -17,6 +18,7 @@ export const profileUpdateSchema = z.object({
   fullName: z.string().trim().min(1).max(150).optional().nullable(),
   age: z.number().int().min(0).max(120).optional().nullable(),
   waterBagLiters: z.number().min(0).max(20).optional().nullable(),
+  comfortableFlatPaceMinPerKm: z.number().positive().max(60).optional().nullable(),
   favoriteProductIds: z.array(z.string().uuid()).optional(),
 });
 

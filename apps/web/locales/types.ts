@@ -1007,6 +1007,11 @@ export type ProfileTranslations = {
     agePlaceholder: string;
     waterBagLabel: string;
     waterBagHelper: string;
+    comfortableFlatPaceLabel: string;
+    comfortableFlatPaceHelper: string;
+    comfortableFlatPaceMinutesLabel: string;
+    comfortableFlatPaceSecondsLabel: string;
+    comfortableFlatPaceInvalid: string;
   };
   favorites: {
     title: string;

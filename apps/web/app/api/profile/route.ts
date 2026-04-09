@@ -28,6 +28,7 @@ const profileRowSchema = z.object({
   full_name: z.string().nullable().optional(),
   age: z.number().nullable().optional(),
   water_bag_liters: z.number().nullable().optional(),
+  comfortable_flat_pace_min_per_km: z.number().nullable().optional(),
 });
 
 const favoriteRowSchema = z.array(
@@ -66,7 +67,7 @@ const buildHeaders = (supabaseKey: string, accessToken: string, contentType = "a
 
 const fetchProfile = async (supabaseUrl: string, supabaseKey: string, token: string): Promise<UserProfile> => {
   const profileResponse = await fetch(
-    `${supabaseUrl}/rest/v1/user_profiles?select=full_name,age,water_bag_liters&limit=1`,
+    `${supabaseUrl}/rest/v1/user_profiles?select=full_name,age,water_bag_liters,comfortable_flat_pace_min_per_km&limit=1`,
     {
       headers: buildHeaders(supabaseKey, token, undefined),
       cache: "no-store",
@@ -102,6 +103,7 @@ const fetchProfile = async (supabaseUrl: string, supabaseKey: string, token: str
     fullName: profileRow?.full_name ?? null,
     age: profileRow?.age ?? null,
     waterBagLiters: profileRow?.water_bag_liters ?? null,
+    comfortableFlatPaceMinPerKm: profileRow?.comfortable_flat_pace_min_per_km ?? null,
     favoriteProducts,
   } satisfies UserProfile;
 };
@@ -226,6 +228,10 @@ export async function PUT(request: Request) {
 
     if (Object.prototype.hasOwnProperty.call(body, "waterBagLiters")) {
       profilePayload.water_bag_liters = body.waterBagLiters ?? null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "comfortableFlatPaceMinPerKm")) {
+      profilePayload.comfortable_flat_pace_min_per_km = body.comfortableFlatPaceMinPerKm ?? null;
     }
 
     const upsertResponse = await fetch(

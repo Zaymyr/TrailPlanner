@@ -15,6 +15,10 @@ import type {
   SegmentPlan,
   StationSupply,
 } from "../../app/(coach)/race-planner/types";
+import {
+  adjustedPaceMinutesPerKm as getAdjustedPaceMinutesPerKm,
+  estimateEffortDurationSeconds,
+} from "../../app/(coach)/race-planner/utils/pacing";
 import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
 import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
@@ -1041,7 +1045,11 @@ export function ActionPlan({
   const paceModel = useMemo(
     () =>
       typeof baseMinutesPerKm === "number" && Number.isFinite(baseMinutesPerKm) && baseMinutesPerKm > 0
-        ? { secondsPerKm: baseMinutesPerKm * 60 }
+        ? {
+            secondsPerKm: baseMinutesPerKm * 60,
+            estimateSeconds: ({ distKm, dPlus }: { distKm: number; dPlus: number; dMinus: number }) =>
+              estimateEffortDurationSeconds(baseMinutesPerKm * 60, { distKm, dPlus }),
+          }
         : undefined,
     [baseMinutesPerKm]
   );
@@ -2093,11 +2101,18 @@ export function ActionPlan({
                           const segmentPaceFieldName = sectionKey
                             ? (`sectionSegments.${sectionKey}.${index}.paceAdjustmentMinutesPerKm` as Path<FormValues>)
                             : null;
+                          const subsectionBasePaceMinutesPerKm =
+                            stats && hasBasePace
+                              ? getAdjustedPaceMinutesPerKm(baseMinutesPerKm as number, {
+                                  distKm: stats.distKm,
+                                  dPlus: stats.dPlus,
+                                }) ?? (baseMinutesPerKm as number)
+                              : (baseMinutesPerKm as number);
                           const paceControl =
                             fallbackPaceControl ??
                             (hasBasePace && segmentPaceFieldName
                               ? renderPaceAdjustmentControl({
-                                  basePaceMinutesPerKm: baseMinutesPerKm as number,
+                                  basePaceMinutesPerKm: subsectionBasePaceMinutesPerKm,
                                   paceAdjustmentMinutesPerKm: segment.paceAdjustmentMinutesPerKm,
                                   fieldName: segmentPaceFieldName,
                                   isDisabled: false,

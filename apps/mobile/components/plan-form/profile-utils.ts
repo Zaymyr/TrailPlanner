@@ -47,9 +47,12 @@ type SegmentConfig = {
 };
 
 type PaceModel = {
+  estimateSeconds?: (input: { distKm: number; dPlus: number; dMinus: number }) => number;
   secondsPerKm?: number;
   speedKph?: number;
 };
+
+const CLIMB_EQUIVALENT_METERS_PER_FLAT_KM = 100;
 
 type SegmentInterval = {
   kind: SegmentKind;
@@ -356,6 +359,31 @@ const computeElevationDelta = (samples: ElevationSample[]): { dPlus: number; dMi
   );
 };
 
+export function equivalentFlatDistanceKm(distKm: number, dPlus: number) {
+  const safeDistanceKm = Number.isFinite(distKm) ? Math.max(0, distKm) : 0;
+  const safeDPlus = Number.isFinite(dPlus) ? Math.max(0, dPlus) : 0;
+  return safeDistanceKm + safeDPlus / CLIMB_EQUIVALENT_METERS_PER_FLAT_KM;
+}
+
+export function estimateEffortDurationSeconds(
+  baseSecondsPerKm: number,
+  input: { distKm: number; dPlus: number; dMinus: number },
+) {
+  if (!Number.isFinite(baseSecondsPerKm) || baseSecondsPerKm <= 0) return 0;
+  return equivalentFlatDistanceKm(input.distKm, input.dPlus) * baseSecondsPerKm;
+}
+
+export function adjustedPaceMinutesPerKm(
+  baseMinutesPerKm: number,
+  input: { distKm: number; dPlus: number },
+) {
+  const safeDistanceKm = Number.isFinite(input.distKm) ? Math.max(0, input.distKm) : 0;
+  if (!Number.isFinite(baseMinutesPerKm) || baseMinutesPerKm <= 0) return null;
+  if (safeDistanceKm <= 0) return baseMinutesPerKm;
+
+  return (equivalentFlatDistanceKm(safeDistanceKm, input.dPlus) * baseMinutesPerKm) / safeDistanceKm;
+}
+
 export function computeSegmentStats(
   segment: SectionSegment & { startDistanceKm?: number; endDistanceKm?: number },
   samples: ElevationSample[],
@@ -387,12 +415,15 @@ export function computeSegmentStats(
       ? segment.paceAdjustmentMinutesPerKm
       : 0;
   const paceAdjustmentSecondsPerKm = paceAdjustmentMinutesPerKm * 60;
+  const estimatedSeconds = paceModel?.estimateSeconds?.({ distKm, dPlus, dMinus });
   const baseSecondsPerKm =
     typeof paceModel?.secondsPerKm === 'number' && Number.isFinite(paceModel.secondsPerKm)
       ? paceModel.secondsPerKm
       : typeof paceModel?.speedKph === 'number' && paceModel.speedKph > 0
         ? 3600 / paceModel.speedKph
-        : 0;
+        : null;
+  const adjustedSecondsPerKm =
+    baseSecondsPerKm !== null ? Math.max(0, baseSecondsPerKm + paceAdjustmentSecondsPerKm) : null;
 
   const overrideSeconds =
     typeof segment.segmentMinutesOverride === 'number' && Number.isFinite(segment.segmentMinutesOverride)
@@ -402,7 +433,11 @@ export function computeSegmentStats(
   const etaSeconds =
     overrideSeconds !== null
       ? overrideSeconds
-      : Math.max(0, distKm * Math.max(0, baseSecondsPerKm + paceAdjustmentSecondsPerKm));
+      : typeof estimatedSeconds === 'number' && Number.isFinite(estimatedSeconds)
+        ? Math.max(0, estimatedSeconds + distKm * paceAdjustmentSecondsPerKm)
+        : adjustedSecondsPerKm !== null
+          ? Math.max(0, distKm * adjustedSecondsPerKm)
+          : 0;
 
   return {
     distKm: Number(distKm.toFixed(3)),

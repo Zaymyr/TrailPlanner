@@ -15,3 +15,4 @@ apps/mobile/.env.local
 # Claude local config
 .claude/settings.local.json
 .claude/launch.json
+.claude/worktrees/

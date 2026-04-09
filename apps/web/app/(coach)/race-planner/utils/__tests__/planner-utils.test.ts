@@ -81,22 +81,22 @@ describe("buildSegments", () => {
 
     expect(segments).toHaveLength(3);
     expect(segments[0].segmentKm).toBe(8);
-    expect(segments[0].segmentMinutes).toBeCloseTo(48);
-    expect(segments[0].etaMinutes).toBeCloseTo(48);
+    expect(segments[0].segmentMinutes).toBeCloseTo(52.8);
+    expect(segments[0].etaMinutes).toBeCloseTo(52.8);
     expect(segments[0].elevationGainM).toBe(80);
     expect(segments[0].elevationLossM).toBe(0);
 
     expect(segments[1].paceAdjustmentMinutesPerKm).toBe(1);
-    expect(segments[1].segmentMinutes).toBeCloseTo(56);
-    expect(segments[1].etaMinutes).toBeCloseTo(104);
+    expect(segments[1].segmentMinutes).toBeCloseTo(57.2);
+    expect(segments[1].etaMinutes).toBeCloseTo(110);
     expect(segments[1].pauseMinutes).toBe(5);
     expect(segments[1].elevationGainM).toBe(20);
     expect(segments[1].elevationLossM).toBe(30);
 
     expect(segments[2].isFinish).toBe(true);
     expect(segments[2].segmentKm).toBe(4);
-    expect(segments[2].etaMinutes).toBeCloseTo(133);
-    expect(segments[2].plannedWaterMl).toBeCloseTo(440);
+    expect(segments[2].etaMinutes).toBeCloseTo(139);
+    expect(segments[2].plannedWaterMl).toBeCloseTo(428);
     expect(segments[2].elevationGainM).toBe(0);
     expect(segments[2].elevationLossM).toBe(20);
   });

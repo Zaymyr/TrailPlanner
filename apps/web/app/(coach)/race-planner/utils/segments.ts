@@ -1,5 +1,5 @@
 import { defaultFuelProducts } from "../../../../lib/default-products";
-import { minutesPerKm } from "./pacing";
+import { estimateEffortDurationMinutes, minutesPerKm } from "./pacing";
 import type { AidStation, ElevationPoint, FormValues, Segment } from "../types";
 
 export function adjustedSegmentMinutes(baseMinutesPerKm: number, segmentKm: number) {
@@ -90,14 +90,18 @@ export function buildSegments(
     const previous = checkpoints[index];
     const elevationDelta = getElevationDelta(previous.distanceKm, station.distanceKm);
     const segmentKm = Math.max(0, station.distanceKm - previous.distanceKm);
-    const estimatedSegmentMinutes = adjustedSegmentMinutes(minPerKm, segmentKm);
+    const estimatedSegmentMinutes = estimateEffortDurationMinutes(minPerKm, {
+      distKm: segmentKm,
+      dPlus: elevationDelta.gain,
+    });
     const paceAdjustmentMinutesPerKm =
       typeof station.paceAdjustmentMinutesPerKm === "number" && Number.isFinite(station.paceAdjustmentMinutesPerKm)
         ? station.paceAdjustmentMinutesPerKm
         : undefined;
-    const adjustedMinutesPerKm =
-      paceAdjustmentMinutesPerKm !== undefined ? Math.max(0, minPerKm + paceAdjustmentMinutesPerKm) : minPerKm;
-    const adjustedSegmentDurationMinutes = adjustedSegmentMinutes(adjustedMinutesPerKm, segmentKm);
+    const adjustedSegmentDurationMinutes =
+      paceAdjustmentMinutesPerKm !== undefined
+        ? Math.max(0, estimatedSegmentMinutes + segmentKm * paceAdjustmentMinutesPerKm)
+        : estimatedSegmentMinutes;
     const overrideMinutes =
       typeof station.segmentMinutesOverride === "number" && station.segmentMinutesOverride >= 0
         ? station.segmentMinutesOverride

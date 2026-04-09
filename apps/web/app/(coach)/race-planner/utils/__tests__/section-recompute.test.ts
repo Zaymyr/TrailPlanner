@@ -20,6 +20,6 @@ describe("recomputeSectionFromSubSections", () => {
     expect(result.totals.distanceKm).toBeCloseTo(2);
     expect(result.totals.dPlus).toBe(100);
     expect(result.totals.dMinus).toBe(100);
-    expect(result.totals.etaSeconds).toBe(720);
+    expect(result.totals.etaSeconds).toBe(1080);
   });
 });

@@ -30,6 +30,7 @@ type UserProfile = {
   age: number | null;
   birth_date: string | null;
   water_bag_liters: number | null;
+  comfortable_flat_pace_min_per_km: number | null;
   role: string | null;
   trial_ends_at: string | null;
   trial_started_at: string | null;
@@ -145,6 +146,45 @@ function calculateAgeFromBirthDate(birthDate: string): number {
   return age;
 }
 
+function splitPaceMinutesPerKm(value: number | null | undefined): { minutes: string; seconds: string } {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return { minutes: '', seconds: '' };
+  }
+
+  const totalSeconds = Math.round(value * 60);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return {
+    minutes: String(minutes),
+    seconds: String(seconds).padStart(2, '0'),
+  };
+}
+
+function parseComfortableFlatPace(minutesInput: string, secondsInput: string): number | null {
+  const trimmedMinutes = minutesInput.trim();
+  const trimmedSeconds = secondsInput.trim();
+
+  if (!trimmedMinutes && !trimmedSeconds) return null;
+  if (!trimmedMinutes) return Number.NaN;
+
+  const minutes = Number(trimmedMinutes);
+  const seconds = trimmedSeconds ? Number(trimmedSeconds) : 0;
+
+  if (
+    !Number.isInteger(minutes) ||
+    !Number.isInteger(seconds) ||
+    minutes < 0 ||
+    seconds < 0 ||
+    seconds > 59
+  ) {
+    return Number.NaN;
+  }
+
+  const totalMinutes = minutes + seconds / 60;
+  return totalMinutes > 0 ? totalMinutes : Number.NaN;
+}
+
 export default function ProfileScreen() {
   const { locale, setLocale, t } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
@@ -152,6 +192,8 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
+  const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
+  const [comfortableFlatPaceSeconds, setComfortableFlatPaceSeconds] = useState('');
   const {
     isPremium,
     hasPaidPremium,
@@ -183,7 +225,9 @@ export default function ProfileScreen() {
 
       const profileResult = await supabase
         .from('user_profiles')
-        .select('full_name, age, birth_date, water_bag_liters, role, trial_ends_at, trial_started_at')
+        .select(
+          'full_name, age, birth_date, water_bag_liters, comfortable_flat_pace_min_per_km, role, trial_ends_at, trial_started_at',
+        )
         .eq('user_id', uid)
         .single();
 
@@ -195,6 +239,9 @@ export default function ProfileScreen() {
         setFullName(nextProfile.full_name ?? '');
         setBirthDateInput(formatBirthDateInput(nextProfile.birth_date));
         setWaterBagLiters(nextProfile.water_bag_liters ?? 1.5);
+        const flatPaceFields = splitPaceMinutesPerKm(nextProfile.comfortable_flat_pace_min_per_km);
+        setComfortableFlatPaceMinutes(flatPaceFields.minutes);
+        setComfortableFlatPaceSeconds(flatPaceFields.seconds);
       }
 
       setLoading(false);
@@ -239,6 +286,16 @@ export default function ProfileScreen() {
       return;
     }
 
+    const comfortableFlatPaceMinPerKm = parseComfortableFlatPace(
+      comfortableFlatPaceMinutes,
+      comfortableFlatPaceSeconds,
+    );
+    if (Number.isNaN(comfortableFlatPaceMinPerKm)) {
+      setSaving(false);
+      setError(t.profile.comfortableFlatPaceInvalid);
+      return;
+    }
+
     const { error: saveError } = await supabase.from('user_profiles').upsert(
       {
         user_id: userId,
@@ -246,6 +303,7 @@ export default function ProfileScreen() {
         birth_date: birthDateIso,
         age: nextAge,
         water_bag_liters: waterBagLiters,
+        comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
       },
       { onConflict: 'user_id' }
     );
@@ -262,6 +320,7 @@ export default function ProfileScreen() {
       birth_date: birthDateIso,
       age: nextAge,
       water_bag_liters: waterBagLiters,
+      comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
       role: current?.role ?? null,
       trial_ends_at: current?.trial_ends_at ?? null,
       trial_started_at: current?.trial_started_at ?? null,
@@ -388,6 +447,12 @@ export default function ProfileScreen() {
     setChangelogLoaded(true);
   }
 
+  function getChangelogDetail(entry: ChangelogEntry): string {
+    const trimmedDetail = entry.detail?.trim();
+    if (trimmedDetail) return entry.detail;
+    return t.profile.changelogSnapshotFallback.replace('{version}', entry.version);
+  }
+
   function handleOpenChangelog() {
     setShowChangelog(true);
     if (!changelogLoaded) {
@@ -456,6 +521,35 @@ export default function ProfileScreen() {
             </Text>
           </TouchableOpacity>
         ))}
+      </View>
+
+      <Text style={styles.label}>{t.profile.comfortableFlatPaceLabel}</Text>
+      <Text style={styles.helperText}>{t.profile.comfortableFlatPaceHint}</Text>
+      <View style={styles.paceInputRow}>
+        <View style={styles.paceInputGroup}>
+          <Text style={styles.paceInputLabel}>{t.profile.comfortableFlatPaceMinutesLabel}</Text>
+          <TextInput
+            style={styles.paceInput}
+            value={comfortableFlatPaceMinutes}
+            onChangeText={(value) => setComfortableFlatPaceMinutes(value.replace(/\D/g, '').slice(0, 2))}
+            placeholder="6"
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="number-pad"
+            maxLength={2}
+          />
+        </View>
+        <View style={styles.paceInputGroup}>
+          <Text style={styles.paceInputLabel}>{t.profile.comfortableFlatPaceSecondsLabel}</Text>
+          <TextInput
+            style={styles.paceInput}
+            value={comfortableFlatPaceSeconds}
+            onChangeText={(value) => setComfortableFlatPaceSeconds(value.replace(/\D/g, '').slice(0, 2))}
+            placeholder="00"
+            placeholderTextColor={Colors.textMuted}
+            keyboardType="number-pad"
+            maxLength={2}
+          />
+        </View>
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -670,7 +764,7 @@ export default function ProfileScreen() {
                           .replace('{version}', entry.version)
                           .replace('{date}', formatDate(entry.published_at, locale))}
                       </Text>
-                      <Text style={styles.changelogCardDetail}>{entry.detail}</Text>
+                      <Text style={styles.changelogCardDetail}>{getChangelogDetail(entry)}</Text>
                     </View>
                   ))
                 )}
@@ -731,6 +825,31 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
     marginTop: 4,
+  },
+  paceInputRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  paceInputGroup: {
+    flex: 1,
+    gap: 6,
+  },
+  paceInputLabel: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  paceInput: {
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    textAlign: 'center',
   },
   waterBtn: {
     backgroundColor: Colors.surface,
