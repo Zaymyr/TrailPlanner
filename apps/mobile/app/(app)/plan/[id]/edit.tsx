@@ -6,7 +6,7 @@ import { supabase } from '../../../../lib/supabase';
 import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';
 import { PlanLoadingScreen } from '../../../../components/PlanLoadingScreen';
 import { Colors } from '../../../../constants/colors';
-import { fetchRaceElevationProfile } from '../../../../lib/raceProfile';
+import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { usePremium } from '../../../../hooks/usePremium';
 import { getCurrentUserLatestAccessiblePlanId } from '../../../../lib/planAccess';
 import { useI18n } from '../../../../lib/i18n';
@@ -202,10 +202,12 @@ export default function EditPlanScreen() {
         setLoadingPlanNameId(id);
         setLoadingProgress(0.56);
         const nextValues = planRowToFormValues(plan);
-        const nextElevationProfile =
-          Array.isArray(plan.elevation_profile) && plan.elevation_profile.length > 0
-            ? plan.elevation_profile
-            : await fetchRaceElevationProfile(plan.race_id ?? null);
+        const storedPlanElevationProfile = Array.isArray(plan.elevation_profile) ? plan.elevation_profile : [];
+        const fetchedRaceElevationProfile = plan.race_id ? await fetchRaceElevationProfile(plan.race_id) : [];
+        const nextElevationProfile = pickBestElevationProfile(
+          [storedPlanElevationProfile, fetchedRaceElevationProfile],
+          nextValues.raceDistanceKm,
+        );
         if (isStaleLoad()) return;
 
         setLoadingProgress(0.72);
