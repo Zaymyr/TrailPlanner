@@ -187,8 +187,7 @@ jobs:
                 CHANGELOG_TITLE="Mobile snapshot ${CHANGELOG_VERSION}"
               fi
               if [ -z "$(printf "%s" "$CHANGELOG_DETAIL" | tr -d "[:space:]")" ]; then
-                CHANGELOG_DETAIL="- ${CHANGELOG_TITLE}
-- Snapshot generated automatically"
+                CHANGELOG_DETAIL="$(printf "%s\n%s" "- ${CHANGELOG_TITLE}" "- Snapshot generated automatically")"
               fi
               VERSION_SQL=$(printf "%s" "$CHANGELOG_VERSION" | sed "s/'"'"'/'"'"''"'"'/g")
               TITLE_SQL=$(printf "%s" "$CHANGELOG_TITLE" | sed "s/'"'"'/'"'"''"'"'/g")
