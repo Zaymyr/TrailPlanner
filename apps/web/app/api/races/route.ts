@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -20,6 +20,7 @@ const aidStationInputSchema = z.object({
 
 const createRaceSchema = z.object({
   name: z.string().trim().min(1),
+  slug: z.string().trim().min(1).optional(),
   distance_km: z.number().positive(),
   elevation_gain_m: z.number().nonnegative(),
   elevation_loss_m: z.number().nonnegative().nullable().optional(),
@@ -46,6 +47,52 @@ const buildAuthHeaders = (key: string, token: string, contentType = "application
   Authorization: `Bearer ${token}`,
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
+
+const buildSlug = (name: string) => {
+  const base = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return base ? `${base}-${suffix}` : `race-${suffix}`;
+};
+
+const extractPostgrestErrorMessage = (errorText: string) => {
+  try {
+    const parsed = JSON.parse(errorText) as { message?: string; details?: string; hint?: string } | null;
+    const parts = [parsed?.message, parsed?.details, parsed?.hint].filter(
+      (part): part is string => typeof part === "string" && part.trim().length > 0
+    );
+    return parts.length > 0 ? parts.join(" ") : null;
+  } catch {
+    return errorText.trim() || null;
+  }
+};
+
+const buildCreateRaceErrorMessage = (errorText: string) => {
+  const extracted = extractPostgrestErrorMessage(errorText);
+  const normalized = extracted?.toLowerCase() ?? "";
+
+  if (normalized.includes("race_date")) {
+    return "Invalid race date. Use YYYY-MM-DD.";
+  }
+
+  if (
+    normalized.includes("gpx_path") ||
+    normalized.includes("gpx_hash") ||
+    normalized.includes("gpx_storage_path")
+  ) {
+    return "Unable to save the GPX file for this race. Please try another GPX file.";
+  }
+
+  if (normalized.includes("slug")) {
+    return "Unable to generate the race identifier. Please try again.";
+  }
+
+  return extracted || "Unable to create race.";
+};
 
 const mapWaypointsToAidStations = (
   points: Array<{ lat: number; lng: number; distKmCum: number }>,
@@ -157,10 +204,12 @@ export async function POST(request: NextRequest) {
 
   const raceId = randomUUID();
   let gpxStoragePath: string | null = null;
+  let gpxPath = `manual/${user.id}/${raceId}.gpx`;
+  let gpxHash = `manual:${raceId}`;
   let resolvedAidStations = body.aid_stations;
   let resolvedDistance = body.distance_km;
   let resolvedGain = body.elevation_gain_m;
-  let resolvedLoss = body.elevation_loss_m ?? null;
+  let resolvedLoss = body.elevation_loss_m ?? 0;
 
   if (body.gpx_content) {
     let parsedGpx;
@@ -181,6 +230,8 @@ export async function POST(request: NextRequest) {
     }
 
     gpxStoragePath = `${user.id}/${raceId}.gpx`;
+    gpxPath = gpxStoragePath;
+    gpxHash = createHash("sha256").update(body.gpx_content).digest("hex");
     const uploadResponse = await fetch(
       `${supabaseService.supabaseUrl}/storage/v1/object/race-gpx/${gpxStoragePath}`,
       {
@@ -196,22 +247,27 @@ export async function POST(request: NextRequest) {
     );
 
     if (!uploadResponse.ok) {
-      console.error("Unable to upload race GPX", await uploadResponse.text());
-      gpxStoragePath = null;
+      const uploadErrorText = await uploadResponse.text();
+      console.error("Unable to upload race GPX", uploadErrorText);
+      return withSecurityHeaders(NextResponse.json({ message: "Unable to upload GPX file." }, { status: 502 }));
     }
   }
 
   const insertPayload: Record<string, unknown> = {
     id: raceId,
+    slug: body.slug?.trim() || buildSlug(body.name),
     name: body.name,
     distance_km: Number(resolvedDistance.toFixed(2)),
     elevation_gain_m: Math.round(resolvedGain),
-    elevation_loss_m: resolvedLoss != null ? Math.round(resolvedLoss) : null,
+    elevation_loss_m: Math.round(resolvedLoss),
     location_text: body.location_text ?? null,
+    gpx_path: gpxPath,
+    gpx_hash: gpxHash,
     is_public: false,
     created_by: user.id,
     is_live: true,
     gpx_storage_path: gpxStoragePath ?? null,
+    gpx_sha256: gpxStoragePath ? gpxHash : null,
   };
 
   if (body.race_date) {
@@ -240,7 +296,9 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-    return withSecurityHeaders(NextResponse.json({ message: "Unable to create race." }, { status: 502 }));
+    return withSecurityHeaders(
+      NextResponse.json({ message: buildCreateRaceErrorMessage(errorText) }, { status: 502 })
+    );
   }
 
   const insertedRows = await insertResponse.json();
