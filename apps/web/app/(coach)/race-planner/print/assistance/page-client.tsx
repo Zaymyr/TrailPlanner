@@ -23,6 +23,7 @@ export function AssistancePrintClientPage() {
     const normalizedValues: FormValues = {
       raceDistanceKm: values.raceDistanceKm ?? 50,
       elevationGain: values.elevationGain ?? 0,
+      fatigueLevel: values.fatigueLevel ?? 0.5,
       paceType: values.paceType ?? "pace",
       paceMinutes: values.paceMinutes ?? 6,
       paceSeconds: values.paceSeconds ?? 0,
