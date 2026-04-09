@@ -20,6 +20,37 @@ type BuildArgs = {
   target: PlanTarget;
 };
 
+function buildFallbackSectionProfile(
+  startKm: number,
+  endKm: number,
+  raceDistanceKm: number,
+  raceElevationGainM: number,
+): ElevationPoint[] {
+  const safeStartKm = Number.isFinite(startKm) ? startKm : 0;
+  const safeEndKm = Number.isFinite(endKm) ? endKm : safeStartKm;
+  const sectionDistanceKm = Math.max(0, safeEndKm - safeStartKm);
+  const safeRaceDistanceKm = Math.max(raceDistanceKm, safeEndKm, 0.01);
+  const safeRaceElevationGainM = Number.isFinite(raceElevationGainM) ? Math.max(0, raceElevationGainM) : 0;
+  const sectionElevationGainM =
+    safeRaceDistanceKm > 0 ? (safeRaceElevationGainM * sectionDistanceKm) / safeRaceDistanceKm : 0;
+
+  if (sectionDistanceKm <= 0 || sectionElevationGainM <= 0) {
+    return [
+      { distanceKm: safeStartKm, elevationM: 0 },
+      { distanceKm: safeEndKm, elevationM: 0 },
+    ];
+  }
+
+  const midKm = Number((safeStartKm + sectionDistanceKm / 2).toFixed(3));
+  const endElevationM = Number(sectionElevationGainM.toFixed(1));
+
+  return [
+    { distanceKm: safeStartKm, elevationM: 0 },
+    { distanceKm: midKm, elevationM: Number((sectionElevationGainM * 0.45).toFixed(1)) },
+    { distanceKm: safeEndKm, elevationM: endElevationM },
+  ];
+}
+
 export function buildPlanSectionSummary({
   values,
   elevationProfile,
@@ -38,14 +69,11 @@ export function buildPlanSectionSummary({
   const pauseMinutes = Math.max(0, fromStation.pauseMinutes ?? 0);
   const storedSegments = values.sectionSegments?.[`section-${sectionIndex}`];
   const hasStoredSegments = Boolean(storedSegments?.length);
-  const segments = getSectionSegments(values.sectionSegments, sectionIndex, distanceKm);
   const profilePoints =
-    elevationProfile.length > 0
+    elevationProfile.length > 1
       ? getElevationSlice(elevationProfile, startKm, endKm)
-      : [
-          { distanceKm: startKm, elevationM: 0 },
-          { distanceKm: endKm, elevationM: 0 },
-        ];
+      : buildFallbackSectionProfile(startKm, endKm, values.raceDistanceKm, values.elevationGain);
+  const segments = getSectionSegments(values.sectionSegments, sectionIndex, distanceKm);
   const recomputed = recomputeSectionFromSubSections({
     segments,
     startDistanceKm: startKm,

@@ -280,7 +280,7 @@ export function getSectionSegments(
   if (storedSegments && storedSegments.length > 0) {
     return normalizeSectionSegments(storedSegments, totalSectionKm);
   }
-  return [{ segmentKm: totalSectionKm }];
+  return [{ segmentKm: Math.max(0, Number.isFinite(totalSectionKm) ? totalSectionKm : 0) }];
 }
 
 const getElevationAtDistance = (samples: ElevationSample[], distanceKm: number) => {

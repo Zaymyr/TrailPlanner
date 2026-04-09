@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
+import { WEB_API_BASE_URL } from '../../../../lib/webApi';
 import { useI18n } from '../../../../lib/i18n';
 
 export default function EditRaceScreen() {
@@ -79,7 +80,7 @@ export default function EditRaceScreen() {
       const token = sessionData?.session?.access_token;
       if (!token) { Alert.alert('Erreur', 'Session expirée.'); return; }
 
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL ?? ''}/api/races/${id}`, {
+      const response = await fetch(`${WEB_API_BASE_URL}/api/races/${id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

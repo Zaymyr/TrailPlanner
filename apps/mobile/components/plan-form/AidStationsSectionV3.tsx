@@ -952,6 +952,8 @@ export function AidStationsSectionV3({
       if (!nextStation || isArrivee || !summary) return;
 
       const sectionTimeline = getSectionIntakeTimeline(targetKey, Math.max(0, summary.durationMin), formatSectionTarget(summary));
+      const sectionDPlus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dPlus), 0);
+      const sectionDMinus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dMinus), 0);
 
       elements.push(
         <View key={`section-card-${station.id ?? index}`} style={styles.sectionViewCard}>
@@ -962,6 +964,22 @@ export function AidStationsSectionV3({
             <Text style={styles.sectionViewMeta}>
               {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
             </Text>
+          </View>
+          {summary.profilePoints.length > 1 ? (
+            <ProfileMiniChart points={summary.profilePoints} />
+          ) : (
+            <Text style={styles.profileEmptyText}>Profil indisponible pour cette section.</Text>
+          )}
+          <View style={styles.profileMetricsRow}>
+            <View style={styles.profileMetricPill}>
+              <Text style={styles.profileMetricPillText}>{summary.distanceKm.toFixed(2)} km</Text>
+            </View>
+            <View style={styles.profileMetricPill}>
+              <Text style={styles.profileMetricPillText}>D+ {Math.round(sectionDPlus)} m</Text>
+            </View>
+            <View style={styles.profileMetricPill}>
+              <Text style={styles.profileMetricPillText}>D- {Math.round(sectionDMinus)} m</Text>
+            </View>
           </View>
           {sectionTimeline.length === 0 ? (
             <Text style={styles.sectionTimelineEmpty}>Aucune prise prévue</Text>

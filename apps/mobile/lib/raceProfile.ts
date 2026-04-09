@@ -1,4 +1,5 @@
 import type { ElevationPoint } from '../components/PlanForm';
+import { WEB_API_BASE_URL } from './webApi';
 
 export type CatalogAidStation = {
   name: string;
@@ -48,7 +49,7 @@ async function fetchStoredRaceElevationProfile(raceId: string): Promise<Elevatio
 export async function fetchRaceElevationProfile(raceId: string | null | undefined): Promise<ElevationPoint[]> {
   if (!raceId) return [];
 
-  const apiBase = process.env.EXPO_PUBLIC_API_URL ?? '';
+  const apiBase = WEB_API_BASE_URL;
   if (!apiBase) return fetchStoredRaceElevationProfile(raceId);
 
   try {

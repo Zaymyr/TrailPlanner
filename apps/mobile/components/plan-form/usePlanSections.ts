@@ -52,7 +52,7 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
       const segmentStat = summary.segmentStats[segmentIndex];
       if (!segment || !segmentStat || segment.segmentKm <= 0.02) return null;
 
-      const segmentProfile = getElevationSlice(elevationProfile, segmentStat.startDistanceKm, segmentStat.endDistanceKm);
+      const segmentProfile = getElevationSlice(summary.profilePoints, segmentStat.startDistanceKm, segmentStat.endDistanceKm);
       if (segmentProfile.length <= 1) return null;
 
       for (const preset of SPLIT_PRESET_ORDER) {
@@ -69,7 +69,7 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
 
       return null;
     },
-    [elevationProfile],
+    [],
   );
 
   const getSplitReplacementSegments = useCallback(
