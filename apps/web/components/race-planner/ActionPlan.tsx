@@ -141,6 +141,7 @@ type ActionPlanProps = {
   sectionSegments?: Record<string, SectionSegment[]>;
   elevationProfile: ElevationPoint[];
   baseMinutesPerKm: number | null;
+  fatigueLevel: number;
   raceTotals: RaceTotals | null;
   sectionId: string;
   onPrintAssistance: () => void;
@@ -940,6 +941,7 @@ export function ActionPlan({
   sectionSegments,
   elevationProfile,
   baseMinutesPerKm,
+  fatigueLevel,
   raceTotals,
   sectionId,
   onPrintAssistance,
@@ -1047,11 +1049,27 @@ export function ActionPlan({
       typeof baseMinutesPerKm === "number" && Number.isFinite(baseMinutesPerKm) && baseMinutesPerKm > 0
         ? {
             secondsPerKm: baseMinutesPerKm * 60,
-            estimateSeconds: ({ distKm, dPlus }: { distKm: number; dPlus: number; dMinus: number }) =>
-              estimateEffortDurationSeconds(baseMinutesPerKm * 60, { distKm, dPlus }),
+            estimateSeconds: ({
+              distKm,
+              dPlus,
+              dMinus,
+              elapsedBeforeSeconds,
+            }: {
+              distKm: number;
+              dPlus: number;
+              dMinus: number;
+              elapsedBeforeSeconds?: number;
+            }) =>
+              estimateEffortDurationSeconds(baseMinutesPerKm * 60, {
+                distKm,
+                dPlus,
+                dMinus,
+                elapsedBeforeSeconds,
+                fatigueLevel,
+              }),
           }
         : undefined,
-    [baseMinutesPerKm]
+    [baseMinutesPerKm, fatigueLevel]
   );
   const renderPaceAdjustmentControl = useCallback(
     ({
@@ -2106,6 +2124,9 @@ export function ActionPlan({
                               ? getAdjustedPaceMinutesPerKm(baseMinutesPerKm as number, {
                                   distKm: stats.distKm,
                                   dPlus: stats.dPlus,
+                                  dMinus: stats.dMinus,
+                                  elapsedBeforeSeconds: stats.elapsedStartSeconds,
+                                  fatigueLevel,
                                 }) ?? (baseMinutesPerKm as number)
                               : (baseMinutesPerKm as number);
                           const paceControl =

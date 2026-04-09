@@ -196,6 +196,10 @@ export function useActionPlanDerivedData({
               startDistanceKm: sectionSegment.startDistanceKm,
               elevationProfile: sortedElevationProfile,
               paceModel,
+              startElapsedSeconds: Math.max(
+                0,
+                ((sectionSegment.etaMinutes ?? 0) - (sectionSegment.segmentMinutes ?? 0)) * 60
+              ),
             })
           : null;
 

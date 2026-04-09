@@ -16,16 +16,20 @@ import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
 import { SuppliesList } from './SuppliesList';
 import type { EditingStation } from './EditStationModal';
-import type { AidStationFormItem, PlanProduct, PlanTarget, SectionSummary, SectionTarget, SectionSegment, IntakeTimelineItem } from './contracts';
+import type {
+  IntakeTimelineItem,
+  PlanFormValues,
+  PlanProduct,
+  PlanTarget,
+  SectionSummary,
+  SectionTarget,
+} from './contracts';
 import { getGaugeTolerance } from './metrics';
 import { adjustedPaceMinutesPerKm, getElevationSlice } from './profile-utils';
 import { styles } from './styles';
 
 type Props = {
-  values: {
-    sectionSegments?: Record<string, SectionSegment[]>;
-    aidStations: AidStationFormItem[];
-  };
+  values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel'>;
   basePaceMinutesPerKm: number;
   departId: string;
   arriveeId: string;
@@ -1059,6 +1063,9 @@ export function AidStationsSectionV3({
                   adjustedPaceMinutesPerKm(basePaceMinutesPerKm, {
                     distKm: segmentStat.distKm,
                     dPlus: segmentStat.dPlus,
+                    dMinus: segmentStat.dMinus,
+                    elapsedBeforeSeconds: segmentStat.elapsedStartSeconds,
+                    fatigueLevel: values.fatigueLevel,
                   }) ?? basePaceMinutesPerKm;
                 const currentPaceMinutes =
                   Math.max(

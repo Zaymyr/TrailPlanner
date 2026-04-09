@@ -39,11 +39,31 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
       baseSpeedKph,
       elevationProfile,
       aidStationsSummaryKey,
+      values.fatigueLevel,
+      values.elevationGain,
+      values.raceDistanceKm,
       values.sectionSegments,
       values.sodiumIntakePerHour,
       values.targetIntakePerHour,
       values.waterIntakePerHour,
     ],
+  );
+
+  const hasSectionTimingOverrides = useMemo(
+    () =>
+      Object.values(values.sectionSegments ?? {}).some((segments) =>
+        segments.some((segment) => {
+          const hasPaceAdjustment =
+            typeof segment.paceAdjustmentMinutesPerKm === 'number' &&
+            Number.isFinite(segment.paceAdjustmentMinutesPerKm) &&
+            Math.abs(segment.paceAdjustmentMinutesPerKm) > 0.0001;
+          const hasDurationOverride =
+            typeof segment.segmentMinutesOverride === 'number' && Number.isFinite(segment.segmentMinutesOverride);
+
+          return hasPaceAdjustment || hasDurationOverride;
+        }),
+      ),
+    [values.sectionSegments],
   );
 
   const getSplitReplacementSegmentsFromSummary = useCallback(
@@ -198,14 +218,34 @@ export function usePlanSections({ values, setValues, elevationProfile }: Args) {
     [buildSectionSummary, setValues],
   );
 
+  const resetSectionTimingOverrides = useCallback(() => {
+    setValues((prev) => {
+      if (!prev.sectionSegments) return prev;
+
+      const nextSectionSegments = Object.fromEntries(
+        Object.entries(prev.sectionSegments).map(([sectionKey, segments]) => [
+          sectionKey,
+          segments.map(({ paceAdjustmentMinutesPerKm, segmentMinutesOverride, ...segment }) => segment),
+        ]),
+      ) as Record<string, SectionSegment[]>;
+
+      return {
+        ...prev,
+        sectionSegments: nextSectionSegments,
+      };
+    });
+  }, [setValues]);
+
   return {
     baseSpeedKph,
     buildSectionSummary,
+    hasSectionTimingOverrides,
     canSplitSectionSegment,
     canRemoveSectionSegment,
     getSectionSegmentControls,
     updateSectionSegmentPaceAdjustment,
     splitSectionSegment,
     removeSectionSegment,
+    resetSectionTimingOverrides,
   };
 }

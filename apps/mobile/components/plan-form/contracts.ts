@@ -30,6 +30,7 @@ export type PlanFormValues = {
   name: string;
   raceDistanceKm: number;
   elevationGain: number;
+  fatigueLevel: number;
   paceType: 'pace' | 'speed';
   paceMinutes: number;
   paceSeconds: number;
@@ -125,6 +126,7 @@ export const DEFAULT_PLAN_VALUES: PlanFormValues = {
   name: '',
   raceDistanceKm: 0,
   elevationGain: 0,
+  fatigueLevel: 0.5,
   paceType: 'pace',
   paceMinutes: 6,
   paceSeconds: 0,

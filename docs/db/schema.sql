@@ -196,6 +196,7 @@ create table public.user_profiles (
   role text,
   age integer,
   water_bag_liters numeric,
+  utmb_index numeric,
   comfortable_flat_pace_min_per_km numeric,
   trial_started_at timestamptz,
   trial_ends_at timestamptz,
@@ -206,6 +207,7 @@ create table public.user_profiles (
   coach_plan_name text,
   constraint user_profiles_age_check check (age is null or age >= 0),
   constraint user_profiles_water_bag_check check (water_bag_liters is null or water_bag_liters >= 0),
+  constraint user_profiles_utmb_index_check check (utmb_index is null or (utmb_index >= 0 and utmb_index <= 2000)),
   constraint user_profiles_comfortable_flat_pace_check check (
     comfortable_flat_pace_min_per_km is null
     or comfortable_flat_pace_min_per_km > 0

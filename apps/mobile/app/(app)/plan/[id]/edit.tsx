@@ -27,6 +27,7 @@ type RacePlanRow = {
   planner_values: {
     raceDistanceKm?: number;
     elevationGain?: number;
+    fatigueLevel?: number;
     paceType?: 'pace' | 'speed';
     paceMinutes?: number;
     paceSeconds?: number;
@@ -54,6 +55,10 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
     name: plan.name,
     raceDistanceKm: pv.raceDistanceKm ?? 0,
     elevationGain: pv.elevationGain ?? 0,
+    fatigueLevel:
+      typeof pv.fatigueLevel === 'number' && Number.isFinite(pv.fatigueLevel)
+        ? Math.min(1, Math.max(0, pv.fatigueLevel))
+        : 0.5,
     paceType: pv.paceType ?? 'pace',
     paceMinutes: pv.paceMinutes ?? 6,
     paceSeconds: pv.paceSeconds ?? 0,
@@ -242,6 +247,7 @@ export default function EditPlanScreen() {
       const plannerValues = {
         raceDistanceKm: values.raceDistanceKm,
         elevationGain: values.elevationGain,
+        fatigueLevel: values.fatigueLevel,
         paceType: values.paceType,
         paceMinutes: values.paceMinutes,
         paceSeconds: values.paceSeconds,

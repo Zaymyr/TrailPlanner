@@ -17,6 +17,7 @@ type CommandCenterProps = {
     paceMinutes: number;
     paceSeconds: number;
     speedKph: number;
+    fatigueLevel: number;
   };
   coachManaged?: boolean;
   register: UseFormRegister<FormValues>;
@@ -169,6 +170,40 @@ export function CommandCenter({
                   />
                 </div>
               ) : null}
+            </div>
+            <div className="space-y-2 border-t border-border pt-3 dark:border-slate-800/80">
+              <div className="flex items-center justify-between gap-2">
+                <Label
+                  htmlFor="fatigueLevel"
+                  className="text-[11px] font-semibold uppercase tracking-wide text-foreground dark:text-slate-300"
+                >
+                  {copy.sections.raceInputs.fields.fatigueLevel}
+                </Label>
+                <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-200">
+                  {pacing.fatigueLevel <= 0.33
+                    ? copy.sections.raceInputs.fields.fatigueLow
+                    : pacing.fatigueLevel >= 0.67
+                      ? copy.sections.raceInputs.fields.fatigueHigh
+                      : copy.sections.raceInputs.fields.fatigueMedium}
+                </span>
+              </div>
+              <Input
+                id="fatigueLevel"
+                type="range"
+                min="0"
+                max="1"
+                step="0.01"
+                className="h-3 cursor-pointer border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+                {...register("fatigueLevel", { valueAsNumber: true })}
+              />
+              <div className="flex items-center justify-between gap-3 text-[11px] font-medium text-muted-foreground dark:text-slate-400">
+                <span>{copy.sections.raceInputs.fields.fatigueLow}</span>
+                <span>{copy.sections.raceInputs.fields.fatigueMedium}</span>
+                <span>{copy.sections.raceInputs.fields.fatigueHigh}</span>
+              </div>
+              <p className="text-xs text-muted-foreground dark:text-slate-400">
+                {copy.sections.raceInputs.fields.fatigueHelper}
+              </p>
             </div>
             <input type="hidden" {...register("paceType")} />
           </CardContent>

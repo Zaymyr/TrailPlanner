@@ -3,9 +3,50 @@ import type { FormValues } from "../types";
 type PaceEffortInput = {
   distKm: number;
   dPlus: number;
+  dMinus?: number;
+  elapsedBeforeSeconds?: number;
+  fatigueLevel?: number;
 };
 
 export const CLIMB_EQUIVALENT_METERS_PER_FLAT_KM = 100;
+export const DESCENT_EQUIVALENT_METERS_PER_FLAT_KM = 300;
+export const DEFAULT_FATIGUE_LEVEL = 0.5;
+
+function clampFatigueLevel(value: number | undefined) {
+  if (!Number.isFinite(value)) return DEFAULT_FATIGUE_LEVEL;
+  return Math.min(1, Math.max(0, value ?? DEFAULT_FATIGUE_LEVEL));
+}
+
+function computeFatigueSlowdown(elapsedSeconds: number | undefined, fatigueLevel: number | undefined) {
+  const elapsedHours =
+    typeof elapsedSeconds === "number" && Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds / 3600) : 0;
+  const safeFatigueLevel = clampFatigueLevel(fatigueLevel);
+  const fatigueStartHours = 10 - safeFatigueLevel * 6;
+  const fatigueRampHours = 18 - safeFatigueLevel * 6;
+  const maxSlowdown = 0.12 + safeFatigueLevel * 0.36;
+
+  const progress = Math.min(1, Math.max(0, (elapsedHours - fatigueStartHours) / Math.max(1, fatigueRampHours)));
+  const smoothProgress = progress * progress * (3 - 2 * progress);
+
+  return maxSlowdown * smoothProgress;
+}
+
+function buildEffortDurationSeconds(baseSecondsPerKm: number, input: PaceEffortInput) {
+  if (!Number.isFinite(baseSecondsPerKm) || baseSecondsPerKm <= 0) return 0;
+
+  const safeDistanceKm = Number.isFinite(input.distKm) ? Math.max(0, input.distKm) : 0;
+  const safeDPlus = Number.isFinite(input.dPlus) ? Math.max(0, input.dPlus) : 0;
+  const safeDMinus = Number.isFinite(input.dMinus) ? Math.max(0, input.dMinus ?? 0) : 0;
+  const equivalentKm =
+    safeDistanceKm +
+    safeDPlus / CLIMB_EQUIVALENT_METERS_PER_FLAT_KM +
+    safeDMinus / DESCENT_EQUIVALENT_METERS_PER_FLAT_KM;
+  const baseDurationSeconds = equivalentKm * baseSecondsPerKm;
+  const fatigueReferenceSeconds = (input.elapsedBeforeSeconds ?? 0) + baseDurationSeconds / 2;
+  const fatigueSlowdown = computeFatigueSlowdown(fatigueReferenceSeconds, input.fatigueLevel);
+
+  return baseDurationSeconds * (1 + fatigueSlowdown);
+}
 
 export function minutesPerKm(values: FormValues): number | null {
   if (values.paceType === "speed") {
@@ -44,15 +85,14 @@ export function estimateEffortDurationMinutes(
   input: PaceEffortInput
 ) {
   if (!Number.isFinite(baseMinutesPerKm) || baseMinutesPerKm <= 0) return 0;
-  return equivalentFlatDistanceKm(input) * baseMinutesPerKm;
+  return buildEffortDurationSeconds(baseMinutesPerKm * 60, input) / 60;
 }
 
 export function estimateEffortDurationSeconds(
   baseSecondsPerKm: number,
   input: PaceEffortInput
 ) {
-  if (!Number.isFinite(baseSecondsPerKm) || baseSecondsPerKm <= 0) return 0;
-  return equivalentFlatDistanceKm(input) * baseSecondsPerKm;
+  return buildEffortDurationSeconds(baseSecondsPerKm, input);
 }
 
 export function adjustedPaceMinutesPerKm(

@@ -21,6 +21,7 @@ type PlanPrimaryContentProps = {
     paceMinutes: number;
     paceSeconds: number;
     speedKph: number;
+    fatigueLevel: number;
   };
   coachManaged?: boolean;
   register: UseFormRegister<FormValues>;
@@ -130,6 +131,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         sectionSegments={sectionSegments}
         elevationProfile={elevationProfile}
         baseMinutesPerKm={baseMinutesPerKm}
+        fatigueLevel={pacing.fatigueLevel}
         raceTotals={raceTotals}
         sectionId={sectionIds.timeline}
         onPrintAssistance={onPrintAssistance}

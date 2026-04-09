@@ -1,18 +1,18 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { Alert, Text, View, StyleSheet } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-import { supabase } from '../../../lib/supabase';
-import { Colors } from '../../../constants/colors';
-import PlanForm, { PlanFormValues, DEFAULT_PLAN_VALUES, type ElevationPoint } from '../../../components/PlanForm';
+
+import { DEFAULT_PLAN_VALUES, type PlanFormValues, type ElevationPoint } from '../../../components/PlanForm';
+import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
 import { PlanLoadingScreen } from '../../../components/PlanLoadingScreen';
 import { RaceSelector } from '../../../components/RaceSelector';
-import { useI18n } from '../../../lib/i18n';
-import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
+import { Colors } from '../../../constants/colors';
 import { usePremium } from '../../../hooks/usePremium';
+import { useI18n } from '../../../lib/i18n';
 import { currentUserHasReachedFreePlanLimit, FREE_PLAN_LIMIT } from '../../../lib/planAccess';
-import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
-import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../components/plan-form/usePlanProducts';
+import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
+import { supabase } from '../../../lib/supabase';
 
 type RaceInfo = {
   id: string;
@@ -43,60 +43,118 @@ function buildDefaultPlanValues(comfortableFlatPaceMinPerKm: number | null | und
   };
 }
 
+function buildPlannerValues(values: PlanFormValues) {
+  return {
+    raceDistanceKm: values.raceDistanceKm,
+    elevationGain: values.elevationGain,
+    fatigueLevel: values.fatigueLevel,
+    paceType: values.paceType,
+    paceMinutes: values.paceMinutes,
+    paceSeconds: values.paceSeconds,
+    speedKph: values.speedKph,
+    targetIntakePerHour: values.targetIntakePerHour,
+    waterIntakePerHour: values.waterIntakePerHour,
+    sodiumIntakePerHour: values.sodiumIntakePerHour,
+    waterBagLiters: values.waterBagLiters,
+    startSupplies: [],
+    segments: values.sectionSegments,
+    sectionSegments: values.sectionSegments,
+    aidStations: values.aidStations.map((station) => ({
+      name: station.name,
+      distanceKm: station.distanceKm,
+      waterRefill: station.waterRefill,
+      pauseMinutes: station.pauseMinutes ?? 0,
+      supplies: [],
+    })),
+  };
+}
+
 export default function NewPlanScreen() {
   const { raceId, catalogRaceId } = useLocalSearchParams<{ raceId?: string; catalogRaceId?: string }>();
   const resolvedRaceId = raceId ?? catalogRaceId ?? null;
+  const router = useRouter();
   const { t } = useI18n();
   const { isPremium, isLoading: premiumLoading } = usePremium();
 
   const [selectedRace, setSelectedRace] = useState<RaceInfo | null>(null);
-  const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [loading, setLoading] = useState(!!resolvedRaceId);
+  const [loading, setLoading] = useState(Boolean(resolvedRaceId));
   const [loadingPlanName, setLoadingPlanName] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [defaultPlanValues, setDefaultPlanValues] = useState<PlanFormValues>(DEFAULT_PLAN_VALUES);
-  const [planProductData, setPlanProductData] = useState<PlanProductsBootstrap | null>(null);
-  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const [showPremiumLimitModal, setShowPremiumLimitModal] = useState(false);
-  const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const createPlanDraft = useCallback(
+    async (race: RaceInfo, seedValues: PlanFormValues, elevationProfile: ElevationPoint[]) => {
+      setLoading(true);
+      setLoadingPlanName(race.name);
+      setLoadingProgress(0.9);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData?.session?.user?.id;
+
+      if (!uid) {
+        setLoading(false);
+        router.replace('/(auth)/login');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('race_plans')
+        .insert({
+          user_id: uid,
+          name: seedValues.name,
+          planner_values: buildPlannerValues(seedValues),
+          elevation_profile: elevationProfile,
+          race_id: race.id,
+        })
+        .select('id')
+        .single();
+
+      if (error || !data?.id) {
+        setLoading(false);
+        setLoadingProgress(0.08);
+        setShowRaceSelector(!resolvedRaceId);
+        Alert.alert(t.common.error, error?.message ?? t.common.error);
+        return;
+      }
+
+      router.replace(`/(app)/plan/${data.id}/edit`);
+    },
+    [resolvedRaceId, router, t.common.error],
+  );
 
   const loadRaceSeed = useCallback(async () => {
+    setLoading(true);
     setLoadingProgress(0.12);
     setLoadingPlanName(null);
+
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id ?? null;
     setUserId(uid);
-    let nextDefaultPlanValues = DEFAULT_PLAN_VALUES;
+
+    let defaultPlanValues = DEFAULT_PLAN_VALUES;
     if (uid) {
       const profileResult = await supabase
         .from('user_profiles')
         .select('comfortable_flat_pace_min_per_km')
         .eq('user_id', uid)
         .maybeSingle();
-      nextDefaultPlanValues = buildDefaultPlanValues(
+
+      defaultPlanValues = buildDefaultPlanValues(
         (profileResult.data as { comfortable_flat_pace_min_per_km?: number | null } | null)
           ?.comfortable_flat_pace_min_per_km ?? null,
       );
     }
-    setDefaultPlanValues(nextDefaultPlanValues);
-    const productDataPromise = loadPlanProductsBootstrap(uid);
 
     if (!resolvedRaceId) {
-      setLoadingProgress(0.48);
-      setPlanProductData(await productDataPromise);
-      setLoadingProgress(0.9);
       setSelectedRace(null);
       setLoading(false);
+      setLoadingProgress(0.9);
       setShowRaceSelector(true);
-      setElevationProfile([]);
-      setInitialValues(nextDefaultPlanValues);
       return;
     }
 
-    setLoading(true);
     setLoadingProgress(0.24);
     const raceResultPromise = supabase
       .from('races')
@@ -105,6 +163,7 @@ export default function NewPlanScreen() {
       .single();
     const elevationProfilePromise = fetchRaceElevationProfile(resolvedRaceId);
     const aidStationsPromise = fetchRaceAidStations(resolvedRaceId);
+
     const { data, error } = await raceResultPromise;
 
     if (!error && data) {
@@ -112,34 +171,32 @@ export default function NewPlanScreen() {
       setLoadingProgress(0.52);
     }
 
-    const [fetchedElevationProfile, fetchedAidStations, nextProductData] = await Promise.all([
-      elevationProfilePromise,
-      aidStationsPromise,
-      productDataPromise,
-    ]);
-    setPlanProductData(nextProductData);
+    const [elevationProfile, aidStations] = await Promise.all([elevationProfilePromise, aidStationsPromise]);
     setLoadingProgress(0.82);
 
     if (!error && data) {
       const race = data as RaceInfo;
       setSelectedRace(race);
       setShowRaceSelector(false);
-      setElevationProfile(fetchedElevationProfile);
-      setInitialValues({
-        ...nextDefaultPlanValues,
-        name: race.name,
-        raceDistanceKm: race.distance_km,
-        elevationGain: race.elevation_gain_m,
-        aidStations: fetchedAidStations,
-      });
-    } else {
-      setSelectedRace(null);
-      setElevationProfile([]);
-      setInitialValues(nextDefaultPlanValues);
+
+      await createPlanDraft(
+        race,
+        {
+          ...defaultPlanValues,
+          name: race.name,
+          raceDistanceKm: race.distance_km,
+          elevationGain: race.elevation_gain_m,
+          aidStations,
+        },
+        elevationProfile,
+      );
+      return;
     }
-    setLoadingProgress(1);
+
+    setSelectedRace(null);
     setLoading(false);
-  }, [resolvedRaceId]);
+    setShowRaceSelector(true);
+  }, [createPlanDraft, resolvedRaceId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -156,19 +213,14 @@ export default function NewPlanScreen() {
           setLoading(false);
           setShowRaceSelector(false);
           setShowPremiumLimitModal(true);
-          setPlanProductData(null);
           setLoadingProgress(1);
         })();
 
         return () => {
           setSelectedRace(null);
-          setElevationProfile([]);
-          setPlanProductData(null);
-          setInitialValues(null);
           setLoadingPlanName(null);
           setLoadingProgress(0.08);
-          setDefaultPlanValues(DEFAULT_PLAN_VALUES);
-          setLoading(!!resolvedRaceId);
+          setLoading(Boolean(resolvedRaceId));
           setShowRaceSelector(!resolvedRaceId);
         };
       }
@@ -177,101 +229,64 @@ export default function NewPlanScreen() {
 
       return () => {
         setSelectedRace(null);
-        setElevationProfile([]);
-        setPlanProductData(null);
-        setInitialValues(null);
         setLoadingPlanName(null);
         setLoadingProgress(0.08);
-        setDefaultPlanValues(DEFAULT_PLAN_VALUES);
-        setLoading(!!resolvedRaceId);
+        setLoading(Boolean(resolvedRaceId));
         setShowRaceSelector(!resolvedRaceId);
       };
     }, [isPremium, loadRaceSeed, premiumLoading, resolvedRaceId]),
   );
 
-  async function handleRaceSelected(race: { id: string; name: string; distance_km: number; elevation_gain_m: number }) {
-    setLoading(true);
-    setLoadingPlanName(race.name);
-    setLoadingProgress(0.22);
-    setSelectedRace(race);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData?.session?.user?.id ?? userId;
-    setUserId(uid);
-    setLoadingProgress(0.42);
-    const [nextElevationProfile, nextAidStations, nextProductData] = await Promise.all([
-      fetchRaceElevationProfile(race.id),
-      fetchRaceAidStations(race.id),
-      planProductData ? Promise.resolve(planProductData) : loadPlanProductsBootstrap(uid),
-    ]);
-    setLoadingProgress(0.82);
-    setPlanProductData(nextProductData);
-    setElevationProfile(nextElevationProfile);
-    setInitialValues({
-      ...defaultPlanValues,
-      name: race.name,
-      raceDistanceKm: race.distance_km,
-      elevationGain: race.elevation_gain_m,
-      aidStations: nextAidStations,
-    });
-    setShowRaceSelector(false);
-    setLoadingProgress(1);
-    setLoading(false);
-  }
+  const handleRaceSelected = useCallback(
+    async (race: RaceInfo) => {
+      setLoading(true);
+      setLoadingPlanName(race.name);
+      setLoadingProgress(0.22);
+      setSelectedRace(race);
+      setShowRaceSelector(false);
 
-  async function handleSave(values: PlanFormValues) {
-    setSaving(true);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const uid = sessionData?.session?.user?.id ?? userId;
+      setUserId(uid);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData?.session?.user?.id;
-    if (!uid) {
-      setSaving(false);
-      return;
-    }
+      let defaultPlanValues = DEFAULT_PLAN_VALUES;
+      if (uid) {
+        const profileResult = await supabase
+          .from('user_profiles')
+          .select('comfortable_flat_pace_min_per_km')
+          .eq('user_id', uid)
+          .maybeSingle();
 
-    const plannerValues = {
-      raceDistanceKm: values.raceDistanceKm,
-      elevationGain: values.elevationGain,
-      paceType: values.paceType,
-      paceMinutes: values.paceMinutes,
-      paceSeconds: values.paceSeconds,
-      speedKph: values.speedKph,
-      targetIntakePerHour: values.targetIntakePerHour,
-      waterIntakePerHour: values.waterIntakePerHour,
-      sodiumIntakePerHour: values.sodiumIntakePerHour,
-      waterBagLiters: values.waterBagLiters,
-      startSupplies: (values.startSupplies ?? []).map((s) => ({ productId: s.productId, quantity: s.quantity })),
-      segments: values.sectionSegments,
-      sectionSegments: values.sectionSegments,
-      aidStations: values.aidStations.map((s) => ({
-        name: s.name,
-        distanceKm: s.distanceKm,
-        waterRefill: s.waterRefill,
-        pauseMinutes: s.pauseMinutes ?? 0,
-        supplies: (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
-      })),
-    };
+        defaultPlanValues = buildDefaultPlanValues(
+          (profileResult.data as { comfortable_flat_pace_min_per_km?: number | null } | null)
+            ?.comfortable_flat_pace_min_per_km ?? null,
+        );
+      }
 
-    const { data, error } = await supabase
-      .from('race_plans')
-      .insert({
-        user_id: uid,
-        name: values.name,
-        planner_values: plannerValues,
-        elevation_profile: elevationProfile,
-        race_id: selectedRace?.id ?? resolvedRaceId ?? null,
-      })
-      .select('id')
-      .single();
+      setLoadingProgress(0.42);
+      const [elevationProfile, aidStations] = await Promise.all([
+        fetchRaceElevationProfile(race.id),
+        fetchRaceAidStations(race.id),
+      ]);
+      setLoadingProgress(0.82);
 
-    setSaving(false);
+      await createPlanDraft(
+        race,
+        {
+          ...defaultPlanValues,
+          name: race.name,
+          raceDistanceKm: race.distance_km,
+          elevationGain: race.elevation_gain_m,
+          aidStations,
+        },
+        elevationProfile,
+      );
+    },
+    [createPlanDraft, userId],
+  );
 
-    if (!error && data?.id) {
-      router.replace(`/(app)/plan/${data.id}/edit`);
-    }
-  }
-
-  if (loading || premiumLoading || (!showRaceSelector && initialValues && !planProductData)) {
-    const visiblePlanName = loadingPlanName ?? selectedRace?.name ?? initialValues?.name ?? null;
+  if (loading || premiumLoading) {
+    const visiblePlanName = loadingPlanName ?? selectedRace?.name ?? null;
     const loadingTitle = visiblePlanName
       ? t.plans.planLoadingNamed.replace('{name}', visiblePlanName)
       : t.plans.planLoadingGeneric;
@@ -317,19 +332,6 @@ export default function NewPlanScreen() {
         onSelect={handleRaceSelected}
         userId={userId}
       />
-
-      {!showRaceSelector && initialValues && planProductData && (
-        <PlanForm
-          key={selectedRace?.id ?? resolvedRaceId ?? 'new-plan'}
-          initialValues={initialValues}
-          elevationProfile={elevationProfile}
-          onSave={handleSave}
-          isPremium={isPremium}
-          loading={saving}
-          saveLabel={t.common.create}
-          productData={planProductData}
-        />
-      )}
 
       {showPremiumLimitModal ? (
         <PremiumUpsellModal

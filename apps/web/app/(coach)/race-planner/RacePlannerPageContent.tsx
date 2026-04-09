@@ -109,6 +109,7 @@ const formatIntervalLabel = (interval: StripeInterval | null, count: number | nu
 const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   raceDistanceKm: 50,
   elevationGain: 2200,
+  fatigueLevel: 0.5,
   paceType: "pace",
   paceMinutes: 6,
   paceSeconds: 30,
@@ -182,6 +183,7 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
     .object({
       raceDistanceKm: z.coerce.number().positive(copy.validation.raceDistance),
       elevationGain: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
+      fatigueLevel: z.coerce.number().min(0, { message: copy.validation.nonNegative }).max(1),
       paceType: z.enum(["pace", "speed"]),
       paceMinutes: z.coerce.number().nonnegative({ message: copy.validation.nonNegative }),
       paceSeconds: z.coerce
@@ -289,6 +291,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
   const speedKphValue = form.watch("speedKph") ?? defaultValues.speedKph;
+  const fatigueLevelValue = form.watch("fatigueLevel") ?? defaultValues.fatigueLevel;
   const baseIntakeTargets = useMemo(
     () => ({
       carbsPerHour: watchedValues.targetIntakePerHour ?? defaultValues.targetIntakePerHour,
@@ -1270,6 +1273,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         paceMinutes: paceMinutesValue,
         paceSeconds: paceSecondsValue,
         speedKph: speedKphValue,
+        fatigueLevel: fatigueLevelValue,
       }}
       coachManaged={isCoachManaged}
       register={register}

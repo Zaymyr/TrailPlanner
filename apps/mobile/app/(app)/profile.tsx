@@ -30,6 +30,7 @@ type UserProfile = {
   age: number | null;
   birth_date: string | null;
   water_bag_liters: number | null;
+  utmb_index: number | null;
   comfortable_flat_pace_min_per_km: number | null;
   role: string | null;
   trial_ends_at: string | null;
@@ -192,6 +193,7 @@ export default function ProfileScreen() {
   const [fullName, setFullName] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
+  const [utmbIndex, setUtmbIndex] = useState('');
   const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
   const [comfortableFlatPaceSeconds, setComfortableFlatPaceSeconds] = useState('');
   const {
@@ -226,7 +228,7 @@ export default function ProfileScreen() {
       const profileResult = await supabase
         .from('user_profiles')
         .select(
-          'full_name, age, birth_date, water_bag_liters, comfortable_flat_pace_min_per_km, role, trial_ends_at, trial_started_at',
+          'full_name, age, birth_date, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, role, trial_ends_at, trial_started_at',
         )
         .eq('user_id', uid)
         .single();
@@ -239,6 +241,11 @@ export default function ProfileScreen() {
         setFullName(nextProfile.full_name ?? '');
         setBirthDateInput(formatBirthDateInput(nextProfile.birth_date));
         setWaterBagLiters(nextProfile.water_bag_liters ?? 1.5);
+        setUtmbIndex(
+          typeof nextProfile.utmb_index === 'number' && Number.isFinite(nextProfile.utmb_index)
+            ? String(Math.round(nextProfile.utmb_index))
+            : '',
+        );
         const flatPaceFields = splitPaceMinutesPerKm(nextProfile.comfortable_flat_pace_min_per_km);
         setComfortableFlatPaceMinutes(flatPaceFields.minutes);
         setComfortableFlatPaceSeconds(flatPaceFields.seconds);
@@ -295,6 +302,15 @@ export default function ProfileScreen() {
       setError(t.profile.comfortableFlatPaceInvalid);
       return;
     }
+    const parsedUtmbIndex = utmbIndex.trim() ? Number(utmbIndex.trim()) : null;
+    if (
+      utmbIndex.trim() &&
+      (!Number.isFinite(parsedUtmbIndex) || parsedUtmbIndex === null || parsedUtmbIndex < 0 || parsedUtmbIndex > 2000)
+    ) {
+      setSaving(false);
+      setError(t.profile.utmbIndexInvalid);
+      return;
+    }
 
     const { error: saveError } = await supabase.from('user_profiles').upsert(
       {
@@ -303,6 +319,7 @@ export default function ProfileScreen() {
         birth_date: birthDateIso,
         age: nextAge,
         water_bag_liters: waterBagLiters,
+        utmb_index: parsedUtmbIndex,
         comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
       },
       { onConflict: 'user_id' }
@@ -320,6 +337,7 @@ export default function ProfileScreen() {
       birth_date: birthDateIso,
       age: nextAge,
       water_bag_liters: waterBagLiters,
+      utmb_index: parsedUtmbIndex,
       comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
       role: current?.role ?? null,
       trial_ends_at: current?.trial_ends_at ?? null,
@@ -522,6 +540,18 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      <Text style={styles.label}>{t.profile.utmbIndexLabel}</Text>
+      <Text style={styles.helperText}>{t.profile.utmbIndexHint}</Text>
+      <TextInput
+        style={styles.textInput}
+        value={utmbIndex}
+        onChangeText={(value) => setUtmbIndex(value.replace(/\D/g, '').slice(0, 4))}
+        placeholder="600"
+        placeholderTextColor={Colors.textMuted}
+        keyboardType="number-pad"
+        maxLength={4}
+      />
 
       <Text style={styles.label}>{t.profile.comfortableFlatPaceLabel}</Text>
       <Text style={styles.helperText}>{t.profile.comfortableFlatPaceHint}</Text>

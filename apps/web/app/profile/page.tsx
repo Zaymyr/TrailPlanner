@@ -102,6 +102,9 @@ const profileFormSchema = z.object({
   waterBagLiters: z
     .union([z.coerce.number().min(0).max(20), z.literal("").transform(() => undefined)])
     .optional(),
+  utmbIndex: z
+    .union([z.coerce.number().min(0).max(2000), z.literal("").transform(() => undefined)])
+    .optional(),
   comfortableFlatPaceMinutes: z
     .union([z.coerce.number().int().min(0).max(999), z.literal("").transform(() => undefined)])
     .optional(),
@@ -139,6 +142,7 @@ export default function ProfilePage() {
       fullName: "",
       age: undefined,
       waterBagLiters: undefined,
+      utmbIndex: undefined,
       comfortableFlatPaceMinutes: undefined,
       comfortableFlatPaceSeconds: undefined,
     },
@@ -170,6 +174,7 @@ export default function ProfilePage() {
         fullName: profile.fullName ?? "",
         age: profile.age ?? undefined,
         waterBagLiters: profile.waterBagLiters ?? undefined,
+        utmbIndex: profile.utmbIndex ?? undefined,
         comfortableFlatPaceMinutes: comfortableFlatPace.minutes,
         comfortableFlatPaceSeconds: comfortableFlatPace.seconds,
       });
@@ -269,6 +274,7 @@ export default function ProfilePage() {
         fullName: values.fullName ?? null,
         age: typeof values.age === "number" ? values.age : null,
         waterBagLiters: typeof values.waterBagLiters === "number" ? values.waterBagLiters : null,
+        utmbIndex: typeof values.utmbIndex === "number" ? values.utmbIndex : null,
         comfortableFlatPaceMinPerKm: buildComfortableFlatPaceMinPerKm(
           values.comfortableFlatPaceMinutes,
           values.comfortableFlatPaceSeconds
@@ -286,6 +292,7 @@ export default function ProfilePage() {
         fullName: profile.fullName ?? "",
         age: profile.age ?? undefined,
         waterBagLiters: profile.waterBagLiters ?? undefined,
+        utmbIndex: profile.utmbIndex ?? undefined,
         comfortableFlatPaceMinutes: comfortableFlatPace.minutes,
         comfortableFlatPaceSeconds: comfortableFlatPace.seconds,
       });
@@ -887,6 +894,21 @@ export default function ProfilePage() {
                 })}
               />
               <p className="text-xs text-muted-foreground">{t.profile.basics.waterBagHelper}</p>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="utmbIndex">{t.profile.basics.utmbIndexLabel}</Label>
+              <Input
+                id="utmbIndex"
+                type="number"
+                min="0"
+                step="1"
+                placeholder="600"
+                disabled={authMissing}
+                {...form.register("utmbIndex", {
+                  setValueAs: (value) => (value === "" || value === null ? undefined : Number(value)),
+                })}
+              />
+              <p className="text-xs text-muted-foreground">{t.profile.basics.utmbIndexHelper}</p>
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>{t.profile.basics.comfortableFlatPaceLabel}</Label>

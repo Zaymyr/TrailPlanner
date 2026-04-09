@@ -183,6 +183,11 @@ export type RacePlannerTranslations = {
         paceMinutes: string;
         paceSeconds: string;
         speedKph: string;
+        fatigueLevel: string;
+        fatigueHelper: string;
+        fatigueLow: string;
+        fatigueMedium: string;
+        fatigueHigh: string;
         targetIntakePerHour: string;
         waterIntakePerHour: string;
         sodiumIntakePerHour: string;
@@ -1029,6 +1034,8 @@ export type ProfileTranslations = {
     agePlaceholder: string;
     waterBagLabel: string;
     waterBagHelper: string;
+    utmbIndexLabel: string;
+    utmbIndexHelper: string;
     comfortableFlatPaceLabel: string;
     comfortableFlatPaceHelper: string;
     comfortableFlatPaceMinutesLabel: string;

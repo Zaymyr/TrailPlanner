@@ -146,10 +146,15 @@ export function sanitizePlannerValues(values?: Partial<FormValues>): Partial<For
     typeof values.waterBagLiters === "number" && Number.isFinite(values.waterBagLiters) && values.waterBagLiters >= 0
       ? values.waterBagLiters
       : undefined;
+  const fatigueLevel =
+    typeof values.fatigueLevel === "number" && Number.isFinite(values.fatigueLevel)
+      ? Math.min(1, Math.max(0, values.fatigueLevel))
+      : undefined;
 
   return {
     ...values,
     paceType,
+    fatigueLevel,
     waterBagLiters,
     startSupplies,
     aidStations,

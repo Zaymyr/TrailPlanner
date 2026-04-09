@@ -2,7 +2,12 @@ import type { ElevationPoint, SectionSegment } from "../types";
 import { computeSegmentStats } from "./segmentation";
 
 type PaceModel = {
-  estimateSeconds?: (input: { distKm: number; dPlus: number; dMinus: number }) => number;
+  estimateSeconds?: (input: {
+    distKm: number;
+    dPlus: number;
+    dMinus: number;
+    elapsedBeforeSeconds?: number;
+  }) => number;
   secondsPerKm?: number;
   speedKph?: number;
 };
@@ -14,6 +19,7 @@ export type SectionSubSegmentStats = {
   distKm: number;
   dPlus: number;
   dMinus: number;
+  elapsedStartSeconds: number;
   etaSeconds: number;
 };
 
@@ -31,19 +37,24 @@ export function recomputeSectionFromSubSections({
   startDistanceKm,
   elevationProfile,
   paceModel,
+  startElapsedSeconds = 0,
 }: {
   segments: SectionSegment[];
   startDistanceKm: number;
   elevationProfile: ElevationPoint[];
   paceModel?: PaceModel;
+  startElapsedSeconds?: number;
 }): { totals: SectionTotals; segmentStats: SectionSubSegmentStats[] } {
   let cursor = Number.isFinite(startDistanceKm) ? startDistanceKm : 0;
   const sortedElevationProfile = [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm);
+  let elapsedCursorSeconds =
+    typeof startElapsedSeconds === "number" && Number.isFinite(startElapsedSeconds) ? Math.max(0, startElapsedSeconds) : 0;
 
   const segmentStats = segments.map((segment, index) => {
     const startDistance = cursor;
     const endDistance = startDistance + clampNumber(segment.segmentKm);
     cursor = endDistance;
+    const segmentElapsedStartSeconds = elapsedCursorSeconds;
 
     const stats = computeSegmentStats(
       {
@@ -53,8 +64,10 @@ export function recomputeSectionFromSubSections({
       },
       sortedElevationProfile,
       paceModel,
-      sortedElevationProfile
+      sortedElevationProfile,
+      segmentElapsedStartSeconds
     );
+    elapsedCursorSeconds += clampNumber(stats.etaSeconds);
 
     return {
       segmentIndex: index,
@@ -63,6 +76,7 @@ export function recomputeSectionFromSubSections({
       distKm: clampNumber(stats.distKm),
       dPlus: clampNumber(stats.dPlus),
       dMinus: clampNumber(stats.dMinus),
+      elapsedStartSeconds: clampNumber(segmentElapsedStartSeconds),
       etaSeconds: clampNumber(stats.etaSeconds),
     };
   });

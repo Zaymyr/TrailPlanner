@@ -30,6 +30,7 @@ export type AidStation = { name: string; distanceKm: number; waterRefill?: boole
 export type FormValues = {
   raceDistanceKm: number;
   elevationGain: number;
+  fatigueLevel: number;
   paceType: "pace" | "speed";
   paceMinutes: number;
   paceSeconds: number;

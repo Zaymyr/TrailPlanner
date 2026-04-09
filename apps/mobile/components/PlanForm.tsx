@@ -148,10 +148,12 @@ export default function PlanForm({
   const {
     baseSpeedKph,
     buildSectionSummary,
+    hasSectionTimingOverrides,
     getSectionSegmentControls,
     updateSectionSegmentPaceAdjustment,
     splitSectionSegment,
     removeSectionSegment,
+    resetSectionTimingOverrides,
   } = usePlanSections({ values, setValues, elevationProfile });
 
   const {
@@ -424,6 +426,8 @@ export default function PlanForm({
           expandedSections={expandedSections}
           toggleSection={toggleSection}
           update={update}
+          hasSectionTimingOverrides={hasSectionTimingOverrides}
+          onResetSectionTimingOverrides={resetSectionTimingOverrides}
           NumberInput={NumberInput}
           waterBagOptions={WATER_BAG_OPTIONS}
         />

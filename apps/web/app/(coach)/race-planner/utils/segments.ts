@@ -93,6 +93,9 @@ export function buildSegments(
     const estimatedSegmentMinutes = estimateEffortDurationMinutes(minPerKm, {
       distKm: segmentKm,
       dPlus: elevationDelta.gain,
+      dMinus: elevationDelta.loss,
+      elapsedBeforeSeconds: elapsedMinutes * 60,
+      fatigueLevel: values.fatigueLevel,
     });
     const paceAdjustmentMinutesPerKm =
       typeof station.paceAdjustmentMinutesPerKm === "number" && Number.isFinite(station.paceAdjustmentMinutesPerKm)

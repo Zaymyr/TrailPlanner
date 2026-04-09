@@ -1,5 +1,6 @@
 import {
   ARRIVEE_ID,
+  DEFAULT_PLAN_VALUES,
   DEFAULT_FLUID_MIX_SHARE,
   DEFAULT_FLUID_PRODUCT_VOLUME_ML,
   DEPART_ID,
@@ -42,6 +43,10 @@ export function injectSystemStations(stations: AidStationFormItem[], distanceKm:
 export function buildInitialPlanValues(initialValues: PlanFormValues): PlanFormValues {
   return {
     ...initialValues,
+    fatigueLevel:
+      typeof initialValues.fatigueLevel === 'number' && Number.isFinite(initialValues.fatigueLevel)
+        ? Math.min(1, Math.max(0, initialValues.fatigueLevel))
+        : DEFAULT_PLAN_VALUES.fatigueLevel,
     startSupplies: normalizeSupplies(initialValues.startSupplies),
     sectionSegments: cloneSectionSegments(initialValues.sectionSegments),
     aidStations: injectSystemStations(

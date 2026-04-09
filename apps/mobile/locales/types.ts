@@ -56,6 +56,13 @@ export type MobileTranslations = {
     planLoadingGeneric: string;
     planLoadingNamed: string;
     planLoadingStage: string;
+    fatigueLabel: string;
+    fatigueHint: string;
+    fatigueLow: string;
+    fatigueMedium: string;
+    fatigueHigh: string;
+    sectionTimingLockedHint: string;
+    sectionTimingReset: string;
   };
   races: {
     title: string;
@@ -112,6 +119,11 @@ export type MobileTranslations = {
     planLoadingGeneric: string;
     planLoadingNamed: string;
     planLoadingStage: string;
+    fatigueLabel: string;
+    fatigueHint: string;
+    fatigueLow: string;
+    fatigueMedium: string;
+    fatigueHigh: string;
   };
   profile: {
     title: string;
@@ -128,6 +140,9 @@ export type MobileTranslations = {
     ageCalculated: string;
     waterBagLabel: string;
     waterBagHint: string;
+    utmbIndexLabel: string;
+    utmbIndexHint: string;
+    utmbIndexInvalid: string;
     comfortableFlatPaceLabel: string;
     comfortableFlatPaceHint: string;
     comfortableFlatPaceMinutesLabel: string;

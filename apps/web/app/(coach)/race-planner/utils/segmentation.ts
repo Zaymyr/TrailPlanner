@@ -20,7 +20,12 @@ type SegmentConfig = {
 };
 
 type PaceModel = {
-  estimateSeconds?: (input: { distKm: number; dPlus: number; dMinus: number }) => number;
+  estimateSeconds?: (input: {
+    distKm: number;
+    dPlus: number;
+    dMinus: number;
+    elapsedBeforeSeconds?: number;
+  }) => number;
   secondsPerKm?: number;
   speedKph?: number;
 };
@@ -291,7 +296,8 @@ export function computeSegmentStats(
   segment: SectionSegment & { startDistanceKm?: number; endDistanceKm?: number },
   samples: ElevationSample[],
   paceModel?: PaceModel,
-  sortedSamples?: ElevationSample[]
+  sortedSamples?: ElevationSample[],
+  elapsedBeforeSeconds = 0
 ): { distKm: number; dPlus: number; dMinus: number; etaSeconds: number } {
   if (samples.length === 0) {
     return { distKm: segment.segmentKm, dPlus: 0, dMinus: 0, etaSeconds: 0 };
@@ -315,7 +321,7 @@ export function computeSegmentStats(
       ? segment.paceAdjustmentMinutesPerKm
       : 0;
   const paceAdjustmentSecondsPerKm = paceAdjustmentMinutesPerKm * 60;
-  const estimatedSeconds = paceModel?.estimateSeconds?.({ distKm, dPlus, dMinus });
+  const estimatedSeconds = paceModel?.estimateSeconds?.({ distKm, dPlus, dMinus, elapsedBeforeSeconds });
   const baseSecondsPerKm =
     typeof paceModel?.secondsPerKm === "number" && Number.isFinite(paceModel.secondsPerKm)
       ? paceModel.secondsPerKm

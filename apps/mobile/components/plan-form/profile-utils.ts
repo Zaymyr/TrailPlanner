@@ -17,6 +17,7 @@ export type SectionSubSegmentStats = {
   distKm: number;
   dPlus: number;
   dMinus: number;
+  elapsedStartSeconds: number;
   etaSeconds: number;
 };
 
@@ -47,12 +48,19 @@ type SegmentConfig = {
 };
 
 type PaceModel = {
-  estimateSeconds?: (input: { distKm: number; dPlus: number; dMinus: number }) => number;
+  estimateSeconds?: (input: {
+    distKm: number;
+    dPlus: number;
+    dMinus: number;
+    elapsedBeforeSeconds?: number;
+  }) => number;
   secondsPerKm?: number;
   speedKph?: number;
 };
 
 const CLIMB_EQUIVALENT_METERS_PER_FLAT_KM = 100;
+const DESCENT_EQUIVALENT_METERS_PER_FLAT_KM = 300;
+const DEFAULT_FATIGUE_LEVEL = 0.5;
 
 type SegmentInterval = {
   kind: SegmentKind;
@@ -365,29 +373,70 @@ export function equivalentFlatDistanceKm(distKm: number, dPlus: number) {
   return safeDistanceKm + safeDPlus / CLIMB_EQUIVALENT_METERS_PER_FLAT_KM;
 }
 
-export function estimateEffortDurationSeconds(
+function clampFatigueLevel(value: number | undefined) {
+  if (!Number.isFinite(value)) return DEFAULT_FATIGUE_LEVEL;
+  return Math.min(1, Math.max(0, value ?? DEFAULT_FATIGUE_LEVEL));
+}
+
+function computeFatigueSlowdown(elapsedSeconds: number | undefined, fatigueLevel: number | undefined) {
+  const elapsedHours =
+    typeof elapsedSeconds === 'number' && Number.isFinite(elapsedSeconds) ? Math.max(0, elapsedSeconds / 3600) : 0;
+  const safeFatigueLevel = clampFatigueLevel(fatigueLevel);
+  const fatigueStartHours = 10 - safeFatigueLevel * 6;
+  const fatigueRampHours = 18 - safeFatigueLevel * 6;
+  const maxSlowdown = 0.12 + safeFatigueLevel * 0.36;
+
+  const progress = Math.min(1, Math.max(0, (elapsedHours - fatigueStartHours) / Math.max(1, fatigueRampHours)));
+  const smoothProgress = progress * progress * (3 - 2 * progress);
+
+  return maxSlowdown * smoothProgress;
+}
+
+function buildEffortDurationSeconds(
   baseSecondsPerKm: number,
-  input: { distKm: number; dPlus: number; dMinus: number },
+  input: { distKm: number; dPlus: number; dMinus?: number; elapsedBeforeSeconds?: number; fatigueLevel?: number },
 ) {
   if (!Number.isFinite(baseSecondsPerKm) || baseSecondsPerKm <= 0) return 0;
-  return equivalentFlatDistanceKm(input.distKm, input.dPlus) * baseSecondsPerKm;
+
+  const safeDistanceKm = Number.isFinite(input.distKm) ? Math.max(0, input.distKm) : 0;
+  const safeDPlus = Number.isFinite(input.dPlus) ? Math.max(0, input.dPlus) : 0;
+  const safeDMinus = Number.isFinite(input.dMinus) ? Math.max(0, input.dMinus ?? 0) : 0;
+  const equivalentKm =
+    safeDistanceKm +
+    safeDPlus / CLIMB_EQUIVALENT_METERS_PER_FLAT_KM +
+    safeDMinus / DESCENT_EQUIVALENT_METERS_PER_FLAT_KM;
+  const baseDurationSeconds = equivalentKm * baseSecondsPerKm;
+  const fatigueReferenceSeconds = (input.elapsedBeforeSeconds ?? 0) + baseDurationSeconds / 2;
+  const fatigueSlowdown = computeFatigueSlowdown(fatigueReferenceSeconds, input.fatigueLevel);
+
+  return baseDurationSeconds * (1 + fatigueSlowdown);
+}
+
+export function estimateEffortDurationSeconds(
+  baseSecondsPerKm: number,
+  input: { distKm: number; dPlus: number; dMinus: number; elapsedBeforeSeconds?: number; fatigueLevel?: number },
+) {
+  return buildEffortDurationSeconds(baseSecondsPerKm, input);
 }
 
 export function adjustedPaceMinutesPerKm(
   baseMinutesPerKm: number,
-  input: { distKm: number; dPlus: number },
+  input: { distKm: number; dPlus: number; dMinus?: number; elapsedBeforeSeconds?: number; fatigueLevel?: number },
 ) {
   const safeDistanceKm = Number.isFinite(input.distKm) ? Math.max(0, input.distKm) : 0;
   if (!Number.isFinite(baseMinutesPerKm) || baseMinutesPerKm <= 0) return null;
   if (safeDistanceKm <= 0) return baseMinutesPerKm;
 
-  return (equivalentFlatDistanceKm(safeDistanceKm, input.dPlus) * baseMinutesPerKm) / safeDistanceKm;
+  return (
+    buildEffortDurationSeconds(baseMinutesPerKm * 60, input) / 60
+  ) / safeDistanceKm;
 }
 
 export function computeSegmentStats(
   segment: SectionSegment & { startDistanceKm?: number; endDistanceKm?: number },
   samples: ElevationSample[],
   paceModel?: PaceModel,
+  elapsedBeforeSeconds = 0,
 ): { distKm: number; dPlus: number; dMinus: number; etaSeconds: number } {
   if (samples.length === 0) {
     const overrideSeconds =
@@ -415,7 +464,7 @@ export function computeSegmentStats(
       ? segment.paceAdjustmentMinutesPerKm
       : 0;
   const paceAdjustmentSecondsPerKm = paceAdjustmentMinutesPerKm * 60;
-  const estimatedSeconds = paceModel?.estimateSeconds?.({ distKm, dPlus, dMinus });
+  const estimatedSeconds = paceModel?.estimateSeconds?.({ distKm, dPlus, dMinus, elapsedBeforeSeconds });
   const baseSecondsPerKm =
     typeof paceModel?.secondsPerKm === 'number' && Number.isFinite(paceModel.secondsPerKm)
       ? paceModel.secondsPerKm
@@ -452,18 +501,23 @@ export function recomputeSectionFromSubSections({
   startDistanceKm,
   elevationProfile,
   paceModel,
+  startElapsedSeconds = 0,
 }: {
   segments: SectionSegment[];
   startDistanceKm: number;
   elevationProfile: ElevationPoint[];
   paceModel?: PaceModel;
+  startElapsedSeconds?: number;
 }): { totals: SectionTotals; segmentStats: SectionSubSegmentStats[] } {
   let cursor = Number.isFinite(startDistanceKm) ? startDistanceKm : 0;
+  let elapsedCursorSeconds =
+    typeof startElapsedSeconds === 'number' && Number.isFinite(startElapsedSeconds) ? Math.max(0, startElapsedSeconds) : 0;
 
   const segmentStats = segments.map((segment, index) => {
     const startDistance = cursor;
     const endDistance = startDistance + clampNumber(segment.segmentKm);
     cursor = endDistance;
+    const segmentElapsedStartSeconds = elapsedCursorSeconds;
 
     const stats = computeSegmentStats(
       {
@@ -473,7 +527,9 @@ export function recomputeSectionFromSubSections({
       },
       elevationProfile,
       paceModel,
+      segmentElapsedStartSeconds,
     );
+    elapsedCursorSeconds += clampNumber(stats.etaSeconds);
 
     return {
       segmentIndex: index,
@@ -482,6 +538,7 @@ export function recomputeSectionFromSubSections({
       distKm: clampNumber(stats.distKm),
       dPlus: clampNumber(stats.dPlus),
       dMinus: clampNumber(stats.dMinus),
+      elapsedStartSeconds: clampNumber(segmentElapsedStartSeconds),
       etaSeconds: clampNumber(stats.etaSeconds),
     };
   });

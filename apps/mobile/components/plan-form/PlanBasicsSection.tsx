@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ReactElement } from 'react';
-import { Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { PanResponder, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../lib/i18n';
 import type { AccordionSection, PlanFormValues } from './contracts';
 import type { NumberInputProps } from './NumberInput';
 import { styles } from './styles';
@@ -11,15 +12,99 @@ type Props = {
   expandedSections: Record<AccordionSection, boolean>;
   toggleSection: (section: AccordionSection) => void;
   update: (key: keyof PlanFormValues, value: PlanFormValues[keyof PlanFormValues]) => void;
+  hasSectionTimingOverrides: boolean;
+  onResetSectionTimingOverrides: () => void;
   NumberInput: (props: NumberInputProps) => ReactElement;
   waterBagOptions: number[];
 };
 
-export function PlanBasicsSection({ values, expandedSections, toggleSection, update, NumberInput, waterBagOptions }: Props) {
+export function PlanBasicsSection({
+  values,
+  expandedSections,
+  toggleSection,
+  update,
+  hasSectionTimingOverrides,
+  onResetSectionTimingOverrides,
+  NumberInput,
+  waterBagOptions,
+}: Props) {
+  const { t } = useI18n();
+  const [fatigueTrackWidth, setFatigueTrackWidth] = useState(0);
   const paceSummary =
     values.paceType === 'pace'
       ? `${String(values.paceMinutes).padStart(2, '0')}:${String(values.paceSeconds).padStart(2, '0')} min/km`
       : `${values.speedKph.toFixed(1)} km/h`;
+  const fatigueLevel = Number.isFinite(values.fatigueLevel) ? Math.min(1, Math.max(0, values.fatigueLevel)) : 0.5;
+  const [fatiguePreviewLevel, setFatiguePreviewLevel] = useState(fatigueLevel);
+  const isDraggingFatigueRef = useRef(false);
+  const dragStartFatigueLevelRef = useRef(fatigueLevel);
+
+  useEffect(() => {
+    if (!isDraggingFatigueRef.current) {
+      setFatiguePreviewLevel(fatigueLevel);
+    }
+  }, [fatigueLevel]);
+
+  const displayedFatigueLevel = isDraggingFatigueRef.current ? fatiguePreviewLevel : fatigueLevel;
+  const fatigueDescriptor =
+    displayedFatigueLevel <= 0.33
+      ? t.plans.fatigueLow
+      : displayedFatigueLevel >= 0.67
+        ? t.plans.fatigueHigh
+        : t.plans.fatigueMedium;
+  const fatigueThumbOffset = fatigueTrackWidth > 0 ? displayedFatigueLevel * fatigueTrackWidth : 0;
+  const fatigueThumbLeft = Math.min(Math.max(0, fatigueThumbOffset - 12), Math.max(0, fatigueTrackWidth - 24));
+
+  const updateFatigueLevel = useCallback(
+    (ratio: number, finalize = false) => {
+      const bounded = Math.min(1, Math.max(0, ratio));
+      setFatiguePreviewLevel(bounded);
+
+      if (finalize) {
+        const committedValue = Number(bounded.toFixed(2));
+        if (Math.abs(committedValue - values.fatigueLevel) >= 0.009) {
+          update('fatigueLevel', committedValue);
+        }
+      }
+    },
+    [update, values.fatigueLevel],
+  );
+
+  const getFatigueRatioFromLocation = useCallback(
+    (locationX: number) => {
+      if (fatigueTrackWidth <= 0) return 0;
+      return Math.min(1, Math.max(0, locationX / fatigueTrackWidth));
+    },
+    [fatigueTrackWidth],
+  );
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: () => true,
+        onPanResponderGrant: (event) => {
+          isDraggingFatigueRef.current = true;
+          const initialRatio = getFatigueRatioFromLocation(event.nativeEvent.locationX);
+          dragStartFatigueLevelRef.current = initialRatio;
+          updateFatigueLevel(initialRatio);
+        },
+        onPanResponderMove: (_event, gestureState) => {
+          if (fatigueTrackWidth <= 0) return;
+          const nextRatio = dragStartFatigueLevelRef.current + gestureState.dx / fatigueTrackWidth;
+          updateFatigueLevel(nextRatio);
+        },
+        onPanResponderRelease: (event) => {
+          isDraggingFatigueRef.current = false;
+          updateFatigueLevel(getFatigueRatioFromLocation(event.nativeEvent.locationX), true);
+        },
+        onPanResponderTerminate: (event) => {
+          isDraggingFatigueRef.current = false;
+          updateFatigueLevel(getFatigueRatioFromLocation(event.nativeEvent.locationX), true);
+        },
+      }),
+    [getFatigueRatioFromLocation, updateFatigueLevel],
+  );
 
   const renderAccordionHeader = (
     section: AccordionSection,
@@ -96,7 +181,7 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
       {renderAccordionHeader(
         'pace',
         'Allure',
-        [paceSummary, values.paceType === 'pace' ? 'Mode allure' : 'Mode vitesse'],
+        [paceSummary, fatigueDescriptor],
         true,
       )}
       {expandedSections.pace && (
@@ -140,6 +225,42 @@ export function PlanBasicsSection({ values, expandedSections, toggleSection, upd
               <NumberInput value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
             </>
           )}
+
+          <Text style={styles.label}>{t.plans.fatigueLabel}</Text>
+          <Text style={styles.waterBagHint}>{t.plans.fatigueHint}</Text>
+          <View style={styles.fatigueSliderWrap}>
+            <View style={styles.fatigueSliderTrack}>
+              <View
+                style={styles.fatigueSliderTouchArea}
+                onLayout={(event) => setFatigueTrackWidth(event.nativeEvent.layout.width)}
+                {...panResponder.panHandlers}
+              />
+              <View style={[styles.fatigueSliderFill, { width: `${displayedFatigueLevel * 100}%` }]} />
+              <View style={[styles.fatigueSliderThumb, { left: fatigueThumbLeft }]} />
+            </View>
+          </View>
+          <View style={styles.fatigueSliderLabels}>
+            {[
+              { label: t.plans.fatigueLow, active: displayedFatigueLevel <= 0.33 },
+              { label: t.plans.fatigueMedium, active: displayedFatigueLevel > 0.33 && displayedFatigueLevel < 0.67 },
+              { label: t.plans.fatigueHigh, active: displayedFatigueLevel >= 0.67 },
+            ].map((option) => (
+              <Text
+                key={option.label}
+                style={[styles.fatigueSliderLabel, option.active && styles.fatigueSliderLabelActive]}
+              >
+                {option.label}
+              </Text>
+            ))}
+          </View>
+          {hasSectionTimingOverrides ? (
+            <View style={styles.sectionTimingResetBox}>
+              <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
+              <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
+                <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </>
       )}
 
