@@ -897,6 +897,8 @@ export type AdminTranslations = {
       add: string;
       addUtmb: string;
       addTraceDeTrail: string;
+      connectTraceDeTrail: string;
+      clearTraceDeTrailCredentials: string;
       edit: string;
       editEvent: string;
       delete: string;
@@ -938,6 +940,8 @@ export type AdminTranslations = {
       gpxFile: string;
       utmbUrl: string;
       traceDeTrailUrl: string;
+      traceDeTrailLogin: string;
+      traceDeTrailPassword: string;
       replaceGpx: string;
       replaceImage: string;
     };
@@ -948,6 +952,11 @@ export type AdminTranslations = {
     utmbDescription: string;
     traceDeTrailTitle: string;
     traceDeTrailDescription: string;
+    traceDeTrailCredentialsTitle: string;
+    traceDeTrailCredentialsDescription: string;
+    traceDeTrailCredentialsSaved: string;
+    traceDeTrailProtectedNotice: string;
+    traceDeTrailAuthenticatedNotice: string;
     editTitle: string;
     editEventTitle: string;
     gpxSection: string;
@@ -984,6 +993,7 @@ export type AdminTranslations = {
       utmbDuplicate: string;
       traceDeTrailImportFailed: string;
       traceDeTrailDuplicate: string;
+      traceDeTrailAuthFailed: string;
       updateFailed: string;
       deleteFailed: string;
       invalidGpx: string;

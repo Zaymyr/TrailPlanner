@@ -127,6 +127,7 @@ type ImportedRacePreview = {
   date: string | null;
   location: string | null;
   aidStationCount: number;
+  gpxAccessMode?: "public" | "authenticated" | "embedded";
 };
 type ExistingRacePreview = {
   id: string;
@@ -182,6 +183,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const [traceDeTrailPreview, setTraceDeTrailPreview] = useState<ImportedRacePreview | null>(null);
   const [traceDeTrailDuplicateRace, setTraceDeTrailDuplicateRace] = useState<ExistingRacePreview | null>(null);
   const [traceDeTrailError, setTraceDeTrailError] = useState<string | null>(null);
+  const [traceDeTrailCredentialsOpen, setTraceDeTrailCredentialsOpen] = useState(false);
+  const [traceDeTrailLogin, setTraceDeTrailLogin] = useState("");
+  const [traceDeTrailPassword, setTraceDeTrailPassword] = useState("");
 
   // Add form GPX state
   const [addGpxFile, setAddGpxFile] = useState<File | null>(null);
@@ -425,13 +429,17 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
 
   const traceDeTrailPreviewMutation = useMutation({
     mutationFn: async (url: string) => {
+      const credentials =
+        traceDeTrailLogin.trim() && traceDeTrailPassword
+          ? { login: traceDeTrailLogin.trim(), password: traceDeTrailPassword }
+          : undefined;
       const response = await fetch("/api/admin/race-catalog/tracedetrail", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ url, action: "preview" }),
+        body: JSON.stringify({ url, action: "preview", credentials }),
       });
       const data = (await response.json().catch(() => null)) as
         | { message?: string; preview?: ImportedRacePreview; duplicateRace?: ExistingRacePreview | null }
@@ -457,13 +465,17 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
 
   const traceDeTrailImportMutation = useMutation({
     mutationFn: async (url: string) => {
+      const credentials =
+        traceDeTrailLogin.trim() && traceDeTrailPassword
+          ? { login: traceDeTrailLogin.trim(), password: traceDeTrailPassword }
+          : undefined;
       const response = await fetch("/api/admin/race-catalog/tracedetrail", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ url, action: "import" }),
+        body: JSON.stringify({ url, action: "import", credentials }),
       });
       const data = (await response.json().catch(() => null)) as
         | { message?: string; race?: RaceRow }
@@ -482,6 +494,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       setTraceDeTrailPreview(null);
       setTraceDeTrailDuplicateRace(null);
       setTraceDeTrailUrl("");
+      setTraceDeTrailLogin("");
+      setTraceDeTrailPassword("");
+      setTraceDeTrailCredentialsOpen(false);
       setAddTraceDeTrailOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["admin", "race-catalog", accessToken] });
     },
@@ -980,6 +995,9 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     setTraceDeTrailPreview(null);
     setTraceDeTrailDuplicateRace(null);
     setTraceDeTrailError(null);
+    setTraceDeTrailCredentialsOpen(false);
+    setTraceDeTrailLogin("");
+    setTraceDeTrailPassword("");
   };
 
   const raceRows = racesQuery.data?.races ?? [];
@@ -987,6 +1005,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
   const filteredRaces = search
     ? raceRows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
     : raceRows;
+  const hasTraceDeTrailCredentials = traceDeTrailLogin.trim().length > 0 && traceDeTrailPassword.length > 0;
 
   return (
     <Card>
@@ -1203,6 +1222,32 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
               />
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => setTraceDeTrailCredentialsOpen(true)}>
+                {t.actions.connectTraceDeTrail}
+              </Button>
+              {hasTraceDeTrailCredentials ? (
+                <>
+                  <span className="text-xs text-emerald-700 dark:text-emerald-300">
+                    {t.traceDeTrailCredentialsSaved}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => {
+                      setTraceDeTrailLogin("");
+                      setTraceDeTrailPassword("");
+                      setTraceDeTrailPreview(null);
+                      setTraceDeTrailError(null);
+                    }}
+                  >
+                    {t.actions.clearTraceDeTrailCredentials}
+                  </Button>
+                </>
+              ) : null}
+            </div>
+
             {traceDeTrailError ? (
               <p className="text-sm text-red-600 dark:text-red-300">{traceDeTrailError}</p>
             ) : null}
@@ -1230,6 +1275,12 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                       String(traceDeTrailPreview.aidStationCount)
                     )}
                   </p>
+                  {traceDeTrailPreview.gpxAccessMode === "embedded" ? (
+                    <p className="text-amber-700 dark:text-amber-200">{t.traceDeTrailProtectedNotice}</p>
+                  ) : null}
+                  {traceDeTrailPreview.gpxAccessMode === "authenticated" ? (
+                    <p className="text-emerald-700 dark:text-emerald-300">{t.traceDeTrailAuthenticatedNotice}</p>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -1263,6 +1314,60 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
               )}
             </DialogFooter>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={traceDeTrailCredentialsOpen}
+        onOpenChange={(open) => {
+          setTraceDeTrailCredentialsOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t.traceDeTrailCredentialsTitle}</DialogTitle>
+            <DialogDescription>{t.traceDeTrailCredentialsDescription}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">{t.fields.traceDeTrailLogin}</Label>
+              <Input
+                className="h-9 text-sm"
+                value={traceDeTrailLogin}
+                onChange={(event) => setTraceDeTrailLogin(event.target.value)}
+                autoComplete="username"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">{t.fields.traceDeTrailPassword}</Label>
+              <Input
+                className="h-9 text-sm"
+                type="password"
+                value={traceDeTrailPassword}
+                onChange={(event) => setTraceDeTrailPassword(event.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setTraceDeTrailCredentialsOpen(false)}>
+              {t.actions.cancel}
+            </Button>
+            <Button
+              type="button"
+              disabled={!traceDeTrailLogin.trim() || !traceDeTrailPassword}
+              onClick={() => {
+                setTraceDeTrailPreview(null);
+                setTraceDeTrailDuplicateRace(null);
+                setTraceDeTrailError(null);
+                setTraceDeTrailCredentialsOpen(false);
+              }}
+            >
+              {t.actions.save}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

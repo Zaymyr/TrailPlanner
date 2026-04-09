@@ -13,14 +13,21 @@ import {
   isAdminUser,
 } from "../../../../../lib/supabase";
 import {
+  type TraceDeTrailCredentials,
   getTraceDeTrailRaceData,
   TraceDeTrailImportError,
 } from "../../../../../lib/tracedetrail-race-import";
+
+const credentialsSchema = z.object({
+  login: z.string().trim().min(1),
+  password: z.string().min(1),
+});
 
 const requestSchema = z.object({
   url: z.string().trim().url(),
   action: z.enum(["preview", "import"]).default("preview"),
   isLive: z.boolean().optional().default(true),
+  credentials: credentialsSchema.optional(),
 });
 
 const raceRowSchema = z.object({
@@ -244,7 +251,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const traceRace = await getTraceDeTrailRaceData(body.url);
+    const credentials: TraceDeTrailCredentials | null = body.credentials
+      ? { login: body.credentials.login, password: body.credentials.password }
+      : null;
+
+    const traceRace = await getTraceDeTrailRaceData(body.url, { credentials });
     const duplicateRace = await findExistingTraceDeTrailRace(
       admin.serviceConfig,
       traceRace.traceId,
@@ -264,6 +275,7 @@ export async function POST(request: NextRequest) {
             date: traceRace.date,
             location: traceRace.location,
             aidStationCount: traceRace.aidStations.length,
+            gpxAccessMode: traceRace.gpxAccessMode,
           },
           duplicateRace,
         })
@@ -424,12 +436,22 @@ export async function POST(request: NextRequest) {
           date: traceRace.date,
           location: traceRace.location,
           aidStationCount: traceRace.aidStations.length,
+          gpxAccessMode: traceRace.gpxAccessMode,
         },
       })
     );
   } catch (error) {
     if (error instanceof TraceDeTrailImportError) {
-      const status = error.code === "INVALID_URL" ? 400 : error.code === "INVALID_DATA" ? 422 : 502;
+      const status =
+        error.code === "INVALID_URL"
+          ? 400
+          : error.code === "AUTH_REQUIRED"
+            ? 403
+            : error.code === "AUTH_FAILED"
+              ? 401
+              : error.code === "INVALID_DATA"
+                ? 422
+                : 502;
       return withSecurityHeaders(NextResponse.json({ message: error.message }, { status }));
     }
 
