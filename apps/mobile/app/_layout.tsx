@@ -12,14 +12,16 @@ if (typeof ErrorUtils !== 'undefined') {
   });
 }
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
+import * as Updates from 'expo-updates';
+import { AppLaunchScreen } from '../components/AppLaunchScreen';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
-import { I18nProvider } from '../lib/i18n';
+import { I18nProvider, useI18n } from '../lib/i18n';
 import { ensureTrialStatusForSession } from '../lib/trial';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
@@ -57,10 +59,28 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error:
 export { ErrorBoundary };
 
 export default function RootLayout() {
+  return (
+    <I18nProvider>
+      <RootLayoutContent />
+    </I18nProvider>
+  );
+}
+
+type StartupUpdateState =
+  | { status: 'checking'; detail: string | null }
+  | { status: 'downloading'; detail: string | null }
+  | { status: 'restarting'; detail: string | null }
+  | { status: 'error'; detail: string | null }
+  | { status: 'done'; detail: string | null };
+
+function RootLayoutContent() {
+  const { t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const [updateState, setUpdateState] = useState<StartupUpdateState>({ status: 'checking', detail: null });
   const segments = useSegments();
   const router = useRouter();
+  const startupUpdateRunRef = useRef(false);
 
   if (supabaseInitError) {
     return (
@@ -69,6 +89,49 @@ export default function RootLayout() {
       </View>
     );
   }
+
+  const runStartupUpdateCheck = useCallback(async () => {
+    if (startupUpdateRunRef.current) return;
+    startupUpdateRunRef.current = true;
+
+    if (__DEV__ || !Updates.isEnabled) {
+      setUpdateState({ status: 'done', detail: null });
+      return;
+    }
+
+    setUpdateState({ status: 'checking', detail: null });
+
+    try {
+      const updateCheck = await Updates.checkForUpdateAsync();
+
+      if (!updateCheck.isAvailable) {
+        setUpdateState({ status: 'done', detail: null });
+        return;
+      }
+
+      setUpdateState({ status: 'downloading', detail: null });
+      const fetchResult = await Updates.fetchUpdateAsync();
+
+      if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
+        setUpdateState({ status: 'restarting', detail: null });
+        await Updates.reloadAsync();
+        return;
+      }
+
+      setUpdateState({ status: 'done', detail: null });
+    } catch (error) {
+      console.error('Startup OTA update check failed:', error);
+      startupUpdateRunRef.current = false;
+      setUpdateState({
+        status: 'error',
+        detail: error instanceof Error ? error.message : null,
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    void runStartupUpdateCheck();
+  }, [runStartupUpdateCheck]);
 
   // Auth listener
   useEffect(() => {
@@ -109,7 +172,7 @@ export default function RootLayout() {
 
   // Route guard
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || updateState.status !== 'done') return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -131,7 +194,7 @@ export default function RootLayout() {
         }
       })();
     }
-  }, [session, ready, segments]);
+  }, [session, ready, segments, updateState.status]);
 
   // Notification response listener
   useEffect(() => {
@@ -161,23 +224,101 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  if (!ready) return null;
+  const launchScreen = useMemo(() => {
+    if (updateState.status === 'error') {
+      return {
+        title: t.appUpdate.errorTitle,
+        subtitle: t.appUpdate.errorSubtitle,
+        progress: 0.82,
+        showSpinner: false,
+        detail: updateState.detail,
+      };
+    }
+
+    if (updateState.status === 'restarting') {
+      return {
+        title: t.appUpdate.installingTitle,
+        subtitle: t.appUpdate.installingSubtitle,
+        progress: 0.96,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (updateState.status === 'downloading') {
+      return {
+        title: t.appUpdate.downloadingTitle,
+        subtitle: t.appUpdate.downloadingSubtitle,
+        progress: 0.72,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (updateState.status === 'checking') {
+      return {
+        title: t.appUpdate.checkingTitle,
+        subtitle: t.appUpdate.checkingSubtitle,
+        progress: 0.36,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    return {
+      title: t.appUpdate.startupTitle,
+      subtitle: t.appUpdate.startupSubtitle,
+      progress: 0.18,
+      showSpinner: true,
+      detail: null,
+    };
+  }, [t, updateState]);
+
+  if (!ready || updateState.status !== 'done') {
+    return (
+      <AppLaunchScreen
+        title={launchScreen.title}
+        subtitle={launchScreen.subtitle}
+        progress={launchScreen.progress}
+        showSpinner={launchScreen.showSpinner}
+        detail={launchScreen.detail}
+        primaryAction={
+          updateState.status === 'error'
+            ? {
+                label: t.common.retry,
+                onPress: () => {
+                  startupUpdateRunRef.current = false;
+                  void runStartupUpdateCheck();
+                },
+              }
+            : undefined
+        }
+        secondaryAction={
+          updateState.status === 'error'
+            ? {
+                label: t.appUpdate.continueCta,
+                onPress: () => setUpdateState({ status: 'done', detail: null }),
+                variant: 'secondary',
+              }
+            : undefined
+        }
+      />
+    );
+  }
 
   return (
-    <I18nProvider>
-      <ErrorBoundary>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: '#0f172a' },
-            headerTintColor: '#f1f5f9',
-            contentStyle: { backgroundColor: '#0f172a' },
-          }}
-        >
-          <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        </Stack>
-      </ErrorBoundary>
-    </I18nProvider>
+    <ErrorBoundary>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: '#0f172a' },
+          headerTintColor: '#f1f5f9',
+          contentStyle: { backgroundColor: '#0f172a' },
+        }}
+      >
+        <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      </Stack>
+    </ErrorBoundary>
   );
 }

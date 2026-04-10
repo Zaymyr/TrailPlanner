@@ -19,6 +19,19 @@ export type MobileTranslations = {
     search: string;
     required: string;
   };
+  appUpdate: {
+    startupTitle: string;
+    startupSubtitle: string;
+    checkingTitle: string;
+    checkingSubtitle: string;
+    downloadingTitle: string;
+    downloadingSubtitle: string;
+    installingTitle: string;
+    installingSubtitle: string;
+    errorTitle: string;
+    errorSubtitle: string;
+    continueCta: string;
+  };
   plans: {
     title: string;
     empty: string;
