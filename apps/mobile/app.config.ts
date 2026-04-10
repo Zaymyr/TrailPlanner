@@ -35,8 +35,9 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       url: 'https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c',
     },
     // Bare workflow EAS Update requires a manual runtimeVersion string.
-    // Bump this whenever native compatibility should be cut from older updates/builds.
-    runtimeVersion: '1.0.1',
+    // Keep this aligned with the runtime shipped in the current store build so OTA updates
+    // continue to reach installed binaries until a new native build is released.
+    runtimeVersion: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'dark',

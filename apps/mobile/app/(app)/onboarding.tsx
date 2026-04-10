@@ -17,6 +17,30 @@ import { useI18n } from '../../lib/i18n';
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0];
 
+function parseComfortableFlatPace(minutesInput: string, secondsInput: string): number | null {
+  const trimmedMinutes = minutesInput.trim();
+  const trimmedSeconds = secondsInput.trim();
+
+  if (!trimmedMinutes && !trimmedSeconds) return null;
+  if (!trimmedMinutes) return Number.NaN;
+
+  const minutes = Number(trimmedMinutes);
+  const seconds = trimmedSeconds ? Number(trimmedSeconds) : 0;
+
+  if (
+    !Number.isInteger(minutes) ||
+    !Number.isInteger(seconds) ||
+    minutes < 0 ||
+    seconds < 0 ||
+    seconds > 59
+  ) {
+    return Number.NaN;
+  }
+
+  const totalMinutes = minutes + seconds / 60;
+  return totalMinutes > 0 ? totalMinutes : Number.NaN;
+}
+
 function OnboardingShell({
   children,
   step,
@@ -66,7 +90,11 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
+  const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
+  const [comfortableFlatPaceSeconds, setComfortableFlatPaceSeconds] = useState('');
+  const [utmbIndex, setUtmbIndex] = useState('');
   const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const router = useRouter();
   const totalSteps = 4;
   const workflowSteps = [
@@ -131,7 +159,36 @@ export default function OnboardingScreen() {
     },
   ];
 
+  function validateProfileStep(): { comfortableFlatPaceMinPerKm: number | null; parsedUtmbIndex: number | null } | null {
+    const comfortableFlatPaceMinPerKm = parseComfortableFlatPace(
+      comfortableFlatPaceMinutes,
+      comfortableFlatPaceSeconds,
+    );
+
+    if (Number.isNaN(comfortableFlatPaceMinPerKm)) {
+      setProfileError(t.onboarding.comfortableFlatPaceInvalid);
+      return null;
+    }
+
+    const parsedUtmbIndex = utmbIndex.trim() ? Number(utmbIndex.trim()) : null;
+    if (
+      utmbIndex.trim() &&
+      (!Number.isFinite(parsedUtmbIndex) || parsedUtmbIndex === null || parsedUtmbIndex < 0 || parsedUtmbIndex > 2000)
+    ) {
+      setProfileError(t.onboarding.utmbIndexInvalid);
+      return null;
+    }
+
+    setProfileError(null);
+    return { comfortableFlatPaceMinPerKm, parsedUtmbIndex };
+  }
+
   async function finishOnboarding() {
+    const profileStep = validateProfileStep();
+    if (!profileStep) {
+      return;
+    }
+
     setSaving(true);
 
     const { data: sessionData } = await supabase.auth.getSession();
@@ -142,6 +199,8 @@ export default function OnboardingScreen() {
         user_id: userId,
         full_name: fullName.trim() || null,
         water_bag_liters: waterBagLiters,
+        utmb_index: profileStep.parsedUtmbIndex,
+        comfortable_flat_pace_min_per_km: profileStep.comfortableFlatPaceMinPerKm,
       });
     }
 
@@ -152,6 +211,12 @@ export default function OnboardingScreen() {
   async function handleNotifStep() {
     await Notifications.requestPermissionsAsync();
     await finishOnboarding();
+  }
+
+  function handleProfileContinue() {
+    const profileStep = validateProfileStep();
+    if (!profileStep) return;
+    setStep(3);
   }
 
   if (step === 0) {
@@ -237,12 +302,16 @@ export default function OnboardingScreen() {
       <OnboardingShell step={3} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <Text style={styles.title}>{t.onboarding.profileTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.profileSubtitle}</Text>
+        <Text style={styles.predictionHint}>{t.onboarding.predictionHint}</Text>
 
         <Text style={styles.label}>{t.onboarding.firstNameLabel}</Text>
         <TextInput
           style={styles.textInput}
           value={fullName}
-          onChangeText={setFullName}
+          onChangeText={(value) => {
+            setFullName(value);
+            if (profileError) setProfileError(null);
+          }}
           placeholder={t.onboarding.firstNamePlaceholder}
           placeholderTextColor={Colors.textMuted}
           autoCapitalize="words"
@@ -265,7 +334,59 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(3)}>
+        <Text style={styles.label}>{t.onboarding.comfortableFlatPaceLabel}</Text>
+        <Text style={styles.labelHint}>{t.onboarding.comfortableFlatPaceHint}</Text>
+        <View style={styles.paceInputRow}>
+          <View style={styles.paceInputGroup}>
+            <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceMinutesLabel}</Text>
+            <TextInput
+              style={styles.textInput}
+              value={comfortableFlatPaceMinutes}
+              onChangeText={(value) => {
+                setComfortableFlatPaceMinutes(value.replace(/\D/g, '').slice(0, 2));
+                if (profileError) setProfileError(null);
+              }}
+              placeholder="6"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+          </View>
+          <View style={styles.paceInputGroup}>
+            <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceSecondsLabel}</Text>
+            <TextInput
+              style={styles.textInput}
+              value={comfortableFlatPaceSeconds}
+              onChangeText={(value) => {
+                setComfortableFlatPaceSeconds(value.replace(/\D/g, '').slice(0, 2));
+                if (profileError) setProfileError(null);
+              }}
+              placeholder="00"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="number-pad"
+              maxLength={2}
+            />
+          </View>
+        </View>
+
+        <Text style={styles.label}>{t.onboarding.utmbIndexLabel}</Text>
+        <Text style={styles.labelHint}>{t.onboarding.utmbIndexHint}</Text>
+        <TextInput
+          style={styles.textInput}
+          value={utmbIndex}
+          onChangeText={(value) => {
+            setUtmbIndex(value.replace(/\D/g, '').slice(0, 4));
+            if (profileError) setProfileError(null);
+          }}
+          placeholder={t.onboarding.utmbIndexPlaceholder}
+          placeholderTextColor={Colors.textMuted}
+          keyboardType="number-pad"
+          maxLength={4}
+        />
+
+        {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
+
+        <TouchableOpacity style={styles.primaryButton} onPress={handleProfileContinue}>
           <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
         </TouchableOpacity>
       </OnboardingShell>
@@ -404,6 +525,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,
+  },
+  predictionHint: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: -8,
+    marginBottom: 20,
+    fontWeight: '600',
   },
   summaryCard: {
     backgroundColor: Colors.brandSurface,
@@ -554,10 +684,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 8,
   },
+  paceInputRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  paceInputGroup: {
+    flex: 1,
+    gap: 6,
+  },
+  paceInputLabel: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
   waterBagRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 28,
+    marginBottom: 20,
     flexWrap: 'wrap',
   },
   waterBtn: {
@@ -609,6 +753,13 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
+  },
+  errorText: {
+    color: Colors.danger,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 16,
   },
   notificationIconWrap: {
     width: 72,

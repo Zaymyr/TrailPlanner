@@ -14,6 +14,7 @@ import {
   Pressable,
 } from 'react-native';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
@@ -47,8 +48,9 @@ type ChangelogEntry = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 
-function formatDate(iso: string, locale: string): string {
-  return new Date(iso).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+function formatDate(value: string | Date, locale: string): string {
+  const date = value instanceof Date ? value : new Date(value);
+  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -215,6 +217,8 @@ export default function ProfileScreen() {
   const [changelogLoaded, setChangelogLoaded] = useState(false);
   const [changelogError, setChangelogError] = useState<string | null>(null);
   const [changelogEntries, setChangelogEntries] = useState<ChangelogEntry[]>([]);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
+  const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -478,6 +482,45 @@ export default function ProfileScreen() {
     }
   }
 
+  async function handleCheckForUpdates() {
+    if (__DEV__ || !Updates.isEnabled) {
+      setUpdateCheckMessage(t.profile.updateCheckUnavailable);
+      return;
+    }
+
+    setCheckingUpdates(true);
+    setUpdateCheckMessage(t.profile.updateChecking);
+
+    try {
+      const result = await Updates.checkForUpdateAsync();
+
+      if (!result.isAvailable) {
+        setUpdateCheckMessage(t.profile.updateCheckUpToDate);
+        setCheckingUpdates(false);
+        return;
+      }
+
+      setUpdateCheckMessage(t.profile.updateCheckInstalling);
+      const fetchResult = await Updates.fetchUpdateAsync();
+
+      if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
+        await Updates.reloadAsync();
+        return;
+      }
+
+      setUpdateCheckMessage(t.profile.updateCheckUpToDate);
+    } catch (checkError) {
+      console.error('Profile update check failed:', checkError);
+      const fallback = t.profile.updateCheckFailed;
+      const detail = checkError instanceof Error && checkError.message
+        ? `${fallback} ${checkError.message}`
+        : fallback;
+      setUpdateCheckMessage(detail);
+    } finally {
+      setCheckingUpdates(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -486,7 +529,19 @@ export default function ProfileScreen() {
     );
   }
 
-  const appVersion = Constants.expoConfig?.version ?? '-';
+  const appVersion =
+    Constants.nativeApplicationVersion ??
+    Constants.expoConfig?.version ??
+    '-';
+  const appBuild = Constants.nativeBuildVersion ?? t.profile.updateDataUnavailable;
+  const runtimeVersion = Updates.runtimeVersion ?? t.profile.updateDataUnavailable;
+  const channel = Updates.channel ?? t.profile.updateDataUnavailable;
+  const updateId = Updates.updateId ? Updates.updateId.slice(0, 8) : t.profile.updateDataUnavailable;
+  const updateDate = Updates.createdAt ? formatDate(Updates.createdAt, locale) : t.profile.updateDataUnavailable;
+  const updateSource = Updates.isEmbeddedLaunch
+    ? t.profile.updateSourceEmbedded
+    : t.profile.updateSourceDownloaded;
+  const isAdmin = profile?.role === 'admin';
   const showAdminGrant = !hasPaidPremium && premiumGrant !== null;
   const showTrialActive = !hasPaidPremium && !showAdminGrant && isTrialActive && trialEndsAt;
   const showTrialExpired = !isPremium && !isTrialActive && trialEndsAt;
@@ -740,7 +795,50 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.versionText}>{t.profile.versionLabel.replace('{version}', appVersion)}</Text>
+      <View style={styles.appInfoCard}>
+        <Text style={styles.versionText}>{t.profile.versionLabel.replace('{version}', appVersion)}</Text>
+
+        {isAdmin ? (
+          <>
+            <Text style={styles.buildText}>{t.profile.buildLabel.replace('{build}', appBuild)}</Text>
+            <View style={styles.appInfoRow}>
+              <Text style={styles.appInfoLabel}>{t.profile.runtimeLabel}</Text>
+              <Text style={styles.appInfoValue}>{runtimeVersion}</Text>
+            </View>
+            <View style={styles.appInfoRow}>
+              <Text style={styles.appInfoLabel}>{t.profile.channelLabel}</Text>
+              <Text style={styles.appInfoValue}>{channel}</Text>
+            </View>
+            <View style={styles.appInfoRow}>
+              <Text style={styles.appInfoLabel}>{t.profile.updateIdLabel}</Text>
+              <Text style={styles.appInfoValue}>{updateId}</Text>
+            </View>
+          </>
+        ) : null}
+        <View style={styles.appInfoRow}>
+          <Text style={styles.appInfoLabel}>{t.profile.updateDateLabel}</Text>
+          <Text style={styles.appInfoValue}>{updateDate}</Text>
+        </View>
+        <View style={styles.appInfoRow}>
+          <Text style={styles.appInfoLabel}>{t.profile.updateSourceLabel}</Text>
+          <Text style={styles.appInfoValue}>{updateSource}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.updateCheckButton, checkingUpdates && styles.actionButtonDisabled]}
+          onPress={() => void handleCheckForUpdates()}
+          disabled={checkingUpdates}
+        >
+          {checkingUpdates ? (
+            <ActivityIndicator color={Colors.textPrimary} />
+          ) : (
+            <Text style={styles.updateCheckButtonText}>{t.profile.updateCheckButton}</Text>
+          )}
+        </TouchableOpacity>
+
+        {updateCheckMessage ? <Text style={styles.updateCheckMessage}>{updateCheckMessage}</Text> : null}
+      </View>
+
       <TouchableOpacity style={styles.changelogButton} onPress={handleOpenChangelog}>
         <Text style={styles.changelogButtonText}>{t.profile.changelogButton}</Text>
       </TouchableOpacity>
@@ -1103,10 +1201,64 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   versionText: {
-    color: Colors.textMuted,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  buildText: {
+    color: Colors.textSecondary,
     fontSize: 12,
     textAlign: 'center',
+    marginTop: 4,
+  },
+  appInfoCard: {
     marginTop: 24,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+    gap: 10,
+  },
+  appInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  appInfoLabel: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: 13,
+  },
+  appInfoValue: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  updateCheckButton: {
+    marginTop: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  updateCheckButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  updateCheckMessage: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   changelogButton: {
     marginTop: 12,
