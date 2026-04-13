@@ -21,10 +21,11 @@ import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
 import { useRevenueCatBilling } from '../../hooks/useRevenueCatBilling';
+import { WEB_API_BASE_URL } from '../../lib/webApi';
 
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
 const PLAY_SUBSCRIPTIONS_URL = `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE_NAME}`;
+const IOS_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 type UserProfile = {
   full_name: string | null;
@@ -219,6 +220,7 @@ export default function ProfileScreen() {
   const [changelogEntries, setChangelogEntries] = useState<ChangelogEntry[]>([]);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -363,9 +365,9 @@ export default function ProfileScreen() {
     ]);
   }
 
-  async function openExternalUrl(url: string | null, fallbackMessage: string) {
+  async function openExternalUrl(url: string | null, fallbackMessage: string, title = t.profile.subscriptionLabel) {
     if (!url) {
-      Alert.alert(t.profile.subscriptionLabel, fallbackMessage);
+      Alert.alert(title, fallbackMessage);
       return false;
     }
 
@@ -378,7 +380,7 @@ export default function ProfileScreen() {
     }
   }
 
-  const inAppBillingEnabled = Platform.OS === 'android' && billing.isAvailable;
+  const inAppBillingEnabled = billing.isAvailable;
   const billingActionBusy = billing.isLoading || billing.isPurchasing || billing.isRestoring;
   const upgradeLabel = billing.currentPackage
     ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
@@ -407,21 +409,20 @@ export default function ProfileScreen() {
       }
     }
 
-    const webUrl = WEB_URL ? `${WEB_URL}/premium` : null;
-    await openExternalUrl(webUrl, t.profile.premiumFallback);
+    await openExternalUrl(`${WEB_API_BASE_URL}/premium`, t.profile.premiumFallback);
   }
 
   async function handleManageSubscription() {
     if (paidPremiumSource !== 'web' && inAppBillingEnabled) {
-      const storeUrl = billing.managementUrl ?? PLAY_SUBSCRIPTIONS_URL;
+      const fallbackStoreUrl = Platform.OS === 'ios' ? IOS_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
+      const storeUrl = billing.managementUrl ?? fallbackStoreUrl;
       const openedStore = await openExternalUrl(storeUrl, t.profile.subscriptionFallback);
       if (openedStore) {
         return;
       }
     }
 
-    const webUrl = WEB_URL ? `${WEB_URL}/profile` : null;
-    await openExternalUrl(webUrl, t.profile.subscriptionFallback);
+    await openExternalUrl(`${WEB_API_BASE_URL}/profile`, t.profile.subscriptionFallback);
   }
 
   async function handleRestorePurchases() {
@@ -480,6 +481,73 @@ export default function ProfileScreen() {
     if (!changelogLoaded) {
       void loadChangelog();
     }
+  }
+
+  async function handleOpenPrivacyPolicy() {
+    await openExternalUrl(
+      `${WEB_API_BASE_URL}/legal/privacy`,
+      t.profile.privacyPolicyFallback,
+      t.profile.accountSectionTitle,
+    );
+  }
+
+  async function performDeleteAccount() {
+    const sessionResult = await supabase.auth.getSession();
+    const accessToken = sessionResult.data.session?.access_token ?? null;
+
+    if (!accessToken) {
+      Alert.alert(t.common.error, t.profile.deleteAccountFailed);
+      return;
+    }
+
+    setDeletingAccount(true);
+
+    try {
+      const response = await fetch(`${WEB_API_BASE_URL}/api/account/delete`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+
+      if (!response.ok) {
+        throw new Error(payload?.message || t.profile.deleteAccountFailed);
+      }
+
+      Alert.alert(t.common.ok, t.profile.deleteAccountSuccess, [
+        {
+          text: t.common.ok,
+          onPress: () => {
+            void supabase.auth.signOut();
+          },
+        },
+      ]);
+    } catch (deleteError) {
+      const message =
+        deleteError instanceof Error && deleteError.message
+          ? deleteError.message
+          : t.profile.deleteAccountFailed;
+      Alert.alert(t.common.error, message);
+    } finally {
+      setDeletingAccount(false);
+    }
+  }
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      t.profile.deleteAccountTitle,
+      t.profile.deleteAccountMessage,
+      [
+        { text: t.common.cancel, style: 'cancel' },
+        {
+          text: t.profile.deleteAccountConfirm,
+          style: 'destructive',
+          onPress: () => void performDeleteAccount(),
+        },
+      ]
+    );
   }
 
   async function handleCheckForUpdates() {
@@ -802,6 +870,11 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
+      <Text style={styles.sectionTitle}>{t.profile.accountSectionTitle}</Text>
+      <TouchableOpacity style={styles.manageSubscriptionButton} onPress={() => void handleOpenPrivacyPolicy()}>
+        <Text style={styles.manageSubscriptionButtonText}>{t.profile.privacyPolicyButton}</Text>
+      </TouchableOpacity>
+
       <View style={styles.appInfoCard}>
         <Text style={styles.versionText}>{t.profile.versionLabel.replace('{version}', appVersion)}</Text>
 
@@ -855,6 +928,18 @@ export default function ProfileScreen() {
 
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutButtonText}>{t.profile.logoutCta}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.deleteAccountButton, deletingAccount && styles.actionButtonDisabled]}
+        onPress={handleDeleteAccount}
+        disabled={deletingAccount}
+      >
+        {deletingAccount ? (
+          <ActivityIndicator color={Colors.danger} />
+        ) : (
+          <Text style={styles.deleteAccountButtonText}>{t.profile.deleteAccountButton}</Text>
+        )}
       </TouchableOpacity>
 
       <Modal
@@ -1298,6 +1383,20 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontSize: 16,
     fontWeight: '500',
+  },
+  deleteAccountButton: {
+    marginTop: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.danger,
+    backgroundColor: Colors.warningSurface,
+  },
+  deleteAccountButtonText: {
+    color: Colors.danger,
+    fontSize: 15,
+    fontWeight: '700',
   },
   modalWrapper: {
     flex: 1,

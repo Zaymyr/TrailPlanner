@@ -48,8 +48,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'com.paceyourself.app',
+      usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
+        CFBundleAllowMixedLocalizations: true,
         UIBackgroundModes: ['fetch'],
       },
     },
@@ -70,6 +72,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     plugins: [
       'expo-router',
+      'expo-apple-authentication',
       'expo-secure-store',
       [
         'expo-notifications',

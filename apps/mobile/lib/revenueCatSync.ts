@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
-
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.trim() ?? '';
+import { WEB_API_BASE_URL } from './webApi';
 
 export type RevenueCatProviderHint = 'google' | 'apple';
 
@@ -23,10 +22,10 @@ export async function syncRevenueCatSubscriptionToServer(
   accessToken: string | null,
   providerHint: RevenueCatProviderHint | null = getCurrentRevenueCatProviderHint()
 ) {
-  if (!WEB_URL || !accessToken) return null;
+  if (!accessToken) return null;
 
   try {
-    const response = await fetch(`${WEB_URL}/api/revenuecat/sync`, {
+    const response = await fetch(`${WEB_API_BASE_URL}/api/revenuecat/sync`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,

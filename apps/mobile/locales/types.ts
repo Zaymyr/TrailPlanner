@@ -227,6 +227,15 @@ export type MobileTranslations = {
     premiumBenefitPlans: string;
     premiumBenefitFavorites: string;
     premiumBenefitAutoFill: string;
+    accountSectionTitle: string;
+    privacyPolicyButton: string;
+    privacyPolicyFallback: string;
+    deleteAccountButton: string;
+    deleteAccountTitle: string;
+    deleteAccountMessage: string;
+    deleteAccountConfirm: string;
+    deleteAccountSuccess: string;
+    deleteAccountFailed: string;
     saved: string;
     saveFailed: string;
   };
@@ -238,6 +247,7 @@ export type MobileTranslations = {
     loggingIn: string;
     googleCta: string;
     googleError: string;
+    appleError: string;
     noAccount: string;
     signUpLink: string;
     signUpSubtitle: string;

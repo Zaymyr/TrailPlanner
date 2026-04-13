@@ -17,10 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useRevenueCatBilling } from '../../hooks/useRevenueCatBilling';
 import { useI18n } from '../../lib/i18n';
+import { WEB_API_BASE_URL } from '../../lib/webApi';
 
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
 const PLAY_SUBSCRIPTIONS_URL = `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE_NAME}`;
+const IOS_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 type Props = {
   visible: boolean;
@@ -92,7 +93,7 @@ function PremiumUpsellModalContent({
   }
 
   async function handleUpgrade() {
-    const inAppBillingEnabled = Platform.OS === 'android' && billing.isAvailable;
+    const inAppBillingEnabled = billing.isAvailable;
 
     if (inAppBillingEnabled) {
       try {
@@ -105,8 +106,9 @@ function PremiumUpsellModalContent({
         }
 
         if (result === 'unavailable') {
+          const fallbackStoreUrl = Platform.OS === 'ios' ? IOS_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
           const openedStore = await openExternalUrl(
-            billing.managementUrl ?? PLAY_SUBSCRIPTIONS_URL,
+            billing.managementUrl ?? fallbackStoreUrl,
             t.profile.purchaseUnavailable,
           );
           if (openedStore) onClose();
@@ -120,8 +122,7 @@ function PremiumUpsellModalContent({
       }
     }
 
-    const webUrl = WEB_URL ? `${WEB_URL}/premium` : null;
-    const opened = await openExternalUrl(webUrl, t.profile.premiumFallback);
+    const opened = await openExternalUrl(`${WEB_API_BASE_URL}/premium`, t.profile.premiumFallback);
     if (opened) onClose();
   }
 

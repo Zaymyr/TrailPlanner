@@ -1,7 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { WEB_API_BASE_URL } from './webApi';
 
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.trim() ?? '';
 const TRIAL_DURATION_DAYS = 15;
 
 type TrialStatus = {
@@ -39,10 +39,8 @@ function mapTrialRow(row: TrialRow | null | undefined): TrialStatus {
 }
 
 async function ensureTrialStatusViaWeb(accessToken: string) {
-  if (!WEB_URL) return null;
-
   try {
-    const response = await fetch(`${WEB_URL}/api/trial/status`, {
+    const response = await fetch(`${WEB_API_BASE_URL}/api/trial/status`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

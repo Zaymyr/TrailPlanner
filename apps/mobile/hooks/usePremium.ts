@@ -13,8 +13,7 @@ import {
 import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
 import { ensureTrialStatusForSession } from '../lib/trial';
 import { addPremiumStatusChangeListener } from '../lib/premiumEvents';
-
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL?.trim() ?? '';
+import { WEB_API_BASE_URL } from '../lib/webApi';
 
 export type PaidPremiumSource = 'web' | 'google' | 'apple' | null;
 
@@ -115,10 +114,10 @@ async function fetchActivePremiumGrant(userId: string) {
 }
 
 async function fetchServerEntitlements(accessToken: string | null) {
-  if (!WEB_URL || !accessToken) return null;
+  if (!accessToken) return null;
 
   try {
-    const response = await fetch(`${WEB_URL}/api/entitlements`, {
+    const response = await fetch(`${WEB_API_BASE_URL}/api/entitlements`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },

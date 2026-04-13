@@ -31,6 +31,7 @@ function canUseNativeGoogleSignIn() {
 }
 
 type GoogleSignInModule = typeof import('@react-native-google-signin/google-signin');
+type AppleAuthenticationModule = typeof import('expo-apple-authentication');
 
 export default function LoginScreen() {
   const { t } = useI18n();
@@ -40,6 +41,8 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const nativeGoogleEnabled = canUseNativeGoogleSignIn();
   const [googleModule, setGoogleModule] = useState<GoogleSignInModule | null>(null);
+  const [appleModule, setAppleModule] = useState<AppleAuthenticationModule | null>(null);
+  const [appleAvailable, setAppleAvailable] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -75,6 +78,40 @@ export default function LoginScreen() {
       mounted = false;
     };
   }, [nativeGoogleEnabled]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (Platform.OS !== 'ios') {
+      setAppleModule(null);
+      setAppleAvailable(false);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    (async () => {
+      try {
+        const nextAppleModule = await import('expo-apple-authentication');
+        const nextAppleAvailable = await nextAppleModule.isAvailableAsync();
+
+        if (!mounted) return;
+
+        setAppleModule(nextAppleModule);
+        setAppleAvailable(nextAppleAvailable);
+      } catch (appleImportError) {
+        console.warn('Apple Sign-In unavailable in this build.', appleImportError);
+        if (mounted) {
+          setAppleModule(null);
+          setAppleAvailable(false);
+        }
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function handleNativeGoogleLogin() {
     if (!googleModule) {
@@ -176,6 +213,59 @@ export default function LoginScreen() {
     }
   }
 
+  async function handleAppleLogin() {
+    if (!appleModule || Platform.OS !== 'ios') return;
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      const credential = await appleModule.signInAsync({
+        requestedScopes: [
+          appleModule.AppleAuthenticationScope.FULL_NAME,
+          appleModule.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple did not return an identity token.');
+      }
+
+      const { data, error: appleError } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (appleError) throw appleError;
+
+      const firstName = credential.fullName?.givenName?.trim() ?? '';
+      const lastName = credential.fullName?.familyName?.trim() ?? '';
+      const nextFullName = [firstName, lastName].filter(Boolean).join(' ').trim();
+
+      if (data.user?.id && nextFullName) {
+        await supabase.from('user_profiles').upsert(
+          {
+            user_id: data.user.id,
+            full_name: nextFullName,
+          },
+          { onConflict: 'user_id' }
+        );
+      }
+
+      await ensureTrialStatusForSession(data.session);
+    } catch (e) {
+      if (typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code === 'ERR_REQUEST_CANCELED') {
+        setLoading(false);
+        return;
+      }
+
+      console.error('Apple login error:', e);
+      setError(t.auth.appleError);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleLogin() {
     setError(null);
     setLoading(true);
@@ -238,6 +328,19 @@ export default function LoginScreen() {
           <Text style={styles.dividerText}>or</Text>
           <View style={styles.dividerLine} />
         </View>
+
+        {appleModule && appleAvailable ? (
+          <>
+            <appleModule.AppleAuthenticationButton
+              buttonStyle={appleModule.AppleAuthenticationButtonStyle.BLACK}
+              buttonType={appleModule.AppleAuthenticationButtonType.SIGN_IN}
+              cornerRadius={12}
+              onPress={() => void handleAppleLogin()}
+              style={styles.appleButton}
+            />
+            <View style={styles.altSpacing} />
+          </>
+        ) : null}
 
         {nativeGoogleEnabled && googleModule ? (
           <View style={[styles.googleNativeButtonWrap, loading && styles.buttonDisabled]}>
@@ -341,6 +444,13 @@ const styles = StyleSheet.create({
   dividerText: {
     color: Colors.textMuted,
     fontSize: 13,
+  },
+  appleButton: {
+    width: '100%',
+    height: 52,
+  },
+  altSpacing: {
+    height: 8,
   },
   googleButton: {
     backgroundColor: Colors.surface,
