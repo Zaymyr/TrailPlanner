@@ -26,8 +26,24 @@ jobs:
           cache: 'npm'
           cache-dependency-path: apps/mobile/package-lock.json
 
+      - name: Configure npm network retries
+        run: |
+          npm config set fetch-retries 5
+          npm config set fetch-retry-factor 2
+          npm config set fetch-retry-mintimeout 20000
+          npm config set fetch-retry-maxtimeout 120000
+
       - name: Install dependencies
-        run: npm install --legacy-peer-deps
+        run: |
+          for attempt in 1 2 3; do
+            npm install --legacy-peer-deps && exit 0
+            if [ "$attempt" -eq 3 ]; then
+              echo "npm install failed after $attempt attempts"
+              exit 1
+            fi
+            echo "npm install failed on attempt $attempt. Retrying in 15 seconds..."
+            sleep 15
+          done
 
       - name: Check for @trailplanner/shared imports
         run: |
