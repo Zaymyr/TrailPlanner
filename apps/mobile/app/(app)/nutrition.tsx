@@ -72,6 +72,14 @@ const FUEL_TYPE_OPTIONS: FuelType[] = [
   'gel', 'drink_mix', 'electrolyte', 'capsule', 'bar', 'real_food', 'other',
 ];
 
+function parseNonNegativeDecimalInput(value: string): number | null {
+  const normalized = value.trim().replace(',', '.');
+  if (!normalized) return 0;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
 export default function NutritionScreen() {
   const { t } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
@@ -193,6 +201,15 @@ export default function NutritionScreen() {
       return;
     }
 
+    const carbsGrams = parseNonNegativeDecimalInput(newCarbsG);
+    const sodiumMg = parseNonNegativeDecimalInput(newSodiumMg);
+    const caloriesKcal = parseNonNegativeDecimalInput(newCaloriesKcal);
+
+    if (carbsGrams === null || sodiumMg === null || caloriesKcal === null) {
+      Alert.alert('Erreur', 'Entre des valeurs valides, positives ou nulles, pour la nutrition.');
+      return;
+    }
+
     if (!WEB_URL) {
       Alert.alert('Erreur', 'Configuration manquante. Contacte le support.');
       return;
@@ -209,9 +226,11 @@ export default function NutritionScreen() {
         body: JSON.stringify({
           name: newName.trim(),
           fuelType: newFuelType,
-          carbsGrams: parseFloat(newCarbsG) || 0,
-          sodiumMg: parseFloat(newSodiumMg) || 0,
-          caloriesKcal: parseFloat(newCaloriesKcal) || 0,
+          carbsGrams,
+          sodiumMg,
+          caloriesKcal,
+          proteinGrams: 0,
+          fatGrams: 0,
         }),
       });
 

@@ -61,7 +61,7 @@ const createProductSchema = z.object({
     .optional()
     .pipe(z.string().url().optional()),
   caloriesKcal: z.coerce.number().nonnegative().default(0),
-  carbsGrams: z.coerce.number().positive(),
+  carbsGrams: z.coerce.number().nonnegative().default(0),
   sodiumMg: z.coerce.number().nonnegative().default(0),
   proteinGrams: z.coerce.number().nonnegative().default(0),
   fatGrams: z.coerce.number().nonnegative().default(0),
@@ -177,7 +177,16 @@ export async function POST(request: NextRequest) {
   const parsedBody = createProductSchema.safeParse(await request.json().catch(() => ({})));
 
   if (!parsedBody.success) {
-    return withSecurityHeaders(NextResponse.json({ message: "Invalid product payload." }, { status: 400 }));
+    const firstIssue = parsedBody.error.issues[0];
+    return withSecurityHeaders(
+      NextResponse.json(
+        {
+          message: firstIssue?.message ?? "Invalid product payload.",
+          field: firstIssue?.path?.[0] ?? null,
+        },
+        { status: 400 }
+      )
+    );
   }
 
   const supabaseUser = await fetchSupabaseUser(token, supabaseAnon);
