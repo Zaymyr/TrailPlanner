@@ -14,12 +14,11 @@ import {
   Platform,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { WEB_API_BASE_URL } from '../../lib/webApi';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
 import { useI18n } from '../../lib/i18n';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
-
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 const FREE_FAVORITE_LIMIT = 2;
 
 type FuelType = 'gel' | 'drink_mix' | 'electrolyte' | 'capsule' | 'bar' | 'real_food' | 'other';
@@ -210,14 +209,14 @@ export default function NutritionScreen() {
       return;
     }
 
-    if (!WEB_URL) {
+    if (!WEB_API_BASE_URL) {
       Alert.alert('Erreur', 'Configuration manquante. Contacte le support.');
       return;
     }
 
     setCreating(true);
     try {
-      const res = await fetch(`${WEB_URL}/api/products`, {
+      const res = await fetch(`${WEB_API_BASE_URL}/api/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

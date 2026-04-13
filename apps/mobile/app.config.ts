@@ -55,6 +55,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       versionCode: 1,
+      playStoreUrl: 'https://play.google.com/store/apps/details?id=com.paceyourself.app',
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#f7efe8',

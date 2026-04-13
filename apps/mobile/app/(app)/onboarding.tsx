@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { noteReviewOnboardingCompleted } from '../../lib/appReview';
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0];
 
@@ -204,6 +205,7 @@ export default function OnboardingScreen() {
       });
     }
 
+    await noteReviewOnboardingCompleted();
     setSaving(false);
     router.replace('/(app)/plans');
   }

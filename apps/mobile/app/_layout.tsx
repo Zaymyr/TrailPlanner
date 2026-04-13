@@ -1,4 +1,4 @@
-import { Text, View, ScrollView } from 'react-native';
+import { Text, View, ScrollView, AppState } from 'react-native';
 
 // Global error handlers - must be first
 const originalConsoleError = console.error;
@@ -19,6 +19,7 @@ import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
+import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
@@ -81,6 +82,8 @@ function RootLayoutContent() {
   const segments = useSegments();
   const router = useRouter();
   const startupUpdateRunRef = useRef(false);
+  const appStateRef = useRef(AppState.currentState);
+  const activeUsageStartedAtRef = useRef<number | null>(null);
 
   if (supabaseInitError) {
     return (
@@ -132,6 +135,41 @@ function RootLayoutContent() {
   useEffect(() => {
     void runStartupUpdateCheck();
   }, [runStartupUpdateCheck]);
+
+  useEffect(() => {
+    if (updateState.status !== 'done') return undefined;
+
+    const flushActiveUsage = async () => {
+      const startedAt = activeUsageStartedAtRef.current;
+      activeUsageStartedAtRef.current = null;
+      if (startedAt == null) return;
+      await noteReviewActiveDuration(Date.now() - startedAt);
+    };
+
+    if (AppState.currentState === 'active') {
+      activeUsageStartedAtRef.current = Date.now();
+      void noteReviewSessionStart();
+    }
+
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      if (previousState === 'active' && nextState !== 'active') {
+        void flushActiveUsage();
+      }
+
+      if (previousState !== 'active' && nextState === 'active') {
+        activeUsageStartedAtRef.current = Date.now();
+        void noteReviewSessionStart();
+      }
+    });
+
+    return () => {
+      void flushActiveUsage();
+      subscription.remove();
+    };
+  }, [updateState.status]);
 
   // Auth listener
   useEffect(() => {

@@ -10,6 +10,7 @@ import { RaceSelector } from '../../../components/RaceSelector';
 import { Colors } from '../../../constants/colors';
 import { usePremium } from '../../../hooks/usePremium';
 import { useI18n } from '../../../lib/i18n';
+import { noteReviewPlanCreated } from '../../../lib/appReview';
 import { currentUserHasReachedFreePlanLimit, FREE_PLAN_LIMIT } from '../../../lib/planAccess';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
 import { supabase } from '../../../lib/supabase';
@@ -119,6 +120,7 @@ export default function NewPlanScreen() {
         return;
       }
 
+      await noteReviewPlanCreated();
       router.replace(`/(app)/plan/${data.id}/edit`);
     },
     [resolvedRaceId, router, t.common.error],

@@ -14,6 +14,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '../../../lib/supabase';
 import { WEB_API_BASE_URL } from '../../../lib/webApi';
 import { useI18n } from '../../../lib/i18n';
+import { noteReviewRaceCreated } from '../../../lib/appReview';
 import { parseGpxForRaceImport, type MobileGpxParseResult } from '../../../lib/gpx';
 import { Colors } from '../../../constants/colors';
 
@@ -279,6 +280,7 @@ export default function NewRaceScreen() {
         })
         .eq('id', data.race.id);
 
+      await noteReviewRaceCreated();
       Alert.alert('', t.races.created, [
         {
           text: t.plans.newPlanForRace.replace('+', '').trim(),

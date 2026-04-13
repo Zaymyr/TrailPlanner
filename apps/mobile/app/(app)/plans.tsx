@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
 import { usePremium } from '../../hooks/usePremium';
+import { maybePromptForAppReview } from '../../lib/appReview';
 import { getSession } from '../../lib/raceLiveSession';
 import { FREE_PLAN_LIMIT, getLatestAccessiblePlanId } from '../../lib/planAccess';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
@@ -319,8 +320,13 @@ export default function PlansScreen() {
     useCallback(() => {
       void fetchData();
       syncActivePlan();
+      const reviewTimer = setTimeout(() => {
+        void maybePromptForAppReview();
+      }, 650);
 
-      return undefined;
+      return () => {
+        clearTimeout(reviewTimer);
+      };
     }, [fetchData, syncActivePlan]),
   );
 

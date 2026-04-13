@@ -9,6 +9,7 @@ import { Colors } from '../../../../constants/colors';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { usePremium } from '../../../../hooks/usePremium';
 import { getCurrentUserLatestAccessiblePlanId } from '../../../../lib/planAccess';
+import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { useI18n } from '../../../../lib/i18n';
 import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import {
@@ -409,6 +410,7 @@ export default function EditPlanScreen() {
     const saved = await saveLatestDraft(false);
 
     if (saved) {
+      await noteReviewPlanSaved();
       clearActivePlanEditSession(id);
       router.replace('/(app)/plans');
       return;
