@@ -71,8 +71,14 @@ type StartupUpdateState =
   | { status: 'checking'; detail: string | null }
   | { status: 'downloading'; detail: string | null }
   | { status: 'restarting'; detail: string | null }
+  | { status: 'rollback'; detail: string | null }
+  | { status: 'rollingBack'; detail: string | null }
   | { status: 'error'; detail: string | null }
   | { status: 'done'; detail: string | null };
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function RootLayoutContent() {
   const { t } = useI18n();
@@ -105,9 +111,34 @@ function RootLayoutContent() {
     setUpdateState({ status: 'checking', detail: null });
 
     try {
+      const emergencyLaunchDetail = Updates.isEmergencyLaunch
+        ? Updates.emergencyLaunchReason ?? null
+        : null;
+
+      if (Updates.isEmergencyLaunch) {
+        console.warn('expo-updates emergency launch detected:', emergencyLaunchDetail);
+      }
+
       const updateCheck = await Updates.checkForUpdateAsync();
 
+      if (updateCheck.isRollBackToEmbedded) {
+        setUpdateState({
+          status: Updates.isEmbeddedLaunch ? 'rollback' : 'rollingBack',
+          detail: emergencyLaunchDetail,
+        });
+
+        if (!Updates.isEmbeddedLaunch) {
+          await wait(900);
+          await Updates.reloadAsync();
+        }
+        return;
+      }
+
       if (!updateCheck.isAvailable) {
+        if (Updates.isEmergencyLaunch) {
+          setUpdateState({ status: 'rollback', detail: emergencyLaunchDetail });
+          return;
+        }
         setUpdateState({ status: 'done', detail: null });
         return;
       }
@@ -115,8 +146,19 @@ function RootLayoutContent() {
       setUpdateState({ status: 'downloading', detail: null });
       const fetchResult = await Updates.fetchUpdateAsync();
 
-      if (fetchResult.isNew || fetchResult.isRollBackToEmbedded) {
+      if (fetchResult.isRollBackToEmbedded) {
+        setUpdateState({
+          status: 'rollingBack',
+          detail: emergencyLaunchDetail,
+        });
+        await wait(900);
+        await Updates.reloadAsync();
+        return;
+      }
+
+      if (fetchResult.isNew) {
         setUpdateState({ status: 'restarting', detail: null });
+        await wait(900);
         await Updates.reloadAsync();
         return;
       }
@@ -283,6 +325,26 @@ function RootLayoutContent() {
       };
     }
 
+    if (updateState.status === 'rollingBack') {
+      return {
+        title: t.appUpdate.rollbackInstallingTitle,
+        subtitle: t.appUpdate.rollbackInstallingSubtitle,
+        progress: 0.96,
+        showSpinner: true,
+        detail: updateState.detail,
+      };
+    }
+
+    if (updateState.status === 'rollback') {
+      return {
+        title: t.appUpdate.rollbackTitle,
+        subtitle: t.appUpdate.rollbackSubtitle,
+        progress: 0.82,
+        showSpinner: false,
+        detail: updateState.detail,
+      };
+    }
+
     if (updateState.status === 'downloading') {
       return {
         title: t.appUpdate.downloadingTitle,
@@ -329,6 +391,11 @@ function RootLayoutContent() {
                   void runStartupUpdateCheck();
                 },
               }
+            : updateState.status === 'rollback'
+              ? {
+                  label: t.appUpdate.continueCta,
+                  onPress: () => setUpdateState({ status: 'done', detail: null }),
+                }
             : undefined
         }
         secondaryAction={

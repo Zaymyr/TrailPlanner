@@ -494,6 +494,13 @@ export default function ProfileScreen() {
     try {
       const result = await Updates.checkForUpdateAsync();
 
+      if (result.isRollBackToEmbedded) {
+        setUpdateCheckMessage(t.profile.updateCheckRollback);
+        await Updates.fetchUpdateAsync().catch(() => null);
+        await Updates.reloadAsync();
+        return;
+      }
+
       if (!result.isAvailable) {
         setUpdateCheckMessage(t.profile.updateCheckUpToDate);
         setCheckingUpdates(false);
@@ -823,6 +830,9 @@ export default function ProfileScreen() {
           <Text style={styles.appInfoLabel}>{t.profile.updateSourceLabel}</Text>
           <Text style={styles.appInfoValue}>{updateSource}</Text>
         </View>
+        {Updates.isEmergencyLaunch ? (
+          <Text style={styles.updateCheckMessage}>{t.profile.updateEmergencyLaunch}</Text>
+        ) : null}
 
         <TouchableOpacity
           style={[styles.updateCheckButton, checkingUpdates && styles.actionButtonDisabled]}

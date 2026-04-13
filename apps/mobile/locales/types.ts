@@ -28,6 +28,10 @@ export type MobileTranslations = {
     downloadingSubtitle: string;
     installingTitle: string;
     installingSubtitle: string;
+    rollbackTitle: string;
+    rollbackSubtitle: string;
+    rollbackInstallingTitle: string;
+    rollbackInstallingSubtitle: string;
     errorTitle: string;
     errorSubtitle: string;
     continueCta: string;
@@ -208,7 +212,9 @@ export type MobileTranslations = {
     updateCheckUnavailable: string;
     updateCheckUpToDate: string;
     updateCheckInstalling: string;
+    updateCheckRollback: string;
     updateCheckFailed: string;
+    updateEmergencyLaunch: string;
     changelogButton: string;
     changelogTitle: string;
     changelogSubtitle: string;
