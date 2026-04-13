@@ -4,6 +4,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { DEFAULT_PLAN_VALUES, type PlanFormValues, type ElevationPoint } from '../../../components/PlanForm';
+import { AppHeaderTitle } from '../../../components/navigation/AppHeaderTitle';
 import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
 import { PlanLoadingScreen } from '../../../components/PlanLoadingScreen';
 import { RaceSelector } from '../../../components/RaceSelector';
@@ -307,10 +308,15 @@ export default function NewPlanScreen() {
     <>
       <Stack.Screen
         options={{
-          title: selectedRace ? `${t.plans.newPlanForRace} ${selectedRace.name}` : t.plans.newPlan,
           headerStyle: { backgroundColor: Colors.background },
           headerTintColor: Colors.textPrimary,
           headerShadowVisible: false,
+          headerTitleAlign: 'left',
+          headerTitle: () => (
+            <AppHeaderTitle
+              title={selectedRace ? `${t.plans.newPlanForRace} ${selectedRace.name}` : t.plans.newPlan}
+            />
+          ),
         }}
       />
 

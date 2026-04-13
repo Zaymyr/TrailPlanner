@@ -496,7 +496,7 @@ export default function PlansScreen() {
             <Text style={styles.emptyIcon}>🏔️</Text>
             <Text style={styles.emptyTitle}>{t.plans.empty}</Text>
             <Text style={styles.emptySubtitle}>{t.plans.emptySubtitle}</Text>
-            <TouchableOpacity style={styles.emptyButton} onPress={openRacePicker}>
+            <TouchableOpacity style={styles.emptyButton} onPress={() => router.push('/(app)/plan/new')}>
               <Text style={styles.emptyButtonText}>{t.plans.createFirst}</Text>
             </TouchableOpacity>
           </View>
@@ -522,15 +522,6 @@ export default function PlansScreen() {
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
                   <Text style={styles.editRaceText}>{t.races.editRace}</Text>
-                </TouchableOpacity>
-              )}
-              {section.raceId && (
-                <TouchableOpacity
-                  style={styles.addPlanBtn}
-                  onPress={() => handleCreatePlan(section.raceId!)}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.addPlanBtnText}>+</Text>
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
@@ -641,7 +632,7 @@ export default function PlansScreen() {
       />
 
       {/* FAB → race picker */}
-      <TouchableOpacity style={styles.fab} onPress={openRacePicker} activeOpacity={0.85}>
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/(app)/catalog')} activeOpacity={0.85}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 

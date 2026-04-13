@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Alert, TouchableOpacity, AppState } from 'react
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../lib/supabase';
+import { AppHeaderTitle } from '../../../../components/navigation/AppHeaderTitle';
 import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';
 import { PlanLoadingScreen } from '../../../../components/PlanLoadingScreen';
 import { Colors } from '../../../../constants/colors';
@@ -511,7 +512,8 @@ export default function EditPlanScreen() {
     <>
       <Stack.Screen
         options={{
-          title: `Modifier : ${planName}`,
+          headerTitleAlign: 'left',
+          headerTitle: () => <AppHeaderTitle title={`Modifier : ${planName}`} />,
           headerLeft: () => (
             <TouchableOpacity
               accessibilityLabel={t.common.back}

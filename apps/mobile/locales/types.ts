@@ -341,6 +341,10 @@ export type MobileTranslations = {
     myRaces: string;
     otherRaces: string;
     createPlan: string;
+    viewFormats: string;
+    singleFormatLabel: string;
+    multipleFormatsLabel: string;
+    chooseFormatHint: string;
     selectRace: string;
     createRace: string;
     noRaceAvailable: string;

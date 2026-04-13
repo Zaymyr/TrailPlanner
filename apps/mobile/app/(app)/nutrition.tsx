@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
 import { Colors } from '../../constants/colors';
@@ -337,8 +338,9 @@ export default function NutritionScreen() {
                 <TouchableOpacity
                   style={styles.removeFavButton}
                   onPress={() => toggleFavorite(fav.product_id)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.removeFavText}>★</Text>
+                  <Ionicons name="star" size={18} color={Colors.textOnBrand} />
                 </TouchableOpacity>
               </View>
             ))
@@ -419,10 +421,13 @@ export default function NutritionScreen() {
               <TouchableOpacity
                 style={[styles.favButton, isFav && styles.favButtonActive]}
                 onPress={() => toggleFavorite(product.id)}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.favButtonText, isFav && styles.favButtonTextActive]}>
-                  {isFav ? '★' : '☆'}
-                </Text>
+                <Ionicons
+                  name={isFav ? 'star' : 'star-outline'}
+                  size={18}
+                  color={isFav ? Colors.textOnBrand : Colors.brandPrimary}
+                />
               </TouchableOpacity>
             </View>
           );
@@ -574,7 +579,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 28,
+    marginTop: 14,
     marginBottom: 8,
   },
   limitBanner: {
@@ -664,12 +669,12 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   favButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1.5,
+    borderColor: Colors.brandBorder,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -678,23 +683,31 @@ const styles = StyleSheet.create({
     borderColor: Colors.brandPrimary,
   },
   favButtonText: {
-    fontSize: 18,
-    color: Colors.textMuted,
+    fontSize: 19,
+    lineHeight: 20,
+    color: Colors.brandPrimary,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   favButtonTextActive: {
     color: Colors.textOnBrand,
   },
   removeFavButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: Colors.brandPrimary,
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
     justifyContent: 'center',
     alignItems: 'center',
   },
   removeFavText: {
-    fontSize: 18,
+    fontSize: 19,
+    lineHeight: 20,
     color: Colors.textOnBrand,
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   filterScroll: {
     marginBottom: 12,
@@ -728,7 +741,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 8,
-    marginBottom: 8,
+    marginBottom: 4,
   },
   favoritesChevron: {
     color: Colors.brandPrimary,

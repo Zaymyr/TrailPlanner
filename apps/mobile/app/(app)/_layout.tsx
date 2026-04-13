@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, Text, View } from 'react-native';
+import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import { Colors } from '../../constants/colors';
@@ -17,6 +18,24 @@ export default function AppLayout() {
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const plansTabLabel = locale === 'fr' ? 'Plans' : 'Plans';
   const nutritionLabel = 'Nutrition';
+  const getHeaderTitle = (routeName: string) => {
+    switch (routeName) {
+      case 'profile':
+        return t.profile.title;
+      case 'catalog':
+        return catalogLabel;
+      case 'plans':
+        return t.plans.title;
+      case 'nutrition':
+        return nutritionLabel;
+      case 'plan/new':
+        return t.plans.newPlan;
+      case 'plan/[id]/edit':
+        return locale === 'fr' ? 'Modifier le plan' : 'Edit plan';
+      default:
+        return 'Pace Yourself';
+    }
+  };
   const getFeedbackContext = (routeName: string) => {
     switch (routeName) {
       case 'profile':
@@ -45,14 +64,11 @@ export default function AppLayout() {
         headerStyle: { backgroundColor: Colors.background },
         headerTintColor: Colors.textPrimary,
         headerShadowVisible: false,
-        headerTitleAlign: 'center',
-        headerTitleStyle: {
-          color: Colors.textPrimary,
-          fontSize: 22,
-          fontWeight: '800',
-        },
+        headerTitleAlign: 'left',
+        headerTitle: () => <AppHeaderTitle title={getHeaderTitle(route.name)} />,
         headerTitleContainerStyle: {
-          paddingHorizontal: 12,
+          left: 16,
+          right: 72,
         },
         tabBarStyle: {
           backgroundColor: Colors.background,
