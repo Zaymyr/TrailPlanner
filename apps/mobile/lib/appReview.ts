@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as StoreReview from 'expo-store-review';
 import { Platform } from 'react-native';
 
 const APP_REVIEW_STORAGE_KEY = '@trailplanner/app-review/v1';
@@ -67,6 +66,15 @@ async function updateState(mutator: (state: AppReviewState) => AppReviewState | 
   const next = mutator(current) ?? current;
   await writeState(next);
   return next;
+}
+
+async function loadStoreReviewModule() {
+  try {
+    return await import('expo-store-review');
+  } catch (error) {
+    console.warn('Store review module unavailable for this build:', error);
+    return null;
+  }
 }
 
 function hasMeaningfulEngagement(state: AppReviewState) {
@@ -146,6 +154,9 @@ export async function maybePromptForAppReview() {
   if (state.totalActiveMs < MIN_ACTIVE_MINUTES * 60 * 1000) return false;
   if (!hasMeaningfulEngagement(state)) return false;
   if (!isPromptCooldownElapsed(state.lastPromptAt)) return false;
+
+  const StoreReview = await loadStoreReviewModule();
+  if (!StoreReview) return false;
 
   const hasAction = await StoreReview.hasAction();
   if (!hasAction) return false;
