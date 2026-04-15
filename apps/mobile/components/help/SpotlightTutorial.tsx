@@ -188,8 +188,28 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
   ]);
 
   const cardStyle = useMemo<StyleProp<ViewStyle>>(() => {
-    if (!highlightRect || !step) {
-      return [styles.card, styles.cardCentered];
+    if (!step) {
+      return [styles.card];
+    }
+
+    if (!highlightRect) {
+      const width = Math.min(CARD_WIDTH, viewportWidth - CARD_SIDE_MARGIN * 2);
+      const maxHeight = Math.min(CARD_MAX_HEIGHT, viewportHeight - CARD_SIDE_MARGIN * 2);
+      const estimatedCardHeight = Math.min(maxHeight, 260);
+      const top = Math.max(
+        CARD_SIDE_MARGIN,
+        Math.round((viewportHeight - estimatedCardHeight) / 2),
+      );
+
+      return [
+        styles.card,
+        {
+          left: Math.max(CARD_SIDE_MARGIN, Math.round((viewportWidth - width) / 2)),
+          maxHeight,
+          top,
+          width,
+        },
+      ];
     }
 
     const width = Math.min(CARD_WIDTH, viewportWidth - CARD_SIDE_MARGIN * 2);
@@ -207,11 +227,18 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
     );
     const maxAvailableSpace = Math.max(topSpace, bottomSpace);
     if (maxAvailableSpace < 140) {
+      const estimatedCardHeight = Math.min(maxCardHeight, 260);
+      const fallbackTop = Math.max(
+        CARD_SIDE_MARGIN,
+        Math.round((viewportHeight - estimatedCardHeight) / 2),
+      );
+
       return [
         styles.card,
-        styles.cardCentered,
         {
           maxHeight: maxCardHeight,
+          left: Math.max(CARD_SIDE_MARGIN, Math.round((viewportWidth - width) / 2)),
+          top: fallbackTop,
           width,
         },
       ];
@@ -375,9 +402,11 @@ const styles = StyleSheet.create({
   },
   svgOverlay: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   dismissLayer: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
   card: {
     position: 'absolute',
@@ -393,12 +422,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 10,
     overflow: 'hidden',
-  },
-  cardCentered: {
-    top: '50%',
-    left: CARD_SIDE_MARGIN,
-    right: CARD_SIDE_MARGIN,
-    transform: [{ translateY: -120 }],
+    zIndex: 2,
   },
   cardHeader: {
     flexDirection: 'row',
