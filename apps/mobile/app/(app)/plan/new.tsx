@@ -23,26 +23,56 @@ type RaceInfo = {
   elevation_gain_m: number;
 };
 
-function buildDefaultPlanValues(comfortableFlatPaceMinPerKm: number | null | undefined): PlanFormValues {
+type UserPlanDefaultsProfile = {
+  comfortable_flat_pace_min_per_km?: number | null;
+  default_carbs_g_per_hour?: number | null;
+  default_water_ml_per_hour?: number | null;
+  default_sodium_mg_per_hour?: number | null;
+};
+
+function buildDefaultPlanValues(profileDefaults: UserPlanDefaultsProfile | null | undefined): PlanFormValues {
+  const nextValues: PlanFormValues = {
+    ...DEFAULT_PLAN_VALUES,
+  };
+
+  const comfortableFlatPaceMinPerKm = profileDefaults?.comfortable_flat_pace_min_per_km;
   if (
-    typeof comfortableFlatPaceMinPerKm !== 'number' ||
-    !Number.isFinite(comfortableFlatPaceMinPerKm) ||
-    comfortableFlatPaceMinPerKm <= 0
+    typeof comfortableFlatPaceMinPerKm === 'number' &&
+    Number.isFinite(comfortableFlatPaceMinPerKm) &&
+    comfortableFlatPaceMinPerKm > 0
   ) {
-    return DEFAULT_PLAN_VALUES;
+    const totalSeconds = Math.round(comfortableFlatPaceMinPerKm * 60);
+    nextValues.paceType = 'pace';
+    nextValues.paceMinutes = Math.floor(totalSeconds / 60);
+    nextValues.paceSeconds = totalSeconds % 60;
+    nextValues.speedKph = Number((60 / comfortableFlatPaceMinPerKm).toFixed(1));
   }
 
-  const totalSeconds = Math.round(comfortableFlatPaceMinPerKm * 60);
-  const paceMinutes = Math.floor(totalSeconds / 60);
-  const paceSeconds = totalSeconds % 60;
+  if (
+    typeof profileDefaults?.default_carbs_g_per_hour === 'number' &&
+    Number.isFinite(profileDefaults.default_carbs_g_per_hour) &&
+    profileDefaults.default_carbs_g_per_hour >= 0
+  ) {
+    nextValues.targetIntakePerHour = profileDefaults.default_carbs_g_per_hour;
+  }
 
-  return {
-    ...DEFAULT_PLAN_VALUES,
-    paceType: 'pace',
-    paceMinutes,
-    paceSeconds,
-    speedKph: Number((60 / comfortableFlatPaceMinPerKm).toFixed(1)),
-  };
+  if (
+    typeof profileDefaults?.default_water_ml_per_hour === 'number' &&
+    Number.isFinite(profileDefaults.default_water_ml_per_hour) &&
+    profileDefaults.default_water_ml_per_hour >= 0
+  ) {
+    nextValues.waterIntakePerHour = profileDefaults.default_water_ml_per_hour;
+  }
+
+  if (
+    typeof profileDefaults?.default_sodium_mg_per_hour === 'number' &&
+    Number.isFinite(profileDefaults.default_sodium_mg_per_hour) &&
+    profileDefaults.default_sodium_mg_per_hour >= 0
+  ) {
+    nextValues.sodiumIntakePerHour = profileDefaults.default_sodium_mg_per_hour;
+  }
+
+  return nextValues;
 }
 
 function buildPlannerValues(values: PlanFormValues) {
@@ -140,14 +170,11 @@ export default function NewPlanScreen() {
     if (uid) {
       const profileResult = await supabase
         .from('user_profiles')
-        .select('comfortable_flat_pace_min_per_km')
+        .select('comfortable_flat_pace_min_per_km, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour')
         .eq('user_id', uid)
         .maybeSingle();
 
-      defaultPlanValues = buildDefaultPlanValues(
-        (profileResult.data as { comfortable_flat_pace_min_per_km?: number | null } | null)
-          ?.comfortable_flat_pace_min_per_km ?? null,
-      );
+      defaultPlanValues = buildDefaultPlanValues(profileResult.data as UserPlanDefaultsProfile | null);
     }
 
     if (!resolvedRaceId) {
@@ -256,14 +283,11 @@ export default function NewPlanScreen() {
       if (uid) {
         const profileResult = await supabase
           .from('user_profiles')
-          .select('comfortable_flat_pace_min_per_km')
+          .select('comfortable_flat_pace_min_per_km, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour')
           .eq('user_id', uid)
           .maybeSingle();
 
-        defaultPlanValues = buildDefaultPlanValues(
-          (profileResult.data as { comfortable_flat_pace_min_per_km?: number | null } | null)
-            ?.comfortable_flat_pace_min_per_km ?? null,
-        );
+        defaultPlanValues = buildDefaultPlanValues(profileResult.data as UserPlanDefaultsProfile | null);
       }
 
       setLoadingProgress(0.42);

@@ -253,7 +253,7 @@ function EventPickerCard({
 export default function PlansScreen() {
   const { locale, t } = useI18n();
   const router = useRouter();
-  const { isPremium } = usePremium();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [raceOwnership, setRaceOwnership] = useState<Record<string, string | null>>({});
@@ -462,7 +462,7 @@ export default function PlansScreen() {
     [isPremium, plans],
   );
 
-  if (loading) {
+  if (loading || premiumLoading) {
     return <View style={styles.center}><ActivityIndicator color={Colors.brandPrimary} size="large" /></View>;
   }
 

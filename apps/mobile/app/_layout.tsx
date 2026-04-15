@@ -19,6 +19,7 @@ import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
+import { usePremium } from '../hooks/usePremium';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
@@ -85,11 +86,13 @@ function RootLayoutContent() {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [updateState, setUpdateState] = useState<StartupUpdateState>({ status: 'checking', detail: null });
+  const { isLoading: premiumLoading } = usePremium();
   const segments = useSegments();
   const router = useRouter();
   const startupUpdateRunRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
+  const shouldHoldForPremium = Boolean(session) && premiumLoading;
 
   if (supabaseInitError) {
     return (
@@ -252,7 +255,7 @@ function RootLayoutContent() {
 
   // Route guard
   useEffect(() => {
-    if (!ready || updateState.status !== 'done') return;
+    if (!ready || updateState.status !== 'done' || shouldHoldForPremium) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
@@ -274,7 +277,7 @@ function RootLayoutContent() {
         }
       })();
     }
-  }, [session, ready, segments, updateState.status]);
+  }, [session, ready, segments, shouldHoldForPremium, updateState.status]);
 
   // Notification response listener
   useEffect(() => {
@@ -365,6 +368,16 @@ function RootLayoutContent() {
       };
     }
 
+    if (shouldHoldForPremium) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.9,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
     return {
       title: t.appUpdate.startupTitle,
       subtitle: t.appUpdate.startupSubtitle,
@@ -372,18 +385,18 @@ function RootLayoutContent() {
       showSpinner: true,
       detail: null,
     };
-  }, [t, updateState]);
+  }, [shouldHoldForPremium, t, updateState]);
 
-  if (!ready || updateState.status !== 'done') {
+  if (!ready || updateState.status !== 'done' || shouldHoldForPremium) {
     return (
       <AppLaunchScreen
         title={launchScreen.title}
         subtitle={launchScreen.subtitle}
         progress={launchScreen.progress}
         showSpinner={launchScreen.showSpinner}
-        detail={launchScreen.detail}
+        detail={shouldHoldForPremium ? t.common.loading : launchScreen.detail}
         primaryAction={
-          updateState.status === 'error'
+          !shouldHoldForPremium && updateState.status === 'error'
             ? {
                 label: t.common.retry,
                 onPress: () => {
@@ -391,7 +404,7 @@ function RootLayoutContent() {
                   void runStartupUpdateCheck();
                 },
               }
-            : updateState.status === 'rollback'
+            : !shouldHoldForPremium && updateState.status === 'rollback'
               ? {
                   label: t.appUpdate.continueCta,
                   onPress: () => setUpdateState({ status: 'done', detail: null }),
@@ -399,7 +412,7 @@ function RootLayoutContent() {
             : undefined
         }
         secondaryAction={
-          updateState.status === 'error'
+          !shouldHoldForPremium && updateState.status === 'error'
             ? {
                 label: t.appUpdate.continueCta,
                 onPress: () => setUpdateState({ status: 'done', detail: null }),

@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity, Text, View } from 'react-native';
 import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
+import { HelpHeaderButton } from '../../components/help/HelpHeaderButton';
 import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -55,6 +56,16 @@ export default function AppLayout() {
         return routeName;
     }
   };
+  const getHeaderTitleRightInset = (routeName: string) => {
+    switch (routeName) {
+      case 'profile':
+        return 116;
+      case 'catalog':
+        return 160;
+      default:
+        return 72;
+    }
+  };
 
   return (
     <Tabs
@@ -68,7 +79,7 @@ export default function AppLayout() {
         headerTitle: () => <AppHeaderTitle title={getHeaderTitle(route.name)} />,
         headerTitleContainerStyle: {
           left: 16,
-          right: 72,
+          right: getHeaderTitleRightInset(route.name),
         },
         tabBarStyle: {
           backgroundColor: Colors.background,
@@ -90,6 +101,12 @@ export default function AppLayout() {
         options={{
           title: t.profile.title,
           tabBarLabel: t.profile.title,
+          headerRight: () => (
+            <FeedbackHeaderButton
+              contextLabel={getFeedbackContext('profile')}
+              leading={<HelpHeaderButton screenKey="profile" />}
+            />
+          ),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),

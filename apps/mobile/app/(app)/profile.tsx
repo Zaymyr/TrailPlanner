@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Alert,
@@ -12,39 +10,84 @@ import {
   Modal,
   Platform,
   Pressable,
+  TouchableOpacity,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  type LayoutRectangle,
 } from 'react-native';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
-import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
 import { useI18n } from '../../lib/i18n';
 import { Colors } from '../../constants/colors';
+import { SpotlightTutorial, TutorialTarget } from '../../components/help/SpotlightTutorial';
+import { ProfileAccountSection } from '../../components/profile/ProfileAccountSection';
+import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
+import { ProfileLanguageSection } from '../../components/profile/ProfileLanguageSection';
+import { ProfilePerformanceSection } from '../../components/profile/ProfilePerformanceSection';
+import { ProfilePersonalSection } from '../../components/profile/ProfilePersonalSection';
+import { ProfilePremiumSection } from '../../components/profile/ProfilePremiumSection';
+import { ProfileSaveButton } from '../../components/profile/ProfileSaveButton';
+import { ProfileTabs } from '../../components/profile/ProfileTabs';
+import { ProfileUpdatesSection } from '../../components/profile/ProfileUpdatesSection';
+import {
+  estimateHourlyTargets,
+  isValidHeightCm,
+  isValidWeightKg,
+} from '../../components/profile/profileEstimator';
+import type {
+  CarbEstimatorLevel,
+  ChangelogEntry,
+  EstimatedHourlyTargets,
+  HydrationEstimatorLevel,
+  ProfileTabKey,
+  SodiumEstimatorLevel,
+} from '../../components/profile/types';
 import { usePremium } from '../../hooks/usePremium';
+import {
+  addHelpTutorialRequestListener,
+  type SpotlightRect,
+  type TutorialStep,
+} from '../../lib/helpTutorial';
 import { useRevenueCatBilling } from '../../hooks/useRevenueCatBilling';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
 
 const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
 const PLAY_SUBSCRIPTIONS_URL = `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE_NAME}`;
 const IOS_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
+const TUTORIAL_MIN_TARGET_TOP = 88;
+const TUTORIAL_MIN_BOTTOM_SPACE = 352;
+const TUTORIAL_SCROLL_THRESHOLD = 4;
+const TUTORIAL_SCROLL_FALLBACK_MS = 420;
 
 type UserProfile = {
   full_name: string | null;
   age: number | null;
   birth_date: string | null;
+  weight_kg: number | null;
+  height_cm: number | null;
   water_bag_liters: number | null;
   utmb_index: number | null;
   comfortable_flat_pace_min_per_km: number | null;
+  default_carbs_g_per_hour: number | null;
+  default_water_ml_per_hour: number | null;
+  default_sodium_mg_per_hour: number | null;
   role: string | null;
   trial_ends_at: string | null;
   trial_started_at: string | null;
 };
 
-type ChangelogEntry = {
-  id: number;
-  published_at: string;
-  version: string;
-  title: string;
-  detail: string;
+type ProfileTutorialTargetKey =
+  | 'personal'
+  | 'settings'
+  | 'save'
+  | 'premium'
+  | 'language'
+  | 'updates';
+
+type PendingTutorialScroll = {
+  targetKey: ProfileTutorialTargetKey;
+  timeoutId: ReturnType<typeof setTimeout> | null;
 };
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
@@ -189,16 +232,44 @@ function parseComfortableFlatPace(minutesInput: string, secondsInput: string): n
   return totalMinutes > 0 ? totalMinutes : Number.NaN;
 }
 
+function parseOptionalNonNegativeInteger(value: string): number | null {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) return null;
+
+  const nextValue = Number(trimmedValue);
+  if (!Number.isInteger(nextValue) || nextValue < 0) {
+    return Number.NaN;
+  }
+
+  return nextValue;
+}
+
+
 export default function ProfileScreen() {
   const { locale, setLocale, t } = useI18n();
+  const scrollRef = useRef<ScrollView>(null);
+  const tutorialScrollOffsetRef = useRef(0);
+  const pendingTutorialScrollRef = useRef<PendingTutorialScroll | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [activeProfileTab, setActiveProfileTab] = useState<ProfileTabKey>('personal');
   const [fullName, setFullName] = useState('');
   const [birthDateInput, setBirthDateInput] = useState('');
+  const [weightKg, setWeightKg] = useState('');
+  const [heightCm, setHeightCm] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
   const [utmbIndex, setUtmbIndex] = useState('');
   const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
   const [comfortableFlatPaceSeconds, setComfortableFlatPaceSeconds] = useState('');
+  const [defaultCarbsPerHour, setDefaultCarbsPerHour] = useState('');
+  const [defaultWaterPerHour, setDefaultWaterPerHour] = useState('');
+  const [defaultSodiumPerHour, setDefaultSodiumPerHour] = useState('');
+  const [showEstimatorModal, setShowEstimatorModal] = useState(false);
+  const [estimatorWeightKg, setEstimatorWeightKg] = useState('');
+  const [estimatorHeightCm, setEstimatorHeightCm] = useState('');
+  const [estimatorCarbLevel, setEstimatorCarbLevel] = useState<CarbEstimatorLevel>('moderate');
+  const [estimatorHydrationLevel, setEstimatorHydrationLevel] = useState<HydrationEstimatorLevel>('normal');
+  const [estimatorSodiumLevel, setEstimatorSodiumLevel] = useState<SodiumEstimatorLevel>('normal');
   const {
     isPremium,
     hasPaidPremium,
@@ -221,6 +292,14 @@ export default function ProfileScreen() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [tutorialVisible, setTutorialVisible] = useState(false);
+  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+  const [tutorialTargetRect, setTutorialTargetRect] = useState<SpotlightRect | null>(null);
+  const [tutorialViewport, setTutorialViewport] = useState({ width: 0, height: 0 });
+  const [tutorialContentHeight, setTutorialContentHeight] = useState(0);
+  const [tutorialTargets, setTutorialTargets] = useState<Partial<Record<ProfileTutorialTargetKey, LayoutRectangle>>>(
+    {},
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -234,7 +313,7 @@ export default function ProfileScreen() {
       const profileResult = await supabase
         .from('user_profiles')
         .select(
-          'full_name, age, birth_date, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, role, trial_ends_at, trial_started_at',
+          'full_name, age, birth_date, weight_kg, height_cm, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour, role, trial_ends_at, trial_started_at',
         )
         .eq('user_id', uid)
         .single();
@@ -246,6 +325,16 @@ export default function ProfileScreen() {
         setProfile(nextProfile);
         setFullName(nextProfile.full_name ?? '');
         setBirthDateInput(formatBirthDateInput(nextProfile.birth_date));
+        setWeightKg(
+          typeof nextProfile.weight_kg === 'number' && Number.isFinite(nextProfile.weight_kg)
+            ? String(Math.round(nextProfile.weight_kg))
+            : '',
+        );
+        setHeightCm(
+          typeof nextProfile.height_cm === 'number' && Number.isFinite(nextProfile.height_cm)
+            ? String(Math.round(nextProfile.height_cm))
+            : '',
+        );
         setWaterBagLiters(nextProfile.water_bag_liters ?? 1.5);
         setUtmbIndex(
           typeof nextProfile.utmb_index === 'number' && Number.isFinite(nextProfile.utmb_index)
@@ -255,6 +344,24 @@ export default function ProfileScreen() {
         const flatPaceFields = splitPaceMinutesPerKm(nextProfile.comfortable_flat_pace_min_per_km);
         setComfortableFlatPaceMinutes(flatPaceFields.minutes);
         setComfortableFlatPaceSeconds(flatPaceFields.seconds);
+        setDefaultCarbsPerHour(
+          typeof nextProfile.default_carbs_g_per_hour === 'number' &&
+            Number.isFinite(nextProfile.default_carbs_g_per_hour)
+            ? String(Math.round(nextProfile.default_carbs_g_per_hour))
+            : '',
+        );
+        setDefaultWaterPerHour(
+          typeof nextProfile.default_water_ml_per_hour === 'number' &&
+            Number.isFinite(nextProfile.default_water_ml_per_hour)
+            ? String(Math.round(nextProfile.default_water_ml_per_hour))
+            : '',
+        );
+        setDefaultSodiumPerHour(
+          typeof nextProfile.default_sodium_mg_per_hour === 'number' &&
+            Number.isFinite(nextProfile.default_sodium_mg_per_hour)
+            ? String(Math.round(nextProfile.default_sodium_mg_per_hour))
+            : '',
+        );
       }
 
       setLoading(false);
@@ -275,6 +382,329 @@ export default function ProfileScreen() {
     if (parsedBirthDate) return calculateAgeFromBirthDate(parsedBirthDate);
     return profile?.age ?? null;
   }, [parsedBirthDate, profile?.age]);
+
+  const parsedEstimatorWeight = useMemo(
+    () => parseOptionalNonNegativeInteger(estimatorWeightKg),
+    [estimatorWeightKg],
+  );
+  const parsedEstimatorHeight = useMemo(
+    () => parseOptionalNonNegativeInteger(estimatorHeightCm),
+    [estimatorHeightCm],
+  );
+  const estimatorHasValidBodyMetrics =
+    isValidWeightKg(parsedEstimatorWeight) && isValidHeightCm(parsedEstimatorHeight);
+
+  const estimatedTargets = useMemo<EstimatedHourlyTargets | null>(() => {
+    if (!estimatorHasValidBodyMetrics) return null;
+
+    return estimateHourlyTargets({
+      weightKg: parsedEstimatorWeight,
+      heightCm: parsedEstimatorHeight,
+      carbLevel: estimatorCarbLevel,
+      hydrationLevel: estimatorHydrationLevel,
+      sodiumLevel: estimatorSodiumLevel,
+    });
+  }, [
+    estimatorCarbLevel,
+    estimatorHasValidBodyMetrics,
+    estimatorHydrationLevel,
+    estimatorSodiumLevel,
+    parsedEstimatorHeight,
+    parsedEstimatorWeight,
+  ]);
+
+  const getTabForTutorialTarget = useCallback((targetKey: ProfileTutorialTargetKey): ProfileTabKey => {
+    switch (targetKey) {
+      case 'personal':
+        return 'personal';
+      case 'settings':
+        return 'performance';
+      case 'premium':
+      case 'language':
+      case 'updates':
+        return 'settings';
+      case 'save':
+      default:
+        return activeProfileTab;
+    }
+  }, [activeProfileTab]);
+
+  const tutorialSteps = useMemo<TutorialStep<ProfileTutorialTargetKey>[]>(
+    () => [
+      {
+        screenKey: 'profile',
+        targetKey: 'personal',
+        title: t.helpTutorial.profile.personalTitle,
+        body: t.helpTutorial.profile.personalBody,
+        highlightPadding: 8,
+        highlightRadius: 16,
+        placement: 'bottom',
+      },
+      {
+        screenKey: 'profile',
+        targetKey: 'settings',
+        title: t.helpTutorial.profile.settingsTitle,
+        body: t.helpTutorial.profile.settingsBody,
+        highlightPadding: 8,
+        highlightRadius: 16,
+      },
+      {
+        screenKey: 'profile',
+        targetKey: 'save',
+        title: t.helpTutorial.profile.saveTitle,
+        body: t.helpTutorial.profile.saveBody,
+        highlightPadding: 6,
+        highlightRadius: 16,
+      },
+      {
+        screenKey: 'profile',
+        targetKey: 'premium',
+        title: t.helpTutorial.profile.premiumTitle,
+        body: t.helpTutorial.profile.premiumBody,
+        highlightPadding: 10,
+        highlightRadius: 22,
+      },
+      {
+        screenKey: 'profile',
+        targetKey: 'language',
+        title: t.helpTutorial.profile.languageTitle,
+        body: t.helpTutorial.profile.languageBody,
+        highlightPadding: 8,
+        highlightRadius: 16,
+      },
+    ],
+    [t.helpTutorial],
+  );
+
+  const registerTutorialTarget = useCallback(
+    (targetKey: ProfileTutorialTargetKey, layout: LayoutRectangle) => {
+      setTutorialTargets((current) => {
+        const previous = current[targetKey];
+        if (
+          previous &&
+          previous.x === layout.x &&
+          previous.y === layout.y &&
+          previous.width === layout.width &&
+          previous.height === layout.height
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          [targetKey]: layout,
+        };
+      });
+    },
+    [],
+  );
+
+  const currentTutorialTargetKey = tutorialSteps[tutorialStepIndex]?.targetKey ?? null;
+
+  const clearPendingTutorialScroll = useCallback(() => {
+    if (pendingTutorialScrollRef.current?.timeoutId) {
+      clearTimeout(pendingTutorialScrollRef.current.timeoutId);
+    }
+    pendingTutorialScrollRef.current = null;
+  }, []);
+
+  const updateTutorialScrollOffset = useCallback((nextOffset: number) => {
+    tutorialScrollOffsetRef.current = nextOffset;
+  }, []);
+
+  const buildTutorialRect = useCallback((layout: LayoutRectangle, scrollOffset: number): SpotlightRect => {
+    return {
+      x: layout.x,
+      y: layout.y - scrollOffset,
+      width: layout.width,
+      height: layout.height,
+    };
+  }, []);
+
+  const completeTutorialAlignment = useCallback(
+    (targetKey: ProfileTutorialTargetKey, scrollOffset: number) => {
+      const layout = tutorialTargets[targetKey];
+      if (!layout) {
+        setTutorialTargetRect(null);
+        return;
+      }
+
+      setTutorialTargetRect(buildTutorialRect(layout, scrollOffset));
+      clearPendingTutorialScroll();
+    },
+    [buildTutorialRect, clearPendingTutorialScroll, tutorialTargets],
+  );
+
+  const alignTutorialTarget = useCallback(
+    (targetKey: ProfileTutorialTargetKey) => {
+      const layout = tutorialTargets[targetKey];
+      if (!layout || tutorialViewport.height <= 0) {
+        setTutorialTargetRect(null);
+        return;
+      }
+
+      const currentOffset = tutorialScrollOffsetRef.current;
+      const visibleTop = layout.y - currentOffset;
+      const visibleBottom = visibleTop + layout.height;
+      const maxTargetBottom = Math.max(
+        TUTORIAL_MIN_TARGET_TOP + layout.height,
+        tutorialViewport.height - TUTORIAL_MIN_BOTTOM_SPACE,
+      );
+
+      let desiredOffset = currentOffset;
+      if (visibleTop < TUTORIAL_MIN_TARGET_TOP) {
+        desiredOffset = layout.y - TUTORIAL_MIN_TARGET_TOP;
+      } else if (visibleBottom > maxTargetBottom) {
+        desiredOffset = layout.y + layout.height - maxTargetBottom;
+      }
+
+      const maxScrollOffset = Math.max(0, tutorialContentHeight - tutorialViewport.height);
+      desiredOffset = Math.min(Math.max(0, desiredOffset), maxScrollOffset);
+
+      if (Math.abs(desiredOffset - currentOffset) <= TUTORIAL_SCROLL_THRESHOLD) {
+        completeTutorialAlignment(targetKey, currentOffset);
+        return;
+      }
+
+      clearPendingTutorialScroll();
+      setTutorialTargetRect(null);
+
+      const timeoutId = setTimeout(() => {
+        completeTutorialAlignment(targetKey, tutorialScrollOffsetRef.current);
+      }, TUTORIAL_SCROLL_FALLBACK_MS);
+
+      pendingTutorialScrollRef.current = { targetKey, timeoutId };
+      scrollRef.current?.scrollTo({ y: desiredOffset, animated: true });
+    },
+    [
+      clearPendingTutorialScroll,
+      completeTutorialAlignment,
+      tutorialContentHeight,
+      tutorialTargets,
+      tutorialViewport.height,
+    ],
+  );
+
+  useEffect(() => {
+    const removeListener = addHelpTutorialRequestListener(({ screenKey }) => {
+      if (screenKey !== 'profile') return;
+
+      clearPendingTutorialScroll();
+      setTutorialTargetRect(null);
+      setTutorialStepIndex(0);
+      setTutorialVisible(true);
+    });
+
+    return removeListener;
+  }, [clearPendingTutorialScroll]);
+
+  useEffect(() => {
+    if (!tutorialVisible || !currentTutorialTargetKey) return;
+
+    const nextTab = getTabForTutorialTarget(currentTutorialTargetKey);
+    if (activeProfileTab !== nextTab) {
+      setActiveProfileTab(nextTab);
+    }
+
+    setTutorialTargetRect(null);
+
+    const timeoutId = setTimeout(() => {
+      alignTutorialTarget(currentTutorialTargetKey);
+    }, activeProfileTab === nextTab ? 0 : 40);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearPendingTutorialScroll();
+    };
+  }, [
+    activeProfileTab,
+    alignTutorialTarget,
+    clearPendingTutorialScroll,
+    currentTutorialTargetKey,
+    getTabForTutorialTarget,
+    tutorialVisible,
+  ]);
+
+  const handleProfileTabChange = useCallback((nextTab: ProfileTabKey) => {
+    setActiveProfileTab(nextTab);
+    setTutorialTargetRect(null);
+    clearPendingTutorialScroll();
+    updateTutorialScrollOffset(0);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [clearPendingTutorialScroll, updateTutorialScrollOffset]);
+
+  const handleOpenEstimator = useCallback(() => {
+    setEstimatorWeightKg(weightKg);
+    setEstimatorHeightCm(heightCm);
+    setShowEstimatorModal(true);
+  }, [heightCm, weightKg]);
+
+  const handleApplyEstimator = useCallback(() => {
+    if (!estimatedTargets || !isValidWeightKg(parsedEstimatorWeight) || !isValidHeightCm(parsedEstimatorHeight)) {
+      Alert.alert(t.common.error, t.profile.estimatorMissingBodyMetrics);
+      return;
+    }
+
+    setWeightKg(String(parsedEstimatorWeight));
+    setHeightCm(String(parsedEstimatorHeight));
+    setDefaultCarbsPerHour(String(estimatedTargets.carbsGPerHour));
+    setDefaultWaterPerHour(String(estimatedTargets.waterMlPerHour));
+    setDefaultSodiumPerHour(String(estimatedTargets.sodiumMgPerHour));
+    setShowEstimatorModal(false);
+    Alert.alert(t.common.ok, t.profile.estimatorApplied);
+  }, [
+    estimatedTargets,
+    parsedEstimatorHeight,
+    parsedEstimatorWeight,
+    t.common.error,
+    t.common.ok,
+    t.profile.estimatorApplied,
+    t.profile.estimatorMissingBodyMetrics,
+  ]);
+
+  const handleTutorialClose = useCallback(() => {
+    clearPendingTutorialScroll();
+    setTutorialTargetRect(null);
+    setTutorialVisible(false);
+  }, [clearPendingTutorialScroll]);
+
+  const handleTutorialNext = useCallback(() => {
+    setTutorialStepIndex((current) => {
+      if (current >= tutorialSteps.length - 1) {
+        clearPendingTutorialScroll();
+        setTutorialTargetRect(null);
+        setTutorialVisible(false);
+        return current;
+      }
+
+      return current + 1;
+    });
+  }, [clearPendingTutorialScroll, tutorialSteps.length]);
+
+  const handleTutorialPrevious = useCallback(() => {
+    clearPendingTutorialScroll();
+    setTutorialStepIndex((current) => Math.max(0, current - 1));
+  }, [clearPendingTutorialScroll]);
+
+  const handleTutorialScrollEvent = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      tutorialScrollOffsetRef.current = event.nativeEvent.contentOffset.y;
+    },
+    [],
+  );
+
+  const handleTutorialScrollSettled = useCallback(
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const settledOffset = event.nativeEvent.contentOffset.y;
+      tutorialScrollOffsetRef.current = settledOffset;
+
+      const pending = pendingTutorialScrollRef.current;
+      if (!pending) return;
+
+      completeTutorialAlignment(pending.targetKey, settledOffset);
+    },
+    [completeTutorialAlignment],
+  );
 
   async function handleSave() {
     if (!userId) return;
@@ -317,6 +747,30 @@ export default function ProfileScreen() {
       setError(t.profile.utmbIndexInvalid);
       return;
     }
+    const parsedWeightKg = parseOptionalNonNegativeInteger(weightKg);
+    if (Number.isNaN(parsedWeightKg) || (parsedWeightKg !== null && (parsedWeightKg < 20 || parsedWeightKg > 250))) {
+      setSaving(false);
+      setError(t.profile.weightInvalid);
+      return;
+    }
+    const parsedHeightCm = parseOptionalNonNegativeInteger(heightCm);
+    if (Number.isNaN(parsedHeightCm) || (parsedHeightCm !== null && (parsedHeightCm < 100 || parsedHeightCm > 250))) {
+      setSaving(false);
+      setError(t.profile.heightInvalid);
+      return;
+    }
+    const parsedDefaultCarbsPerHour = parseOptionalNonNegativeInteger(defaultCarbsPerHour);
+    const parsedDefaultWaterPerHour = parseOptionalNonNegativeInteger(defaultWaterPerHour);
+    const parsedDefaultSodiumPerHour = parseOptionalNonNegativeInteger(defaultSodiumPerHour);
+    if (
+      Number.isNaN(parsedDefaultCarbsPerHour) ||
+      Number.isNaN(parsedDefaultWaterPerHour) ||
+      Number.isNaN(parsedDefaultSodiumPerHour)
+    ) {
+      setSaving(false);
+      setError(t.profile.defaultTargetsInvalid);
+      return;
+    }
 
     const { error: saveError } = await supabase.from('user_profiles').upsert(
       {
@@ -324,9 +778,14 @@ export default function ProfileScreen() {
         full_name: fullName.trim() || null,
         birth_date: birthDateIso,
         age: nextAge,
+        weight_kg: parsedWeightKg,
+        height_cm: parsedHeightCm,
         water_bag_liters: waterBagLiters,
         utmb_index: parsedUtmbIndex,
         comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
+        default_carbs_g_per_hour: parsedDefaultCarbsPerHour,
+        default_water_ml_per_hour: parsedDefaultWaterPerHour,
+        default_sodium_mg_per_hour: parsedDefaultSodiumPerHour,
       },
       { onConflict: 'user_id' }
     );
@@ -342,9 +801,14 @@ export default function ProfileScreen() {
       full_name: fullName.trim() || null,
       birth_date: birthDateIso,
       age: nextAge,
+      weight_kg: parsedWeightKg,
+      height_cm: parsedHeightCm,
       water_bag_liters: waterBagLiters,
       utmb_index: parsedUtmbIndex,
       comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
+      default_carbs_g_per_hour: parsedDefaultCarbsPerHour,
+      default_water_ml_per_hour: parsedDefaultWaterPerHour,
+      default_sodium_mg_per_hour: parsedDefaultSodiumPerHour,
       role: current?.role ?? null,
       trial_ends_at: current?.trial_ends_at ?? null,
       trial_started_at: current?.trial_started_at ?? null,
@@ -618,329 +1082,324 @@ export default function ProfileScreen() {
     : t.profile.updateSourceDownloaded;
   const isAdmin = profile?.role === 'admin';
   const showAdminGrant = !hasPaidPremium && premiumGrant !== null;
-  const showTrialActive = !hasPaidPremium && !showAdminGrant && isTrialActive && trialEndsAt;
-  const showTrialExpired = !isPremium && !isTrialActive && trialEndsAt;
+  const showTrialActive = Boolean(!hasPaidPremium && !showAdminGrant && isTrialActive && trialEndsAt);
+  const showTrialExpired = Boolean(!isPremium && !isTrialActive && trialEndsAt);
   const showFree = !isPremium && !trialEndsAt;
   const showPremiumBadge = isPremium && !showTrialActive;
   const trialRemainingDays = trialEndsAt ? getRemainingDays(trialEndsAt) : 0;
   const canManagePaidSubscription = hasPaidPremium;
   const showUpgradeAction = !hasPaidPremium && !showAdminGrant;
+  const profileTabs: Array<{ key: ProfileTabKey; label: string }> = [
+    { key: 'personal', label: t.profile.personalTabLabel },
+    { key: 'performance', label: t.profile.performanceTabLabel },
+    { key: 'settings', label: t.profile.settingsTabLabel },
+  ];
+
+  const carbEstimatorOptions: Array<{ value: CarbEstimatorLevel; label: string }> = [
+    { value: 'beginner', label: t.profile.estimatorCarbBeginner },
+    { value: 'moderate', label: t.profile.estimatorCarbModerate },
+    { value: 'gels', label: t.profile.estimatorCarbGels },
+    { value: 'high', label: t.profile.estimatorCarbHigh },
+  ];
+  const hydrationEstimatorOptions: Array<{ value: HydrationEstimatorLevel; label: string }> = [
+    { value: 'low', label: t.profile.estimatorHydrationLow },
+    { value: 'normal', label: t.profile.estimatorHydrationNormal },
+    { value: 'thirsty', label: t.profile.estimatorHydrationThirsty },
+    { value: 'very_thirsty', label: t.profile.estimatorHydrationVeryThirsty },
+  ];
+  const sodiumEstimatorOptions: Array<{ value: SodiumEstimatorLevel; label: string }> = [
+    { value: 'low', label: t.profile.estimatorSodiumLow },
+    { value: 'normal', label: t.profile.estimatorSodiumNormal },
+    { value: 'salty', label: t.profile.estimatorSodiumSalty },
+    { value: 'very_salty', label: t.profile.estimatorSodiumVerySalty },
+  ];
+  const showRestorePurchases = inAppBillingEnabled && !isWebManagedPremium && !isPremium;
+  const birthDateHelpText =
+    computedAge !== null ? t.profile.ageCalculated.replace('{age}', String(computedAge)) : t.profile.birthDateHelp;
+  const saveButtonLabel = saved ? t.profile.saved : t.common.save;
+  const premiumBadges = [
+    showPremiumBadge ? { tone: 'premium' as const, label: t.profile.premiumLabel } : null,
+    showTrialActive ? { tone: 'trial' as const, label: t.profile.trialLabel } : null,
+    showTrialExpired
+      ? { tone: 'free' as const, label: t.profile.trialExpiredLabel }
+      : showFree
+        ? { tone: 'free' as const, label: t.profile.freeLabel }
+        : null,
+  ].filter((badge): badge is { tone: 'premium' | 'trial' | 'free'; label: string } => badge !== null);
+  const premiumInfoCards = [
+    showTrialActive && trialEndsAt
+      ? {
+          id: 'trial',
+          title: t.profile.premiumSourceTrial,
+          body: t.profile.trialDaysRemaining.replace('{days}', String(trialRemainingDays)),
+          meta: t.profile.trialExpiresOn.replace('{date}', formatDate(trialEndsAt, locale)),
+        }
+      : null,
+    hasPaidPremium
+      ? {
+          id: 'subscription',
+          title: t.profile.premiumSourceSubscription,
+          body: subscriptionRenewalAt
+            ? t.profile.subscriptionRenewsOn.replace('{date}', formatDate(subscriptionRenewalAt, locale))
+            : t.profile.subscriptionActive,
+        }
+      : null,
+    showAdminGrant && premiumGrant
+      ? {
+          id: 'admin-grant',
+          title: t.profile.premiumSourceAdminGrant,
+          body: t.profile.adminGrantReason.replace(
+            '{reason}',
+            premiumGrant.reason || t.profile.adminGrantReasonFallback,
+          ),
+          meta: t.profile.adminGrantDaysRemaining.replace('{days}', String(premiumGrant.remainingDays)),
+        }
+      : null,
+  ].filter(
+    (
+      infoCard,
+    ): infoCard is {
+      id: string;
+      title: string;
+      body: string;
+      meta?: string;
+    } => infoCard !== null,
+  );
+  const premiumBenefits = [
+    t.profile.premiumBenefitPlans,
+    t.profile.premiumBenefitFavorites,
+    t.profile.premiumBenefitAutoFill,
+  ];
+  const updatesAdminRows = isAdmin
+    ? [
+        { label: t.profile.runtimeLabel, value: runtimeVersion },
+        { label: t.profile.channelLabel, value: channel },
+        { label: t.profile.updateIdLabel, value: updateId },
+      ]
+    : [];
+  const updatesRows = [
+    { label: t.profile.updateDateLabel, value: updateDate },
+    { label: t.profile.updateSourceLabel, value: updateSource },
+  ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.label}>{t.profile.firstNameLabel}</Text>
-      <TextInput
-        style={styles.textInput}
-        value={fullName}
-        onChangeText={setFullName}
-        placeholder={t.profile.namePlaceholder}
-        placeholderTextColor={Colors.textMuted}
-        autoCapitalize="words"
-        textContentType="givenName"
-      />
-
-      <Text style={styles.label}>{t.profile.birthDateLabel}</Text>
-      <TextInput
-        style={styles.textInput}
-        value={birthDateInput}
-        onChangeText={(value) => setBirthDateInput(normalizeBirthDateInput(value))}
-        placeholder={t.profile.birthDatePlaceholder}
-        placeholderTextColor={Colors.textMuted}
-        keyboardType="number-pad"
-        maxLength={10}
-      />
-      <Text style={styles.helperText}>
-        {computedAge !== null
-          ? t.profile.ageCalculated.replace('{age}', String(computedAge))
-          : t.profile.birthDateHelp}
-      </Text>
-
-      <Text style={styles.label}>{t.profile.waterBagLabel}</Text>
-      <Text style={styles.helperText}>{t.profile.waterBagHint}</Text>
-      <View style={styles.waterBagRow}>
-        {WATER_BAG_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt}
-            style={[styles.waterBtn, waterBagLiters === opt && styles.waterBtnActive]}
-            onPress={() => setWaterBagLiters(opt)}
-          >
-            <Text style={[styles.waterBtnText, waterBagLiters === opt && styles.waterBtnTextActive]}>
-              {opt}L
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.label}>{t.profile.utmbIndexLabel}</Text>
-      <Text style={styles.helperText}>{t.profile.utmbIndexHint}</Text>
-      <TextInput
-        style={styles.textInput}
-        value={utmbIndex}
-        onChangeText={(value) => setUtmbIndex(value.replace(/\D/g, '').slice(0, 4))}
-        placeholder="600"
-        placeholderTextColor={Colors.textMuted}
-        keyboardType="number-pad"
-        maxLength={4}
-      />
-
-      <Text style={styles.label}>{t.profile.comfortableFlatPaceLabel}</Text>
-      <Text style={styles.helperText}>{t.profile.comfortableFlatPaceHint}</Text>
-      <View style={styles.paceInputRow}>
-        <View style={styles.paceInputGroup}>
-          <Text style={styles.paceInputLabel}>{t.profile.comfortableFlatPaceMinutesLabel}</Text>
-          <TextInput
-            style={styles.paceInput}
-            value={comfortableFlatPaceMinutes}
-            onChangeText={(value) => setComfortableFlatPaceMinutes(value.replace(/\D/g, '').slice(0, 2))}
-            placeholder="6"
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="number-pad"
-            maxLength={2}
-          />
-        </View>
-        <View style={styles.paceInputGroup}>
-          <Text style={styles.paceInputLabel}>{t.profile.comfortableFlatPaceSecondsLabel}</Text>
-          <TextInput
-            style={styles.paceInput}
-            value={comfortableFlatPaceSeconds}
-            onChangeText={(value) => setComfortableFlatPaceSeconds(value.replace(/\D/g, '').slice(0, 2))}
-            placeholder="00"
-            placeholderTextColor={Colors.textMuted}
-            keyboardType="number-pad"
-            maxLength={2}
-          />
-        </View>
-      </View>
-
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-      <TouchableOpacity
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={saving}
+    <View
+      onLayout={(event) =>
+        setTutorialViewport({
+          width: event.nativeEvent.layout.width,
+          height: event.nativeEvent.layout.height,
+        })
+      }
+      style={styles.screen}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        onContentSizeChange={(_, height) => setTutorialContentHeight(height)}
+        onMomentumScrollEnd={handleTutorialScrollSettled}
+        onScroll={handleTutorialScrollEvent}
+        onScrollEndDrag={handleTutorialScrollSettled}
+        ref={scrollRef}
+        scrollEventThrottle={16}
+        style={styles.container}
       >
-        {saving ? (
-          <ActivityIndicator color={Colors.textOnBrand} />
-        ) : (
-          <Text style={styles.saveButtonText}>{saved ? t.profile.saved : t.common.save}</Text>
-        )}
-      </TouchableOpacity>
+        <ProfileTabs activeTab={activeProfileTab} tabs={profileTabs} onChange={handleProfileTabChange} />
 
-      <View style={styles.statusCard}>
-        <View style={styles.statusRow}>
-          <Text style={styles.statusLabel}>{t.profile.subscriptionLabel}</Text>
-
-          {showPremiumBadge ? (
-            <View style={[styles.statusBadge, styles.statusBadgePremium]}>
-              <Text style={[styles.statusBadgeText, styles.statusBadgeTextPremium]}>{t.profile.premiumLabel}</Text>
-            </View>
-          ) : null}
-
-          {showTrialActive ? (
-            <View style={[styles.statusBadge, styles.statusBadgeTrial]}>
-              <Text style={[styles.statusBadgeText, styles.statusBadgeTextTrial]}>{t.profile.trialLabel}</Text>
-            </View>
-          ) : null}
-
-          {showTrialExpired || showFree ? (
-            <View style={[styles.statusBadge, styles.statusBadgeFree]}>
-              <Text style={[styles.statusBadgeText, styles.statusBadgeTextFree]}>
-                {showTrialExpired ? t.profile.trialExpiredLabel : t.profile.freeLabel}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
-        {showTrialActive && trialEndsAt ? (
-          <View style={styles.premiumSourceCard}>
-            <Text style={styles.premiumSourceTitle}>{t.profile.premiumSourceTrial}</Text>
-            <Text style={styles.premiumSourceText}>
-              {t.profile.trialDaysRemaining.replace('{days}', String(trialRemainingDays))}
-            </Text>
-            <Text style={styles.premiumSourceMeta}>
-              {t.profile.trialExpiresOn.replace('{date}', formatDate(trialEndsAt, locale))}
-            </Text>
-          </View>
+        {activeProfileTab === 'personal' ? (
+          <TutorialTarget onMeasure={registerTutorialTarget} targetKey="personal">
+            <ProfilePersonalSection
+              title={t.profile.personalSectionTitle}
+              subtitle={t.profile.personalSectionSubtitle}
+              firstNameLabel={t.profile.firstNameLabel}
+              firstNamePlaceholder={t.profile.namePlaceholder}
+              birthDateLabel={t.profile.birthDateLabel}
+              birthDatePlaceholder={t.profile.birthDatePlaceholder}
+              birthDateHelpText={birthDateHelpText}
+              weightLabel={t.profile.weightLabel}
+              weightPlaceholder={t.profile.weightPlaceholder}
+              heightLabel={t.profile.heightLabel}
+              heightPlaceholder={t.profile.heightPlaceholder}
+              fullName={fullName}
+              birthDateInput={birthDateInput}
+              weightKg={weightKg}
+              heightCm={heightCm}
+              onChangeFullName={setFullName}
+              onChangeBirthDate={(value) => setBirthDateInput(normalizeBirthDateInput(value))}
+              onChangeWeightKg={(value) => setWeightKg(value.replace(/\D/g, '').slice(0, 3))}
+              onChangeHeightCm={(value) => setHeightCm(value.replace(/\D/g, '').slice(0, 3))}
+            />
+          </TutorialTarget>
         ) : null}
 
-        {hasPaidPremium ? (
-          <View style={styles.premiumSourceCard}>
-            <Text style={styles.premiumSourceTitle}>{t.profile.premiumSourceSubscription}</Text>
-            <Text style={styles.premiumSourceText}>
-              {subscriptionRenewalAt
-                ? t.profile.subscriptionRenewsOn.replace('{date}', formatDate(subscriptionRenewalAt, locale))
-                : t.profile.subscriptionActive}
-            </Text>
-          </View>
+        {activeProfileTab === 'performance' ? (
+          <TutorialTarget onMeasure={registerTutorialTarget} targetKey="settings">
+            <ProfilePerformanceSection
+              title={t.profile.performanceSectionTitle}
+              subtitle={t.profile.performanceSectionSubtitle}
+              effortTitle={t.profile.performanceEffortSectionTitle}
+              effortHint={t.profile.performanceEffortSectionSubtitle}
+              waterBagLabel={t.profile.waterBagLabel}
+              utmbIndexLabel={t.profile.utmbIndexLabel}
+              comfortableFlatPaceLabel={t.profile.comfortableFlatPaceLabel}
+              paceMinutesLabel={t.profile.comfortableFlatPaceMinutesLabel}
+              paceSecondsLabel={t.profile.comfortableFlatPaceSecondsLabel}
+              planDefaultsTitle={t.profile.planDefaultsSectionTitle}
+              planDefaultsHint={t.profile.planDefaultsSectionSubtitle}
+              estimatorInlineHint={t.profile.estimatorInlineHint}
+              estimatorButtonLabel={t.profile.estimatorButton}
+              defaultCarbsLabel={t.profile.defaultCarbsPerHourLabel}
+              defaultWaterLabel={t.profile.defaultWaterPerHourLabel}
+              defaultSodiumLabel={t.profile.defaultSodiumPerHourLabel}
+              waterBagOptions={WATER_BAG_OPTIONS}
+              waterBagLiters={waterBagLiters}
+              utmbIndex={utmbIndex}
+              paceMinutes={comfortableFlatPaceMinutes}
+              paceSeconds={comfortableFlatPaceSeconds}
+              defaultCarbsPerHour={defaultCarbsPerHour}
+              defaultWaterPerHour={defaultWaterPerHour}
+              defaultSodiumPerHour={defaultSodiumPerHour}
+              onSelectWaterBag={setWaterBagLiters}
+              onChangeUtmbIndex={(value) => setUtmbIndex(value.replace(/\D/g, '').slice(0, 4))}
+              onChangePaceMinutes={(value) =>
+                setComfortableFlatPaceMinutes(value.replace(/\D/g, '').slice(0, 2))
+              }
+              onChangePaceSeconds={(value) =>
+                setComfortableFlatPaceSeconds(value.replace(/\D/g, '').slice(0, 2))
+              }
+              onChangeDefaultCarbs={(value) => setDefaultCarbsPerHour(value.replace(/\D/g, '').slice(0, 3))}
+              onChangeDefaultWater={(value) => setDefaultWaterPerHour(value.replace(/\D/g, '').slice(0, 4))}
+              onChangeDefaultSodium={(value) => setDefaultSodiumPerHour(value.replace(/\D/g, '').slice(0, 4))}
+              onOpenEstimator={handleOpenEstimator}
+            />
+          </TutorialTarget>
         ) : null}
 
-        {showAdminGrant && premiumGrant ? (
-          <View style={styles.premiumSourceCard}>
-            <Text style={styles.premiumSourceTitle}>{t.profile.premiumSourceAdminGrant}</Text>
-            <Text style={styles.premiumSourceText}>
-              {t.profile.adminGrantReason.replace(
-                '{reason}',
-                premiumGrant.reason || t.profile.adminGrantReasonFallback,
-              )}
-            </Text>
-            <Text style={styles.premiumSourceMeta}>
-              {t.profile.adminGrantDaysRemaining.replace('{days}', String(premiumGrant.remainingDays))}
-            </Text>
-          </View>
-        ) : null}
-
-        {showUpgradeAction ? (
-          <View style={styles.premiumBenefitsCard}>
-            <Text style={styles.premiumBenefitsTitle}>{t.profile.premiumBenefitsTitle}</Text>
-            <View style={styles.premiumBenefitRow}>
-              <Ionicons name="checkmark-circle" size={16} color={Colors.brandPrimary} />
-              <Text style={styles.premiumBenefitText}>{t.profile.premiumBenefitPlans}</Text>
-            </View>
-            <View style={styles.premiumBenefitRow}>
-              <Ionicons name="checkmark-circle" size={16} color={Colors.brandPrimary} />
-              <Text style={styles.premiumBenefitText}>{t.profile.premiumBenefitFavorites}</Text>
-            </View>
-            <View style={styles.premiumBenefitRow}>
-              <Ionicons name="checkmark-circle" size={16} color={Colors.brandPrimary} />
-              <Text style={styles.premiumBenefitText}>{t.profile.premiumBenefitAutoFill}</Text>
-            </View>
-          </View>
-        ) : null}
-
-        {showUpgradeAction ? (
-          <TouchableOpacity
-            style={[styles.upgradeButton, billingActionBusy && styles.actionButtonDisabled]}
-            onPress={() => void handleUpgrade()}
-            disabled={billingActionBusy}
-          >
-            {billing.isPurchasing ? (
-              <ActivityIndicator color={Colors.brandPrimary} />
-            ) : (
-              <Text style={styles.upgradeButtonText}>{upgradeLabel}</Text>
-            )}
-          </TouchableOpacity>
-        ) : null}
-
-        {isWebManagedPremium ? (
-          <Text style={styles.subscriptionHint}>{t.profile.webManagedSubscription}</Text>
-        ) : null}
-
-        {canManagePaidSubscription ? (
-          <TouchableOpacity
-            style={[styles.manageSubscriptionButton, billingActionBusy && styles.actionButtonDisabled]}
-            onPress={() => void handleManageSubscription()}
-            disabled={billingActionBusy}
-          >
-            <Text style={styles.manageSubscriptionButtonText}>{t.profile.manageSubscription}</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        {inAppBillingEnabled && !isWebManagedPremium && !isPremium ? (
-          <TouchableOpacity
-            style={[styles.restorePurchasesButton, billingActionBusy && styles.actionButtonDisabled]}
-            onPress={() => void handleRestorePurchases()}
-            disabled={billingActionBusy}
-          >
-            {billing.isRestoring ? (
-              <ActivityIndicator color={Colors.textSecondary} />
-            ) : (
-              <Text style={styles.restorePurchasesButtonText}>{t.profile.restorePurchases}</Text>
-            )}
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      <Text style={styles.sectionTitle}>{t.profile.languageLabel}</Text>
-      <View style={styles.langRow}>
-        <TouchableOpacity
-          style={[styles.langBtn, locale === 'fr' && styles.langBtnActive]}
-          onPress={() => setLocale('fr')}
-        >
-          <Text style={[styles.langBtnText, locale === 'fr' && styles.langBtnTextActive]}>
-            FR {t.profile.languageFr}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.langBtn, locale === 'en' && styles.langBtnActive]}
-          onPress={() => setLocale('en')}
-        >
-          <Text style={[styles.langBtnText, locale === 'en' && styles.langBtnTextActive]}>
-            EN {t.profile.languageEn}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.sectionTitle}>{t.profile.accountSectionTitle}</Text>
-      <TouchableOpacity style={styles.manageSubscriptionButton} onPress={() => void handleOpenPrivacyPolicy()}>
-        <Text style={styles.manageSubscriptionButtonText}>{t.profile.privacyPolicyButton}</Text>
-      </TouchableOpacity>
-
-      <View style={styles.appInfoCard}>
-        <Text style={styles.versionText}>{t.profile.versionLabel.replace('{version}', appVersion)}</Text>
-
-        {isAdmin ? (
+        {activeProfileTab === 'settings' ? (
           <>
-            <Text style={styles.buildText}>{t.profile.buildLabel.replace('{build}', appBuild)}</Text>
-            <View style={styles.appInfoRow}>
-              <Text style={styles.appInfoLabel}>{t.profile.runtimeLabel}</Text>
-              <Text style={styles.appInfoValue}>{runtimeVersion}</Text>
-            </View>
-            <View style={styles.appInfoRow}>
-              <Text style={styles.appInfoLabel}>{t.profile.channelLabel}</Text>
-              <Text style={styles.appInfoValue}>{channel}</Text>
-            </View>
-            <View style={styles.appInfoRow}>
-              <Text style={styles.appInfoLabel}>{t.profile.updateIdLabel}</Text>
-              <Text style={styles.appInfoValue}>{updateId}</Text>
-            </View>
+            <TutorialTarget onMeasure={registerTutorialTarget} targetKey="premium">
+              <ProfilePremiumSection
+                subscriptionLabel={t.profile.subscriptionLabel}
+                badges={premiumBadges}
+                infoCards={premiumInfoCards}
+                premiumBenefitsTitle={t.profile.premiumBenefitsTitle}
+                premiumBenefits={premiumBenefits}
+                showPremiumBenefits={showUpgradeAction}
+                showUpgradeAction={showUpgradeAction}
+                upgradeLabel={upgradeLabel}
+                billingActionBusy={billingActionBusy}
+                isPurchasing={billing.isPurchasing}
+                onUpgrade={() => void handleUpgrade()}
+                subscriptionHint={isWebManagedPremium ? t.profile.webManagedSubscription : null}
+                canManageSubscription={canManagePaidSubscription}
+                manageSubscriptionLabel={t.profile.manageSubscription}
+                onManageSubscription={() => void handleManageSubscription()}
+                showRestorePurchases={showRestorePurchases}
+                restorePurchasesLabel={t.profile.restorePurchases}
+                isRestoring={billing.isRestoring}
+                onRestorePurchases={() => void handleRestorePurchases()}
+              />
+            </TutorialTarget>
+
+            <TutorialTarget onMeasure={registerTutorialTarget} targetKey="language">
+              <ProfileLanguageSection
+                title={t.profile.languageLabel}
+                selectedLocale={locale}
+                languageFrLabel={t.profile.languageFr}
+                languageEnLabel={t.profile.languageEn}
+                onSelectLocale={setLocale}
+                privacyPolicyLabel={t.profile.privacyPolicyButton}
+                onOpenPrivacyPolicy={() => void handleOpenPrivacyPolicy()}
+              />
+            </TutorialTarget>
+
+            <TutorialTarget onMeasure={registerTutorialTarget} targetKey="updates">
+              <ProfileUpdatesSection
+                title={t.profile.updatesSectionTitle}
+                versionText={t.profile.versionLabel.replace('{version}', appVersion)}
+                buildText={isAdmin ? t.profile.buildLabel.replace('{build}', appBuild) : null}
+                adminRows={updatesAdminRows}
+                rows={updatesRows}
+                emergencyLaunchMessage={Updates.isEmergencyLaunch ? t.profile.updateEmergencyLaunch : null}
+                updateCheckButtonLabel={t.profile.updateCheckButton}
+                checkingUpdates={checkingUpdates}
+                updateCheckMessage={updateCheckMessage}
+                changelogButtonLabel={t.profile.changelogButton}
+                onCheckForUpdates={() => void handleCheckForUpdates()}
+                onOpenChangelog={handleOpenChangelog}
+              />
+            </TutorialTarget>
+
+            <ProfileAccountSection
+              title={t.profile.accountSectionTitle}
+              logoutLabel={t.profile.logoutCta}
+              deleteLabel={t.profile.deleteAccountButton}
+              deleting={deletingAccount}
+              onLogout={handleLogout}
+              onDeleteAccount={handleDeleteAccount}
+            />
           </>
         ) : null}
-        <View style={styles.appInfoRow}>
-          <Text style={styles.appInfoLabel}>{t.profile.updateDateLabel}</Text>
-          <Text style={styles.appInfoValue}>{updateDate}</Text>
-        </View>
-        <View style={styles.appInfoRow}>
-          <Text style={styles.appInfoLabel}>{t.profile.updateSourceLabel}</Text>
-          <Text style={styles.appInfoValue}>{updateSource}</Text>
-        </View>
-        {Updates.isEmergencyLaunch ? (
-          <Text style={styles.updateCheckMessage}>{t.profile.updateEmergencyLaunch}</Text>
-        ) : null}
 
-        <TouchableOpacity
-          style={[styles.updateCheckButton, checkingUpdates && styles.actionButtonDisabled]}
-          onPress={() => void handleCheckForUpdates()}
-          disabled={checkingUpdates}
-        >
-          {checkingUpdates ? (
-            <ActivityIndicator color={Colors.textPrimary} />
-          ) : (
-            <Text style={styles.updateCheckButtonText}>{t.profile.updateCheckButton}</Text>
-          )}
-        </TouchableOpacity>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {updateCheckMessage ? <Text style={styles.updateCheckMessage}>{updateCheckMessage}</Text> : null}
-      </View>
+        <TutorialTarget onMeasure={registerTutorialTarget} targetKey="save">
+          <ProfileSaveButton label={saveButtonLabel} loading={saving} onPress={handleSave} />
+        </TutorialTarget>
+      </ScrollView>
 
-      <TouchableOpacity style={styles.changelogButton} onPress={handleOpenChangelog}>
-        <Text style={styles.changelogButtonText}>{t.profile.changelogButton}</Text>
-      </TouchableOpacity>
+      <SpotlightTutorial
+        activeStepIndex={tutorialStepIndex}
+        closeLabel={t.helpTutorial.close}
+        doneLabel={t.helpTutorial.done}
+        loadingLabel={t.helpTutorial.loadingTarget}
+        nextLabel={t.helpTutorial.next}
+        onClose={handleTutorialClose}
+        onNext={handleTutorialNext}
+        onPrevious={handleTutorialPrevious}
+        previousLabel={t.helpTutorial.previous}
+        steps={tutorialSteps}
+        targetRect={tutorialTargetRect}
+        viewportHeight={tutorialViewport.height}
+        viewportWidth={tutorialViewport.width}
+        visible={tutorialVisible}
+      />
 
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>{t.profile.logoutCta}</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.deleteAccountButton, deletingAccount && styles.actionButtonDisabled]}
-        onPress={handleDeleteAccount}
-        disabled={deletingAccount}
-      >
-        {deletingAccount ? (
-          <ActivityIndicator color={Colors.danger} />
-        ) : (
-          <Text style={styles.deleteAccountButtonText}>{t.profile.deleteAccountButton}</Text>
-        )}
-      </TouchableOpacity>
+      <ProfileEstimatorModal
+        visible={showEstimatorModal}
+        closeLabel={t.common.close}
+        title={t.profile.estimatorTitle}
+        subtitle={t.profile.estimatorSubtitle}
+        bodyMetricsTitle={t.profile.estimatorBodyMetricsTitle}
+        weightLabel={t.profile.weightLabel}
+        weightPlaceholder={t.profile.weightPlaceholder}
+        heightLabel={t.profile.heightLabel}
+        heightPlaceholder={t.profile.heightPlaceholder}
+        carbQuestion={t.profile.estimatorCarbQuestion}
+        hydrationQuestion={t.profile.estimatorHydrationQuestion}
+        sodiumQuestion={t.profile.estimatorSodiumQuestion}
+        carbOptions={carbEstimatorOptions}
+        hydrationOptions={hydrationEstimatorOptions}
+        sodiumOptions={sodiumEstimatorOptions}
+        selectedCarbLevel={estimatorCarbLevel}
+        selectedHydrationLevel={estimatorHydrationLevel}
+        selectedSodiumLevel={estimatorSodiumLevel}
+        estimatorWeightKg={estimatorWeightKg}
+        estimatorHeightCm={estimatorHeightCm}
+        onChangeEstimatorWeightKg={(value) => setEstimatorWeightKg(value.replace(/\D/g, '').slice(0, 3))}
+        onChangeEstimatorHeightCm={(value) => setEstimatorHeightCm(value.replace(/\D/g, '').slice(0, 3))}
+        onSelectCarbLevel={setEstimatorCarbLevel}
+        onSelectHydrationLevel={setEstimatorHydrationLevel}
+        onSelectSodiumLevel={setEstimatorSodiumLevel}
+        resultTitle={t.profile.estimatorResultTitle}
+        carbsLabel={t.profile.defaultCarbsPerHourLabel}
+        waterLabel={t.profile.defaultWaterPerHourLabel}
+        sodiumLabel={t.profile.defaultSodiumPerHourLabel}
+        estimatedTargets={estimatedTargets}
+        missingBodyMetricsLabel={t.profile.estimatorMissingBodyMetrics}
+        disclaimer={t.profile.estimatorDisclaimer}
+        applyLabel={t.profile.estimatorApply}
+        onApply={handleApplyEstimator}
+        onClose={() => setShowEstimatorModal(false)}
+      />
 
       <Modal
         animationType="slide"
@@ -996,11 +1455,15 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
@@ -1008,6 +1471,37 @@ const styles = StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 48,
+    gap: 16,
+  },
+  profileTabsBar: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  profileTabButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  profileTabButtonActive: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  profileTabButtonText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  profileTabButtonTextActive: {
+    color: Colors.brandPrimary,
   },
   center: {
     flex: 1,
@@ -1015,18 +1509,106 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.background,
   },
+  profileSectionCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  personalSectionCard: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+  },
+  performanceSectionCard: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.border,
+  },
+  profileSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  sectionIconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  personalSectionIconBadge: {
+    backgroundColor: Colors.brandSurface,
+  },
+  performanceSectionIconBadge: {
+    backgroundColor: '#EFE3C8',
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  profileSectionTitle: {
+    color: Colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  profileSectionSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  profileFieldGroup: {
+    marginTop: 12,
+  },
+  profileFieldGroupCompact: {
+    marginTop: 0,
+  },
+  profileSubcard: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    gap: 12,
+  },
+  planDefaultsSubcard: {
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandBorder,
+  },
+  profileSubsection: {
+    gap: 4,
+  },
+  profileSubsectionTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  profileSubsectionSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: Colors.brandPrimary,
     letterSpacing: 0.5,
-    marginBottom: 16,
+    marginBottom: 4,
+    marginTop: 4,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     color: Colors.textSecondary,
-    marginBottom: 6,
-    marginTop: 12,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 0,
   },
   textInput: {
     backgroundColor: Colors.surface,
@@ -1043,41 +1625,205 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 6,
   },
+  bodyMetricsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  bodyMetricField: {
+    flex: 1,
+  },
+  metricInputShell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  metricInput: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: 'transparent',
+    color: Colors.textPrimary,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  metricInputUnit: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   waterBagRow: {
     flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
     marginTop: 4,
   },
-  paceInputRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 8,
+  performanceGroup: {
+    gap: 10,
   },
-  paceInputGroup: {
-    flex: 1,
-    gap: 6,
+  performanceGroupTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
   },
-  paceInputLabel: {
+  performanceGroupHint: {
     color: Colors.textSecondary,
     fontSize: 12,
+    lineHeight: 17,
+    marginTop: -2,
+  },
+  performanceMetricsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  performanceMetricBlock: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 132,
+  },
+  metricTextInput: {
+    paddingVertical: 10,
+    fontSize: 15,
     fontWeight: '600',
   },
-  paceInput: {
+  compactPaceCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  compactPaceInputGroup: {
+    width: 58,
+    gap: 4,
+  },
+  compactPaceLabel: {
+    color: Colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  compactPaceInput: {
     backgroundColor: Colors.surface,
     color: Colors.textPrimary,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontWeight: '700',
     textAlign: 'center',
+  },
+  compactPaceSeparator: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    lineHeight: 24,
+    paddingBottom: 8,
+  },
+  compactPaceInlineUnit: {
+    marginLeft: 'auto',
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: Colors.brandSurface,
+    overflow: 'hidden',
+  },
+  profileSectionDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+    marginVertical: 14,
+  },
+  profileInlineSectionTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  estimateTargetsButton: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+  },
+  estimateTargetsButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  defaultTargetsStack: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    overflow: 'hidden',
+  },
+  defaultTargetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  defaultTargetRowBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  defaultTargetLabel: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  defaultTargetInputShell: {
+    width: 116,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  defaultTargetInput: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    color: Colors.textPrimary,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    minWidth: 0,
+  },
+  defaultTargetUnit: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 24,
   },
   waterBtn: {
     backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -1088,7 +1834,7 @@ const styles = StyleSheet.create({
   },
   waterBtnText: {
     color: Colors.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   waterBtnTextActive: {
@@ -1097,7 +1843,123 @@ const styles = StyleSheet.create({
   langRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  settingsCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+    gap: 12,
+  },
+  settingsCardTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  estimatorContent: {
+    gap: 16,
+    paddingBottom: 20,
+  },
+  estimatorSection: {
+    gap: 10,
+  },
+  estimatorSectionTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  estimatorOptionsList: {
+    gap: 8,
+  },
+  estimatorOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  estimatorOptionSelected: {
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+  },
+  estimatorRadio: {
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: Colors.borderStrong,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+  },
+  estimatorRadioSelected: {
+    borderColor: Colors.brandPrimary,
+  },
+  estimatorRadioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.brandPrimary,
+  },
+  estimatorOptionText: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  estimatorOptionTextSelected: {
+    color: Colors.brandPrimary,
+  },
+  estimatorResultCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    padding: 14,
+    gap: 10,
+  },
+  estimatorResultTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  estimatorResultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  estimatorResultLabel: {
+    flex: 1,
+    color: Colors.textSecondary,
+    fontSize: 13,
+  },
+  estimatorResultValue: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  estimatorMissingText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  estimatorNoticeCard: {
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceSecondary,
+    padding: 14,
+  },
+  estimatorNoticeText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
   },
   langBtn: {
     flex: 1,
@@ -1133,7 +1995,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 20,
   },
   saveButtonDisabled: {
     opacity: 0.6,
@@ -1152,8 +2013,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 16,
-    marginTop: 24,
-    marginBottom: 24,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -1315,6 +2174,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: 16,
     gap: 10,
+  },
+  tutorialSectionGroup: {
+    marginTop: 12,
   },
   appInfoRow: {
     flexDirection: 'row',
