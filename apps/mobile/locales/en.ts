@@ -456,6 +456,16 @@ export const en: MobileTranslations = {
       updatesTitle: 'Updates and release notes',
       updatesBody: 'Use this area to check for app updates and review recent release notes so you can quickly see what changed.',
     },
+    planEdit: {
+      basicsTitle: 'Plan basics',
+      basicsBody: 'This area gathers the plan name, distance, elevation, pace, fatigue, and hourly nutrition targets. Start here before fine-tuning aid stations.',
+      summaryTitle: 'Quick summary',
+      summaryBody: 'This block gives you a fast overview of estimated time, average pace, aid stations, and the intake already planned.',
+      aidStationsTitle: 'Aid stations and sections',
+      aidStationsBody: 'Here you refine each aid station, the products you carry, auto-fill, and each section between refueling points.',
+      saveTitle: 'Save changes',
+      saveBody: 'This button saves your edits and takes you back to the plans list. The app also keeps a draft while you are editing so you do not lose your work.',
+    },
   },
   raceRequests: {
     triggerLabel: 'Request a race to be added',

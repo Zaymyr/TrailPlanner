@@ -20,7 +20,7 @@ import Svg, { Defs, Mask, Rect } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { SpotlightRect, TutorialStep, type SpotlightPlacement } from '../../lib/helpTutorial';
 
-type MeasurableTarget = {
+export type TutorialMeasurableTarget = {
   measureLayout: (
     relativeToNativeComponentRef: number | NativeMethods,
     onSuccess: (x: number, y: number, width: number, height: number) => void,
@@ -51,7 +51,7 @@ type SpotlightTutorialProps<TTargetKey extends string = string> = {
 type TutorialTargetProps<TTargetKey extends string = string> = {
   children: React.ReactNode;
   onMeasure: (targetKey: TTargetKey, layout: LayoutRectangle) => void;
-  onRegisterRef?: (targetKey: TTargetKey, ref: MeasurableTarget) => void;
+  onRegisterRef?: (targetKey: TTargetKey, ref: TutorialMeasurableTarget) => void;
   style?: StyleProp<ViewStyle>;
   targetKey: TTargetKey;
 };

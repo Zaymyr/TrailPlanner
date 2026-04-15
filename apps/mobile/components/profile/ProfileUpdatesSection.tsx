@@ -10,7 +10,6 @@ type InfoRow = {
 
 type ProfileUpdatesSectionProps = {
   adminRows: InfoRow[];
-  buildText?: string | null;
   changelogButtonLabel: string;
   checkingUpdates?: boolean;
   emergencyLaunchMessage?: string | null;
@@ -25,7 +24,6 @@ type ProfileUpdatesSectionProps = {
 
 function ProfileUpdatesSectionComponent({
   adminRows,
-  buildText,
   changelogButtonLabel,
   checkingUpdates = false,
   emergencyLaunchMessage,
@@ -42,7 +40,6 @@ function ProfileUpdatesSectionComponent({
       <View style={styles.card}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.versionText}>{versionText}</Text>
-        {buildText ? <Text style={styles.buildText}>{buildText}</Text> : null}
 
         {adminRows.map((row) => (
           <View key={`${row.label}-${row.value}`} style={styles.infoRow}>
@@ -105,11 +102,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 20,
     fontWeight: '800',
-  },
-  buildText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',

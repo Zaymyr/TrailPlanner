@@ -462,6 +462,20 @@ export const fr: MobileTranslations = {
       updatesBody:
         "Cette section te permet de v\u00e9rifier les mises \u00e0 jour disponibles et de relire les nouveaut\u00e9s r\u00e9centes pour comprendre ce qui a chang\u00e9 dans l'app.",
     },
+    planEdit: {
+      basicsTitle: 'Bases du plan',
+      basicsBody:
+        "Tu ajustes ici les r\u00e9glages de d\u00e9part du plan: nom, distance, d\u00e9nivel\u00e9, allure, fatigue et cibles nutrition. C'est la base avant d'affiner les ravitos.",
+      summaryTitle: 'R\u00e9sum\u00e9 rapide',
+      summaryBody:
+        "Ce bloc te donne une vue d'ensemble imm\u00e9diate du temps estim\u00e9, de l'allure moyenne, du nombre de ravitos et des apports d\u00e9j\u00e0 pr\u00e9vus.",
+      aidStationsTitle: 'Ravitos et sections',
+      aidStationsBody:
+        "Ici tu d\u00e9tailles chaque ravito, les produits emport\u00e9s, l'auto-remplissage et les sections entre points de ravitaillement pour construire ton plan.",
+      saveTitle: 'Enregistrer les modifications',
+      saveBody:
+        "Ce bouton finalise la sauvegarde puis te ram\u00e8ne vers la liste des plans. Pendant l'\u00e9dition, l'app garde aussi un brouillon pour \u00e9viter de perdre ton travail.",
+    },
   },
   raceRequests: {
     triggerLabel: "Demander l'ajout d'une course",

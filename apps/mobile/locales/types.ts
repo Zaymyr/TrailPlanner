@@ -454,6 +454,16 @@ export type MobileTranslations = {
       updatesTitle: string;
       updatesBody: string;
     };
+    planEdit: {
+      basicsTitle: string;
+      basicsBody: string;
+      summaryTitle: string;
+      summaryBody: string;
+      aidStationsTitle: string;
+      aidStationsBody: string;
+      saveTitle: string;
+      saveBody: string;
+    };
   };
   raceRequests: {
     triggerLabel: string;

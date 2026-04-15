@@ -1,4 +1,4 @@
-export type HelpTutorialScreenKey = 'profile';
+export type HelpTutorialScreenKey = 'profile' | 'planEdit';
 
 export type SpotlightPlacement = 'auto' | 'top' | 'bottom';
 

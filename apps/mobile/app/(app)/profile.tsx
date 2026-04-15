@@ -313,8 +313,10 @@ export default function ProfileScreen() {
             <TutorialTarget onMeasure={registerTutorialTarget} targetKey="updates">
               <ProfileUpdatesSection
                 title={t.profile.updatesSectionTitle}
-                versionText={t.profile.versionLabel.replace('{version}', appVersion)}
-                buildText={updatesAdminRows.length ? t.profile.buildLabel.replace('{build}', appBuild) : null}
+                versionText={t.profile.versionLabel.replace(
+                  '{version}',
+                  updatesAdminRows.length ? `${appVersion} (${appBuild})` : appVersion,
+                )}
                 adminRows={updatesAdminRows}
                 rows={updatesRows}
                 emergencyLaunchMessage={emergencyLaunchMessage}

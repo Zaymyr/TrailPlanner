@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Alert, TouchableOpacity, AppState } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../lib/supabase';
 import { AppHeaderTitle } from '../../../../components/navigation/AppHeaderTitle';
 import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';
+import { FeedbackHeaderButton } from '../../../../components/feedback/FeedbackHeaderButton';
+import { HelpHeaderButton } from '../../../../components/help/HelpHeaderButton';
+import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
 import { PlanLoadingScreen } from '../../../../components/PlanLoadingScreen';
 import { Colors } from '../../../../constants/colors';
+import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
+import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
 import { getCurrentUserLatestAccessiblePlanId } from '../../../../lib/planAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
@@ -91,6 +96,45 @@ export default function EditPlanScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { t } = useI18n();
+  const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
+    () => [
+      {
+        screenKey: 'planEdit',
+        targetKey: 'basics',
+        title: t.helpTutorial.planEdit.basicsTitle,
+        body: t.helpTutorial.planEdit.basicsBody,
+        highlightPadding: 8,
+        highlightRadius: 16,
+        placement: 'bottom',
+      },
+      {
+        screenKey: 'planEdit',
+        targetKey: 'summary',
+        title: t.helpTutorial.planEdit.summaryTitle,
+        body: t.helpTutorial.planEdit.summaryBody,
+        highlightPadding: 8,
+        highlightRadius: 16,
+      },
+      {
+        screenKey: 'planEdit',
+        targetKey: 'aidStations',
+        title: t.helpTutorial.planEdit.aidStationsTitle,
+        body: t.helpTutorial.planEdit.aidStationsBody,
+        highlightPadding: 8,
+        highlightRadius: 18,
+      },
+      {
+        screenKey: 'planEdit',
+        targetKey: 'save',
+        title: t.helpTutorial.planEdit.saveTitle,
+        body: t.helpTutorial.planEdit.saveBody,
+        highlightPadding: 8,
+        highlightRadius: 999,
+        placement: 'top',
+      },
+    ],
+    [t.helpTutorial],
+  );
   const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
   const [planName, setPlanName] = useState('');
   const [loadedPlanId, setLoadedPlanId] = useState<string | null>(null);
@@ -112,6 +156,23 @@ export default function EditPlanScreen() {
   const activeRouteIdRef = useRef<string | null>(id ?? null);
   const loadRequestIdRef = useRef(0);
   const router = useRouter();
+  const {
+    handleTutorialClose,
+    handleTutorialNext,
+    handleTutorialPrevious,
+    handleTutorialScrollEvent,
+    handleTutorialScrollSettled,
+    registerTutorialTarget,
+    registerTutorialTargetRef,
+    rootRef,
+    scrollRef,
+    setTutorialContentHeight,
+    setTutorialViewport,
+    tutorialStepIndex,
+    tutorialTargetRect,
+    tutorialViewport,
+    tutorialVisible,
+  } = usePlanEditTutorial({ steps: tutorialSteps });
 
   useEffect(() => {
     elevationProfileRef.current = elevationProfile;
@@ -509,7 +570,17 @@ export default function EditPlanScreen() {
   }
 
   return (
-    <>
+    <View
+      ref={rootRef}
+      collapsable={false}
+      onLayout={(event) =>
+        setTutorialViewport({
+          width: event.nativeEvent.layout.width,
+          height: event.nativeEvent.layout.height,
+        })
+      }
+      style={styles.screen}
+    >
       <Stack.Screen
         options={{
           headerTitleAlign: 'left',
@@ -523,6 +594,12 @@ export default function EditPlanScreen() {
             >
               <Ionicons name="chevron-back" size={26} color={Colors.textPrimary} />
             </TouchableOpacity>
+          ),
+          headerRight: () => (
+            <FeedbackHeaderButton
+              contextLabel={t.plans.title}
+              leading={<HelpHeaderButton screenKey="planEdit" />}
+            />
           ),
         }}
       />
@@ -550,12 +627,40 @@ export default function EditPlanScreen() {
         productData={planProductData}
         compactBasicsByDefault
         onMissingFavoriteProducts={handleMissingFavoriteProducts}
+        tutorial={{
+          scrollRef,
+          onContentSizeChange: setTutorialContentHeight,
+          onScroll: handleTutorialScrollEvent,
+          onScrollSettled: handleTutorialScrollSettled,
+          onTargetMeasure: registerTutorialTarget,
+          onTargetRegisterRef: registerTutorialTargetRef,
+        }}
       />
-    </>
+      <SpotlightTutorial
+        activeStepIndex={tutorialStepIndex}
+        closeLabel={t.helpTutorial.close}
+        doneLabel={t.helpTutorial.done}
+        loadingLabel={t.helpTutorial.loadingTarget}
+        nextLabel={t.helpTutorial.next}
+        onClose={handleTutorialClose}
+        onNext={handleTutorialNext}
+        onPrevious={handleTutorialPrevious}
+        previousLabel={t.helpTutorial.previous}
+        steps={tutorialSteps}
+        targetRect={tutorialTargetRect}
+        viewportHeight={tutorialViewport.height}
+        viewportWidth={tutorialViewport.width}
+        visible={tutorialVisible}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   center: {
     flex: 1,
     justifyContent: 'center',

@@ -838,10 +838,14 @@ export const styles = StyleSheet.create({
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: Colors.textOnBrand, fontSize: 17, fontWeight: '700' },
   saveSpacer: { height: 88 },
-  floatingSaveButton: {
+  floatingSaveButtonAnchor: {
     position: 'absolute',
     right: 20,
     bottom: 24,
+    width: 56,
+    height: 56,
+  },
+  floatingSaveButton: {
     backgroundColor: Colors.brandPrimary,
     borderRadius: 999,
     width: 56,

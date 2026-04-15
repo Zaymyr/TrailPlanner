@@ -1,7 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  TouchableOpacity,
+  View,
+  type LayoutRectangle,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { TutorialTarget, type TutorialMeasurableTarget } from './help/SpotlightTutorial';
 import { useI18n } from '../lib/i18n';
 import { AidStationsSectionV3 as AidStationsSection } from './plan-form/AidStationsSectionV3';
 import {
@@ -41,6 +51,7 @@ import {
   buildContinuousSections,
   buildSectionTimelineFromContinuous,
 } from '../lib/continuousNutrition';
+import type { PlanEditTutorialTargetKey } from '../hooks/usePlanEditTutorial';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };
 export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset };
@@ -57,6 +68,14 @@ type Props = {
   elevationProfile?: ElevationPoint[];
   compactBasicsByDefault?: boolean;
   onMissingFavoriteProducts?: () => void;
+  tutorial?: {
+    scrollRef: React.MutableRefObject<ScrollView | null>;
+    onContentSizeChange: (height: number) => void;
+    onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    onScrollSettled: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+    onTargetMeasure: (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => void;
+    onTargetRegisterRef: (targetKey: PlanEditTutorialTargetKey, ref: TutorialMeasurableTarget) => void;
+  };
 };
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
@@ -85,6 +104,7 @@ export default function PlanForm({
   elevationProfile = [],
   compactBasicsByDefault = false,
   onMissingFavoriteProducts,
+  tutorial,
 }: Props) {
   const { t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
@@ -409,94 +429,145 @@ export default function PlanForm({
     });
   };
 
+  const handleTutorialTargetMeasure = useCallback(
+    (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => {
+      if (targetKey === 'aidStations') {
+        aidStationsSectionYRef.current = layout.y;
+      }
+
+      tutorial?.onTargetMeasure(targetKey, layout);
+    },
+    [tutorial],
+  );
+
+  const setScrollRefs = useCallback(
+    (node: ScrollView | null) => {
+      mainScrollRef.current = node;
+
+      if (tutorial) {
+        tutorial.scrollRef.current = node;
+      }
+    },
+    [tutorial],
+  );
+
   return (
     <>
       <ScrollView
-        ref={mainScrollRef}
+        ref={setScrollRefs}
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
+        onContentSizeChange={(_, height) => tutorial?.onContentSizeChange(height)}
         onScroll={(event) => {
           mainScrollYRef.current = event.nativeEvent.contentOffset.y;
+          tutorial?.onScroll(event);
         }}
+        onMomentumScrollEnd={tutorial?.onScrollSettled}
+        onScrollEndDrag={tutorial?.onScrollSettled}
       >
-        <PlanBasicsSection
-          values={values}
-          expandedSections={expandedSections}
-          toggleSection={toggleSection}
-          update={update}
-          hasSectionTimingOverrides={hasSectionTimingOverrides}
-          onResetSectionTimingOverrides={resetSectionTimingOverrides}
-          NumberInput={NumberInput}
-          waterBagOptions={WATER_BAG_OPTIONS}
-        />
-
-        <PlanHighlightsSection
-          expanded={expandedSections.summary}
-          onToggle={() => toggleSection('summary')}
-          totalDurationLabel={highlights.totalDurationLabel}
-          paceLabel={paceLabel}
-          intermediateCount={highlights.intermediateCount}
-          plannedCarbsG={highlights.plannedCarbsG}
-          plannedSodiumMg={highlights.plannedSodiumMg}
-          productBreakdown={highlights.productBreakdown}
-        />
-
-        <View
-          onLayout={(event) => {
-            aidStationsSectionYRef.current = event.nativeEvent.layout.y;
-          }}
+        <TutorialTarget
+          onMeasure={handleTutorialTargetMeasure}
+          onRegisterRef={tutorial?.onTargetRegisterRef}
+          targetKey="basics"
         >
-          <AidStationsSection
-            values={values}
-            basePaceMinutesPerKm={basePaceMinutesPerKm}
-            departId={DEPART_ID}
-            arriveeId={ARRIVEE_ID}
-            expandedStations={expandedStations}
-            toggleStation={toggleStation}
-            setEditingStation={setEditingStation}
-            removeAidStation={removeAidStation}
-            addAidStation={addAidStation}
-            fillSuppliesAuto={fillSuppliesAuto}
-            isPremium={isPremium}
-            intermediateCount={highlights.intermediateCount}
-            getSupplies={getSupplies}
-            openPicker={openPicker}
-            increaseQty={handleIncreaseQty}
-            decreaseQty={handleDecreaseQty}
-            removeSupply={handleRemoveSupply}
-            productMap={productMap}
-            fuelLabels={FUEL_LABELS}
-            getGaugeMetrics={getGaugeMetricsForTarget}
-            getGaugeColor={getGaugeColor}
-            formatGaugeValue={formatGaugeValue}
-            getSectionSummary={getSectionSummaryForTarget}
-            getSectionIntakeTimeline={getSectionIntakeTimeline}
-            getGaugeAnimateSignal={getGaugeAnimateSignal}
-            getSectionSegmentControls={getSectionSegmentControls}
-            onSplitSectionSegment={splitSectionSegment}
-            onRemoveSectionSegment={removeSectionSegment}
-            onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
-            onNestedScrollInteractionStart={alignAidStationsSection}
-          />
-        </View>
+          <View>
+            <PlanBasicsSection
+              values={values}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              update={update}
+              hasSectionTimingOverrides={hasSectionTimingOverrides}
+              onResetSectionTimingOverrides={resetSectionTimingOverrides}
+              NumberInput={NumberInput}
+              waterBagOptions={WATER_BAG_OPTIONS}
+            />
+          </View>
+        </TutorialTarget>
+
+        <TutorialTarget
+          onMeasure={handleTutorialTargetMeasure}
+          onRegisterRef={tutorial?.onTargetRegisterRef}
+          targetKey="summary"
+        >
+          <View>
+            <PlanHighlightsSection
+              expanded={expandedSections.summary}
+              onToggle={() => toggleSection('summary')}
+              totalDurationLabel={highlights.totalDurationLabel}
+              paceLabel={paceLabel}
+              intermediateCount={highlights.intermediateCount}
+              plannedCarbsG={highlights.plannedCarbsG}
+              plannedSodiumMg={highlights.plannedSodiumMg}
+              productBreakdown={highlights.productBreakdown}
+            />
+          </View>
+        </TutorialTarget>
+
+        <TutorialTarget
+          onMeasure={handleTutorialTargetMeasure}
+          onRegisterRef={tutorial?.onTargetRegisterRef}
+          targetKey="aidStations"
+        >
+          <View>
+            <AidStationsSection
+              values={values}
+              basePaceMinutesPerKm={basePaceMinutesPerKm}
+              departId={DEPART_ID}
+              arriveeId={ARRIVEE_ID}
+              expandedStations={expandedStations}
+              toggleStation={toggleStation}
+              setEditingStation={setEditingStation}
+              removeAidStation={removeAidStation}
+              addAidStation={addAidStation}
+              fillSuppliesAuto={fillSuppliesAuto}
+              isPremium={isPremium}
+              intermediateCount={highlights.intermediateCount}
+              getSupplies={getSupplies}
+              openPicker={openPicker}
+              increaseQty={handleIncreaseQty}
+              decreaseQty={handleDecreaseQty}
+              removeSupply={handleRemoveSupply}
+              productMap={productMap}
+              fuelLabels={FUEL_LABELS}
+              getGaugeMetrics={getGaugeMetricsForTarget}
+              getGaugeColor={getGaugeColor}
+              formatGaugeValue={formatGaugeValue}
+              getSectionSummary={getSectionSummaryForTarget}
+              getSectionIntakeTimeline={getSectionIntakeTimeline}
+              getGaugeAnimateSignal={getGaugeAnimateSignal}
+              getSectionSegmentControls={getSectionSegmentControls}
+              onSplitSectionSegment={splitSectionSegment}
+              onRemoveSectionSegment={removeSectionSegment}
+              onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
+              onNestedScrollInteractionStart={alignAidStationsSection}
+            />
+          </View>
+        </TutorialTarget>
 
         <View style={styles.saveSpacer} />
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={loading}
-        activeOpacity={0.9}
+      <TutorialTarget
+        onMeasure={handleTutorialTargetMeasure}
+        onRegisterRef={tutorial?.onTargetRegisterRef}
+        style={styles.floatingSaveButtonAnchor}
+        targetKey="save"
       >
-        {loading ? (
-          <ActivityIndicator color={Colors.textOnBrand} />
-        ) : (
-          <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={loading}
+          activeOpacity={0.9}
+        >
+          {loading ? (
+            <ActivityIndicator color={Colors.textOnBrand} />
+          ) : (
+            <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
+          )}
+        </TouchableOpacity>
+      </TutorialTarget>
 
       <ProductPickerModal
         visible={pickerTarget !== null}
