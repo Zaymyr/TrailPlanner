@@ -11,6 +11,7 @@ import { RaceSelector } from '../../../components/RaceSelector';
 import { Colors } from '../../../constants/colors';
 import { usePremium } from '../../../hooks/usePremium';
 import { useI18n } from '../../../lib/i18n';
+import { ensureAppSession } from '../../../lib/appSession';
 import { noteReviewPlanCreated } from '../../../lib/appReview';
 import { currentUserHasReachedFreePlanLimit, FREE_PLAN_LIMIT } from '../../../lib/planAccess';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
@@ -122,8 +123,8 @@ export default function NewPlanScreen() {
       setLoadingPlanName(race.name);
       setLoadingProgress(0.9);
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const uid = sessionData?.session?.user?.id;
+      const session = await ensureAppSession();
+      const uid = session?.user?.id;
 
       if (!uid) {
         setLoading(false);
@@ -162,9 +163,9 @@ export default function NewPlanScreen() {
     setLoadingProgress(0.12);
     setLoadingPlanName(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData?.session?.user?.id ?? null;
-    setUserId(uid);
+      const session = await ensureAppSession();
+      const uid = session?.user?.id ?? null;
+      setUserId(uid);
 
     let defaultPlanValues = DEFAULT_PLAN_VALUES;
     if (uid) {

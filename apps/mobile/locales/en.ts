@@ -293,6 +293,13 @@ export const en: MobileTranslations = {
   },
   auth: {
     loginSubtitle: 'Sign in',
+    guestLoginSubtitle: 'Save my guest progress',
+    guestSignUpSubtitle: 'Create my permanent account',
+    guestModeTitle: 'Guest mode is active',
+    guestLoginHint:
+      'Create a real account or link Google / Apple to keep what you already prepared. If you sign in to an older existing account, the current guest session will be replaced.',
+    guestSignUpHint:
+      'This converts your current guest account into a real account so you keep your data. If email verification is enabled, the password will be finalized automatically after you validate the email link.',
     emailPlaceholder: 'Email',
     passwordPlaceholder: 'Password',
     loginCta: 'Sign in',
@@ -312,7 +319,10 @@ export const en: MobileTranslations = {
     alreadyAccount: 'Already have an account?',
     loginLink: 'Sign in',
     accountCreated: 'Account created!',
+    guestAccountCreated: 'Guest account converted!',
     verifyEmail: 'Check your email to confirm your account, then sign in.',
+    guestVerifyEmail:
+      'Check your email to finish the conversion. Then come back to the app on this device so we can finalize the password automatically.',
     noOauthUrl: 'No OAuth URL returned',
   },
   onboarding: {
@@ -458,11 +468,15 @@ export const en: MobileTranslations = {
     },
     planEdit: {
       basicsTitle: 'Plan basics',
-      basicsBody: 'This area gathers the plan name, distance, elevation, pace, fatigue, and hourly nutrition targets. Start here before fine-tuning aid stations.',
+      basicsBody: 'This area covers the main plan setup. Course is for name, distance, and elevation. Pace is for your base speed and fatigue. Nutrition is for hourly targets that later guide the aid-station planning.',
       summaryTitle: 'Quick summary',
-      summaryBody: 'This block gives you a fast overview of estimated time, average pace, aid stations, and the intake already planned.',
+      summaryBody: 'This block gives you a fast overview of estimated time, average pace, aid stations, and the intake already planned. It helps you quickly check whether the plan still looks coherent before refining details.',
+      viewsTitle: 'Aid stations, Sections, Profile',
+      viewsBody: 'In this area, Aid stations is for each refueling point and the products you carry. Sections shows needs between two points. Profile lets you fine-tune pace across route segments.',
+      autoFillTitle: 'Auto-fill feature',
+      autoFillBody: 'The Auto-fill button tries to distribute your intake automatically across the plan. It relies on your hourly targets and especially on your favorite products from the Nutrition tab. Without favorite products or usable products, there is almost nothing for it to distribute.',
       aidStationsTitle: 'Aid stations and sections',
-      aidStationsBody: 'Here you refine each aid station, the products you carry, auto-fill, and each section between refueling points.',
+      aidStationsBody: 'Here you refine each aid station, the quantities, the products you carry, and the pauses. The more precisely you fill this area, the more useful the carb, sodium, and water calculations become.',
       saveTitle: 'Save changes',
       saveBody: 'This button saves your edits and takes you back to the plans list. The app also keeps a draft while you are editing so you do not lose your work.',
     },

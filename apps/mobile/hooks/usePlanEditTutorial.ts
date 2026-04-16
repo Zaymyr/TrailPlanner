@@ -19,7 +19,12 @@ const TUTORIAL_MIN_BOTTOM_SPACE = 352;
 const TUTORIAL_SCROLL_THRESHOLD = 4;
 const TUTORIAL_SCROLL_FALLBACK_MS = 420;
 
-export type PlanEditTutorialTargetKey = 'basics' | 'summary' | 'aidStations' | 'save';
+export type PlanEditTutorialTargetKey =
+  | 'basics'
+  | 'summary'
+  | 'autoFill'
+  | 'views'
+  | 'aidStations';
 
 type PendingTutorialScroll = {
   targetKey: PlanEditTutorialTargetKey;
@@ -47,9 +52,7 @@ export function usePlanEditTutorial({ steps }: UsePlanEditTutorialParams) {
 
   const currentTutorialTargetKey = steps[tutorialStepIndex]?.targetKey ?? null;
 
-  const isScrollableTarget = useCallback((targetKey: PlanEditTutorialTargetKey) => {
-    return targetKey !== 'save';
-  }, []);
+  const isScrollableTarget = useCallback((_targetKey: PlanEditTutorialTargetKey) => true, []);
 
   const registerTutorialTarget = useCallback(
     (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => {

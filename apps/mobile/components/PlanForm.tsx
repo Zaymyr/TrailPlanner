@@ -79,6 +79,12 @@ type Props = {
 };
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
+const AUTO_FILL_LOADING_MESSAGES = [
+  'Analyse du parcours...',
+  'Dosage des ravitos...',
+  'Optimisation gourmande...',
+] as const;
+const AUTO_FILL_MIN_LOADING_MS = 2400;
 
 function getTargetCacheKey(target: PlanTarget) {
   return target === 'start' ? 'start' : String(target);
@@ -119,10 +125,13 @@ export default function PlanForm({
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
   const [gaugeAnimateSignals, setGaugeAnimateSignals] = useState<Record<string, number>>({});
   const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [autoFillLoadingMessage, setAutoFillLoadingMessage] = useState<string>(AUTO_FILL_LOADING_MESSAGES[0]);
   const mainScrollRef = useRef<ScrollView>(null);
   const mainScrollYRef = useRef(0);
   const aidStationsSectionYRef = useRef(0);
   const lastAidStationsAlignAtRef = useRef(0);
+  const autoFillMessageIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   void saveLabel;
 
@@ -138,7 +147,22 @@ export default function PlanForm({
     setEditingStation(null);
     setGaugeAnimateSignals({});
     setShowPremiumUpsell(false);
+    setIsAutoFilling(false);
+    setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[0]);
   }, [compactBasicsByDefault, initialValues]);
+
+  const clearAutoFillLoadingInterval = useCallback(() => {
+    if (autoFillMessageIntervalRef.current) {
+      clearInterval(autoFillMessageIntervalRef.current);
+      autoFillMessageIntervalRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearAutoFillLoadingInterval();
+    };
+  }, [clearAutoFillLoadingInterval]);
 
   const openPremiumUpsell = useCallback(() => {
     setShowPremiumUpsell(true);
@@ -201,7 +225,7 @@ export default function PlanForm({
     decreaseQty,
     removeSupply,
     addSupplyToStation,
-    addAidStation,
+    createAidStation,
     fillSuppliesAuto,
     removeAidStation,
   } = usePlanSupplies({
@@ -403,15 +427,87 @@ export default function PlanForm({
 
   const handleEditSave = () => {
     if (!editingStation) return;
+
+    const trimmedName = editingStation.name.trim();
     const km = parseFloat(editingStation.km.replace(',', '.'));
     const pauseMinutes = parseFloat(editingStation.pauseMinutes.replace(',', '.'));
+
+    const nextDistanceKm = Number.isNaN(km) ? 0 : km;
+    const nextPauseMinutes = Number.isNaN(pauseMinutes) ? 0 : Math.max(0, pauseMinutes);
+    const fallbackName =
+      editingStation.mode === 'create'
+        ? `Ravito ${values.aidStations.filter((station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID).length + 1}`
+        : values.aidStations[editingStation.index]?.name ?? 'Ravito';
+    const nextName = trimmedName || fallbackName;
+
+    if (editingStation.mode === 'create') {
+      createAidStation({
+        name: nextName,
+        distanceKm: nextDistanceKm,
+        waterRefill: true,
+        pauseMinutes: nextPauseMinutes,
+        supplies: [],
+      });
+      setEditingStation(null);
+      return;
+    }
+
     updateAidStation(editingStation.index, {
-      name: editingStation.name,
-      distanceKm: Number.isNaN(km) ? 0 : km,
-      pauseMinutes: Number.isNaN(pauseMinutes) ? 0 : Math.max(0, pauseMinutes),
+      name: nextName,
+      distanceKm: nextDistanceKm,
+      pauseMinutes: nextPauseMinutes,
     });
     setEditingStation(null);
   };
+
+  const handleAddAidStationPress = useCallback(() => {
+    const intermediates = values.aidStations.filter(
+      (station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID,
+    );
+    const lastIntermediate = intermediates[intermediates.length - 1];
+    const arriveeKm = values.raceDistanceKm;
+    const fromKm = lastIntermediate ? lastIntermediate.distanceKm : 0;
+    const rawKm = (fromKm + arriveeKm) / 2;
+    const suggestedKm = arriveeKm > 0 ? Math.min(Math.round(rawKm * 10) / 10, arriveeKm - 0.1) : 10;
+
+    setEditingStation({
+      mode: 'create',
+      index: -1,
+      name: `Ravito ${intermediates.length + 1}`,
+      km: suggestedKm > 0 ? String(suggestedKm) : '10',
+      pauseMinutes: '0',
+    });
+  }, [values.aidStations, values.raceDistanceKm]);
+
+  const handleFillSuppliesAuto = useCallback(async () => {
+    if (!isPremium) {
+      void Promise.resolve(fillSuppliesAuto());
+      return;
+    }
+
+    if (isAutoFilling) return;
+
+    let messageIndex = 0;
+    setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[messageIndex]);
+    setIsAutoFilling(true);
+    clearAutoFillLoadingInterval();
+
+    autoFillMessageIntervalRef.current = setInterval(() => {
+      messageIndex = (messageIndex + 1) % AUTO_FILL_LOADING_MESSAGES.length;
+      setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[messageIndex]);
+    }, 850);
+
+    try {
+      await Promise.all([
+        Promise.resolve(fillSuppliesAuto()),
+        new Promise((resolve) => setTimeout(resolve, AUTO_FILL_MIN_LOADING_MS)),
+      ]);
+    } finally {
+      clearAutoFillLoadingInterval();
+      setIsAutoFilling(false);
+      setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[0]);
+    }
+  }, [clearAutoFillLoadingInterval, fillSuppliesAuto, isAutoFilling, isPremium]);
 
   const handleSave = () => {
     if (!values.name.trim()) {
@@ -431,8 +527,14 @@ export default function PlanForm({
 
   const handleTutorialTargetMeasure = useCallback(
     (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => {
-      if (targetKey === 'aidStations') {
-        aidStationsSectionYRef.current = layout.y;
+      if (targetKey === 'aidStations' || targetKey === 'views' || targetKey === 'autoFill') {
+        const normalizedLayout = {
+          ...layout,
+          y: layout.y + aidStationsSectionYRef.current,
+        };
+
+        tutorial?.onTargetMeasure(targetKey, normalizedLayout);
+        return;
       }
 
       tutorial?.onTargetMeasure(targetKey, layout);
@@ -505,69 +607,70 @@ export default function PlanForm({
           </View>
         </TutorialTarget>
 
-        <TutorialTarget
-          onMeasure={handleTutorialTargetMeasure}
-          onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="aidStations"
+        <View
+          onLayout={(event) => {
+            aidStationsSectionYRef.current = event.nativeEvent.layout.y;
+          }}
         >
-          <View>
-            <AidStationsSection
-              values={values}
-              basePaceMinutesPerKm={basePaceMinutesPerKm}
-              departId={DEPART_ID}
-              arriveeId={ARRIVEE_ID}
-              expandedStations={expandedStations}
-              toggleStation={toggleStation}
-              setEditingStation={setEditingStation}
-              removeAidStation={removeAidStation}
-              addAidStation={addAidStation}
-              fillSuppliesAuto={fillSuppliesAuto}
-              isPremium={isPremium}
-              intermediateCount={highlights.intermediateCount}
-              getSupplies={getSupplies}
-              openPicker={openPicker}
-              increaseQty={handleIncreaseQty}
-              decreaseQty={handleDecreaseQty}
-              removeSupply={handleRemoveSupply}
-              productMap={productMap}
-              fuelLabels={FUEL_LABELS}
-              getGaugeMetrics={getGaugeMetricsForTarget}
-              getGaugeColor={getGaugeColor}
-              formatGaugeValue={formatGaugeValue}
-              getSectionSummary={getSectionSummaryForTarget}
-              getSectionIntakeTimeline={getSectionIntakeTimeline}
-              getGaugeAnimateSignal={getGaugeAnimateSignal}
-              getSectionSegmentControls={getSectionSegmentControls}
-              onSplitSectionSegment={splitSectionSegment}
-              onRemoveSectionSegment={removeSectionSegment}
-              onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
-              onNestedScrollInteractionStart={alignAidStationsSection}
-            />
-          </View>
-        </TutorialTarget>
+          <AidStationsSection
+            values={values}
+            basePaceMinutesPerKm={basePaceMinutesPerKm}
+            departId={DEPART_ID}
+            arriveeId={ARRIVEE_ID}
+            expandedStations={expandedStations}
+            toggleStation={toggleStation}
+            setEditingStation={setEditingStation}
+            removeAidStation={removeAidStation}
+            addAidStation={handleAddAidStationPress}
+            fillSuppliesAuto={handleFillSuppliesAuto}
+            isAutoFilling={isAutoFilling}
+            autoFillLoadingMessage={autoFillLoadingMessage}
+            isPremium={isPremium}
+            intermediateCount={highlights.intermediateCount}
+            getSupplies={getSupplies}
+            openPicker={openPicker}
+            increaseQty={handleIncreaseQty}
+            decreaseQty={handleDecreaseQty}
+            removeSupply={handleRemoveSupply}
+            productMap={productMap}
+            fuelLabels={FUEL_LABELS}
+            getGaugeMetrics={getGaugeMetricsForTarget}
+            getGaugeColor={getGaugeColor}
+            formatGaugeValue={formatGaugeValue}
+            getSectionSummary={getSectionSummaryForTarget}
+            getSectionIntakeTimeline={getSectionIntakeTimeline}
+            getGaugeAnimateSignal={getGaugeAnimateSignal}
+            getSectionSegmentControls={getSectionSegmentControls}
+            onSplitSectionSegment={splitSectionSegment}
+            onRemoveSectionSegment={removeSectionSegment}
+            onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
+            onNestedScrollInteractionStart={alignAidStationsSection}
+            tutorial={
+              tutorial
+                ? {
+                    onTargetMeasure: handleTutorialTargetMeasure,
+                    onTargetRegisterRef: tutorial.onTargetRegisterRef,
+                  }
+                : undefined
+            }
+          />
+        </View>
 
         <View style={styles.saveSpacer} />
       </ScrollView>
 
-      <TutorialTarget
-        onMeasure={handleTutorialTargetMeasure}
-        onRegisterRef={tutorial?.onTargetRegisterRef}
-        style={styles.floatingSaveButtonAnchor}
-        targetKey="save"
+      <TouchableOpacity
+        style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
+        onPress={handleSave}
+        disabled={loading}
+        activeOpacity={0.9}
       >
-        <TouchableOpacity
-          style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={loading}
-          activeOpacity={0.9}
-        >
-          {loading ? (
-            <ActivityIndicator color={Colors.textOnBrand} />
-          ) : (
-            <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
-          )}
-        </TouchableOpacity>
-      </TutorialTarget>
+        {loading ? (
+          <ActivityIndicator color={Colors.textOnBrand} />
+        ) : (
+          <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
+        )}
+      </TouchableOpacity>
 
       <ProductPickerModal
         visible={pickerTarget !== null}

@@ -3,6 +3,7 @@ import { Colors } from '../../constants/colors';
 import { styles } from './styles';
 
 export type EditingStation = {
+  mode: 'create' | 'edit';
   index: number;
   name: string;
   km: string;
@@ -16,6 +17,8 @@ type Props = {
 };
 
 export function EditStationModal({ editingStation, setEditingStation, onSave }: Props) {
+  const isCreateMode = editingStation?.mode === 'create';
+
   return (
     <Modal
       visible={editingStation !== null}
@@ -26,7 +29,9 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
       <Pressable style={styles.editModalOverlay} onPress={() => setEditingStation(null)}>
         <Pressable style={styles.editModalCard} onPress={() => {}}>
           <View style={styles.editModalHeader}>
-            <Text style={styles.editModalTitle}>Modifier le ravitaillement</Text>
+            <Text style={styles.editModalTitle}>
+              {isCreateMode ? 'Ajouter un ravitaillement' : 'Modifier le ravitaillement'}
+            </Text>
             <TouchableOpacity onPress={() => setEditingStation(null)} style={styles.pickerCloseBtn}>
               <Text style={styles.pickerCloseText}>✕</Text>
             </TouchableOpacity>
@@ -58,7 +63,9 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
             placeholderTextColor={Colors.textMuted}
           />
           <TouchableOpacity style={styles.saveButton} onPress={onSave}>
-            <Text style={styles.saveButtonText}>Enregistrer</Text>
+            <Text style={styles.saveButtonText}>
+              {isCreateMode ? 'Ajouter le ravitaillement' : 'Enregistrer'}
+            </Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>

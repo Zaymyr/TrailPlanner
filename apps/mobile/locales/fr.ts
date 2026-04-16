@@ -293,6 +293,13 @@ export const fr: MobileTranslations = {
   },
   auth: {
     loginSubtitle: 'Connexion',
+    guestLoginSubtitle: 'Sauvegarder mon compte invite',
+    guestSignUpSubtitle: 'Creer mon compte definitif',
+    guestModeTitle: 'Mode invite actif',
+    guestLoginHint:
+      "Cree un vrai compte ou lie Google / Apple pour conserver ce que tu as deja prepare. Si tu te connectes a un ancien compte existant, la session invitee actuelle sera remplacee.",
+    guestSignUpHint:
+      "On convertit ici ton compte invite actuel en vrai compte pour garder tes donnees. Si la verification email est active, le mot de passe sera finalise automatiquement apres validation du lien.",
     emailPlaceholder: 'Email',
     passwordPlaceholder: 'Mot de passe',
     loginCta: 'Se connecter',
@@ -312,7 +319,10 @@ export const fr: MobileTranslations = {
     alreadyAccount: 'Déjà un compte ?',
     loginLink: 'Se connecter',
     accountCreated: 'Compte créé !',
+    guestAccountCreated: 'Compte invité converti !',
     verifyEmail: 'Vérifie ton email pour confirmer ton compte, puis connecte-toi.',
+    guestVerifyEmail:
+      "Vérifie ton email pour finaliser la conversion. Reviens ensuite dans l'app sur cet appareil pour terminer automatiquement la configuration du mot de passe.",
     noOauthUrl: 'Aucune URL OAuth retournée',
   },
   onboarding: {
@@ -465,13 +475,19 @@ export const fr: MobileTranslations = {
     planEdit: {
       basicsTitle: 'Bases du plan',
       basicsBody:
-        "Tu ajustes ici les r\u00e9glages de d\u00e9part du plan: nom, distance, d\u00e9nivel\u00e9, allure, fatigue et cibles nutrition. C'est la base avant d'affiner les ravitos.",
+        "Tu ajustes ici les grands r\u00e9glages du plan. L'onglet Course sert au nom, \u00e0 la distance et au d\u00e9nivel\u00e9. L'onglet Allure sert \u00e0 la vitesse de base et \u00e0 la fatigue. L'onglet Nutrition sert aux cibles horaires qui guideront ensuite les ravitos.",
       summaryTitle: 'R\u00e9sum\u00e9 rapide',
       summaryBody:
-        "Ce bloc te donne une vue d'ensemble imm\u00e9diate du temps estim\u00e9, de l'allure moyenne, du nombre de ravitos et des apports d\u00e9j\u00e0 pr\u00e9vus.",
+        "Ce bloc te donne une vue d'ensemble imm\u00e9diate du temps estim\u00e9, de l'allure moyenne, du nombre de ravitos et des apports d\u00e9j\u00e0 pr\u00e9vus. Il est utile pour v\u00e9rifier rapidement si ton plan reste coh\u00e9rent avant de descendre dans le d\u00e9tail.",
+      viewsTitle: 'Ravitos, Sections, Profil',
+      viewsBody:
+        "Dans cette zone, Ravitos sert \u00e0 pr\u00e9parer chaque point de ravitaillement et les produits emport\u00e9s. Sections sert \u00e0 voir les besoins entre deux points. Profil sert \u00e0 ajuster plus finement l'allure sur les segments du parcours.",
+      autoFillTitle: 'Fonction Remplir auto',
+      autoFillBody:
+        "Le bouton Remplir auto essaye de r\u00e9partir automatiquement tes apports sur le plan. Il s'appuie sur tes cibles horaires et surtout sur tes produits favoris d\u00e9finis dans l'onglet Nutrition. Sans produits favoris ou sans produits adapt\u00e9s, cette fonction n'a presque rien \u00e0 r\u00e9partir.",
       aidStationsTitle: 'Ravitos et sections',
       aidStationsBody:
-        "Ici tu d\u00e9tailles chaque ravito, les produits emport\u00e9s, l'auto-remplissage et les sections entre points de ravitaillement pour construire ton plan.",
+        "Ici tu d\u00e9tailles chaque ravito, les quantit\u00e9s, les produits emport\u00e9s et les pauses. Plus tes ravitos sont pr\u00e9cis, plus les calculs de glucides, sodium et eau deviennent utiles dans le reste de l'\u00e9cran.",
       saveTitle: 'Enregistrer les modifications',
       saveBody:
         "Ce bouton finalise la sauvegarde puis te ram\u00e8ne vers la liste des plans. Pendant l'\u00e9dition, l'app garde aussi un brouillon pour \u00e9viter de perdre ton travail.",

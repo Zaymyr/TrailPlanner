@@ -291,6 +291,11 @@ export type MobileTranslations = {
   };
   auth: {
     loginSubtitle: string;
+    guestLoginSubtitle: string;
+    guestSignUpSubtitle: string;
+    guestModeTitle: string;
+    guestLoginHint: string;
+    guestSignUpHint: string;
     emailPlaceholder: string;
     passwordPlaceholder: string;
     loginCta: string;
@@ -310,7 +315,9 @@ export type MobileTranslations = {
     alreadyAccount: string;
     loginLink: string;
     accountCreated: string;
+    guestAccountCreated: string;
     verifyEmail: string;
+    guestVerifyEmail: string;
     noOauthUrl: string;
   };
   onboarding: {
@@ -459,6 +466,10 @@ export type MobileTranslations = {
       basicsBody: string;
       summaryTitle: string;
       summaryBody: string;
+      viewsTitle: string;
+      viewsBody: string;
+      autoFillTitle: string;
+      autoFillBody: string;
       aidStationsTitle: string;
       aidStationsBody: string;
       saveTitle: string;

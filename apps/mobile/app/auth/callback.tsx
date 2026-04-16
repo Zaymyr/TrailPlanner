@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { Session } from '@supabase/supabase-js';
+import { finalizePendingAccountConversion } from '../../lib/accountConversion';
 import { supabase } from '../../lib/supabase';
 import { ensureTrialStatusForSession } from '../../lib/trial';
 
@@ -14,6 +15,11 @@ export default function AuthCallback() {
       if (!session) {
         router.replace('/(auth)/login');
         return;
+      }
+
+      const finalizationResult = await finalizePendingAccountConversion(session);
+      if (!finalizationResult.completed && finalizationResult.reason === 'password-update-failed') {
+        console.warn('Pending account conversion could not finalize password automatically.', finalizationResult.error);
       }
 
       await ensureTrialStatusForSession(session);

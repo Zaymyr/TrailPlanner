@@ -10,8 +10,14 @@ import {
 } from 'react-native';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { Link } from 'expo-router';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import {
+  clearPendingGuestMerge,
+  getAuthRedirectUri,
+  preparePendingGuestMerge,
+} from '../../lib/accountConversion';
+import { isAnonymousSession } from '../../lib/appSession';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -33,16 +39,51 @@ function canUseNativeGoogleSignIn() {
 type GoogleSignInModule = typeof import('@react-native-google-signin/google-signin');
 type AppleAuthenticationModule = typeof import('expo-apple-authentication');
 
+function shouldFallbackToGuestMerge(error: unknown) {
+  if (!(error instanceof Error)) return false;
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes('identity') &&
+    (message.includes('already') || message.includes('linked'))
+  );
+}
+
 export default function LoginScreen() {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
   const nativeGoogleEnabled = canUseNativeGoogleSignIn();
   const [googleModule, setGoogleModule] = useState<GoogleSignInModule | null>(null);
   const [appleModule, setAppleModule] = useState<AppleAuthenticationModule | null>(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const isGuestSession = isAnonymousSession(session);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      if (mounted) {
+        setSession(data.session);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, nextSession: Session | null) => {
+      if (mounted) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -135,11 +176,37 @@ export default function LoginScreen() {
       throw new Error('Google did not return an ID token.');
     }
 
-    const { data, error: idTokenError } = await supabase.auth.signInWithIdToken({
-      provider: 'google',
+    const googleCredentials = {
+      provider: 'google' as const,
       token: idToken,
       access_token: accessToken,
-    });
+    };
+    let data;
+    let idTokenError;
+
+    if (isGuestSession) {
+      const linkResult = await supabase.auth.linkIdentity(googleCredentials);
+
+      if (!linkResult.error) {
+        await clearPendingGuestMerge();
+        data = linkResult.data;
+        idTokenError = null;
+      } else if (shouldFallbackToGuestMerge(linkResult.error)) {
+        await preparePendingGuestMerge(session);
+        const signInResult = await supabase.auth.signInWithIdToken(googleCredentials);
+        data = signInResult.data;
+        idTokenError = signInResult.error;
+        if (idTokenError) {
+          await clearPendingGuestMerge();
+        }
+      } else {
+        throw linkResult.error;
+      }
+    } else {
+      const signInResult = await supabase.auth.signInWithIdToken(googleCredentials);
+      data = signInResult.data;
+      idTokenError = signInResult.error;
+    }
 
     if (idTokenError) throw idTokenError;
 
@@ -147,18 +214,41 @@ export default function LoginScreen() {
   }
 
   async function handleBrowserGoogleLogin() {
-    const redirectUri = makeRedirectUri({
-      scheme: 'paceyourself',
-      path: 'auth/callback',
-    });
+    const redirectUri = getAuthRedirectUri();
 
-    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+    const oauthCredentials = {
+      provider: 'google' as const,
       options: {
         redirectTo: redirectUri,
         skipBrowserRedirect: true,
       },
-    });
+    };
+    let data;
+    let oauthError;
+
+    if (isGuestSession) {
+      const linkResult = await supabase.auth.linkIdentity(oauthCredentials);
+
+      if (!linkResult.error) {
+        await clearPendingGuestMerge();
+        data = linkResult.data;
+        oauthError = null;
+      } else if (shouldFallbackToGuestMerge(linkResult.error)) {
+        await preparePendingGuestMerge(session);
+        const signInResult = await supabase.auth.signInWithOAuth(oauthCredentials);
+        data = signInResult.data;
+        oauthError = signInResult.error;
+        if (oauthError) {
+          await clearPendingGuestMerge();
+        }
+      } else {
+        throw linkResult.error;
+      }
+    } else {
+      const signInResult = await supabase.auth.signInWithOAuth(oauthCredentials);
+      data = signInResult.data;
+      oauthError = signInResult.error;
+    }
 
     if (oauthError) throw oauthError;
     if (!data.url) throw new Error(t.auth.noOauthUrl);
@@ -231,10 +321,36 @@ export default function LoginScreen() {
         throw new Error('Apple did not return an identity token.');
       }
 
-      const { data, error: appleError } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
+      const appleCredentials = {
+        provider: 'apple' as const,
         token: credential.identityToken,
-      });
+      };
+      let data;
+      let appleError;
+
+      if (isGuestSession) {
+        const linkResult = await supabase.auth.linkIdentity(appleCredentials);
+
+        if (!linkResult.error) {
+          await clearPendingGuestMerge();
+          data = linkResult.data;
+          appleError = null;
+        } else if (shouldFallbackToGuestMerge(linkResult.error)) {
+          await preparePendingGuestMerge(session);
+          const signInResult = await supabase.auth.signInWithIdToken(appleCredentials);
+          data = signInResult.data;
+          appleError = signInResult.error;
+          if (appleError) {
+            await clearPendingGuestMerge();
+          }
+        } else {
+          throw linkResult.error;
+        }
+      } else {
+        const signInResult = await supabase.auth.signInWithIdToken(appleCredentials);
+        data = signInResult.data;
+        appleError = signInResult.error;
+      }
 
       if (appleError) throw appleError;
 
@@ -269,6 +385,13 @@ export default function LoginScreen() {
   async function handleLogin() {
     setError(null);
     setLoading(true);
+
+    if (isGuestSession) {
+      await preparePendingGuestMerge(session);
+    } else {
+      await clearPendingGuestMerge();
+    }
+
     const { data, error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -276,6 +399,7 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (loginError) {
+      await clearPendingGuestMerge();
       setError(loginError.message);
       return;
     }
@@ -290,7 +414,16 @@ export default function LoginScreen() {
     >
       <View style={styles.inner}>
         <Text style={styles.title}>Pace Yourself</Text>
-        <Text style={styles.subtitle}>{t.auth.loginSubtitle}</Text>
+        <Text style={styles.subtitle}>
+          {isGuestSession ? t.auth.guestLoginSubtitle : t.auth.loginSubtitle}
+        </Text>
+
+        {isGuestSession ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>{t.auth.guestModeTitle}</Text>
+            <Text style={styles.infoBody}>{t.auth.guestLoginHint}</Text>
+          </View>
+        ) : null}
 
         <TextInput
           style={styles.input}
@@ -397,6 +530,26 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
+  },
+  infoCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+  },
+  infoTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  infoBody: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   input: {
     backgroundColor: Colors.surface,

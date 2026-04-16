@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import {
+  ActivityIndicator,
   LayoutChangeEvent,
+  type LayoutRectangle,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
@@ -11,6 +13,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Colors } from '../../constants/colors';
+import { TutorialTarget, type TutorialMeasurableTarget } from '../help/SpotlightTutorial';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
@@ -27,6 +31,7 @@ import type {
 import { getGaugeTolerance } from './metrics';
 import { adjustedPaceMinutesPerKm, getElevationSlice } from './profile-utils';
 import { styles } from './styles';
+import type { PlanEditTutorialTargetKey } from '../../hooks/usePlanEditTutorial';
 
 type Props = {
   values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel'>;
@@ -39,6 +44,8 @@ type Props = {
   removeAidStation: (index: number) => void;
   addAidStation: () => void;
   fillSuppliesAuto: () => void;
+  isAutoFilling: boolean;
+  autoFillLoadingMessage: string;
   isPremium: boolean;
   intermediateCount: number;
   getSupplies: (target: PlanTarget) => { productId: string; quantity: number }[];
@@ -72,6 +79,10 @@ type Props = {
     paceAdjustmentMinutesPerKm: number | undefined,
   ) => void;
   onNestedScrollInteractionStart?: () => void;
+  tutorial?: {
+    onTargetMeasure: (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => void;
+    onTargetRegisterRef: (targetKey: PlanEditTutorialTargetKey, ref: TutorialMeasurableTarget) => void;
+  };
 };
 
 const VIEW_MODES: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
@@ -94,6 +105,8 @@ export function AidStationsSectionV3({
   removeAidStation,
   addAidStation,
   fillSuppliesAuto,
+  isAutoFilling,
+  autoFillLoadingMessage,
   isPremium,
   intermediateCount,
   getSupplies,
@@ -114,6 +127,7 @@ export function AidStationsSectionV3({
   onRemoveSectionSegment,
   onUpdateSectionSegmentPaceAdjustment,
   onNestedScrollInteractionStart,
+  tutorial,
 }: Props) {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const pageWidth = Math.max(280, windowWidth - 40);
@@ -851,6 +865,7 @@ export function AidStationsSectionV3({
                 style={styles.headerIconBtn}
                 onPress={() =>
                   setEditingStation({
+                    mode: 'edit',
                     index,
                     name: station.name,
                     km: String(station.distanceKm),
@@ -1326,43 +1341,78 @@ export function AidStationsSectionV3({
       <View style={[styles.sectionHeader, { marginTop: 24 }]}>
         <Text style={styles.sectionTitle}>Ravitaillements</Text>
         <View style={styles.sectionActions}>
-          <TouchableOpacity
-            style={[styles.fillBtn, !isPremium && styles.fillBtnPremiumLocked]}
-            onPress={fillSuppliesAuto}
+          <TutorialTarget
+            onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
+            onRegisterRef={tutorial?.onTargetRegisterRef}
+            targetKey="autoFill"
           >
-            <Text style={[styles.fillBtnText, !isPremium && styles.fillBtnTextPremiumLocked]}>
-              {isPremium ? 'Remplir' : 'Auto · Premium'}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.fillBtn,
+                !isPremium && styles.fillBtnPremiumLocked,
+                isAutoFilling && styles.fillBtnLoading,
+              ]}
+              onPress={fillSuppliesAuto}
+              disabled={isAutoFilling}
+              activeOpacity={0.88}
+            >
+              <View style={styles.fillBtnContent}>
+                {isAutoFilling ? (
+                  <>
+                    <ActivityIndicator size="small" color={Colors.textOnBrand} />
+                    <Text style={[styles.fillBtnText, styles.fillBtnTextLoading]} numberOfLines={1}>
+                      {autoFillLoadingMessage}
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={[styles.fillBtnText, !isPremium && styles.fillBtnTextPremiumLocked]}>
+                    Remplir auto
+                  </Text>
+                )}
+              </View>
+            </TouchableOpacity>
+          </TutorialTarget>
           <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
             <Text style={styles.addBtnText}>+ Ajouter</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.toggleRow}>
-        <TouchableOpacity
-          style={[styles.toggleBtn, selectedViewMode === 'stations' && styles.toggleBtnActive]}
-          onPress={() => switchViewMode('stations')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.toggleBtnText, selectedViewMode === 'stations' && styles.toggleBtnTextActive]}>Ravitos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.toggleBtn, selectedViewMode === 'sections' && styles.toggleBtnActive]}
-          onPress={() => switchViewMode('sections')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.toggleBtnText, selectedViewMode === 'sections' && styles.toggleBtnTextActive]}>Sections</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.toggleBtn, selectedViewMode === 'profile' && styles.toggleBtnActive]}
-          onPress={() => switchViewMode('profile')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.toggleBtnText, selectedViewMode === 'profile' && styles.toggleBtnTextActive]}>Profil</Text>
-        </TouchableOpacity>
-      </View>
+      <TutorialTarget
+        onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
+        onRegisterRef={tutorial?.onTargetRegisterRef}
+        targetKey="views"
+      >
+        <View style={styles.toggleRow}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, selectedViewMode === 'stations' && styles.toggleBtnActive]}
+            onPress={() => switchViewMode('stations')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.toggleBtnText, selectedViewMode === 'stations' && styles.toggleBtnTextActive]}>
+              Ravitos
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, selectedViewMode === 'sections' && styles.toggleBtnActive]}
+            onPress={() => switchViewMode('sections')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.toggleBtnText, selectedViewMode === 'sections' && styles.toggleBtnTextActive]}>
+              Sections
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, selectedViewMode === 'profile' && styles.toggleBtnActive]}
+            onPress={() => switchViewMode('profile')}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.toggleBtnText, selectedViewMode === 'profile' && styles.toggleBtnTextActive]}>
+              Profil
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </TutorialTarget>
 
       <View style={styles.scrollContextBar}>
         {renderStationBadge(contextInfo.badge, true)}
@@ -1372,46 +1422,52 @@ export function AidStationsSectionV3({
         <Text style={styles.scrollContextMeta}>{contextInfo.meta}</Text>
       </View>
 
-      <View style={[styles.swipeViewport, { height: viewportHeight }]} onLayout={handleViewportLayout}>
-        <ScrollView
-          ref={pagerRef}
-          horizontal
-          pagingEnabled
-          nestedScrollEnabled
-          bounces={false}
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScrollBeginDrag={handlePagerBeginDrag}
-          onScroll={handlePagerScroll}
-          onMomentumScrollEnd={handlePagerMomentumEnd}
-          contentOffset={initialPagerOffset}
-        >
-          {renderedPages.map(({ mode, pageIndex, shouldRender }) => (
-            <View key={`${mode}-${pageIndex}`} style={[styles.swipePage, { width: pageWidth }]}>
-              {shouldRender ? (
-                <ScrollView
-                  ref={(node) => {
-                    pageScrollRefs.current[pageIndex] = node;
-                  }}
-                  nestedScrollEnabled
-                  showsVerticalScrollIndicator
-                  keyboardShouldPersistTaps="handled"
-                  scrollEventThrottle={16}
-                  onScroll={(event) => handlePageScroll(mode, event)}
-                  onScrollBeginDrag={() => handlePageScrollBeginDrag(mode)}
-                  onScrollEndDrag={() => handlePageScrollEnd(mode)}
-                  onMomentumScrollBegin={() => handlePageScrollBeginDrag(mode)}
-                  onMomentumScrollEnd={() => handlePageScrollEnd(mode)}
-                  onContentSizeChange={(width, height) => handlePageContentSizeChange(mode, width, height)}
-                  contentContainerStyle={{ paddingBottom: bottomSpacerHeight }}
-                >
-                  {renderViewForMode(mode)}
-                </ScrollView>
-              ) : null}
-            </View>
-          ))}
-        </ScrollView>
-      </View>
+      <TutorialTarget
+        onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
+        onRegisterRef={tutorial?.onTargetRegisterRef}
+        targetKey="aidStations"
+      >
+        <View style={[styles.swipeViewport, { height: viewportHeight }]} onLayout={handleViewportLayout}>
+          <ScrollView
+            ref={pagerRef}
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            bounces={false}
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScrollBeginDrag={handlePagerBeginDrag}
+            onScroll={handlePagerScroll}
+            onMomentumScrollEnd={handlePagerMomentumEnd}
+            contentOffset={initialPagerOffset}
+          >
+            {renderedPages.map(({ mode, pageIndex, shouldRender }) => (
+              <View key={`${mode}-${pageIndex}`} style={[styles.swipePage, { width: pageWidth }]}>
+                {shouldRender ? (
+                  <ScrollView
+                    ref={(node) => {
+                      pageScrollRefs.current[pageIndex] = node;
+                    }}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
+                    keyboardShouldPersistTaps="handled"
+                    scrollEventThrottle={16}
+                    onScroll={(event) => handlePageScroll(mode, event)}
+                    onScrollBeginDrag={() => handlePageScrollBeginDrag(mode)}
+                    onScrollEndDrag={() => handlePageScrollEnd(mode)}
+                    onMomentumScrollBegin={() => handlePageScrollBeginDrag(mode)}
+                    onMomentumScrollEnd={() => handlePageScrollEnd(mode)}
+                    onContentSizeChange={(width, height) => handlePageContentSizeChange(mode, width, height)}
+                    contentContainerStyle={{ paddingBottom: bottomSpacerHeight }}
+                  >
+                    {renderViewForMode(mode)}
+                  </ScrollView>
+                ) : null}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </TutorialTarget>
     </>
   );
 }

@@ -268,6 +268,38 @@ export function usePlanSupplies({
     replaceAidStations(updatedStations, true);
   }, [replaceAidStations, values.aidStations, values.raceDistanceKm]);
 
+  const createAidStation = useCallback(
+    (station: AidStationFormItem) => {
+      const arriveeIndex = values.aidStations.findIndex((currentStation) => currentStation.id === ARRIVEE_ID);
+      const intermediateStations = values.aidStations.filter(
+        (currentStation) => currentStation.id !== DEPART_ID && currentStation.id !== ARRIVEE_ID,
+      );
+
+      const sanitizedStation: AidStationFormItem = {
+        ...station,
+        waterRefill: station.waterRefill ?? true,
+        pauseMinutes: station.pauseMinutes ?? 0,
+        supplies: station.supplies ?? [],
+      };
+
+      const insertIndex = intermediateStations.findIndex(
+        (currentStation) => currentStation.distanceKm > sanitizedStation.distanceKm,
+      );
+
+      const nextStations = [...values.aidStations];
+      const targetIndex =
+        insertIndex >= 0
+          ? Math.max(1, insertIndex + 1)
+          : arriveeIndex >= 0
+            ? arriveeIndex
+            : nextStations.length;
+
+      nextStations.splice(targetIndex, 0, sanitizedStation);
+      replaceAidStations(nextStations, true);
+    },
+    [replaceAidStations, values.aidStations],
+  );
+
   const autoGenerateAidStations = useCallback(() => {
     if (!values.raceDistanceKm || values.raceDistanceKm <= 0) {
       Alert.alert('Distance requise', "Renseigne d'abord la distance de la course.");
@@ -474,6 +506,7 @@ export function usePlanSupplies({
     removeSupply,
     addSupplyToStation,
     addAidStation,
+    createAidStation,
     autoGenerateAidStations,
     fillSuppliesAuto,
     removeAidStation,

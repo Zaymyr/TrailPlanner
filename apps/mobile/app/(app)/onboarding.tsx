@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
+  Alert,
   View,
   Text,
   TextInput,
@@ -12,34 +13,28 @@ import {
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
+import {
+  estimateHourlyTargets,
+  isValidHeightCm,
+  isValidWeightKg,
+} from '../../components/profile/profileEstimator';
+import {
+  parseComfortableFlatPace,
+  parseOptionalNonNegativeInteger,
+  WATER_BAG_OPTIONS,
+} from '../../components/profile/profileHelpers';
+import type {
+  CarbEstimatorLevel,
+  HydrationEstimatorLevel,
+  SodiumEstimatorLevel,
+} from '../../components/profile/types';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { noteReviewOnboardingCompleted } from '../../lib/appReview';
 
-const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0];
-
-function parseComfortableFlatPace(minutesInput: string, secondsInput: string): number | null {
-  const trimmedMinutes = minutesInput.trim();
-  const trimmedSeconds = secondsInput.trim();
-
-  if (!trimmedMinutes && !trimmedSeconds) return null;
-  if (!trimmedMinutes) return Number.NaN;
-
-  const minutes = Number(trimmedMinutes);
-  const seconds = trimmedSeconds ? Number(trimmedSeconds) : 0;
-
-  if (
-    !Number.isInteger(minutes) ||
-    !Number.isInteger(seconds) ||
-    minutes < 0 ||
-    seconds < 0 ||
-    seconds > 59
-  ) {
-    return Number.NaN;
-  }
-
-  const totalMinutes = minutes + seconds / 60;
-  return totalMinutes > 0 ? totalMinutes : Number.NaN;
+function sanitizeDigits(value: string, maxLength: number): string {
+  return value.replace(/\D/g, '').slice(0, maxLength);
 }
 
 function OnboardingShell({
@@ -91,13 +86,94 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
+  const [weightKg, setWeightKg] = useState('');
+  const [heightCm, setHeightCm] = useState('');
   const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
   const [comfortableFlatPaceSeconds, setComfortableFlatPaceSeconds] = useState('');
   const [utmbIndex, setUtmbIndex] = useState('');
+  const [defaultCarbsPerHour, setDefaultCarbsPerHour] = useState('');
+  const [defaultWaterPerHour, setDefaultWaterPerHour] = useState('');
+  const [defaultSodiumPerHour, setDefaultSodiumPerHour] = useState('');
+  const [showEstimatorModal, setShowEstimatorModal] = useState(false);
+  const [estimatorWeightKg, setEstimatorWeightKg] = useState('');
+  const [estimatorHeightCm, setEstimatorHeightCm] = useState('');
+  const [estimatorCarbLevel, setEstimatorCarbLevel] = useState<CarbEstimatorLevel>('moderate');
+  const [estimatorHydrationLevel, setEstimatorHydrationLevel] =
+    useState<HydrationEstimatorLevel>('normal');
+  const [estimatorSodiumLevel, setEstimatorSodiumLevel] = useState<SodiumEstimatorLevel>('normal');
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const router = useRouter();
-  const totalSteps = 4;
+  const totalSteps = 5;
+  const parsedEstimatorWeight = useMemo(
+    () => parseOptionalNonNegativeInteger(estimatorWeightKg),
+    [estimatorWeightKg],
+  );
+  const parsedEstimatorHeight = useMemo(
+    () => parseOptionalNonNegativeInteger(estimatorHeightCm),
+    [estimatorHeightCm],
+  );
+  const estimatedTargets = useMemo(() => {
+    if (!isValidWeightKg(parsedEstimatorWeight) || !isValidHeightCm(parsedEstimatorHeight)) {
+      return null;
+    }
+
+    return estimateHourlyTargets({
+      weightKg: parsedEstimatorWeight,
+      heightCm: parsedEstimatorHeight,
+      carbLevel: estimatorCarbLevel,
+      hydrationLevel: estimatorHydrationLevel,
+      sodiumLevel: estimatorSodiumLevel,
+    });
+  }, [
+    estimatorCarbLevel,
+    estimatorHydrationLevel,
+    estimatorSodiumLevel,
+    parsedEstimatorHeight,
+    parsedEstimatorWeight,
+  ]);
+  const carbEstimatorOptions = useMemo(
+    () => [
+      { value: 'beginner' as const, label: t.profile.estimatorCarbBeginner },
+      { value: 'moderate' as const, label: t.profile.estimatorCarbModerate },
+      { value: 'gels' as const, label: t.profile.estimatorCarbGels },
+      { value: 'high' as const, label: t.profile.estimatorCarbHigh },
+    ],
+    [
+      t.profile.estimatorCarbBeginner,
+      t.profile.estimatorCarbGels,
+      t.profile.estimatorCarbHigh,
+      t.profile.estimatorCarbModerate,
+    ],
+  );
+  const hydrationEstimatorOptions = useMemo(
+    () => [
+      { value: 'low' as const, label: t.profile.estimatorHydrationLow },
+      { value: 'normal' as const, label: t.profile.estimatorHydrationNormal },
+      { value: 'thirsty' as const, label: t.profile.estimatorHydrationThirsty },
+      { value: 'very_thirsty' as const, label: t.profile.estimatorHydrationVeryThirsty },
+    ],
+    [
+      t.profile.estimatorHydrationLow,
+      t.profile.estimatorHydrationNormal,
+      t.profile.estimatorHydrationThirsty,
+      t.profile.estimatorHydrationVeryThirsty,
+    ],
+  );
+  const sodiumEstimatorOptions = useMemo(
+    () => [
+      { value: 'low' as const, label: t.profile.estimatorSodiumLow },
+      { value: 'normal' as const, label: t.profile.estimatorSodiumNormal },
+      { value: 'salty' as const, label: t.profile.estimatorSodiumSalty },
+      { value: 'very_salty' as const, label: t.profile.estimatorSodiumVerySalty },
+    ],
+    [
+      t.profile.estimatorSodiumLow,
+      t.profile.estimatorSodiumNormal,
+      t.profile.estimatorSodiumSalty,
+      t.profile.estimatorSodiumVerySalty,
+    ],
+  );
   const workflowSteps = [
     {
       title: t.onboarding.workflowStep1Title,
@@ -160,7 +236,42 @@ export default function OnboardingScreen() {
     },
   ];
 
-  function validateProfileStep(): { comfortableFlatPaceMinPerKm: number | null; parsedUtmbIndex: number | null } | null {
+  function validatePersonalStep(): {
+    parsedWeightKg: number | null;
+    parsedHeightCm: number | null;
+  } | null {
+    const parsedWeightKg = parseOptionalNonNegativeInteger(weightKg);
+    if (
+      Number.isNaN(parsedWeightKg) ||
+      (parsedWeightKg !== null && (parsedWeightKg < 20 || parsedWeightKg > 250))
+    ) {
+      setProfileError(t.profile.weightInvalid);
+      return null;
+    }
+
+    const parsedHeightCm = parseOptionalNonNegativeInteger(heightCm);
+    if (
+      Number.isNaN(parsedHeightCm) ||
+      (parsedHeightCm !== null && (parsedHeightCm < 100 || parsedHeightCm > 250))
+    ) {
+      setProfileError(t.profile.heightInvalid);
+      return null;
+    }
+
+    setProfileError(null);
+    return {
+      parsedWeightKg,
+      parsedHeightCm,
+    };
+  }
+
+  function validatePerformanceStep(): {
+    comfortableFlatPaceMinPerKm: number | null;
+    parsedUtmbIndex: number | null;
+    parsedDefaultCarbsPerHour: number | null;
+    parsedDefaultWaterPerHour: number | null;
+    parsedDefaultSodiumPerHour: number | null;
+  } | null {
     const comfortableFlatPaceMinPerKm = parseComfortableFlatPace(
       comfortableFlatPaceMinutes,
       comfortableFlatPaceSeconds,
@@ -180,13 +291,36 @@ export default function OnboardingScreen() {
       return null;
     }
 
+    const parsedDefaultCarbsPerHour = parseOptionalNonNegativeInteger(defaultCarbsPerHour);
+    const parsedDefaultWaterPerHour = parseOptionalNonNegativeInteger(defaultWaterPerHour);
+    const parsedDefaultSodiumPerHour = parseOptionalNonNegativeInteger(defaultSodiumPerHour);
+    if (
+      Number.isNaN(parsedDefaultCarbsPerHour) ||
+      Number.isNaN(parsedDefaultWaterPerHour) ||
+      Number.isNaN(parsedDefaultSodiumPerHour)
+    ) {
+      setProfileError(t.profile.defaultTargetsInvalid);
+      return null;
+    }
+
     setProfileError(null);
-    return { comfortableFlatPaceMinPerKm, parsedUtmbIndex };
+    return {
+      comfortableFlatPaceMinPerKm,
+      parsedUtmbIndex,
+      parsedDefaultCarbsPerHour,
+      parsedDefaultWaterPerHour,
+      parsedDefaultSodiumPerHour,
+    };
   }
 
   async function finishOnboarding() {
-    const profileStep = validateProfileStep();
-    if (!profileStep) {
+    const personalStep = validatePersonalStep();
+    if (!personalStep) {
+      return;
+    }
+
+    const performanceStep = validatePerformanceStep();
+    if (!performanceStep) {
       return;
     }
 
@@ -200,8 +334,13 @@ export default function OnboardingScreen() {
         user_id: userId,
         full_name: fullName.trim() || null,
         water_bag_liters: waterBagLiters,
-        utmb_index: profileStep.parsedUtmbIndex,
-        comfortable_flat_pace_min_per_km: profileStep.comfortableFlatPaceMinPerKm,
+        utmb_index: performanceStep.parsedUtmbIndex,
+        comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
+        weight_kg: personalStep.parsedWeightKg,
+        height_cm: personalStep.parsedHeightCm,
+        default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
+        default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
+        default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
       });
     }
 
@@ -215,10 +354,83 @@ export default function OnboardingScreen() {
     await finishOnboarding();
   }
 
-  function handleProfileContinue() {
-    const profileStep = validateProfileStep();
-    if (!profileStep) return;
+  function handlePersonalContinue() {
+    const personalStep = validatePersonalStep();
+    if (!personalStep) return;
     setStep(3);
+  }
+
+  function handlePerformanceContinue() {
+    const performanceStep = validatePerformanceStep();
+    if (!performanceStep) return;
+    setStep(4);
+  }
+
+  function handleOpenEstimator() {
+    setEstimatorWeightKg(weightKg);
+    setEstimatorHeightCm(heightCm);
+    setShowEstimatorModal(true);
+  }
+
+  function handleApplyEstimator() {
+    if (
+      !estimatedTargets ||
+      !isValidWeightKg(parsedEstimatorWeight) ||
+      !isValidHeightCm(parsedEstimatorHeight)
+    ) {
+      Alert.alert(t.common.error, t.profile.estimatorMissingBodyMetrics);
+      return;
+    }
+
+    setWeightKg(String(parsedEstimatorWeight));
+    setHeightCm(String(parsedEstimatorHeight));
+    setDefaultCarbsPerHour(String(estimatedTargets.carbsGPerHour));
+    setDefaultWaterPerHour(String(estimatedTargets.waterMlPerHour));
+    setDefaultSodiumPerHour(String(estimatedTargets.sodiumMgPerHour));
+    setShowEstimatorModal(false);
+    setProfileError(null);
+  }
+
+  function renderEstimatorModal() {
+    return (
+      <ProfileEstimatorModal
+        visible={showEstimatorModal}
+        closeLabel={t.common.close}
+        title={t.profile.estimatorTitle}
+        subtitle={t.profile.estimatorSubtitle}
+        bodyMetricsTitle={t.profile.estimatorBodyMetricsTitle}
+        weightLabel={t.profile.weightLabel}
+        weightPlaceholder={t.profile.weightPlaceholder}
+        heightLabel={t.profile.heightLabel}
+        heightPlaceholder={t.profile.heightPlaceholder}
+        carbQuestion={t.profile.estimatorCarbQuestion}
+        hydrationQuestion={t.profile.estimatorHydrationQuestion}
+        sodiumQuestion={t.profile.estimatorSodiumQuestion}
+        carbOptions={carbEstimatorOptions}
+        hydrationOptions={hydrationEstimatorOptions}
+        sodiumOptions={sodiumEstimatorOptions}
+        selectedCarbLevel={estimatorCarbLevel}
+        selectedHydrationLevel={estimatorHydrationLevel}
+        selectedSodiumLevel={estimatorSodiumLevel}
+        estimatorWeightKg={estimatorWeightKg}
+        estimatorHeightCm={estimatorHeightCm}
+        onChangeEstimatorWeightKg={(value) => setEstimatorWeightKg(sanitizeDigits(value, 3))}
+        onChangeEstimatorHeightCm={(value) => setEstimatorHeightCm(sanitizeDigits(value, 3))}
+        onSelectCarbLevel={setEstimatorCarbLevel}
+        onSelectHydrationLevel={setEstimatorHydrationLevel}
+        onSelectSodiumLevel={setEstimatorSodiumLevel}
+        resultTitle={t.profile.estimatorResultTitle}
+        carbsLabel={t.profile.defaultCarbsPerHourLabel}
+        waterLabel={t.profile.defaultWaterPerHourLabel}
+        sodiumLabel={t.profile.defaultSodiumPerHourLabel}
+        estimatedTargets={estimatedTargets}
+        missingBodyMetricsLabel={t.profile.estimatorMissingBodyMetrics}
+        disclaimer={t.profile.estimatorDisclaimer}
+        applyLabel={t.profile.estimatorApply}
+        onApply={handleApplyEstimator}
+        onClose={() => setShowEstimatorModal(false)}
+      />
+    );
   }
 
   if (step === 0) {
@@ -301,131 +513,275 @@ export default function OnboardingScreen() {
 
   if (step === 2) {
     return (
-      <OnboardingShell step={3} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
-        <Text style={styles.title}>{t.onboarding.profileTitle}</Text>
-        <Text style={styles.subtitle}>{t.onboarding.profileSubtitle}</Text>
-        <Text style={styles.predictionHint}>{t.onboarding.predictionHint}</Text>
+      <>
+        <OnboardingShell step={3} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+          <Text style={styles.title}>{t.profile.personalSectionTitle}</Text>
+          <Text style={styles.subtitle}>{t.profile.personalSectionSubtitle}</Text>
 
-        <Text style={styles.label}>{t.onboarding.firstNameLabel}</Text>
-        <TextInput
-          style={styles.textInput}
-          value={fullName}
-          onChangeText={(value) => {
-            setFullName(value);
-            if (profileError) setProfileError(null);
-          }}
-          placeholder={t.onboarding.firstNamePlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          autoCapitalize="words"
-          textContentType="givenName"
-        />
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>{t.profile.personalSectionTitle}</Text>
+            <Text style={styles.sectionSubtitle}>{t.profile.personalSectionSubtitle}</Text>
 
-        <Text style={styles.label}>{t.onboarding.waterBagLabel}</Text>
-        <Text style={styles.labelHint}>{t.onboarding.waterBagHint}</Text>
-        <View style={styles.waterBagRow}>
-          {WATER_BAG_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt}
-              style={[styles.waterBtn, waterBagLiters === opt && styles.waterBtnActive]}
-              onPress={() => setWaterBagLiters(opt)}
-            >
-              <Text style={[styles.waterBtnText, waterBagLiters === opt && styles.waterBtnTextActive]}>
-                {opt}L
-              </Text>
+            <Text style={styles.label}>{t.onboarding.firstNameLabel}</Text>
+            <TextInput
+              style={styles.textInput}
+              value={fullName}
+              onChangeText={(value) => {
+                setFullName(value);
+                if (profileError) setProfileError(null);
+              }}
+              placeholder={t.onboarding.firstNamePlaceholder}
+              placeholderTextColor={Colors.textMuted}
+              autoCapitalize="words"
+              textContentType="givenName"
+            />
+
+            <View style={styles.bodyMetricsRow}>
+              <View style={styles.bodyMetricField}>
+                <Text style={styles.label}>{t.profile.weightLabel}</Text>
+                <View style={styles.metricInputShell}>
+                  <TextInput
+                    style={styles.metricInput}
+                    value={weightKg}
+                    onChangeText={(value) => {
+                      setWeightKg(sanitizeDigits(value, 3));
+                      if (profileError) setProfileError(null);
+                    }}
+                    placeholder={t.profile.weightPlaceholder}
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <Text style={styles.metricInputUnit}>kg</Text>
+                </View>
+              </View>
+
+              <View style={styles.bodyMetricField}>
+                <Text style={styles.label}>{t.profile.heightLabel}</Text>
+                <View style={styles.metricInputShell}>
+                  <TextInput
+                    style={styles.metricInput}
+                    value={heightCm}
+                    onChangeText={(value) => {
+                      setHeightCm(sanitizeDigits(value, 3));
+                      if (profileError) setProfileError(null);
+                    }}
+                    placeholder={t.profile.heightPlaceholder}
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <Text style={styles.metricInputUnit}>cm</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
+
+          <TouchableOpacity style={styles.primaryButton} onPress={handlePersonalContinue}>
+            <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
+          </TouchableOpacity>
+        </OnboardingShell>
+      </>
+    );
+  }
+
+  if (step === 3) {
+    return (
+      <>
+        <OnboardingShell step={4} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+          <Text style={styles.title}>{t.profile.performanceSectionTitle}</Text>
+          <Text style={styles.subtitle}>{t.profile.performanceSectionSubtitle}</Text>
+          <Text style={styles.predictionHint}>{t.onboarding.predictionHint}</Text>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>{t.profile.performanceSectionTitle}</Text>
+            <Text style={styles.sectionSubtitle}>{t.profile.performanceSectionSubtitle}</Text>
+
+            <Text style={styles.label}>{t.onboarding.waterBagLabel}</Text>
+            <Text style={styles.labelHint}>{t.onboarding.waterBagHint}</Text>
+            <View style={styles.waterBagRow}>
+              {WATER_BAG_OPTIONS.map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.waterBtn, waterBagLiters === opt && styles.waterBtnActive]}
+                  onPress={() => setWaterBagLiters(opt)}
+                >
+                  <Text style={[styles.waterBtnText, waterBagLiters === opt && styles.waterBtnTextActive]}>
+                    {opt}L
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.label}>{t.onboarding.comfortableFlatPaceLabel}</Text>
+            <Text style={styles.labelHint}>{t.onboarding.comfortableFlatPaceHint}</Text>
+            <View style={styles.paceInputRow}>
+              <View style={styles.paceInputGroup}>
+                <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceMinutesLabel}</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={comfortableFlatPaceMinutes}
+                  onChangeText={(value) => {
+                    setComfortableFlatPaceMinutes(sanitizeDigits(value, 2));
+                    if (profileError) setProfileError(null);
+                  }}
+                  placeholder="6"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
+              <View style={styles.paceInputGroup}>
+                <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceSecondsLabel}</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={comfortableFlatPaceSeconds}
+                  onChangeText={(value) => {
+                    setComfortableFlatPaceSeconds(sanitizeDigits(value, 2));
+                    if (profileError) setProfileError(null);
+                  }}
+                  placeholder="00"
+                  placeholderTextColor={Colors.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.label}>{t.onboarding.utmbIndexLabel}</Text>
+            <Text style={styles.labelHint}>{t.onboarding.utmbIndexHint}</Text>
+            <TextInput
+              style={styles.textInput}
+              value={utmbIndex}
+              onChangeText={(value) => {
+                setUtmbIndex(sanitizeDigits(value, 4));
+                if (profileError) setProfileError(null);
+              }}
+              placeholder={t.onboarding.utmbIndexPlaceholder}
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="number-pad"
+              maxLength={4}
+            />
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>{t.profile.planDefaultsSectionTitle}</Text>
+            <Text style={styles.sectionSubtitle}>{t.profile.planDefaultsSectionSubtitle}</Text>
+            <Text style={styles.labelHint}>{t.profile.estimatorInlineHint}</Text>
+
+            <TouchableOpacity style={styles.estimateButton} onPress={handleOpenEstimator}>
+              <Text style={styles.estimateButtonText}>{t.profile.estimatorButton}</Text>
             </TouchableOpacity>
-          ))}
-        </View>
 
-        <Text style={styles.label}>{t.onboarding.comfortableFlatPaceLabel}</Text>
-        <Text style={styles.labelHint}>{t.onboarding.comfortableFlatPaceHint}</Text>
-        <View style={styles.paceInputRow}>
-          <View style={styles.paceInputGroup}>
-            <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceMinutesLabel}</Text>
-            <TextInput
-              style={styles.textInput}
-              value={comfortableFlatPaceMinutes}
-              onChangeText={(value) => {
-                setComfortableFlatPaceMinutes(value.replace(/\D/g, '').slice(0, 2));
-                if (profileError) setProfileError(null);
-              }}
-              placeholder="6"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
+            <View style={styles.targetsStack}>
+              <View style={[styles.targetRow, styles.targetRowBordered]}>
+                <Text style={styles.targetLabel}>{t.profile.defaultCarbsPerHourLabel}</Text>
+                <View style={styles.targetInputShell}>
+                  <TextInput
+                    style={styles.targetInput}
+                    value={defaultCarbsPerHour}
+                    onChangeText={(value) => {
+                      setDefaultCarbsPerHour(sanitizeDigits(value, 3));
+                      if (profileError) setProfileError(null);
+                    }}
+                    placeholder="70"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+                  <Text style={styles.targetUnit}>g</Text>
+                </View>
+              </View>
+
+              <View style={[styles.targetRow, styles.targetRowBordered]}>
+                <Text style={styles.targetLabel}>{t.profile.defaultWaterPerHourLabel}</Text>
+                <View style={styles.targetInputShell}>
+                  <TextInput
+                    style={styles.targetInput}
+                    value={defaultWaterPerHour}
+                    onChangeText={(value) => {
+                      setDefaultWaterPerHour(sanitizeDigits(value, 4));
+                      if (profileError) setProfileError(null);
+                    }}
+                    placeholder="500"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <Text style={styles.targetUnit}>ml</Text>
+                </View>
+              </View>
+
+              <View style={styles.targetRow}>
+                <Text style={styles.targetLabel}>{t.profile.defaultSodiumPerHourLabel}</Text>
+                <View style={styles.targetInputShell}>
+                  <TextInput
+                    style={styles.targetInput}
+                    value={defaultSodiumPerHour}
+                    onChangeText={(value) => {
+                      setDefaultSodiumPerHour(sanitizeDigits(value, 4));
+                      if (profileError) setProfileError(null);
+                    }}
+                    placeholder="600"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <Text style={styles.targetUnit}>mg</Text>
+                </View>
+              </View>
+            </View>
           </View>
-          <View style={styles.paceInputGroup}>
-            <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceSecondsLabel}</Text>
-            <TextInput
-              style={styles.textInput}
-              value={comfortableFlatPaceSeconds}
-              onChangeText={(value) => {
-                setComfortableFlatPaceSeconds(value.replace(/\D/g, '').slice(0, 2));
-                if (profileError) setProfileError(null);
-              }}
-              placeholder="00"
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={2}
-            />
-          </View>
-        </View>
 
-        <Text style={styles.label}>{t.onboarding.utmbIndexLabel}</Text>
-        <Text style={styles.labelHint}>{t.onboarding.utmbIndexHint}</Text>
-        <TextInput
-          style={styles.textInput}
-          value={utmbIndex}
-          onChangeText={(value) => {
-            setUtmbIndex(value.replace(/\D/g, '').slice(0, 4));
-            if (profileError) setProfileError(null);
-          }}
-          placeholder={t.onboarding.utmbIndexPlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          keyboardType="number-pad"
-          maxLength={4}
-        />
+          {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
 
-        {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
+          <TouchableOpacity style={styles.primaryButton} onPress={handlePerformanceContinue}>
+            <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
+          </TouchableOpacity>
+        </OnboardingShell>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleProfileContinue}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
-        </TouchableOpacity>
-      </OnboardingShell>
+        {renderEstimatorModal()}
+      </>
     );
   }
 
   return (
-    <OnboardingShell step={4} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
-      <View style={styles.notificationIconWrap}>
-        <Text style={styles.notificationIcon}>!</Text>
-      </View>
-      <Text style={styles.title}>{t.onboarding.notificationsTitle}</Text>
-      <Text style={styles.subtitle}>{t.onboarding.notificationsSubtitle}</Text>
+    <>
+      <OnboardingShell step={5} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <View style={styles.notificationIconWrap}>
+          <Text style={styles.notificationIcon}>!</Text>
+        </View>
+        <Text style={styles.title}>{t.onboarding.notificationsTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.notificationsSubtitle}</Text>
 
-      <View style={styles.noticeBox}>
-        <Text style={styles.noticeTitle}>{t.onboarding.notificationsBoxTitle}</Text>
-        <Text style={styles.noticeText}>{t.onboarding.notificationsItem1}</Text>
-        <Text style={styles.noticeText}>{t.onboarding.notificationsItem2}</Text>
-        <Text style={styles.noticeText}>{t.onboarding.notificationsItem3}</Text>
-      </View>
+        <View style={styles.noticeBox}>
+          <Text style={styles.noticeTitle}>{t.onboarding.notificationsBoxTitle}</Text>
+          <Text style={styles.noticeText}>{t.onboarding.notificationsItem1}</Text>
+          <Text style={styles.noticeText}>{t.onboarding.notificationsItem2}</Text>
+          <Text style={styles.noticeText}>{t.onboarding.notificationsItem3}</Text>
+        </View>
 
-      <TouchableOpacity
-        style={[styles.primaryButton, saving && styles.buttonDisabled]}
-        onPress={handleNotifStep}
-        disabled={saving}
-      >
-        {saving ? (
-          <ActivityIndicator color={Colors.textOnBrand} />
-        ) : (
-          <Text style={styles.primaryButtonText}>{t.onboarding.notificationsCta}</Text>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.primaryButton, saving && styles.buttonDisabled]}
+          onPress={handleNotifStep}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color={Colors.textOnBrand} />
+          ) : (
+            <Text style={styles.primaryButtonText}>{t.onboarding.notificationsCta}</Text>
+          )}
+        </TouchableOpacity>
 
-      <TouchableOpacity style={styles.secondaryButton} onPress={finishOnboarding} disabled={saving}>
-        <Text style={styles.secondaryButtonText}>{t.onboarding.skipCta}</Text>
-      </TouchableOpacity>
-    </OnboardingShell>
+        <TouchableOpacity style={styles.secondaryButton} onPress={finishOnboarding} disabled={saving}>
+          <Text style={styles.secondaryButtonText}>{t.onboarding.skipCta}</Text>
+        </TouchableOpacity>
+      </OnboardingShell>
+
+      {renderEstimatorModal()}
+    </>
   );
 }
 
@@ -536,6 +892,26 @@ const styles = StyleSheet.create({
     marginTop: -8,
     marginBottom: 20,
     fontWeight: '600',
+  },
+  sectionCard: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: 16,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
   },
   summaryCard: {
     backgroundColor: Colors.brandSurface,
@@ -703,8 +1079,42 @@ const styles = StyleSheet.create({
   waterBagRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 8,
     flexWrap: 'wrap',
+  },
+  bodyMetricsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  bodyMetricField: {
+    flex: 1,
+  },
+  metricInputShell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  metricInput: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: 'transparent',
+    color: Colors.textPrimary,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  metricInputUnit: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   waterBtn: {
     backgroundColor: Colors.surfaceSecondary,
@@ -727,6 +1137,22 @@ const styles = StyleSheet.create({
   },
   waterBtnTextActive: {
     color: Colors.brandPrimary,
+  },
+  estimateButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  estimateButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   primaryButton: {
     backgroundColor: Colors.brandPrimary,
@@ -762,6 +1188,59 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 16,
+  },
+  targetsStack: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
+  },
+  targetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  targetRowBordered: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  targetLabel: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  targetInputShell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 116,
+    paddingHorizontal: 12,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  targetInput: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: 'transparent',
+    color: Colors.textPrimary,
+    paddingHorizontal: 0,
+    paddingVertical: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  targetUnit: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   notificationIconWrap: {
     width: 72,

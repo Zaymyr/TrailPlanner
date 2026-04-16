@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { Link } from 'expo-router';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { beginAnonymousEmailUpgrade } from '../../lib/accountConversion';
+import { isAnonymousSession } from '../../lib/appSession';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -26,6 +29,31 @@ export default function SignupScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const isGuestSession = isAnonymousSession(session);
+
+  useEffect(() => {
+    let mounted = true;
+
+    void supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      if (mounted) {
+        setSession(data.session);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, nextSession: Session | null) => {
+      if (mounted) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   async function handleSignup() {
     setError(null);
@@ -36,29 +64,35 @@ export default function SignupScreen() {
     }
 
     setLoading(true);
-    const { data, error: signupError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName.trim() || undefined },
-      },
-    });
+    const signupResult = isGuestSession
+      ? await beginAnonymousEmailUpgrade({
+          email,
+          password,
+          fullName,
+        })
+      : await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName.trim() || undefined },
+          },
+        });
     setLoading(false);
 
-    if (signupError) {
-      const lowered = signupError.message.toLowerCase();
+    if (signupResult.error) {
+      const lowered = signupResult.error.message.toLowerCase();
       if (lowered.includes('already registered') || lowered.includes('already exists')) {
         setError(t.auth.emailInUse);
       } else if (lowered.includes('password')) {
         setError(t.auth.passwordTooShort);
       } else {
-        setError(signupError.message);
+        setError(signupResult.error.message);
       }
       return;
     }
 
-    if (data.session) {
-      await ensureTrialStatusForSession(data.session);
+    if ('session' in signupResult.data && signupResult.data.session) {
+      await ensureTrialStatusForSession(signupResult.data.session);
     }
 
     setSuccess(true);
@@ -70,8 +104,12 @@ export default function SignupScreen() {
         <View style={styles.inner}>
           <Text style={styles.title}>Pace Yourself</Text>
           <Text style={styles.successIcon}>OK</Text>
-          <Text style={styles.successTitle}>{t.auth.accountCreated}</Text>
-          <Text style={styles.successText}>{t.auth.verifyEmail}</Text>
+          <Text style={styles.successTitle}>
+            {isGuestSession ? t.auth.guestAccountCreated : t.auth.accountCreated}
+          </Text>
+          <Text style={styles.successText}>
+            {isGuestSession ? t.auth.guestVerifyEmail : t.auth.verifyEmail}
+          </Text>
           <Link href="/(auth)/login" asChild>
             <TouchableOpacity style={styles.button}>
               <Text style={styles.buttonText}>{t.auth.loginLink}</Text>
@@ -89,7 +127,16 @@ export default function SignupScreen() {
     >
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Pace Yourself</Text>
-        <Text style={styles.subtitle}>{t.auth.signUpSubtitle}</Text>
+        <Text style={styles.subtitle}>
+          {isGuestSession ? t.auth.guestSignUpSubtitle : t.auth.signUpSubtitle}
+        </Text>
+
+        {isGuestSession ? (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>{t.auth.guestModeTitle}</Text>
+            <Text style={styles.infoBody}>{t.auth.guestSignUpHint}</Text>
+          </View>
+        ) : null}
 
         <TextInput
           style={styles.input}
@@ -168,6 +215,27 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
+  },
+  infoCard: {
+    backgroundColor: Colors.surface,
+    color: Colors.textPrimary,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 20,
+  },
+  infoTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  infoBody: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   input: {
     backgroundColor: Colors.surface,

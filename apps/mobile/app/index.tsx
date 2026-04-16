@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ensureAppSession } from '../lib/appSession';
 import { supabase } from '../lib/supabase';
 import { Colors } from '../constants/colors';
 
@@ -11,10 +12,9 @@ export default function IndexScreen() {
     let cancelled = false;
 
     (async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
+      const session = await ensureAppSession();
       if (cancelled) return;
 
-      const session = sessionData?.session;
       if (!session) {
         router.replace('/(auth)/login');
         return;

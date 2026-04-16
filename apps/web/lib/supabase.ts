@@ -52,6 +52,7 @@ export const extractBearerToken = (authorizationHeader: string | null): string |
 export type SupabaseMetadata = {
   role?: string;
   roles?: string[];
+  provider?: string;
 } & Record<string, unknown>;
 
 export type SupabaseUser = {
@@ -59,6 +60,7 @@ export type SupabaseUser = {
   email?: string;
   role?: string;
   roles?: string[];
+  isAnonymous?: boolean;
   appMetadata?: SupabaseMetadata;
   userMetadata?: Record<string, unknown>;
 };
@@ -94,10 +96,12 @@ const supabaseUserSchema = z.object({
     .object({
       role: z.string().optional(),
       roles: z.array(z.string()).optional(),
+      provider: z.string().optional(),
     })
     .partial()
     .optional(),
   user_metadata: z.record(z.unknown()).optional(),
+  is_anonymous: z.boolean().optional(),
 });
 
 const normalizeRoles = (roles: unknown): string[] | undefined => {
@@ -150,6 +154,7 @@ export const fetchSupabaseUser = async (
       email: parsed.data.email,
       role,
       roles,
+      isAnonymous: parsed.data.is_anonymous,
       appMetadata: parsed.data.app_metadata,
       userMetadata: parsed.data.user_metadata,
     };

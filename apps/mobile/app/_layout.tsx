@@ -20,6 +20,12 @@ import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
 import { usePremium } from '../hooks/usePremium';
+import {
+  finalizePendingAccountConversion,
+  finalizePendingGuestMerge,
+  hasPendingGuestMerge,
+} from '../lib/accountConversion';
+import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
@@ -85,6 +91,8 @@ function RootLayoutContent() {
   const { t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const [bootstrappingSession, setBootstrappingSession] = useState(false);
+  const [mergingGuestData, setMergingGuestData] = useState(false);
   const [updateState, setUpdateState] = useState<StartupUpdateState>({ status: 'checking', detail: null });
   const { isLoading: premiumLoading } = usePremium();
   const segments = useSegments();
@@ -253,15 +261,67 @@ function RootLayoutContent() {
     void ensureTrialStatusForSession(session);
   }, [session]);
 
+  useEffect(() => {
+    if (!session || isAnonymousSession(session)) return;
+
+    void finalizePendingAccountConversion(session).then((result) => {
+      if (!result.completed && result.reason === 'password-update-failed') {
+        console.warn('Pending account conversion could not finalize password automatically.', result.error);
+      }
+    });
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || isAnonymousSession(session)) return;
+
+    let cancelled = false;
+
+    void hasPendingGuestMerge().then((pending) => {
+      if (!pending || cancelled) return;
+
+      setMergingGuestData(true);
+
+      void finalizePendingGuestMerge(session)
+        .then((result) => {
+          if (!result.merged && result.reason === 'merge-request-failed') {
+            console.warn('Pending guest merge could not complete automatically.', result.error);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setMergingGuestData(false);
+          }
+        });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   // Route guard
   useEffect(() => {
-    if (!ready || updateState.status !== 'done' || shouldHoldForPremium) return;
+    if (!ready || updateState.status !== 'done' || shouldHoldForPremium || mergingGuestData) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!session && !inAuthGroup) {
-      router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
+      if (bootstrappingSession) return;
+
+      setBootstrappingSession(true);
+      void ensureAppSession()
+        .catch((error) => {
+          console.error('Unable to create anonymous session:', error);
+          router.replace('/(auth)/login');
+          return null;
+        })
+        .finally(() => {
+          setBootstrappingSession(false);
+        });
+      return;
+    }
+
+    if (session && inAuthGroup && !isAnonymousSession(session)) {
       // Check if onboarding needed (water_bag_liters IS NULL)
       (async () => {
         const { data } = await supabase
@@ -277,7 +337,7 @@ function RootLayoutContent() {
         }
       })();
     }
-  }, [session, ready, segments, shouldHoldForPremium, updateState.status]);
+  }, [bootstrappingSession, mergingGuestData, session, ready, segments, shouldHoldForPremium, updateState.status, router]);
 
   // Notification response listener
   useEffect(() => {
@@ -387,16 +447,20 @@ function RootLayoutContent() {
     };
   }, [shouldHoldForPremium, t, updateState]);
 
-  if (!ready || updateState.status !== 'done' || shouldHoldForPremium) {
+  if (!ready || updateState.status !== 'done' || shouldHoldForPremium || bootstrappingSession || mergingGuestData) {
     return (
       <AppLaunchScreen
         title={launchScreen.title}
         subtitle={launchScreen.subtitle}
         progress={launchScreen.progress}
         showSpinner={launchScreen.showSpinner}
-        detail={shouldHoldForPremium ? t.common.loading : launchScreen.detail}
+        detail={
+          shouldHoldForPremium || bootstrappingSession || mergingGuestData
+            ? t.common.loading
+            : launchScreen.detail
+        }
         primaryAction={
-          !shouldHoldForPremium && updateState.status === 'error'
+          !shouldHoldForPremium && !bootstrappingSession && !mergingGuestData && updateState.status === 'error'
             ? {
                 label: t.common.retry,
                 onPress: () => {
@@ -412,7 +476,7 @@ function RootLayoutContent() {
             : undefined
         }
         secondaryAction={
-          !shouldHoldForPremium && updateState.status === 'error'
+          !shouldHoldForPremium && !bootstrappingSession && !mergingGuestData && updateState.status === 'error'
             ? {
                 label: t.appUpdate.continueCta,
                 onPress: () => setUpdateState({ status: 'done', detail: null }),
