@@ -184,13 +184,41 @@ function sortRaceEvents(events: RaceEventGroup[]) {
   });
 }
 
-function inferNutritionBrand(productName: string) {
+function inferNutritionBrand(product: Pick<Product, 'name' | 'brand'>) {
+  const explicitBrand = product.brand?.trim();
+  if (explicitBrand) {
+    return explicitBrand;
+  }
+
+  const productName = product.name;
   const fromDelimiter = productName.split(' - ')[0]?.trim();
   const source = fromDelimiter || productName;
   const firstToken = source
     .split(/\s+/)
     .map((part) => part.replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, ''))
     .find(Boolean);
+
+  const genericTokens = new Set([
+    'bar',
+    'capsule',
+    'capsules',
+    'decathlon',
+    'drink',
+    'electrolyte',
+    'energy',
+    'food',
+    'fuel',
+    'gel',
+    'gels',
+    'mix',
+    'nutrition',
+    'other',
+    'product',
+  ]);
+
+  if (firstToken && genericTokens.has(firstToken.toLowerCase())) {
+    return null;
+  }
 
   return firstToken || source.trim() || 'Other';
 }
@@ -439,7 +467,7 @@ export default function OnboardingScreen() {
           return true;
         }
 
-        const brandLabel = inferNutritionBrand(product.name).toLowerCase();
+        const brandLabel = (inferNutritionBrand(product) ?? '').toLowerCase();
         return (
           product.name.toLowerCase().includes(normalizedSearch) ||
           brandLabel.includes(normalizedSearch)
@@ -466,7 +494,7 @@ export default function OnboardingScreen() {
       Array.from(
         filteredNutritionProducts.reduce((groups, product) => {
           const brandLabel =
-            inferNutritionBrand(product.name) || (locale === 'fr' ? 'Autres marques' : 'Other brands');
+            inferNutritionBrand(product) || (locale === 'fr' ? 'Autres marques' : 'Other brands');
           const currentGroup = groups.get(brandLabel) ?? [];
           currentGroup.push(product);
           groups.set(brandLabel, currentGroup);
@@ -717,7 +745,7 @@ export default function OnboardingScreen() {
 
       let query = supabase
         .from('products')
-        .select('id, name, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
         .eq('is_archived', false)
         .order('name');
 

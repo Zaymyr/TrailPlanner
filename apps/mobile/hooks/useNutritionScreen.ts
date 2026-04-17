@@ -55,11 +55,11 @@ export function useNutritionScreen() {
     const [favoritesResult, productsResult] = await Promise.all([
       supabase
         .from('user_favorite_products')
-        .select('product_id, products(id, name, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by)')
+        .select('product_id, products(id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by)')
         .eq('user_id', uid),
       supabase
         .from('products')
-        .select('id, name, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
         .or(`is_live.eq.true,created_by.eq.${uid}`)
         .eq('is_archived', false)
         .order('name'),
@@ -281,6 +281,7 @@ export function useNutritionScreen() {
       const createdProduct: Product = {
         id: body.product.id,
         name: body.product.name,
+        brand: body.product.brand ?? null,
         image_url: uploadedImageUrl ?? body.product.imageUrl ?? null,
         fuel_type: body.product.fuelType,
         carbs_g: body.product.carbsGrams,

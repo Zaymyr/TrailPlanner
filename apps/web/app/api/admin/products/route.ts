@@ -16,6 +16,7 @@ const supabaseProductSchema = z.object({
   slug: z.string(),
   sku: z.string().nullable().optional(),
   name: z.string(),
+  brand: z.string().nullable().optional(),
   image_url: z.string().url().nullable().optional(),
   created_by: z.string().uuid().nullable().optional(),
   product_url: z.string().url().nullable().optional(),
@@ -37,6 +38,7 @@ const productResponseSchema = z.object({
       slug: z.string(),
       sku: z.string().optional(),
       name: z.string(),
+      brand: z.string().optional(),
       imageUrl: z.string().url().optional(),
       productUrl: z.string().optional(),
       isLive: z.boolean(),
@@ -55,6 +57,7 @@ const productResponseSchema = z.object({
 
 const importProductItemSchema = z.object({
   name: z.string().trim().min(1),
+  brand: z.string().trim().min(1).optional().nullable(),
   slug: z.string().trim().min(1).optional(),
   sku: z.string().trim().min(1).optional(),
   imageUrl: z.string().url().optional().nullable(),
@@ -88,6 +91,7 @@ const updatePayloadSchema = z.object({
   isLive: z.boolean().optional(),
   isArchived: z.boolean().optional(),
   name: z.string().trim().min(1).optional(),
+  brand: z.string().trim().min(1).optional().nullable(),
   slug: z.string().trim().min(1).optional(),
   sku: z.string().trim().optional().nullable(),
   productUrl: z.string().url().optional().nullable(),
@@ -104,6 +108,7 @@ const mapProduct = (row: z.infer<typeof supabaseProductSchema>): z.infer<typeof 
   slug: row.slug,
   sku: row.sku ?? undefined,
   name: row.name,
+  brand: row.brand ?? undefined,
   imageUrl: row.image_url ?? undefined,
   productUrl: row.product_url ?? undefined,
   isLive: row.is_live,
@@ -167,6 +172,7 @@ function normalizeImportProducts(products: z.infer<typeof importPayloadSchema>["
       slug,
       sku,
       name: product.name,
+      brand: product.brand ?? null,
       image_url: product.imageUrl ?? null,
       product_url: product.productUrl ?? null,
       fuel_type: product.fuelType,
@@ -215,7 +221,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,name,product_url,is_live,is_archived,updated_at,fuel_type,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
+      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,name,brand,product_url,is_live,is_archived,updated_at,fuel_type,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
       {
         headers: {
           apikey: auth.supabaseService.supabaseServiceRoleKey,
@@ -395,12 +401,13 @@ export async function PATCH(request: NextRequest) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid product update payload." }, { status: 400 }));
   }
 
-  const { id, isLive, isArchived, name, slug, sku, productUrl, fuelType, caloriesKcal, carbsGrams, sodiumMg, proteinGrams, fatGrams } = parsedBody.data;
+  const { id, isLive, isArchived, name, brand, slug, sku, productUrl, fuelType, caloriesKcal, carbsGrams, sodiumMg, proteinGrams, fatGrams } = parsedBody.data;
 
   const fieldsToUpdate: Record<string, unknown> = {};
   if (isLive !== undefined) fieldsToUpdate.is_live = isLive;
   if (isArchived !== undefined) fieldsToUpdate.is_archived = isArchived;
   if (name !== undefined) fieldsToUpdate.name = name;
+  if (brand !== undefined) fieldsToUpdate.brand = brand;
   if (slug !== undefined) fieldsToUpdate.slug = slug;
   if (sku !== undefined) fieldsToUpdate.sku = sku;
   if (productUrl !== undefined) fieldsToUpdate.product_url = productUrl;

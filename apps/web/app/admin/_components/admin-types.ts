@@ -7,6 +7,7 @@ export const adminProductSchema = z.object({
   slug: z.string(),
   sku: z.string().optional(),
   name: z.string(),
+  brand: z.string().optional(),
   productUrl: z.string().optional(),
   isLive: z.boolean(),
   isArchived: z.boolean(),
@@ -21,6 +22,7 @@ export const adminProductSchema = z.object({
 
 export const adminProductImportItemSchema = z.object({
   name: z.string().trim().min(1),
+  brand: z.string().trim().min(1).optional().nullable(),
   slug: z.string().trim().min(1).optional(),
   sku: z.string().trim().min(1).optional(),
   imageUrl: z.string().url().optional().nullable(),

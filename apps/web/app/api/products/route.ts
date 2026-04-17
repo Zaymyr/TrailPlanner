@@ -16,6 +16,7 @@ const supabaseProductSchema = z.object({
   slug: z.string(),
   sku: z.string().optional().nullable(),
   name: z.string(),
+  brand: z.string().optional().nullable(),
   image_url: z.string().url().optional().nullable(),
   fuel_type: fuelTypeSchema.optional().default(defaultFuelType),
   product_url: z.string().url().optional().nullable(),
@@ -34,6 +35,7 @@ const productResponseSchema = z.object({
       slug: z.string(),
       sku: z.string().optional(),
       name: z.string(),
+      brand: z.string().optional().nullable(),
       imageUrl: z.string().url().optional().nullable(),
       fuelType: fuelTypeSchema,
       productUrl: z.string().url().optional().nullable(),
@@ -54,6 +56,7 @@ const singleProductResponseSchema = z.object({
 
 const createProductSchema = z.object({
   name: z.string().trim().min(1),
+  brand: z.string().trim().min(1).optional().nullable(),
   sku: z.string().trim().min(1).optional(),
   fuelType: fuelTypeSchema,
   productUrl: z
@@ -74,6 +77,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   slug: row.slug,
   sku: row.sku ?? undefined,
   name: row.name,
+  brand: row.brand ?? undefined,
   imageUrl: row.image_url ?? undefined,
   fuelType: row.fuel_type ?? defaultFuelType,
   productUrl: row.product_url ?? undefined,
@@ -136,7 +140,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by${fuelTypeQuery}${createdByQuery}&order=updated_at.desc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,brand,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by${fuelTypeQuery}${createdByQuery}&order=updated_at.desc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
@@ -216,6 +220,7 @@ export async function POST(request: NextRequest) {
         slug,
         sku,
         name: parsedBody.data.name,
+        brand: parsedBody.data.brand ?? null,
         fuel_type: parsedBody.data.fuelType,
         product_url: productUrl,
         calories_kcal: parsedBody.data.caloriesKcal,

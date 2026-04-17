@@ -7,6 +7,7 @@ export const fuelProductSchema = z.object({
   slug: z.string(),
   sku: z.string().optional(),
   name: z.string(),
+  brand: z.string().optional().nullable(),
   imageUrl: z.string().url().optional().nullable(),
   fuelType: fuelTypeSchema.default(defaultFuelType),
   productUrl: z.string().url().optional().nullable(),

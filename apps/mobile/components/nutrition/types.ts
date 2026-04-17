@@ -10,6 +10,7 @@ export type FuelType =
 export type Product = {
   id: string;
   name: string;
+  brand?: string | null;
   image_url?: string | null;
   fuel_type: FuelType;
   carbs_g: number | null;
@@ -34,6 +35,7 @@ export type CreateProductResponse = {
   product?: {
     id: string;
     name: string;
+    brand?: string | null;
     imageUrl?: string | null;
     fuelType: FuelType;
     carbsGrams: number;

@@ -23,9 +23,9 @@ type ProductBrandGroup<T> = {
 
 const KNOWN_BRAND_PREFIXES: Array<{ match: string; label: string }> = [
   { match: 'precision fuel & hydration', label: 'Precision Fuel & Hydration' },
-  { match: 'precision fuel', label: 'Precision Fuel' },
-  { match: 'science in sport', label: 'Science in Sport' },
-  { match: 'tailwind nutrition', label: 'Tailwind Nutrition' },
+  { match: 'precision fuel', label: 'Precision Fuel & Hydration' },
+  { match: 'science in sport', label: 'SiS' },
+  { match: 'tailwind nutrition', label: 'Tailwind' },
   { match: 'huma chia', label: 'Huma' },
   { match: 'naak', label: 'NAAK' },
   { match: 'maurten', label: 'Maurten' },
@@ -34,12 +34,29 @@ const KNOWN_BRAND_PREFIXES: Array<{ match: string; label: string }> = [
   { match: 'powerbar', label: 'Powerbar' },
   { match: 'tailwind', label: 'Tailwind' },
   { match: 'aptonia', label: 'Aptonia' },
-  { match: 'decathlon', label: 'Decathlon' },
   { match: 'clif', label: 'Clif' },
   { match: 'high5', label: 'HIGH5' },
   { match: 'sis', label: 'SiS' },
   { match: 'gu', label: 'GU' },
 ];
+
+const GENERIC_BRAND_TOKENS = new Set([
+  'bar',
+  'capsule',
+  'capsules',
+  'decathlon',
+  'drink',
+  'electrolyte',
+  'energy',
+  'food',
+  'fuel',
+  'gel',
+  'gels',
+  'mix',
+  'nutrition',
+  'other',
+  'product',
+]);
 
 function normalizeBrandSource(value: string) {
   return value
@@ -49,7 +66,13 @@ function normalizeBrandSource(value: string) {
     .trim();
 }
 
-function inferNutritionBrand(productName: string, fallbackLabel: string) {
+function inferNutritionBrand(product: Pick<Product, 'name' | 'brand'>, fallbackLabel: string) {
+  const explicitBrand = product.brand?.trim();
+  if (explicitBrand) {
+    return explicitBrand;
+  }
+
+  const productName = product.name;
   const fromDelimiter = productName.split(' - ')[0]?.trim();
   const source = fromDelimiter || productName.trim();
   const normalizedSource = normalizeBrandSource(source);
@@ -65,6 +88,10 @@ function inferNutritionBrand(productName: string, fallbackLabel: string) {
     .map((part) => part.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, ''))
     .find(Boolean);
 
+  if (firstToken && GENERIC_BRAND_TOKENS.has(normalizeBrandSource(firstToken))) {
+    return fallbackLabel;
+  }
+
   return firstToken || fallbackLabel;
 }
 
@@ -74,7 +101,7 @@ function groupItemsByBrand<T>(
   fallbackLabel: string,
 ): ProductBrandGroup<T>[] {
   const groups = items.reduce((map, item) => {
-    const brandLabel = inferNutritionBrand(getProduct(item).name, fallbackLabel);
+    const brandLabel = inferNutritionBrand(getProduct(item), fallbackLabel);
     const currentGroup = map.get(brandLabel) ?? [];
     currentGroup.push(item);
     map.set(brandLabel, currentGroup);

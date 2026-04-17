@@ -35,6 +35,7 @@ const importExampleJson = JSON.stringify(
   [
     {
       name: "Maurten Gel 100",
+      brand: "Maurten",
       slug: "maurten-gel-100",
       sku: "MAURTEN-GEL-100",
       fuelType: "gel",
@@ -46,6 +47,7 @@ const importExampleJson = JSON.stringify(
     },
     {
       name: "Precision Fuel PF 30 Gel",
+      brand: "Precision Fuel & Hydration",
       slug: "precision-fuel-pf-30-gel",
       sku: "PRECISION-FUEL-PF-30-GEL",
       fuelType: "gel",
@@ -169,6 +171,9 @@ export function AdminProductsTab({ accessToken }: { accessToken: string | null }
 
   const importProductsMutation = useMutation({
     mutationFn: async () => {
+      setImportMessage(null);
+      setImportError(null);
+
       if (!accessToken) throw new Error(t.admin.products.messages.error);
       if (!importJson.trim()) throw new Error(t.admin.products.import.invalidJson);
 
@@ -221,10 +226,6 @@ export function AdminProductsTab({ accessToken }: { accessToken: string | null }
       }
 
       return parsedResponse.data;
-    },
-    onMutate: () => {
-      setImportMessage(null);
-      setImportError(null);
     },
     onSuccess: (data) => {
       setImportError(null);
