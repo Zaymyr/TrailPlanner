@@ -51,6 +51,7 @@ begin
     when cleaned in ('226ers') or cleaned like '226ers %' then return '226ERS';
     when cleaned in ('skratch', 'skratch labs') or cleaned like 'skratch %' then return 'Skratch Labs';
     when cleaned in ('saltstick') or cleaned like 'saltstick %' then return 'SaltStick';
+    else null;
   end case;
 
   if cleaned = any (
@@ -141,6 +142,7 @@ begin
     when cleaned_slug like '226ers-%' then return '226ERS';
     when cleaned_slug like 'skratch-%' then return 'Skratch Labs';
     when cleaned_slug like 'saltstick-%' then return 'SaltStick';
+    else null;
   end case;
 
   first_token := split_part(source_name, ' ', 1);
