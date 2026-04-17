@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-import { withSecurityHeaders } from "../../../../../lib/http";
+import { withSecurityHeaders } from "../../../../lib/http";
 import {
   extractBearerToken,
   fetchSupabaseUser,
@@ -10,7 +10,7 @@ import {
   getSupabaseServiceConfig,
   type SupabaseServiceConfig,
   type SupabaseUser,
-} from "../../../../../lib/supabase";
+} from "../../../../lib/supabase";
 
 type AdminClient = SupabaseClient;
 
