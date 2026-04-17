@@ -659,18 +659,20 @@ export default function PlanForm({
         <View style={styles.saveSpacer} />
       </ScrollView>
 
-      <TouchableOpacity
-        style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
-        onPress={handleSave}
-        disabled={loading}
-        activeOpacity={0.9}
-      >
-        {loading ? (
-          <ActivityIndicator color={Colors.textOnBrand} />
-        ) : (
-          <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
-        )}
-      </TouchableOpacity>
+      <View pointerEvents="box-none" style={styles.floatingSaveButtonAnchor}>
+        <TouchableOpacity
+          style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
+          onPress={handleSave}
+          disabled={loading}
+          activeOpacity={0.9}
+        >
+          {loading ? (
+            <ActivityIndicator color={Colors.textOnBrand} />
+          ) : (
+            <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
+          )}
+        </TouchableOpacity>
+      </View>
 
       <ProductPickerModal
         visible={pickerTarget !== null}
