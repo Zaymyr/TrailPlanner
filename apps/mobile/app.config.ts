@@ -17,14 +17,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: 'pace-yourself-app',
     owner: 'pace-yourself',
     scheme: 'paceyourself',
-    version: '1.0.0',
+    version: '1.1.0',
     updates: {
       url: 'https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c',
     },
-    // Bare workflow EAS Update requires a manual runtimeVersion string.
+    // CNG / prebuild with EAS Update still uses a manual runtimeVersion string here.
     // Keep this aligned with the runtime shipped in the current store build so OTA updates
     // continue to reach installed binaries until a new native build is released.
-    runtimeVersion: '1.0.0',
+    runtimeVersion: '1.1.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'dark',
@@ -39,7 +39,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
         CFBundleAllowMixedLocalizations: true,
-        UIBackgroundModes: ['fetch'],
+        UIBackgroundModes: ['processing'],
       },
     },
     android: {
@@ -60,6 +60,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     plugins: [
       'expo-router',
       'expo-apple-authentication',
+      'expo-background-task',
       'expo-secure-store',
       [
         'expo-notifications',

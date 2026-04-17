@@ -1,4 +1,4 @@
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 
@@ -47,6 +47,9 @@ type RacePlan = {
 
 const RACE_ALERT_TASK = 'RACE_ALERT_TASK';
 const NOTIFICATION_CATEGORY = 'FUEL_ALERT';
+// expo-background-task relies on OS schedulers and does not support the old 60s cadence.
+// Keep the smallest supported interval here and let the foreground checks handle fine-grained timing.
+const RACE_ALERT_TASK_MINIMUM_INTERVAL_MINUTES = 15;
 
 export type AlertConfirmMode = 'manual' | 'auto_5' | 'auto_10' | 'fire_forget';
 
@@ -185,10 +188,8 @@ export async function startRace(
     intakeHistory: [],
   };
 
-  await BackgroundFetch.registerTaskAsync(RACE_ALERT_TASK, {
-    minimumInterval: 60,
-    stopOnTerminate: false,
-    startOnBoot: true,
+  await BackgroundTask.registerTaskAsync(RACE_ALERT_TASK, {
+    minimumInterval: RACE_ALERT_TASK_MINIMUM_INTERVAL_MINUTES,
   }).catch(() => undefined);
 
   await Notifications.scheduleNotificationAsync({
@@ -202,7 +203,7 @@ export async function startRace(
 
 export async function stopRace(): Promise<void> {
   session = null;
-  await BackgroundFetch.unregisterTaskAsync(RACE_ALERT_TASK).catch(() => undefined);
+  await BackgroundTask.unregisterTaskAsync(RACE_ALERT_TASK).catch(() => undefined);
 }
 
 export function getSession(): RaceSession | null {
@@ -322,6 +323,10 @@ export async function checkAndFireAlerts(): Promise<void> {
 }
 
 TaskManager.defineTask(RACE_ALERT_TASK, async () => {
-  await checkAndFireAlerts();
-  return session ? BackgroundFetch.BackgroundFetchResult.NewData : BackgroundFetch.BackgroundFetchResult.NoData;
+  try {
+    await checkAndFireAlerts();
+    return BackgroundTask.BackgroundTaskResult.Success;
+  } catch {
+    return BackgroundTask.BackgroundTaskResult.Failed;
+  }
 });
