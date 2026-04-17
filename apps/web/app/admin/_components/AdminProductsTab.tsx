@@ -23,16 +23,49 @@ import { fuelTypeValues } from "../../../lib/fuel-types";
 import { useI18n } from "../../i18n-provider";
 import {
   adminProductSchema,
+  adminProductImportRequestSchema,
+  adminProductImportResponseSchema,
   basePillClass,
   EditProductFormValues,
   editProductFormSchema,
   formatDate,
 } from "./admin-types";
 
+const importExampleJson = JSON.stringify(
+  [
+    {
+      name: "Maurten Gel 100",
+      slug: "maurten-gel-100",
+      sku: "MAURTEN-GEL-100",
+      fuelType: "gel",
+      caloriesKcal: 100,
+      carbsGrams: 25,
+      sodiumMg: 85,
+      productUrl: "https://example.com/maurten-gel-100",
+      imageUrl: "https://example.com/images/maurten-gel-100.png",
+    },
+    {
+      name: "Precision Fuel PF 30 Gel",
+      slug: "precision-fuel-pf-30-gel",
+      sku: "PRECISION-FUEL-PF-30-GEL",
+      fuelType: "gel",
+      caloriesKcal: 120,
+      carbsGrams: 30,
+      sodiumMg: 0,
+    },
+  ],
+  null,
+  2
+);
+
 export function AdminProductsTab({ accessToken }: { accessToken: string | null }) {
   const { t } = useI18n();
   const [productMessage, setProductMessage] = useState<string | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
+  const [importMessage, setImportMessage] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importJson, setImportJson] = useState("");
+  const [archiveSharedCatalog, setArchiveSharedCatalog] = useState(true);
   const [editProduct, setEditProduct] = useState<z.infer<typeof adminProductSchema> | null>(null);
 
   const editForm = useForm<EditProductFormValues>({
@@ -134,6 +167,77 @@ export function AdminProductsTab({ accessToken }: { accessToken: string | null }
     },
   });
 
+  const importProductsMutation = useMutation({
+    mutationFn: async () => {
+      if (!accessToken) throw new Error(t.admin.products.messages.error);
+      if (!importJson.trim()) throw new Error(t.admin.products.import.invalidJson);
+
+      let rawInput: unknown;
+
+      try {
+        rawInput = JSON.parse(importJson);
+      } catch {
+        throw new Error(t.admin.products.import.invalidJson);
+      }
+
+      const parsedInput = adminProductImportRequestSchema.safeParse(rawInput);
+
+      if (!parsedInput.success) {
+        throw new Error(t.admin.products.import.invalidJson);
+      }
+
+      const payload = Array.isArray(parsedInput.data)
+        ? {
+            action: "importCatalog" as const,
+            archiveSharedCatalog,
+            products: parsedInput.data,
+          }
+        : {
+            action: "importCatalog" as const,
+            archiveSharedCatalog: parsedInput.data.archiveSharedCatalog ?? archiveSharedCatalog,
+            products: parsedInput.data.products,
+          };
+
+      const response = await fetch("/api/admin/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json().catch(() => null)) as unknown;
+
+      if (!response.ok) {
+        const message = (data as { message?: string } | null)?.message ?? t.admin.products.messages.error;
+        throw new Error(message);
+      }
+
+      const parsedResponse = adminProductImportResponseSchema.safeParse(data);
+
+      if (!parsedResponse.success) {
+        throw new Error(t.admin.products.messages.error);
+      }
+
+      return parsedResponse.data;
+    },
+    onMutate: () => {
+      setImportMessage(null);
+      setImportError(null);
+    },
+    onSuccess: (data) => {
+      setImportError(null);
+      setImportMessage(t.admin.products.import.success.replace("{count}", String(data.importedCount)));
+      void productsQuery.refetch();
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : t.admin.products.messages.error;
+      setImportError(message);
+      setImportMessage(null);
+    },
+  });
+
   const editProductMutation = useMutation({
     mutationFn: async (payload: { id: string } & EditProductFormValues) => {
       if (!accessToken) throw new Error(t.admin.products.messages.error);
@@ -219,111 +323,174 @@ export function AdminProductsTab({ accessToken }: { accessToken: string | null }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.products.title}</CardTitle>
-          <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.products.description}</p>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {productMessage ? <p className="text-sm text-emerald-700 dark:text-emerald-200">{productMessage}</p> : null}
-          {productError || productsQuery.error ? (
-            <p className="text-sm text-red-600 dark:text-red-300">
-              {productError ??
-                (productsQuery.error instanceof Error
-                  ? productsQuery.error.message
-                  : t.admin.products.loadError)}
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.products.import.title}</CardTitle>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.products.import.description}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+              {t.admin.products.import.sharedOnlyNote}
             </p>
-          ) : null}
 
-          {isLoading && productRows.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.access.checking}</p>
-          ) : null}
+            {importMessage ? <p className="text-sm text-emerald-700 dark:text-emerald-200">{importMessage}</p> : null}
+            {importError ? <p className="text-sm text-red-600 dark:text-red-300">{importError}</p> : null}
 
-          {!isLoading && productRows.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.products.empty}</p>
-          ) : null}
+            <div className="space-y-2">
+              <Label htmlFor="admin-products-import-json">{t.admin.products.import.label}</Label>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{t.admin.products.import.formatHint}</p>
+              <textarea
+                id="admin-products-import-json"
+                className="min-h-[280px] w-full rounded-md border border-input bg-background px-3 py-3 font-mono text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+                value={importJson}
+                onChange={(event) => setImportJson(event.target.value)}
+                placeholder={t.admin.products.import.placeholder}
+                spellCheck={false}
+              />
+            </div>
 
-          {productRows.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.name}</TableHead>
-                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.status}</TableHead>
-                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.updated}</TableHead>
-                  <TableHead className="text-right text-slate-600 dark:text-slate-300">
-                    {t.admin.products.table.actions}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {productRows.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell className="font-semibold text-slate-900 dark:text-slate-50">
-                      {product.name}
-                    </TableCell>
-                    <TableCell>{renderStatusPill(product)}</TableCell>
-                    <TableCell className="text-slate-700 dark:text-slate-200">
-                      {formatDate(product.updatedAt)}
-                    </TableCell>
-                    <TableCell className="flex justify-end gap-2">
-                      <Button
-                        className="h-9 px-3 text-sm"
-                        variant="outline"
-                        disabled={updateProductMutation.isPending || editProductMutation.isPending}
-                        onClick={() => setEditProduct(product)}
-                      >
-                        {t.admin.products.actions.edit}
-                      </Button>
-                      <Button
-                        className="h-9 px-3 text-sm"
-                        variant="outline"
-                        disabled={updateProductMutation.isPending}
-                        onClick={() =>
-                          updateProductMutation.mutate({
-                            id: product.id,
-                            isLive: true,
-                            isArchived: false,
-                          })
-                        }
-                      >
-                        {t.admin.products.actions.setLive}
-                      </Button>
-                      <Button
-                        className="h-9 px-3 text-sm"
-                        variant="outline"
-                        disabled={updateProductMutation.isPending}
-                        onClick={() =>
-                          updateProductMutation.mutate({
-                            id: product.id,
-                            isLive: false,
-                            isArchived: false,
-                          })
-                        }
-                      >
-                        {t.admin.products.actions.setDraft}
-                      </Button>
-                      <Button
-                        className="h-9 px-3 text-sm"
-                        variant="outline"
-                        disabled={updateProductMutation.isPending}
-                        onClick={() =>
-                          updateProductMutation.mutate({
-                            id: product.id,
-                            isArchived: !product.isArchived,
-                            isLive: product.isArchived ? product.isLive : false,
-                          })
-                        }
-                      >
-                        {product.isArchived ? t.admin.products.actions.restore : t.admin.products.actions.archive}
-                      </Button>
-                    </TableCell>
+            <label className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border border-input"
+                checked={archiveSharedCatalog}
+                onChange={(event) => setArchiveSharedCatalog(event.target.checked)}
+              />
+              <span>{t.admin.products.import.archiveSharedLabel}</span>
+            </label>
+
+            <div className="flex flex-wrap gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setImportJson(importExampleJson);
+                  setImportError(null);
+                }}
+                disabled={importProductsMutation.isPending}
+              >
+                {t.admin.products.import.loadExample}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => importProductsMutation.mutate()}
+                disabled={importProductsMutation.isPending || !importJson.trim()}
+              >
+                {importProductsMutation.isPending
+                  ? t.admin.products.import.submitting
+                  : t.admin.products.import.submit}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.admin.products.title}</CardTitle>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.products.description}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {productMessage ? <p className="text-sm text-emerald-700 dark:text-emerald-200">{productMessage}</p> : null}
+            {productError || productsQuery.error ? (
+              <p className="text-sm text-red-600 dark:text-red-300">
+                {productError ??
+                  (productsQuery.error instanceof Error
+                    ? productsQuery.error.message
+                    : t.admin.products.loadError)}
+              </p>
+            ) : null}
+
+            {isLoading && productRows.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.access.checking}</p>
+            ) : null}
+
+            {!isLoading && productRows.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">{t.admin.products.empty}</p>
+            ) : null}
+
+            {productRows.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.name}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.status}</TableHead>
+                    <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.products.table.updated}</TableHead>
+                    <TableHead className="text-right text-slate-600 dark:text-slate-300">
+                      {t.admin.products.table.actions}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : null}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {productRows.map((product) => (
+                    <TableRow key={product.id}>
+                      <TableCell className="font-semibold text-slate-900 dark:text-slate-50">
+                        {product.name}
+                      </TableCell>
+                      <TableCell>{renderStatusPill(product)}</TableCell>
+                      <TableCell className="text-slate-700 dark:text-slate-200">
+                        {formatDate(product.updatedAt)}
+                      </TableCell>
+                      <TableCell className="flex justify-end gap-2">
+                        <Button
+                          className="h-9 px-3 text-sm"
+                          variant="outline"
+                          disabled={updateProductMutation.isPending || editProductMutation.isPending}
+                          onClick={() => setEditProduct(product)}
+                        >
+                          {t.admin.products.actions.edit}
+                        </Button>
+                        <Button
+                          className="h-9 px-3 text-sm"
+                          variant="outline"
+                          disabled={updateProductMutation.isPending}
+                          onClick={() =>
+                            updateProductMutation.mutate({
+                              id: product.id,
+                              isLive: true,
+                              isArchived: false,
+                            })
+                          }
+                        >
+                          {t.admin.products.actions.setLive}
+                        </Button>
+                        <Button
+                          className="h-9 px-3 text-sm"
+                          variant="outline"
+                          disabled={updateProductMutation.isPending}
+                          onClick={() =>
+                            updateProductMutation.mutate({
+                              id: product.id,
+                              isLive: false,
+                              isArchived: false,
+                            })
+                          }
+                        >
+                          {t.admin.products.actions.setDraft}
+                        </Button>
+                        <Button
+                          className="h-9 px-3 text-sm"
+                          variant="outline"
+                          disabled={updateProductMutation.isPending}
+                          onClick={() =>
+                            updateProductMutation.mutate({
+                              id: product.id,
+                              isArchived: !product.isArchived,
+                              isLive: product.isArchived ? product.isLive : false,
+                            })
+                          }
+                        >
+                          {product.isArchived ? t.admin.products.actions.restore : t.admin.products.actions.archive}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog
         open={editProduct !== null}

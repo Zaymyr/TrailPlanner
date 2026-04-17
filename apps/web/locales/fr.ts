@@ -752,6 +752,21 @@ export const fr: Translations = {
       description: "Consulte l'état des produits et bascule live ou archivé.",
       loadError: "Impossible de charger les produits.",
       empty: "Aucun produit.",
+      import: {
+        title: "Nettoyer et reimporter le catalogue",
+        description: "Colle une liste JSON de produits sportifs pour remplacer proprement le catalogue partage.",
+        sharedOnlyNote: "Seuls les produits partages sont archives. Les produits crees par les utilisateurs ne sont pas modifies.",
+        label: "JSON des produits",
+        formatHint: "Tu peux coller soit un tableau JSON, soit un objet avec `products`.",
+        placeholder:
+          "[\n  {\n    \"name\": \"Maurten Gel 100\",\n    \"slug\": \"maurten-gel-100\",\n    \"sku\": \"MAURTEN-GEL-100\",\n    \"fuelType\": \"gel\",\n    \"caloriesKcal\": 100,\n    \"carbsGrams\": 25,\n    \"sodiumMg\": 85,\n    \"productUrl\": \"https://example.com/maurten-gel-100\",\n    \"imageUrl\": \"https://example.com/images/maurten-gel-100.png\"\n  }\n]",
+        archiveSharedLabel: "Archiver le catalogue partage existant avant import",
+        loadExample: "Charger un exemple",
+        submit: "Importer le catalogue",
+        submitting: "Import en cours...",
+        invalidJson: "Le JSON colle est invalide ou ne contient pas de produits.",
+        success: "{count} produits importes dans le catalogue partage.",
+      },
       messages: {
         updated: "Produit mis à jour.",
         error: "Impossible de mettre à jour le produit.",

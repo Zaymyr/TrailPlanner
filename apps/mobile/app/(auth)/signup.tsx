@@ -13,6 +13,7 @@ import { Link } from 'expo-router';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { beginAnonymousEmailUpgrade } from '../../lib/accountConversion';
 import { isAnonymousSession } from '../../lib/appSession';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -31,6 +32,10 @@ export default function SignupScreen() {
   const [success, setSuccess] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const isGuestSession = isAnonymousSession(session);
+  const { googleModule, nativeGoogleEnabled, handleGoogleLogin } = useGoogleAuth({
+    noOauthUrlMessage: t.auth.noOauthUrl,
+    session,
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -96,6 +101,30 @@ export default function SignupScreen() {
     }
 
     setSuccess(true);
+  }
+
+  async function handleGoogleSignup() {
+    setError(null);
+    setLoading(true);
+
+    try {
+      await handleGoogleLogin();
+    } catch (e) {
+      if (googleModule?.isErrorWithCode(e)) {
+        if (
+          e.code === googleModule.statusCodes.SIGN_IN_CANCELLED ||
+          e.code === googleModule.statusCodes.IN_PROGRESS
+        ) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      console.error('Google signup error:', e);
+      setError(t.auth.googleError);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (success) {
@@ -178,6 +207,32 @@ export default function SignupScreen() {
         >
           <Text style={styles.buttonText}>{loading ? t.auth.signingUp : t.auth.signUpCta}</Text>
         </TouchableOpacity>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {nativeGoogleEnabled && googleModule ? (
+          <View style={[styles.googleNativeButtonWrap, loading && styles.buttonDisabled]}>
+            <googleModule.GoogleSigninButton
+              color={googleModule.GoogleSigninButton.Color.Light}
+              disabled={loading}
+              onPress={handleGoogleSignup}
+              size={googleModule.GoogleSigninButton.Size.Wide}
+              style={styles.googleNativeButton}
+            />
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[styles.googleButton, loading && styles.buttonDisabled]}
+            onPress={handleGoogleSignup}
+            disabled={loading}
+          >
+            <Text style={styles.googleButtonText}>{t.auth.googleSignUpCta}</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.loginRow}>
           <Text style={styles.loginText}>{t.auth.alreadyAccount} </Text>
@@ -268,6 +323,42 @@ const styles = StyleSheet.create({
     color: Colors.textOnBrand,
     fontSize: 16,
     fontWeight: '700',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 10,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    color: Colors.textMuted,
+    fontSize: 13,
+  },
+  googleButton: {
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+  },
+  googleButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  googleNativeButtonWrap: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  googleNativeButton: {
+    width: '100%',
+    height: 52,
   },
   loginRow: {
     flexDirection: 'row',

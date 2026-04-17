@@ -36,6 +36,12 @@ type PoolProduct = {
   fuelType?: string | null;
 };
 
+export type OnboardingDemoPlanResult = {
+  elevationProfile: ElevationPoint[];
+  id: string;
+  values: PlanFormValues;
+};
+
 export async function createOnboardingDemoPlan({
   userId,
   race,
@@ -46,7 +52,7 @@ export async function createOnboardingDemoPlan({
   race: OnboardingDemoRace;
   profileDefaults: UserPlanDefaultsProfile;
   selectedProductIds: string[];
-}): Promise<string | null> {
+}): Promise<OnboardingDemoPlanResult | null> {
   const [elevationProfile, fetchedAidStations, selectedProducts] = await Promise.all([
     fetchRaceElevationProfile(race.id),
     fetchRaceAidStations(race.id),
@@ -90,7 +96,11 @@ export async function createOnboardingDemoPlan({
     throw error ?? new Error('Unable to create onboarding demo plan');
   }
 
-  return data.id as string;
+  return {
+    elevationProfile,
+    id: data.id as string,
+    values: finalValues,
+  };
 }
 
 async function loadSelectedProducts(selectedProductIds: string[]): Promise<PlanProduct[]> {

@@ -19,6 +19,7 @@ import { Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
+import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';
 import {
   finalizePendingAccountConversion,
@@ -30,7 +31,11 @@ import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appRevi
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
-import { getPostAuthRoute } from '../lib/onboardingGate';
+import { getPostAuthRoute, shouldOpenOnboarding } from '../lib/onboardingGate';
+import {
+  addPendingOnboardingTransitionListener,
+  getPendingOnboardingTransition,
+} from '../lib/onboardingTransition';
 import { ensureTrialStatusForSession } from '../lib/trial';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
@@ -94,6 +99,9 @@ function RootLayoutContent() {
   const [ready, setReady] = useState(false);
   const [bootstrappingSession, setBootstrappingSession] = useState(false);
   const [mergingGuestData, setMergingGuestData] = useState(false);
+  const [pendingOnboardingTransition, setPendingOnboardingTransitionState] = useState(
+    () => getPendingOnboardingTransition(),
+  );
   const [updateState, setUpdateState] = useState<StartupUpdateState>({ status: 'checking', detail: null });
   const { isLoading: premiumLoading } = usePremium();
   const segments = useSegments();
@@ -225,6 +233,12 @@ function RootLayoutContent() {
     };
   }, [updateState.status]);
 
+  useEffect(() => {
+    return addPendingOnboardingTransitionListener((transition) => {
+      setPendingOnboardingTransitionState(transition);
+    });
+  }, []);
+
   // Auth listener
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
@@ -304,7 +318,13 @@ function RootLayoutContent() {
   useEffect(() => {
     if (!ready || updateState.status !== 'done' || shouldHoldForPremium || mergingGuestData) return;
 
+    const currentPath = segments.join('/');
     const inAuthGroup = segments[0] === '(auth)';
+    const hasPendingOnboardingTransition = Boolean(getPendingOnboardingTransition());
+    const inOnboarding =
+      currentPath === '(app)/onboarding' ||
+      currentPath === '(app)/onboarding-finalizing' ||
+      currentPath.startsWith('(app)/onboarding/');
 
     if (!session && !inAuthGroup) {
       if (bootstrappingSession) return;
@@ -320,6 +340,14 @@ function RootLayoutContent() {
           setBootstrappingSession(false);
         });
       return;
+    }
+
+    if (session && !inAuthGroup && !hasPendingOnboardingTransition) {
+      void shouldOpenOnboarding(session).then((needsOnboarding) => {
+        if (needsOnboarding && !inOnboarding) {
+          router.replace('/(app)/onboarding');
+        }
+      });
     }
 
     if (session && inAuthGroup && !isAnonymousSession(session)) {
@@ -481,16 +509,44 @@ function RootLayoutContent() {
   return (
     <ErrorBoundary>
       <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: '#0f172a' },
-          headerTintColor: '#f1f5f9',
-          contentStyle: { backgroundColor: '#0f172a' },
-        }}
-      >
-        <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      </Stack>
+      <View style={{ flex: 1 }}>
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: '#0f172a' },
+            headerTintColor: '#f1f5f9',
+            contentStyle: { backgroundColor: '#0f172a' },
+          }}
+        >
+          <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        </Stack>
+        {pendingOnboardingTransition ? (
+          <View
+            pointerEvents="auto"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }}
+          >
+            <PlanLoadingScreen
+              planName={pendingOnboardingTransition.planName}
+              progress={pendingOnboardingTransition.progress}
+              stage={t.plans.planLoadingStage}
+              title={
+                pendingOnboardingTransition.planName
+                  ? t.plans.planLoadingNamed.replace(
+                      '{name}',
+                      pendingOnboardingTransition.planName,
+                    )
+                  : t.plans.planLoadingGeneric
+              }
+            />
+          </View>
+        ) : null}
+      </View>
     </ErrorBoundary>
   );
 }

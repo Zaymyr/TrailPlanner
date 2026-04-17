@@ -683,6 +683,20 @@ export type AdminTranslations = {
     description: string;
     loadError: string;
     empty: string;
+    import: {
+      title: string;
+      description: string;
+      sharedOnlyNote: string;
+      label: string;
+      formatHint: string;
+      placeholder: string;
+      archiveSharedLabel: string;
+      loadExample: string;
+      submit: string;
+      submitting: string;
+      invalidJson: string;
+      success: string;
+    };
     messages: {
       updated: string;
       error: string;

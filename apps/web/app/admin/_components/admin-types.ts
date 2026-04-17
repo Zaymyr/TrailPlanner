@@ -19,6 +19,34 @@ export const adminProductSchema = z.object({
   fatGrams: z.number().nonnegative().optional(),
 });
 
+export const adminProductImportItemSchema = z.object({
+  name: z.string().trim().min(1),
+  slug: z.string().trim().min(1).optional(),
+  sku: z.string().trim().min(1).optional(),
+  imageUrl: z.string().url().optional().nullable(),
+  productUrl: z.string().url().optional().nullable(),
+  fuelType: z.enum(fuelTypeValues).optional(),
+  caloriesKcal: z.coerce.number().nonnegative().optional(),
+  carbsGrams: z.coerce.number().nonnegative().optional(),
+  sodiumMg: z.coerce.number().nonnegative().optional(),
+  proteinGrams: z.coerce.number().nonnegative().optional(),
+  fatGrams: z.coerce.number().nonnegative().optional(),
+  isLive: z.boolean().optional(),
+});
+
+export const adminProductImportRequestSchema = z.union([
+  z.array(adminProductImportItemSchema).min(1),
+  z.object({
+    products: z.array(adminProductImportItemSchema).min(1),
+    archiveSharedCatalog: z.boolean().optional(),
+  }),
+]);
+
+export const adminProductImportResponseSchema = z.object({
+  archivedSharedCatalog: z.boolean(),
+  importedCount: z.number().int().nonnegative(),
+});
+
 export const editProductFormSchema = z.object({
   name: z.string().trim().min(1),
   slug: z.string().trim().min(1),

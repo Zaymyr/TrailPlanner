@@ -36,6 +36,19 @@ interface PremiumState {
   isLoading: boolean;
 }
 
+const DEFAULT_PREMIUM_STATE: PremiumState = {
+  isPremium: false,
+  hasPaidPremium: false,
+  paidPremiumSource: null,
+  subscriptionRenewalAt: null,
+  premiumGrant: null,
+  isTrialActive: false,
+  trialEndsAt: null,
+  isLoading: true,
+};
+
+let premiumStateCache: PremiumState = DEFAULT_PREMIUM_STATE;
+
 type ServerEntitlementsResponse = {
   entitlements?: {
     isPremium?: boolean;
@@ -176,21 +189,16 @@ function isActiveSubscription(subscription: SubscriptionRow | null) {
 }
 
 export function usePremium(): PremiumState {
-  const [state, setState] = useState<PremiumState>({
-    isPremium: false,
-    hasPaidPremium: false,
-    paidPremiumSource: null,
-    subscriptionRenewalAt: null,
-    premiumGrant: null,
-    isTrialActive: false,
-    trialEndsAt: null,
-    isLoading: true,
-  });
+  const [state, setState] = useState<PremiumState>(premiumStateCache);
   const revenueCatSyncInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     let removeCustomerInfoListener: (() => void) | null = null;
+    const applyState = (nextState: PremiumState) => {
+      premiumStateCache = nextState;
+      setState(nextState);
+    };
 
     async function checkPremium(userOverride?: User | null, customerInfoOverride?: CustomerInfo | null) {
       const user =
@@ -200,7 +208,7 @@ export function usePremium(): PremiumState {
 
       if (!user) {
         if (!cancelled) {
-          setState({
+          applyState({
             isPremium: false,
             hasPaidPremium: false,
             paidPremiumSource: null,
@@ -313,7 +321,7 @@ export function usePremium(): PremiumState {
       const fallbackPremium = isTrialActive || hasActiveSubscription || activePremiumGrant !== null;
       const isPremium = (resolvedServerEntitlements?.isPremium ?? fallbackPremium) || hasActiveRevenueCatEntitlement;
 
-      setState({
+      applyState({
         isPremium,
         hasPaidPremium,
         paidPremiumSource,

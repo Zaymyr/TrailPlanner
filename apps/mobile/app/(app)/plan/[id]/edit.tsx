@@ -21,11 +21,15 @@ import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../
 import {
   clearActivePlanEditSession,
   clearPlanEditDraft,
+  clearPendingPlanEditHelp,
+  clearPlanEditProductsBootstrap,
+  getPendingPlanEditHelp,
   getPlanEditDraft,
+  getPlanEditProductsBootstrap,
   setActivePlanEditSession,
   setPlanEditDraft,
 } from '../../../../lib/planEditSession';
-import { emitHelpTutorialRequest } from '../../../../lib/helpTutorial';
+import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 
 type RacePlanRow = {
   id: string;
@@ -97,6 +101,9 @@ export default function EditPlanScreen() {
   const { id, showHelp } = useLocalSearchParams<{ id: string; showHelp?: string }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { t } = useI18n();
+  const initialWarmStartDraft = id ? getPlanEditDraft(id) : null;
+  const initialWarmStartProductData = id ? getPlanEditProductsBootstrap(id) : null;
+  const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
   const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
     () => [
       {
@@ -144,25 +151,39 @@ export default function EditPlanScreen() {
     ],
     [t.helpTutorial],
   );
-  const [initialValues, setInitialValues] = useState<PlanFormValues | null>(null);
-  const [planName, setPlanName] = useState('');
-  const [loadedPlanId, setLoadedPlanId] = useState<string | null>(null);
-  const [loadingPlanName, setLoadingPlanName] = useState<string | null>(null);
-  const [loadingPlanNameId, setLoadingPlanNameId] = useState<string | null>(null);
-  const [loadingProgress, setLoadingProgress] = useState(0.08);
-  const [loading, setLoading] = useState(true);
+  const [initialValues, setInitialValues] = useState<PlanFormValues | null>(
+    () => initialWarmStartDraft?.values ?? null,
+  );
+  const [planName, setPlanName] = useState(() => initialWarmStartDraft?.planName ?? '');
+  const [loadedPlanId, setLoadedPlanId] = useState<string | null>(() =>
+    hasInitialWarmStart ? (id ?? null) : null,
+  );
+  const [loadingPlanName, setLoadingPlanName] = useState<string | null>(
+    () => initialWarmStartDraft?.planName ?? null,
+  );
+  const [loadingPlanNameId, setLoadingPlanNameId] = useState<string | null>(() =>
+    hasInitialWarmStart ? (id ?? null) : null,
+  );
+  const [loadingProgress, setLoadingProgress] = useState(() => (hasInitialWarmStart ? 1 : 0.08));
+  const [loading, setLoading] = useState(() => !hasInitialWarmStart);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [draftSnapshot, setDraftSnapshot] = useState<string | null>(null);
-  const [planProductData, setPlanProductData] = useState<PlanProductsBootstrap | null>(null);
-  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
-  const latestDraftRef = useRef<PlanFormValues | null>(null);
-  const lastSavedSnapshotRef = useRef<string | null>(null);
-  const elevationProfileRef = useRef<ElevationPoint[]>([]);
+  const [draftSnapshot, setDraftSnapshot] = useState<string | null>(() =>
+    initialWarmStartDraft ? serializePlanValues(initialWarmStartDraft.values) : null,
+  );
+  const [planProductData, setPlanProductData] = useState<PlanProductsBootstrap | null>(
+    () => initialWarmStartProductData ?? null,
+  );
+  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>(
+    () => initialWarmStartDraft?.elevationProfile ?? [],
+  );
+  const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
+  const lastSavedSnapshotRef = useRef<string | null>(initialWarmStartDraft?.lastSavedSnapshot ?? null);
+  const elevationProfileRef = useRef<ElevationPoint[]>(initialWarmStartDraft?.elevationProfile ?? []);
   const hasAutoOpenedHelpRef = useRef(false);
   const isSavingRef = useRef(false);
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
-  const loadedPlanIdRef = useRef<string | null>(null);
+  const loadedPlanIdRef = useRef<string | null>(hasInitialWarmStart ? (id ?? null) : null);
   const activeRouteIdRef = useRef<string | null>(id ?? null);
   const loadRequestIdRef = useRef(0);
   const router = useRouter();
@@ -172,6 +193,7 @@ export default function EditPlanScreen() {
     handleTutorialPrevious,
     handleTutorialScrollEvent,
     handleTutorialScrollSettled,
+    openTutorial,
     registerTutorialTarget,
     registerTutorialTargetRef,
     rootRef,
@@ -189,31 +211,73 @@ export default function EditPlanScreen() {
   }, [elevationProfile]);
 
   useEffect(() => {
-    if (showHelp !== '1' || !initialValues || hasAutoOpenedHelpRef.current) {
+    const shouldAutoOpenHelp =
+      showHelp === '1' || (id ? getPendingPlanEditHelp() === id : false);
+
+    if (
+      !shouldAutoOpenHelp ||
+      !initialValues ||
+      tutorialViewport.height <= 0 ||
+      hasAutoOpenedHelpRef.current
+    ) {
       return;
     }
 
     hasAutoOpenedHelpRef.current = true;
     const timeoutId = setTimeout(() => {
-      emitHelpTutorialRequest('planEdit');
-    }, 450);
+      if (id) {
+        clearPendingPlanEditHelp(id);
+      }
+      openTutorial();
+    }, 550);
 
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [initialValues, showHelp]);
+  }, [id, initialValues, openTutorial, showHelp, tutorialViewport.height]);
+
+  useEffect(() => {
+    if (!id) return;
+    clearPendingOnboardingTransition();
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
 
+    const cachedDraft = getPlanEditDraft(id);
+    const cachedProductData = getPlanEditProductsBootstrap(id);
+
     activeRouteIdRef.current = id;
     loadRequestIdRef.current += 1;
-    loadedPlanIdRef.current = null;
     latestDraftRef.current = null;
     lastSavedSnapshotRef.current = null;
     elevationProfileRef.current = [];
     isSavingRef.current = false;
     activeSavePromiseRef.current = null;
+    setError(null);
+    setSaving(false);
+    setActivePlanEditSession(id);
+
+    if (cachedDraft && cachedProductData) {
+      loadedPlanIdRef.current = id;
+      latestDraftRef.current = cachedDraft.values;
+      lastSavedSnapshotRef.current = cachedDraft.lastSavedSnapshot;
+      elevationProfileRef.current = cachedDraft.elevationProfile;
+      setLoadedPlanId(id);
+      setInitialValues(cachedDraft.values);
+      setPlanName(cachedDraft.planName);
+      setLoadingPlanName(cachedDraft.planName);
+      setLoadingPlanNameId(id);
+      setLoadingProgress(1);
+      setLoading(false);
+      setDraftSnapshot(serializePlanValues(cachedDraft.values));
+      setPlanProductData(cachedProductData);
+      setElevationProfile(cachedDraft.elevationProfile);
+      clearPlanEditProductsBootstrap(id);
+      return;
+    }
+
+    loadedPlanIdRef.current = null;
     setLoadedPlanId(null);
     setInitialValues(null);
     setPlanName('');
@@ -221,12 +285,9 @@ export default function EditPlanScreen() {
     setLoadingPlanNameId(id);
     setLoadingProgress(0.08);
     setLoading(true);
-    setError(null);
-    setSaving(false);
     setDraftSnapshot(null);
     setPlanProductData(null);
     setElevationProfile([]);
-    setActivePlanEditSession(id);
   }, [id]);
 
   const loadPlan = useCallback(async () => {

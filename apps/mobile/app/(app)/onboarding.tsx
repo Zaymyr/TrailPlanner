@@ -9,10 +9,14 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
+  Modal,
+  Pressable,
+  Image,
 } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
+import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
 import {
@@ -30,10 +34,25 @@ import type {
   HydrationEstimatorLevel,
   SodiumEstimatorLevel,
 } from '../../components/profile/types';
+import { ensureAppSession, isAnonymousSession } from '../../lib/appSession';
+import { loadPlanProductsBootstrap } from '../../components/plan-form/usePlanProducts';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { noteReviewOnboardingCompleted, noteReviewPlanCreated } from '../../lib/appReview';
+import { markOnboardingJustCompleted } from '../../lib/onboardingGate';
 import { createOnboardingDemoPlan } from '../../lib/onboardingDemoPlan';
+import {
+  clearPendingOnboardingTransition,
+  getPendingOnboardingTransition,
+  setPendingOnboardingTransition,
+  updatePendingOnboardingTransition,
+} from '../../lib/onboardingTransition';
+import {
+  setActivePlanEditSession,
+  setPendingPlanEditHelp,
+  setPlanEditDraft,
+  setPlanEditProductsBootstrap,
+} from '../../lib/planEditSession';
 
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
@@ -48,6 +67,30 @@ type RaceOption = {
   race_date: string | null;
   is_public: boolean;
   created_by: string | null;
+  thumbnail_url?: string | null;
+};
+
+type RaceEventGroup = {
+  id: string;
+  name: string;
+  location: string | null;
+  race_date: string | null;
+  thumbnail_url?: string | null;
+  races: RaceOption[];
+};
+
+type OnboardingProfileSavePayload = {
+  userId: string;
+  fullName: string;
+  waterBagLiters: number;
+  parsedUtmbIndex: number | null;
+  comfortableFlatPaceMinPerKm: number | null;
+  parsedWeightKg: number | null;
+  parsedHeightCm: number | null;
+  parsedDefaultCarbsPerHour: number | null;
+  parsedDefaultWaterPerHour: number | null;
+  parsedDefaultSodiumPerHour: number | null;
+  selectedProductIds: string[];
 };
 
 const PRODUCT_PRIORITY: Record<FuelType, number> = {
@@ -71,6 +114,85 @@ function formatRaceDate(isoDate: string | null, locale: 'fr' | 'en') {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function formatEventDate(isoDate: string | null, locale: 'fr' | 'en') {
+  if (!isoDate) return null;
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+function formatDistance(distanceKm: number) {
+  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
+}
+
+function formatElevation(elevationGainM: number) {
+  return Math.round(elevationGainM).toString();
+}
+
+function getRaceShortLabel(raceName: string, eventName: string) {
+  const cleaned = raceName.replace(eventName, '').replace(/[\s\-–—·]+/g, ' ').trim();
+  return cleaned.length > 2 ? cleaned : raceName;
+}
+
+function getEventImageUrl(event: Pick<RaceEventGroup, 'thumbnail_url' | 'races'>): string | null {
+  return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
+}
+
+function getEventDistanceRange(races: RaceOption[]) {
+  if (races.length === 0) return null;
+
+  const distances = races.map((race) => race.distance_km);
+  const minDistance = Math.min(...distances);
+  const maxDistance = Math.max(...distances);
+
+  if (Math.abs(maxDistance - minDistance) < 0.05) {
+    return `${formatDistance(maxDistance)} km`;
+  }
+
+  return `${formatDistance(minDistance)}-${formatDistance(maxDistance)} km`;
+}
+
+function sortRaceOptions(races: RaceOption[]) {
+  return [...races].sort((left, right) => {
+    if (left.distance_km !== right.distance_km) {
+      return left.distance_km - right.distance_km;
+    }
+
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function sortRaceEvents(events: RaceEventGroup[]) {
+  const getTimestamp = (value: string | null) => {
+    if (!value) return Number.MAX_SAFE_INTEGER;
+    const parsed = new Date(value).getTime();
+    return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
+  };
+
+  return [...events].sort((left, right) => {
+    const timestampDiff = getTimestamp(left.race_date) - getTimestamp(right.race_date);
+    if (timestampDiff !== 0) return timestampDiff;
+    return left.name.localeCompare(right.name);
+  });
+}
+
+function inferNutritionBrand(productName: string) {
+  const fromDelimiter = productName.split(' - ')[0]?.trim();
+  const source = fromDelimiter || productName;
+  const firstToken = source
+    .split(/\s+/)
+    .map((part) => part.replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, ''))
+    .find(Boolean);
+
+  return firstToken || source.trim() || 'Other';
 }
 
 function getFuelTypeLabel(fuelType: FuelType, locale: 'fr' | 'en') {
@@ -112,6 +234,16 @@ function formatProductMeta(product: Product, locale: 'fr' | 'en') {
   }
 
   return parts.join(' • ');
+}
+
+function isMissingUserForeignKeyError(error: unknown) {
+  if (!error || typeof error !== 'object') return false;
+
+  const candidate = error as { code?: string; details?: string | null; message?: string | null };
+  if (candidate.code !== '23503') return false;
+
+  const haystack = `${candidate.details ?? ''} ${candidate.message ?? ''}`.toLowerCase();
+  return haystack.includes('table "users"') || haystack.includes("table 'users'") || haystack.includes('auth.users');
 }
 
 function OnboardingShell({
@@ -160,6 +292,7 @@ function OnboardingShell({
 
 export default function OnboardingScreen() {
   const { locale, t } = useI18n();
+  const pendingTransition = getPendingOnboardingTransition();
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
@@ -178,24 +311,33 @@ export default function OnboardingScreen() {
   const [estimatorHydrationLevel, setEstimatorHydrationLevel] =
     useState<HydrationEstimatorLevel>('normal');
   const [estimatorSodiumLevel, setEstimatorSodiumLevel] = useState<SodiumEstimatorLevel>('normal');
-  const [raceOptions, setRaceOptions] = useState<RaceOption[]>([]);
-  const [raceUserId, setRaceUserId] = useState<string | null>(null);
+  const [raceEventGroups, setRaceEventGroups] = useState<RaceEventGroup[]>([]);
+  const [personalRaceOptions, setPersonalRaceOptions] = useState<RaceOption[]>([]);
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
+  const [selectedRaceEvent, setSelectedRaceEvent] = useState<RaceEventGroup | null>(null);
   const [raceSearch, setRaceSearch] = useState('');
   const [loadingRaces, setLoadingRaces] = useState(false);
   const [raceLoadError, setRaceLoadError] = useState<string | null>(null);
   const [hasLoadedRaceOptions, setHasLoadedRaceOptions] = useState(false);
   const [nutritionProducts, setNutritionProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [expandedNutritionBrands, setExpandedNutritionBrands] = useState<string[]>([]);
   const [nutritionSearch, setNutritionSearch] = useState('');
   const [loadingNutritionProducts, setLoadingNutritionProducts] = useState(false);
   const [nutritionLoadError, setNutritionLoadError] = useState<string | null>(null);
   const [hasLoadedNutritionProducts, setHasLoadedNutritionProducts] = useState(false);
-  const [createdDemoPlanId, setCreatedDemoPlanId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(Boolean(pendingTransition));
+  const [loadingPlanName, setLoadingPlanName] = useState<string | null>(
+    pendingTransition?.planName ?? null,
+  );
+  const [loadingProgress, setLoadingProgress] = useState(pendingTransition?.progress ?? 0.08);
   const [profileError, setProfileError] = useState<string | null>(null);
   const router = useRouter();
-  const totalSteps = selectedRaceId ? 8 : 7;
+  const completionPlanId: string | null = null;
+  const completedRaceIdParam: string | null = null;
+  const completedRaceNameParam: string | null = null;
+  const completedHasSelectedProductsParam = false;
+  const totalSteps = 6;
   const parsedEstimatorWeight = useMemo(
     () => parseOptionalNonNegativeInteger(estimatorWeightKg),
     [estimatorWeightKg],
@@ -223,36 +365,71 @@ export default function OnboardingScreen() {
     parsedEstimatorHeight,
     parsedEstimatorWeight,
   ]);
-  const selectedRace = useMemo(
-    () => raceOptions.find((race) => race.id === selectedRaceId) ?? null,
-    [raceOptions, selectedRaceId],
+  const allRaceOptions = useMemo(
+    () => [...personalRaceOptions, ...raceEventGroups.flatMap((event) => event.races)],
+    [personalRaceOptions, raceEventGroups],
   );
-  const filteredRaceOptions = useMemo(() => {
-    const normalizedSearch = raceSearch.trim().toLowerCase();
+  const selectedRace = useMemo(
+    () => allRaceOptions.find((race) => race.id === selectedRaceId) ?? null,
+    [allRaceOptions, selectedRaceId],
+  );
+  const selectedRaceSummary = useMemo(() => {
+    if (!selectedRace) return null;
 
-    if (!normalizedSearch) {
-      return raceOptions;
+    const parentEvent = raceEventGroups.find((event) =>
+      event.races.some((race) => race.id === selectedRace.id),
+    );
+
+    if (!parentEvent) {
+      return selectedRace.name;
     }
 
-    return raceOptions.filter((race) => {
+    return `${parentEvent.name} • ${getRaceShortLabel(selectedRace.name, parentEvent.name)}`;
+  }, [raceEventGroups, selectedRace]);
+  const filteredRaceEventGroups = useMemo(() => {
+    const normalizedSearch = raceSearch.trim().toLowerCase();
+
+    return raceEventGroups
+      .map((event) => {
+        const eventMatchesName =
+          normalizedSearch.length === 0 ||
+          event.name.toLowerCase().includes(normalizedSearch) ||
+          (event.location ?? '').toLowerCase().includes(normalizedSearch);
+
+        const races = sortRaceOptions(
+          event.races.filter((race) => {
+            if (eventMatchesName) {
+              return true;
+            }
+
+            const location = race.location_text?.toLowerCase() ?? '';
+            return (
+              race.name.toLowerCase().includes(normalizedSearch) ||
+              location.includes(normalizedSearch)
+            );
+          }),
+        );
+
+        return { ...event, races };
+      })
+      .filter((event) => event.races.length > 0);
+  }, [raceEventGroups, raceSearch]);
+  const filteredPersonalRaceOptions = useMemo(() => {
+    const normalizedSearch = raceSearch.trim().toLowerCase();
+
+    return personalRaceOptions.filter((race) => {
+      if (!normalizedSearch) {
+        return true;
+      }
+
       const location = race.location_text?.toLowerCase() ?? '';
       return (
         race.name.toLowerCase().includes(normalizedSearch) ||
         location.includes(normalizedSearch)
       );
     });
-  }, [raceOptions, raceSearch]);
-  const personalRaceOptions = useMemo(
-    () =>
-      filteredRaceOptions.filter(
-        (race) => !race.is_public && race.created_by && race.created_by === raceUserId,
-      ),
-    [filteredRaceOptions, raceUserId],
-  );
-  const publicRaceOptions = useMemo(
-    () => filteredRaceOptions.filter((race) => race.is_public),
-    [filteredRaceOptions],
-  );
+  }, [personalRaceOptions, raceSearch]);
+  const publicRaceOptions = useMemo(() => [] as RaceOption[], []);
   const filteredNutritionProducts = useMemo(() => {
     const normalizedSearch = nutritionSearch.trim().toLowerCase();
 
@@ -262,16 +439,13 @@ export default function OnboardingScreen() {
           return true;
         }
 
-        return product.name.toLowerCase().includes(normalizedSearch);
+        const brandLabel = inferNutritionBrand(product.name).toLowerCase();
+        return (
+          product.name.toLowerCase().includes(normalizedSearch) ||
+          brandLabel.includes(normalizedSearch)
+        );
       })
       .sort((left, right) => {
-        const leftSelected = selectedProductIds.includes(left.id);
-        const rightSelected = selectedProductIds.includes(right.id);
-
-        if (leftSelected !== rightSelected) {
-          return leftSelected ? -1 : 1;
-        }
-
         const leftPriority = PRODUCT_PRIORITY[left.fuel_type] ?? 99;
         const rightPriority = PRODUCT_PRIORITY[right.fuel_type] ?? 99;
         if (leftPriority !== rightPriority) {
@@ -285,9 +459,44 @@ export default function OnboardingScreen() {
         }
 
         return left.name.localeCompare(right.name);
-      })
-      .slice(0, 18);
+      });
   }, [nutritionProducts, nutritionSearch, selectedProductIds]);
+  const groupedNutritionProducts = useMemo(
+    () =>
+      Array.from(
+        filteredNutritionProducts.reduce((groups, product) => {
+          const brandLabel =
+            inferNutritionBrand(product.name) || (locale === 'fr' ? 'Autres marques' : 'Other brands');
+          const currentGroup = groups.get(brandLabel) ?? [];
+          currentGroup.push(product);
+          groups.set(brandLabel, currentGroup);
+          return groups;
+        }, new Map<string, Product[]>()),
+      )
+        .map(([brandLabel, products]) => ({
+          brandLabel,
+          products,
+          selectedCount: products.filter((product) => selectedProductIds.includes(product.id)).length,
+        }))
+        .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel)),
+    [filteredNutritionProducts, locale, selectedProductIds],
+  );
+  const hiddenNutritionProducts = useMemo(() => [] as Product[], []);
+  const selectedRaceEventDate = selectedRaceEvent
+    ? formatEventDate(selectedRaceEvent.race_date, locale)
+    : null;
+  const selectedRaceEventMeta = selectedRaceEvent
+    ? [selectedRaceEvent.location, selectedRaceEventDate].filter(Boolean).join(' • ')
+    : null;
+  const selectedRaceEventImage = selectedRaceEvent ? getEventImageUrl(selectedRaceEvent) : null;
+  const selectedRaceEventDistanceRange = selectedRaceEvent
+    ? getEventDistanceRange(selectedRaceEvent.races)
+    : null;
+  const selectedRaceEventFormatsLabel = selectedRaceEvent
+    ? selectedRaceEvent.races.length === 1
+      ? t.catalog.singleFormatLabel
+      : t.catalog.multipleFormatsLabel.replace('{count}', String(selectedRaceEvent.races.length))
+    : null;
   const carbEstimatorOptions = useMemo(
     () => [
       { value: 'beginner' as const, label: t.profile.estimatorCarbBeginner },
@@ -399,20 +608,96 @@ export default function OnboardingScreen() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const userId = sessionData?.session?.user?.id ?? null;
-      setRaceUserId(userId);
 
-      const { data, error } = await supabase
-        .from('races')
-        .select('id, name, distance_km, elevation_gain_m, location_text, race_date, is_public, created_by')
-        .eq('is_live', true)
-        .order('race_date', { ascending: true, nullsFirst: false })
-        .order('name', { ascending: true });
+      const [eventsResult, orphanRacesResult, personalRacesResult] = await Promise.all([
+        supabase
+          .from('race_events')
+          .select(`
+            id,
+            name,
+            location,
+            race_date,
+            thumbnail_url,
+            races (
+              id,
+              name,
+              distance_km,
+              elevation_gain_m,
+              race_date,
+              thumbnail_url,
+              created_by,
+              is_public,
+              location_text
+            )
+          `)
+          .eq('is_live', true)
+          .order('name'),
+        supabase
+          .from('races')
+          .select('id, name, distance_km, elevation_gain_m, location_text, race_date, is_public, created_by, thumbnail_url')
+          .eq('is_live', true)
+          .is('event_id', null)
+          .eq('is_public', true)
+          .order('race_date', { ascending: true, nullsFirst: false })
+          .order('name', { ascending: true }),
+        userId
+          ? supabase
+              .from('races')
+              .select('id, name, distance_km, elevation_gain_m, location_text, race_date, is_public, created_by, thumbnail_url')
+              .eq('is_public', false)
+              .eq('created_by', userId)
+              .eq('is_live', true)
+              .order('race_date', { ascending: true, nullsFirst: false })
+              .order('name', { ascending: true })
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
-      if (error) {
-        throw error;
+      if (eventsResult.error) {
+        throw eventsResult.error;
       }
 
-      setRaceOptions((data as RaceOption[] | null) ?? []);
+      if (orphanRacesResult.error) {
+        throw orphanRacesResult.error;
+      }
+
+      if (personalRacesResult.error) {
+        throw personalRacesResult.error;
+      }
+
+      const nextEvents = sortRaceEvents(
+        ((eventsResult.data ?? []) as Array<
+          Omit<RaceEventGroup, 'location' | 'races'> & {
+            location: string | null;
+            races?: RaceOption[] | null;
+          }
+        >).map((event) => ({
+          ...event,
+          races: sortRaceOptions(
+            ((event.races ?? []) as RaceOption[]).map((race) => ({
+              ...race,
+              location_text: race.location_text ?? event.location ?? null,
+              race_date: race.race_date ?? event.race_date ?? null,
+              is_public: race.is_public ?? true,
+              created_by: race.created_by ?? null,
+            })),
+          ),
+        })),
+      );
+
+      const orphanRaceOptions = sortRaceOptions((orphanRacesResult.data as RaceOption[] | null) ?? []);
+      if (orphanRaceOptions.length > 0) {
+        nextEvents.push({
+          id: '__orphans__',
+          name: t.catalog.otherRaces,
+          location: null,
+          race_date: null,
+          thumbnail_url: null,
+          races: orphanRaceOptions,
+        });
+      }
+
+      setRaceEventGroups(nextEvents);
+      setPersonalRaceOptions(sortRaceOptions((personalRacesResult.data as RaceOption[] | null) ?? []));
     } catch (error) {
       console.error('Unable to load onboarding races:', error);
       setRaceLoadError(t.onboarding.raceLoadingError);
@@ -432,7 +717,7 @@ export default function OnboardingScreen() {
 
       let query = supabase
         .from('products')
-        .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .select('id, name, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
         .eq('is_archived', false)
         .order('name');
 
@@ -458,7 +743,7 @@ export default function OnboardingScreen() {
   }
 
   useEffect(() => {
-    if (step !== 4) return;
+    if (step !== 5) return;
 
     if (hasLoadedRaceOptions || loadingRaces) return;
 
@@ -466,7 +751,7 @@ export default function OnboardingScreen() {
   }, [hasLoadedRaceOptions, loadingRaces, step]);
 
   useEffect(() => {
-    if (step !== 5) return;
+    if (step !== 6) return;
 
     if (hasLoadedNutritionProducts || loadingNutritionProducts) return;
 
@@ -550,6 +835,52 @@ export default function OnboardingScreen() {
     };
   }
 
+  async function saveOnboardingProfileAndFavorites({
+    userId,
+    fullName: nextFullName,
+    waterBagLiters: nextWaterBagLiters,
+    parsedUtmbIndex,
+    comfortableFlatPaceMinPerKm,
+    parsedWeightKg,
+    parsedHeightCm,
+    parsedDefaultCarbsPerHour,
+    parsedDefaultWaterPerHour,
+    parsedDefaultSodiumPerHour,
+    selectedProductIds: nextSelectedProductIds,
+  }: OnboardingProfileSavePayload) {
+    const profileUpsert = supabase.from('user_profiles').upsert({
+      user_id: userId,
+      full_name: nextFullName.trim() || null,
+      water_bag_liters: nextWaterBagLiters,
+      utmb_index: parsedUtmbIndex,
+      comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
+      weight_kg: parsedWeightKg,
+      height_cm: parsedHeightCm,
+      default_carbs_g_per_hour: parsedDefaultCarbsPerHour,
+      default_water_ml_per_hour: parsedDefaultWaterPerHour,
+      default_sodium_mg_per_hour: parsedDefaultSodiumPerHour,
+    });
+
+    if (nextSelectedProductIds.length === 0) {
+      await profileUpsert;
+      return;
+    }
+
+    await Promise.all([
+      profileUpsert,
+      supabase.from('user_favorite_products').upsert(
+        nextSelectedProductIds.map((productId) => ({
+          user_id: userId,
+          product_id: productId,
+        })),
+        {
+          onConflict: 'user_id,product_id',
+          ignoreDuplicates: true,
+        },
+      ),
+    ]);
+  }
+
   async function finishOnboarding() {
     const personalStep = validatePersonalStep();
     if (!personalStep) {
@@ -562,58 +893,123 @@ export default function OnboardingScreen() {
     }
 
     setSaving(true);
+    setLoadingPlanName(selectedRace?.name ?? null);
+    setLoadingProgress(0.08);
+    setPendingOnboardingTransition({
+      planName: selectedRace?.name ?? null,
+      progress: 0.08,
+    });
     let nextRoute: string | null = '/(app)/plans';
-    let nextDemoPlanId: string | null = null;
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData?.session?.user?.id;
+      setLoadingProgress(0.16);
+      updatePendingOnboardingTransition({ progress: 0.16 });
+      const session = await ensureAppSession();
+      let userId = session?.user?.id ?? null;
+      const canRecoverGuestSession = isAnonymousSession(session);
 
       if (userId) {
-        await supabase.from('user_profiles').upsert({
-          user_id: userId,
-          full_name: fullName.trim() || null,
-          water_bag_liters: waterBagLiters,
-          utmb_index: performanceStep.parsedUtmbIndex,
-          comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
-          weight_kg: personalStep.parsedWeightKg,
-          height_cm: personalStep.parsedHeightCm,
-          default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
-          default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
-          default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
+        setLoadingProgress(0.3);
+        updatePendingOnboardingTransition({ progress: 0.3 });
+        await saveOnboardingProfileAndFavorites({
+          userId,
+          fullName,
+          waterBagLiters,
+          parsedUtmbIndex: performanceStep.parsedUtmbIndex,
+          comfortableFlatPaceMinPerKm: performanceStep.comfortableFlatPaceMinPerKm,
+          parsedWeightKg: personalStep.parsedWeightKg,
+          parsedHeightCm: personalStep.parsedHeightCm,
+          parsedDefaultCarbsPerHour: performanceStep.parsedDefaultCarbsPerHour,
+          parsedDefaultWaterPerHour: performanceStep.parsedDefaultWaterPerHour,
+          parsedDefaultSodiumPerHour: performanceStep.parsedDefaultSodiumPerHour,
+          selectedProductIds,
         });
 
-        if (selectedProductIds.length > 0) {
-          await supabase.from('user_favorite_products').upsert(
-            selectedProductIds.map((productId) => ({
-              user_id: userId,
-              product_id: productId,
-            })),
-            {
-              onConflict: 'user_id,product_id',
-              ignoreDuplicates: true,
-            },
-          );
-        }
-
         if (selectedRace) {
-          const demoPlanId = await createOnboardingDemoPlan({
-            userId,
-            race: selectedRace,
-            profileDefaults: {
-              comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
-              default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
-              default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
-              default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
-              water_bag_liters: waterBagLiters,
-            },
-            selectedProductIds,
+          setLoadingPlanName(selectedRace.name);
+          setLoadingProgress(0.48);
+          updatePendingOnboardingTransition({
+            planName: selectedRace.name,
+            progress: 0.48,
           });
+          const profileDefaults = {
+            comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
+            default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
+            default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
+            default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
+            water_bag_liters: waterBagLiters,
+          };
 
-          if (demoPlanId) {
+          let demoPlan:
+            | Awaited<ReturnType<typeof createOnboardingDemoPlan>>
+            | null = null;
+
+          try {
+            demoPlan = await createOnboardingDemoPlan({
+              userId,
+              race: selectedRace,
+              profileDefaults,
+              selectedProductIds,
+            });
+          } catch (error) {
+            if (canRecoverGuestSession && isMissingUserForeignKeyError(error)) {
+              await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+
+              const recoveredSession = await ensureAppSession();
+              const recoveredUserId = recoveredSession?.user?.id ?? null;
+
+              if (recoveredUserId && recoveredUserId !== userId) {
+                userId = recoveredUserId;
+
+                await saveOnboardingProfileAndFavorites({
+                  userId,
+                  fullName,
+                  waterBagLiters,
+                  parsedUtmbIndex: performanceStep.parsedUtmbIndex,
+                  comfortableFlatPaceMinPerKm: performanceStep.comfortableFlatPaceMinPerKm,
+                  parsedWeightKg: personalStep.parsedWeightKg,
+                  parsedHeightCm: personalStep.parsedHeightCm,
+                  parsedDefaultCarbsPerHour: performanceStep.parsedDefaultCarbsPerHour,
+                  parsedDefaultWaterPerHour: performanceStep.parsedDefaultWaterPerHour,
+                  parsedDefaultSodiumPerHour: performanceStep.parsedDefaultSodiumPerHour,
+                  selectedProductIds,
+                });
+
+                demoPlan = await createOnboardingDemoPlan({
+                  userId,
+                  race: selectedRace,
+                  profileDefaults,
+                  selectedProductIds,
+                });
+              } else {
+                throw error;
+              }
+            } else {
+              throw error;
+            }
+          }
+
+          if (demoPlan) {
+            setLoadingPlanName(demoPlan.values.name || selectedRace.name);
+            setLoadingProgress(0.78);
+            updatePendingOnboardingTransition({
+              planName: demoPlan.values.name || selectedRace.name,
+              progress: 0.78,
+            });
+            const planProductsBootstrap = await loadPlanProductsBootstrap(userId);
+            setPlanEditDraft(demoPlan.id, {
+              elevationProfile: demoPlan.elevationProfile,
+              lastSavedSnapshot: JSON.stringify(demoPlan.values),
+              planName: demoPlan.values.name,
+              values: demoPlan.values,
+            });
+            setPlanEditProductsBootstrap(demoPlan.id, planProductsBootstrap);
+            setActivePlanEditSession(demoPlan.id);
+            setPendingPlanEditHelp(demoPlan.id);
+            setLoadingProgress(1);
+            updatePendingOnboardingTransition({ progress: 1 });
             await noteReviewPlanCreated();
-            nextDemoPlanId = demoPlanId;
-            nextRoute = null;
+            nextRoute = `/(app)/plan/${demoPlan.id}/edit?showHelp=1`;
           }
         }
       }
@@ -621,21 +1017,20 @@ export default function OnboardingScreen() {
       console.error('Unable to finish onboarding:', error);
     } finally {
       await noteReviewOnboardingCompleted();
-      setSaving(false);
-
-      if (nextDemoPlanId) {
-        setCreatedDemoPlanId(nextDemoPlanId);
-        setStep(7);
+      if (nextRoute) {
+        const currentUserId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
+        if (currentUserId) {
+          markOnboardingJustCompleted(currentUserId);
+        }
+        router.replace(nextRoute);
         return;
       }
 
-      router.replace(nextRoute ?? '/(app)/plans');
+      setSaving(false);
+      setLoadingPlanName(null);
+      setLoadingProgress(0.08);
+      clearPendingOnboardingTransition();
     }
-  }
-
-  async function handleNotifStep() {
-    await Notifications.requestPermissionsAsync();
-    await finishOnboarding();
   }
 
   function handlePersonalContinue() {
@@ -644,19 +1039,30 @@ export default function OnboardingScreen() {
     setStep(3);
   }
 
+  async function handleNotifStep() {
+    await finishOnboarding();
+  }
+
   function handlePerformanceContinue() {
     const performanceStep = validatePerformanceStep();
     if (!performanceStep) return;
     setStep(4);
   }
 
-  function handleRaceContinue() {
+  function handleTargetsContinue() {
+    const performanceStep = validatePerformanceStep();
+    if (!performanceStep) return;
     setStep(5);
   }
 
-  function handleRaceSkip() {
-    setSelectedRaceId(null);
-    setStep(5);
+  function handleRaceContinue() {
+    setStep(6);
+  }
+
+  function handleSelectRace(raceId: string) {
+    setSelectedRaceId(raceId);
+    setSelectedRaceEvent(null);
+    setStep(6);
   }
 
   function toggleProductSelection(productId: string) {
@@ -668,26 +1074,35 @@ export default function OnboardingScreen() {
   }
 
   function handleNutritionContinue() {
-    setStep(6);
+    void finishOnboarding();
   }
 
-  function handleNutritionSkip() {
-    setSelectedProductIds([]);
-    setStep(6);
+  function handleBackToRaceChoice() {
+    setStep(5);
+  }
+
+  function toggleNutritionBrand(brandLabel: string) {
+    setExpandedNutritionBrands((current) =>
+      current.includes(brandLabel)
+        ? current.filter((label) => label !== brandLabel)
+        : [...current, brandLabel],
+    );
   }
 
   function handleOpenDemoPlan() {
-    if (!createdDemoPlanId) {
+    if (!completionPlanId) {
       router.replace('/(app)/plans');
       return;
     }
 
-    router.replace(`/(app)/plan/${createdDemoPlanId}/edit?showHelp=1`);
+    router.replace(`/(app)/plan/${completionPlanId}/edit?showHelp=1`);
   }
 
   function handleCreateAnotherPlan() {
-    if (selectedRace?.id) {
-      router.replace(`/(app)/plan/new?raceId=${selectedRace.id}`);
+    const nextRaceId = selectedRace?.id ?? completedRaceIdParam;
+
+    if (nextRaceId) {
+      router.replace(`/(app)/plan/new?raceId=${nextRaceId}`);
       return;
     }
 
@@ -761,17 +1176,63 @@ export default function OnboardingScreen() {
     );
   }
 
+  if (saving) {
+    const visiblePlanName = loadingPlanName ?? selectedRace?.name ?? null;
+    const loadingTitle = visiblePlanName
+      ? t.plans.planLoadingNamed.replace('{name}', visiblePlanName)
+      : t.plans.planLoadingGeneric;
+
+    return (
+      <PlanLoadingScreen
+        planName={visiblePlanName}
+        progress={loadingProgress}
+        stage={t.plans.planLoadingStage}
+        title={loadingTitle}
+      />
+    );
+  }
+
+  if (completionPlanId) {
+    return (
+      <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <View style={styles.notificationIconWrap}>
+          <Text style={styles.notificationIcon}>âœ“</Text>
+        </View>
+        <Text style={styles.title}>{t.onboarding.completionTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.completionSubtitle}</Text>
+
+        <View style={styles.noticeBox}>
+          <Text style={styles.noticeTitle}>{t.onboarding.completionSummaryTitle}</Text>
+          {selectedRace?.name || completedRaceNameParam ? (
+            <Text style={styles.noticeText}>
+              {t.onboarding.completionRaceLine.replace('{name}', selectedRace?.name ?? completedRaceNameParam ?? '')}
+            </Text>
+          ) : null}
+          <Text style={styles.noticeText}>
+            {(selectedProductIds.length > 0 || completedHasSelectedProductsParam)
+              ? t.onboarding.completionFilledLine
+              : t.onboarding.completionEmptyLine}
+          </Text>
+          <Text style={styles.noticeText}>{t.onboarding.completionEditLine}</Text>
+        </View>
+
+        <TouchableOpacity style={styles.primaryButton} onPress={handleOpenDemoPlan}>
+          <Text style={styles.primaryButtonText}>{t.onboarding.completionContinueCta}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleCreateAnotherPlan}>
+          <Text style={styles.secondaryButtonText}>{t.onboarding.completionNewPlanCta}</Text>
+        </TouchableOpacity>
+      </OnboardingShell>
+    );
+  }
+
   if (step === 0) {
     return (
       <OnboardingShell step={1} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <Text style={styles.kicker}>{t.onboarding.welcomeKicker}</Text>
         <Text style={styles.title}>{t.onboarding.welcomeTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.welcomeSubtitle}</Text>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>{t.onboarding.overviewCardTitle}</Text>
-          <Text style={styles.summaryText}>{t.onboarding.overviewCardText}</Text>
-        </View>
 
         <View style={styles.phaseList}>
           {overviewPhases.map((item) => (
@@ -787,8 +1248,8 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(1)}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.overviewCta}</Text>
+        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
+          <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
         </TouchableOpacity>
       </OnboardingShell>
     );
@@ -842,7 +1303,7 @@ export default function OnboardingScreen() {
   if (step === 2) {
     return (
       <>
-        <OnboardingShell step={3} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <OnboardingShell step={2} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
           <Text style={styles.title}>{t.profile.personalSectionTitle}</Text>
           <Text style={styles.subtitle}>{t.profile.personalSectionSubtitle}</Text>
 
@@ -918,17 +1379,12 @@ export default function OnboardingScreen() {
   if (step === 3) {
     return (
       <>
-        <OnboardingShell step={4} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <OnboardingShell step={3} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
           <Text style={styles.title}>{t.profile.performanceSectionTitle}</Text>
-          <Text style={styles.subtitle}>{t.profile.performanceSectionSubtitle}</Text>
-          <Text style={styles.predictionHint}>{t.onboarding.predictionHint}</Text>
+          <Text style={styles.subtitle}>{t.onboarding.performanceStepSubtitle}</Text>
 
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>{t.profile.performanceSectionTitle}</Text>
-            <Text style={styles.sectionSubtitle}>{t.profile.performanceSectionSubtitle}</Text>
-
             <Text style={styles.label}>{t.onboarding.waterBagLabel}</Text>
-            <Text style={styles.labelHint}>{t.onboarding.waterBagHint}</Text>
             <View style={styles.waterBagRow}>
               {WATER_BAG_OPTIONS.map((opt) => (
                 <TouchableOpacity
@@ -944,7 +1400,6 @@ export default function OnboardingScreen() {
             </View>
 
             <Text style={styles.label}>{t.onboarding.comfortableFlatPaceLabel}</Text>
-            <Text style={styles.labelHint}>{t.onboarding.comfortableFlatPaceHint}</Text>
             <View style={styles.paceInputRow}>
               <View style={styles.paceInputGroup}>
                 <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceMinutesLabel}</Text>
@@ -979,7 +1434,6 @@ export default function OnboardingScreen() {
             </View>
 
             <Text style={styles.label}>{t.onboarding.utmbIndexLabel}</Text>
-            <Text style={styles.labelHint}>{t.onboarding.utmbIndexHint}</Text>
             <TextInput
               style={styles.textInput}
               value={utmbIndex}
@@ -994,11 +1448,26 @@ export default function OnboardingScreen() {
             />
           </View>
 
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>{t.profile.planDefaultsSectionTitle}</Text>
-            <Text style={styles.sectionSubtitle}>{t.profile.planDefaultsSectionSubtitle}</Text>
-            <Text style={styles.labelHint}>{t.profile.estimatorInlineHint}</Text>
+          {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
 
+          <TouchableOpacity style={styles.primaryButton} onPress={handlePerformanceContinue}>
+            <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
+          </TouchableOpacity>
+        </OnboardingShell>
+
+        {renderEstimatorModal()}
+      </>
+    );
+  }
+
+  if (step === 4) {
+    return (
+      <>
+        <OnboardingShell step={4} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+          <Text style={styles.title}>{t.onboarding.nutritionTargetsTitle}</Text>
+          <Text style={styles.subtitle}>{t.onboarding.nutritionTargetsSubtitle}</Text>
+
+          <View style={styles.sectionCard}>
             <TouchableOpacity style={styles.estimateButton} onPress={handleOpenEstimator}>
               <Text style={styles.estimateButtonText}>{t.profile.estimatorButton}</Text>
             </TouchableOpacity>
@@ -1065,7 +1534,7 @@ export default function OnboardingScreen() {
 
           {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handlePerformanceContinue}>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleTargetsContinue}>
             <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
           </TouchableOpacity>
         </OnboardingShell>
@@ -1075,14 +1544,23 @@ export default function OnboardingScreen() {
     );
   }
 
-  if (step === 4) {
+  if (step === 5) {
     return (
-      <OnboardingShell step={5} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+      <>
+        <OnboardingShell step={5} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <Text style={styles.title}>{t.onboarding.raceTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.raceSubtitle}</Text>
         <Text style={styles.predictionHint}>{t.onboarding.raceHint}</Text>
 
         <View style={styles.sectionCard}>
+          {selectedRaceSummary ? (
+            <View style={styles.inlineInfoRow}>
+              <View style={styles.selectionCountPill}>
+                <Text style={styles.selectionCountText}>{selectedRaceSummary}</Text>
+              </View>
+            </View>
+          ) : null}
+
           <TextInput
             style={styles.textInput}
             value={raceSearch}
@@ -1110,17 +1588,17 @@ export default function OnboardingScreen() {
                 <Text style={styles.retryButtonInlineText}>{t.common.retry}</Text>
               </TouchableOpacity>
             </View>
-          ) : personalRaceOptions.length === 0 && publicRaceOptions.length === 0 ? (
+          ) : filteredPersonalRaceOptions.length === 0 && filteredRaceEventGroups.length === 0 ? (
             <View style={styles.raceCenteredState}>
               <Text style={styles.emptyTitle}>{t.onboarding.raceEmptyTitle}</Text>
               <Text style={styles.emptySubtitle}>{t.onboarding.raceEmptySubtitle}</Text>
             </View>
           ) : (
-            <View style={styles.raceList}>
-              {personalRaceOptions.length > 0 ? (
+            <View style={styles.raceEventList}>
+              {filteredPersonalRaceOptions.length > 0 ? (
                 <View style={styles.raceGroup}>
                   <Text style={styles.raceGroupLabel}>{t.races.myRaces}</Text>
-                  {personalRaceOptions.map((race) => {
+                  {filteredPersonalRaceOptions.map((race) => {
                     const selected = race.id === selectedRaceId;
                     const raceMeta = [race.location_text, formatRaceDate(race.race_date, locale)]
                       .filter(Boolean)
@@ -1133,7 +1611,7 @@ export default function OnboardingScreen() {
                           styles.raceChoiceCard,
                           selected && styles.raceChoiceCardSelected,
                         ]}
-                        onPress={() => setSelectedRaceId(race.id)}
+                        onPress={() => handleSelectRace(race.id)}
                       >
                         <View style={styles.raceChoiceHeader}>
                           <Text style={styles.raceChoiceTitle}>{race.name}</Text>
@@ -1154,6 +1632,63 @@ export default function OnboardingScreen() {
                   })}
                 </View>
               ) : null}
+
+              {filteredRaceEventGroups.map((event) => {
+                const eventImageUrl = getEventImageUrl(event);
+                const dateStr = formatEventDate(event.race_date, locale);
+                const headerMeta = [event.location, dateStr].filter(Boolean).join(' • ');
+                const distanceRange = getEventDistanceRange(event.races);
+                const selectedEventRace = event.races.find((race) => race.id === selectedRaceId) ?? null;
+                const primaryRace = event.races[0] ?? null;
+                const formatsLabel =
+                  event.races.length === 1
+                    ? t.catalog.singleFormatLabel
+                    : t.catalog.multipleFormatsLabel.replace('{count}', String(event.races.length));
+
+                return (
+                  <View key={event.id} style={styles.eventCard}>
+                    <View style={styles.eventHeader}>
+                      <View style={styles.eventBadge}>
+                        <Ionicons name="flag-outline" size={18} color={Colors.brandPrimary} />
+                      </View>
+                      <View style={styles.eventHeaderText}>
+                        <Text style={styles.eventName}>{event.name}</Text>
+                        {headerMeta ? <Text style={styles.eventMeta}>{headerMeta}</Text> : null}
+                      </View>
+                      {eventImageUrl ? (
+                        <Image source={{ uri: eventImageUrl }} style={styles.eventThumbnail} resizeMode="cover" />
+                      ) : null}
+                    </View>
+
+                    <View style={styles.eventSummaryRow}>
+                      <View style={styles.summaryPill}>
+                        <Text style={styles.summaryPillText}>{formatsLabel}</Text>
+                      </View>
+                      {distanceRange ? (
+                        <View style={styles.summaryPill}>
+                          <Text style={styles.summaryPillText}>{distanceRange}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    {selectedEventRace ? (
+                      <Text style={styles.eventSupportText}>
+                        {`${getRaceShortLabel(selectedEventRace.name, event.name)} • ${formatDistance(selectedEventRace.distance_km)} km • D+ ${formatElevation(selectedEventRace.elevation_gain_m)} m`}
+                      </Text>
+                    ) : primaryRace ? (
+                      <Text style={styles.eventSupportText}>
+                        {event.races.length === 1
+                          ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
+                          : t.catalog.chooseFormatHint}
+                      </Text>
+                    ) : null}
+
+                    <TouchableOpacity style={styles.eventPrimaryButton} onPress={() => setSelectedRaceEvent(event)}>
+                      <Text style={styles.eventPrimaryButtonText}>{t.catalog.viewFormats}</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
 
               {publicRaceOptions.length > 0 ? (
                 <View style={styles.raceGroup}>
@@ -1196,27 +1731,89 @@ export default function OnboardingScreen() {
           )}
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            !selectedRace && styles.buttonDisabled,
-          ]}
-          onPress={handleRaceContinue}
-          disabled={!selectedRace}
-        >
-          <Text style={styles.primaryButtonText}>
-            {selectedRace ? t.onboarding.raceContinueCta : t.onboarding.continueCta}
-          </Text>
-        </TouchableOpacity>
+        </OnboardingShell>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleRaceSkip}>
-          <Text style={styles.secondaryButtonText}>{t.onboarding.raceSkipCta}</Text>
-        </TouchableOpacity>
-      </OnboardingShell>
+        <Modal
+          visible={Boolean(selectedRaceEvent)}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setSelectedRaceEvent(null)}
+        >
+          <View style={styles.modalBackdrop}>
+            <Pressable style={styles.sheetOverlay} onPress={() => setSelectedRaceEvent(null)} />
+            <SafeAreaView style={styles.sheetCard}>
+              <View style={styles.sheetHandle} />
+              <View style={styles.sheetHeader}>
+                <View style={styles.sheetHeaderText}>
+                  <Text style={styles.sheetTitle}>{selectedRaceEvent?.name}</Text>
+                  {selectedRaceEventMeta ? <Text style={styles.sheetSubtitle}>{selectedRaceEventMeta}</Text> : null}
+                </View>
+                <TouchableOpacity style={styles.sheetCloseButton} onPress={() => setSelectedRaceEvent(null)}>
+                  <Ionicons name="close" size={20} color={Colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              {selectedRaceEventImage ? (
+                <Image source={{ uri: selectedRaceEventImage }} style={styles.sheetImage} resizeMode="cover" />
+              ) : null}
+
+              <View style={styles.eventSummaryRow}>
+                {selectedRaceEventFormatsLabel ? (
+                  <View style={styles.summaryPill}>
+                    <Text style={styles.summaryPillText}>{selectedRaceEventFormatsLabel}</Text>
+                  </View>
+                ) : null}
+                {selectedRaceEventDistanceRange ? (
+                  <View style={styles.summaryPill}>
+                    <Text style={styles.summaryPillText}>{selectedRaceEventDistanceRange}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <Text style={styles.sheetHint}>{t.catalog.chooseFormatHint}</Text>
+
+              <ScrollView contentContainerStyle={styles.sheetContent}>
+                {selectedRaceEvent?.races.map((race) => {
+                  const selected = race.id === selectedRaceId;
+
+                  return (
+                    <TouchableOpacity
+                      key={race.id}
+                      style={[styles.formatRow, selected && styles.formatRowSelected]}
+                      onPress={() => handleSelectRace(race.id)}
+                    >
+                      <View style={styles.formatRowContent}>
+                        <Text style={styles.formatTitle}>
+                          {selectedRaceEvent ? getRaceShortLabel(race.name, selectedRaceEvent.name) : race.name}
+                        </Text>
+                        <Text style={styles.formatSubtitle}>
+                          {`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m`}
+                        </Text>
+                      </View>
+
+                      {selected ? (
+                        <View style={styles.raceSelectedBadge}>
+                          <Text style={styles.raceSelectedBadgeText}>
+                            {t.onboarding.raceSelectedBadge}
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.formatActionButton}>
+                          <Text style={styles.formatActionButtonText}>{t.catalog.selectRace}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </SafeAreaView>
+          </View>
+        </Modal>
+      </>
     );
   }
 
-  if (step === 5) {
+  if (step === 6) {
     const selectedCountLabel = t.onboarding.nutritionSelectedCount.replace(
       '{count}',
       String(selectedProductIds.length),
@@ -1229,6 +1826,18 @@ export default function OnboardingScreen() {
         <Text style={styles.predictionHint}>{t.onboarding.nutritionHint}</Text>
 
         <View style={styles.sectionCard}>
+          {selectedRaceSummary ? (
+            <View style={styles.selectionActionRow}>
+              <View style={styles.selectionCountPill}>
+                <Text style={styles.selectionCountText}>{selectedRaceSummary}</Text>
+              </View>
+
+              <TouchableOpacity style={styles.retryButtonInline} onPress={handleBackToRaceChoice}>
+                <Text style={styles.retryButtonInlineText}>{t.onboarding.changeRaceCta}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           <View style={styles.inlineInfoRow}>
             <View style={styles.selectionCountPill}>
               <Text style={styles.selectionCountText}>{selectedCountLabel}</Text>
@@ -1262,14 +1871,95 @@ export default function OnboardingScreen() {
                 <Text style={styles.retryButtonInlineText}>{t.common.retry}</Text>
               </TouchableOpacity>
             </View>
-          ) : filteredNutritionProducts.length === 0 ? (
+          ) : groupedNutritionProducts.length === 0 ? (
             <View style={styles.raceCenteredState}>
               <Text style={styles.emptyTitle}>{t.onboarding.nutritionEmptyTitle}</Text>
               <Text style={styles.emptySubtitle}>{t.onboarding.nutritionEmptySubtitle}</Text>
             </View>
           ) : (
             <View style={styles.productList}>
-              {filteredNutritionProducts.map((product) => {
+              {groupedNutritionProducts.map((group) => {
+                const brandExpanded =
+                  nutritionSearch.trim().length > 0 || expandedNutritionBrands.includes(group.brandLabel);
+
+                return (
+                  <View key={group.brandLabel} style={styles.productBrandGroup}>
+                    <TouchableOpacity
+                      style={styles.productBrandHeader}
+                      onPress={() => toggleNutritionBrand(group.brandLabel)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.productBrandTitle}>{group.brandLabel}</Text>
+
+                      <View style={styles.productBrandHeaderActions}>
+                        <View style={styles.productBrandCountPill}>
+                          <Text style={styles.productBrandCountText}>
+                            {group.selectedCount > 0
+                              ? `${group.selectedCount}/${group.products.length}`
+                              : String(group.products.length)}
+                          </Text>
+                        </View>
+                        <Ionicons
+                          name={brandExpanded ? 'chevron-up' : 'chevron-down'}
+                          size={18}
+                          color={Colors.textSecondary}
+                        />
+                      </View>
+                    </TouchableOpacity>
+
+                    {brandExpanded ? (
+                      <View style={styles.productBrandItems}>
+                        {group.products.map((product) => {
+                          const selected = selectedProductIds.includes(product.id);
+
+                          return (
+                            <TouchableOpacity
+                              key={product.id}
+                              style={[
+                                styles.productChoiceCard,
+                                selected && styles.productChoiceCardSelected,
+                              ]}
+                              onPress={() => toggleProductSelection(product.id)}
+                            >
+                              <View style={styles.productChoiceContentRow}>
+                                <View style={styles.productChoiceMedia}>
+                                  {product.image_url ? (
+                                    <Image
+                                      source={{ uri: product.image_url }}
+                                      style={styles.productChoiceImage}
+                                      resizeMode="cover"
+                                    />
+                                  ) : (
+                                    <View style={styles.productChoiceImagePlaceholder}>
+                                      <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
+                                    </View>
+                                  )}
+                                </View>
+
+                                <View style={styles.productChoiceBody}>
+                                  <View style={styles.raceChoiceHeader}>
+                                    <Text style={styles.productChoiceTitle}>{product.name}</Text>
+                                    {selected ? (
+                                      <View style={styles.raceSelectedBadge}>
+                                        <Text style={styles.raceSelectedBadgeText}>
+                                          {t.onboarding.nutritionSelectedBadge}
+                                        </Text>
+                                      </View>
+                                    ) : null}
+                                  </View>
+                                  <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
+                                </View>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
+
+              {hiddenNutritionProducts.map((product) => {
                 const selected = selectedProductIds.includes(product.id);
 
                 return (
@@ -1281,17 +1971,35 @@ export default function OnboardingScreen() {
                     ]}
                     onPress={() => toggleProductSelection(product.id)}
                   >
-                    <View style={styles.raceChoiceHeader}>
-                      <Text style={styles.productChoiceTitle}>{product.name}</Text>
-                      {selected ? (
-                        <View style={styles.raceSelectedBadge}>
-                          <Text style={styles.raceSelectedBadgeText}>
-                            {t.onboarding.nutritionSelectedBadge}
-                          </Text>
+                    <View style={styles.productChoiceContentRow}>
+                      <View style={styles.productChoiceMedia}>
+                        {product.image_url ? (
+                          <Image
+                            source={{ uri: product.image_url }}
+                            style={styles.productChoiceImage}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={styles.productChoiceImagePlaceholder}>
+                            <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
+                          </View>
+                        )}
+                      </View>
+
+                      <View style={styles.productChoiceBody}>
+                        <View style={styles.raceChoiceHeader}>
+                          <Text style={styles.productChoiceTitle}>{product.name}</Text>
+                          {selected ? (
+                            <View style={styles.raceSelectedBadge}>
+                              <Text style={styles.raceSelectedBadgeText}>
+                                {t.onboarding.nutritionSelectedBadge}
+                              </Text>
+                            </View>
+                          ) : null}
                         </View>
-                      ) : null}
+                        <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
+                      </View>
                     </View>
-                    <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -1302,26 +2010,27 @@ export default function OnboardingScreen() {
         <TouchableOpacity
           style={[
             styles.primaryButton,
-            selectedProductIds.length === 0 && styles.buttonDisabled,
+            (selectedProductIds.length === 0 || saving) && styles.buttonDisabled,
           ]}
           onPress={handleNutritionContinue}
-          disabled={selectedProductIds.length === 0}
+          disabled={selectedProductIds.length === 0 || saving}
         >
-          <Text style={styles.primaryButtonText}>
-            {selectedProductIds.length > 0
-              ? t.onboarding.nutritionContinueCta
-              : t.onboarding.continueCta}
-          </Text>
+          {saving ? (
+            <ActivityIndicator color={Colors.textOnBrand} />
+          ) : (
+            <Text style={styles.primaryButtonText}>
+              {selectedProductIds.length > 0
+                ? t.onboarding.nutritionContinueCta
+                : t.onboarding.continueCta}
+            </Text>
+          )}
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleNutritionSkip}>
-          <Text style={styles.secondaryButtonText}>{t.onboarding.nutritionSkipCta}</Text>
-        </TouchableOpacity>
       </OnboardingShell>
     );
   }
 
-  if (step === 6) {
+  if (step === 7) {
     return (
       <>
         <OnboardingShell step={7} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
@@ -1362,9 +2071,9 @@ export default function OnboardingScreen() {
     );
   }
 
-  if (step === 7 && createdDemoPlanId) {
+  if (completionPlanId) {
     return (
-      <OnboardingShell step={8} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+      <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <View style={styles.notificationIconWrap}>
           <Text style={styles.notificationIcon}>✓</Text>
         </View>
@@ -1373,13 +2082,13 @@ export default function OnboardingScreen() {
 
         <View style={styles.noticeBox}>
           <Text style={styles.noticeTitle}>{t.onboarding.completionSummaryTitle}</Text>
-          {selectedRace ? (
+          {selectedRace?.name || completedRaceNameParam ? (
             <Text style={styles.noticeText}>
-              {t.onboarding.completionRaceLine.replace('{name}', selectedRace.name)}
+              {t.onboarding.completionRaceLine.replace('{name}', selectedRace?.name ?? completedRaceNameParam ?? '')}
             </Text>
           ) : null}
           <Text style={styles.noticeText}>
-            {selectedProductIds.length > 0
+            {(selectedProductIds.length > 0 || completedHasSelectedProductsParam)
               ? t.onboarding.completionFilledLine
               : t.onboarding.completionEmptyLine}
           </Text>
@@ -1933,8 +2642,19 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     marginBottom: 12,
   },
+  selectionActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
+    flexWrap: 'wrap',
+  },
   raceList: {
     gap: 16,
+  },
+  raceEventList: {
+    gap: 18,
   },
   raceGroup: {
     gap: 10,
@@ -1980,6 +2700,86 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  eventCard: {
+    gap: 14,
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  eventHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  eventBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  eventHeaderText: {
+    flex: 1,
+    gap: 3,
+  },
+  eventName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  eventMeta: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+  },
+  eventThumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  eventSummaryRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  summaryPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  summaryPillText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  eventSupportText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  eventPrimaryButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.brandPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  eventPrimaryButtonText: {
+    color: Colors.textOnBrand,
+    fontSize: 15,
+    fontWeight: '700',
+  },
   selectionCountPill: {
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -2005,7 +2805,160 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
   },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(18, 24, 16, 0.24)',
+  },
+  sheetOverlay: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  sheetCard: {
+    maxHeight: '82%',
+    backgroundColor: Colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 24,
+    gap: 14,
+  },
+  sheetHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  sheetHeaderText: {
+    flex: 1,
+    gap: 4,
+  },
+  sheetTitle: {
+    color: Colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  sheetSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  sheetCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  sheetImage: {
+    width: '100%',
+    height: 132,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  sheetHint: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 19,
+  },
+  sheetContent: {
+    gap: 10,
+    paddingBottom: 12,
+  },
+  formatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  formatRowSelected: {
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
+  },
+  formatRowContent: {
+    flex: 1,
+    gap: 4,
+  },
+  formatTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  formatSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+  },
+  formatActionButton: {
+    minWidth: 112,
+    minHeight: 42,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  formatActionButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   productList: {
+    gap: 10,
+  },
+  productBrandGroup: {
+    gap: 10,
+  },
+  productBrandHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 6,
+  },
+  productBrandHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  productBrandTitle: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  productBrandCountPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  productBrandCountText: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  productBrandItems: {
     gap: 10,
   },
   productChoiceCard: {
@@ -2020,11 +2973,42 @@ const styles = StyleSheet.create({
     borderColor: Colors.brandPrimary,
     backgroundColor: Colors.brandSurface,
   },
-  productChoiceTitle: {
+  productChoiceContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  productChoiceMedia: {
+    flexShrink: 0,
+  },
+  productChoiceImage: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  productChoiceImagePlaceholder: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productChoiceBody: {
     flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  productChoiceTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
+    flex: 1,
     paddingRight: 8,
   },
   productChoiceMeta: {

@@ -261,6 +261,13 @@ export function usePlanEditTutorial({ steps }: UsePlanEditTutorialParams) {
     setTutorialVisible(false);
   }, [clearPendingTutorialScroll]);
 
+  const openTutorial = useCallback(() => {
+    clearPendingTutorialScroll();
+    setTutorialTargetRect(null);
+    setTutorialStepIndex(0);
+    setTutorialVisible(true);
+  }, [clearPendingTutorialScroll]);
+
   const handleTutorialNext = useCallback(() => {
     setTutorialStepIndex((current) => {
       if (current >= steps.length - 1) {
@@ -303,6 +310,7 @@ export function usePlanEditTutorial({ steps }: UsePlanEditTutorialParams) {
       handleTutorialPrevious,
       handleTutorialScrollEvent,
       handleTutorialScrollSettled,
+      openTutorial,
       registerTutorialTarget,
       registerTutorialTargetRef,
       rootRef,
@@ -321,6 +329,7 @@ export function usePlanEditTutorial({ steps }: UsePlanEditTutorialParams) {
       handleTutorialPrevious,
       handleTutorialScrollEvent,
       handleTutorialScrollSettled,
+      openTutorial,
       registerTutorialTarget,
       registerTutorialTargetRef,
       tutorialStepIndex,

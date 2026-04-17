@@ -75,6 +75,7 @@ export default function NutritionScreen() {
       freeAccessTitle={t.plans.freeAccessTitle}
       fuelFilter={fuelFilter}
       isPremium={isPremium}
+      otherBrandsLabel={t.nutrition.otherBrandsLabel}
       newCaloriesKcal={newCaloriesKcal}
       newCarbsG={newCarbsG}
       newFuelType={newFuelType}

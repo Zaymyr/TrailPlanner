@@ -741,6 +741,21 @@ export const en: Translations = {
       description: "Review product status and toggle live or archived entries.",
       loadError: "Unable to load products.",
       empty: "No products found.",
+      import: {
+        title: "Clean and reimport the catalogue",
+        description: "Paste a JSON list of sports nutrition products to replace the shared catalogue cleanly.",
+        sharedOnlyNote: "Only shared products are archived. User-created products are left untouched.",
+        label: "Products JSON",
+        formatHint: "You can paste either a JSON array or an object with `products`.",
+        placeholder:
+          "[\n  {\n    \"name\": \"Maurten Gel 100\",\n    \"slug\": \"maurten-gel-100\",\n    \"sku\": \"MAURTEN-GEL-100\",\n    \"fuelType\": \"gel\",\n    \"caloriesKcal\": 100,\n    \"carbsGrams\": 25,\n    \"sodiumMg\": 85,\n    \"productUrl\": \"https://example.com/maurten-gel-100\",\n    \"imageUrl\": \"https://example.com/images/maurten-gel-100.png\"\n  }\n]",
+        archiveSharedLabel: "Archive the existing shared catalogue before importing",
+        loadExample: "Load example",
+        submit: "Import catalogue",
+        submitting: "Importing...",
+        invalidJson: "The pasted JSON is invalid or does not contain any products.",
+        success: "{count} products imported into the shared catalogue.",
+      },
       messages: {
         updated: "Product updated.",
         error: "Unable to update product.",

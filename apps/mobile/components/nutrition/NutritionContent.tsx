@@ -16,6 +16,79 @@ import { FREE_FAVORITE_LIMIT, FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutrition
 import { NutritionCreateProductModal } from './NutritionCreateProductModal';
 import type { FavoriteRow, FuelType, Product } from './types';
 
+type ProductBrandGroup<T> = {
+  brandLabel: string;
+  items: T[];
+};
+
+const KNOWN_BRAND_PREFIXES: Array<{ match: string; label: string }> = [
+  { match: 'precision fuel & hydration', label: 'Precision Fuel & Hydration' },
+  { match: 'precision fuel', label: 'Precision Fuel' },
+  { match: 'science in sport', label: 'Science in Sport' },
+  { match: 'tailwind nutrition', label: 'Tailwind Nutrition' },
+  { match: 'huma chia', label: 'Huma' },
+  { match: 'naak', label: 'NAAK' },
+  { match: 'maurten', label: 'Maurten' },
+  { match: 'neversecond', label: 'Neversecond' },
+  { match: 'overstims', label: 'Overstims' },
+  { match: 'powerbar', label: 'Powerbar' },
+  { match: 'tailwind', label: 'Tailwind' },
+  { match: 'aptonia', label: 'Aptonia' },
+  { match: 'decathlon', label: 'Decathlon' },
+  { match: 'clif', label: 'Clif' },
+  { match: 'high5', label: 'HIGH5' },
+  { match: 'sis', label: 'SiS' },
+  { match: 'gu', label: 'GU' },
+];
+
+function normalizeBrandSource(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function inferNutritionBrand(productName: string, fallbackLabel: string) {
+  const fromDelimiter = productName.split(' - ')[0]?.trim();
+  const source = fromDelimiter || productName.trim();
+  const normalizedSource = normalizeBrandSource(source);
+
+  for (const brand of KNOWN_BRAND_PREFIXES) {
+    if (normalizedSource.startsWith(brand.match)) {
+      return brand.label;
+    }
+  }
+
+  const firstToken = source
+    .split(/\s+/)
+    .map((part) => part.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, ''))
+    .find(Boolean);
+
+  return firstToken || fallbackLabel;
+}
+
+function groupItemsByBrand<T>(
+  items: T[],
+  getProduct: (item: T) => Product,
+  fallbackLabel: string,
+): ProductBrandGroup<T>[] {
+  const groups = items.reduce((map, item) => {
+    const brandLabel = inferNutritionBrand(getProduct(item).name, fallbackLabel);
+    const currentGroup = map.get(brandLabel) ?? [];
+    currentGroup.push(item);
+    map.set(brandLabel, currentGroup);
+    return map;
+  }, new Map<string, T[]>());
+
+  return Array.from(groups.entries())
+    .map(([brandLabel, groupedItems]) => ({
+      brandLabel,
+      items: groupedItems,
+    }))
+    .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel));
+}
+
 type NutritionContentProps = {
   isPremium: boolean;
   favoritesExpanded: boolean;
@@ -38,6 +111,7 @@ type NutritionContentProps = {
   favoriteLimitBannerLabel: string;
   favoriteLimitMessage: string;
   freeAccessTitle: string;
+  otherBrandsLabel: string;
   onToggleFavorites: () => void;
   onToggleFavorite: (productId: string, productOverride?: Product) => void;
   onChangeFuelFilter: (value: FuelType | 'all') => void;
@@ -77,6 +151,7 @@ export const NutritionContent = memo(function NutritionContent({
   favoriteLimitBannerLabel,
   favoriteLimitMessage,
   freeAccessTitle,
+  otherBrandsLabel,
   onToggleFavorites,
   onToggleFavorite,
   onChangeFuelFilter,
@@ -93,6 +168,9 @@ export const NutritionContent = memo(function NutritionContent({
   onSubmitCreateProduct,
   onCancelCreateProduct,
 }: NutritionContentProps) {
+  const favoriteGroups = groupItemsByBrand(favorites, (favorite) => favorite.products, otherBrandsLabel);
+  const catalogGroups = groupItemsByBrand(filteredProducts, (product) => product, otherBrandsLabel);
+
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
       <TouchableOpacity activeOpacity={0.7} onPress={onToggleFavorites} style={styles.favoritesToggleRow}>
@@ -115,14 +193,27 @@ export const NutritionContent = memo(function NutritionContent({
               </Text>
             </View>
           ) : (
-            favorites.map((favorite) => (
-              <ProductCard
-                key={favorite.product_id}
-                isFavorite
-                isOwnedByUser={false}
-                onToggleFavorite={() => onToggleFavorite(favorite.product_id)}
-                product={favorite.products}
-              />
+            favoriteGroups.map((group) => (
+              <View key={group.brandLabel} style={styles.brandGroup}>
+                <View style={styles.brandHeader}>
+                  <Text style={styles.brandTitle}>{group.brandLabel}</Text>
+                  <View style={styles.brandCountPill}>
+                    <Text style={styles.brandCountText}>{group.items.length}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.brandItems}>
+                  {group.items.map((favorite) => (
+                    <ProductCard
+                      key={favorite.product_id}
+                      isFavorite
+                      isOwnedByUser={false}
+                      onToggleFavorite={() => onToggleFavorite(favorite.product_id)}
+                      product={favorite.products}
+                    />
+                  ))}
+                </View>
+              </View>
             ))
           )}
         </>
@@ -167,14 +258,27 @@ export const NutritionContent = memo(function NutritionContent({
           <Text style={styles.emptyFavText}>Aucun produit dans cette catégorie.</Text>
         </View>
       ) : (
-        filteredProducts.map((product) => (
-          <ProductCard
-            key={product.id}
-            isFavorite={favoriteIds.has(product.id)}
-            isOwnedByUser={product.created_by === userId}
-            onToggleFavorite={() => onToggleFavorite(product.id)}
-            product={product}
-          />
+        catalogGroups.map((group) => (
+          <View key={group.brandLabel} style={styles.brandGroup}>
+            <View style={styles.brandHeader}>
+              <Text style={styles.brandTitle}>{group.brandLabel}</Text>
+              <View style={styles.brandCountPill}>
+                <Text style={styles.brandCountText}>{group.items.length}</Text>
+              </View>
+            </View>
+
+            <View style={styles.brandItems}>
+              {group.items.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  isFavorite={favoriteIds.has(product.id)}
+                  isOwnedByUser={product.created_by === userId}
+                  onToggleFavorite={() => onToggleFavorite(product.id)}
+                  product={product}
+                />
+              ))}
+            </View>
+          </View>
         ))
       )}
 
@@ -379,6 +483,39 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: Colors.textOnBrand,
+  },
+  brandGroup: {
+    marginBottom: 14,
+  },
+  brandHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    marginBottom: 8,
+  },
+  brandTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Colors.textPrimary,
+  },
+  brandItems: {
+    gap: 0,
+  },
+  brandCountPill: {
+    minWidth: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+  },
+  brandCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.textSecondary,
   },
   productCard: {
     backgroundColor: Colors.surface,

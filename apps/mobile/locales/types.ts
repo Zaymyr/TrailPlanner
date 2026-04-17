@@ -310,6 +310,7 @@ export type MobileTranslations = {
     loginCta: string;
     loggingIn: string;
     googleCta: string;
+    googleSignUpCta: string;
     googleError: string;
     appleError: string;
     noAccount: string;
@@ -366,6 +367,9 @@ export type MobileTranslations = {
     startCta: string;
     profileTitle: string;
     profileSubtitle: string;
+    performanceStepSubtitle: string;
+    nutritionTargetsTitle: string;
+    nutritionTargetsSubtitle: string;
     firstNameLabel: string;
     firstNamePlaceholder: string;
     predictionHint: string;
@@ -387,6 +391,7 @@ export type MobileTranslations = {
     raceSearchPlaceholder: string;
     raceSelectedBadge: string;
     raceContinueCta: string;
+    changeRaceCta: string;
     raceSkipCta: string;
     raceLoading: string;
     raceLoadingError: string;
@@ -456,6 +461,7 @@ export type MobileTranslations = {
     favoritesLimitBanner: string;
     favoriteLimitMessage: string;
     createProductPremiumHint: string;
+    otherBrandsLabel: string;
   };
   planForm: {
     selectRaceTitle: string;
