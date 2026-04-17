@@ -4,6 +4,7 @@ import { PlansList } from '../../components/plans/PlansList';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 import { Colors } from '../../constants/colors';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
+import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
 
 export default function PlansScreen() {
   const {
@@ -17,13 +18,15 @@ export default function PlansScreen() {
     sections,
     collapsedSections,
     activePlanId,
-    latestAccessiblePlanId,
+    isAnonymous,
+    accessiblePlanIds,
     premiumModalCopy,
     handleRetry,
     handleRefresh,
     handleDelete,
     toggleSection,
     handleCreateFirstPlan,
+    handleOpenGuestAccountUpgrade,
     handleEditRace,
     handleOpenCatalog,
     handleOpenEditPlan,
@@ -53,6 +56,18 @@ export default function PlansScreen() {
 
   return (
     <View style={styles.screen}>
+      {isAnonymous ? (
+        <View style={styles.guestBanner}>
+          <View style={styles.guestBannerCopy}>
+            <Text style={styles.guestBannerTitle}>{t.plans.guestModeBannerTitle}</Text>
+            <Text style={styles.guestBannerBody}>{t.plans.guestModeBannerBody}</Text>
+          </View>
+          <TouchableOpacity onPress={handleOpenGuestAccountUpgrade} style={styles.guestBannerButton}>
+            <Text style={styles.guestBannerButtonText}>{t.plans.guestModeBannerCta}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <PlansList
         activePlanId={activePlanId}
         collapsedSections={collapsedSections}
@@ -62,7 +77,7 @@ export default function PlansScreen() {
         emptyTitle={t.plans.empty}
         inProgressLabel={t.plans.inProgress}
         isPremium={isPremium}
-        latestAccessiblePlanId={latestAccessiblePlanId}
+        accessiblePlanIds={accessiblePlanIds}
         liveLabel={t.plans.live}
         locale={locale}
         noRaceWarningLabel={t.plans.noRaceWarning}
@@ -81,7 +96,7 @@ export default function PlansScreen() {
       />
 
       <PremiumUpsellModal
-        message={premiumModalCopy?.message ?? t.plans.freeAccessMessage}
+        message={premiumModalCopy?.message ?? t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT))}
         onClose={closePremiumModal}
         title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
         visible={premiumModalCopy !== null}
@@ -94,6 +109,42 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  guestBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    gap: 14,
+  },
+  guestBannerCopy: {
+    gap: 6,
+  },
+  guestBannerTitle: {
+    color: Colors.brandPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  guestBannerBody: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  guestBannerButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.brandPrimary,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  guestBannerButtonText: {
+    color: Colors.textOnBrand,
+    fontSize: 14,
+    fontWeight: '700',
   },
   center: {
     flex: 1,

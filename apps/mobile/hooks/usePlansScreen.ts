@@ -7,7 +7,8 @@ import type { PlanRow, RaceSection } from '../components/plans/types';
 import { usePremium } from '../hooks/usePremium';
 import { maybePromptForAppReview } from '../lib/appReview';
 import { useI18n } from '../lib/i18n';
-import { getLatestAccessiblePlanId } from '../lib/planAccess';
+import { isAnonymousSession } from '../lib/appSession';
+import { FREE_PLAN_LIMIT, getAccessiblePlanIds } from '../lib/planAccess';
 import { getSession } from '../lib/raceLiveSession';
 import { supabase } from '../lib/supabase';
 
@@ -17,6 +18,7 @@ export function usePlansScreen() {
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const [plans, setPlans] = useState<PlanRow[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [raceOwnership, setRaceOwnership] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +36,7 @@ export function usePlansScreen() {
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id ?? null;
     setUserId(uid);
+    setIsAnonymous(isAnonymousSession(sessionData?.session));
 
     const { data, error: plansError } = await supabase
       .from('race_plans')
@@ -173,9 +176,9 @@ export function usePlansScreen() {
     return result;
   }, [plans, raceOwnership, t.plans.noCatalogRace, t.plans.noRace, userId]);
 
-  const latestAccessiblePlanId = useMemo(
-    () => getLatestAccessiblePlanId(plans, isPremium),
-    [isPremium, plans],
+  const accessiblePlanIds = useMemo(
+    () => getAccessiblePlanIds(plans, isPremium, isAnonymous),
+    [isAnonymous, isPremium, plans],
   );
 
   const handleRetry = useCallback(() => {
@@ -191,6 +194,10 @@ export function usePlansScreen() {
 
   const handleCreateFirstPlan = useCallback(() => {
     router.push('/(app)/plan/new');
+  }, [router]);
+
+  const handleOpenGuestAccountUpgrade = useCallback(() => {
+    router.push('/(auth)/login');
   }, [router]);
 
   const handleEditRace = useCallback(
@@ -219,7 +226,10 @@ export function usePlansScreen() {
   );
 
   const handleOpenLockedPlan = useCallback(() => {
-    openPremiumModal(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+    openPremiumModal(
+      t.plans.freeAccessTitle,
+      t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
+    );
   }, [openPremiumModal, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
 
   return {
@@ -233,13 +243,15 @@ export function usePlansScreen() {
     sections,
     collapsedSections,
     activePlanId,
-    latestAccessiblePlanId,
+    isAnonymous,
+    accessiblePlanIds,
     premiumModalCopy,
     handleRetry,
     handleRefresh,
     handleDelete,
     toggleSection,
     handleCreateFirstPlan,
+    handleOpenGuestAccountUpgrade,
     handleEditRace,
     handleOpenCatalog,
     handleOpenEditPlan,

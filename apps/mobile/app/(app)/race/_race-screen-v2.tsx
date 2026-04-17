@@ -18,7 +18,7 @@ import { RaceStartSheet, type RaceStartConfig } from '../../../components/race/R
 import { FeedbackHeaderButton } from '../../../components/feedback/FeedbackHeaderButton';
 import { Colors } from '../../../constants/colors';
 import { usePremium } from '../../../hooks/usePremium';
-import { getCurrentUserLatestAccessiblePlanId } from '../../../lib/planAccess';
+import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
 import {
   checkAndFireAlerts,
   getNutritionStats,
@@ -178,10 +178,17 @@ export default function RaceScreenV2() {
       setShowConfig(false);
       setIncludeWaterOnlyAlerts(true);
       setWaterOnlyReminderIntervalMinutes(DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN);
-      const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
-      if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
+      const planAccess = await getCurrentUserPlanAccess(isPremium);
+      if (
+        !isPremium &&
+        planAccess.accessiblePlanIds !== null &&
+        !planAccess.accessiblePlanIds.has(id)
+      ) {
         if (!cancelled) {
-          Alert.alert(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+          Alert.alert(
+            t.plans.freeAccessTitle,
+            t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
+          );
           setLoading(false);
           router.replace('/(app)/plans');
         }

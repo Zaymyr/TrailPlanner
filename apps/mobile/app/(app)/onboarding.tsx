@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   View,
@@ -13,6 +13,7 @@ import {
 import * as Notifications from 'expo-notifications';
 import { useRouter } from 'expo-router';
 import { supabase } from '../../lib/supabase';
+import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
 import {
   estimateHourlyTargets,
@@ -31,10 +32,86 @@ import type {
 } from '../../components/profile/types';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
-import { noteReviewOnboardingCompleted } from '../../lib/appReview';
+import { noteReviewOnboardingCompleted, noteReviewPlanCreated } from '../../lib/appReview';
+import { createOnboardingDemoPlan } from '../../lib/onboardingDemoPlan';
 
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
+}
+
+type RaceOption = {
+  id: string;
+  name: string;
+  distance_km: number;
+  elevation_gain_m: number;
+  location_text: string | null;
+  race_date: string | null;
+  is_public: boolean;
+  created_by: string | null;
+};
+
+const PRODUCT_PRIORITY: Record<FuelType, number> = {
+  gel: 0,
+  drink_mix: 1,
+  electrolyte: 2,
+  bar: 3,
+  real_food: 4,
+  capsule: 5,
+  other: 6,
+};
+
+function formatRaceDate(isoDate: string | null, locale: 'fr' | 'en') {
+  if (!isoDate) return null;
+
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function getFuelTypeLabel(fuelType: FuelType, locale: 'fr' | 'en') {
+  const labels =
+    locale === 'fr'
+      ? {
+          gel: 'Gel',
+          drink_mix: 'Boisson',
+          electrolyte: 'Électrolyte',
+          capsule: 'Capsule',
+          bar: 'Barre',
+          real_food: 'Aliment',
+          other: 'Autre',
+        }
+      : {
+          gel: 'Gel',
+          drink_mix: 'Drink mix',
+          electrolyte: 'Electrolyte',
+          capsule: 'Capsule',
+          bar: 'Bar',
+          real_food: 'Real food',
+          other: 'Other',
+        };
+
+  return labels[fuelType];
+}
+
+function formatProductMeta(product: Product, locale: 'fr' | 'en') {
+  const parts = [getFuelTypeLabel(product.fuel_type, locale)];
+  const carbs = Math.round(product.carbs_g ?? 0);
+  const sodium = Math.round(product.sodium_mg ?? 0);
+
+  if (carbs > 0) {
+    parts.push(locale === 'fr' ? `${carbs} g glucides` : `${carbs} g carbs`);
+  }
+
+  if (sodium > 0) {
+    parts.push(`${sodium} mg sodium`);
+  }
+
+  return parts.join(' • ');
 }
 
 function OnboardingShell({
@@ -82,7 +159,7 @@ function OnboardingShell({
 }
 
 export default function OnboardingScreen() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
@@ -101,10 +178,24 @@ export default function OnboardingScreen() {
   const [estimatorHydrationLevel, setEstimatorHydrationLevel] =
     useState<HydrationEstimatorLevel>('normal');
   const [estimatorSodiumLevel, setEstimatorSodiumLevel] = useState<SodiumEstimatorLevel>('normal');
+  const [raceOptions, setRaceOptions] = useState<RaceOption[]>([]);
+  const [raceUserId, setRaceUserId] = useState<string | null>(null);
+  const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
+  const [raceSearch, setRaceSearch] = useState('');
+  const [loadingRaces, setLoadingRaces] = useState(false);
+  const [raceLoadError, setRaceLoadError] = useState<string | null>(null);
+  const [hasLoadedRaceOptions, setHasLoadedRaceOptions] = useState(false);
+  const [nutritionProducts, setNutritionProducts] = useState<Product[]>([]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [nutritionSearch, setNutritionSearch] = useState('');
+  const [loadingNutritionProducts, setLoadingNutritionProducts] = useState(false);
+  const [nutritionLoadError, setNutritionLoadError] = useState<string | null>(null);
+  const [hasLoadedNutritionProducts, setHasLoadedNutritionProducts] = useState(false);
+  const [createdDemoPlanId, setCreatedDemoPlanId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const router = useRouter();
-  const totalSteps = 5;
+  const totalSteps = selectedRaceId ? 8 : 7;
   const parsedEstimatorWeight = useMemo(
     () => parseOptionalNonNegativeInteger(estimatorWeightKg),
     [estimatorWeightKg],
@@ -132,6 +223,71 @@ export default function OnboardingScreen() {
     parsedEstimatorHeight,
     parsedEstimatorWeight,
   ]);
+  const selectedRace = useMemo(
+    () => raceOptions.find((race) => race.id === selectedRaceId) ?? null,
+    [raceOptions, selectedRaceId],
+  );
+  const filteredRaceOptions = useMemo(() => {
+    const normalizedSearch = raceSearch.trim().toLowerCase();
+
+    if (!normalizedSearch) {
+      return raceOptions;
+    }
+
+    return raceOptions.filter((race) => {
+      const location = race.location_text?.toLowerCase() ?? '';
+      return (
+        race.name.toLowerCase().includes(normalizedSearch) ||
+        location.includes(normalizedSearch)
+      );
+    });
+  }, [raceOptions, raceSearch]);
+  const personalRaceOptions = useMemo(
+    () =>
+      filteredRaceOptions.filter(
+        (race) => !race.is_public && race.created_by && race.created_by === raceUserId,
+      ),
+    [filteredRaceOptions, raceUserId],
+  );
+  const publicRaceOptions = useMemo(
+    () => filteredRaceOptions.filter((race) => race.is_public),
+    [filteredRaceOptions],
+  );
+  const filteredNutritionProducts = useMemo(() => {
+    const normalizedSearch = nutritionSearch.trim().toLowerCase();
+
+    return nutritionProducts
+      .filter((product) => {
+        if (!normalizedSearch) {
+          return true;
+        }
+
+        return product.name.toLowerCase().includes(normalizedSearch);
+      })
+      .sort((left, right) => {
+        const leftSelected = selectedProductIds.includes(left.id);
+        const rightSelected = selectedProductIds.includes(right.id);
+
+        if (leftSelected !== rightSelected) {
+          return leftSelected ? -1 : 1;
+        }
+
+        const leftPriority = PRODUCT_PRIORITY[left.fuel_type] ?? 99;
+        const rightPriority = PRODUCT_PRIORITY[right.fuel_type] ?? 99;
+        if (leftPriority !== rightPriority) {
+          return leftPriority - rightPriority;
+        }
+
+        const leftDensity = (left.carbs_g ?? 0) + (left.sodium_mg ?? 0) / 100;
+        const rightDensity = (right.carbs_g ?? 0) + (right.sodium_mg ?? 0) / 100;
+        if (leftDensity !== rightDensity) {
+          return rightDensity - leftDensity;
+        }
+
+        return left.name.localeCompare(right.name);
+      })
+      .slice(0, 18);
+  }, [nutritionProducts, nutritionSearch, selectedProductIds]);
   const carbEstimatorOptions = useMemo(
     () => [
       { value: 'beginner' as const, label: t.profile.estimatorCarbBeginner },
@@ -236,6 +392,87 @@ export default function OnboardingScreen() {
     },
   ];
 
+  async function loadRaceOptions() {
+    setLoadingRaces(true);
+    setRaceLoadError(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id ?? null;
+      setRaceUserId(userId);
+
+      const { data, error } = await supabase
+        .from('races')
+        .select('id, name, distance_km, elevation_gain_m, location_text, race_date, is_public, created_by')
+        .eq('is_live', true)
+        .order('race_date', { ascending: true, nullsFirst: false })
+        .order('name', { ascending: true });
+
+      if (error) {
+        throw error;
+      }
+
+      setRaceOptions((data as RaceOption[] | null) ?? []);
+    } catch (error) {
+      console.error('Unable to load onboarding races:', error);
+      setRaceLoadError(t.onboarding.raceLoadingError);
+    } finally {
+      setLoadingRaces(false);
+      setHasLoadedRaceOptions(true);
+    }
+  }
+
+  async function loadNutritionProducts() {
+    setLoadingNutritionProducts(true);
+    setNutritionLoadError(null);
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id ?? null;
+
+      let query = supabase
+        .from('products')
+        .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .eq('is_archived', false)
+        .order('name');
+
+      query = userId ? query.or(`is_live.eq.true,created_by.eq.${userId}`) : query.eq('is_live', true);
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      const nextProducts = ((data as Product[] | null) ?? []).filter(
+        (product) => (product.carbs_g ?? 0) > 0 || (product.sodium_mg ?? 0) > 0,
+      );
+      setNutritionProducts(nextProducts);
+    } catch (error) {
+      console.error('Unable to load onboarding nutrition products:', error);
+      setNutritionLoadError(t.onboarding.nutritionLoadingError);
+    } finally {
+      setLoadingNutritionProducts(false);
+      setHasLoadedNutritionProducts(true);
+    }
+  }
+
+  useEffect(() => {
+    if (step !== 4) return;
+
+    if (hasLoadedRaceOptions || loadingRaces) return;
+
+    void loadRaceOptions();
+  }, [hasLoadedRaceOptions, loadingRaces, step]);
+
+  useEffect(() => {
+    if (step !== 5) return;
+
+    if (hasLoadedNutritionProducts || loadingNutritionProducts) return;
+
+    void loadNutritionProducts();
+  }, [hasLoadedNutritionProducts, loadingNutritionProducts, step]);
+
   function validatePersonalStep(): {
     parsedWeightKg: number | null;
     parsedHeightCm: number | null;
@@ -325,28 +562,75 @@ export default function OnboardingScreen() {
     }
 
     setSaving(true);
+    let nextRoute: string | null = '/(app)/plans';
+    let nextDemoPlanId: string | null = null;
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const userId = sessionData?.session?.user?.id;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const userId = sessionData?.session?.user?.id;
 
-    if (userId) {
-      await supabase.from('user_profiles').upsert({
-        user_id: userId,
-        full_name: fullName.trim() || null,
-        water_bag_liters: waterBagLiters,
-        utmb_index: performanceStep.parsedUtmbIndex,
-        comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
-        weight_kg: personalStep.parsedWeightKg,
-        height_cm: personalStep.parsedHeightCm,
-        default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
-        default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
-        default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
-      });
+      if (userId) {
+        await supabase.from('user_profiles').upsert({
+          user_id: userId,
+          full_name: fullName.trim() || null,
+          water_bag_liters: waterBagLiters,
+          utmb_index: performanceStep.parsedUtmbIndex,
+          comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
+          weight_kg: personalStep.parsedWeightKg,
+          height_cm: personalStep.parsedHeightCm,
+          default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
+          default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
+          default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
+        });
+
+        if (selectedProductIds.length > 0) {
+          await supabase.from('user_favorite_products').upsert(
+            selectedProductIds.map((productId) => ({
+              user_id: userId,
+              product_id: productId,
+            })),
+            {
+              onConflict: 'user_id,product_id',
+              ignoreDuplicates: true,
+            },
+          );
+        }
+
+        if (selectedRace) {
+          const demoPlanId = await createOnboardingDemoPlan({
+            userId,
+            race: selectedRace,
+            profileDefaults: {
+              comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
+              default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
+              default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
+              default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
+              water_bag_liters: waterBagLiters,
+            },
+            selectedProductIds,
+          });
+
+          if (demoPlanId) {
+            await noteReviewPlanCreated();
+            nextDemoPlanId = demoPlanId;
+            nextRoute = null;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Unable to finish onboarding:', error);
+    } finally {
+      await noteReviewOnboardingCompleted();
+      setSaving(false);
+
+      if (nextDemoPlanId) {
+        setCreatedDemoPlanId(nextDemoPlanId);
+        setStep(7);
+        return;
+      }
+
+      router.replace(nextRoute ?? '/(app)/plans');
     }
-
-    await noteReviewOnboardingCompleted();
-    setSaving(false);
-    router.replace('/(app)/plans');
   }
 
   async function handleNotifStep() {
@@ -364,6 +648,50 @@ export default function OnboardingScreen() {
     const performanceStep = validatePerformanceStep();
     if (!performanceStep) return;
     setStep(4);
+  }
+
+  function handleRaceContinue() {
+    setStep(5);
+  }
+
+  function handleRaceSkip() {
+    setSelectedRaceId(null);
+    setStep(5);
+  }
+
+  function toggleProductSelection(productId: string) {
+    setSelectedProductIds((current) =>
+      current.includes(productId)
+        ? current.filter((id) => id !== productId)
+        : [...current, productId],
+    );
+  }
+
+  function handleNutritionContinue() {
+    setStep(6);
+  }
+
+  function handleNutritionSkip() {
+    setSelectedProductIds([]);
+    setStep(6);
+  }
+
+  function handleOpenDemoPlan() {
+    if (!createdDemoPlanId) {
+      router.replace('/(app)/plans');
+      return;
+    }
+
+    router.replace(`/(app)/plan/${createdDemoPlanId}/edit?showHelp=1`);
+  }
+
+  function handleCreateAnotherPlan() {
+    if (selectedRace?.id) {
+      router.replace(`/(app)/plan/new?raceId=${selectedRace.id}`);
+      return;
+    }
+
+    router.replace('/(app)/plan/new');
   }
 
   function handleOpenEstimator() {
@@ -747,9 +1075,331 @@ export default function OnboardingScreen() {
     );
   }
 
+  if (step === 4) {
+    return (
+      <OnboardingShell step={5} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <Text style={styles.title}>{t.onboarding.raceTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.raceSubtitle}</Text>
+        <Text style={styles.predictionHint}>{t.onboarding.raceHint}</Text>
+
+        <View style={styles.sectionCard}>
+          <TextInput
+            style={styles.textInput}
+            value={raceSearch}
+            onChangeText={setRaceSearch}
+            placeholder={t.onboarding.raceSearchPlaceholder}
+            placeholderTextColor={Colors.textMuted}
+            autoCapitalize="none"
+          />
+
+          {loadingRaces ? (
+            <View style={styles.raceCenteredState}>
+              <ActivityIndicator color={Colors.brandPrimary} />
+              <Text style={styles.raceStateText}>{t.onboarding.raceLoading}</Text>
+            </View>
+          ) : raceLoadError ? (
+            <View style={styles.raceCenteredState}>
+              <Text style={styles.errorText}>{raceLoadError}</Text>
+              <TouchableOpacity
+                style={styles.retryButtonInline}
+                onPress={() => {
+                  setHasLoadedRaceOptions(false);
+                  void loadRaceOptions();
+                }}
+              >
+                <Text style={styles.retryButtonInlineText}>{t.common.retry}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : personalRaceOptions.length === 0 && publicRaceOptions.length === 0 ? (
+            <View style={styles.raceCenteredState}>
+              <Text style={styles.emptyTitle}>{t.onboarding.raceEmptyTitle}</Text>
+              <Text style={styles.emptySubtitle}>{t.onboarding.raceEmptySubtitle}</Text>
+            </View>
+          ) : (
+            <View style={styles.raceList}>
+              {personalRaceOptions.length > 0 ? (
+                <View style={styles.raceGroup}>
+                  <Text style={styles.raceGroupLabel}>{t.races.myRaces}</Text>
+                  {personalRaceOptions.map((race) => {
+                    const selected = race.id === selectedRaceId;
+                    const raceMeta = [race.location_text, formatRaceDate(race.race_date, locale)]
+                      .filter(Boolean)
+                      .join(' • ');
+
+                    return (
+                      <TouchableOpacity
+                        key={race.id}
+                        style={[
+                          styles.raceChoiceCard,
+                          selected && styles.raceChoiceCardSelected,
+                        ]}
+                        onPress={() => setSelectedRaceId(race.id)}
+                      >
+                        <View style={styles.raceChoiceHeader}>
+                          <Text style={styles.raceChoiceTitle}>{race.name}</Text>
+                          {selected ? (
+                            <View style={styles.raceSelectedBadge}>
+                              <Text style={styles.raceSelectedBadgeText}>
+                                {t.onboarding.raceSelectedBadge}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.raceChoiceStats}>
+                          {race.distance_km} km • D+ {race.elevation_gain_m} m
+                        </Text>
+                        {raceMeta ? <Text style={styles.raceChoiceMeta}>{raceMeta}</Text> : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {publicRaceOptions.length > 0 ? (
+                <View style={styles.raceGroup}>
+                  <Text style={styles.raceGroupLabel}>{t.races.publicRaces}</Text>
+                  {publicRaceOptions.map((race) => {
+                    const selected = race.id === selectedRaceId;
+                    const raceMeta = [race.location_text, formatRaceDate(race.race_date, locale)]
+                      .filter(Boolean)
+                      .join(' • ');
+
+                    return (
+                      <TouchableOpacity
+                        key={race.id}
+                        style={[
+                          styles.raceChoiceCard,
+                          selected && styles.raceChoiceCardSelected,
+                        ]}
+                        onPress={() => setSelectedRaceId(race.id)}
+                      >
+                        <View style={styles.raceChoiceHeader}>
+                          <Text style={styles.raceChoiceTitle}>{race.name}</Text>
+                          {selected ? (
+                            <View style={styles.raceSelectedBadge}>
+                              <Text style={styles.raceSelectedBadgeText}>
+                                {t.onboarding.raceSelectedBadge}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.raceChoiceStats}>
+                          {race.distance_km} km • D+ {race.elevation_gain_m} m
+                        </Text>
+                        {raceMeta ? <Text style={styles.raceChoiceMeta}>{raceMeta}</Text> : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            !selectedRace && styles.buttonDisabled,
+          ]}
+          onPress={handleRaceContinue}
+          disabled={!selectedRace}
+        >
+          <Text style={styles.primaryButtonText}>
+            {selectedRace ? t.onboarding.raceContinueCta : t.onboarding.continueCta}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleRaceSkip}>
+          <Text style={styles.secondaryButtonText}>{t.onboarding.raceSkipCta}</Text>
+        </TouchableOpacity>
+      </OnboardingShell>
+    );
+  }
+
+  if (step === 5) {
+    const selectedCountLabel = t.onboarding.nutritionSelectedCount.replace(
+      '{count}',
+      String(selectedProductIds.length),
+    );
+
+    return (
+      <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <Text style={styles.title}>{t.onboarding.nutritionTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.nutritionSubtitle}</Text>
+        <Text style={styles.predictionHint}>{t.onboarding.nutritionHint}</Text>
+
+        <View style={styles.sectionCard}>
+          <View style={styles.inlineInfoRow}>
+            <View style={styles.selectionCountPill}>
+              <Text style={styles.selectionCountText}>{selectedCountLabel}</Text>
+            </View>
+          </View>
+
+          <TextInput
+            style={styles.textInput}
+            value={nutritionSearch}
+            onChangeText={setNutritionSearch}
+            placeholder={t.onboarding.nutritionSearchPlaceholder}
+            placeholderTextColor={Colors.textMuted}
+            autoCapitalize="none"
+          />
+
+          {loadingNutritionProducts ? (
+            <View style={styles.raceCenteredState}>
+              <ActivityIndicator color={Colors.brandPrimary} />
+              <Text style={styles.raceStateText}>{t.onboarding.nutritionLoading}</Text>
+            </View>
+          ) : nutritionLoadError ? (
+            <View style={styles.raceCenteredState}>
+              <Text style={styles.errorText}>{nutritionLoadError}</Text>
+              <TouchableOpacity
+                style={styles.retryButtonInline}
+                onPress={() => {
+                  setHasLoadedNutritionProducts(false);
+                  void loadNutritionProducts();
+                }}
+              >
+                <Text style={styles.retryButtonInlineText}>{t.common.retry}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : filteredNutritionProducts.length === 0 ? (
+            <View style={styles.raceCenteredState}>
+              <Text style={styles.emptyTitle}>{t.onboarding.nutritionEmptyTitle}</Text>
+              <Text style={styles.emptySubtitle}>{t.onboarding.nutritionEmptySubtitle}</Text>
+            </View>
+          ) : (
+            <View style={styles.productList}>
+              {filteredNutritionProducts.map((product) => {
+                const selected = selectedProductIds.includes(product.id);
+
+                return (
+                  <TouchableOpacity
+                    key={product.id}
+                    style={[
+                      styles.productChoiceCard,
+                      selected && styles.productChoiceCardSelected,
+                    ]}
+                    onPress={() => toggleProductSelection(product.id)}
+                  >
+                    <View style={styles.raceChoiceHeader}>
+                      <Text style={styles.productChoiceTitle}>{product.name}</Text>
+                      {selected ? (
+                        <View style={styles.raceSelectedBadge}>
+                          <Text style={styles.raceSelectedBadgeText}>
+                            {t.onboarding.nutritionSelectedBadge}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.primaryButton,
+            selectedProductIds.length === 0 && styles.buttonDisabled,
+          ]}
+          onPress={handleNutritionContinue}
+          disabled={selectedProductIds.length === 0}
+        >
+          <Text style={styles.primaryButtonText}>
+            {selectedProductIds.length > 0
+              ? t.onboarding.nutritionContinueCta
+              : t.onboarding.continueCta}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleNutritionSkip}>
+          <Text style={styles.secondaryButtonText}>{t.onboarding.nutritionSkipCta}</Text>
+        </TouchableOpacity>
+      </OnboardingShell>
+    );
+  }
+
+  if (step === 6) {
+    return (
+      <>
+        <OnboardingShell step={7} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+          <View style={styles.notificationIconWrap}>
+            <Text style={styles.notificationIcon}>!</Text>
+          </View>
+          <Text style={styles.title}>{t.onboarding.notificationsTitle}</Text>
+          <Text style={styles.subtitle}>{t.onboarding.notificationsSubtitle}</Text>
+
+          <View style={styles.noticeBox}>
+            <Text style={styles.noticeTitle}>{t.onboarding.notificationsBoxTitle}</Text>
+            <Text style={styles.noticeText}>{t.onboarding.notificationsItem1}</Text>
+            <Text style={styles.noticeText}>{t.onboarding.notificationsItem2}</Text>
+            <Text style={styles.noticeText}>{t.onboarding.notificationsItem3}</Text>
+          </View>
+
+          <TouchableOpacity
+            style={[styles.primaryButton, saving && styles.buttonDisabled]}
+            onPress={handleNotifStep}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator color={Colors.textOnBrand} />
+            ) : (
+              <Text style={styles.primaryButtonText}>
+                {selectedRace ? t.onboarding.notificationsDemoPlanCta : t.onboarding.notificationsCta}
+              </Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondaryButton} onPress={finishOnboarding} disabled={saving}>
+            <Text style={styles.secondaryButtonText}>{t.onboarding.skipCta}</Text>
+          </TouchableOpacity>
+        </OnboardingShell>
+
+        {renderEstimatorModal()}
+      </>
+    );
+  }
+
+  if (step === 7 && createdDemoPlanId) {
+    return (
+      <OnboardingShell step={8} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <View style={styles.notificationIconWrap}>
+          <Text style={styles.notificationIcon}>✓</Text>
+        </View>
+        <Text style={styles.title}>{t.onboarding.completionTitle}</Text>
+        <Text style={styles.subtitle}>{t.onboarding.completionSubtitle}</Text>
+
+        <View style={styles.noticeBox}>
+          <Text style={styles.noticeTitle}>{t.onboarding.completionSummaryTitle}</Text>
+          {selectedRace ? (
+            <Text style={styles.noticeText}>
+              {t.onboarding.completionRaceLine.replace('{name}', selectedRace.name)}
+            </Text>
+          ) : null}
+          <Text style={styles.noticeText}>
+            {selectedProductIds.length > 0
+              ? t.onboarding.completionFilledLine
+              : t.onboarding.completionEmptyLine}
+          </Text>
+          <Text style={styles.noticeText}>{t.onboarding.completionEditLine}</Text>
+        </View>
+
+        <TouchableOpacity style={styles.primaryButton} onPress={handleOpenDemoPlan}>
+          <Text style={styles.primaryButtonText}>{t.onboarding.completionContinueCta}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.secondaryButton} onPress={handleCreateAnotherPlan}>
+          <Text style={styles.secondaryButtonText}>{t.onboarding.completionNewPlanCta}</Text>
+        </TouchableOpacity>
+      </OnboardingShell>
+    );
+  }
+
   return (
     <>
-      <OnboardingShell step={5} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+      <OnboardingShell step={7} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <View style={styles.notificationIconWrap}>
           <Text style={styles.notificationIcon}>!</Text>
         </View>
@@ -1241,6 +1891,146 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
+  },
+  raceCenteredState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    gap: 10,
+  },
+  raceStateText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  retryButtonInline: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+  },
+  retryButtonInlineText: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emptyTitle: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  inlineInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+  },
+  raceList: {
+    gap: 16,
+  },
+  raceGroup: {
+    gap: 10,
+  },
+  raceGroupLabel: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  raceChoiceCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    padding: 14,
+    gap: 6,
+  },
+  raceChoiceCardSelected: {
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
+  },
+  raceChoiceHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  raceChoiceTitle: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  raceChoiceStats: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  raceChoiceMeta: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  selectionCountPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  selectionCountText: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  raceSelectedBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: Colors.brandPrimary,
+  },
+  raceSelectedBadgeText: {
+    color: Colors.textOnBrand,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  productList: {
+    gap: 10,
+  },
+  productChoiceCard: {
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    gap: 6,
+  },
+  productChoiceCardSelected: {
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
+  },
+  productChoiceTitle: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+    paddingRight: 8,
+  },
+  productChoiceMeta: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   notificationIconWrap: {
     width: 72,

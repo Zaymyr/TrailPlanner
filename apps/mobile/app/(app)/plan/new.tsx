@@ -13,7 +13,7 @@ import { usePremium } from '../../../hooks/usePremium';
 import { useI18n } from '../../../lib/i18n';
 import { ensureAppSession } from '../../../lib/appSession';
 import { noteReviewPlanCreated } from '../../../lib/appReview';
-import { currentUserHasReachedFreePlanLimit, FREE_PLAN_LIMIT } from '../../../lib/planAccess';
+import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
 import { supabase } from '../../../lib/supabase';
 
@@ -235,9 +235,25 @@ export default function NewPlanScreen() {
 
       if (!isPremium) {
         void (async () => {
-          const reachedLimit = await currentUserHasReachedFreePlanLimit();
-          if (!reachedLimit) {
+          const planAccess = await getCurrentUserPlanAccess(false);
+          if (!planAccess.hasReachedPlanLimit) {
             void loadRaceSeed();
+            return;
+          }
+
+          if (planAccess.isAnonymous) {
+            setLoading(false);
+            setShowRaceSelector(false);
+            setLoadingProgress(1);
+            Alert.alert(t.plans.guestLimitTitle, t.plans.guestLimitMessage, [
+              { text: t.common.cancel, style: 'cancel' },
+              {
+                text: t.auth.signUpCta,
+                onPress: () => {
+                  router.replace('/(auth)/login');
+                },
+              },
+            ]);
             return;
           }
 
@@ -265,7 +281,7 @@ export default function NewPlanScreen() {
         setLoading(Boolean(resolvedRaceId));
         setShowRaceSelector(!resolvedRaceId);
       };
-    }, [isPremium, loadRaceSeed, premiumLoading, resolvedRaceId]),
+    }, [isPremium, loadRaceSeed, premiumLoading, resolvedRaceId, router, t.auth.signUpCta, t.common.cancel, t.plans.guestLimitMessage, t.plans.guestLimitTitle]),
   );
 
   const handleRaceSelected = useCallback(

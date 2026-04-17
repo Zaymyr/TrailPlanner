@@ -14,7 +14,7 @@ import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../..
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
-import { getCurrentUserLatestAccessiblePlanId } from '../../../../lib/planAccess';
+import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { useI18n } from '../../../../lib/i18n';
 import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
@@ -25,6 +25,7 @@ import {
   setActivePlanEditSession,
   setPlanEditDraft,
 } from '../../../../lib/planEditSession';
+import { emitHelpTutorialRequest } from '../../../../lib/helpTutorial';
 
 type RacePlanRow = {
   id: string;
@@ -93,7 +94,7 @@ function serializePlanValues(values: PlanFormValues): string {
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
 
 export default function EditPlanScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, showHelp } = useLocalSearchParams<{ id: string; showHelp?: string }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { t } = useI18n();
   const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
@@ -158,6 +159,7 @@ export default function EditPlanScreen() {
   const latestDraftRef = useRef<PlanFormValues | null>(null);
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const elevationProfileRef = useRef<ElevationPoint[]>([]);
+  const hasAutoOpenedHelpRef = useRef(false);
   const isSavingRef = useRef(false);
   const activeSavePromiseRef = useRef<Promise<boolean> | null>(null);
   const loadedPlanIdRef = useRef<string | null>(null);
@@ -185,6 +187,21 @@ export default function EditPlanScreen() {
   useEffect(() => {
     elevationProfileRef.current = elevationProfile;
   }, [elevationProfile]);
+
+  useEffect(() => {
+    if (showHelp !== '1' || !initialValues || hasAutoOpenedHelpRef.current) {
+      return;
+    }
+
+    hasAutoOpenedHelpRef.current = true;
+    const timeoutId = setTimeout(() => {
+      emitHelpTutorialRequest('planEdit');
+    }, 450);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [initialValues, showHelp]);
 
   useEffect(() => {
     if (!id) return;
@@ -224,12 +241,19 @@ export default function EditPlanScreen() {
     setLoadingPlanName(null);
     setLoadingPlanNameId(id);
 
-    const latestAccessiblePlanId = await getCurrentUserLatestAccessiblePlanId(isPremium);
+    const planAccess = await getCurrentUserPlanAccess(isPremium);
     if (isStaleLoad()) return;
 
     setLoadingProgress(0.26);
-    if (!isPremium && latestAccessiblePlanId && latestAccessiblePlanId !== id) {
-      Alert.alert(t.plans.freeAccessTitle, t.plans.freeAccessMessage);
+    if (
+      !isPremium &&
+      planAccess.accessiblePlanIds !== null &&
+      !planAccess.accessiblePlanIds.has(id)
+    ) {
+      Alert.alert(
+        t.plans.freeAccessTitle,
+        t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
+      );
       clearActivePlanEditSession(id);
       clearPlanEditDraft(id);
       setInitialValues(null);

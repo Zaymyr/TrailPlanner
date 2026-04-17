@@ -17,7 +17,7 @@ type PlansListProps = {
   sections: RaceSection[];
   collapsedSections: Set<string>;
   activePlanId: string | null;
-  latestAccessiblePlanId: string | null;
+  accessiblePlanIds: Set<string> | null;
   isPremium: boolean;
   locale: 'fr' | 'en';
   refreshing: boolean;
@@ -44,7 +44,7 @@ export const PlansList = memo(function PlansList({
   sections,
   collapsedSections,
   activePlanId,
-  latestAccessiblePlanId,
+  accessiblePlanIds,
   isPremium,
   locale,
   refreshing,
@@ -85,7 +85,7 @@ export const PlansList = memo(function PlansList({
           const duration = estimateDuration(item.planner_values);
           const isActivePlan = activePlanId === item.id;
           const isAccessible =
-            isPremium || latestAccessiblePlanId === null || latestAccessiblePlanId === item.id;
+            isPremium || accessiblePlanIds === null || accessiblePlanIds.has(item.id);
 
           return (
             <PlanCard
