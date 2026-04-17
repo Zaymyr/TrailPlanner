@@ -284,6 +284,11 @@ export const en: MobileTranslations = {
     premiumBenefitFavorites: 'Unlimited favorite products',
     premiumBenefitAutoFill: 'Automatic aid-station filling',
     accountSectionTitle: 'Account',
+    guestAccountSectionTitle: 'Create your account',
+    guestAccountSectionBody:
+      'You are currently in guest mode. Create a real account to keep this progress, or sign in to an existing account to recover your data there.',
+    guestCreateAccountCta: 'Create my account',
+    guestExistingAccountCta: 'I already have an account',
     privacyPolicyButton: 'Privacy policy',
     privacyPolicyFallback: 'Unable to open the privacy policy right now.',
     deleteAccountButton: 'Delete my account',

@@ -23,6 +23,7 @@ export default function ProfileScreen() {
     locale,
     setLocale,
     t,
+    isAnonymousAccount,
     loading,
     saving,
     error,
@@ -96,6 +97,8 @@ export default function ProfileScreen() {
     handleApplyEstimator,
     handleSave,
     handleLogout,
+    handleOpenCreateAccount,
+    handleOpenExistingAccountLogin,
     handleUpgrade,
     handleManageSubscription,
     handleRestorePurchases,
@@ -330,12 +333,24 @@ export default function ProfileScreen() {
             </TutorialTarget>
 
             <ProfileAccountSection
-              title={t.profile.accountSectionTitle}
-              logoutLabel={t.profile.logoutCta}
-              deleteLabel={t.profile.deleteAccountButton}
-              deleting={deletingAccount}
-              onLogout={handleLogout}
-              onDeleteAccount={handleDeleteAccount}
+              title={
+                isAnonymousAccount ? t.profile.guestAccountSectionTitle : t.profile.accountSectionTitle
+              }
+              body={isAnonymousAccount ? t.profile.guestAccountSectionBody : undefined}
+              primaryLabel={
+                isAnonymousAccount ? t.profile.guestCreateAccountCta : t.profile.logoutCta
+              }
+              primaryTone={isAnonymousAccount ? 'brand' : 'neutral'}
+              onPrimaryPress={isAnonymousAccount ? handleOpenCreateAccount : handleLogout}
+              secondaryLabel={
+                isAnonymousAccount ? t.profile.guestExistingAccountCta : undefined
+              }
+              onSecondaryPress={
+                isAnonymousAccount ? handleOpenExistingAccountLogin : undefined
+              }
+              dangerLabel={isAnonymousAccount ? undefined : t.profile.deleteAccountButton}
+              dangerLoading={deletingAccount}
+              onDangerPress={isAnonymousAccount ? undefined : handleDeleteAccount}
             />
           </>
         ) : null}

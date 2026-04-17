@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { Session } from '@supabase/supabase-js';
 import { finalizePendingAccountConversion } from '../../lib/accountConversion';
+import { getPostAuthRoute } from '../../lib/onboardingGate';
 import { supabase } from '../../lib/supabase';
 import { ensureTrialStatusForSession } from '../../lib/trial';
 
@@ -23,18 +24,7 @@ export default function AuthCallback() {
       }
 
       await ensureTrialStatusForSession(session);
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('water_bag_liters')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
-      if (profile?.water_bag_liters == null) {
-        router.replace('/(app)/onboarding');
-      } else {
-        router.replace('/(app)/plans');
-      }
+      router.replace(await getPostAuthRoute(session));
     }
 
     async function handleCallback() {

@@ -24,6 +24,7 @@ export default function NutritionScreen() {
     newCarbsG,
     newSodiumMg,
     newCaloriesKcal,
+    newImageDraft,
     showFavoriteLimitModal,
     filteredProducts,
     favoriteLimitBannerLabel,
@@ -39,6 +40,8 @@ export default function NutritionScreen() {
     setNewSodiumMg,
     setNewCaloriesKcal,
     setShowFavoriteLimitModal,
+    pickNewImage,
+    clearNewImage,
     handleCreateProduct,
     handleCancelCreateProduct,
   } = useNutritionScreen();
@@ -75,6 +78,7 @@ export default function NutritionScreen() {
       newCaloriesKcal={newCaloriesKcal}
       newCarbsG={newCarbsG}
       newFuelType={newFuelType}
+      newImageDraft={newImageDraft}
       newName={newName}
       newSodiumMg={newSodiumMg}
       onCancelCreateProduct={handleCancelCreateProduct}
@@ -85,6 +89,8 @@ export default function NutritionScreen() {
       onChangeNewFuelType={setNewFuelType}
       onChangeNewName={setNewName}
       onChangeNewSodiumMg={setNewSodiumMg}
+      onPickNewImage={() => void pickNewImage()}
+      onRemoveNewImage={clearNewImage}
       onCloseFavoriteLimitModal={() => setShowFavoriteLimitModal(false)}
       onOpenCreateModal={() => setShowCreateModal(true)}
       onSubmitCreateProduct={() => void handleCreateProduct()}

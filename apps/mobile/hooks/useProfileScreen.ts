@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
+import { useRouter } from 'expo-router';
 
 import {
   estimateHourlyTargets,
@@ -29,6 +30,7 @@ import type {
   SodiumEstimatorLevel,
 } from '../components/profile/types';
 import { Colors } from '../constants/colors';
+import { isAnonymousSession } from '../lib/appSession';
 import { useI18n } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { WEB_API_BASE_URL } from '../lib/webApi';
@@ -45,7 +47,9 @@ function sanitizeDigits(value: string, maxLength: number): string {
 
 export function useProfileScreen() {
   const { locale, setLocale, t } = useI18n();
+  const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
+  const [isAnonymousAccount, setIsAnonymousAccount] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeProfileTab, setActiveProfileTab] = useState<ProfileTabKey>('personal');
   const [fullName, setFullName] = useState('');
@@ -96,6 +100,7 @@ export function useProfileScreen() {
     (async () => {
       const { data: sessionData } = await supabase.auth.getSession();
       const uid = sessionData?.session?.user?.id;
+      setIsAnonymousAccount(isAnonymousSession(sessionData?.session));
 
       if (!uid || cancelled) {
         if (!cancelled) {
@@ -461,6 +466,14 @@ export function useProfileScreen() {
       },
     ]);
   }, [t.common.cancel, t.profile.logoutCta, t.profile.logoutPrompt]);
+
+  const handleOpenCreateAccount = useCallback(() => {
+    router.push('/(auth)/signup');
+  }, [router]);
+
+  const handleOpenExistingAccountLogin = useCallback(() => {
+    router.push('/(auth)/login');
+  }, [router]);
 
   const openExternalUrl = useCallback(
     async (url: string | null, fallbackMessage: string, title = t.profile.subscriptionLabel) => {
@@ -992,6 +1005,7 @@ export function useProfileScreen() {
     locale,
     setLocale,
     t,
+    isAnonymousAccount,
     loading,
     saving,
     error,
@@ -1065,6 +1079,8 @@ export function useProfileScreen() {
     handleApplyEstimator,
     handleSave,
     handleLogout,
+    handleOpenCreateAccount,
+    handleOpenExistingAccountLogin,
     handleUpgrade,
     handleManageSubscription,
     handleRestorePurchases,

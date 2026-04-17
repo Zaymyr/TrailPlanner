@@ -283,6 +283,10 @@ export type MobileTranslations = {
     premiumBenefitFavorites: string;
     premiumBenefitAutoFill: string;
     accountSectionTitle: string;
+    guestAccountSectionTitle: string;
+    guestAccountSectionBody: string;
+    guestCreateAccountCta: string;
+    guestExistingAccountCta: string;
     privacyPolicyButton: string;
     privacyPolicyFallback: string;
     deleteAccountButton: string;

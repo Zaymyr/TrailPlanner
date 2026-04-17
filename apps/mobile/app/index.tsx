@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ensureAppSession } from '../lib/appSession';
-import { supabase } from '../lib/supabase';
+import { getPostAuthRoute } from '../lib/onboardingGate';
 import { Colors } from '../constants/colors';
 
 export default function IndexScreen() {
@@ -20,19 +20,8 @@ export default function IndexScreen() {
         return;
       }
 
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('water_bag_liters')
-        .eq('user_id', session.user.id)
-        .maybeSingle();
-
       if (cancelled) return;
-
-      if (profile?.water_bag_liters == null) {
-        router.replace('/(app)/onboarding');
-      } else {
-        router.replace('/(app)/plans');
-      }
+      router.replace(await getPostAuthRoute(session));
     })();
 
     return () => {

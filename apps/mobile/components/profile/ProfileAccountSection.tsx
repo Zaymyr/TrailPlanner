@@ -4,41 +4,71 @@ import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Colors } from '../../constants/colors';
 
 type ProfileAccountSectionProps = {
-  deleteLabel: string;
-  deleting?: boolean;
-  logoutLabel: string;
-  onDeleteAccount: () => void;
-  onLogout: () => void;
+  body?: string;
+  dangerLabel?: string;
+  dangerLoading?: boolean;
+  onDangerPress?: () => void;
+  onPrimaryPress: () => void;
+  onSecondaryPress?: () => void;
+  primaryLabel: string;
+  primaryTone?: 'brand' | 'neutral';
+  secondaryLabel?: string;
   title: string;
 };
 
 function ProfileAccountSectionComponent({
-  deleteLabel,
-  deleting = false,
-  logoutLabel,
-  onDeleteAccount,
-  onLogout,
+  body,
+  dangerLabel,
+  dangerLoading = false,
+  onDangerPress,
+  onPrimaryPress,
+  onSecondaryPress,
+  primaryLabel,
+  primaryTone = 'neutral',
+  secondaryLabel,
   title,
 }: ProfileAccountSectionProps) {
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{title}</Text>
-
-      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-        <Text style={styles.logoutButtonText}>{logoutLabel}</Text>
-      </TouchableOpacity>
+      {body ? <Text style={styles.body}>{body}</Text> : null}
 
       <TouchableOpacity
-        style={[styles.deleteButton, deleting && styles.actionDisabled]}
-        onPress={onDeleteAccount}
-        disabled={deleting}
+        style={[
+          styles.primaryButton,
+          primaryTone === 'brand' ? styles.primaryButtonBrand : styles.primaryButtonNeutral,
+        ]}
+        onPress={onPrimaryPress}
       >
-        {deleting ? (
-          <ActivityIndicator color={Colors.danger} />
-        ) : (
-          <Text style={styles.deleteButtonText}>{deleteLabel}</Text>
-        )}
+        <Text
+          style={[
+            styles.primaryButtonText,
+            primaryTone === 'brand' ? styles.primaryButtonTextBrand : styles.primaryButtonTextNeutral,
+          ]}
+        >
+          {primaryLabel}
+        </Text>
       </TouchableOpacity>
+
+      {secondaryLabel && onSecondaryPress ? (
+        <TouchableOpacity style={styles.secondaryButton} onPress={onSecondaryPress}>
+          <Text style={styles.secondaryButtonText}>{secondaryLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+
+      {dangerLabel && onDangerPress ? (
+        <TouchableOpacity
+          style={[styles.deleteButton, dangerLoading && styles.actionDisabled]}
+          onPress={onDangerPress}
+          disabled={dangerLoading}
+        >
+          {dangerLoading ? (
+            <ActivityIndicator color={Colors.danger} />
+          ) : (
+            <Text style={styles.deleteButtonText}>{dangerLabel}</Text>
+          )}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -59,7 +89,37 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  logoutButton: {
+  body: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  primaryButton: {
+    minHeight: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  primaryButtonBrand: {
+    backgroundColor: Colors.brandPrimary,
+  },
+  primaryButtonNeutral: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  primaryButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  primaryButtonTextBrand: {
+    color: Colors.textOnBrand,
+  },
+  primaryButtonTextNeutral: {
+    color: Colors.textPrimary,
+  },
+  secondaryButton: {
     minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
@@ -69,7 +129,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  logoutButtonText: {
+  secondaryButtonText: {
     color: Colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',

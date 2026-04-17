@@ -16,6 +16,7 @@ const supabaseProductSchema = z.object({
   slug: z.string(),
   sku: z.string().optional().nullable(),
   name: z.string(),
+  image_url: z.string().url().optional().nullable(),
   fuel_type: fuelTypeSchema.optional().default(defaultFuelType),
   product_url: z.string().url().optional().nullable(),
   calories_kcal: z.union([z.number(), z.string()]).transform((value) => Number(value)),
@@ -33,6 +34,7 @@ const productResponseSchema = z.object({
       slug: z.string(),
       sku: z.string().optional(),
       name: z.string(),
+      imageUrl: z.string().url().optional().nullable(),
       fuelType: fuelTypeSchema,
       productUrl: z.string().url().optional().nullable(),
       caloriesKcal: z.number(),
@@ -72,6 +74,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   slug: row.slug,
   sku: row.sku ?? undefined,
   name: row.name,
+  imageUrl: row.image_url ?? undefined,
   fuelType: row.fuel_type ?? defaultFuelType,
   productUrl: row.product_url ?? undefined,
   caloriesKcal: Number(row.calories_kcal) || 0,
@@ -133,7 +136,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by${fuelTypeQuery}${createdByQuery}&order=updated_at.desc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by${fuelTypeQuery}${createdByQuery}&order=updated_at.desc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,

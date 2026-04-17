@@ -30,6 +30,7 @@ import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appRevi
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
+import { getPostAuthRoute } from '../lib/onboardingGate';
 import { ensureTrialStatusForSession } from '../lib/trial';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
@@ -322,19 +323,8 @@ function RootLayoutContent() {
     }
 
     if (session && inAuthGroup && !isAnonymousSession(session)) {
-      // Check if onboarding needed (water_bag_liters IS NULL)
       (async () => {
-        const { data } = await supabase
-          .from('user_profiles')
-          .select('water_bag_liters')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-
-        if (data === null || data?.water_bag_liters == null) {
-          router.replace('/(app)/onboarding');
-        } else {
-          router.replace('/(app)/plans');
-        }
+        router.replace(await getPostAuthRoute(session));
       })();
     }
   }, [bootstrappingSession, mergingGuestData, session, ready, segments, shouldHoldForPremium, updateState.status, router]);

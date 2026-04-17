@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -33,6 +34,7 @@ type NutritionContentProps = {
   newCarbsG: string;
   newSodiumMg: string;
   newCaloriesKcal: string;
+  newImageDraft: { uri: string; name: string } | null;
   favoriteLimitBannerLabel: string;
   favoriteLimitMessage: string;
   freeAccessTitle: string;
@@ -47,6 +49,8 @@ type NutritionContentProps = {
   onChangeNewCarbsG: (value: string) => void;
   onChangeNewSodiumMg: (value: string) => void;
   onChangeNewCaloriesKcal: (value: string) => void;
+  onPickNewImage: () => void;
+  onRemoveNewImage: () => void;
   onSubmitCreateProduct: () => void;
   onCancelCreateProduct: () => void;
 };
@@ -69,6 +73,7 @@ export const NutritionContent = memo(function NutritionContent({
   newCarbsG,
   newSodiumMg,
   newCaloriesKcal,
+  newImageDraft,
   favoriteLimitBannerLabel,
   favoriteLimitMessage,
   freeAccessTitle,
@@ -83,6 +88,8 @@ export const NutritionContent = memo(function NutritionContent({
   onChangeNewCarbsG,
   onChangeNewSodiumMg,
   onChangeNewCaloriesKcal,
+  onPickNewImage,
+  onRemoveNewImage,
   onSubmitCreateProduct,
   onCancelCreateProduct,
 }: NutritionContentProps) {
@@ -183,12 +190,16 @@ export const NutritionContent = memo(function NutritionContent({
         carbsG={newCarbsG}
         creating={creating}
         fuelType={newFuelType}
+        imageName={newImageDraft?.name ?? null}
+        imagePreviewUri={newImageDraft?.uri ?? null}
         name={newName}
         onCancel={onCancelCreateProduct}
         onChangeCaloriesKcal={onChangeNewCaloriesKcal}
         onChangeCarbsG={onChangeNewCarbsG}
         onChangeName={onChangeNewName}
         onChangeSodiumMg={onChangeNewSodiumMg}
+        onPickImage={onPickNewImage}
+        onRemoveImage={onRemoveNewImage}
         onSelectFuelType={onChangeNewFuelType}
         onSubmit={onSubmitCreateProduct}
         sodiumMg={newSodiumMg}
@@ -211,6 +222,15 @@ function ProductCard({
 }) {
   return (
     <View style={styles.productCard}>
+      <View style={styles.productMedia}>
+        {product.image_url ? (
+          <Image source={{ uri: product.image_url }} style={styles.productImage} />
+        ) : (
+          <View style={styles.productImagePlaceholder}>
+            <Ionicons color={Colors.textMuted} name="image-outline" size={18} />
+          </View>
+        )}
+      </View>
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{product.name}</Text>
         <Text style={styles.productType}>
@@ -374,6 +394,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
+  },
+  productMedia: {
+    marginRight: 12,
+  },
+  productImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  productImagePlaceholder: {
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   productInfo: {
     flex: 1,

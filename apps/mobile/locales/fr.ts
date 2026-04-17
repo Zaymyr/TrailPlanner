@@ -284,6 +284,11 @@ export const fr: MobileTranslations = {
     premiumBenefitFavorites: 'Produits favoris illimités',
     premiumBenefitAutoFill: 'Remplissage automatique des ravitos',
     accountSectionTitle: 'Compte',
+    guestAccountSectionTitle: 'Créer mon compte',
+    guestAccountSectionBody:
+      "Tu utilises actuellement le mode invité. Crée un vrai compte pour garder cette progression, ou connecte-toi à un compte existant pour retrouver tes données dessus.",
+    guestCreateAccountCta: 'Créer mon compte',
+    guestExistingAccountCta: "J'ai déjà un compte",
     privacyPolicyButton: 'Politique de confidentialité',
     privacyPolicyFallback: "Impossible d'ouvrir la politique de confidentialité pour le moment.",
     deleteAccountButton: 'Supprimer mon compte',

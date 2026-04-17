@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 
 import {
   FREE_FAVORITE_LIMIT,
@@ -9,6 +10,7 @@ import type {
   CreateProductResponse,
   FavoriteRow,
   FuelType,
+  ProductImageDraft,
   Product,
 } from '../components/nutrition/types';
 import { usePremium } from '../hooks/usePremium';
@@ -36,6 +38,7 @@ export function useNutritionScreen() {
   const [newCarbsG, setNewCarbsG] = useState('');
   const [newSodiumMg, setNewSodiumMg] = useState('');
   const [newCaloriesKcal, setNewCaloriesKcal] = useState('');
+  const [newImageDraft, setNewImageDraft] = useState<ProductImageDraft | null>(null);
   const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -52,11 +55,11 @@ export function useNutritionScreen() {
     const [favoritesResult, productsResult] = await Promise.all([
       supabase
         .from('user_favorite_products')
-        .select('product_id, products(id, name, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by)')
+        .select('product_id, products(id, name, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by)')
         .eq('user_id', uid),
       supabase
         .from('products')
-        .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .select('id, name, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
         .or(`is_live.eq.true,created_by.eq.${uid}`)
         .eq('is_archived', false)
         .order('name'),
@@ -133,6 +136,54 @@ export function useNutritionScreen() {
     setNewCarbsG('');
     setNewSodiumMg('');
     setNewCaloriesKcal('');
+    setNewImageDraft(null);
+  }, []);
+
+  const pickNewImage = useCallback(async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      copyToCacheDirectory: true,
+      multiple: false,
+      type: ['image/*'],
+    });
+
+    if (result.canceled || result.assets.length === 0) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    const extension = asset.name?.split('.').pop()?.toLowerCase();
+    const fallbackMimeType =
+      extension === 'png'
+        ? 'image/png'
+        : extension === 'webp'
+          ? 'image/webp'
+          : extension === 'avif'
+            ? 'image/avif'
+            : extension === 'jpg' || extension === 'jpeg'
+              ? 'image/jpeg'
+              : '';
+    const mimeType = asset.mimeType ?? fallbackMimeType;
+
+    if (!mimeType.startsWith('image/')) {
+      Alert.alert('Format invalide', 'Choisis une image JPEG, PNG, WebP ou AVIF.');
+      return;
+    }
+
+    if ((asset.size ?? 0) > 5 * 1024 * 1024) {
+      Alert.alert('Image trop lourde', "L'image doit faire moins de 5 Mo.");
+      return;
+    }
+
+    setNewImageDraft({
+      uri: asset.uri,
+      name: asset.name ?? `product-${Date.now()}.jpg`,
+      mimeType,
+      size: asset.size ?? null,
+    });
+  }, []);
+
+  const clearNewImage = useCallback(() => {
+    setNewImageDraft(null);
   }, []);
 
   const handleCreateProduct = useCallback(async () => {
@@ -152,6 +203,11 @@ export function useNutritionScreen() {
 
     if (!WEB_API_BASE_URL) {
       Alert.alert('Erreur', 'Configuration manquante. Contacte le support.');
+      return;
+    }
+
+    if (!accessToken) {
+      Alert.alert('Erreur', 'Session invalide. Reconnecte-toi puis recommence.');
       return;
     }
 
@@ -184,9 +240,48 @@ export function useNutritionScreen() {
         throw new Error('Impossible de créer le produit.');
       }
 
+      let uploadedImageUrl: string | null = null;
+      let imageUploadWarning: string | null = null;
+
+      if (newImageDraft) {
+        try {
+          const formData = new FormData();
+          formData.append(
+            'image',
+            {
+              uri: newImageDraft.uri,
+              name: newImageDraft.name,
+              type: newImageDraft.mimeType,
+            } as any,
+          );
+
+          const imageResponse = await fetch(`${WEB_API_BASE_URL}/api/products/${body.product.id}/image`, {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: formData,
+          });
+
+          const imageBody = (await imageResponse.json().catch(() => null)) as
+            | { imageUrl?: string | null; message?: string }
+            | null;
+
+          if (!imageResponse.ok) {
+            imageUploadWarning =
+              imageBody?.message ?? "Le produit a ete cree, mais l'image n'a pas pu etre envoyee.";
+          } else {
+            uploadedImageUrl = imageBody?.imageUrl ?? null;
+          }
+        } catch {
+          imageUploadWarning = "Le produit a ete cree, mais l'image n'a pas pu etre envoyee.";
+        }
+      }
+
       const createdProduct: Product = {
         id: body.product.id,
         name: body.product.name,
+        image_url: uploadedImageUrl ?? body.product.imageUrl ?? null,
         fuel_type: body.product.fuelType,
         carbs_g: body.product.carbsGrams,
         sodium_mg: body.product.sodiumMg,
@@ -200,6 +295,10 @@ export function useNutritionScreen() {
       await toggleFavorite(createdProduct.id, createdProduct);
       resetCreateForm();
       setShowCreateModal(false);
+
+      if (imageUploadWarning) {
+        Alert.alert('Image non ajoutee', imageUploadWarning);
+      }
     } catch (createError: any) {
       Alert.alert('Erreur', createError.message ?? 'Impossible de créer le produit.');
     } finally {
@@ -210,6 +309,7 @@ export function useNutritionScreen() {
     newCaloriesKcal,
     newCarbsG,
     newFuelType,
+    newImageDraft,
     newName,
     newSodiumMg,
     resetCreateForm,
@@ -262,6 +362,7 @@ export function useNutritionScreen() {
     newCarbsG,
     newSodiumMg,
     newCaloriesKcal,
+    newImageDraft,
     showFavoriteLimitModal,
     filteredProducts,
     favoriteLimitBannerLabel,
@@ -277,6 +378,8 @@ export function useNutritionScreen() {
     setNewSodiumMg,
     setNewCaloriesKcal,
     setShowFavoriteLimitModal,
+    pickNewImage,
+    clearNewImage,
     handleCreateProduct,
     handleCancelCreateProduct,
   };
