@@ -126,14 +126,14 @@ const START_LABEL = "Depart";
 const FINISH_LABEL = "Arrivee";
 
 const STATIC_ASSUMPTIONS = [
-  "Les ETA sont relatifs au depart et dependent des reglages d'allure, de fatigue et des sous-sections enregistres dans le plan.",
-  "Quand aucun detail produit n'est enregistre, le template affiche une estimation par section a confirmer sur le terrain.",
+  "Les ETA sont relatifs au depart et s'appuient sur l'allure, la fatigue et les sous-sections enregistrees dans le plan.",
+  "Quand un ravito n'a pas de detail produit, le template bascule sur une estimation par section.",
 ];
 
 const STATIC_DISCLAIMER =
-  "Plan indicatif a ajuster selon la meteo, l'intensite, la tolerance digestive et les ravitaillements reels.";
+  "Plan indicatif a ajuster selon la meteo, les sensations, la tolerance digestive et les ravitos reels du jour J.";
 
-const STATIC_CTA = "Construis ton plan complet sur Trail Planner.";
+const STATIC_CTA = "Construis ton plan de course sur Pace Yourself.";
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;

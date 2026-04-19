@@ -3,6 +3,8 @@ import type { CSSProperties } from "react";
 import type { AdminTranslations } from "../../../locales/types";
 import type { SocialRacePlanTemplate } from "../../../lib/social-race-plan-template";
 
+export const SOCIAL_RACE_PLAN_SLIDE_WIDTH = 1080;
+export const SOCIAL_RACE_PLAN_SLIDE_HEIGHT = 1350;
 export const socialRacePlanSlideIds = ["hook", "macro", "nutrition", "cta"] as const;
 
 export type SocialRacePlanSlideId = (typeof socialRacePlanSlideIds)[number];
@@ -15,6 +17,27 @@ type Props = {
   slideId: SocialRacePlanSlideId;
 };
 
+const BRAND_NAME = "Pace Yourself";
+const BRAND_SITE = "pace-yourself.app";
+const SOCIAL_COPY = {
+  eyebrow: "Plan course",
+  fallbackBadge: "Estimation",
+  hookTitle: "Mon plan pour ne pas subir la course.",
+  hookBody: "Swipe pour voir les chiffres clefs, mes cibles nutritionnelles et ce que je reprends aux ravitos.",
+  hookScrollCta: "Swipe pour voir tout le plan course",
+  macroTitle: "Les chiffres a avoir en tete",
+  macroBody: "Distance, D+, temps prevu et allure moyenne. Le resume utile avant le depart.",
+  nutritionTitle: "Mes cibles pour tenir la distance",
+  nutritionBody: "Ce que je vise par heure, puis ce que je recupere aux ravitos importants.",
+  keyAidStationsTitle: "Ce que je recupere aux ravitos",
+  aidStationsSubtitle: "Le resume des points de passage les plus importants.",
+  noAidStations: "Ajoute ou precise les ravitos pour enrichir ce slide.",
+  assumptionsTitle: "Repere",
+  ctaSlideTitle: "Tu veux le meme niveau de clarte ?",
+  ctaSlideBody: "Pace Yourself transforme ton parcours et tes objectifs en plan ravito clair, partageable et exportable.",
+  disclaimerTitle: "A retenir",
+} as const;
+
 const formatText = (value: string | null) => value?.trim() || "-";
 const formatMetric = (value: number | null, suffix: string) => (value === null ? "-" : `${value}${suffix}`);
 const formatRate = (value: number | null, suffix: string) => (value === null ? "-" : `${value}${suffix}/h`);
@@ -25,8 +48,8 @@ const joinDefinedText = (parts: Array<string | null | undefined>) =>
 const baseSlideStyle = (background: string, foreground = "#10231a"): CSSProperties => ({
   position: "relative",
   overflow: "hidden",
-  width: "1080px",
-  minHeight: "1350px",
+  width: `${SOCIAL_RACE_PLAN_SLIDE_WIDTH}px`,
+  height: `${SOCIAL_RACE_PLAN_SLIDE_HEIGHT}px`,
   padding: "52px",
   borderRadius: "40px",
   background,
@@ -90,39 +113,52 @@ function formatAveragePaceLabel(targetMinutes: number | null, distanceKm: number
   if (targetMinutes === null || distanceKm === null || distanceKm <= 0) return "-";
 
   const totalSeconds = Math.round((targetMinutes * 60) / distanceKm);
-  let minutes = Math.floor(totalSeconds / 60);
-  let seconds = totalSeconds % 60;
-
-  if (seconds === 60) {
-    minutes += 1;
-    seconds = 0;
-  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
 
   return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
 }
 
 function buildItemSummary(item: SocialRacePlanTemplate["startCarry"]["items"][number], t: CarouselTranslations) {
-  const parts: string[] = [];
-  if (item.quantity !== null) parts.push(t.quantity.replace("{count}", String(item.quantity)));
-  if (item.carbsG !== null) parts.push(`${item.carbsG}g ${t.carbsShort}`);
-  if (item.waterMl !== null) parts.push(`${item.waterMl}ml ${t.waterShort}`);
-  if (item.sodiumMg !== null) parts.push(`${item.sodiumMg}mg ${t.sodiumShort}`);
-  return parts.join(" | ");
+  const metrics: string[] = [];
+  const quantityLabel = item.quantity !== null ? t.quantity.replace("{count}", String(item.quantity)) : null;
+
+  if (item.carbsG !== null) metrics.push(`${item.carbsG}g ${t.carbsShort}`);
+  if (item.waterMl !== null) metrics.push(`${item.waterMl}ml ${t.waterShort}`);
+  if (item.sodiumMg !== null) metrics.push(`${item.sodiumMg}mg ${t.sodiumShort}`);
+
+  const metricsLabel = metrics.join(" | ");
+
+  if (item.kind === "product") {
+    if (quantityLabel && metricsLabel) return `${quantityLabel} ${item.label} | ${metricsLabel}`;
+    if (quantityLabel) return `${quantityLabel} ${item.label}`;
+    if (metricsLabel) return `${item.label} | ${metricsLabel}`;
+    return item.label;
+  }
+
+  return metricsLabel || item.note || item.label;
 }
 
 function buildStationPreview(station: SocialRacePlanTemplate["aidStations"][number], t: CarouselTranslations) {
-  const primaryItems = station.take.items.slice(0, 2);
-  return joinDefinedText(primaryItems.map((item) => buildItemSummary(item, t) || item.note || item.label)) || t.noDetails;
+  const summary = station.take.items
+    .slice(0, 2)
+    .map((item) => buildItemSummary(item, t) || item.note || item.label)
+    .filter(Boolean)
+    .join(" | ");
+
+  return summary || t.noDetails;
 }
 
 function SlideMetric({
   label,
   value,
   accent,
+  valueColor,
 }: {
   label: string;
   value: string;
   accent?: string;
+  valueColor?: string;
 }) {
   return (
     <div
@@ -133,7 +169,17 @@ function SlideMetric({
       }}
     >
       <p style={sectionLabelStyle}>{label}</p>
-      <p style={{ margin: "12px 0 0 0", fontSize: "34px", fontWeight: 800, lineHeight: 1.05 }}>{value}</p>
+      <p
+        style={{
+          margin: "12px 0 0 0",
+          fontSize: "34px",
+          fontWeight: 800,
+          lineHeight: 1.05,
+          color: valueColor ?? "inherit",
+        }}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -197,7 +243,7 @@ function SlideTopBadges({
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: "20px", position: "relative", zIndex: 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-        <p style={eyebrowStyle}>{t.eyebrow}</p>
+        <p style={eyebrowStyle}>{SOCIAL_COPY.eyebrow}</p>
         {showFallbackBadge ? (
           <span
             style={{
@@ -209,7 +255,7 @@ function SlideTopBadges({
               color: "#8a5a12",
             }}
           >
-            {t.fallbackBadge}
+            {SOCIAL_COPY.fallbackBadge}
           </span>
         ) : null}
       </div>
@@ -225,7 +271,7 @@ function SlideTopBadges({
             fontWeight: 700,
           }}
         >
-          Trail Planner
+          {BRAND_NAME}
         </div>
         <SlideCounter index={index} dark={dark} />
       </div>
@@ -234,14 +280,25 @@ function SlideTopBadges({
 }
 
 function HookSlide({ template, t }: { template: SocialRacePlanTemplate; t: CarouselTranslations }) {
+  const averagePaceLabel = formatAveragePaceLabel(template.race.targetTime.minutes, template.race.distanceKm);
   const planSubtitle = template.plan.name !== template.race.name ? template.plan.name : null;
+  const metaChips = [
+    formatMetric(template.race.distanceKm, " km"),
+    formatMetric(template.race.elevationGainM, " m D+"),
+    formatText(template.race.targetTime.label),
+    averagePaceLabel,
+  ].filter((value) => value !== "-");
   const teaserCards = [
     {
       label: t.slideLabels.macro,
       value: joinDefinedText([
         formatMetric(template.race.distanceKm, " km"),
-        formatMetric(template.race.elevationGainM, " m"),
+        formatMetric(template.race.elevationGainM, " m D+"),
       ]),
+    },
+    {
+      label: t.targetTimeLabel,
+      value: joinDefinedText([formatText(template.race.targetTime.label), averagePaceLabel]),
     },
     {
       label: t.slideLabels.nutrition,
@@ -249,10 +306,6 @@ function HookSlide({ template, t }: { template: SocialRacePlanTemplate; t: Carou
         formatRate(template.averagesPerHour.carbsG, "g"),
         formatRate(template.averagesPerHour.waterMl, "ml"),
       ]),
-    },
-    {
-      label: t.slideLabels.cta,
-      value: t.hookTeaseCta,
     },
   ];
 
@@ -263,22 +316,49 @@ function HookSlide({ template, t }: { template: SocialRacePlanTemplate; t: Carou
 
       <SlideTopBadges t={t} index={0} showFallbackBadge={template.missingData.length > 0} />
 
-      <section style={{ position: "relative", zIndex: 1, maxWidth: "820px" }}>
-        <h1 style={{ ...serifTitleStyle, fontSize: "82px", lineHeight: 0.94 }}>{template.race.name}</h1>
+      <section style={{ position: "relative", zIndex: 1, maxWidth: "860px" }}>
+        <h1 style={{ ...serifTitleStyle, fontSize: "78px", lineHeight: 0.94 }}>{template.race.name}</h1>
         {planSubtitle ? <p style={{ margin: "16px 0 0 0", fontSize: "22px", color: "#4f6b5b" }}>{planSubtitle}</p> : null}
 
-        <div style={{ ...glassPanelStyle, marginTop: "28px", padding: "24px 28px", maxWidth: "760px" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginTop: "24px" }}>
+          {metaChips.map((chip) => (
+            <span
+              key={chip}
+              style={{
+                borderRadius: "9999px",
+                padding: "10px 14px",
+                background: "rgba(255,255,255,0.74)",
+                border: "1px solid rgba(16,35,26,0.08)",
+                fontSize: "14px",
+                fontWeight: 700,
+                color: "#244b37",
+              }}
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+
+        <div style={{ ...glassPanelStyle, marginTop: "28px", padding: "26px 28px", maxWidth: "780px" }}>
           <p style={{ ...sectionLabelStyle, color: "#37624b" }}>{t.slideLabels.hook}</p>
-          <p style={{ margin: "14px 0 0 0", fontSize: "38px", lineHeight: 1.04, fontWeight: 800 }}>{t.hookTitle}</p>
-          <p style={{ margin: "14px 0 0 0", fontSize: "18px", lineHeight: 1.55, color: "#3f5f4f" }}>{t.hookBody}</p>
+          <p style={{ margin: "14px 0 0 0", fontSize: "40px", lineHeight: 1.04, fontWeight: 800 }}>{SOCIAL_COPY.hookTitle}</p>
+          <p style={{ margin: "14px 0 0 0", fontSize: "18px", lineHeight: 1.55, color: "#3f5f4f" }}>{SOCIAL_COPY.hookBody}</p>
         </div>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px", position: "relative", zIndex: 1 }}>
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: "16px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
         {teaserCards.map((card) => (
           <div key={card.label} style={{ ...glassPanelStyle, padding: "22px" }}>
             <p style={sectionLabelStyle}>{card.label}</p>
-            <p style={{ margin: "12px 0 0 0", fontSize: "24px", lineHeight: 1.2, fontWeight: 800 }}>{card.value || "-"}</p>
+            <p style={{ margin: "12px 0 0 0", fontSize: "24px", lineHeight: 1.25, fontWeight: 800 }}>{card.value || "-"}</p>
           </div>
         ))}
       </section>
@@ -287,9 +367,9 @@ function HookSlide({ template, t }: { template: SocialRacePlanTemplate; t: Carou
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "24px" }}>
           <div>
             <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#dce9df" }}>
-              {t.hookScrollCta}
+              {SOCIAL_COPY.hookScrollCta}
             </p>
-            <p style={{ margin: "12px 0 0 0", fontSize: "18px", lineHeight: 1.55, color: "#f5f2e8" }}>{template.cta}</p>
+            <p style={{ margin: "12px 0 0 0", fontSize: "20px", lineHeight: 1.45, color: "#f5f2e8" }}>{template.cta}</p>
           </div>
           <SlideProgressBars activeIndex={0} dark />
         </div>
@@ -309,11 +389,19 @@ function MacroSlide({ template, t }: { template: SocialRacePlanTemplate; t: Caro
 
       <section style={{ position: "relative", zIndex: 1 }}>
         <p style={sectionLabelStyle}>{t.slideLabels.macro}</p>
-        <h2 style={{ ...serifTitleStyle, marginTop: "16px", fontSize: "66px", lineHeight: 0.95 }}>{t.macroTitle}</h2>
-        <p style={{ margin: "18px 0 0 0", maxWidth: "760px", fontSize: "20px", lineHeight: 1.6, color: "#446554" }}>{t.macroBody}</p>
+        <h2 style={{ ...serifTitleStyle, marginTop: "16px", fontSize: "64px", lineHeight: 0.95 }}>{SOCIAL_COPY.macroTitle}</h2>
+        <p style={{ margin: "18px 0 0 0", maxWidth: "760px", fontSize: "20px", lineHeight: 1.6, color: "#446554" }}>{SOCIAL_COPY.macroBody}</p>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px", position: "relative", zIndex: 1 }}>
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          gap: "16px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
         <SlideMetric label={t.distanceLabel} value={formatMetric(template.race.distanceKm, " km")} />
         <SlideMetric label={t.elevationLabel} value={formatMetric(template.race.elevationGainM, " m")} />
         <SlideMetric label={t.targetTimeLabel} value={formatText(template.race.targetTime.label)} />
@@ -321,7 +409,7 @@ function MacroSlide({ template, t }: { template: SocialRacePlanTemplate; t: Caro
       </section>
 
       <div style={{ ...glassPanelStyle, marginTop: "auto", position: "relative", zIndex: 1 }}>
-        <p style={sectionLabelStyle}>{t.assumptionsTitle}</p>
+        <p style={sectionLabelStyle}>{SOCIAL_COPY.assumptionsTitle}</p>
         <p style={{ margin: "12px 0 0 0", fontSize: "18px", lineHeight: 1.6, color: "#3f5f4f" }}>
           {template.assumptions[0] ?? t.noDetails}
         </p>
@@ -345,11 +433,19 @@ function NutritionSlide({ template, t }: { template: SocialRacePlanTemplate; t: 
 
       <section style={{ position: "relative", zIndex: 1 }}>
         <p style={sectionLabelStyle}>{t.slideLabels.nutrition}</p>
-        <h2 style={{ ...serifTitleStyle, marginTop: "16px", fontSize: "60px", lineHeight: 0.97 }}>{t.nutritionTitle}</h2>
-        <p style={{ margin: "18px 0 0 0", maxWidth: "760px", fontSize: "20px", lineHeight: 1.6, color: "#446554" }}>{t.nutritionBody}</p>
+        <h2 style={{ ...serifTitleStyle, marginTop: "16px", fontSize: "58px", lineHeight: 0.97 }}>{SOCIAL_COPY.nutritionTitle}</h2>
+        <p style={{ margin: "18px 0 0 0", maxWidth: "760px", fontSize: "20px", lineHeight: 1.6, color: "#446554" }}>{SOCIAL_COPY.nutritionBody}</p>
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px", position: "relative", zIndex: 1 }}>
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: "16px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
         <SlideMetric label={t.carbsLabel} value={formatRate(template.averagesPerHour.carbsG, "g")} accent="rgba(255,255,255,0.88)" />
         <SlideMetric label={t.waterLabel} value={formatRate(template.averagesPerHour.waterMl, "ml")} accent="rgba(255,255,255,0.88)" />
         <SlideMetric label={t.sodiumLabel} value={formatRate(template.averagesPerHour.sodiumMg, "mg")} accent="rgba(255,255,255,0.88)" />
@@ -366,9 +462,9 @@ function NutritionSlide({ template, t }: { template: SocialRacePlanTemplate; t: 
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px" }}>
           <div>
             <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dce9df" }}>
-              {t.keyAidStationsTitle}
+              {SOCIAL_COPY.keyAidStationsTitle}
             </p>
-            <p style={{ margin: "10px 0 0 0", fontSize: "16px", lineHeight: 1.6, color: "#dce9df" }}>{t.aidStationsSubtitle}</p>
+            <p style={{ margin: "10px 0 0 0", fontSize: "16px", lineHeight: 1.6, color: "#dce9df" }}>{SOCIAL_COPY.aidStationsSubtitle}</p>
           </div>
           <SlideProgressBars activeIndex={2} dark />
         </div>
@@ -405,7 +501,7 @@ function NutritionSlide({ template, t }: { template: SocialRacePlanTemplate; t: 
               </div>
             ))
           ) : (
-            <p style={{ margin: 0, fontSize: "16px", color: "#dce9df" }}>{t.noAidStations}</p>
+            <p style={{ margin: 0, fontSize: "16px", color: "#dce9df" }}>{SOCIAL_COPY.noAidStations}</p>
           )}
         </div>
 
@@ -429,30 +525,72 @@ function CtaSlide({ template, t }: { template: SocialRacePlanTemplate; t: Carous
 
       <section style={{ position: "relative", zIndex: 1, maxWidth: "760px" }}>
         <p style={{ ...sectionLabelStyle, color: "#dce9df" }}>{t.ctaTitle}</p>
-        <h2 style={{ ...serifTitleStyle, marginTop: "16px", fontSize: "68px", lineHeight: 0.96, color: "#f5f2e8" }}>{t.ctaSlideTitle}</h2>
-        <p style={{ margin: "18px 0 0 0", fontSize: "20px", lineHeight: 1.65, color: "#dce9df" }}>{t.ctaSlideBody}</p>
+        <h2 style={{ ...serifTitleStyle, marginTop: "16px", fontSize: "66px", lineHeight: 0.96, color: "#f5f2e8" }}>{SOCIAL_COPY.ctaSlideTitle}</h2>
+        <p style={{ margin: "18px 0 0 0", fontSize: "20px", lineHeight: 1.65, color: "#dce9df" }}>{SOCIAL_COPY.ctaSlideBody}</p>
       </section>
 
-      <div style={{ ...glassPanelStyle, position: "relative", zIndex: 1, padding: "30px", background: "rgba(245,242,232,0.9)" }}>
+      <div style={{ ...glassPanelStyle, position: "relative", zIndex: 1, padding: "32px", background: "rgba(245,242,232,0.9)" }}>
         <p style={sectionLabelStyle}>{template.race.name}</p>
-        <p style={{ margin: "16px 0 0 0", fontSize: "46px", lineHeight: 1.1, fontWeight: 800, color: "#10231a" }}>{template.cta}</p>
+        <p style={{ margin: "16px 0 0 0", fontSize: "44px", lineHeight: 1.08, fontWeight: 800, color: "#10231a" }}>{template.cta}</p>
+        <p style={{ margin: "16px 0 0 0", fontSize: "16px", color: "#466352" }}>{BRAND_SITE}</p>
       </div>
 
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "16px", position: "relative", zIndex: 1 }}>
-        <SlideMetric label={t.distanceLabel} value={formatMetric(template.race.distanceKm, " km")} accent="rgba(245,242,232,0.14)" />
-        <SlideMetric label={t.elevationLabel} value={formatMetric(template.race.elevationGainM, " m")} accent="rgba(245,242,232,0.14)" />
-        <SlideMetric label={t.targetTimeLabel} value={formatText(template.race.targetTime.label)} accent="rgba(245,242,232,0.14)" />
+      <section
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: "16px",
+          position: "relative",
+          zIndex: 1,
+        }}
+      >
+        <SlideMetric
+          label={t.distanceLabel}
+          value={formatMetric(template.race.distanceKm, " km")}
+          accent="rgba(245,242,232,0.14)"
+          valueColor="#f5f2e8"
+        />
+        <SlideMetric
+          label={t.elevationLabel}
+          value={formatMetric(template.race.elevationGainM, " m")}
+          accent="rgba(245,242,232,0.14)"
+          valueColor="#f5f2e8"
+        />
+        <SlideMetric
+          label={t.targetTimeLabel}
+          value={formatText(template.race.targetTime.label)}
+          accent="rgba(245,242,232,0.14)"
+          valueColor="#f5f2e8"
+        />
       </section>
 
-      <footer style={{ ...darkPanelStyle, marginTop: "auto", position: "relative", zIndex: 1, background: "rgba(245,242,232,0.08)" }}>
+      <footer
+        style={{
+          ...darkPanelStyle,
+          marginTop: "auto",
+          position: "relative",
+          zIndex: 1,
+          background: "rgba(245,242,232,0.08)",
+        }}
+      >
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: "24px" }}>
           <div>
-            <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dce9df" }}>{t.disclaimerTitle}</p>
-            <p style={{ margin: "12px 0 0 0", maxWidth: "720px", fontSize: "16px", lineHeight: 1.7, color: "#f5f2e8" }}>{template.disclaimer}</p>
+            <p style={{ margin: 0, fontSize: "14px", fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#dce9df" }}>{SOCIAL_COPY.disclaimerTitle}</p>
+            <p style={{ margin: "12px 0 0 0", maxWidth: "680px", fontSize: "16px", lineHeight: 1.7, color: "#f5f2e8" }}>{template.disclaimer}</p>
           </div>
-          <div style={{ minWidth: "168px", borderRadius: "22px", background: "rgba(245,242,232,0.12)", padding: "16px 18px", textAlign: "center" }}>
-            <p style={{ margin: 0, fontSize: "12px", opacity: 0.76 }}>{t.schemaTitle}</p>
-            <p style={{ margin: "8px 0 0 0", fontSize: "22px", fontWeight: 800 }}>v{template.schemaVersion}</p>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "12px" }}>
+            <div
+              style={{
+                borderRadius: "20px",
+                background: "rgba(245,242,232,0.12)",
+                padding: "14px 16px",
+                textAlign: "right",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "12px", opacity: 0.76 }}>{BRAND_NAME}</p>
+              <p style={{ margin: "8px 0 0 0", fontSize: "18px", fontWeight: 800 }}>{BRAND_SITE}</p>
+            </div>
+            <SlideProgressBars activeIndex={3} dark />
           </div>
         </div>
       </footer>

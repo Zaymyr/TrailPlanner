@@ -12,6 +12,8 @@ import type { AdminTranslations } from "../../../locales/types";
 import type { SocialRacePlanTemplate } from "../../../lib/social-race-plan-template";
 import {
   getSocialRacePlanSlideLabel,
+  SOCIAL_RACE_PLAN_SLIDE_HEIGHT,
+  SOCIAL_RACE_PLAN_SLIDE_WIDTH,
   SocialRacePlanCarousel,
   socialRacePlanSlideIds,
   type SocialRacePlanSlideId,
@@ -61,9 +63,24 @@ const sanitizeFileName = (value: string) => {
 const isSlideId = (value: string): value is SocialRacePlanSlideId =>
   socialRacePlanSlideIds.some((slideId) => slideId === value);
 
+const PREVIEW_SCALE = 0.3;
+const PREVIEW_SLIDE_WIDTH = Math.round(SOCIAL_RACE_PLAN_SLIDE_WIDTH * PREVIEW_SCALE);
+const PREVIEW_SLIDE_HEIGHT = Math.round(SOCIAL_RACE_PLAN_SLIDE_HEIGHT * PREVIEW_SCALE);
+const ADMIN_COPY = {
+  description: "Choisis un plan, genere un carousel HTML puis exporte chaque slide en PNG.",
+  previewDescription: "Apercu reduit dans l'Admin. L'export PNG garde le format complet 1080 x 1350.",
+  scrollHint: "Le preview est reduit pour rester lisible ici. L'export garde la taille complete du slide.",
+} as const;
+
 export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
   const carouselRef = useRef<HTMLDivElement | null>(null);
-  const slideRefs = useRef<Record<SocialRacePlanSlideId, HTMLDivElement | null>>({
+  const slidePreviewRefs = useRef<Record<SocialRacePlanSlideId, HTMLDivElement | null>>({
+    hook: null,
+    macro: null,
+    nutrition: null,
+    cta: null,
+  });
+  const slideExportRefs = useRef<Record<SocialRacePlanSlideId, HTMLDivElement | null>>({
     hook: null,
     macro: null,
     nutrition: null,
@@ -154,7 +171,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
 
     setActiveSlideId("hook");
 
-    const hookSlide = slideRefs.current.hook;
+    const hookSlide = slidePreviewRefs.current.hook;
     if (hookSlide) {
       hookSlide.scrollIntoView({ behavior: "auto", inline: "start", block: "nearest" });
     }
@@ -183,7 +200,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
     );
 
     slideDefinitions.forEach((slide) => {
-      const node = slideRefs.current[slide.id];
+      const node = slidePreviewRefs.current[slide.id];
       if (node) observer.observe(node);
     });
 
@@ -192,11 +209,11 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
 
   const scrollToSlide = (slideId: SocialRacePlanSlideId) => {
     setActiveSlideId(slideId);
-    slideRefs.current[slideId]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+    slidePreviewRefs.current[slideId]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
   };
 
   const handleExport = async () => {
-    const activeSlide = slideRefs.current[activeSlideId];
+    const activeSlide = slideExportRefs.current[activeSlideId];
 
     if (!template || !activeSlide) return;
 
@@ -219,7 +236,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg text-slate-900 dark:text-slate-50">{t.title}</CardTitle>
-        <p className="text-sm text-slate-600 dark:text-slate-400">{t.description}</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.description}</p>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -302,7 +319,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
           <div className="space-y-3">
             <div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t.previewTitle}</p>
-              <p className="text-sm text-slate-600 dark:text-slate-400">{t.previewDescription}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.previewDescription}</p>
             </div>
 
             {template ? (
@@ -336,7 +353,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                   </p>
                 </div>
 
-                <p className="text-sm text-slate-500 dark:text-slate-400">{t.scrollHint}</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">{ADMIN_COPY.scrollHint}</p>
 
                 <div
                   ref={carouselRef}
@@ -346,12 +363,39 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                     <div
                       key={slide.id}
                       ref={(node) => {
-                        slideRefs.current[slide.id] = node;
+                        slidePreviewRefs.current[slide.id] = node;
                       }}
                       data-slide-id={slide.id}
                       className="shrink-0 snap-start"
                     >
-                      <SocialRacePlanCarousel template={template} t={t.poster} slideId={slide.id} />
+                      <div
+                        className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950"
+                        style={{
+                          width: `${PREVIEW_SLIDE_WIDTH}px`,
+                          height: `${PREVIEW_SLIDE_HEIGHT}px`,
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${SOCIAL_RACE_PLAN_SLIDE_WIDTH}px`,
+                            height: `${SOCIAL_RACE_PLAN_SLIDE_HEIGHT}px`,
+                            transform: `scale(${PREVIEW_SCALE})`,
+                            transformOrigin: "top left",
+                          }}
+                        >
+                          <div
+                            ref={(node) => {
+                              slideExportRefs.current[slide.id] = node;
+                            }}
+                            style={{
+                              width: `${SOCIAL_RACE_PLAN_SLIDE_WIDTH}px`,
+                              height: `${SOCIAL_RACE_PLAN_SLIDE_HEIGHT}px`,
+                            }}
+                          >
+                            <SocialRacePlanCarousel template={template} t={t.poster} slideId={slide.id} />
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
