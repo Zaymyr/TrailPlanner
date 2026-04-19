@@ -8,16 +8,25 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Label } from "../../../components/ui/label";
 import { exportHtmlToPng } from "../../../lib/export-html-to-png";
+import {
+  applySocialInstagramTemplateOverrides,
+  buildSocialInstagramTemplateDraft,
+  readSocialInstagramTemplateOverrides,
+  resetSocialInstagramTemplateOverrides,
+  type SocialInstagramTemplateDraft,
+  writeSocialInstagramTemplateOverrides,
+} from "../../../lib/social-instagram-template-draft";
 import type { AdminTranslations } from "../../../locales/types";
 import type { SocialRacePlanTemplate } from "../../../lib/social-race-plan-template";
 import {
-  getSocialRacePlanSlideLabel,
-  SOCIAL_RACE_PLAN_SLIDE_HEIGHT,
-  SOCIAL_RACE_PLAN_SLIDE_WIDTH,
-  SocialRacePlanCarousel,
-  socialRacePlanSlideIds,
-  type SocialRacePlanSlideId,
-} from "./SocialRacePlanCarousel";
+  getSocialInstagramTemplateSlideLabel,
+  SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT,
+  SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH,
+  SocialInstagramTemplateCarousel,
+  socialInstagramTemplateSlideIds,
+  type SocialInstagramTemplateSlideId,
+} from "./SocialInstagramTemplateCarousel";
+import AdminSocialInstagramTemplateEditor from "./AdminSocialInstagramTemplateEditor";
 
 type Props = {
   accessToken: string | null | undefined;
@@ -60,36 +69,38 @@ const sanitizeFileName = (value: string) => {
   return normalized || "social-race-plan";
 };
 
-const isSlideId = (value: string): value is SocialRacePlanSlideId =>
-  socialRacePlanSlideIds.some((slideId) => slideId === value);
+const isSlideId = (value: string): value is SocialInstagramTemplateSlideId =>
+  socialInstagramTemplateSlideIds.some((slideId) => slideId === value);
 
 const PREVIEW_SCALE = 0.3;
-const PREVIEW_SLIDE_WIDTH = Math.round(SOCIAL_RACE_PLAN_SLIDE_WIDTH * PREVIEW_SCALE);
-const PREVIEW_SLIDE_HEIGHT = Math.round(SOCIAL_RACE_PLAN_SLIDE_HEIGHT * PREVIEW_SCALE);
+const PREVIEW_SLIDE_WIDTH = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH * PREVIEW_SCALE);
+const PREVIEW_SLIDE_HEIGHT = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT * PREVIEW_SCALE);
 const ADMIN_COPY = {
-  description: "Choisis un plan, genere un carousel HTML puis exporte chaque slide en PNG.",
-  previewDescription: "Apercu reduit dans l'Admin. L'export PNG garde le format complet 1080 x 1350.",
+  description: "Choisis un plan, ajuste le template Instagram puis exporte chaque slide en PNG.",
+  previewDescription: "Apercu reduit dans l'Admin. L'export PNG garde le format complet 1080 x 1080.",
   scrollHint: "Le preview est reduit pour rester lisible ici. L'export garde la taille complete du slide.",
+  editorDescription: "Les donnees viennent du plan en base, mais chaque champ reste modifiable et memorise localement pour ce plan.",
 } as const;
 
 export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
   const carouselRef = useRef<HTMLDivElement | null>(null);
-  const slidePreviewRefs = useRef<Record<SocialRacePlanSlideId, HTMLDivElement | null>>({
+  const slidePreviewRefs = useRef<Record<SocialInstagramTemplateSlideId, HTMLDivElement | null>>({
     hook: null,
     macro: null,
     nutrition: null,
     cta: null,
   });
-  const slideExportRefs = useRef<Record<SocialRacePlanSlideId, HTMLDivElement | null>>({
+  const slideExportRefs = useRef<Record<SocialInstagramTemplateSlideId, HTMLDivElement | null>>({
     hook: null,
     macro: null,
     nutrition: null,
     cta: null,
   });
   const [selectedPlanId, setSelectedPlanId] = useState("");
-  const [activeSlideId, setActiveSlideId] = useState<SocialRacePlanSlideId>("hook");
+  const [activeSlideId, setActiveSlideId] = useState<SocialInstagramTemplateSlideId>("hook");
   const [exportError, setExportError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [draft, setDraft] = useState<SocialInstagramTemplateDraft | null>(null);
 
   const plansQuery = useQuery({
     queryKey: ["admin", "social-templates", "plans", accessToken],
@@ -156,15 +167,34 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
     [plansQuery.data, selectedPlanId]
   );
   const template = templateQuery.data ?? null;
+  const defaultDraft = useMemo(
+    () => (template ? buildSocialInstagramTemplateDraft(template) : null),
+    [template]
+  );
 
   const slideDefinitions = useMemo(
     () =>
-      socialRacePlanSlideIds.map((slideId) => ({
+      socialInstagramTemplateSlideIds.map((slideId) => ({
         id: slideId,
-        label: getSocialRacePlanSlideLabel(slideId, t.poster),
+        label: getSocialInstagramTemplateSlideLabel(slideId, t.poster),
       })),
     [t.poster]
   );
+
+  useEffect(() => {
+    if (!defaultDraft || !selectedPlanId) {
+      setDraft(null);
+      return;
+    }
+
+    const overrides = readSocialInstagramTemplateOverrides(selectedPlanId);
+    setDraft(applySocialInstagramTemplateOverrides(defaultDraft, overrides));
+  }, [defaultDraft, selectedPlanId]);
+
+  useEffect(() => {
+    if (!selectedPlanId || !draft || !defaultDraft) return;
+    writeSocialInstagramTemplateOverrides(selectedPlanId, defaultDraft, draft);
+  }, [defaultDraft, draft, selectedPlanId]);
 
   useEffect(() => {
     if (!templateQuery.data) return;
@@ -207,7 +237,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
     return () => observer.disconnect();
   }, [slideDefinitions, templateQuery.data]);
 
-  const scrollToSlide = (slideId: SocialRacePlanSlideId) => {
+  const scrollToSlide = (slideId: SocialInstagramTemplateSlideId) => {
     setActiveSlideId(slideId);
     slidePreviewRefs.current[slideId]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
   };
@@ -232,6 +262,17 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
     }
   };
 
+  const handleDraftChange = (nextDraft: SocialInstagramTemplateDraft) => {
+    setExportError(null);
+    setDraft(nextDraft);
+  };
+
+  const handleResetDraft = () => {
+    if (!selectedPlanId || !defaultDraft) return;
+    resetSocialInstagramTemplateOverrides(selectedPlanId);
+    setDraft(defaultDraft);
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -240,7 +281,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
+        <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="admin-social-template-plan">{t.planLabel}</Label>
@@ -297,6 +338,20 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
               </div>
             ) : null}
 
+            {draft ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Edition du template</p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.editorDescription}</p>
+                </div>
+                <AdminSocialInstagramTemplateEditor
+                  draft={draft}
+                  onDraftChange={handleDraftChange}
+                  onReset={handleResetDraft}
+                />
+              </div>
+            ) : null}
+
             {plansQuery.error ? (
               <p className="text-sm text-red-600 dark:text-red-300">
                 {plansQuery.error instanceof Error ? plansQuery.error.message : t.loadPlansError}
@@ -322,7 +377,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
               <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.previewDescription}</p>
             </div>
 
-            {template ? (
+            {draft ? (
               <div className="space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap gap-2">
@@ -377,8 +432,8 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                       >
                         <div
                           style={{
-                            width: `${SOCIAL_RACE_PLAN_SLIDE_WIDTH}px`,
-                            height: `${SOCIAL_RACE_PLAN_SLIDE_HEIGHT}px`,
+                            width: `${SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH}px`,
+                            height: `${SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT}px`,
                             transform: `scale(${PREVIEW_SCALE})`,
                             transformOrigin: "top left",
                           }}
@@ -388,11 +443,11 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                               slideExportRefs.current[slide.id] = node;
                             }}
                             style={{
-                              width: `${SOCIAL_RACE_PLAN_SLIDE_WIDTH}px`,
-                              height: `${SOCIAL_RACE_PLAN_SLIDE_HEIGHT}px`,
+                              width: `${SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH}px`,
+                              height: `${SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT}px`,
                             }}
                           >
-                            <SocialRacePlanCarousel template={template} t={t.poster} slideId={slide.id} />
+                            <SocialInstagramTemplateCarousel draft={draft} t={t.poster} slideId={slide.id} />
                           </div>
                         </div>
                       </div>

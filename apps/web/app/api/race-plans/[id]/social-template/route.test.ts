@@ -112,8 +112,15 @@ describe("GET /api/race-plans/[id]/social-template", () => {
             },
             races: {
               name: "Ultra des Cretes",
+              location_text: "Annecy, France",
+              race_date: "2026-06-14",
               distance_km: 50,
               elevation_gain_m: 2400,
+              race_events: {
+                name: "Festival des Cretes",
+                location: "Haute-Savoie",
+                race_date: "2026-06-13",
+              },
             },
           },
         ])
@@ -142,6 +149,9 @@ describe("GET /api/race-plans/[id]/social-template", () => {
     expect(response.status).toBe(200);
     expect(payload.schemaVersion).toBe(1);
     expect(payload.race.name).toBe("Ultra des Cretes");
+    expect(payload.race.subtitle).toBe("Festival des Cretes");
+    expect(payload.race.location).toBe("Annecy, France");
+    expect(payload.race.dateIso).toBe("2026-06-14");
     expect(payload.startCarry.fallbackUsed).toBe(false);
     expect(payload.startCarry.items[0]).toMatchObject({
       kind: "product",
@@ -213,6 +223,9 @@ describe("GET /api/race-plans/[id]/social-template", () => {
 
     expect(response.status).toBe(200);
     expect(payload.race.name).toBe("Plan solo");
+    expect(payload.race.subtitle).toBe(null);
+    expect(payload.race.location).toBe(null);
+    expect(payload.race.dateIso).toBe(null);
     expect(payload.startCarry.fallbackUsed).toBe(true);
     expect(payload.startCarry.items[0]).toMatchObject({
       kind: "estimate",
@@ -240,6 +253,65 @@ describe("GET /api/race-plans/[id]/social-template", () => {
     });
     expect(payload.missingData).toContain("start_carry_details");
     expect(payload.missingData).toContain("aid_station_take_details");
+  });
+
+  it("falls back to event metadata and distinct plan name when race metadata is partial", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetchSupabaseUser.mockResolvedValue({ id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", role: "admin" });
+    mockIsAdminUser.mockReturnValue(true);
+
+    mockFetch.mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          id: "33333333-3333-3333-3333-333333333333",
+          name: "Edition 2026",
+          planner_values: {
+            raceDistanceKm: 85.9,
+            elevationGain: 3016,
+            fatigueLevel: 0.5,
+            paceType: "pace",
+            paceMinutes: 10,
+            paceSeconds: 20,
+            targetIntakePerHour: 60,
+            waterIntakePerHour: 500,
+            sodiumIntakePerHour: 700,
+            aidStations: [],
+          },
+          elevation_profile: [
+            { distanceKm: 0, elevationM: 0 },
+            { distanceKm: 85.9, elevationM: 0 },
+          ],
+          plan_course_stats: {
+            distanceKm: 85.9,
+            elevationGainM: 3016,
+          },
+          races: {
+            name: "Grand Trail du Saint Jacques - 100K",
+            location_text: null,
+            race_date: null,
+            distance_km: 85.9,
+            elevation_gain_m: 3016,
+            race_events: {
+              name: "Grand Trail du Saint Jacques",
+              location: "Le Puy-en-Velay",
+              race_date: "2026-06-12",
+            },
+          },
+        },
+      ])
+    );
+
+    const response = await GET(buildRequest("33333333-3333-3333-3333-333333333333"), {
+      params: { id: "33333333-3333-3333-3333-333333333333" },
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.race.name).toBe("Grand Trail du Saint Jacques - 100K");
+    expect(payload.race.subtitle).toBe("Grand Trail du Saint Jacques");
+    expect(payload.race.location).toBe("Le Puy-en-Velay");
+    expect(payload.race.dateIso).toBe("2026-06-12");
   });
 });
 

@@ -17,6 +17,12 @@ const paramsSchema = z.object({
   id: z.string().uuid(),
 });
 
+const raceEventRowSchema = z.object({
+  name: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  race_date: z.string().nullable().optional(),
+});
+
 const planRowSchema = z.array(
   z.object({
     id: z.string().uuid(),
@@ -27,8 +33,11 @@ const planRowSchema = z.array(
     races: z
       .object({
         name: z.string().nullable().optional(),
+        location_text: z.string().nullable().optional(),
+        race_date: z.string().nullable().optional(),
         distance_km: z.union([z.number(), z.string()]).nullable().optional(),
         elevation_gain_m: z.union([z.number(), z.string()]).nullable().optional(),
+        race_events: z.union([raceEventRowSchema, z.array(raceEventRowSchema)]).nullable().optional(),
       })
       .nullable()
       .optional(),
@@ -62,6 +71,41 @@ const toFiniteNumber = (value: unknown): number | null => {
   }
   return null;
 };
+
+const normalizeText = (value: unknown) => (typeof value === "string" && value.trim().length > 0 ? value.trim() : null);
+
+function getRaceEvent(
+  raceEvents: z.infer<typeof raceEventRowSchema> | Array<z.infer<typeof raceEventRowSchema>> | null | undefined
+) {
+  if (Array.isArray(raceEvents)) return raceEvents[0] ?? null;
+  return raceEvents ?? null;
+}
+
+function resolveRaceMetadata(plan: z.infer<typeof planRowSchema>[number]) {
+  const raceName = normalizeText(plan.races?.name);
+  const event = getRaceEvent(plan.races?.race_events);
+  const eventName = normalizeText(event?.name);
+  const eventLocation = normalizeText(event?.location);
+  const eventDate = normalizeText(event?.race_date);
+  const planName = normalizeText(plan.name);
+  const effectiveRaceName = raceName ?? planName;
+
+  const subtitle =
+    eventName && eventName !== effectiveRaceName
+      ? eventName
+      : planName && planName !== effectiveRaceName
+        ? planName
+        : null;
+
+  return {
+    name: raceName,
+    subtitle,
+    location: normalizeText(plan.races?.location_text) ?? eventLocation,
+    dateIso: normalizeText(plan.races?.race_date) ?? eventDate,
+    distanceKm: toFiniteNumber(plan.races?.distance_km),
+    elevationGainM: toFiniteNumber(plan.races?.elevation_gain_m),
+  };
+}
 
 function collectProductIds(plannerValues: Record<string, unknown> | null | undefined) {
   const productIds = new Set<string>();
@@ -188,7 +232,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       parsedParams.data.id
     )}&user_id=eq.${encodeURIComponent(
       supabaseUser.id
-    )}&select=id,name,planner_values,elevation_profile,plan_course_stats,races(name,distance_km,elevation_gain_m)&limit=1`,
+    )}&select=id,name,planner_values,elevation_profile,plan_course_stats,races(name,location_text,race_date,distance_km,elevation_gain_m,race_events(name,location,race_date))&limit=1`,
     {
       headers: buildAuthHeaders(supabaseConfig.supabaseAnonKey, accessToken),
       cache: "no-store",
@@ -223,6 +267,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     accessToken,
     plan.planner_values
   );
+  const raceMetadata = resolveRaceMetadata(plan);
 
   const payload = buildSocialRacePlanTemplate({
     plan: {
@@ -240,9 +285,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         elevationGainM: toFiniteNumber(plan.plan_course_stats?.elevationGainM),
       },
       race: {
-        name: plan.races?.name ?? null,
-        distanceKm: toFiniteNumber(plan.races?.distance_km),
-        elevationGainM: toFiniteNumber(plan.races?.elevation_gain_m),
+        name: raceMetadata.name,
+        subtitle: raceMetadata.subtitle,
+        location: raceMetadata.location,
+        dateIso: raceMetadata.dateIso,
+        distanceKm: raceMetadata.distanceKm,
+        elevationGainM: raceMetadata.elevationGainM,
       },
     },
     products,

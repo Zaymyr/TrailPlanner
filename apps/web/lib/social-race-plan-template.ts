@@ -47,6 +47,9 @@ export const socialRacePlanTemplateSchema = z.object({
   }),
   race: z.object({
     name: z.string(),
+    subtitle: z.string().nullable(),
+    location: z.string().nullable(),
+    dateIso: z.string().nullable(),
     distanceKm: nullableMetricSchema,
     elevationGainM: nullableMetricSchema,
     targetTime: socialTemplateTargetTimeSchema,
@@ -91,6 +94,9 @@ type SocialRacePlanBuilderInput = {
     } | null;
     race?: {
       name?: string | null;
+      subtitle?: string | null;
+      location?: string | null;
+      dateIso?: string | null;
       distanceKm?: number | null;
       elevationGainM?: number | null;
     } | null;
@@ -555,6 +561,9 @@ export function buildSocialRacePlanTemplate(input: SocialRacePlanBuilderInput): 
     },
     race: {
       name: raceName,
+      subtitle: input.plan.race?.subtitle?.trim() || null,
+      location: input.plan.race?.location?.trim() || null,
+      dateIso: input.plan.race?.dateIso?.trim() || null,
       distanceKm: toNullableRoundedNumber(context.raceDistanceKm, 1),
       elevationGainM: toNullableRoundedNumber(context.elevationGainM),
       targetTime: {
