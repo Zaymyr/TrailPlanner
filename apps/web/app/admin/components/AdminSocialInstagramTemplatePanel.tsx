@@ -97,18 +97,25 @@ function SectionCard({
       : "rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/30";
 
   return (
-    <section className={className}>
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
-            <SourceBadge source={source} />
+    <details className={`${className} group`}>
+      <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</p>
+              <SourceBadge source={source} />
+            </div>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{description}</p>
           </div>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{description}</p>
+          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300">
+            <span className="group-open:hidden">Afficher</span>
+            <span className="hidden group-open:inline">Masquer</span>
+            <span className="text-sm leading-none transition group-open:rotate-180">v</span>
+          </div>
         </div>
-      </div>
-      {children}
-    </section>
+      </summary>
+      <div className="mt-4">{children}</div>
+    </details>
   );
 }
 

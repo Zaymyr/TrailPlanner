@@ -75,32 +75,69 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function formatPace(distanceKm: string, targetTimeLabel: string) {
-  const distance = parseNumber(distanceKm);
-  const match = targetTimeLabel.match(/(\d+)h\s*(\d{1,2})?/i);
-  if (!distance || !match) return "-";
-  const totalMinutes = Number(match[1]) * 60 + Number(match[2] ?? "0");
-  const paceSeconds = Math.round((totalMinutes * 60) / distance);
-  const minutes = Math.floor(paceSeconds / 60);
-  const seconds = paceSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, "0")}/km`;
-}
-
 function buildRaceKicker(draft: SocialInstagramTemplateDraft) {
   const shortName = draft.raceName.split(" ").slice(0, 2).join(" ").toUpperCase();
   return [shortName, draft.raceYear].filter(Boolean).join(" | ");
 }
 
-function getTitleFontSize(title: string) {
-  if (title.length > 34) return "60px";
-  if (title.length > 24) return "66px";
-  return "74px";
+function getHookHeroLabel(draft: SocialInstagramTemplateDraft) {
+  const source = [draft.raceSubtitle, draft.raceName].find((value) => value.trim().length > 0) || "RACE";
+  const tokens = source
+    .replace(/[|/]/g, " ")
+    .split(/[\s-]+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const uppercaseToken = tokens.find((token) => /^[A-Z0-9]{3,8}$/.test(token));
+
+  if (uppercaseToken) return uppercaseToken;
+  if (tokens[0] && tokens[0].length <= 8) return tokens[0].toUpperCase();
+
+  const initials = tokens.slice(0, 5).map((token) => token[0]).join("");
+  return (initials || "RACE").toUpperCase();
+}
+
+function getHookHeroFontSize(label: string) {
+  if (label.length >= 8) return "188px";
+  if (label.length >= 6) return "212px";
+  return "244px";
+}
+
+function normalizeQuoteText(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "Bien manger le jour J, ca se prepare avant le depart.";
+  if (trimmed.startsWith("«") || trimmed.startsWith("\"")) return trimmed;
+  return `« ${trimmed} »`;
 }
 
 function getProgressWidth(value: string, maxValue: number) {
   const parsed = parseNumber(value);
   if (!parsed || maxValue <= 0) return "0%";
   return `${Math.max(0, Math.min(100, (parsed / maxValue) * 100)).toFixed(1)}%`;
+}
+
+function formatNutritionCount(total: string, perUnit: string, multiplier = 1) {
+  const totalValue = parseNumber(total) * multiplier;
+  const perUnitValue = parseNumber(perUnit);
+
+  if (!totalValue || !perUnitValue) return "-";
+  return String(Math.max(1, Math.ceil(totalValue / perUnitValue)));
+}
+
+function buildAidStationLegLabel(draft: SocialInstagramTemplateDraft, index: number) {
+  const current = draft.aidStations[index];
+  if (!current) return "";
+
+  const previousName = index === 0 ? "Depart" : (draft.aidStations[index - 1]?.name || "Ravito precedent");
+  const currentName = current.name || `Ravito ${index + 1}`;
+  return `${previousName} - ${currentName}`;
+}
+
+function buildAidStationBullets(take: string) {
+  return take
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0)
+    .slice(0, 3);
 }
 
 function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; onDark?: boolean; size?: number }) {
@@ -166,78 +203,110 @@ function TopBar({ accent, eyebrow, onDark = false }: { accent: AccentPalette; ey
 
 function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; accent: AccentPalette }) {
   const isDark = draft.darkSlide1;
-  const background = isDark ? `linear-gradient(180deg, ${accent.main} 0%, ${COLORS.dark} 100%)` : COLORS.cream;
-  const foreground = isDark ? COLORS.white : COLORS.text;
-  const chipBackground = isDark ? "rgba(255,255,255,0.12)" : accent.light;
-  const chipColor = isDark ? COLORS.white : accent.main;
+  const heroLabel = getHookHeroLabel(draft);
+  const fullRaceLabel =
+    heroLabel !== draft.raceName.toUpperCase() && draft.raceName.trim().length > 0 ? draft.raceName : draft.raceSubtitle;
+  const background = isDark ? `linear-gradient(180deg, ${accent.main} 0%, #234116 100%)` : COLORS.cream;
+  const foreground = isDark ? COLORS.cream : COLORS.text;
+  const topMetaColor = isDark ? "rgba(236,230,219,0.72)" : COLORS.muted;
+  const dividerColor = isDark ? "rgba(236,230,219,0.18)" : COLORS.line;
+  const pillBackground = isDark ? "#f1bb57" : accent.warm;
+  const bottomBand = isDark ? "rgba(19, 35, 18, 0.55)" : COLORS.white;
 
   return (
     <article style={{ ...baseSlideStyle, background, color: foreground }}>
       <div style={stripeStyle(isDark)} />
-      <TopBar accent={accent} eyebrow="Plan de course" onDark={isDark} />
-
-      <div style={{ position: "absolute", top: "136px", left: "56px", right: "56px", zIndex: 10 }}>
-        <div style={{ ...monoLabelStyle, color: isDark ? COLORS.darkMuted : accent.main }}>
-          {[draft.raceYear, draft.startDate, draft.raceLocation].filter(Boolean).join(" | ") || "Plan de course"}
-        </div>
-        <div
-          style={{
-            marginTop: "16px",
-            maxWidth: "860px",
-            fontSize: getTitleFontSize(draft.raceName),
-            lineHeight: 0.95,
-            fontWeight: 800,
-            letterSpacing: "-0.045em",
-            overflowWrap: "anywhere",
-          }}
-        >
-          {draft.raceName}
-        </div>
-        {draft.raceSubtitle ? (
-          <div style={{ marginTop: "18px", maxWidth: "760px", fontSize: "28px", lineHeight: 1.18, color: isDark ? COLORS.darkMuted : COLORS.muted }}>
-            {draft.raceSubtitle}
-          </div>
-        ) : null}
-
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "28px" }}>
-          {[
-            ["Distance", draft.distanceKm ? `${draft.distanceKm} km` : "-"],
-            ["D+", draft.elevationGainM ? `${draft.elevationGainM} m` : "-"],
-            ["Temps cible", draft.targetTimeLabel || "-"],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              style={{
-                borderRadius: "999px",
-                padding: "12px 18px",
-                background: chipBackground,
-                border: isDark ? "1px solid rgba(255,255,255,0.1)" : `1px solid ${COLORS.line}`,
-                color: chipColor,
-              }}
-            >
-              <div style={{ ...monoLabelStyle, fontSize: "10px", opacity: 0.78 }}>{label}</div>
-              <div style={{ marginTop: "6px", fontSize: "24px", lineHeight: 1, fontWeight: 800 }}>{value}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       <div
         style={{
           position: "absolute",
-          left: "56px",
-          right: "56px",
-          bottom: "146px",
-          padding: "28px 30px",
-          borderRadius: "26px",
-          background: isDark ? COLORS.white : accent.main,
-          color: isDark ? COLORS.text : COLORS.white,
-          boxShadow: "0 14px 32px rgba(0,0,0,0.14)",
+          top: "24px",
+          left: "52px",
+          right: "52px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           zIndex: 10,
         }}
       >
-        <div style={{ ...monoLabelStyle, color: isDark ? accent.main : "rgba(255,255,255,0.72)" }}>Tu pars avec quoi en tete le jour J ?</div>
-        <div style={{ marginTop: "14px", fontSize: "48px", lineHeight: 1.04, fontWeight: 800, letterSpacing: "-0.03em", overflowWrap: "anywhere" }}>{draft.tagline}</div>
+        <PYLogo accent={accent} size={42} onDark={isDark} />
+        <div style={{ fontFamily: MONO, fontSize: "18px", color: topMetaColor }}>{draft.startDate || "Plan de course"}</div>
+      </div>
+
+      <div style={{ position: "absolute", top: "192px", left: "52px", right: "52px", zIndex: 10 }}>
+        {fullRaceLabel ? (
+          <div style={{ ...monoLabelStyle, color: topMetaColor, maxWidth: "640px", overflowWrap: "anywhere" }}>{fullRaceLabel}</div>
+        ) : null}
+        <div
+          style={{
+            marginTop: fullRaceLabel ? "10px" : 0,
+            maxWidth: "820px",
+            fontSize: getHookHeroFontSize(heroLabel),
+            lineHeight: 0.88,
+            fontWeight: 800,
+            letterSpacing: "-0.07em",
+            overflowWrap: "anywhere",
+            textTransform: "uppercase",
+          }}
+        >
+          {heroLabel}
+        </div>
+
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minWidth: "138px",
+            height: "76px",
+            marginTop: "26px",
+            padding: "0 34px",
+            borderRadius: "999px",
+            background: pillBackground,
+            color: COLORS.text,
+            fontFamily: MONO,
+            fontSize: "56px",
+            fontWeight: 700,
+            letterSpacing: "-0.05em",
+          }}
+        >
+          {draft.raceYear || "2025"}
+        </div>
+
+        <div style={{ width: "62px", height: "2px", background: dividerColor, marginTop: "28px" }} />
+        <div
+          style={{
+            marginTop: "28px",
+            maxWidth: "820px",
+            fontSize: "26px",
+            lineHeight: 1.35,
+            fontWeight: 600,
+            fontStyle: "italic",
+            color: isDark ? "rgba(236,230,219,0.92)" : COLORS.muted,
+            overflowWrap: "anywhere",
+          }}
+        >
+          {normalizeQuoteText(draft.tagline)}
+        </div>
+
+        <div style={{ display: "inline-flex", alignItems: "center", gap: "14px", fontSize: "30px", fontWeight: 800 }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "14px",
+              marginTop: "30px",
+              padding: "18px 26px",
+              borderRadius: "999px",
+              background: isDark ? "rgba(255,255,255,0.1)" : accent.light,
+              border: isDark ? "1px solid rgba(255,255,255,0.16)" : `1px solid ${COLORS.line}`,
+              color: isDark ? COLORS.cream : accent.main,
+              boxShadow: isDark ? "none" : "0 8px 20px rgba(44, 62, 41, 0.08)",
+            }}
+          >
+            <span style={{ fontSize: "30px" }}>-&gt;</span>
+            <span>{draft.ctaS1 || "Alors ca se planifie !"}</span>
+          </div>
+        </div>
       </div>
 
       <div
@@ -246,185 +315,48 @@ function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acc
           left: 0,
           right: 0,
           bottom: 0,
-          height: "96px",
-          background: isDark ? COLORS.white : accent.main,
-          color: isDark ? accent.main : COLORS.white,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          height: "112px",
+          background: bottomBand,
+          borderTop: isDark ? "1px solid rgba(255,255,255,0.06)" : `1px solid ${COLORS.line}`,
+          display: "grid",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           zIndex: 10,
         }}
       >
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "14px", fontSize: "30px", fontWeight: 800 }}>
-          <span style={{ fontSize: "34px" }}>-&gt;</span>
-          <span>{draft.ctaS1 || "Swipe pour voir les chiffres clefs."}</span>
-        </div>
+        {[
+          ["Distance", draft.distanceKm ? `${draft.distanceKm} km` : "-"],
+          ["Denivele+", draft.elevationGainM ? `+${draft.elevationGainM} m` : "-"],
+        ].map(([label, value], index) => (
+          <div
+            key={label}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              padding: "0 52px",
+              borderLeft: index === 0 ? "none" : isDark ? "1px solid rgba(255,255,255,0.08)" : `1px solid ${COLORS.line}`,
+            }}
+          >
+            <div style={{ ...monoLabelStyle, color: topMetaColor }}>{label}</div>
+            <div style={{ marginTop: "8px", fontFamily: MONO, fontSize: "44px", lineHeight: 1, fontWeight: 700, color: foreground, letterSpacing: "-0.04em" }}>
+              {value}
+            </div>
+          </div>
+        ))}
       </div>
     </article>
   );
 }
 
 function MacroSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; accent: AccentPalette }) {
-  const cards = [
-    { label: "Distance", value: draft.distanceKm ? `${draft.distanceKm} km` : "-" },
-    { label: "Denivele +", value: draft.elevationGainM ? `${draft.elevationGainM} m` : "-" },
-    { label: "Temps prevu", value: draft.targetTimeLabel || "-" },
-    { label: "Allure moyenne", value: formatPace(draft.distanceKm, draft.targetTimeLabel) },
-  ];
-
   return (
     <article style={{ ...baseSlideStyle, background: COLORS.cream, color: COLORS.text }}>
       <div style={stripeStyle()} />
-      <TopBar accent={accent} eyebrow="L'equation du jour" />
-
-      <div
-        style={{
-          position: "absolute",
-          top: "110px",
-          left: "48px",
-          right: "48px",
-          height: "150px",
-          background: accent.main,
-          borderRadius: "22px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 38px",
-          color: COLORS.white,
-          boxShadow: "0 18px 34px rgba(60,80,30,0.18)",
-          zIndex: 10,
-        }}
-      >
-        <div>
-          <div style={{ ...monoLabelStyle, color: "rgba(255,255,255,0.72)" }}>Temps cible</div>
-          <div style={{ marginTop: "10px", fontFamily: MONO, fontWeight: 700, fontSize: "78px", lineHeight: 1, letterSpacing: "-0.025em" }}>
-            {draft.targetTimeLabel || "-"}
-          </div>
-        </div>
-        <div style={{ textAlign: "right" }}>
-          <div style={{ fontFamily: MONO, fontSize: "18px", color: COLORS.darkMuted }}>
-            {(draft.distanceKm ? `${draft.distanceKm} km` : "-") + " | " + (draft.elevationGainM ? `+${draft.elevationGainM} m` : "-")}
-          </div>
-          <div style={{ marginTop: "8px", fontFamily: MONO, fontWeight: 600, fontSize: "28px", color: accent.warm }}>objectif</div>
-        </div>
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          top: "290px",
-          left: "48px",
-          right: "48px",
-          display: "grid",
-          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-          gap: "14px",
-          zIndex: 10,
-        }}
-      >
-        {cards.map((card) => (
-          <div key={card.label} style={{ ...cardStyle, padding: "24px 26px", minHeight: "160px" }}>
-            <div style={{ ...monoLabelStyle, color: accent.main }}>{card.label}</div>
-            <div style={{ marginTop: "10px", fontSize: "52px", lineHeight: 0.98, fontWeight: 800, letterSpacing: "-0.035em", overflowWrap: "anywhere" }}>{card.value}</div>
-          </div>
-        ))}
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: "96px",
-          background: COLORS.white,
-          borderTop: `1px solid ${COLORS.line}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 10,
-        }}
-      >
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            borderRadius: "999px",
-            padding: "16px 42px",
-            background: accent.light,
-            border: `1.5px solid ${accent.main}`,
-            color: accent.main,
-            fontSize: "30px",
-            fontWeight: 800,
-          }}
-        >
-          <span style={{ marginRight: "12px", fontSize: "32px" }}>-&gt;</span>
-          {draft.ctaS2 || "Comment manger tout ca ?"}
-        </div>
-      </div>
-    </article>
-  );
-}
-
-function NeedGauge({
-  accent,
-  label,
-  value,
-  unit,
-  descriptor,
-  maxLabel,
-  maxValue,
-}: {
-  accent: AccentPalette;
-  label: string;
-  value: string;
-  unit: string;
-  descriptor: string;
-  maxLabel: string;
-  maxValue: number;
-}) {
-  return (
-    <div style={{ ...cardStyle, padding: "18px 28px 16px" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "18px" }}>
-        <div>
-          <div style={{ ...monoLabelStyle, color: accent.main }}>{label}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "8px" }}>
-            <span
-              style={{
-                fontFamily: MONO,
-                fontWeight: 700,
-                fontSize: "64px",
-                lineHeight: 1,
-                color: COLORS.text,
-                letterSpacing: "-0.035em",
-              }}
-            >
-              {value || "0"}
-            </span>
-            <span style={{ fontFamily: MONO, fontSize: "20px", color: accent.main, fontWeight: 700 }}>{unit}</span>
-          </div>
-        </div>
-        <div style={{ textAlign: "right", paddingTop: "10px" }}>
-          <div style={{ fontFamily: MONO, fontSize: "15px", color: COLORS.muted }}>{descriptor}</div>
-          <div style={{ marginTop: "4px", fontFamily: MONO, fontSize: "17px", color: COLORS.muted }}>{maxLabel}</div>
-        </div>
-      </div>
-      <div style={{ marginTop: "14px", height: "8px", background: COLORS.progress, borderRadius: "999px", overflow: "hidden" }}>
-        <div style={{ width: getProgressWidth(value, maxValue), height: "100%", background: accent.main, borderRadius: "999px" }} />
-      </div>
-    </div>
-  );
-}
-
-function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; accent: AccentPalette }) {
-  return (
-    <article style={{ ...baseSlideStyle, background: COLORS.cream, color: COLORS.text }}>
-      <div style={stripeStyle()} />
-
       <div style={{ position: "absolute", top: "26px", left: "56px", right: "56px", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "24px" }}>
           <div>
             <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{buildRaceKicker(draft) || "COURSE | ANNEE"}</div>
-            <div style={{ marginTop: "14px", fontSize: "56px", lineHeight: 1, fontWeight: 800, letterSpacing: "-0.04em" }}>
+            <div style={{ marginTop: "14px", fontSize: "52px", lineHeight: 1, fontWeight: 800, letterSpacing: "-0.04em" }}>
               Quels sont mes besoins ?
             </div>
           </div>
@@ -503,38 +435,269 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
         />
       </div>
 
+      <FullWidthFooterCta accent={accent} text={draft.ctaS2 || "Comment manger tout ca ?"} />
+    </article>
+  );
+}
+
+function NeedGauge({
+  accent,
+  label,
+  value,
+  unit,
+  descriptor,
+  maxLabel,
+  maxValue,
+}: {
+  accent: AccentPalette;
+  label: string;
+  value: string;
+  unit: string;
+  descriptor: string;
+  maxLabel: string;
+  maxValue: number;
+}) {
+  return (
+    <div style={{ ...cardStyle, padding: "18px 28px 16px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "18px" }}>
+        <div>
+          <div style={{ ...monoLabelStyle, color: accent.main }}>{label}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginTop: "8px" }}>
+            <span
+              style={{
+                fontFamily: MONO,
+                fontWeight: 700,
+                fontSize: "64px",
+                lineHeight: 1,
+                color: COLORS.text,
+                letterSpacing: "-0.035em",
+              }}
+            >
+              {value || "0"}
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: "20px", color: accent.main, fontWeight: 700 }}>{unit}</span>
+          </div>
+        </div>
+        <div style={{ textAlign: "right", paddingTop: "10px" }}>
+          <div style={{ fontFamily: MONO, fontSize: "15px", color: COLORS.muted }}>{descriptor}</div>
+          <div style={{ marginTop: "4px", fontFamily: MONO, fontSize: "17px", color: COLORS.muted }}>{maxLabel}</div>
+        </div>
+      </div>
+      <div style={{ marginTop: "14px", height: "8px", background: COLORS.progress, borderRadius: "999px", overflow: "hidden" }}>
+        <div style={{ width: getProgressWidth(value, maxValue), height: "100%", background: accent.main, borderRadius: "999px" }} />
+      </div>
+    </div>
+  );
+}
+
+function FullWidthFooterCta({
+  accent,
+  text,
+}: {
+  accent: AccentPalette;
+  text: string;
+}) {
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: "96px",
+        background: accent.main,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "14px",
+          fontSize: "30px",
+          fontWeight: 800,
+          color: COLORS.white,
+        }}
+      >
+        <span style={{ fontSize: "34px" }}>-&gt;</span>
+        <span>{text}</span>
+      </div>
+    </div>
+  );
+}
+
+function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; accent: AccentPalette }) {
+  const nutritionStats = [
+    {
+      label: "Gels",
+      value: formatNutritionCount(draft.totalCarbsG, draft.carbsPerGelG),
+      detail: `~ ${draft.carbsPerGelG || "25"}g`,
+    },
+    {
+      label: "Flasques",
+      value: formatNutritionCount(draft.totalWaterL, draft.flaskMl, 1000),
+      detail: `~ ${draft.flaskMl || "500"}ml`,
+    },
+    {
+      label: "Capsules",
+      value: formatNutritionCount(draft.totalSodiumG, draft.sodiumPerCapMg, 1000),
+      detail: `~ ${draft.sodiumPerCapMg || "300"}mg`,
+    },
+  ];
+  const visibleStations = draft.aidStations.slice(0, 4);
+
+  return (
+    <article style={{ ...baseSlideStyle, background: COLORS.cream, color: COLORS.text }}>
+      <div style={stripeStyle()} />
+
+      <div style={{ position: "absolute", top: "26px", left: "56px", right: "56px", zIndex: 10 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "24px" }}>
+          <div>
+            <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{buildRaceKicker(draft) || "COURSE | ANNEE"}</div>
+            <div style={{ marginTop: "14px", fontSize: "44px", lineHeight: 1.02, fontWeight: 800, letterSpacing: "-0.04em" }}>
+              Plan de nutrition detaille
+            </div>
+          </div>
+          <PYLogo accent={accent} size={36} />
+        </div>
+      </div>
+
       <div
         style={{
           position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: "96px",
-          background: COLORS.white,
-          borderTop: `1px solid ${COLORS.line}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
+          top: "128px",
+          left: "56px",
+          right: "56px",
+          height: "130px",
+          padding: "0 22px",
+          background: accent.main,
+          borderRadius: "20px",
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
           zIndex: 10,
         }}
       >
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            borderRadius: "999px",
-            padding: "16px 42px",
-            background: accent.light,
-            border: `1.5px solid ${accent.main}`,
-            color: accent.main,
-            fontSize: "30px",
-            fontWeight: 800,
-          }}
-        >
-          <span style={{ marginRight: "12px", fontSize: "32px" }}>-&gt;</span>
-          {draft.ctaS2 || "Comment manger tout ca ?"}
+        {nutritionStats.map((stat, index) => (
+          <div
+            key={stat.label}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              borderLeft: index === 0 ? "none" : "1px solid rgba(255,255,255,0.12)",
+            }}
+          >
+            <div style={{ fontFamily: MONO, fontSize: "62px", lineHeight: 1, fontWeight: 700, color: COLORS.white, letterSpacing: "-0.04em" }}>{stat.value}</div>
+            <div style={{ paddingTop: "10px" }}>
+              <div style={{ ...monoLabelStyle, color: COLORS.white }}>{stat.label}</div>
+              <div style={{ marginTop: "4px", fontFamily: MONO, fontSize: "15px", color: COLORS.darkMuted }}>{stat.detail}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          top: "286px",
+          left: "56px",
+          right: "56px",
+          zIndex: 10,
+        }}
+      >
+        <div style={{ ...monoLabelStyle, color: COLORS.muted }}>Ce que je vise pour tenir jusqu'au bout</div>
+        <div style={{ marginTop: "10px", fontSize: "24px", lineHeight: 1.25, color: COLORS.muted }}>
+          Objectifs moyens puis reprises aux ravitos les plus utiles.
+        </div>
+
+        <div style={{ display: "grid", gap: "12px", marginTop: "20px" }}>
+          {visibleStations.length > 0 ? (
+            visibleStations.map((station, index) => {
+              const bullets = buildAidStationBullets(station.take);
+
+              return (
+                <div
+                  key={`${station.name}-${station.km}-${index}`}
+                  style={{
+                    ...cardStyle,
+                    minHeight: "118px",
+                    padding: "16px 18px",
+                    borderRadius: "18px",
+                    boxShadow: "0 10px 24px rgba(44, 62, 41, 0.05)",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div
+                      style={{
+                        minWidth: "54px",
+                        height: "28px",
+                        padding: "0 10px",
+                        borderRadius: "999px",
+                        background: accent.main,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: COLORS.white,
+                        fontFamily: MONO,
+                        fontSize: "13px",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {station.km ? `${station.km}k` : `R${index + 1}`}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, fontSize: "20px", fontWeight: 700, lineHeight: 1.2, overflowWrap: "anywhere" }}>
+                      {buildAidStationLegLabel(draft, index)}
+                    </div>
+                    <div
+                      style={{
+                        marginLeft: "auto",
+                        padding: "6px 10px",
+                        borderRadius: "999px",
+                        background: accent.light,
+                        color: accent.main,
+                        fontFamily: MONO,
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {station.eta || "--"}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: "10px", display: "grid", gap: "6px" }}>
+                    {bullets.length > 0 ? (
+                      bullets.map((bullet) => (
+                        <div key={bullet} style={{ display: "flex", alignItems: "flex-start", gap: "10px", fontSize: "17px", lineHeight: 1.32, color: COLORS.text }}>
+                          <span style={{ width: "8px", height: "8px", borderRadius: "999px", background: accent.main, marginTop: "8px", flexShrink: 0 }} />
+                          <span style={{ overflowWrap: "anywhere" }}>{bullet}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: "17px", lineHeight: 1.32, color: COLORS.muted }}>
+                        Aucun detail de reprise n'est renseigne pour ce ravito.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ ...cardStyle, padding: "22px 24px", borderRadius: "18px" }}>
+              <div style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text }}>Aucun ravito detaille pour l'instant.</div>
+              <div style={{ marginTop: "8px", fontSize: "18px", lineHeight: 1.35, color: COLORS.muted }}>
+                Tu peux completer cette slide depuis l'editeur Admin si tu veux ajouter les reprises clefs.
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      <FullWidthFooterCta accent={accent} text="Et toi, t'as un plan ?" />
     </article>
   );
 }
