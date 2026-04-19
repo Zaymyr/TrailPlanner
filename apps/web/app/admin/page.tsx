@@ -9,6 +9,7 @@ import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
 import AdminGrowthSection from "./components/AdminGrowthSection";
 import AdminRaceCatalogSection from "./components/AdminRaceCatalogSection";
+import AdminSocialTemplatesSection from "./components/AdminSocialTemplatesSection";
 import { AdminAnalyticsTab } from "./_components/AdminAnalyticsTab";
 import { AdminProductsTab } from "./_components/AdminProductsTab";
 import { AdminUsersTab } from "./_components/AdminUsersTab";
@@ -79,6 +80,7 @@ export default function AdminPage() {
         tabs={[
           { id: "products", label: t.admin.products.title },
           { id: "users", label: t.admin.users.title },
+          { id: "social-templates", label: t.admin.socialTemplates.title },
           { id: "races", label: t.admin.raceCatalog.title },
           { id: "growth", label: t.admin.growth.title },
           { id: "analytics", label: t.admin.analytics.title },
@@ -89,6 +91,9 @@ export default function AdminPage() {
 
       {activeTab === "products" && <AdminProductsTab accessToken={accessToken} />}
       {activeTab === "users" && <AdminUsersTab accessToken={accessToken} />}
+      {activeTab === "social-templates" && (
+        <AdminSocialTemplatesSection accessToken={accessToken} t={t.admin.socialTemplates} />
+      )}
       {activeTab === "races" && <AdminRaceCatalogSection accessToken={accessToken ?? undefined} t={t.admin.raceCatalog} />}
       {activeTab === "growth" && <AdminGrowthSection accessToken={accessToken ?? undefined} t={t.admin.growth} />}
       {activeTab === "analytics" && <AdminAnalyticsTab accessToken={accessToken} />}
