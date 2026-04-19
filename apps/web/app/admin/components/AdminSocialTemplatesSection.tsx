@@ -25,8 +25,8 @@ import {
   SocialInstagramTemplateCarousel,
   socialInstagramTemplateSlideIds,
   type SocialInstagramTemplateSlideId,
-} from "./SocialInstagramTemplateCarousel";
-import AdminSocialInstagramTemplateEditor from "./AdminSocialInstagramTemplateEditor";
+} from "./SocialInstagramTemplateSlides";
+import AdminSocialInstagramTemplatePanel from "./AdminSocialInstagramTemplatePanel";
 
 type Props = {
   accessToken: string | null | undefined;
@@ -72,14 +72,14 @@ const sanitizeFileName = (value: string) => {
 const isSlideId = (value: string): value is SocialInstagramTemplateSlideId =>
   socialInstagramTemplateSlideIds.some((slideId) => slideId === value);
 
-const PREVIEW_SCALE = 0.3;
+const PREVIEW_SCALE = 0.27;
 const PREVIEW_SLIDE_WIDTH = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH * PREVIEW_SCALE);
 const PREVIEW_SLIDE_HEIGHT = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT * PREVIEW_SCALE);
 const ADMIN_COPY = {
   description: "Choisis un plan, ajuste le template Instagram puis exporte chaque slide en PNG.",
   previewDescription: "Apercu reduit dans l'Admin. L'export PNG garde le format complet 1080 x 1080.",
   scrollHint: "Le preview est reduit pour rester lisible ici. L'export garde la taille complete du slide.",
-  editorDescription: "Les donnees viennent du plan en base, mais chaque champ reste modifiable et memorise localement pour ce plan.",
+  editorDescription: "Les champs verts viennent du plan en base. Les champs neutres servent a l'habillage social et restent modifiables localement.",
 } as const;
 
 export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
@@ -281,7 +281,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
+        <div className="grid gap-6 xl:grid-cols-[minmax(520px,560px)_minmax(0,1fr)]">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="admin-social-template-plan">{t.planLabel}</Label>
@@ -344,7 +344,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                   <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Edition du template</p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.editorDescription}</p>
                 </div>
-                <AdminSocialInstagramTemplateEditor
+                <AdminSocialInstagramTemplatePanel
                   draft={draft}
                   onDraftChange={handleDraftChange}
                   onReset={handleResetDraft}
@@ -424,7 +424,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                       className="shrink-0 snap-start"
                     >
                       <div
-                        className="overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950"
+                        className="relative overflow-hidden rounded-[14px] border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-950"
                         style={{
                           width: `${PREVIEW_SLIDE_WIDTH}px`,
                           height: `${PREVIEW_SLIDE_HEIGHT}px`,
@@ -432,6 +432,9 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                       >
                         <div
                           style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
                             width: `${SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH}px`,
                             height: `${SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT}px`,
                             transform: `scale(${PREVIEW_SCALE})`,
@@ -447,7 +450,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                               height: `${SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT}px`,
                             }}
                           >
-                            <SocialInstagramTemplateCarousel draft={draft} t={t.poster} slideId={slide.id} />
+                            <SocialInstagramTemplateCarousel draft={draft} slideId={slide.id} />
                           </div>
                         </div>
                       </div>

@@ -56,7 +56,7 @@ const STORAGE_KEY_PREFIX = "pace-yourself.social-template.instagram.v1";
 const DEFAULTS = {
   tagline: "Mieux vaut planifier son ravito avant de le subir en course.",
   ctaS1: "Swipe pour voir les chiffres cles.",
-  ctaS2: "Maintenant, comment je mange tout ca jusqu'a l'arrivee ?",
+  ctaS2: "Comment manger tout ca ?",
   ctaS4: "Cree ton plan sur Pace Yourself",
   appHandle: "pace-yourself.app",
   carbsPerGelG: "25",
