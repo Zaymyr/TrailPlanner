@@ -842,15 +842,34 @@ export type AdminTranslations = {
     updatedAt: string;
     previewTitle: string;
     previewDescription: string;
+    scrollHint: string;
+    slideProgress: string;
     loadingPreview: string;
     previewEmpty: string;
     noPlanSelected: string;
     poster: {
       eyebrow: string;
+      slideLabels: {
+        hook: string;
+        macro: string;
+        nutrition: string;
+        cta: string;
+      };
       fallbackBadge: string;
+      hookTitle: string;
+      hookBody: string;
+      hookScrollCta: string;
+      hookTeaseCta: string;
+      macroTitle: string;
+      macroBody: string;
       distanceLabel: string;
       elevationLabel: string;
       targetTimeLabel: string;
+      avgPaceLabel: string;
+      nutritionTitle: string;
+      nutritionBody: string;
+      keyAidStationsTitle: string;
+      noAidStations: string;
       perHourTitle: string;
       totalTitle: string;
       carbsLabel: string;
@@ -872,6 +891,8 @@ export type AdminTranslations = {
       moreItems: string;
       moreAidStations: string;
       ctaTitle: string;
+      ctaSlideTitle: string;
+      ctaSlideBody: string;
       schemaTitle: string;
     };
   };

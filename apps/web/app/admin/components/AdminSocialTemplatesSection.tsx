@@ -10,7 +10,12 @@ import { Label } from "../../../components/ui/label";
 import { exportHtmlToPng } from "../../../lib/export-html-to-png";
 import type { AdminTranslations } from "../../../locales/types";
 import type { SocialRacePlanTemplate } from "../../../lib/social-race-plan-template";
-import { SocialRacePlanPoster } from "./SocialRacePlanPoster";
+import {
+  getSocialRacePlanSlideLabel,
+  SocialRacePlanCarousel,
+  socialRacePlanSlideIds,
+  type SocialRacePlanSlideId,
+} from "./SocialRacePlanCarousel";
 
 type Props = {
   accessToken: string | null | undefined;
@@ -53,9 +58,19 @@ const sanitizeFileName = (value: string) => {
   return normalized || "social-race-plan";
 };
 
+const isSlideId = (value: string): value is SocialRacePlanSlideId =>
+  socialRacePlanSlideIds.some((slideId) => slideId === value);
+
 export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
-  const previewRef = useRef<HTMLDivElement | null>(null);
+  const carouselRef = useRef<HTMLDivElement | null>(null);
+  const slideRefs = useRef<Record<SocialRacePlanSlideId, HTMLDivElement | null>>({
+    hook: null,
+    macro: null,
+    nutrition: null,
+    cta: null,
+  });
   const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [activeSlideId, setActiveSlideId] = useState<SocialRacePlanSlideId>("hook");
   const [exportError, setExportError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -123,15 +138,76 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
     () => (plansQuery.data ?? []).find((plan) => plan.id === selectedPlanId) ?? null,
     [plansQuery.data, selectedPlanId]
   );
+  const template = templateQuery.data ?? null;
+
+  const slideDefinitions = useMemo(
+    () =>
+      socialRacePlanSlideIds.map((slideId) => ({
+        id: slideId,
+        label: getSocialRacePlanSlideLabel(slideId, t.poster),
+      })),
+    [t.poster]
+  );
+
+  useEffect(() => {
+    if (!templateQuery.data) return;
+
+    setActiveSlideId("hook");
+
+    const hookSlide = slideRefs.current.hook;
+    if (hookSlide) {
+      hookSlide.scrollIntoView({ behavior: "auto", inline: "start", block: "nearest" });
+    }
+  }, [templateQuery.data]);
+
+  useEffect(() => {
+    const root = carouselRef.current;
+    if (!root || !templateQuery.data) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visibleEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+
+        const slideId = visibleEntry?.target.getAttribute("data-slide-id");
+
+        if (slideId && isSlideId(slideId)) {
+          setActiveSlideId(slideId);
+        }
+      },
+      {
+        root,
+        threshold: [0.45, 0.6, 0.8],
+      }
+    );
+
+    slideDefinitions.forEach((slide) => {
+      const node = slideRefs.current[slide.id];
+      if (node) observer.observe(node);
+    });
+
+    return () => observer.disconnect();
+  }, [slideDefinitions, templateQuery.data]);
+
+  const scrollToSlide = (slideId: SocialRacePlanSlideId) => {
+    setActiveSlideId(slideId);
+    slideRefs.current[slideId]?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+  };
 
   const handleExport = async () => {
-    if (!templateQuery.data || !previewRef.current) return;
+    const activeSlide = slideRefs.current[activeSlideId];
+
+    if (!template || !activeSlide) return;
 
     setExportError(null);
     setIsExporting(true);
 
     try {
-      await exportHtmlToPng(previewRef.current, `${sanitizeFileName(templateQuery.data.plan.name)}-social-template.png`);
+      await exportHtmlToPng(
+        activeSlide,
+        `${sanitizeFileName(`${template.plan.name}-${activeSlideId}`)}.png`
+      );
     } catch (error) {
       setExportError(error instanceof Error ? error.message : t.exportError);
     } finally {
@@ -229,10 +305,55 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
               <p className="text-sm text-slate-600 dark:text-slate-400">{t.previewDescription}</p>
             </div>
 
-            {templateQuery.data ? (
-              <div className="overflow-auto rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-900/40">
-                <div ref={previewRef} className="inline-block align-top">
-                  <SocialRacePlanPoster template={templateQuery.data} t={t.poster} />
+            {template ? (
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {slideDefinitions.map((slide, index) => {
+                      const isActive = slide.id === activeSlideId;
+
+                      return (
+                        <button
+                          key={slide.id}
+                          type="button"
+                          onClick={() => scrollToSlide(slide.id)}
+                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                            isActive
+                              ? "bg-emerald-600 text-white dark:bg-emerald-500"
+                              : "bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                          }`}
+                        >
+                          {slide.label}
+                          <span className="ml-2 text-xs opacity-75">{String(index + 1).padStart(2, "0")}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs font-medium uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    {t.slideProgress
+                      .replace("{current}", String(slideDefinitions.findIndex((slide) => slide.id === activeSlideId) + 1))
+                      .replace("{total}", String(slideDefinitions.length))}
+                  </p>
+                </div>
+
+                <p className="text-sm text-slate-500 dark:text-slate-400">{t.scrollHint}</p>
+
+                <div
+                  ref={carouselRef}
+                  className="flex snap-x snap-mandatory gap-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-900/40"
+                >
+                  {slideDefinitions.map((slide) => (
+                    <div
+                      key={slide.id}
+                      ref={(node) => {
+                        slideRefs.current[slide.id] = node;
+                      }}
+                      data-slide-id={slide.id}
+                      className="shrink-0 snap-start"
+                    >
+                      <SocialRacePlanCarousel template={template} t={t.poster} slideId={slide.id} />
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (
