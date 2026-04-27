@@ -504,10 +504,9 @@ export default function OnboardingScreen() {
         .map(([brandLabel, products]) => ({
           brandLabel,
           products,
-          selectedCount: products.filter((product) => selectedProductIds.includes(product.id)).length,
         }))
         .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel)),
-    [filteredNutritionProducts, locale, selectedProductIds],
+    [filteredNutritionProducts, locale],
   );
   const hiddenNutritionProducts = useMemo(() => [] as Product[], []);
   const selectedRaceEventDate = selectedRaceEvent
@@ -1851,7 +1850,6 @@ export default function OnboardingScreen() {
       <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <Text style={styles.title}>{t.onboarding.nutritionTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.nutritionSubtitle}</Text>
-        <Text style={styles.predictionHint}>{t.onboarding.nutritionHint}</Text>
 
         <View style={styles.sectionCard}>
           {selectedRaceSummary ? (
@@ -1866,10 +1864,14 @@ export default function OnboardingScreen() {
             </View>
           ) : null}
 
-          <View style={styles.inlineInfoRow}>
-            <View style={styles.selectionCountPill}>
-              <Text style={styles.selectionCountText}>{selectedCountLabel}</Text>
-            </View>
+          <View style={[styles.noticeBox, styles.nutritionNoticeBox]}>
+            <Text style={styles.noticeTitle}>{t.onboarding.nutritionHintTitle}</Text>
+            <Text style={styles.noticeText}>{t.onboarding.nutritionHint}</Text>
+            <Text style={styles.nutritionSelectionStatus}>
+              {selectedProductIds.length > 0
+                ? selectedCountLabel
+                : t.onboarding.nutritionSelectionEmpty}
+            </Text>
           </View>
 
           <TextInput
@@ -1920,13 +1922,6 @@ export default function OnboardingScreen() {
                       <Text style={styles.productBrandTitle}>{group.brandLabel}</Text>
 
                       <View style={styles.productBrandHeaderActions}>
-                        <View style={styles.productBrandCountPill}>
-                          <Text style={styles.productBrandCountText}>
-                            {group.selectedCount > 0
-                              ? `${group.selectedCount}/${group.products.length}`
-                              : String(group.products.length)}
-                          </Text>
-                        </View>
                         <Ionicons
                           name={brandExpanded ? 'chevron-up' : 'chevron-down'}
                           size={18}
@@ -3070,6 +3065,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 24,
   },
+  nutritionNoticeBox: {
+    marginBottom: 14,
+  },
   noticeTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
@@ -3080,5 +3078,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
+  },
+  nutritionSelectionStatus: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

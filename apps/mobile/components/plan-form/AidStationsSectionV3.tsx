@@ -6,6 +6,7 @@ import {
   type LayoutRectangle,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -776,22 +777,19 @@ export function AidStationsSectionV3({
       if (isDepart) {
         const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
-          <View
+          <Pressable
             key={stationKey}
+            onPress={() => toggleStation(stationKey)}
             style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
-            <TouchableOpacity
-              onPress={() => toggleStation(stationKey)}
-              activeOpacity={0.7}
-              style={styles.stationHeaderRow}
-            >
+            <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
               <Text style={styles.stationName}>{station.name}</Text>
               {renderPauseBadge(station.pauseMinutes)}
               <Text style={styles.stationKm}>{station.distanceKm} km</Text>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
-            </TouchableOpacity>
+            </View>
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
@@ -826,7 +824,7 @@ export function AidStationsSectionV3({
                 </View>
               </>
             )}
-          </View>
+          </Pressable>
         );
       } else if (isArrivee) {
         card = (
@@ -846,16 +844,13 @@ export function AidStationsSectionV3({
       } else {
         const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
-          <View
+          <Pressable
             key={stationKey}
+            onPress={() => toggleStation(stationKey)}
             style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
-            <TouchableOpacity
-              onPress={() => toggleStation(stationKey)}
-              activeOpacity={0.7}
-              style={styles.stationHeaderRow}
-            >
+            <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
               <Text style={styles.stationName} numberOfLines={1}>
                 {station.name}
@@ -885,7 +880,7 @@ export function AidStationsSectionV3({
               </TouchableOpacity>
               <Text style={styles.stationKm}>{station.distanceKm} km</Text>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
-            </TouchableOpacity>
+            </View>
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
@@ -920,7 +915,7 @@ export function AidStationsSectionV3({
                 </View>
               </>
             )}
-          </View>
+          </Pressable>
         );
       }
 

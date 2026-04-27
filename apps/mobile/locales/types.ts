@@ -399,10 +399,12 @@ export type MobileTranslations = {
     raceEmptySubtitle: string;
     nutritionTitle: string;
     nutritionSubtitle: string;
+    nutritionHintTitle: string;
     nutritionHint: string;
     nutritionSearchPlaceholder: string;
     nutritionSelectedBadge: string;
     nutritionSelectedCount: string;
+    nutritionSelectionEmpty: string;
     nutritionContinueCta: string;
     nutritionSkipCta: string;
     nutritionLoading: string;
