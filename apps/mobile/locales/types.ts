@@ -265,6 +265,10 @@ export type MobileTranslations = {
     runtimeLabel: string;
     channelLabel: string;
     updateIdLabel: string;
+    pushRegistrationStatusLabel: string;
+    pushRegistrationDateLabel: string;
+    pushRegistrationDetailsLabel: string;
+    pushRegistrationEmpty: string;
     updateDateLabel: string;
     updateSourceLabel: string;
     updateSourceEmbedded: string;

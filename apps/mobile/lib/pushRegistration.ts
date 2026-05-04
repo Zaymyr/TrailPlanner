@@ -16,7 +16,7 @@ type SyncPushDeviceRegistrationInput = {
   requestIfNeeded?: boolean;
 };
 
-type PushRegistrationStatus = {
+export type PushRegistrationStatus = {
   recordedAt: string;
   reason: string;
   details?: Record<string, unknown>;
