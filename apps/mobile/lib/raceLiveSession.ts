@@ -13,6 +13,7 @@ import {
   type StoredRacePlan,
   type WaterOnlyReminderIntervalMinutes,
 } from './raceLivePlan';
+import { syncPushDeviceRegistration } from './pushRegistration';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 const RACE_ALERT_TASK = 'RACE_ALERT_TASK';
@@ -156,6 +157,7 @@ export async function requestPermissions(): Promise<boolean> {
   if (finalStatus !== 'granted') return false;
 
   await setupNotificationCategory();
+  await syncPushDeviceRegistration();
   return true;
 }
 

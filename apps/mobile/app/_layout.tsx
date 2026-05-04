@@ -28,6 +28,7 @@ import {
 } from '../lib/accountConversion';
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
+import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import { refreshInactivityReminder } from '../lib/reminderNotifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
@@ -95,7 +96,7 @@ function wait(ms: number) {
 }
 
 function RootLayoutContent() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [bootstrappingSession, setBootstrappingSession] = useState(false);
@@ -110,6 +111,7 @@ function RootLayoutContent() {
   const startupUpdateRunRef = useRef(false);
   const foregroundUpdateCheckInFlightRef = useRef(false);
   const hasShownForegroundUpdateNotificationRef = useRef(false);
+  const pushRegistrationInFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
@@ -201,6 +203,22 @@ function RootLayoutContent() {
     void runStartupUpdateCheck();
   }, [runStartupUpdateCheck]);
 
+  const syncBackendPushRegistration = useCallback(async () => {
+    if (pushRegistrationInFlightRef.current) return;
+    if (!session?.access_token) return;
+
+    pushRegistrationInFlightRef.current = true;
+
+    try {
+      await syncPushDeviceRegistration({
+        accessToken: session.access_token,
+        locale,
+      });
+    } finally {
+      pushRegistrationInFlightRef.current = false;
+    }
+  }, [locale, session?.access_token]);
+
   useEffect(() => {
     if (updateState.status !== 'done') return undefined;
 
@@ -260,6 +278,7 @@ function RootLayoutContent() {
       activeUsageStartedAtRef.current = Date.now();
       void noteReviewSessionStart();
       void syncInactivityReminder();
+      void syncBackendPushRegistration();
     }
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -275,6 +294,7 @@ function RootLayoutContent() {
         void noteReviewSessionStart();
         void syncInactivityReminder();
         void checkForForegroundUpdate();
+        void syncBackendPushRegistration();
       }
     });
 
@@ -287,8 +307,17 @@ function RootLayoutContent() {
     t.appUpdate.readyNotificationTitle,
     t.reminders.inactivityBody,
     t.reminders.inactivityTitle,
+    syncBackendPushRegistration,
     updateState.status,
   ]);
+
+  useEffect(() => {
+    if (updateState.status !== 'done') return;
+    if (AppState.currentState !== 'active') return;
+    if (!session?.access_token) return;
+
+    void syncBackendPushRegistration();
+  }, [session?.access_token, syncBackendPushRegistration, updateState.status]);
 
   useEffect(() => {
     return addPendingOnboardingTransitionListener((transition) => {

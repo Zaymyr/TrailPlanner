@@ -10,6 +10,7 @@ import {
   type AlertTimingMode,
   type RacePlan as SharedRacePlan,
 } from './shared';
+import { syncPushDeviceRegistration } from './pushRegistration';
 
 export type ActiveAlert = SharedActiveAlert & {
   respondedAt?: string;
@@ -156,6 +157,7 @@ export async function requestPermissions(): Promise<boolean> {
   }
 
   await setupNotificationCategory();
+  await syncPushDeviceRegistration();
   return true;
 }
 

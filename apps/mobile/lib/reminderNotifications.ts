@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
+import { syncPushDeviceRegistration } from './pushRegistration';
+
 const REMINDER_NOTIFICATIONS_STORAGE_KEY = 'trailplanner.reminderNotifications';
 const THREE_DAYS_MS = 72 * 60 * 60 * 1000;
 const DEFAULT_UNFINISHED_PLAN_DELAY_MS = 24 * 60 * 60 * 1000;
@@ -85,6 +87,10 @@ async function ensureReminderPermissions({
   }
 
   const { status } = await Notifications.requestPermissionsAsync();
+  if (status === 'granted') {
+    await syncPushDeviceRegistration();
+  }
+
   return status === 'granted';
 }
 

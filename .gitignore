@@ -13,6 +13,8 @@ apps/mobile/ios/
 # Env files
 apps/mobile/.env
 apps/mobile/.env.local
+supabase/functions/.env
+supabase/functions/.env.*
 
 # Claude local config
 .claude/settings.local.json
