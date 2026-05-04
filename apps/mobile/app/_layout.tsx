@@ -100,6 +100,8 @@ type LaunchScreenModel = {
   detail: string | null;
 };
 
+type LaunchOverlayPhase = 'active' | 'completing' | 'exiting' | 'hidden';
+
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -122,7 +124,6 @@ function RootLayoutContent() {
   const hasShownForegroundUpdateNotificationRef = useRef(false);
   const pushRegistrationInFlightRef = useRef(false);
   const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
-  const launchWasBlockingRef = useRef(true);
   const initialRedirectInFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
@@ -133,7 +134,7 @@ function RootLayoutContent() {
     () => getPendingOnboardingTransition(),
   );
   const [onboardingTransitionExiting, setOnboardingTransitionExiting] = useState(false);
-  const [launchScreenExiting, setLaunchScreenExiting] = useState(false);
+  const [launchOverlayPhase, setLaunchOverlayPhase] = useState<LaunchOverlayPhase>('active');
   const shouldHoldForInitialRoute = !segments[0];
 
   if (supabaseInitError) {
@@ -719,80 +720,44 @@ function RootLayoutContent() {
     shouldHoldForInitialRoute ||
     bootstrappingSession ||
     mergingGuestData;
-  const [launchExitScreen, setLaunchExitScreen] = useState<LaunchScreenModel>(launchScreen);
+
+  const launchCompletionScreen = useMemo<LaunchScreenModel>(() => ({
+    title: locale === 'fr' ? 'Bienvenue' : 'Welcome',
+    subtitle:
+      locale === 'fr'
+        ? 'Tout est pret, on arrive sur ton espace.'
+        : 'Everything is ready, opening your space.',
+    progress: 1,
+    showSpinner: false,
+    detail: null,
+  }), [locale]);
 
   useEffect(() => {
     if (isLaunchBlocking) {
-      launchWasBlockingRef.current = true;
-      setLaunchExitScreen(launchScreen);
-      setLaunchScreenExiting(false);
+      setLaunchOverlayPhase('active');
       return;
     }
 
-    launchWasBlockingRef.current = false;
-    setLaunchExitScreen({
-      title: t.appUpdate.startupTitle,
-      subtitle: t.appUpdate.startupSubtitle,
-      progress: 1,
-      showSpinner: false,
-      detail: null,
-    });
-    setLaunchScreenExiting(true);
+    setLaunchOverlayPhase('completing');
 
-    const timeout = setTimeout(() => {
-      setLaunchScreenExiting(false);
-    }, 320);
+    const exitTimeout = setTimeout(() => {
+      setLaunchOverlayPhase('exiting');
+    }, 220);
 
-    return () => clearTimeout(timeout);
-  }, [
-    isLaunchBlocking,
-    launchScreen,
-    t.appUpdate.startupSubtitle,
-    t.appUpdate.startupTitle,
-  ]);
-  const shouldRenderLaunchExit = !isLaunchBlocking && (launchScreenExiting || launchWasBlockingRef.current);
+    const hideTimeout = setTimeout(() => {
+      setLaunchOverlayPhase('hidden');
+    }, 520);
 
-  if (isLaunchBlocking) {
-    return (
-      <AppLaunchScreen
-        title={launchScreen.title}
-        subtitle={launchScreen.subtitle}
-        progress={launchScreen.progress}
-        showSpinner={launchScreen.showSpinner}
-        isFinishing={false}
-        detail={
-          shouldHoldForPremium || bootstrappingSession || mergingGuestData
-            ? t.common.loading
-            : launchScreen.detail
-        }
-        primaryAction={
-          !shouldHoldForPremium && !bootstrappingSession && !mergingGuestData && updateState.status === 'error'
-            ? {
-                label: t.common.retry,
-                onPress: () => {
-                  startupUpdateRunRef.current = false;
-                  void runStartupUpdateCheck();
-                },
-              }
-            : !shouldHoldForPremium && updateState.status === 'rollback'
-              ? {
-                  label: t.appUpdate.continueCta,
-                  onPress: () => setUpdateState({ status: 'done', detail: null }),
-                }
-            : undefined
-        }
-        secondaryAction={
-          !shouldHoldForPremium && !bootstrappingSession && !mergingGuestData && updateState.status === 'error'
-            ? {
-                label: t.appUpdate.continueCta,
-                onPress: () => setUpdateState({ status: 'done', detail: null }),
-                variant: 'secondary',
-              }
-            : undefined
-        }
-      />
-    );
-  }
+    return () => {
+      clearTimeout(exitTimeout);
+      clearTimeout(hideTimeout);
+    };
+  }, [isLaunchBlocking]);
+
+  const showLaunchOverlay = isLaunchBlocking || launchOverlayPhase !== 'hidden';
+  const launchOverlayScreen = isLaunchBlocking ? launchScreen : launchCompletionScreen;
+  const isLaunchOverlayCompleting = !isLaunchBlocking && launchOverlayPhase === 'completing';
+  const isLaunchOverlayFinishing = !isLaunchBlocking && launchOverlayPhase === 'exiting';
 
   const appContent = (
     <>
@@ -835,9 +800,9 @@ function RootLayoutContent() {
             />
           </View>
         ) : null}
-        {shouldRenderLaunchExit ? (
+        {showLaunchOverlay ? (
           <View
-            pointerEvents="none"
+            pointerEvents={isLaunchBlocking ? 'auto' : 'none'}
             style={{
               position: 'absolute',
               top: 0,
@@ -847,12 +812,53 @@ function RootLayoutContent() {
             }}
           >
             <AppLaunchScreen
-              title={launchExitScreen.title}
-              subtitle={launchExitScreen.subtitle}
-              progress={launchScreenExiting ? launchExitScreen.progress : 1}
-              showSpinner={launchScreenExiting ? launchExitScreen.showSpinner : false}
-              detail={launchScreenExiting ? launchExitScreen.detail : null}
-              isFinishing
+              title={launchOverlayScreen.title}
+              subtitle={launchOverlayScreen.subtitle}
+              progress={launchOverlayScreen.progress}
+              showSpinner={launchOverlayScreen.showSpinner}
+              detail={
+                isLaunchBlocking &&
+                (shouldHoldForPremium || bootstrappingSession || mergingGuestData)
+                  ? t.common.loading
+                  : launchOverlayScreen.detail
+              }
+              isCompleting={isLaunchOverlayCompleting}
+              isFinishing={isLaunchOverlayFinishing}
+              primaryAction={
+                isLaunchBlocking &&
+                !shouldHoldForPremium &&
+                !bootstrappingSession &&
+                !mergingGuestData &&
+                updateState.status === 'error'
+                  ? {
+                      label: t.common.retry,
+                      onPress: () => {
+                        startupUpdateRunRef.current = false;
+                        void runStartupUpdateCheck();
+                      },
+                    }
+                  : isLaunchBlocking &&
+                      !shouldHoldForPremium &&
+                      updateState.status === 'rollback'
+                    ? {
+                        label: t.appUpdate.continueCta,
+                        onPress: () => setUpdateState({ status: 'done', detail: null }),
+                      }
+                    : undefined
+              }
+              secondaryAction={
+                isLaunchBlocking &&
+                !shouldHoldForPremium &&
+                !bootstrappingSession &&
+                !mergingGuestData &&
+                updateState.status === 'error'
+                  ? {
+                      label: t.appUpdate.continueCta,
+                      onPress: () => setUpdateState({ status: 'done', detail: null }),
+                      variant: 'secondary',
+                    }
+                  : undefined
+              }
             />
           </View>
         ) : null}

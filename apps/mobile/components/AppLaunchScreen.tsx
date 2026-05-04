@@ -14,6 +14,7 @@ type AppLaunchScreenProps = {
   progress?: number;
   detail?: string | null;
   showSpinner?: boolean;
+  isCompleting?: boolean;
   isFinishing?: boolean;
   primaryAction?: LaunchAction;
   secondaryAction?: LaunchAction;
@@ -25,6 +26,7 @@ export function AppLaunchScreen({
   progress = 0.18,
   detail,
   showSpinner = true,
+  isCompleting = false,
   isFinishing = false,
   primaryAction,
   secondaryAction,
@@ -43,11 +45,11 @@ export function AppLaunchScreen({
 
     Animated.timing(animatedProgress, {
       toValue: nextProgress,
-      duration: isFinishing ? 220 : 520,
-      easing: isFinishing ? Easing.out(Easing.cubic) : Easing.out(Easing.ease),
+      duration: isFinishing || isCompleting ? 220 : 520,
+      easing: isFinishing || isCompleting ? Easing.out(Easing.cubic) : Easing.out(Easing.ease),
       useNativeDriver: false,
     }).start();
-  }, [animatedProgress, isFinishing, safeProgress]);
+  }, [animatedProgress, isCompleting, isFinishing, safeProgress]);
 
   useEffect(() => {
     Animated.parallel([
