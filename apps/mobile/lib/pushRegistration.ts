@@ -7,12 +7,19 @@ import { supabase } from './supabase';
 
 const PUSH_TOKEN_STORAGE_KEY = 'trailplanner.pushToken';
 const LOCALE_STORAGE_KEY = 'trailplanner.locale';
+const PUSH_REGISTRATION_STATUS_STORAGE_KEY = 'trailplanner.pushRegistrationStatus';
 const ANDROID_PUSH_CHANNEL_ID = 'default';
 
 type SyncPushDeviceRegistrationInput = {
   accessToken?: string | null;
   locale?: 'fr' | 'en';
   requestIfNeeded?: boolean;
+};
+
+type PushRegistrationStatus = {
+  recordedAt: string;
+  reason: string;
+  details?: Record<string, unknown>;
 };
 
 function getProjectId() {
@@ -25,6 +32,32 @@ function getProjectId() {
 
 function getAppVersion() {
   return Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? null;
+}
+
+async function recordPushRegistrationStatus(
+  reason: string,
+  details?: Record<string, unknown>,
+) {
+  const payload: PushRegistrationStatus = {
+    recordedAt: new Date().toISOString(),
+    reason,
+    details,
+  };
+
+  await AsyncStorage.setItem(PUSH_REGISTRATION_STATUS_STORAGE_KEY, JSON.stringify(payload)).catch(() => undefined);
+}
+
+export async function getLastPushRegistrationStatus() {
+  const raw = await AsyncStorage.getItem(PUSH_REGISTRATION_STATUS_STORAGE_KEY).catch(() => null);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as PushRegistrationStatus;
+  } catch {
+    return null;
+  }
 }
 
 async function ensureAndroidPushChannel() {
@@ -128,14 +161,30 @@ export async function syncPushDeviceRegistration({
 }: SyncPushDeviceRegistrationInput = {}) {
   const { accessToken, authorizationHeader, locale } = await resolvePushRegistrationContext(input);
 
+  if (Platform.OS === 'android' && Constants.appOwnership === 'expo') {
+    const details = {
+      appOwnership: Constants.appOwnership,
+      executionEnvironment: Constants.executionEnvironment,
+      platform: Platform.OS,
+    };
+    console.warn(
+      'Push registration skipped: Expo Go on Android does not support remote push notifications. Use a development build on a physical device.',
+      details,
+    );
+    await recordPushRegistrationStatus('unsupported-expo-go-android', details);
+    return null;
+  }
+
   if (!accessToken) {
     console.warn('Push registration skipped: no authenticated Supabase session available.');
+    await recordPushRegistrationStatus('missing-session');
     return null;
   }
 
   const projectId = getProjectId();
   if (!projectId) {
     console.warn('Expo projectId is missing. Push registration skipped.');
+    await recordPushRegistrationStatus('missing-project-id');
     return null;
   }
 
@@ -154,6 +203,10 @@ export async function syncPushDeviceRegistration({
 
   if (finalStatus !== 'granted') {
     console.warn('Push registration skipped: notifications permission is not granted.', {
+      requestIfNeeded,
+      finalStatus,
+    });
+    await recordPushRegistrationStatus('permission-not-granted', {
       requestIfNeeded,
       finalStatus,
     });
@@ -184,13 +237,23 @@ export async function syncPushDeviceRegistration({
 
     if (synced) {
       await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, expoPushToken).catch(() => undefined);
+      await recordPushRegistrationStatus('success', {
+        platform: Platform.OS,
+        executionEnvironment: Constants.executionEnvironment,
+      });
     } else {
       console.warn('Push registration reached the network step, but the backend registration failed.');
+      await recordPushRegistrationStatus('backend-registration-failed');
     }
 
     return synced ? expoPushToken : null;
   } catch (error) {
     console.warn('Unable to fetch Expo push token.', error);
+    await recordPushRegistrationStatus('expo-push-token-failed', {
+      errorMessage: error instanceof Error ? error.message : String(error),
+      executionEnvironment: Constants.executionEnvironment,
+      platform: Platform.OS,
+    });
     return null;
   }
 }
