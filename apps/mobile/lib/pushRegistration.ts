@@ -10,6 +10,7 @@ const LOCALE_STORAGE_KEY = 'trailplanner.locale';
 const normalizeBaseUrl = (value: string | undefined) => (value?.trim() ?? '').replace(/\/+$/, '');
 const SUPABASE_FUNCTIONS_BASE_URL = normalizeBaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL);
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
+const ANDROID_PUSH_CHANNEL_ID = 'default';
 
 type SyncPushDeviceRegistrationInput = {
   accessToken?: string | null;
@@ -27,6 +28,19 @@ function getProjectId() {
 
 function getAppVersion() {
   return Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? null;
+}
+
+async function ensureAndroidPushChannel() {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+
+  await Notifications.setNotificationChannelAsync(ANDROID_PUSH_CHANNEL_ID, {
+    name: 'Default',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#2D5016',
+  });
 }
 
 function resolveDeviceLocale(): 'fr' | 'en' {
@@ -122,6 +136,7 @@ export async function syncPushDeviceRegistration({
   const { accessToken, locale } = await resolvePushRegistrationContext(input);
 
   if (!accessToken || !SUPABASE_FUNCTIONS_BASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('Push registration skipped: missing access token or Supabase public config.');
     return null;
   }
 
@@ -130,6 +145,10 @@ export async function syncPushDeviceRegistration({
     console.warn('Expo projectId is missing. Push registration skipped.');
     return null;
   }
+
+  await ensureAndroidPushChannel().catch((error) => {
+    console.warn('Unable to configure Android notification channel before push registration.', error);
+  });
 
   const storedPushToken = await AsyncStorage.getItem(PUSH_TOKEN_STORAGE_KEY).catch(() => null);
   const existingPermissions = await Notifications.getPermissionsAsync();
@@ -141,6 +160,11 @@ export async function syncPushDeviceRegistration({
   }
 
   if (finalStatus !== 'granted') {
+    console.warn('Push registration skipped: notifications permission is not granted.', {
+      requestIfNeeded,
+      finalStatus,
+    });
+
     if (storedPushToken) {
       const disabled = await postPushDeviceRegistration(accessToken, {
         expoPushToken: storedPushToken,
@@ -167,6 +191,8 @@ export async function syncPushDeviceRegistration({
 
     if (synced) {
       await AsyncStorage.setItem(PUSH_TOKEN_STORAGE_KEY, expoPushToken).catch(() => undefined);
+    } else {
+      console.warn('Push registration reached the network step, but the backend registration failed.');
     }
 
     return synced ? expoPushToken : null;
