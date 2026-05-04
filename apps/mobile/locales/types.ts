@@ -35,6 +35,14 @@ export type MobileTranslations = {
     errorTitle: string;
     errorSubtitle: string;
     continueCta: string;
+    readyNotificationTitle: string;
+    readyNotificationBody: string;
+  };
+  reminders: {
+    inactivityTitle: string;
+    inactivityBody: string;
+    unfinishedPlanTitle: string;
+    unfinishedPlanBody: string;
   };
   plans: {
     title: string;

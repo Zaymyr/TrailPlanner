@@ -17,6 +17,7 @@ import { usePremium } from '../../../../hooks/usePremium';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { useI18n } from '../../../../lib/i18n';
+import { syncUnfinishedPlanReminder } from '../../../../lib/reminderNotifications';
 import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import {
   clearActivePlanEditSession,
@@ -465,6 +466,15 @@ export default function EditPlanScreen() {
             });
           }
 
+          await syncUnfinishedPlanReminder({
+            planId: id,
+            plannerValues,
+            title: t.reminders.unfinishedPlanTitle,
+            body: t.reminders.unfinishedPlanBody.replace('{name}', values.name),
+            href: `/(app)/plan/${id}/edit`,
+            requestIfNeeded: !silent,
+          });
+
           return true;
         }
 
@@ -478,7 +488,7 @@ export default function EditPlanScreen() {
       activeSavePromiseRef.current = savePromise;
       return savePromise;
     },
-    [id],
+    [id, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const saveLatestDraft = useCallback(

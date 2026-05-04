@@ -35,6 +35,14 @@ export const en: MobileTranslations = {
     errorTitle: 'Update unavailable',
     errorSubtitle: 'We could not check for updates right now.',
     continueCta: 'Continue without updating',
+    readyNotificationTitle: 'Update ready',
+    readyNotificationBody: 'A new version has been downloaded. Tap to restart the app.',
+  },
+  reminders: {
+    inactivityTitle: 'Your next plan is waiting',
+    inactivityBody: 'It has been a few days. Come back to review your plan and keep your build going.',
+    unfinishedPlanTitle: 'Your plan is not finished yet',
+    unfinishedPlanBody: 'Come back to finish {name} and add your fueling.',
   },
   plans: {
     title: 'My plans',

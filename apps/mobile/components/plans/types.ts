@@ -11,6 +11,10 @@ export type PlanRow = {
     paceSeconds?: number;
     speedKph?: number;
     paceType?: 'pace' | 'speed';
+    startSupplies?: Array<{ productId: string; quantity: number }>;
+    aidStations?: Array<{
+      supplies?: Array<{ productId: string; quantity: number }>;
+    }>;
   };
   races?: { name: string } | null;
 };

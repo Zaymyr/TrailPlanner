@@ -28,6 +28,7 @@ import {
 } from '../lib/accountConversion';
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
+import { refreshInactivityReminder } from '../lib/reminderNotifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
@@ -107,6 +108,8 @@ function RootLayoutContent() {
   const segments = useSegments();
   const router = useRouter();
   const startupUpdateRunRef = useRef(false);
+  const foregroundUpdateCheckInFlightRef = useRef(false);
+  const hasShownForegroundUpdateNotificationRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
@@ -201,6 +204,51 @@ function RootLayoutContent() {
   useEffect(() => {
     if (updateState.status !== 'done') return undefined;
 
+    const checkForForegroundUpdate = async () => {
+      if (__DEV__ || !Updates.isEnabled) return;
+      if (foregroundUpdateCheckInFlightRef.current) return;
+      if (hasShownForegroundUpdateNotificationRef.current) return;
+
+      foregroundUpdateCheckInFlightRef.current = true;
+
+      try {
+        const updateCheck = await Updates.checkForUpdateAsync();
+        if (!updateCheck.isAvailable) {
+          return;
+        }
+
+        const fetchResult = await Updates.fetchUpdateAsync();
+        if (!fetchResult.isNew) {
+          return;
+        }
+
+        hasShownForegroundUpdateNotificationRef.current = true;
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: t.appUpdate.readyNotificationTitle,
+            body: t.appUpdate.readyNotificationBody,
+            sound: true,
+            data: {
+              updateAction: 'reload',
+            },
+          },
+          trigger: null,
+        });
+      } catch (error) {
+        console.error('Foreground OTA update check failed:', error);
+      } finally {
+        foregroundUpdateCheckInFlightRef.current = false;
+      }
+    };
+
+    const syncInactivityReminder = async () => {
+      await refreshInactivityReminder({
+        title: t.reminders.inactivityTitle,
+        body: t.reminders.inactivityBody,
+        href: '/(app)/plans',
+      });
+    };
+
     const flushActiveUsage = async () => {
       const startedAt = activeUsageStartedAtRef.current;
       activeUsageStartedAtRef.current = null;
@@ -211,6 +259,7 @@ function RootLayoutContent() {
     if (AppState.currentState === 'active') {
       activeUsageStartedAtRef.current = Date.now();
       void noteReviewSessionStart();
+      void syncInactivityReminder();
     }
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -224,6 +273,8 @@ function RootLayoutContent() {
       if (previousState !== 'active' && nextState === 'active') {
         activeUsageStartedAtRef.current = Date.now();
         void noteReviewSessionStart();
+        void syncInactivityReminder();
+        void checkForForegroundUpdate();
       }
     });
 
@@ -231,7 +282,13 @@ function RootLayoutContent() {
       void flushActiveUsage();
       subscription.remove();
     };
-  }, [updateState.status]);
+  }, [
+    t.appUpdate.readyNotificationBody,
+    t.appUpdate.readyNotificationTitle,
+    t.reminders.inactivityBody,
+    t.reminders.inactivityTitle,
+    updateState.status,
+  ]);
 
   useEffect(() => {
     return addPendingOnboardingTransitionListener((transition) => {
@@ -365,25 +422,36 @@ function RootLayoutContent() {
           response.notification.request.content.data?.alertId as
             | string
             | undefined;
-        if (!alertId) return;
+        const href = response.notification.request.content.data?.href as string | undefined;
+        const updateAction = response.notification.request.content.data?.updateAction as string | undefined;
+        if (alertId) {
+          const action = response.actionIdentifier;
 
-        const action = response.actionIdentifier;
-
-        if (action === 'confirm') {
-          await respondToAlert(alertId, 'confirmed');
-        } else if (action === 'skip') {
-          await respondToAlert(alertId, 'skipped');
-        } else if (action.startsWith('snooze_')) {
-          const minutes = parseInt(action.replace('snooze_', ''), 10);
-          if (SNOOZE_OPTIONS_MINUTES.includes(minutes as 5 | 10 | 15)) {
-            await respondToAlert(alertId, 'snoozed', minutes);
+          if (action === 'confirm') {
+            await respondToAlert(alertId, 'confirmed');
+          } else if (action === 'skip') {
+            await respondToAlert(alertId, 'skipped');
+          } else if (action.startsWith('snooze_')) {
+            const minutes = parseInt(action.replace('snooze_', ''), 10);
+            if (SNOOZE_OPTIONS_MINUTES.includes(minutes as 5 | 10 | 15)) {
+              await respondToAlert(alertId, 'snoozed', minutes);
+            }
           }
+        }
+
+        if (updateAction === 'reload') {
+          await Updates.reloadAsync();
+          return;
+        }
+
+        if (href) {
+          router.push(href as any);
         }
       },
     );
 
     return () => sub.remove();
-  }, []);
+  }, [router]);
 
   const launchScreen = useMemo(() => {
     if (updateState.status === 'error') {

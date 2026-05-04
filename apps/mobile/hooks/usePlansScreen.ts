@@ -10,6 +10,7 @@ import { useI18n } from '../lib/i18n';
 import { isAnonymousSession } from '../lib/appSession';
 import { FREE_PLAN_LIMIT, getAccessiblePlanIds } from '../lib/planAccess';
 import { getSession } from '../lib/raceLiveSession';
+import { clearUnfinishedPlanReminder, syncLatestUnfinishedPlanReminder } from '../lib/reminderNotifications';
 import { supabase } from '../lib/supabase';
 
 export function usePlansScreen() {
@@ -52,6 +53,11 @@ export function usePlansScreen() {
 
     const nextPlans = (data as PlanRow[] | null) ?? [];
     setPlans(nextPlans);
+    void syncLatestUnfinishedPlanReminder(nextPlans, {
+      title: t.reminders.unfinishedPlanTitle,
+      buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
+      hrefForPlan: (planId) => `/(app)/plan/${planId}/edit`,
+    });
 
     const raceIds = [...new Set(nextPlans.filter((plan) => plan.race_id).map((plan) => plan.race_id!))];
     if (raceIds.length > 0 && uid) {
@@ -73,7 +79,7 @@ export function usePlansScreen() {
 
     setLoading(false);
     setRefreshing(false);
-  }, []);
+  }, [t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle]);
 
   const syncActivePlan = useCallback(() => {
     setActivePlanId(getSession()?.plan.id ?? null);
@@ -115,12 +121,29 @@ export function usePlansScreen() {
               return;
             }
 
-            setPlans((current) => current.filter((plan) => plan.id !== planId));
+            await clearUnfinishedPlanReminder(planId);
+            setPlans((current) => {
+              const nextPlans = current.filter((plan) => plan.id !== planId);
+              void syncLatestUnfinishedPlanReminder(nextPlans, {
+                title: t.reminders.unfinishedPlanTitle,
+                buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
+                hrefForPlan: (nextPlanId) => `/(app)/plan/${nextPlanId}/edit`,
+              });
+              return nextPlans;
+            });
           },
         },
       ]);
     },
-    [t.common.cancel, t.common.delete, t.common.error, t.plans.deleteMessage, t.plans.deleteTitle],
+    [
+      t.common.cancel,
+      t.common.delete,
+      t.common.error,
+      t.plans.deleteMessage,
+      t.plans.deleteTitle,
+      t.reminders.unfinishedPlanBody,
+      t.reminders.unfinishedPlanTitle,
+    ],
   );
 
   const toggleSection = useCallback((key: string) => {

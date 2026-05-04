@@ -15,6 +15,7 @@ import { ensureAppSession } from '../../../lib/appSession';
 import { noteReviewPlanCreated } from '../../../lib/appReview';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
+import { syncUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
 import { supabase } from '../../../lib/supabase';
 
 type RaceInfo = {
@@ -132,12 +133,13 @@ export default function NewPlanScreen() {
         return;
       }
 
+      const plannerValues = buildPlannerValues(seedValues);
       const { data, error } = await supabase
         .from('race_plans')
         .insert({
           user_id: uid,
           name: seedValues.name,
-          planner_values: buildPlannerValues(seedValues),
+          planner_values: plannerValues,
           elevation_profile: elevationProfile,
           race_id: race.id,
         })
@@ -152,10 +154,19 @@ export default function NewPlanScreen() {
         return;
       }
 
+      await syncUnfinishedPlanReminder({
+        planId: data.id,
+        plannerValues,
+        title: t.reminders.unfinishedPlanTitle,
+        body: t.reminders.unfinishedPlanBody.replace('{name}', seedValues.name),
+        href: `/(app)/plan/${data.id}/edit`,
+        requestIfNeeded: true,
+      });
+
       await noteReviewPlanCreated();
       router.replace(`/(app)/plan/${data.id}/edit`);
     },
-    [resolvedRaceId, router, t.common.error],
+    [resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const loadRaceSeed = useCallback(async () => {
