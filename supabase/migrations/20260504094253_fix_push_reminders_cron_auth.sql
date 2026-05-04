@@ -2,10 +2,6 @@ create extension if not exists pg_cron;
 create extension if not exists pg_net;
 create extension if not exists supabase_vault;
 
--- Expected Vault secrets:
--- - project_url: https://<project-ref>.supabase.co
--- - anon_key: your project's publishable or legacy anon key
--- - push_cron_secret: shared secret used by the cron request header
 create or replace function public.is_valid_push_cron_secret(candidate_secret text)
 returns boolean
 language sql

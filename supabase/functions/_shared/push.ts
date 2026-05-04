@@ -173,15 +173,26 @@ export async function authenticateRequestUser(request: Request) {
   };
 }
 
-export function verifyCronRequest(request: Request) {
-  const configuredSecret = Deno.env.get("PUSH_CRON_SECRET")?.trim();
-  if (!configuredSecret) {
-    console.error("PUSH_CRON_SECRET is missing.");
+async function isValidCronSecret(candidateSecret: string) {
+  const { data, error } = await serviceClient.rpc("is_valid_push_cron_secret", {
+    candidate_secret: candidateSecret,
+  });
+
+  if (error) {
+    console.error("Unable to validate push cron secret.", error);
     return false;
   }
 
+  return data === true;
+}
+
+export async function verifyCronRequest(request: Request) {
   const requestSecret = request.headers.get("x-cron-secret")?.trim();
-  return requestSecret === configuredSecret;
+  if (!requestSecret) {
+    return false;
+  }
+
+  return isValidCronSecret(requestSecret);
 }
 
 function normalizeLocale(locale: string): PushLocale {

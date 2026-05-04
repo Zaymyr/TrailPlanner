@@ -17,7 +17,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ message: "Method not allowed." }, { status: 405 });
   }
 
-  if (!verifyCronRequest(request)) {
+  if (!(await verifyCronRequest(request))) {
     return jsonResponse({ message: "Unauthorized." }, { status: 401 });
   }
 
