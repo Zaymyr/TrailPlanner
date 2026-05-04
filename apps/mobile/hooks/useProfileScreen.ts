@@ -50,6 +50,39 @@ function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
 }
 
+function normalizeRoles(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function resolveIsAdminFromAuthUser(
+  user:
+    | {
+        app_metadata?: Record<string, unknown> | null;
+        user_metadata?: Record<string, unknown> | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!user) {
+    return false;
+  }
+
+  const appMetadata = user.app_metadata ?? null;
+  const userMetadata = user.user_metadata ?? null;
+  const roles = normalizeRoles(appMetadata?.roles);
+  const role =
+    (typeof appMetadata?.role === 'string' ? appMetadata.role : null) ??
+    (typeof userMetadata?.role === 'string' ? userMetadata.role : null) ??
+    roles[0] ??
+    null;
+
+  return role === 'admin' || roles.includes('admin');
+}
+
 function formatDebugTimestamp(value: string, locale: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -138,6 +171,7 @@ export function useProfileScreen() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [isAdminFromAuth, setIsAdminFromAuth] = useState(false);
   const [pushRegistrationStatus, setPushRegistrationStatus] =
     useState<PushRegistrationStatus | null>(null);
   const savedResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -149,6 +183,7 @@ export function useProfileScreen() {
       const { data: sessionData } = await supabase.auth.getSession();
       const uid = sessionData?.session?.user?.id;
       setIsAnonymousAccount(isAnonymousSession(sessionData?.session));
+      setIsAdminFromAuth(resolveIsAdminFromAuthUser(sessionData?.session?.user));
 
       if (!uid || cancelled) {
         if (!cancelled) {
@@ -831,7 +866,7 @@ export function useProfileScreen() {
   const updateSource = Updates.isEmbeddedLaunch
     ? t.profile.updateSourceEmbedded
     : t.profile.updateSourceDownloaded;
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = profile?.role === 'admin' || isAdminFromAuth;
   const showAdminGrant = !hasPaidPremium && premiumGrant !== null;
   const showTrialActive = Boolean(!hasPaidPremium && !showAdminGrant && isTrialActive && trialEndsAt);
   const showTrialExpired = Boolean(!isPremium && !isTrialActive && trialEndsAt);
@@ -1054,6 +1089,7 @@ export function useProfileScreen() {
     [
       channel,
       isAdmin,
+      isAdminFromAuth,
       locale,
       pushRegistrationStatus,
       t.profile.pushRegistrationDateLabel,
