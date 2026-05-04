@@ -1,5 +1,5 @@
-import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../constants/colors';
 
 type LaunchAction = {
@@ -14,6 +14,7 @@ type AppLaunchScreenProps = {
   progress?: number;
   detail?: string | null;
   showSpinner?: boolean;
+  isFinishing?: boolean;
   primaryAction?: LaunchAction;
   secondaryAction?: LaunchAction;
 };
@@ -24,14 +25,76 @@ export function AppLaunchScreen({
   progress = 0.18,
   detail,
   showSpinner = true,
+  isFinishing = false,
   primaryAction,
   secondaryAction,
 }: AppLaunchScreenProps) {
   const safeProgress = Math.max(0.06, Math.min(1, progress));
+  const animatedProgress = useRef(new Animated.Value(safeProgress)).current;
+  const screenOpacity = useRef(new Animated.Value(0)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardTranslateY = useRef(new Animated.Value(16)).current;
+  const cardScale = useRef(new Animated.Value(0.985)).current;
+  const highestProgressRef = useRef(safeProgress);
+
+  useEffect(() => {
+    const nextProgress = Math.max(highestProgressRef.current, safeProgress);
+    highestProgressRef.current = nextProgress;
+
+    Animated.timing(animatedProgress, {
+      toValue: nextProgress,
+      duration: isFinishing ? 220 : 520,
+      easing: isFinishing ? Easing.out(Easing.cubic) : Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+  }, [animatedProgress, isFinishing, safeProgress]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(screenOpacity, {
+        toValue: isFinishing ? 0 : 1,
+        duration: isFinishing ? 280 : 300,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: isFinishing ? 0 : 1,
+        duration: isFinishing ? 220 : 360,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardTranslateY, {
+        toValue: isFinishing ? -10 : 0,
+        duration: isFinishing ? 280 : 360,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardScale, {
+        toValue: isFinishing ? 0.992 : 1,
+        duration: isFinishing ? 280 : 360,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [cardOpacity, cardScale, cardTranslateY, isFinishing, screenOpacity]);
+
+  const animatedProgressWidth = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.card}>
+    <Animated.View style={[styles.screen, { opacity: screenOpacity }]}>
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            opacity: cardOpacity,
+            transform: [{ translateY: cardTranslateY }, { scale: cardScale }],
+          },
+        ]}
+      >
         <View style={styles.badge}>
           <Text style={styles.badgeText}>Pace Yourself</Text>
         </View>
@@ -40,7 +103,7 @@ export function AppLaunchScreen({
         <Text style={styles.subtitle}>{subtitle}</Text>
 
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${safeProgress * 100}%` }]} />
+          <Animated.View style={[styles.progressFill, { width: animatedProgressWidth }]} />
         </View>
 
         {showSpinner ? <ActivityIndicator size="small" color={Colors.brandPrimary} style={styles.spinner} /> : null}
@@ -52,8 +115,8 @@ export function AppLaunchScreen({
             {secondaryAction ? <LaunchButton {...secondaryAction} /> : null}
           </View>
         ) : null}
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 

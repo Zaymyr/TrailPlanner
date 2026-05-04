@@ -1,4 +1,5 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { ActivityIndicator, Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
 import { Colors } from '../constants/colors';
 
@@ -7,6 +8,7 @@ type Props = {
   progress: number;
   title: string;
   stage: string;
+  isFinishing?: boolean;
 };
 
 export function PlanLoadingScreen({
@@ -14,21 +16,76 @@ export function PlanLoadingScreen({
   progress,
   title,
   stage,
+  isFinishing = false,
 }: Props) {
   const safeProgress = Math.max(0.08, Math.min(1, progress));
+  const animatedProgress = useRef(new Animated.Value(safeProgress)).current;
+  const containerOpacity = useRef(new Animated.Value(0)).current;
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardTranslateY = useRef(new Animated.Value(18)).current;
+  const highestProgressRef = useRef(safeProgress);
+
+  useEffect(() => {
+    const nextProgress = Math.max(highestProgressRef.current, safeProgress);
+    highestProgressRef.current = nextProgress;
+
+    Animated.timing(animatedProgress, {
+      toValue: nextProgress,
+      duration: isFinishing ? 220 : 460,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [animatedProgress, isFinishing, safeProgress]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(containerOpacity, {
+        toValue: isFinishing ? 0 : 1,
+        duration: isFinishing ? 260 : 280,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardOpacity, {
+        toValue: isFinishing ? 0 : 1,
+        duration: isFinishing ? 220 : 340,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardTranslateY, {
+        toValue: isFinishing ? -8 : 0,
+        duration: isFinishing ? 260 : 340,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [cardOpacity, cardTranslateY, containerOpacity, isFinishing]);
+
+  const animatedProgressWidth = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
 
   return (
-    <View style={styles.loadingScreen}>
-      <View style={styles.loadingCard}>
+    <Animated.View style={[styles.loadingScreen, { opacity: containerOpacity }]}>
+      <Animated.View
+        style={[
+          styles.loadingCard,
+          {
+            opacity: cardOpacity,
+            transform: [{ translateY: cardTranslateY }],
+          },
+        ]}
+      >
         <ActivityIndicator color={Colors.brandPrimary} size="large" />
         <Text style={styles.loadingTitle}>{title}</Text>
         {planName ? <Text style={styles.loadingPlanName}>{planName}</Text> : null}
         <View style={styles.loadingProgressTrack}>
-          <View style={[styles.loadingProgressFill, { width: `${safeProgress * 100}%` }]} />
+          <Animated.View style={[styles.loadingProgressFill, { width: animatedProgressWidth }]} />
         </View>
         <Text style={styles.loadingStage}>{stage}</Text>
-      </View>
-    </View>
+      </Animated.View>
+    </Animated.View>
   );
 }
 

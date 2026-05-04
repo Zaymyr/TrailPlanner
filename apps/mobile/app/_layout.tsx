@@ -91,6 +91,14 @@ type StartupUpdateState =
   | { status: 'error'; detail: string | null }
   | { status: 'done'; detail: string | null };
 
+type LaunchScreenModel = {
+  title: string;
+  subtitle: string;
+  progress: number;
+  showSpinner: boolean;
+  detail: string | null;
+};
+
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -113,11 +121,17 @@ function RootLayoutContent() {
   const hasShownForegroundUpdateNotificationRef = useRef(false);
   const pushRegistrationInFlightRef = useRef(false);
   const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
+  const launchWasBlockingRef = useRef(true);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
   const authenticatedPushUserId =
     session && !isAnonymousSession(session) ? session.user.id : null;
+  const [displayedOnboardingTransition, setDisplayedOnboardingTransition] = useState(
+    () => getPendingOnboardingTransition(),
+  );
+  const [onboardingTransitionExiting, setOnboardingTransitionExiting] = useState(false);
+  const [launchScreenExiting, setLaunchScreenExiting] = useState(false);
 
   if (supabaseInitError) {
     return (
@@ -356,6 +370,37 @@ function RootLayoutContent() {
     });
   }, []);
 
+  useEffect(() => {
+    if (pendingOnboardingTransition) {
+      setDisplayedOnboardingTransition(pendingOnboardingTransition);
+      setOnboardingTransitionExiting(false);
+      return;
+    }
+
+    const hasTransitionToDismiss = Boolean(displayedOnboardingTransition);
+    if (!hasTransitionToDismiss) {
+      setOnboardingTransitionExiting(false);
+      return;
+    }
+
+    setDisplayedOnboardingTransition((current) =>
+      current
+        ? {
+            ...current,
+            progress: 1,
+          }
+        : current,
+    );
+    setOnboardingTransitionExiting(true);
+
+    const timeout = setTimeout(() => {
+      setDisplayedOnboardingTransition(null);
+      setOnboardingTransitionExiting(false);
+    }, 280);
+
+    return () => clearTimeout(timeout);
+  }, [pendingOnboardingTransition]);
+
   // Auth listener
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
@@ -513,12 +558,12 @@ function RootLayoutContent() {
     return () => sub.remove();
   }, [router]);
 
-  const launchScreen = useMemo(() => {
+  const launchScreen = useMemo<LaunchScreenModel>(() => {
     if (updateState.status === 'error') {
       return {
         title: t.appUpdate.errorTitle,
         subtitle: t.appUpdate.errorSubtitle,
-        progress: 0.82,
+        progress: 0.88,
         showSpinner: false,
         detail: updateState.detail,
       };
@@ -538,7 +583,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.rollbackInstallingTitle,
         subtitle: t.appUpdate.rollbackInstallingSubtitle,
-        progress: 0.96,
+        progress: 0.94,
         showSpinner: true,
         detail: updateState.detail,
       };
@@ -548,7 +593,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.rollbackTitle,
         subtitle: t.appUpdate.rollbackSubtitle,
-        progress: 0.82,
+        progress: 0.86,
         showSpinner: false,
         detail: updateState.detail,
       };
@@ -558,7 +603,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.downloadingTitle,
         subtitle: t.appUpdate.downloadingSubtitle,
-        progress: 0.72,
+        progress: 0.58,
         showSpinner: true,
         detail: null,
       };
@@ -568,7 +613,17 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.checkingTitle,
         subtitle: t.appUpdate.checkingSubtitle,
-        progress: 0.36,
+        progress: 0.24,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (mergingGuestData) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.86,
         showSpinner: true,
         detail: null,
       };
@@ -578,7 +633,27 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.startupTitle,
         subtitle: t.appUpdate.startupSubtitle,
-        progress: 0.9,
+        progress: 0.92,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (bootstrappingSession) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.74,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (!ready) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.66,
         showSpinner: true,
         detail: null,
       };
@@ -587,19 +662,59 @@ function RootLayoutContent() {
     return {
       title: t.appUpdate.startupTitle,
       subtitle: t.appUpdate.startupSubtitle,
-      progress: 0.18,
+      progress: 0.96,
       showSpinner: true,
       detail: null,
     };
-  }, [shouldHoldForPremium, t, updateState]);
+  }, [bootstrappingSession, mergingGuestData, ready, shouldHoldForPremium, t, updateState]);
 
-  if (!ready || updateState.status !== 'done' || shouldHoldForPremium || bootstrappingSession || mergingGuestData) {
+  const isLaunchBlocking =
+    !ready ||
+    updateState.status !== 'done' ||
+    shouldHoldForPremium ||
+    bootstrappingSession ||
+    mergingGuestData;
+  const [launchExitScreen, setLaunchExitScreen] = useState<LaunchScreenModel>(launchScreen);
+
+  useEffect(() => {
+    if (isLaunchBlocking) {
+      launchWasBlockingRef.current = true;
+      setLaunchExitScreen(launchScreen);
+      setLaunchScreenExiting(false);
+      return;
+    }
+
+    launchWasBlockingRef.current = false;
+    setLaunchExitScreen({
+      title: t.appUpdate.startupTitle,
+      subtitle: t.appUpdate.startupSubtitle,
+      progress: 1,
+      showSpinner: false,
+      detail: null,
+    });
+    setLaunchScreenExiting(true);
+
+    const timeout = setTimeout(() => {
+      setLaunchScreenExiting(false);
+    }, 320);
+
+    return () => clearTimeout(timeout);
+  }, [
+    isLaunchBlocking,
+    launchScreen,
+    t.appUpdate.startupSubtitle,
+    t.appUpdate.startupTitle,
+  ]);
+  const shouldRenderLaunchExit = !isLaunchBlocking && (launchScreenExiting || launchWasBlockingRef.current);
+
+  if (isLaunchBlocking) {
     return (
       <AppLaunchScreen
         title={launchScreen.title}
         subtitle={launchScreen.subtitle}
         progress={launchScreen.progress}
         showSpinner={launchScreen.showSpinner}
+        isFinishing={false}
         detail={
           shouldHoldForPremium || bootstrappingSession || mergingGuestData
             ? t.common.loading
@@ -634,8 +749,8 @@ function RootLayoutContent() {
     );
   }
 
-  return (
-    <ErrorBoundary>
+  const appContent = (
+    <>
       <StatusBar style="light" />
       <View style={{ flex: 1 }}>
         <Stack
@@ -648,9 +763,9 @@ function RootLayoutContent() {
           <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack>
-        {pendingOnboardingTransition ? (
+        {displayedOnboardingTransition ? (
           <View
-            pointerEvents="auto"
+            pointerEvents={onboardingTransitionExiting ? 'none' : 'auto'}
             style={{
               position: 'absolute',
               top: 0,
@@ -660,21 +775,49 @@ function RootLayoutContent() {
             }}
           >
             <PlanLoadingScreen
-              planName={pendingOnboardingTransition.planName}
-              progress={pendingOnboardingTransition.progress}
+              planName={displayedOnboardingTransition.planName}
+              progress={displayedOnboardingTransition.progress}
               stage={t.plans.planLoadingStage}
               title={
-                pendingOnboardingTransition.planName
+                displayedOnboardingTransition.planName
                   ? t.plans.planLoadingNamed.replace(
                       '{name}',
-                      pendingOnboardingTransition.planName,
+                      displayedOnboardingTransition.planName,
                     )
                   : t.plans.planLoadingGeneric
               }
+              isFinishing={onboardingTransitionExiting}
+            />
+          </View>
+        ) : null}
+        {shouldRenderLaunchExit ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }}
+          >
+            <AppLaunchScreen
+              title={launchExitScreen.title}
+              subtitle={launchExitScreen.subtitle}
+              progress={launchScreenExiting ? launchExitScreen.progress : 1}
+              showSpinner={launchScreenExiting ? launchExitScreen.showSpinner : false}
+              detail={launchScreenExiting ? launchExitScreen.detail : null}
+              isFinishing
             />
           </View>
         ) : null}
       </View>
+    </>
+  );
+
+  return (
+    <ErrorBoundary>
+      {appContent}
     </ErrorBoundary>
   );
 }
