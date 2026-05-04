@@ -9,6 +9,7 @@ import { maybePromptForAppReview } from '../lib/appReview';
 import { useI18n } from '../lib/i18n';
 import { FREE_PLAN_LIMIT, getAccessiblePlanIds } from '../lib/planAccess';
 import { fetchPlansScreenBootstrap, readPlansScreenBootstrap } from '../lib/plansScreenBootstrap';
+import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import { getSession } from '../lib/raceLiveSession';
 import { clearUnfinishedPlanReminder, syncLatestUnfinishedPlanReminder } from '../lib/reminderNotifications';
 import { supabase } from '../lib/supabase';
@@ -33,6 +34,7 @@ export function usePlansScreen() {
     title: string;
     message: string;
   } | null>(null);
+  const pushRegistrationPromptedUserIdRef = useRef<string | null>(null);
 
   const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
     if (options?.showLoading) {
@@ -53,10 +55,13 @@ export function usePlansScreen() {
         buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
         hrefForPlan: (planId) => `/(app)/plan/${planId}/edit`,
       });
+
+      return bootstrap;
     } catch (fetchError) {
       const message =
         fetchError instanceof Error ? fetchError.message : t.common.error;
       setError(message);
+      return null;
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -69,7 +74,25 @@ export function usePlansScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void fetchData({ showLoading: initialBootstrapRef.current == null });
+      let cancelled = false;
+
+      void (async () => {
+        const bootstrap = await fetchData({ showLoading: initialBootstrapRef.current == null });
+        if (cancelled || !bootstrap || bootstrap.isAnonymous || !bootstrap.userId) {
+          return;
+        }
+
+        const shouldRequestPermission = pushRegistrationPromptedUserIdRef.current !== bootstrap.userId;
+        if (shouldRequestPermission) {
+          pushRegistrationPromptedUserIdRef.current = bootstrap.userId;
+        }
+
+        await syncPushDeviceRegistration({
+          locale,
+          requestIfNeeded: shouldRequestPermission,
+        });
+      })();
+
       initialBootstrapRef.current = null;
       syncActivePlan();
       const reviewTimer = setTimeout(() => {
@@ -77,9 +100,10 @@ export function usePlansScreen() {
       }, 650);
 
       return () => {
+        cancelled = true;
         clearTimeout(reviewTimer);
       };
-    }, [fetchData, syncActivePlan]),
+    }, [fetchData, locale, syncActivePlan]),
   );
 
   const openPremiumModal = useCallback((title: string, message: string) => {
