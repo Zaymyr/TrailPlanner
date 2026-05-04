@@ -34,6 +34,35 @@ function getAppVersion() {
   return Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? null;
 }
 
+function classifyPushTokenError(error: unknown) {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+
+  if (
+    Platform.OS === 'android' &&
+    (errorMessage.includes('Default FirebaseApp is not initialized') ||
+      errorMessage.includes('push-notifications/fcm-credentials'))
+  ) {
+    return {
+      reason: 'android-firebase-not-configured',
+      details: {
+        errorMessage,
+        hint: 'Missing google-services.json or Android FCM configuration in the native build.',
+        executionEnvironment: Constants.executionEnvironment,
+        platform: Platform.OS,
+      },
+    };
+  }
+
+  return {
+    reason: 'expo-push-token-failed',
+    details: {
+      errorMessage,
+      executionEnvironment: Constants.executionEnvironment,
+      platform: Platform.OS,
+    },
+  };
+}
+
 async function recordPushRegistrationStatus(
   reason: string,
   details?: Record<string, unknown>,
@@ -249,11 +278,8 @@ export async function syncPushDeviceRegistration({
     return synced ? expoPushToken : null;
   } catch (error) {
     console.warn('Unable to fetch Expo push token.', error);
-    await recordPushRegistrationStatus('expo-push-token-failed', {
-      errorMessage: error instanceof Error ? error.message : String(error),
-      executionEnvironment: Constants.executionEnvironment,
-      platform: Platform.OS,
-    });
+    const classifiedError = classifyPushTokenError(error);
+    await recordPushRegistrationStatus(classifiedError.reason, classifiedError.details);
     return null;
   }
 }

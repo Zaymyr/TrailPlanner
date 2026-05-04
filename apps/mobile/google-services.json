@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "252936837681",
+    "project_id": "paceyourself-1d9e2",
+    "storage_bucket": "paceyourself-1d9e2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:252936837681:android:62007e568af2c049435310",
+        "android_client_info": {
+          "package_name": "com.paceyourself.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCgb3X5EmSvQW-SdDmRC7pps67SMMj_GkQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
