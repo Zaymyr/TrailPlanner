@@ -29,6 +29,7 @@ import {
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
+import { primePlansScreenBootstrap } from '../lib/plansScreenBootstrap';
 import { refreshInactivityReminder } from '../lib/reminderNotifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
@@ -122,6 +123,7 @@ function RootLayoutContent() {
   const pushRegistrationInFlightRef = useRef(false);
   const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
   const launchWasBlockingRef = useRef(true);
+  const initialRedirectInFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
@@ -132,6 +134,7 @@ function RootLayoutContent() {
   );
   const [onboardingTransitionExiting, setOnboardingTransitionExiting] = useState(false);
   const [launchScreenExiting, setLaunchScreenExiting] = useState(false);
+  const shouldHoldForInitialRoute = !segments[0];
 
   if (supabaseInitError) {
     return (
@@ -481,6 +484,7 @@ function RootLayoutContent() {
     if (!ready || updateState.status !== 'done' || shouldHoldForPremium || mergingGuestData) return;
 
     const currentPath = segments.join('/');
+    const atRootIndex = !segments[0];
     const inAuthGroup = segments[0] === '(auth)';
     const hasPendingOnboardingTransition = Boolean(getPendingOnboardingTransition());
     const inOnboarding =
@@ -504,6 +508,28 @@ function RootLayoutContent() {
       return;
     }
 
+    if (session && atRootIndex && !hasPendingOnboardingTransition) {
+      if (initialRedirectInFlightRef.current) return;
+      initialRedirectInFlightRef.current = true;
+
+      void (async () => {
+        try {
+          const nextRoute = await getPostAuthRoute(session);
+          if (nextRoute === '/(app)/plans') {
+            try {
+              await primePlansScreenBootstrap(session);
+            } catch (error) {
+              console.error('Failed to preload plans screen during startup:', error);
+            }
+          }
+          router.replace(nextRoute);
+        } finally {
+          initialRedirectInFlightRef.current = false;
+        }
+      })();
+      return;
+    }
+
     if (session && !inAuthGroup && !hasPendingOnboardingTransition) {
       void shouldOpenOnboarding(session).then((needsOnboarding) => {
         if (needsOnboarding && !inOnboarding) {
@@ -514,7 +540,15 @@ function RootLayoutContent() {
 
     if (session && inAuthGroup && !isAnonymousSession(session)) {
       (async () => {
-        router.replace(await getPostAuthRoute(session));
+        const nextRoute = await getPostAuthRoute(session);
+        if (nextRoute === '/(app)/plans') {
+          try {
+            await primePlansScreenBootstrap(session);
+          } catch (error) {
+            console.error('Failed to preload plans screen after auth:', error);
+          }
+        }
+        router.replace(nextRoute);
       })();
     }
   }, [bootstrappingSession, mergingGuestData, session, ready, segments, shouldHoldForPremium, updateState.status, router]);
@@ -603,7 +637,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.downloadingTitle,
         subtitle: t.appUpdate.downloadingSubtitle,
-        progress: 0.58,
+        progress: 0.28,
         showSpinner: true,
         detail: null,
       };
@@ -613,7 +647,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.checkingTitle,
         subtitle: t.appUpdate.checkingSubtitle,
-        progress: 0.24,
+        progress: 0.12,
         showSpinner: true,
         detail: null,
       };
@@ -623,7 +657,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.startupTitle,
         subtitle: t.appUpdate.startupSubtitle,
-        progress: 0.86,
+        progress: 0.8,
         showSpinner: true,
         detail: null,
       };
@@ -633,7 +667,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.startupTitle,
         subtitle: t.appUpdate.startupSubtitle,
-        progress: 0.92,
+        progress: 0.88,
         showSpinner: true,
         detail: null,
       };
@@ -643,7 +677,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.startupTitle,
         subtitle: t.appUpdate.startupSubtitle,
-        progress: 0.74,
+        progress: 0.56,
         showSpinner: true,
         detail: null,
       };
@@ -653,7 +687,17 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.startupTitle,
         subtitle: t.appUpdate.startupSubtitle,
-        progress: 0.66,
+        progress: 0.36,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (shouldHoldForInitialRoute) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.72,
         showSpinner: true,
         detail: null,
       };
@@ -666,12 +710,13 @@ function RootLayoutContent() {
       showSpinner: true,
       detail: null,
     };
-  }, [bootstrappingSession, mergingGuestData, ready, shouldHoldForPremium, t, updateState]);
+  }, [bootstrappingSession, mergingGuestData, ready, shouldHoldForInitialRoute, shouldHoldForPremium, t, updateState]);
 
   const isLaunchBlocking =
     !ready ||
     updateState.status !== 'done' ||
     shouldHoldForPremium ||
+    shouldHoldForInitialRoute ||
     bootstrappingSession ||
     mergingGuestData;
   const [launchExitScreen, setLaunchExitScreen] = useState<LaunchScreenModel>(launchScreen);

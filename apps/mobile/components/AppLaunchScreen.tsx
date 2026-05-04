@@ -29,13 +29,13 @@ export function AppLaunchScreen({
   primaryAction,
   secondaryAction,
 }: AppLaunchScreenProps) {
-  const safeProgress = Math.max(0.06, Math.min(1, progress));
-  const animatedProgress = useRef(new Animated.Value(safeProgress)).current;
-  const screenOpacity = useRef(new Animated.Value(0)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const cardTranslateY = useRef(new Animated.Value(16)).current;
-  const cardScale = useRef(new Animated.Value(0.985)).current;
-  const highestProgressRef = useRef(safeProgress);
+  const safeProgress = Math.max(0, Math.min(1, progress));
+  const animatedProgress = useRef(new Animated.Value(isFinishing ? safeProgress : 0)).current;
+  const screenOpacity = useRef(new Animated.Value(isFinishing ? 1 : 0)).current;
+  const cardOpacity = useRef(new Animated.Value(isFinishing ? 1 : 0)).current;
+  const cardTranslateY = useRef(new Animated.Value(isFinishing ? 0 : 16)).current;
+  const cardScale = useRef(new Animated.Value(isFinishing ? 1 : 0.985)).current;
+  const highestProgressRef = useRef(isFinishing ? safeProgress : 0);
 
   useEffect(() => {
     const nextProgress = Math.max(highestProgressRef.current, safeProgress);

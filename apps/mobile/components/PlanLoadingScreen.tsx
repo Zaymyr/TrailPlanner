@@ -18,12 +18,12 @@ export function PlanLoadingScreen({
   stage,
   isFinishing = false,
 }: Props) {
-  const safeProgress = Math.max(0.08, Math.min(1, progress));
-  const animatedProgress = useRef(new Animated.Value(safeProgress)).current;
-  const containerOpacity = useRef(new Animated.Value(0)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const cardTranslateY = useRef(new Animated.Value(18)).current;
-  const highestProgressRef = useRef(safeProgress);
+  const safeProgress = Math.max(0, Math.min(1, progress));
+  const animatedProgress = useRef(new Animated.Value(isFinishing ? safeProgress : 0)).current;
+  const containerOpacity = useRef(new Animated.Value(isFinishing ? 1 : 0)).current;
+  const cardOpacity = useRef(new Animated.Value(isFinishing ? 1 : 0)).current;
+  const cardTranslateY = useRef(new Animated.Value(isFinishing ? 0 : 18)).current;
+  const highestProgressRef = useRef(isFinishing ? safeProgress : 0);
 
   useEffect(() => {
     const nextProgress = Math.max(highestProgressRef.current, safeProgress);
