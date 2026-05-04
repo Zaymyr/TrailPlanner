@@ -112,6 +112,7 @@ function RootLayoutContent() {
   const foregroundUpdateCheckInFlightRef = useRef(false);
   const hasShownForegroundUpdateNotificationRef = useRef(false);
   const pushRegistrationInFlightRef = useRef(false);
+  const pushPermissionAutoRequestAttemptedRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
@@ -203,7 +204,7 @@ function RootLayoutContent() {
     void runStartupUpdateCheck();
   }, [runStartupUpdateCheck]);
 
-  const syncBackendPushRegistration = useCallback(async () => {
+  const syncBackendPushRegistration = useCallback(async (requestIfNeeded = false) => {
     if (pushRegistrationInFlightRef.current) return;
     if (!session?.access_token) return;
 
@@ -213,6 +214,7 @@ function RootLayoutContent() {
       await syncPushDeviceRegistration({
         accessToken: session.access_token,
         locale,
+        requestIfNeeded,
       });
     } finally {
       pushRegistrationInFlightRef.current = false;
@@ -274,11 +276,24 @@ function RootLayoutContent() {
       await noteReviewActiveDuration(Date.now() - startedAt);
     };
 
+    const syncBackendPushRegistrationForCurrentSession = () => {
+      if (!session?.access_token) return;
+
+      const shouldAutoRequestPermission =
+        !isAnonymousSession(session) && !pushPermissionAutoRequestAttemptedRef.current;
+
+      if (shouldAutoRequestPermission) {
+        pushPermissionAutoRequestAttemptedRef.current = true;
+      }
+
+      void syncBackendPushRegistration(shouldAutoRequestPermission);
+    };
+
     if (AppState.currentState === 'active') {
       activeUsageStartedAtRef.current = Date.now();
       void noteReviewSessionStart();
       void syncInactivityReminder();
-      void syncBackendPushRegistration();
+      syncBackendPushRegistrationForCurrentSession();
     }
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -294,7 +309,7 @@ function RootLayoutContent() {
         void noteReviewSessionStart();
         void syncInactivityReminder();
         void checkForForegroundUpdate();
-        void syncBackendPushRegistration();
+        syncBackendPushRegistrationForCurrentSession();
       }
     });
 
@@ -316,7 +331,14 @@ function RootLayoutContent() {
     if (AppState.currentState !== 'active') return;
     if (!session?.access_token) return;
 
-    void syncBackendPushRegistration();
+    const shouldAutoRequestPermission =
+      !isAnonymousSession(session) && !pushPermissionAutoRequestAttemptedRef.current;
+
+    if (shouldAutoRequestPermission) {
+      pushPermissionAutoRequestAttemptedRef.current = true;
+    }
+
+    void syncBackendPushRegistration(shouldAutoRequestPermission);
   }, [session?.access_token, syncBackendPushRegistration, updateState.status]);
 
   useEffect(() => {
