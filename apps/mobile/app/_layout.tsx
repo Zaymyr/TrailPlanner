@@ -112,10 +112,12 @@ function RootLayoutContent() {
   const foregroundUpdateCheckInFlightRef = useRef(false);
   const hasShownForegroundUpdateNotificationRef = useRef(false);
   const pushRegistrationInFlightRef = useRef(false);
-  const pushPermissionAutoRequestAttemptedRef = useRef(false);
+  const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
+  const authenticatedPushUserId =
+    session && !isAnonymousSession(session) ? session.user.id : null;
 
   if (supabaseInitError) {
     return (
@@ -280,10 +282,11 @@ function RootLayoutContent() {
       if (!session?.access_token) return;
 
       const shouldAutoRequestPermission =
-        !isAnonymousSession(session) && !pushPermissionAutoRequestAttemptedRef.current;
+        authenticatedPushUserId != null &&
+        pushPermissionAutoRequestUserIdRef.current !== authenticatedPushUserId;
 
       if (shouldAutoRequestPermission) {
-        pushPermissionAutoRequestAttemptedRef.current = true;
+        pushPermissionAutoRequestUserIdRef.current = authenticatedPushUserId;
       }
 
       void syncBackendPushRegistration(shouldAutoRequestPermission);
@@ -332,14 +335,20 @@ function RootLayoutContent() {
     if (!session?.access_token) return;
 
     const shouldAutoRequestPermission =
-      !isAnonymousSession(session) && !pushPermissionAutoRequestAttemptedRef.current;
+      authenticatedPushUserId != null &&
+      pushPermissionAutoRequestUserIdRef.current !== authenticatedPushUserId;
 
     if (shouldAutoRequestPermission) {
-      pushPermissionAutoRequestAttemptedRef.current = true;
+      pushPermissionAutoRequestUserIdRef.current = authenticatedPushUserId;
     }
 
     void syncBackendPushRegistration(shouldAutoRequestPermission);
-  }, [session?.access_token, syncBackendPushRegistration, updateState.status]);
+  }, [
+    authenticatedPushUserId,
+    session?.access_token,
+    syncBackendPushRegistration,
+    updateState.status,
+  ]);
 
   useEffect(() => {
     return addPendingOnboardingTransitionListener((transition) => {
