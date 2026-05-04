@@ -2,8 +2,12 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME?.trim();
-  const androidGoogleServicesFile = process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE?.trim();
-  const iosGoogleServicesFile = process.env.EXPO_IOS_GOOGLE_SERVICES_FILE?.trim();
+  const androidGoogleServicesFile =
+    process.env.GOOGLE_SERVICES_JSON?.trim() ??
+    process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE?.trim();
+  const iosGoogleServicesFile =
+    process.env.GOOGLE_SERVICE_INFO_PLIST?.trim() ??
+    process.env.EXPO_IOS_GOOGLE_SERVICES_FILE?.trim();
   const googleSigninPlugin: [string, any][] = googleIosUrlScheme
     ? [[
         '@react-native-google-signin/google-signin',
