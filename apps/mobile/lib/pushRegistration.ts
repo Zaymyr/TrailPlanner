@@ -7,9 +7,6 @@ import { supabase } from './supabase';
 
 const PUSH_TOKEN_STORAGE_KEY = 'trailplanner.pushToken';
 const LOCALE_STORAGE_KEY = 'trailplanner.locale';
-const normalizeBaseUrl = (value: string | undefined) => (value?.trim() ?? '').replace(/\/+$/, '');
-const SUPABASE_FUNCTIONS_BASE_URL = normalizeBaseUrl(process.env.EXPO_PUBLIC_SUPABASE_URL);
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
 const ANDROID_PUSH_CHANNEL_ID = 'default';
 
 type SyncPushDeviceRegistrationInput = {
@@ -58,13 +55,10 @@ async function resolvePushRegistrationContext(input: SyncPushDeviceRegistrationI
   const providedAccessToken = input.accessToken ?? null;
   const providedLocale = input.locale;
 
-  if (providedAccessToken && providedLocale) {
-    return { accessToken: providedAccessToken, locale: providedLocale };
-  }
-
   if (!providedAccessToken && !supabase?.auth?.getSession) {
     return {
       accessToken: null,
+      authorizationHeader: null,
       locale: providedLocale ?? resolveDeviceLocale(),
     };
   }
@@ -75,7 +69,11 @@ async function resolvePushRegistrationContext(input: SyncPushDeviceRegistrationI
   ]);
 
   return {
-    accessToken: providedAccessToken ?? sessionData.session?.access_token ?? null,
+    accessToken: sessionData.session?.access_token ?? providedAccessToken,
+    authorizationHeader:
+      sessionData.session?.access_token == null && providedAccessToken
+        ? `Bearer ${providedAccessToken}`
+        : null,
     locale:
       providedLocale ??
       (storedLocale === 'fr' || storedLocale === 'en' ? storedLocale : resolveDeviceLocale()),
@@ -83,7 +81,7 @@ async function resolvePushRegistrationContext(input: SyncPushDeviceRegistrationI
 }
 
 async function postPushDeviceRegistration(
-  accessToken: string,
+  authorizationHeader: string | null,
   payload: {
     expoPushToken: string;
     locale: 'fr' | 'en';
@@ -95,34 +93,29 @@ async function postPushDeviceRegistration(
     return false;
   }
 
-  if (!SUPABASE_FUNCTIONS_BASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('Supabase function configuration is missing. Push registration skipped.');
+  if (!supabase?.functions?.invoke) {
+    console.warn('Supabase functions client is unavailable. Push registration skipped.');
     return false;
   }
 
   try {
-    const response = await fetch(`${SUPABASE_FUNCTIONS_BASE_URL}/functions/v1/push-register`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        apikey: SUPABASE_ANON_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const { error } = await supabase.functions.invoke('push-register', {
+      body: {
         expoPushToken: payload.expoPushToken,
         platform,
         locale: payload.locale,
         appVersion: getAppVersion(),
         notificationsEnabled: payload.notificationsEnabled,
-      }),
+      },
+      headers: authorizationHeader ? { Authorization: authorizationHeader } : undefined,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
-      console.warn('Push registration function returned an error.', response.status, errorText);
+    if (error) {
+      console.warn('Push registration function returned an error.', error);
+      return false;
     }
 
-    return response.ok;
+    return true;
   } catch (error) {
     console.warn('Unable to sync push registration with the server.', error);
     return false;
@@ -133,10 +126,10 @@ export async function syncPushDeviceRegistration({
   requestIfNeeded = false,
   ...input
 }: SyncPushDeviceRegistrationInput = {}) {
-  const { accessToken, locale } = await resolvePushRegistrationContext(input);
+  const { accessToken, authorizationHeader, locale } = await resolvePushRegistrationContext(input);
 
-  if (!accessToken || !SUPABASE_FUNCTIONS_BASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('Push registration skipped: missing access token or Supabase public config.');
+  if (!accessToken) {
+    console.warn('Push registration skipped: no authenticated Supabase session available.');
     return null;
   }
 
@@ -166,7 +159,7 @@ export async function syncPushDeviceRegistration({
     });
 
     if (storedPushToken) {
-      const disabled = await postPushDeviceRegistration(accessToken, {
+      const disabled = await postPushDeviceRegistration(authorizationHeader, {
         expoPushToken: storedPushToken,
         locale,
         notificationsEnabled: false,
@@ -183,7 +176,7 @@ export async function syncPushDeviceRegistration({
   try {
     const expoPushToken = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
 
-    const synced = await postPushDeviceRegistration(accessToken, {
+    const synced = await postPushDeviceRegistration(authorizationHeader, {
       expoPushToken,
       locale,
       notificationsEnabled: true,
