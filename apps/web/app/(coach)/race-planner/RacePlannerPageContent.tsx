@@ -1050,8 +1050,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
         },
-        body: JSON.stringify({ subject, detail }),
+        body: JSON.stringify({ kind: "feedback", screen: "race-planner", subject, detail }),
       });
 
       const payload = (await response.json().catch(() => null)) as { message?: string } | null;

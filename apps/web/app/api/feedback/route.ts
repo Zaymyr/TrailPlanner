@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig } from "../../../lib/supabase";
+
 const feedbackSchema = z.object({
+  kind: z.enum(["bug", "feedback"]).optional().default("feedback"),
+  screen: z
+    .string()
+    .trim()
+    .max(120, "Screen is too long")
+    .optional()
+    .transform((value) => value?.trim() || null),
   subject: z.string().trim().min(1, "Subject is required"),
   detail: z.string().trim().min(1, "Detail is required"),
 });
@@ -39,6 +48,14 @@ export async function POST(request: Request) {
   }
 
   const { supabaseUrl, supabaseServiceRoleKey } = supabaseConfig;
+  const supabaseAnonConfig = getSupabaseAnonConfig();
+  const accessToken = extractBearerToken(request.headers.get("authorization"));
+  let userId: string | null = null;
+
+  if (accessToken && supabaseAnonConfig) {
+    const supabaseUser = await fetchSupabaseUser(accessToken, supabaseAnonConfig);
+    userId = supabaseUser?.id ?? null;
+  }
 
   try {
     const response = await fetch(`${supabaseUrl}/rest/v1/app_feedback`, {
@@ -50,7 +67,11 @@ export async function POST(request: Request) {
         Prefer: "return=minimal",
       },
       body: JSON.stringify({
-        subject: parsedBody.data.subject,
+        user_id: userId,
+        kind: parsedBody.data.kind,
+        source: "web",
+        screen: parsedBody.data.screen,
+        subject: parsedBody.data.kind === "bug" ? `[bug] ${parsedBody.data.subject}` : parsedBody.data.subject,
         detail: parsedBody.data.detail,
       }),
       cache: "no-store",
