@@ -220,8 +220,12 @@ export const en: Translations = {
     },
     gpx: {
       errors: {
-        noTrackPoints: "No track points found in the GPX file.",
-        invalidCoordinates: "Invalid coordinates in track points.",
+        emptyFile: "The GPX file is empty.",
+        invalidFile: "This file does not look like a valid GPX file.",
+        unsupportedFormat: "This file is not in GPX format. Export it as a .gpx file and try again.",
+        invalidEncoding: "The GPX file could not be read correctly. Re-export it as UTF-8 if possible.",
+        noTrackPoints: "No usable coordinates were found in this GPX file.",
+        invalidCoordinates: "The GPX contains points, but their coordinates are invalid.",
         unableToImport: "Unable to import GPX file.",
         invalidPlannerState: "We couldn't read the saved plan data from this GPX.",
       },

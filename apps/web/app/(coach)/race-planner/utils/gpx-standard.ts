@@ -1,7 +1,7 @@
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues } from "../types";
 import { dedupeAidStations, sanitizeAidStations, sanitizeElevationProfile } from "./plan-sanitizers";
-import { parseGpx as parseSharedGpx } from "../../../../lib/gpx/parseGpx";
+import { GpxParseError, parseGpx as parseSharedGpx } from "../../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../../lib/gpx/normalizeImportedWaypoints";
 
 export type ParsedGpx = {
@@ -27,8 +27,14 @@ const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
 const toNumber = (value?: string | null): number | null => {
   if (!value) return null;
-  const parsed = Number(value);
+  const parsed = Number(value.trim().replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const decodeNumericEntity = (value: string) => {
+  const isHex = value[0]?.toLowerCase() === "x";
+  const codePoint = Number.parseInt(isHex ? value.slice(1) : value, isHex ? 16 : 10);
+  return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : `&#${value};`;
 };
 
 const escapeXml = (text: string) =>
@@ -52,6 +58,7 @@ const escapeXml = (text: string) =>
 const decodeEntities = (text: string | null | undefined) => {
   if (!text) return "";
   return text
+    .replace(/&#(x?[0-9a-f]+);/gi, (_match, value: string) => decodeNumericEntity(value))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
@@ -60,15 +67,40 @@ const decodeEntities = (text: string | null | undefined) => {
     .trim();
 };
 
-const parseAttr = (attributes: string, key: "lat" | "lon") =>
-  toNumber(attributes.match(new RegExp(`\\b${key}=\"([^\"]+)\"`, "i"))?.[1] ?? attributes.match(new RegExp(`\\b${key}='([^']+)'`, "i"))?.[1]);
+const parseAttr = (attributes: string, key: "lat" | "lon" | "lng") =>
+  toNumber(
+    attributes.match(new RegExp(`\\b${key}\\s*=\\s*\"([^\"]+)\"`, "i"))?.[1] ??
+      attributes.match(new RegExp(`\\b${key}\\s*=\\s*'([^']+)'`, "i"))?.[1] ??
+      attributes.match(new RegExp(`\\b${key}\\s*=\\s*([^\\s\"'>/]+)`, "i"))?.[1]
+  );
 
-const parseTag = (inner: string, tag: string) => decodeEntities(inner.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "i"))?.[1]);
+const parseTag = (inner: string, tag: string) =>
+  decodeEntities(inner.match(new RegExp(`<(?:[\\w.-]+:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${tag}>`, "i"))?.[1]);
 
 const parseExtensionNumber = (inner: string, localName: string): number | undefined => {
   const regex = new RegExp(`<[^:>]+:${localName}>([\\s\\S]*?)<\\/[^:>]+:${localName}>`, "i");
   const parsed = toNumber(inner.match(regex)?.[1]);
   return parsed === null ? undefined : parsed;
+};
+
+const mapSharedParseError = (error: GpxParseError, copy: RacePlannerTranslations) => {
+  switch (error.code) {
+    case "empty_file":
+      return copy.gpx.errors.emptyFile;
+    case "invalid_encoding":
+      return copy.gpx.errors.invalidEncoding;
+    case "unsupported_kml":
+    case "unsupported_tcx":
+      return copy.gpx.errors.unsupportedFormat;
+    case "not_gpx":
+      return copy.gpx.errors.invalidFile;
+    case "invalid_coordinates":
+      return copy.gpx.errors.invalidCoordinates;
+    case "no_coordinates":
+      return copy.gpx.errors.noTrackPoints;
+    default:
+      return copy.gpx.errors.unableToImport;
+  }
 };
 
 export function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -84,17 +116,18 @@ export function haversineDistanceMeters(lat1: number, lon1: number, lat2: number
 }
 
 const parseWaypoints = (content: string, copy: RacePlannerTranslations): ParsedWaypoint[] => {
-  const wptRegex = /<wpt\b([^>]*)>([\s\S]*?)<\/wpt>/gi;
+  const normalizedContent = content.replace(/^\uFEFF/, "").replace(/\u0000/g, "");
+  const wptRegex = /<(?:[\w.-]+:)?wpt\b([^>]*)(?:>([\s\S]*?)<\/(?:[\w.-]+:)?wpt>|\s*\/>)/gi;
   const waypoints: ParsedWaypoint[] = [];
   let match: RegExpExecArray | null = null;
 
-  while ((match = wptRegex.exec(content))) {
+  while ((match = wptRegex.exec(normalizedContent))) {
     const lat = parseAttr(match[1], "lat");
-    const lon = parseAttr(match[1], "lon");
+    const lon = parseAttr(match[1], "lon") ?? parseAttr(match[1], "lng");
 
     if (lat === null || lon === null) continue;
 
-    const inner = match[2];
+    const inner = match[2] ?? "";
     const name = parseTag(inner, "name") || parseTag(inner, "desc") || copy.gpx.fallbackAidStation;
     const extensionIndex = parseExtensionNumber(inner, "index");
     const extensionDistance = parseExtensionNumber(inner, "distance");
@@ -127,7 +160,17 @@ const findClosestTrackPoint = (waypoint: ParsedWaypoint, trackPoints: ParsedTrac
 };
 
 export function parseStandardGpx(content: string, copy: RacePlannerTranslations): ParsedGpx {
-  const shared = parseSharedGpx(content);
+  let shared: ReturnType<typeof parseSharedGpx>;
+
+  try {
+    shared = parseSharedGpx(content);
+  } catch (error) {
+    if (error instanceof GpxParseError) {
+      throw new Error(mapSharedParseError(error, copy));
+    }
+    throw error;
+  }
+
   const trackPoints: ParsedTrackPoint[] = shared.points.map((point) => ({
     lat: point.lat,
     lon: point.lng,

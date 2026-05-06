@@ -127,6 +127,10 @@ export type RacePlannerTranslations = {
   };
   gpx: {
     errors: {
+      emptyFile: string;
+      invalidFile: string;
+      unsupportedFormat: string;
+      invalidEncoding: string;
       noTrackPoints: string;
       invalidCoordinates: string;
       unableToImport: string;

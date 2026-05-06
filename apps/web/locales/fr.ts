@@ -229,8 +229,12 @@ export const fr: Translations = {
     },
     gpx: {
       errors: {
-        noTrackPoints: "Aucun point de trace trouvé dans le fichier GPX.",
-        invalidCoordinates: "Coordonnées invalides dans les points de trace.",
+        emptyFile: "Le fichier GPX est vide.",
+        invalidFile: "Ce fichier ne ressemble pas à un GPX valide.",
+        unsupportedFormat: "Ce fichier n'est pas au format GPX. Exportez-le en .gpx puis réessayez.",
+        invalidEncoding: "Le fichier GPX n'a pas pu être lu correctement. Réexportez-le en UTF-8 si possible.",
+        noTrackPoints: "Aucune coordonnée exploitable trouvée dans ce fichier GPX.",
+        invalidCoordinates: "Le GPX contient des points, mais leurs coordonnées sont invalides.",
         unableToImport: "Import du fichier GPX impossible.",
         invalidPlannerState: "Impossible de lire les données enregistrées depuis ce GPX.",
       },

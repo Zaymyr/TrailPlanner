@@ -120,6 +120,12 @@ export type MobileTranslations = {
     gpxRouteFallback: string;
     gpxWaypointFallback: string;
     gpxNoElevation: string;
+    gpxImportEmpty: string;
+    gpxImportInvalidFile: string;
+    gpxImportUnsupportedFormat: string;
+    gpxImportInvalidEncoding: string;
+    gpxImportInvalidCoordinates: string;
+    gpxImportNoPoints: string;
     gpxImportFailedDetails: string;
     validationNameRequired: string;
     validationDistanceRequired: string;

@@ -15,7 +15,11 @@ import { supabase } from '../../../lib/supabase';
 import { WEB_API_BASE_URL } from '../../../lib/webApi';
 import { useI18n } from '../../../lib/i18n';
 import { noteReviewRaceCreated } from '../../../lib/appReview';
-import { parseGpxForRaceImport, type MobileGpxParseResult } from '../../../lib/gpx';
+import {
+  MobileGpxParseError,
+  parseGpxForRaceImport,
+  type MobileGpxParseResult,
+} from '../../../lib/gpx';
 import { Colors } from '../../../constants/colors';
 
 type AidStation = { name: string; km: string; water: boolean };
@@ -63,6 +67,33 @@ const buildGpxFeedback = (parsed: MobileGpxParseResult, t: ReturnType<typeof use
     tone: parsed.pointSource === 'track' ? 'success' : 'warning',
     message,
   };
+};
+
+const buildGpxImportErrorMessage = (
+  error: unknown,
+  t: ReturnType<typeof useI18n>['t'],
+) => {
+  if (!(error instanceof MobileGpxParseError)) {
+    return t.races.gpxImportFailedDetails;
+  }
+
+  switch (error.code) {
+    case 'empty_file':
+      return t.races.gpxImportEmpty;
+    case 'invalid_encoding':
+      return t.races.gpxImportInvalidEncoding;
+    case 'unsupported_kml':
+    case 'unsupported_tcx':
+      return t.races.gpxImportUnsupportedFormat;
+    case 'invalid_coordinates':
+      return t.races.gpxImportInvalidCoordinates;
+    case 'no_coordinates':
+      return t.races.gpxImportNoPoints;
+    case 'not_gpx':
+      return t.races.gpxImportInvalidFile;
+    default:
+      return t.races.gpxImportFailedDetails;
+  }
 };
 
 export default function NewRaceScreen() {
@@ -193,9 +224,9 @@ export default function NewRaceScreen() {
         }
 
         setGpxFeedback(buildGpxFeedback(parsed, t));
-      } catch {
+      } catch (error) {
         setGpxContent(null);
-        setGpxFeedback({ tone: 'warning', message: t.races.gpxImportFailedDetails });
+        setGpxFeedback({ tone: 'warning', message: buildGpxImportErrorMessage(error, t) });
       }
     } catch {
       Alert.alert('Erreur', 'Impossible de lire le fichier GPX.');

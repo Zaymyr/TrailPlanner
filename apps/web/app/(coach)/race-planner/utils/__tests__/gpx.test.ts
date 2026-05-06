@@ -4,10 +4,14 @@ import type { FormValues } from "../../types";
 import { buildPlannerGpx, parseGpx } from "../gpx";
 
 const copy = {
-  defaults: { finish: "Finish" },
+  defaults: { start: "Start", finish: "Finish" },
   gpx: {
     fallbackAidStation: "Aid station",
     errors: {
+      emptyFile: "empty file",
+      invalidFile: "invalid file",
+      unsupportedFormat: "unsupported format",
+      invalidEncoding: "invalid encoding",
       invalidPlannerState: "invalid planner state",
       invalidCoordinates: "invalid coordinates",
       noTrackPoints: "no track points",
@@ -48,6 +52,30 @@ describe("race planner GPX", () => {
     expect(parsed.aidStations.some((s) => s.name === "Finish")).toBe(true);
   });
 
+  it("maps empty files to a clearer localized error", () => {
+    expect(() => parseGpx("", copy)).toThrow("empty file");
+  });
+
+  it("maps unsupported formats to a clearer localized error", () => {
+    const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document />
+</kml>`;
+
+    expect(() => parseGpx(kml, copy)).toThrow("unsupported format");
+  });
+
+  it("maps invalid coordinates to a localized error", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><trkseg>
+    <trkpt lat="oops" lon="3.0000" />
+  </trkseg></trk>
+</gpx>`;
+
+    expect(() => parseGpx(gpx, copy)).toThrow("invalid coordinates");
+  });
+
   it("imports standard GPX with self-closing trkpt tags", () => {
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
@@ -81,8 +109,8 @@ describe("race planner GPX", () => {
   it("uses explicit finish waypoint name and avoids duplicate endpoint station", () => {
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
-  <wpt lat="45.0000" lon="3.0000"><name>Départ officiel</name></wpt>
-  <wpt lat="45.0010" lon="3.0010"><name>Arrivée arche</name></wpt>
+  <wpt lat="45.0000" lon="3.0000"><name>Depart officiel</name></wpt>
+  <wpt lat="45.0010" lon="3.0010"><name>Arrivee arche</name></wpt>
   <trk><trkseg>
     <trkpt lat="45.0000" lon="3.0000" />
     <trkpt lat="45.0010" lon="3.0010" />
@@ -90,10 +118,10 @@ describe("race planner GPX", () => {
 </gpx>`;
 
     const parsed = parseGpx(gpx, copy);
-    const finishStations = parsed.aidStations.filter((s) => s.name === "Arrivée arche");
+    const finishStations = parsed.aidStations.filter((s) => s.name === "Arrivee arche");
 
     expect(finishStations).toHaveLength(1);
-    expect(parsed.aidStations.some((s) => s.name === "Départ officiel")).toBe(false);
+    expect(parsed.aidStations.some((s) => s.name === "Depart officiel")).toBe(false);
   });
 
   it("uses tp:index/tp:distance extensions when provided", () => {
@@ -117,9 +145,9 @@ describe("race planner GPX", () => {
   });
 
   it("imports legacy GPX when trailplanner:state exists", () => {
-    const plannerState = Buffer.from(JSON.stringify({ values: { raceDistanceKm: 42.2, aidStations: [{ name: "AS", distanceKm: 10 }] } })).toString(
-      "base64"
-    );
+    const plannerState = Buffer.from(
+      JSON.stringify({ values: { raceDistanceKm: 42.2, aidStations: [{ name: "AS", distanceKm: 10 }] } })
+    ).toString("base64");
 
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1" xmlns:trailplanner="https://trailplanner.app/gpx">
