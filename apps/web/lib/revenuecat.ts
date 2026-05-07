@@ -27,6 +27,13 @@ type RevenueCatSyncResult = {
   synced: boolean;
 };
 
+type RevenueCatWebhookSnapshot = {
+  currentPeriodEnd: string | null;
+  priceId: string | null;
+  provider: RevenueCatProvider | null;
+  status: "active" | "trialing" | "expired";
+};
+
 type ExistingSubscriptionRow = {
   current_period_end: string | null;
   price_id: string | null;
@@ -72,7 +79,13 @@ const webhookEnvelopeSchema = z.object({
     .object({
       aliases: z.array(z.string()).optional(),
       app_user_id: z.string().optional(),
+      entitlement_id: z.string().nullable().optional(),
+      entitlement_ids: z.array(z.string()).nullable().optional(),
+      expiration_at_ms: z.union([z.number(), z.string()]).nullable().optional(),
+      grace_period_expiration_at_ms: z.union([z.number(), z.string()]).nullable().optional(),
       original_app_user_id: z.string().optional(),
+      period_type: z.string().nullable().optional(),
+      product_id: z.string().nullable().optional(),
       store: z.string().nullable().optional(),
       transferred_from: z.array(z.string()).optional(),
       transferred_to: z.array(z.string()).optional(),
@@ -128,6 +141,26 @@ const parseRevenueCatDate = (value: string | null | undefined): number | null =>
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const parseRevenueCatWebhookDateMs = (value: number | string | null | undefined): number | null => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const toIsoStringFromTimestamp = (value: number | null): string | null => {
+  if (value === null || !Number.isFinite(value)) return null;
+
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+};
+
 const isStillActive = (value: string | null | undefined): boolean => {
   const timestamp = parseRevenueCatDate(value);
   if (timestamp === null) return value === null;
@@ -141,6 +174,40 @@ const mapRevenueCatStoreToProvider = (store: string | null | undefined): Revenue
   if (normalized === "APP_STORE" || normalized === "MAC_APP_STORE") return "apple";
 
   return null;
+};
+
+export const extractRevenueCatWebhookSnapshot = (payload: unknown): RevenueCatWebhookSnapshot | null => {
+  const parsed = webhookEnvelopeSchema.safeParse(payload);
+
+  if (!parsed.success || !parsed.data.event) {
+    return null;
+  }
+
+  const event = parsed.data.event;
+  const provider = mapRevenueCatStoreToProvider(event.store);
+  const effectiveEndTimestamp =
+    parseRevenueCatWebhookDateMs(event.grace_period_expiration_at_ms) ??
+    parseRevenueCatWebhookDateMs(event.expiration_at_ms);
+  const currentPeriodEnd = toIsoStringFromTimestamp(effectiveEndTimestamp);
+  const eventType = event.type?.trim().toUpperCase() ?? "";
+  const periodType = event.period_type?.trim().toUpperCase() ?? "";
+  const hasEntitlementSignal = Boolean(event.entitlement_id) || Boolean(event.entitlement_ids?.length);
+  const priceId = event.product_id?.trim() || null;
+  const hasSubscriptionSignal = Boolean(priceId || hasEntitlementSignal || currentPeriodEnd);
+
+  if (!hasSubscriptionSignal) {
+    return null;
+  }
+
+  const isExplicitlyExpired = eventType === "EXPIRATION";
+  const isActive = !isExplicitlyExpired && (effectiveEndTimestamp === null || effectiveEndTimestamp > Date.now());
+
+  return {
+    currentPeriodEnd,
+    priceId,
+    provider,
+    status: isActive ? (periodType === "TRIAL" ? "trialing" : "active") : "expired",
+  };
 };
 
 const getCandidateApiKeys = (
@@ -385,6 +452,46 @@ const upsertRevenueCatSubscription = async (
   });
 };
 
+const persistRevenueCatWebhookSnapshot = async (
+  userId: string,
+  snapshot: RevenueCatWebhookSnapshot
+): Promise<RevenueCatSyncResult> => {
+  if (snapshot.status === "expired") {
+    return expireExistingRevenueCatSubscription(userId, {
+      currentPeriodEnd: snapshot.currentPeriodEnd,
+      priceId: snapshot.priceId,
+      providerHint: snapshot.provider,
+    });
+  }
+
+  if (!snapshot.provider) {
+    return {
+      currentPeriodEnd: snapshot.currentPeriodEnd,
+      provider: null,
+      status: snapshot.status,
+      synced: false,
+    };
+  }
+
+  const synced = await persistRevenueCatSubscription({
+    user_id: userId,
+    provider: snapshot.provider,
+    status: snapshot.status,
+    price_id: snapshot.priceId,
+    plan_name: null,
+    current_period_end: snapshot.currentPeriodEnd,
+    stripe_customer_id: null,
+    stripe_subscription_id: null,
+  });
+
+  return {
+    currentPeriodEnd: snapshot.currentPeriodEnd,
+    provider: snapshot.provider,
+    status: snapshot.status,
+    synced,
+  };
+};
+
 const expireExistingRevenueCatSubscription = async (
   userId: string,
   options?: { currentPeriodEnd?: string | null; priceId?: string | null; providerHint?: RevenueCatProvider | null }
@@ -475,6 +582,42 @@ export const syncRevenueCatSubscriptionForUser = async (
     provider: snapshot.provider,
     status: snapshot.status,
     synced,
+  };
+};
+
+export const syncRevenueCatWebhookPayload = async (
+  payload: unknown
+): Promise<{ providerHint: RevenueCatProvider | null; userIds: string[]; results: RevenueCatSyncResult[] }> => {
+  const { providerHint, userIds } = extractRevenueCatWebhookUserIds(payload);
+
+  if (userIds.length === 0) {
+    return {
+      providerHint,
+      userIds,
+      results: [],
+    };
+  }
+
+  const snapshot = extractRevenueCatWebhookSnapshot(payload);
+
+  if (!snapshot) {
+    const results = await Promise.all(
+      userIds.map((userId) => syncRevenueCatSubscriptionForUser(userId, { providerHint }))
+    );
+
+    return {
+      providerHint,
+      userIds,
+      results,
+    };
+  }
+
+  const results = await Promise.all(userIds.map((userId) => persistRevenueCatWebhookSnapshot(userId, snapshot)));
+
+  return {
+    providerHint,
+    userIds,
+    results,
   };
 };
 
