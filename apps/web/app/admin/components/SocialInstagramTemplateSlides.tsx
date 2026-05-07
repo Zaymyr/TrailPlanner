@@ -104,7 +104,7 @@ function getHookHeroFontSize(label: string) {
 
 function normalizeQuoteText(value: string) {
   const trimmed = value.trim();
-  if (!trimmed) return "Bien manger le jour J, ca se prepare avant le depart.";
+  if (!trimmed) return "Bien manger le jour J, ça se prépare avant le départ.";
   if (trimmed.startsWith("«") || trimmed.startsWith("\"")) return trimmed;
   return `« ${trimmed} »`;
 }
@@ -127,7 +127,7 @@ function buildAidStationLegLabel(draft: SocialInstagramTemplateDraft, index: num
   const current = draft.aidStations[index];
   if (!current) return "";
 
-  const previousName = index === 0 ? "Depart" : (draft.aidStations[index - 1]?.name || "Ravito precedent");
+  const previousName = index === 0 ? "Départ" : (draft.aidStations[index - 1]?.name || "Ravito précédent");
   const currentName = current.name || `Ravito ${index + 1}`;
   return `${previousName} - ${currentName}`;
 }
@@ -558,7 +558,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
           <div>
             <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{buildRaceKicker(draft) || "COURSE | ANNEE"}</div>
             <div style={{ marginTop: "14px", fontSize: "44px", lineHeight: 1.02, fontWeight: 800, letterSpacing: "-0.04em" }}>
-              Plan de nutrition detaille
+              Plan de nutrition détaillé
             </div>
           </div>
           <PYLogo accent={accent} size={36} />
@@ -679,7 +679,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
                       ))
                     ) : (
                       <div style={{ fontSize: "17px", lineHeight: 1.32, color: COLORS.muted }}>
-                        Aucun detail de reprise n'est renseigne pour ce ravito.
+                        Aucun détail de reprise n'est renseigné pour ce ravito.
                       </div>
                     )}
                   </div>
@@ -688,7 +688,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
             })
           ) : (
             <div style={{ ...cardStyle, padding: "22px 24px", borderRadius: "18px" }}>
-              <div style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text }}>Aucun ravito detaille pour l'instant.</div>
+              <div style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text }}>Aucun ravito détaillé pour l'instant.</div>
               <div style={{ marginTop: "8px", fontSize: "18px", lineHeight: 1.35, color: COLORS.muted }}>
                 Tu peux completer cette slide depuis l'editeur Admin si tu veux ajouter les reprises clefs.
               </div>
@@ -746,7 +746,7 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
           un <span style={{ color: accent.warm }}>plan</span> ?
         </div>
         <div style={{ fontSize: "28px", color: COLORS.darkMuted, marginTop: "20px", maxWidth: "640px", lineHeight: 1.4 }}>
-          Distance, denivele, allure, ravitos... tout se calcule. Tout se prepare.
+          Distance, dénivelé, allure, ravitos... tout se calcule. Tout se prépare.
         </div>
         <div
           style={{

@@ -77,7 +77,7 @@ const PREVIEW_SLIDE_WIDTH = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH * P
 const PREVIEW_SLIDE_HEIGHT = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT * PREVIEW_SCALE);
 const ADMIN_COPY = {
   description: "Choisis un plan, ajuste le template Instagram puis exporte chaque slide en PNG.",
-  previewDescription: "Apercu reduit dans l'Admin. L'export PNG garde le format complet 1080 x 1080.",
+  previewDescription: "Aperçu réduit dans l'Admin. L'export PNG garde le format complet 1080 x 1080.",
   scrollHint: "Le preview est reduit pour rester lisible ici. L'export garde la taille complete du slide.",
   editorDescription: "Les champs verts viennent du plan en base. Les champs neutres servent a l'habillage social et restent modifiables localement.",
 } as const;

@@ -443,7 +443,7 @@ export default function RaceScreenV2() {
 
             <View style={styles.inlineCard}>
               <View>
-                <Text style={styles.kicker}>Depart estime</Text>
+                <Text style={styles.kicker}>Départ estimé</Text>
                 <Text style={styles.inlineTitle}>{formatClock(previewDepartureTime)}</Text>
               </View>
               <TouchableOpacity
@@ -461,7 +461,7 @@ export default function RaceScreenV2() {
             <View style={styles.summaryCard}>
               <Text style={styles.sectionHeading}>Suivi live</Text>
               <Text style={styles.summaryText}>
-                {totalAlerts} rappels vont etre generes a partir des prises planifiees dans les sections.
+                {totalAlerts} rappels vont être générés à partir des prises planifiées dans les sections.
               </Text>
               <View style={styles.summaryChips}>
                 <Text style={styles.summaryChip}>{liveSections.length} sections</Text>
@@ -479,8 +479,8 @@ export default function RaceScreenV2() {
                     <Text style={styles.waterToggleTitle}>Rappels eau seule</Text>
                     <Text style={styles.waterToggleText}>
                       {includeWaterOnlyAlerts
-                        ? `Toutes les ${waterOnlyReminderIntervalMinutes} min, volume ajuste par prise.`
-                        : "Les prises d'eau seule sont grisees et sans notification."}
+                        ? `Toutes les ${waterOnlyReminderIntervalMinutes} min, volume ajust? par prise.`
+                        : "Les prises d'eau seule sont grisées et sans notification."}
                     </Text>
                   </View>
                   <View style={[styles.waterToggleSwitch, includeWaterOnlyAlerts && styles.waterToggleSwitchActive]}>
@@ -598,7 +598,7 @@ export default function RaceScreenV2() {
         <Modal visible={showTimePicker} transparent animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.timeModal}>
-              <Text style={styles.timeModalTitle}>Heure de depart</Text>
+              <Text style={styles.timeModalTitle}>Heure de départ</Text>
               <View style={styles.timePickerRow}>
                 <View style={styles.timeUnit}>
                   <TouchableOpacity onPress={() => setPickerHour((hour) => (hour + 1) % 24)}>

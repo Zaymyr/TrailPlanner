@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
       return withSecurityHeaders(
         NextResponse.json(
           {
-            message: "Cette course Trace de Trail existe deja dans le catalogue.",
+            message: "Cette course Trace de Trail existe déjà dans le catalogue.",
             duplicateRace,
           },
           { status: 409 }
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       console.error("Unable to resolve Trace de Trail race event", error);
       return withSecurityHeaders(
-        NextResponse.json({ message: "Impossible de creer ou rattacher l'evenement Trace de Trail." }, { status: 502 })
+        NextResponse.json({ message: "Impossible de créer ou rattacher l'événement Trace de Trail." }, { status: 502 })
       );
     }
 
@@ -393,7 +393,7 @@ export async function POST(request: NextRequest) {
         },
       });
       return withSecurityHeaders(
-        NextResponse.json({ message: "Impossible de creer la course Trace de Trail." }, { status: 502 })
+        NextResponse.json({ message: "Impossible de créer la course Trace de Trail." }, { status: 502 })
       );
     }
 
@@ -458,7 +458,7 @@ export async function POST(request: NextRequest) {
     console.error("Unexpected Trace de Trail import error", error);
     return withSecurityHeaders(
       NextResponse.json(
-        { message: "Impossible de recuperer les donnees Trace de Trail pour cette course" },
+        { message: "Impossible de récupérer les données Trace de Trail pour cette course" },
         { status: 500 }
       )
     );

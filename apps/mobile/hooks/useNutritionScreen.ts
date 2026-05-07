@@ -269,12 +269,12 @@ export function useNutritionScreen() {
 
           if (!imageResponse.ok) {
             imageUploadWarning =
-              imageBody?.message ?? "Le produit a ete cree, mais l'image n'a pas pu etre envoyee.";
+              imageBody?.message ?? "Le produit a été créé, mais l'image n'a pas pu être envoyée.";
           } else {
             uploadedImageUrl = imageBody?.imageUrl ?? null;
           }
         } catch {
-          imageUploadWarning = "Le produit a ete cree, mais l'image n'a pas pu etre envoyee.";
+          imageUploadWarning = "Le produit a été créé, mais l'image n'a pas pu être envoyée.";
         }
       }
 

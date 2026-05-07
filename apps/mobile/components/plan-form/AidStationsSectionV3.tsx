@@ -205,7 +205,7 @@ export function AidStationsSectionV3({
   }
 
   function formatTimelineMinute(minute: number) {
-    if (minute <= 0) return 'Depart';
+    if (minute <= 0) return 'Départ';
     return `${minute} min`;
   }
 

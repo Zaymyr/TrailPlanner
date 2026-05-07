@@ -725,7 +725,7 @@ function RootLayoutContent() {
     title: locale === 'fr' ? 'Bienvenue' : 'Welcome',
     subtitle:
       locale === 'fr'
-        ? 'Tout est pret, on arrive sur ton espace.'
+        ? 'Tout est prêt, on arrive sur ton espace.'
         : 'Everything is ready, opening your space.',
     progress: 1,
     showSpinner: false,

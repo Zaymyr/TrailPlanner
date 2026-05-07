@@ -130,11 +130,11 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Lecture rapide</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <SourceBadge source="db" />
-          <span className="text-sm text-slate-600 dark:text-slate-400">Pre-rempli depuis le plan en base, mais surchargable localement.</span>
+          <span className="text-sm text-slate-600 dark:text-slate-400">Pr?-rempli depuis le plan en base, mais surchargeable localement.</span>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
           <SourceBadge source="template" />
-          <span className="text-sm text-slate-600 dark:text-slate-400">Texte, branding ou hypothese visuelle propre au template social.</span>
+          <span className="text-sm text-slate-600 dark:text-slate-400">Texte, branding ou hypothèse visuelle propre au template social.</span>
         </div>
       </div>
 
@@ -146,16 +146,16 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
         <div className="grid gap-3 md:grid-cols-2">
           <Field id="social-race-name" label="Nom de la course" value={draft.raceName} onChange={(value) => updateField("raceName", value)} source="db" />
           <Field id="social-race-subtitle" label="Sous-titre" value={draft.raceSubtitle} onChange={(value) => updateField("raceSubtitle", value)} source="db" />
-          <Field id="social-race-year" label="Annee" value={draft.raceYear} onChange={(value) => updateField("raceYear", value)} source="db" />
-          <Field id="social-start-date" label="Date affichee" value={draft.startDate} onChange={(value) => updateField("startDate", value)} source="db" />
+          <Field id="social-race-year" label="Année" value={draft.raceYear} onChange={(value) => updateField("raceYear", value)} source="db" />
+          <Field id="social-start-date" label="Date affichée" value={draft.startDate} onChange={(value) => updateField("startDate", value)} source="db" />
           <Field id="social-race-location" label="Lieu" value={draft.raceLocation} onChange={(value) => updateField("raceLocation", value)} source="db" />
         </div>
       </SectionCard>
 
       <SectionCard
-        title="Statistiques course"
+        title="Statistiques de course"
         source="db"
-        description="Distance, D+ et temps cible mappes depuis le plan actuel."
+        description="Distance, D+ et temps cible mappés depuis le plan actuel."
       >
         <div className="grid gap-3 md:grid-cols-2">
           <Field id="social-distance" label="Distance (km)" value={draft.distanceKm} onChange={(value) => updateField("distanceKm", value)} source="db" />
@@ -167,7 +167,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
       <SectionCard
         title="Besoins du plan"
         source="db"
-        description="Besoins moyens et totaux derives du plan nutrition / hydratation."
+        description="Besoins moyens et totaux dérivés du plan nutrition / hydratation."
       >
         <div className="grid gap-3 md:grid-cols-3">
           <Field id="social-total-carbs" label="Glucides total (g)" value={draft.totalCarbsG} onChange={(value) => updateField("totalCarbsG", value)} source="db" />
@@ -182,7 +182,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
       <SectionCard
         title="Ravitaillements"
         source="db"
-        description="Liste pre-remplie depuis le plan. Tu peux editer, ajouter ou enlever localement pour le carousel."
+        description="Liste pr?-remplie depuis le plan. Tu peux ?diter, ajouter ou enlever localement pour le carrousel."
       >
         <div className="mb-3 flex justify-end">
           <Button
@@ -191,7 +191,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
             onClick={() =>
               updateField("aidStations", [
                 ...draft.aidStations,
-                { name: "Nouveau ravito", km: "", eta: "", take: "A preciser" },
+                { name: "Nouveau ravito", km: "", eta: "", take: "À préciser" },
               ])
             }
           >
@@ -229,7 +229,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
                   value={station.take}
                   onChange={(value) => updateField("aidStations", updateAidStationField(draft.aidStations, index, "take", value))}
                   source="db"
-                  helper="Tu peux simplifier ici ce qui sera affiche dans le template."
+                  helper="Tu peux simplifier ici ce qui sera affich? dans le template."
                 />
                 <div className="flex items-end">
                   <Button
@@ -250,7 +250,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
       <SectionCard
         title="Textes & CTA"
         source="template"
-        description="Copy purement editoriale pour rendre le carousel plus social et plus engageant."
+        description="Copy purement ?ditoriale pour rendre le carrousel plus social et plus engageant."
       >
         <div className="grid gap-3 md:grid-cols-2">
           <Field id="social-tagline" label="Tagline slide 1" value={draft.tagline} onChange={(value) => updateField("tagline", value)} source="template" multiline />
@@ -262,9 +262,9 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
       </SectionCard>
 
       <SectionCard
-        title="Hypotheses visuelles"
+        title="Hypothèses visuelles"
         source="template"
-        description="Parametres utilises pour traduire les besoins en elements visuels du carousel."
+        description="Paramètres utilisés pour traduire les besoins en éléments visuels du carrousel."
       >
         <div className="grid gap-3 md:grid-cols-3">
           <Field id="social-gel-size" label="Glucides par gel (g)" value={draft.carbsPerGelG} onChange={(value) => updateField("carbsPerGelG", value)} source="template" />
@@ -276,11 +276,11 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
       <SectionCard
         title="Direction visuelle"
         source="template"
-        description="Couleur accent, ambiance et reset vers les valeurs par defaut derivees du plan."
+        description="Couleur d'accent, ambiance et reset vers les valeurs par défaut dérivées du plan."
       >
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Couleur accent</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Couleur d'accent</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {accentSwatches.map((accent) => {
                 const isActive = draft.accentKey === accent.key;

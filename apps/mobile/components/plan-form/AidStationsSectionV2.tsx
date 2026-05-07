@@ -76,7 +76,7 @@ export function AidStationsSectionV2({
   const [viewMode, setViewMode] = useState<'stations' | 'sections'>('stations');
 
   function formatTimelineMinute(minute: number) {
-    if (minute <= 0) return 'Depart';
+    if (minute <= 0) return 'Départ';
     return `${minute} min`;
   }
 

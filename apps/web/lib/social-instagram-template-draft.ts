@@ -55,9 +55,9 @@ const STORAGE_KEY_PREFIX = "pace-yourself.social-template.instagram.v1";
 
 const DEFAULTS = {
   tagline: "Mieux vaut planifier son ravito avant de le subir en course.",
-  ctaS1: "Swipe pour voir les chiffres cles.",
-  ctaS2: "Comment manger tout ca ?",
-  ctaS4: "Cree ton plan sur Pace Yourself",
+  ctaS1: "Swipe pour voir les chiffres clés.",
+  ctaS2: "Comment manger tout ?a ?",
+  ctaS4: "Crée ton plan sur Pace Yourself",
   appHandle: "pace-yourself.app",
   carbsPerGelG: "25",
   sodiumPerCapMg: "300",
@@ -135,7 +135,7 @@ function buildAidStationTakeSummary(station: SocialRacePlanTemplate["aidStations
     .filter((value) => value.length > 0);
 
   if (summaries.length > 0) return summaries.join("; ");
-  return station.take.fallbackUsed ? "A preciser" : "";
+  return station.take.fallbackUsed ? "À préciser" : "";
 }
 
 function areAidStationsEqual(left: SocialInstagramTemplateAidStation[], right: SocialInstagramTemplateAidStation[]) {
