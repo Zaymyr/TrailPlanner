@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Script from "next/script";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
@@ -237,6 +237,7 @@ const sanitizeRacePlannerStorage = (
 };
 
 export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
+  const router = useRouter();
   const { t, locale } = useI18n();
   const racePlannerCopy = t.racePlanner;
   const premiumCopy = racePlannerCopy.account.premium;
@@ -715,6 +716,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     () => formattedPremiumPrice ?? premiumCopy.premiumModal.priceValue,
     [formattedPremiumPrice, premiumCopy.premiumModal.priceValue]
   );
+  const isGuestSession = session?.isAnonymous === true;
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
   const sanitizedSectionSegments = useMemo(
     () =>
@@ -837,6 +839,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       return;
     }
 
+    if (session?.isAnonymous) {
+      setUpgradeDialogOpen(false);
+      router.push("/sign-up");
+      return;
+    }
+
     setUpgradeStatus("opening");
     setUpgradeError(null);
 
@@ -873,7 +881,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     premiumCopy.checkoutError,
     premiumCopy.premiumModal.popupBlocked,
     racePlannerCopy.account.errors.missingSession,
+    router,
     session?.accessToken,
+    session?.isAnonymous,
     setUpgradeError,
     setUpgradeDialogOpen,
     setUpgradeStatus,
@@ -1634,7 +1644,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   {premiumCopy.premiumModal.cancel}
                 </Button>
                 <Button type="button" onClick={handleUpgrade} disabled={upgradeStatus === "opening"}>
-                  {upgradeStatus === "opening" ? premiumCopy.opening : premiumCopy.premiumModal.subscribe}
+                  {upgradeStatus === "opening"
+                    ? premiumCopy.opening
+                    : isGuestSession
+                      ? t.auth.signUp.submit
+                      : premiumCopy.premiumModal.subscribe}
                 </Button>
               </div>
             </div>

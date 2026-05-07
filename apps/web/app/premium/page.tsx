@@ -51,10 +51,16 @@ export default function PremiumPage() {
   const { session } = useVerifiedSession();
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const isGuestSession = session?.isAnonymous === true;
 
   const handleUpgrade = useCallback(async () => {
     if (!session?.accessToken) {
       setUpgradeError("You need to be signed in to subscribe.");
+      return;
+    }
+
+    if (session?.isAnonymous) {
+      setUpgradeError("Guest accounts must create a full account before subscribing.");
       return;
     }
 
@@ -87,7 +93,7 @@ export default function PremiumPage() {
     } finally {
       setUpgradeStatus("idle");
     }
-  }, [session?.accessToken]);
+  }, [session?.accessToken, session?.isAnonymous]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-12 py-4">
@@ -147,7 +153,7 @@ export default function PremiumPage() {
       </div>
 
       <div className="flex flex-col items-center gap-4 text-center">
-        {session ? (
+        {session && !isGuestSession ? (
           <>
             <button
               type="button"
@@ -173,6 +179,18 @@ export default function PremiumPage() {
                 profile
               </Link>
               .
+            </p>
+          </>
+        ) : isGuestSession ? (
+          <>
+            <Link
+              href="/sign-up"
+              className="premium-glow inline-flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-400/90 px-8 py-3 text-sm font-semibold text-slate-950 shadow-md transition hover:bg-amber-400 dark:border-amber-300/40 dark:bg-amber-400/80 dark:hover:bg-amber-400/90"
+            >
+              Create an account to subscribe
+            </Link>
+            <p className="text-xs text-muted-foreground">
+              Guest sessions can&apos;t subscribe directly. Create an account first.
             </p>
           </>
         ) : (

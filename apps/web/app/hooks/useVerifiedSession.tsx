@@ -21,6 +21,7 @@ export type VerifiedSession = {
   email?: string;
   role?: string;
   roles?: string[];
+  isAnonymous?: boolean;
 };
 
 type SessionResponse = {
@@ -29,6 +30,7 @@ type SessionResponse = {
     email?: string;
     role?: string;
     roles?: string[];
+    isAnonymous?: boolean;
   };
   access_token?: string;
   refresh_token?: string;
@@ -134,6 +136,7 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
           email: user?.email ?? stored.email,
           role: user?.role,
           roles: user?.roles,
+          isAnonymous: user?.isAnonymous,
         };
 
         setSession(nextSession);

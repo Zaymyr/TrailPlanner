@@ -65,6 +65,9 @@ export type SupabaseUser = {
   userMetadata?: Record<string, unknown>;
 };
 
+export const isAnonymousUser = (user: SupabaseUser | null | undefined): boolean =>
+  user?.isAnonymous === true || user?.appMetadata?.provider === "anonymous";
+
 export type SupabaseServiceConfig = {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
