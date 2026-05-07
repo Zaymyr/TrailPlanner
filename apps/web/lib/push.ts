@@ -130,11 +130,11 @@ function chunkArray<T>(items: T[], chunkSize: number) {
   return chunks;
 }
 
-function buildInactiveReminderCopy(locale: PushLocale) {
+export function buildInactiveReminderCopy(locale: PushLocale) {
   if (locale === "fr") {
     return {
-      title: "Ton prochain plan t attend",
-      body: "Cela fait quelques jours. Reviens voir ton plan et reprendre ta preparation.",
+      title: "Ton prochain plan t'attend",
+      body: "Cela fait quelques jours. Reviens voir ton plan et reprendre ta préparation.",
     };
   }
 
@@ -144,10 +144,10 @@ function buildInactiveReminderCopy(locale: PushLocale) {
   };
 }
 
-function buildUnfinishedPlanReminderCopy(locale: PushLocale, planName: string) {
+export function buildUnfinishedPlanReminderCopy(locale: PushLocale, planName: string) {
   if (locale === "fr") {
     return {
-      title: "Ton plan n est pas termine",
+      title: "Ton plan n'est pas terminé",
       body: `Reviens finaliser ${planName} et ajouter tes ravitos.`,
     };
   }

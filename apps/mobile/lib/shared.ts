@@ -70,9 +70,9 @@ export function buildAlertSchedule(plan: RacePlan, _mode: AlertTimingMode): Fuel
 
   const sortedStations = [...aidStations].sort((left, right) => left.distanceKm - right.distanceKm);
   const waypoints: Array<{ name: string; distanceKm: number; segmentPlan?: SegmentPlanData }> = [
-    { name: 'Depart', distanceKm: 0 },
+    { name: 'Départ', distanceKm: 0 },
     ...sortedStations,
-    { name: 'Arrivee', distanceKm: raceDistanceKm, segmentPlan: plannerValues.finishPlan },
+    { name: 'Arrivée', distanceKm: raceDistanceKm, segmentPlan: plannerValues.finishPlan },
   ];
 
   for (let index = 0; index < waypoints.length - 1; index += 1) {

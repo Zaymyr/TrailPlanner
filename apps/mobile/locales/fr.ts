@@ -35,13 +35,13 @@ export const fr: MobileTranslations = {
     errorTitle: 'Mise a jour indisponible',
     errorSubtitle: "Impossible de verifier les mises a jour pour le moment.",
     continueCta: 'Continuer sans mise a jour',
-    readyNotificationTitle: 'Mise a jour prete',
-    readyNotificationBody: "Une nouvelle version a ete telechargee. Appuie pour redemarrer l'application.",
+    readyNotificationTitle: 'Mise à jour prête',
+    readyNotificationBody: "Une nouvelle version a été téléchargée. Appuie pour redémarrer l'application.",
   },
   reminders: {
-    inactivityTitle: 'Ton prochain plan t attend',
-    inactivityBody: 'Cela fait quelques jours. Reviens voir ton plan et reprendre ta preparation.',
-    unfinishedPlanTitle: 'Ton plan n est pas termine',
+    inactivityTitle: "Ton prochain plan t'attend",
+    inactivityBody: 'Cela fait quelques jours. Reviens voir ton plan et reprendre ta préparation.',
+    unfinishedPlanTitle: "Ton plan n'est pas terminé",
     unfinishedPlanBody: 'Reviens finaliser {name} et ajouter tes ravitos.',
   },
   plans: {

@@ -440,8 +440,8 @@ export function buildContinuousSections({
     sections.push({
       target,
       sectionIndex: summary.sectionIndex,
-      fromName: fromStation?.name ?? 'Depart',
-      toName: toStation?.name ?? 'Arrivee',
+      fromName: fromStation?.name ?? 'Départ',
+      toName: toStation?.name ?? 'Arrivée',
       startKm: summary.startKm,
       endKm: summary.endKm,
       distanceKm: summary.distanceKm,

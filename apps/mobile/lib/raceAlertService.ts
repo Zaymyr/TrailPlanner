@@ -169,9 +169,9 @@ export async function startRace(
   const sharedAlerts = buildAlertScheduleShared(adaptToSharedPlan(plan), mode);
   const sortedStations = [...(plan.aidStations ?? [])].sort((a: any, b: any) => a.distanceKm - b.distanceKm);
   const waypoints: any[] = [
-    { name: 'Depart', distanceKm: 0 },
+    { name: 'Départ', distanceKm: 0 },
     ...sortedStations,
-    { name: 'Arrivee', distanceKm: plan.raceDistanceKm },
+    { name: 'Arrivée', distanceKm: plan.raceDistanceKm },
   ];
 
   session = {
