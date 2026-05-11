@@ -14,6 +14,7 @@ import { useI18n } from '../../../lib/i18n';
 import { ensureAppSession } from '../../../lib/appSession';
 import { noteReviewPlanCreated } from '../../../lib/appReview';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
+import { captureAnalyticsEvent } from '../../../lib/posthog';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
 import { syncUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
 import { supabase } from '../../../lib/supabase';
@@ -106,6 +107,7 @@ function buildPlannerValues(values: PlanFormValues) {
 export default function NewPlanScreen() {
   const { raceId, catalogRaceId } = useLocalSearchParams<{ raceId?: string; catalogRaceId?: string }>();
   const resolvedRaceId = raceId ?? catalogRaceId ?? null;
+  const planCreationSource = catalogRaceId ? 'catalog' : raceId ? 'preselected_race' : 'selector';
   const router = useRouter();
   const { t } = useI18n();
   const { isPremium, isLoading: premiumLoading } = usePremium();
@@ -164,9 +166,15 @@ export default function NewPlanScreen() {
       });
 
       await noteReviewPlanCreated();
+      captureAnalyticsEvent('plan created', {
+        source: planCreationSource,
+        aid_station_count: seedValues.aidStations.length,
+        distance_km: race.distance_km,
+        elevation_gain_m: race.elevation_gain_m,
+      });
       router.replace(`/(app)/plan/${data.id}/edit`);
     },
-    [resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
+    [planCreationSource, resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const loadRaceSeed = useCallback(async () => {

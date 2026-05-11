@@ -20,3 +20,4 @@ supabase/functions/.env.*
 .claude/settings.local.json
 .claude/launch.json
 .claude/worktrees/
+.env.local

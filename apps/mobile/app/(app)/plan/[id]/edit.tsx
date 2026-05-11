@@ -17,6 +17,7 @@ import { usePremium } from '../../../../hooks/usePremium';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { useI18n } from '../../../../lib/i18n';
+import { captureAnalyticsEvent } from '../../../../lib/posthog';
 import { syncUnfinishedPlanReminder } from '../../../../lib/reminderNotifications';
 import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import {
@@ -576,6 +577,10 @@ export default function EditPlanScreen() {
 
     if (saved) {
       await noteReviewPlanSaved();
+      captureAnalyticsEvent('plan saved', {
+        aid_station_count: draft.aidStations.length,
+        segment_count: draft.sectionSegments?.length ?? 0,
+      });
       clearActivePlanEditSession(id);
       router.replace('/(app)/plans');
       return;

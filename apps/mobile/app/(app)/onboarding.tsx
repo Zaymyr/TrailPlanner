@@ -41,6 +41,7 @@ import { useI18n } from '../../lib/i18n';
 import { noteReviewOnboardingCompleted, noteReviewPlanCreated } from '../../lib/appReview';
 import { markOnboardingJustCompleted } from '../../lib/onboardingGate';
 import { createOnboardingDemoPlan } from '../../lib/onboardingDemoPlan';
+import { captureAnalyticsEvent } from '../../lib/posthog';
 import {
   buildGpxImportErrorMessage,
   createPrivateRace,
@@ -934,6 +935,7 @@ export default function OnboardingScreen() {
       progress: 0.08,
     });
     let nextRoute: string | null = '/(app)/plans';
+    let onboardingCompleted = false;
 
     try {
       setLoadingProgress(0.16);
@@ -958,6 +960,7 @@ export default function OnboardingScreen() {
           parsedDefaultSodiumPerHour: performanceStep.parsedDefaultSodiumPerHour,
           selectedProductIds,
         });
+        onboardingCompleted = true;
 
         if (selectedRace) {
           setLoadingPlanName(selectedRace.name);
@@ -1043,6 +1046,12 @@ export default function OnboardingScreen() {
             setLoadingProgress(1);
             updatePendingOnboardingTransition({ progress: 1 });
             await noteReviewPlanCreated();
+            captureAnalyticsEvent('plan created', {
+              source: 'onboarding',
+              distance_km: selectedRace.distance_km,
+              elevation_gain_m: selectedRace.elevation_gain_m,
+              favorite_product_count: selectedProductIds.length,
+            });
             nextRoute = `/(app)/plan/${demoPlan.id}/edit?showHelp=1`;
           }
         }
@@ -1050,7 +1059,15 @@ export default function OnboardingScreen() {
     } catch (error) {
       console.error('Unable to finish onboarding:', error);
     } finally {
-      await noteReviewOnboardingCompleted();
+      if (onboardingCompleted) {
+        await noteReviewOnboardingCompleted();
+        captureAnalyticsEvent('onboarding completed', {
+          created_plan: nextRoute.includes('/plan/'),
+          favorite_product_count: selectedProductIds.length,
+          has_race: Boolean(selectedRace),
+        });
+      }
+
       if (nextRoute) {
         const currentUserId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
         if (currentUserId) {

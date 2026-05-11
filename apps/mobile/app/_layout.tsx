@@ -15,7 +15,8 @@ if (typeof ErrorUtils !== 'undefined') {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Session } from '@supabase/supabase-js';
+import { PostHogProvider as AnalyticsProvider } from 'posthog-react-native';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
@@ -39,6 +40,14 @@ import {
   addPendingOnboardingTransitionListener,
   getPendingOnboardingTransition,
 } from '../lib/onboardingTransition';
+import {
+  buildAnalyticsScreenName,
+  captureAnalyticsEvent,
+  identifyAnalyticsUser,
+  posthog,
+  resetAnalytics,
+  trackAnalyticsScreen,
+} from '../lib/posthog';
 import { ensureTrialStatusForSession } from '../lib/trial';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
@@ -77,9 +86,11 @@ export { ErrorBoundary };
 
 export default function RootLayout() {
   return (
-    <I18nProvider>
-      <RootLayoutContent />
-    </I18nProvider>
+    <AnalyticsProvider client={posthog}>
+      <I18nProvider>
+        <RootLayoutContent />
+      </I18nProvider>
+    </AnalyticsProvider>
   );
 }
 
@@ -124,6 +135,8 @@ function RootLayoutContent() {
   const hasShownForegroundUpdateNotificationRef = useRef(false);
   const pushRegistrationInFlightRef = useRef(false);
   const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
+  const identifiedAnalyticsUserIdRef = useRef<string | null>(null);
+  const lastTrackedScreenKeyRef = useRef<string | null>(null);
   const initialRedirectInFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
@@ -136,6 +149,10 @@ function RootLayoutContent() {
   const [onboardingTransitionExiting, setOnboardingTransitionExiting] = useState(false);
   const [launchOverlayPhase, setLaunchOverlayPhase] = useState<LaunchOverlayPhase>('active');
   const shouldHoldForInitialRoute = !segments[0];
+  const analyticsScreenName = useMemo(
+    () => buildAnalyticsScreenName(segments.map((segment) => String(segment))),
+    [segments],
+  );
 
   if (supabaseInitError) {
     return (
@@ -405,6 +422,54 @@ function RootLayoutContent() {
     return () => clearTimeout(timeout);
   }, [pendingOnboardingTransition]);
 
+  useEffect(() => {
+    if (!segments[0]) {
+      return;
+    }
+
+    const nextScreenKey = `${analyticsScreenName}:${locale}`;
+    if (lastTrackedScreenKeyRef.current === nextScreenKey) {
+      return;
+    }
+
+    lastTrackedScreenKeyRef.current = nextScreenKey;
+    trackAnalyticsScreen(analyticsScreenName, {
+      locale,
+      route_group:
+        typeof segments[0] === 'string' &&
+        segments[0].startsWith('(') &&
+        segments[0].endsWith(')')
+          ? segments[0].slice(1, -1)
+          : undefined,
+    });
+  }, [analyticsScreenName, locale, segments]);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    if (session && !isAnonymousSession(session)) {
+      const authProvider =
+        typeof session.user.app_metadata?.provider === 'string'
+          ? session.user.app_metadata.provider
+          : undefined;
+
+      identifyAnalyticsUser(session.user.id, {
+        email: session.user.email,
+        locale,
+        provider: authProvider,
+      });
+      identifiedAnalyticsUserIdRef.current = session.user.id;
+      return;
+    }
+
+    if (identifiedAnalyticsUserIdRef.current !== null) {
+      resetAnalytics();
+      identifiedAnalyticsUserIdRef.current = null;
+    }
+  }, [locale, ready, session]);
+
   // Auth listener
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
@@ -419,7 +484,22 @@ function RootLayoutContent() {
       });
 
       const { data } = supabase.auth.onAuthStateChange(
-        (_event: any, s: Session | null) => setSession(s),
+        (event: AuthChangeEvent, s: Session | null) => {
+          if (event === 'SIGNED_IN' && s && !isAnonymousSession(s)) {
+            captureAnalyticsEvent('auth signed in', {
+              provider:
+                typeof s.user.app_metadata?.provider === 'string'
+                  ? s.user.app_metadata.provider
+                  : undefined,
+            });
+          }
+
+          if (event === 'SIGNED_OUT') {
+            captureAnalyticsEvent('auth signed out');
+          }
+
+          setSession(s);
+        },
       );
       subscription = data.subscription;
     } catch (err) {

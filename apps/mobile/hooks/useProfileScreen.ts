@@ -33,6 +33,7 @@ import type {
 import { Colors } from '../constants/colors';
 import { isAnonymousSession } from '../lib/appSession';
 import { useI18n } from '../lib/i18n';
+import { captureAnalyticsEvent } from '../lib/posthog';
 import {
   getLastPushRegistrationStatus,
   type PushRegistrationStatus,
@@ -525,6 +526,17 @@ export function useProfileScreen() {
     }));
     setBirthDateInput(birthDateIso ? formatBirthDateInput(birthDateIso) : '');
     setSaved(true);
+    captureAnalyticsEvent('profile saved', {
+      has_birth_date: Boolean(birthDateIso),
+      has_default_targets:
+        parsedDefaultCarbsPerHour !== null ||
+        parsedDefaultWaterPerHour !== null ||
+        parsedDefaultSodiumPerHour !== null,
+      has_height: parsedHeightCm !== null,
+      has_utmb_index: parsedUtmbIndex !== null,
+      has_weight: parsedWeightKg !== null,
+      water_bag_liters: waterBagLiters,
+    });
 
     if (savedResetTimeoutRef.current) {
       clearTimeout(savedResetTimeoutRef.current);
@@ -602,10 +614,17 @@ export function useProfileScreen() {
 
   const handleUpgrade = useCallback(async () => {
     if (inAppBillingEnabled) {
+      captureAnalyticsEvent('premium checkout started', {
+        source: paidPremiumSource ?? 'mobile',
+      });
+
       try {
         const result = await billing.purchase();
 
         if (result === 'purchased') {
+          captureAnalyticsEvent('premium purchased', {
+            source: paidPremiumSource ?? 'mobile',
+          });
           Alert.alert(t.common.ok, t.profile.purchaseSuccess);
           return;
         }
@@ -622,11 +641,15 @@ export function useProfileScreen() {
       }
     }
 
+    captureAnalyticsEvent('premium checkout started', {
+      source: 'web_fallback',
+    });
     await openExternalUrl(`${WEB_API_BASE_URL}/premium`, t.profile.premiumFallback);
   }, [
     billing,
     inAppBillingEnabled,
     openExternalUrl,
+    paidPremiumSource,
     t.common.error,
     t.common.ok,
     t.profile.premiumFallback,
@@ -642,10 +665,16 @@ export function useProfileScreen() {
       const storeUrl = billing.managementUrl ?? fallbackStoreUrl;
       const openedStore = await openExternalUrl(storeUrl, t.profile.subscriptionFallback);
       if (openedStore) {
+        captureAnalyticsEvent('subscription management opened', {
+          source: paidPremiumSource ?? 'mobile',
+        });
         return;
       }
     }
 
+    captureAnalyticsEvent('subscription management opened', {
+      source: 'web_fallback',
+    });
     await openExternalUrl(`${WEB_API_BASE_URL}/profile`, t.profile.subscriptionFallback);
   }, [
     billing.managementUrl,
@@ -665,6 +694,7 @@ export function useProfileScreen() {
       const result = await billing.restore();
 
       if (result === 'restored') {
+        captureAnalyticsEvent('premium restored');
         Alert.alert(t.common.ok, t.profile.restoreSuccess);
         return;
       }
@@ -758,6 +788,7 @@ export function useProfileScreen() {
         throw new Error(payload?.message || t.profile.deleteAccountFailed);
       }
 
+      captureAnalyticsEvent('account deleted');
       Alert.alert(t.common.ok, t.profile.deleteAccountSuccess, [
         {
           text: t.common.ok,
