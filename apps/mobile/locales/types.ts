@@ -354,6 +354,11 @@ export type MobileTranslations = {
     welcomeKicker: string;
     welcomeTitle: string;
     welcomeSubtitle: string;
+    welcomeAccountTitle: string;
+    welcomeAccountBody: string;
+    welcomeAccountGoogleCta: string;
+    welcomeAccountGuestCta: string;
+    welcomeAccountHint: string;
     overviewCardTitle: string;
     overviewCardText: string;
     phase1Title: string;

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import type { FuelType, Product } from '../../components/nutrition/types';
@@ -24,6 +25,7 @@ import {
   isValidHeightCm,
   isValidWeightKg,
 } from '../../components/profile/profileEstimator';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import {
   parseComfortableFlatPace,
   parseOptionalNonNegativeInteger,
@@ -331,6 +333,9 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authChoiceLoading, setAuthChoiceLoading] = useState(false);
+  const [authChoiceError, setAuthChoiceError] = useState<string | null>(null);
   const [weightKg, setWeightKg] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
@@ -375,6 +380,11 @@ export default function OnboardingScreen() {
   const completedRaceNameParam: string | null = null;
   const completedHasSelectedProductsParam = false;
   const totalSteps = 6;
+  const isGuestOnboardingSession = isAnonymousSession(session);
+  const { googleModule, handleGoogleLogin } = useGoogleAuth({
+    noOauthUrlMessage: t.auth.noOauthUrl,
+    session,
+  });
   const parsedEstimatorWeight = useMemo(
     () => parseOptionalNonNegativeInteger(estimatorWeightKg),
     [estimatorWeightKg],
@@ -637,6 +647,33 @@ export default function OnboardingScreen() {
     },
   ];
 
+  useEffect(() => {
+    let mounted = true;
+
+    void ensureAppSession()
+      .then((nextSession) => {
+        if (mounted) {
+          setSession(nextSession);
+        }
+      })
+      .catch((error) => {
+        console.error('Unable to resolve onboarding session:', error);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, nextSession: Session | null) => {
+      if (mounted) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   async function loadRaceOptions() {
     setLoadingRaces(true);
     setRaceLoadError(null);
@@ -792,6 +829,36 @@ export default function OnboardingScreen() {
 
     void loadNutritionProducts();
   }, [hasLoadedNutritionProducts, loadingNutritionProducts, step]);
+
+  async function handleStartWithGoogle() {
+    setAuthChoiceError(null);
+    setAuthChoiceLoading(true);
+    captureAnalyticsEvent('onboarding auth choice selected', { choice: 'google' });
+
+    try {
+      await handleGoogleLogin();
+      setStep(2);
+    } catch (error) {
+      if (
+        googleModule?.isErrorWithCode(error) &&
+        (error.code === googleModule.statusCodes.SIGN_IN_CANCELLED ||
+          error.code === googleModule.statusCodes.IN_PROGRESS)
+      ) {
+        return;
+      }
+
+      console.error('Google onboarding sign-in error:', error);
+      setAuthChoiceError(t.auth.googleError);
+    } finally {
+      setAuthChoiceLoading(false);
+    }
+  }
+
+  function handleContinueWithoutAccount() {
+    setAuthChoiceError(null);
+    captureAnalyticsEvent('onboarding auth choice selected', { choice: 'guest' });
+    setStep(2);
+  }
 
   function validatePersonalStep(): {
     parsedWeightKg: number | null;
@@ -1369,9 +1436,49 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
-        </TouchableOpacity>
+        {isGuestOnboardingSession ? (
+          <View style={styles.authChoiceCard}>
+            <View style={styles.authChoiceBadge}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={18}
+                color={Colors.brandPrimary}
+              />
+            </View>
+
+            <Text style={styles.authChoiceTitle}>{t.onboarding.welcomeAccountTitle}</Text>
+            <Text style={styles.authChoiceBody}>{t.onboarding.welcomeAccountBody}</Text>
+
+            <TouchableOpacity
+              style={[styles.googleStartButton, authChoiceLoading && styles.buttonDisabled]}
+              onPress={() => void handleStartWithGoogle()}
+              disabled={authChoiceLoading}
+            >
+              <Ionicons name="logo-google" size={18} color={Colors.brandPrimary} />
+              <Text style={styles.googleStartButtonText}>
+                {authChoiceLoading ? t.auth.loggingIn : t.onboarding.welcomeAccountGoogleCta}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryButton, authChoiceLoading && styles.buttonDisabled]}
+              onPress={handleContinueWithoutAccount}
+              disabled={authChoiceLoading}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {t.onboarding.welcomeAccountGuestCta}
+              </Text>
+            </TouchableOpacity>
+
+            {authChoiceError ? <Text style={styles.errorText}>{authChoiceError}</Text> : null}
+
+            <Text style={styles.authChoiceHint}>{t.onboarding.welcomeAccountHint}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
+            <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
+          </TouchableOpacity>
+        )}
       </OnboardingShell>
     );
   }
@@ -2448,6 +2555,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
+  authChoiceCard: {
+    gap: 12,
+  },
+  authChoiceBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  authChoiceTitle: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  authChoiceBody: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  authChoiceHint: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   phaseList: {
     gap: 14,
     marginBottom: 28,
@@ -2678,6 +2817,23 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: Colors.textOnBrand,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  googleStartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  googleStartButtonText: {
+    color: Colors.brandPrimary,
     fontSize: 16,
     fontWeight: '700',
   },

@@ -360,6 +360,12 @@ export const en: MobileTranslations = {
     welcomeKicker: 'Quick',
     welcomeTitle: 'We prepare your first plan',
     welcomeSubtitle: 'Profile, race, products, then a ready-to-edit plan.',
+    welcomeAccountTitle: 'Best to start with your account',
+    welcomeAccountBody:
+      'Connect with Google now to keep your GPX imports, races, and plans attached to the right account from the start.',
+    welcomeAccountGoogleCta: 'Start with Google',
+    welcomeAccountGuestCta: 'Continue without an account',
+    welcomeAccountHint: 'You can still create an account later from the profile screen.',
     overviewCardTitle: 'What we prepare together',
     overviewCardText: 'A clear, personalized starting plan so you can jump straight into something useful.',
     phase1Title: 'Your profile',

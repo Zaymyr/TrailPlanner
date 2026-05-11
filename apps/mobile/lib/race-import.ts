@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 
 import type { MobileTranslations } from '../locales/types';
+import { ensureAppSession } from './appSession';
 import {
   MobileGpxParseError,
   parseGpxForRaceImport,
@@ -157,9 +158,9 @@ export async function pickAndParseGpxDocument(
 export async function createPrivateRace(
   input: CreatePrivateRaceInput,
 ): Promise<{ race: ImportedRace; aidStations: RaceImportAidStation[] }> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  const userId = sessionData?.session?.user?.id;
+  const session = await ensureAppSession();
+  const token = session?.access_token;
+  const userId = session?.user?.id;
 
   if (!token || !userId) {
     throw new Error('Session expired.');

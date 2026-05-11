@@ -360,6 +360,12 @@ export const fr: MobileTranslations = {
     welcomeKicker: 'Rapide',
     welcomeTitle: 'On te prépare un premier plan',
     welcomeSubtitle: 'Profil, course, produits, puis plan prêt à éditer.',
+    welcomeAccountTitle: 'Le plus simple : commencer avec ton compte',
+    welcomeAccountBody:
+      'Connecte-toi maintenant avec Google pour garder tes GPX, tes courses et tes plans sur le bon compte dès le départ.',
+    welcomeAccountGoogleCta: 'Commencer avec Google',
+    welcomeAccountGuestCta: 'Continuer sans compte',
+    welcomeAccountHint: 'Tu pourras toujours créer ton compte plus tard depuis le profil.',
     overviewCardTitle: 'Ce qu’on prépare ensemble',
     overviewCardText: 'Une base de plan claire et déjà personnalisée, pour entrer tout de suite dans quelque chose d’utile.',
     phase1Title: 'Ton profil',
