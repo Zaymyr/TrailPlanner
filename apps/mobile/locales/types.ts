@@ -127,6 +127,7 @@ export type MobileTranslations = {
     gpxImportInvalidCoordinates: string;
     gpxImportNoPoints: string;
     gpxImportFailedDetails: string;
+    gpxFallbackRaceName: string;
     validationNameRequired: string;
     validationDistanceRequired: string;
     validationDistancePositive: string;
@@ -415,6 +416,9 @@ export type MobileTranslations = {
     raceLoadingError: string;
     raceEmptyTitle: string;
     raceEmptySubtitle: string;
+    raceImportTitle: string;
+    raceImportSubtitle: string;
+    raceImportCta: string;
     nutritionTitle: string;
     nutritionSubtitle: string;
     nutritionHintTitle: string;

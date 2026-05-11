@@ -20,6 +20,7 @@ export type MobileGpxParseResult = {
   pointSource: MobileGpxPointSource;
   hasElevation: boolean;
   stats: MobileGpxStats;
+  name?: string | null;
 };
 
 type ParsedPoint = {
@@ -41,6 +42,25 @@ const MOBILE_GPX_PARSE_ERROR_MESSAGES: Record<MobileGpxParseErrorCode, string> =
   unsupported_tcx: 'This file is TCX, not GPX.',
   invalid_coordinates: 'Track, route, or waypoint coordinates are present but invalid.',
   no_coordinates: 'No track, route, or waypoint coordinates found in GPX.',
+};
+
+const decodeNumericEntity = (value: string) => {
+  const isHex = value[0]?.toLowerCase() === 'x';
+  const codePoint = Number.parseInt(isHex ? value.slice(1) : value, isHex ? 16 : 10);
+  return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : `&#${value};`;
+};
+
+const decodeEntities = (text: string | null | undefined) => {
+  if (!text) return '';
+
+  return text
+    .replace(/&#(x?[0-9a-f]+);/gi, (_match, value: string) => decodeNumericEntity(value))
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
+    .trim();
 };
 
 export class MobileGpxParseError extends Error {
@@ -154,6 +174,14 @@ const parsePointElements = (content: string, tagName: 'trkpt' | 'rtept' | 'wpt')
 export const parseGpxForRaceImport = (content: string): MobileGpxParseResult => {
   const normalized = sanitizeContent(content);
   validateGpxEnvelope(normalized.content, normalized.hadNullBytes);
+  const trackNameMatch =
+    normalized.content.match(
+      /<(?:[\w.-]+:)?metadata\b[\s\S]*?<(?:[\w.-]+:)?name\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?name>[\s\S]*?<\/(?:[\w.-]+:)?metadata>/i,
+    ) ??
+    normalized.content.match(
+      /<(?:[\w.-]+:)?trk\b[\s\S]*?<(?:[\w.-]+:)?name\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?name>/i,
+    );
+  const trackName = decodeEntities(trackNameMatch?.[1]) || null;
 
   let pointSource: MobileGpxPointSource = 'track';
   const trackPoints = parsePointElements(normalized.content, 'trkpt');
@@ -211,6 +239,7 @@ export const parseGpxForRaceImport = (content: string): MobileGpxParseResult => 
     pointCount: points.length,
     pointSource,
     hasElevation,
+    name: trackName,
     stats: {
       distanceKm: Number((distanceM / 1000).toFixed(2)),
       gainM: Number(gainM.toFixed(1)),

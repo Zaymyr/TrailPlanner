@@ -10,20 +10,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import { supabase } from '../../../lib/supabase';
-import { WEB_API_BASE_URL } from '../../../lib/webApi';
 import { useI18n } from '../../../lib/i18n';
 import { noteReviewRaceCreated } from '../../../lib/appReview';
 import {
-  MobileGpxParseError,
-  parseGpxForRaceImport,
-  type MobileGpxParseResult,
-} from '../../../lib/gpx';
+  buildGpxImportErrorMessage,
+  createPrivateRace,
+  pickAndParseGpxDocument,
+  type GpxFeedback,
+} from '../../../lib/race-import';
 import { Colors } from '../../../constants/colors';
 
 type AidStation = { name: string; km: string; water: boolean };
-type GpxFeedback = { tone: 'success' | 'warning'; message: string };
 type FieldErrors = Partial<Record<'name' | 'distanceKm' | 'elevationGain' | 'elevationLoss' | 'raceDate' | 'aidStations', string>>;
 type ValidatedRaceForm = {
   distanceKm: number;
@@ -47,54 +44,6 @@ const FieldLabel = ({ label, required = false }: { label: string; required?: boo
 const FieldError = ({ message }: { message?: string }) => (
   message ? <Text style={styles.fieldError}>{message}</Text> : null
 );
-
-const buildGpxFeedback = (parsed: MobileGpxParseResult, t: ReturnType<typeof useI18n>['t']): GpxFeedback => {
-  const base =
-    parsed.pointSource === 'route'
-      ? t.races.gpxRouteFallback
-      : parsed.pointSource === 'waypoint'
-        ? t.races.gpxWaypointFallback
-      : t.races.gpxImportSuccess;
-  const message = base
-    .replace('{points}', String(parsed.pointCount))
-    .replace('{distance}', String(parsed.stats.distanceKm));
-
-  if (!parsed.hasElevation) {
-    return { tone: 'warning', message: `${message} ${t.races.gpxNoElevation}` };
-  }
-
-  return {
-    tone: parsed.pointSource === 'track' ? 'success' : 'warning',
-    message,
-  };
-};
-
-const buildGpxImportErrorMessage = (
-  error: unknown,
-  t: ReturnType<typeof useI18n>['t'],
-) => {
-  if (!(error instanceof MobileGpxParseError)) {
-    return t.races.gpxImportFailedDetails;
-  }
-
-  switch (error.code) {
-    case 'empty_file':
-      return t.races.gpxImportEmpty;
-    case 'invalid_encoding':
-      return t.races.gpxImportInvalidEncoding;
-    case 'unsupported_kml':
-    case 'unsupported_tcx':
-      return t.races.gpxImportUnsupportedFormat;
-    case 'invalid_coordinates':
-      return t.races.gpxImportInvalidCoordinates;
-    case 'no_coordinates':
-      return t.races.gpxImportNoPoints;
-    case 'not_gpx':
-      return t.races.gpxImportInvalidFile;
-    default:
-      return t.races.gpxImportFailedDetails;
-  }
-};
 
 export default function NewRaceScreen() {
   const router = useRouter();
@@ -193,43 +142,27 @@ export default function NewRaceScreen() {
 
   const handlePickGpx = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/gpx+xml', 'application/gpx', 'application/xml', 'text/xml', 'text/plain', 'application/octet-stream'],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset?.uri) return;
+      const picked = await pickAndParseGpxDocument(t);
+      if (!picked) return;
 
-      setGpxContent(null);
-      setGpxFeedback(null);
-      setGpxFileName(asset.name ?? 'route.gpx');
+      setGpxContent(picked.content);
+      setGpxFeedback(picked.feedback);
+      setGpxFileName(picked.fileName);
+      setName((current) => (current.trim().length > 0 ? current : picked.suggestedRaceName));
 
-      const response = await fetch(asset.uri);
-      const text = await response.text();
-      setGpxContent(text);
-
-      try {
-        const parsed = parseGpxForRaceImport(text);
-
-        if (parsed.stats.distanceKm > 0) {
-          setDistanceKm(String(parsed.stats.distanceKm));
-          clearFieldError('distanceKm');
-        }
-        if (parsed.hasElevation) {
-          setElevationGain(String(Math.round(parsed.stats.gainM)));
-          setElevationLoss(String(Math.round(parsed.stats.lossM)));
-          clearFieldError('elevationGain');
-          clearFieldError('elevationLoss');
-        }
-
-        setGpxFeedback(buildGpxFeedback(parsed, t));
-      } catch (error) {
-        setGpxContent(null);
-        setGpxFeedback({ tone: 'warning', message: buildGpxImportErrorMessage(error, t) });
+      if (picked.parsed.stats.distanceKm > 0) {
+        setDistanceKm(String(picked.parsed.stats.distanceKm));
+        clearFieldError('distanceKm');
       }
-    } catch {
-      Alert.alert('Erreur', 'Impossible de lire le fichier GPX.');
+      if (picked.parsed.hasElevation) {
+        setElevationGain(String(Math.round(picked.parsed.stats.gainM)));
+        setElevationLoss(String(Math.round(picked.parsed.stats.lossM)));
+        clearFieldError('elevationGain');
+        clearFieldError('elevationLoss');
+      }
+    } catch (error) {
+      setGpxContent(null);
+      setGpxFeedback({ tone: 'warning', message: buildGpxImportErrorMessage(error, t) });
     }
   };
 
@@ -248,82 +181,36 @@ export default function NewRaceScreen() {
     setFieldErrors({});
     setSaving(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const userId = sessionData?.session?.user?.id;
-      if (!token || !userId) {
-        Alert.alert('Erreur', 'Session expirée.');
-        return;
-      }
-
-      const slug =
-        name.trim().toLowerCase()
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-]/g, '') +
-        '-' +
-        Date.now();
-
-      const aid_stations = validation.values.aidStations;
-
-      const payload: Record<string, unknown> = {
+      const { race } = await createPrivateRace({
         name: name.trim(),
-        distance_km: validation.values.distanceKm,
-        elevation_gain_m: validation.values.elevationGain,
-        elevation_loss_m: validation.values.elevationLoss,
-        location_text: location.trim() || null,
-        race_date: raceDate || null,
-        aid_stations,
-        gpx_content: gpxContent,
-        is_public: false,
-        is_live: false,
-        is_published: false,
-        event_id: null,
-        created_by: userId,
-        slug,
-      };
-
-      const response = await fetch(`${WEB_API_BASE_URL}/api/races`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        distanceKm: validation.values.distanceKm,
+        elevationGainM: validation.values.elevationGain,
+        elevationLossM: validation.values.elevationLoss,
+        locationText: location.trim() || null,
+        raceDate: raceDate || null,
+        aidStations: validation.values.aidStations,
+        gpxContent,
       });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data?.race) {
-        Alert.alert('Erreur', data?.message ?? t.races.createFailed);
-        return;
-      }
-
-      // Ensure private fields are set regardless of server behaviour
-      await supabase
-        .from('races')
-        .update({
-          is_public: false,
-          is_live: false,
-          is_published: false,
-          created_by: userId,
-          slug,
-          event_id: null,
-        })
-        .eq('id', data.race.id);
 
       await noteReviewRaceCreated();
       Alert.alert('', t.races.created, [
         {
           text: t.plans.newPlanForRace.replace('+', '').trim(),
-          onPress: () => router.replace({ pathname: '/(app)/plan/new', params: { raceId: data.race.id } }),
+          onPress: () => router.replace({ pathname: '/(app)/plan/new', params: { raceId: race.id } }),
         },
         {
           text: t.common.back,
           onPress: () => router.back(),
         },
       ]);
-    } catch {
-      Alert.alert('Erreur', t.races.createFailed);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message === 'Session expired.'
+            ? t.raceRequests.sessionExpired
+            : error.message
+          : t.races.createFailed;
+      Alert.alert('Erreur', message);
     } finally {
       setSaving(false);
     }

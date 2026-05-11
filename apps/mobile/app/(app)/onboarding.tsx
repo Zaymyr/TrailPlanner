@@ -42,6 +42,12 @@ import { noteReviewOnboardingCompleted, noteReviewPlanCreated } from '../../lib/
 import { markOnboardingJustCompleted } from '../../lib/onboardingGate';
 import { createOnboardingDemoPlan } from '../../lib/onboardingDemoPlan';
 import {
+  buildGpxImportErrorMessage,
+  createPrivateRace,
+  pickAndParseGpxDocument,
+  type GpxFeedback,
+} from '../../lib/race-import';
+import {
   clearPendingOnboardingTransition,
   getPendingOnboardingTransition,
   setPendingOnboardingTransition,
@@ -347,6 +353,8 @@ export default function OnboardingScreen() {
   const [loadingRaces, setLoadingRaces] = useState(false);
   const [raceLoadError, setRaceLoadError] = useState<string | null>(null);
   const [hasLoadedRaceOptions, setHasLoadedRaceOptions] = useState(false);
+  const [importingRaceGpx, setImportingRaceGpx] = useState(false);
+  const [raceImportFeedback, setRaceImportFeedback] = useState<GpxFeedback | null>(null);
   const [nutritionProducts, setNutritionProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [expandedNutritionBrands, setExpandedNutritionBrands] = useState<string[]>([]);
@@ -673,7 +681,6 @@ export default function OnboardingScreen() {
               .select('id, name, distance_km, elevation_gain_m, location_text, race_date, is_public, created_by, thumbnail_url')
               .eq('is_public', false)
               .eq('created_by', userId)
-              .eq('is_live', true)
               .order('race_date', { ascending: true, nullsFirst: false })
               .order('name', { ascending: true })
           : Promise.resolve({ data: [], error: null }),
@@ -1089,7 +1096,77 @@ export default function OnboardingScreen() {
   function handleSelectRace(raceId: string) {
     setSelectedRaceId(raceId);
     setSelectedRaceEvent(null);
+    setRaceImportFeedback(null);
     setStep(6);
+  }
+
+  async function handleImportRaceFromGpx() {
+    setImportingRaceGpx(true);
+    setRaceImportFeedback(null);
+
+    try {
+      const picked = await pickAndParseGpxDocument(t);
+      if (!picked) {
+        return;
+      }
+
+      if (picked.parsed.stats.distanceKm <= 0) {
+        setRaceImportFeedback({
+          tone: 'warning',
+          message: `${picked.feedback.message} ${t.races.validationDistancePositive}`,
+        });
+        return;
+      }
+
+      let race;
+      try {
+        ({ race } = await createPrivateRace({
+          name: picked.suggestedRaceName,
+          distanceKm: picked.parsed.stats.distanceKm,
+          elevationGainM: Math.round(picked.parsed.stats.gainM),
+          elevationLossM: Math.round(picked.parsed.stats.lossM),
+          gpxContent: picked.content,
+          aidStations: [],
+        }));
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message === 'Session expired.'
+              ? t.raceRequests.sessionExpired
+              : error.message
+            : t.races.createFailed;
+        setRaceImportFeedback({ tone: 'warning', message });
+        return;
+      }
+
+      const nextRace: RaceOption = {
+        id: race.id,
+        name: race.name,
+        distance_km: race.distance_km,
+        elevation_gain_m: race.elevation_gain_m,
+        location_text: race.location_text ?? null,
+        race_date: null,
+        is_public: race.is_public,
+        created_by: race.created_by ?? null,
+        thumbnail_url: null,
+      };
+
+      setPersonalRaceOptions((current) =>
+        sortRaceOptions([nextRace, ...current.filter((raceOption) => raceOption.id !== nextRace.id)]),
+      );
+      setSelectedRaceId(nextRace.id);
+      setSelectedRaceEvent(null);
+      setRaceSearch('');
+      setRaceImportFeedback(picked.feedback.tone === 'warning' ? picked.feedback : null);
+      setStep(6);
+    } catch (error) {
+      setRaceImportFeedback({
+        tone: 'warning',
+        message: buildGpxImportErrorMessage(error, t),
+      });
+    } finally {
+      setImportingRaceGpx(false);
+    }
   }
 
   function toggleProductSelection(productId: string) {
@@ -1580,6 +1657,35 @@ export default function OnboardingScreen() {
         <Text style={styles.predictionHint}>{t.onboarding.raceHint}</Text>
 
         <View style={styles.sectionCard}>
+          <View style={[styles.noticeBox, styles.raceImportNoticeBox]}>
+            <Text style={styles.noticeTitle}>{t.onboarding.raceImportTitle}</Text>
+            <Text style={styles.noticeText}>{t.onboarding.raceImportSubtitle}</Text>
+            <TouchableOpacity
+              style={[styles.importGpxButton, importingRaceGpx && styles.buttonDisabled]}
+              onPress={handleImportRaceFromGpx}
+              disabled={importingRaceGpx}
+            >
+              {importingRaceGpx ? (
+                <ActivityIndicator color={Colors.brandPrimary} />
+              ) : (
+                <View style={styles.importGpxButtonContent}>
+                  <Ionicons name="document-attach-outline" size={18} color={Colors.brandPrimary} />
+                  <Text style={styles.importGpxButtonText}>{t.onboarding.raceImportCta}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {raceImportFeedback ? (
+              <View
+                style={[
+                  styles.importGpxFeedback,
+                  raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
+                ]}
+              >
+                <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
+              </View>
+            ) : null}
+          </View>
+
           {selectedRaceSummary ? (
             <View style={styles.inlineInfoRow}>
               <View style={styles.selectionCountPill}>
@@ -1733,7 +1839,7 @@ export default function OnboardingScreen() {
                           styles.raceChoiceCard,
                           selected && styles.raceChoiceCardSelected,
                         ]}
-                        onPress={() => setSelectedRaceId(race.id)}
+                        onPress={() => handleSelectRace(race.id)}
                       >
                         <View style={styles.raceChoiceHeader}>
                           <Text style={styles.raceChoiceTitle}>{race.name}</Text>
@@ -1861,6 +1967,17 @@ export default function OnboardingScreen() {
               <TouchableOpacity style={styles.retryButtonInline} onPress={handleBackToRaceChoice}>
                 <Text style={styles.retryButtonInlineText}>{t.onboarding.changeRaceCta}</Text>
               </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {raceImportFeedback ? (
+            <View
+              style={[
+                styles.importGpxFeedback,
+                raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
+              ]}
+            >
+              <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
             </View>
           ) : null}
 
@@ -3064,6 +3181,48 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 8,
     marginBottom: 24,
+  },
+  raceImportNoticeBox: {
+    marginBottom: 16,
+  },
+  importGpxButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    marginTop: 4,
+  },
+  importGpxButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  importGpxButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  importGpxFeedback: {
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  importGpxFeedbackWarning: {
+    borderColor: Colors.warning,
+  },
+  importGpxFeedbackText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   nutritionNoticeBox: {
     marginBottom: 14,
