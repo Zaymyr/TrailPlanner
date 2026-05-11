@@ -116,6 +116,9 @@ export type MobileTranslations = {
     gpxPickFile: string;
     gpxSelected: string;
     gpxPreview: string;
+    gpxPreviewSubtitle: string;
+    gpxPreviewPointsLabel: string;
+    gpxPreviewConfirmCta: string;
     gpxImportSuccess: string;
     gpxRouteFallback: string;
     gpxWaypointFallback: string;

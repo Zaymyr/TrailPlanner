@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
+import { GpxImportPreviewModal } from '../../components/race/GpxImportPreviewModal';
 import {
   estimateHourlyTargets,
   isValidHeightCm,
@@ -49,6 +50,7 @@ import {
   createPrivateRace,
   pickAndParseGpxDocument,
   type GpxFeedback,
+  type ImportedGpxDocument,
 } from '../../lib/race-import';
 import {
   clearPendingOnboardingTransition,
@@ -361,6 +363,8 @@ export default function OnboardingScreen() {
   const [hasLoadedRaceOptions, setHasLoadedRaceOptions] = useState(false);
   const [importingRaceGpx, setImportingRaceGpx] = useState(false);
   const [raceImportFeedback, setRaceImportFeedback] = useState<GpxFeedback | null>(null);
+  const [pendingRaceGpxDocument, setPendingRaceGpxDocument] = useState<ImportedGpxDocument | null>(null);
+  const [pendingRaceGpxName, setPendingRaceGpxName] = useState('');
   const [nutritionProducts, setNutritionProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [expandedNutritionBrands, setExpandedNutritionBrands] = useState<string[]>([]);
@@ -1201,27 +1205,39 @@ export default function OnboardingScreen() {
         });
         return;
       }
+      setPendingRaceGpxDocument(picked);
+      setPendingRaceGpxName(picked.suggestedRaceName);
+    } catch (error) {
+      setRaceImportFeedback({
+        tone: 'warning',
+        message: buildGpxImportErrorMessage(error, t),
+      });
+    } finally {
+      setImportingRaceGpx(false);
+    }
+  }
 
-      let race;
-      try {
-        ({ race } = await createPrivateRace({
-          name: picked.suggestedRaceName,
-          distanceKm: picked.parsed.stats.distanceKm,
-          elevationGainM: Math.round(picked.parsed.stats.gainM),
-          elevationLossM: Math.round(picked.parsed.stats.lossM),
-          gpxContent: picked.content,
-          aidStations: [],
-        }));
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message === 'Session expired.'
-              ? t.raceRequests.sessionExpired
-              : error.message
-            : t.races.createFailed;
-        setRaceImportFeedback({ tone: 'warning', message });
-        return;
-      }
+  function handleCancelRaceGpxPreview() {
+    if (importingRaceGpx) return;
+    setPendingRaceGpxDocument(null);
+    setPendingRaceGpxName('');
+  }
+
+  async function handleConfirmRaceGpxImport() {
+    if (!pendingRaceGpxDocument) return;
+
+    setImportingRaceGpx(true);
+    setRaceImportFeedback(null);
+
+    try {
+      const { race } = await createPrivateRace({
+        name: pendingRaceGpxName.trim() || pendingRaceGpxDocument.suggestedRaceName,
+        distanceKm: pendingRaceGpxDocument.parsed.stats.distanceKm,
+        elevationGainM: Math.round(pendingRaceGpxDocument.parsed.stats.gainM),
+        elevationLossM: Math.round(pendingRaceGpxDocument.parsed.stats.lossM),
+        gpxContent: pendingRaceGpxDocument.content,
+        aidStations: [],
+      });
 
       const nextRace: RaceOption = {
         id: race.id,
@@ -1241,13 +1257,20 @@ export default function OnboardingScreen() {
       setSelectedRaceId(nextRace.id);
       setSelectedRaceEvent(null);
       setRaceSearch('');
-      setRaceImportFeedback(picked.feedback.tone === 'warning' ? picked.feedback : null);
+      setRaceImportFeedback(
+        pendingRaceGpxDocument.feedback.tone === 'warning' ? pendingRaceGpxDocument.feedback : null,
+      );
+      setPendingRaceGpxDocument(null);
+      setPendingRaceGpxName('');
       setStep(6);
     } catch (error) {
-      setRaceImportFeedback({
-        tone: 'warning',
-        message: buildGpxImportErrorMessage(error, t),
-      });
+      const message =
+        error instanceof Error
+          ? error.message === 'Session expired.'
+            ? t.raceRequests.sessionExpired
+            : error.message
+          : t.races.createFailed;
+      setRaceImportFeedback({ tone: 'warning', message });
     } finally {
       setImportingRaceGpx(false);
     }
@@ -1989,6 +2012,16 @@ export default function OnboardingScreen() {
         </View>
 
         </OnboardingShell>
+
+        <GpxImportPreviewModal
+          visible={Boolean(pendingRaceGpxDocument)}
+          document={pendingRaceGpxDocument}
+          raceName={pendingRaceGpxName}
+          onRaceNameChange={setPendingRaceGpxName}
+          onCancel={handleCancelRaceGpxPreview}
+          onConfirm={() => void handleConfirmRaceGpxImport()}
+          confirming={importingRaceGpx}
+        />
 
         <Modal
           visible={Boolean(selectedRaceEvent)}

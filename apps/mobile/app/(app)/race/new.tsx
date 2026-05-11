@@ -12,11 +12,13 @@ import {
 import { useRouter } from 'expo-router';
 import { useI18n } from '../../../lib/i18n';
 import { noteReviewRaceCreated } from '../../../lib/appReview';
+import { GpxImportPreviewModal } from '../../../components/race/GpxImportPreviewModal';
 import {
   buildGpxImportErrorMessage,
   createPrivateRace,
   pickAndParseGpxDocument,
   type GpxFeedback,
+  type ImportedGpxDocument,
 } from '../../../lib/race-import';
 import { Colors } from '../../../constants/colors';
 
@@ -58,7 +60,10 @@ export default function NewRaceScreen() {
   const [gpxContent, setGpxContent] = useState<string | null>(null);
   const [gpxFileName, setGpxFileName] = useState<string | null>(null);
   const [gpxFeedback, setGpxFeedback] = useState<GpxFeedback | null>(null);
+  const [pendingGpxDocument, setPendingGpxDocument] = useState<ImportedGpxDocument | null>(null);
+  const [pendingGpxName, setPendingGpxName] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [pickingGpx, setPickingGpx] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const clearFieldError = (field: keyof FieldErrors) => {
@@ -141,29 +146,44 @@ export default function NewRaceScreen() {
   };
 
   const handlePickGpx = async () => {
+    setPickingGpx(true);
     try {
       const picked = await pickAndParseGpxDocument(t);
       if (!picked) return;
-
-      setGpxContent(picked.content);
-      setGpxFeedback(picked.feedback);
-      setGpxFileName(picked.fileName);
-      setName((current) => (current.trim().length > 0 ? current : picked.suggestedRaceName));
-
-      if (picked.parsed.stats.distanceKm > 0) {
-        setDistanceKm(String(picked.parsed.stats.distanceKm));
-        clearFieldError('distanceKm');
-      }
-      if (picked.parsed.hasElevation) {
-        setElevationGain(String(Math.round(picked.parsed.stats.gainM)));
-        setElevationLoss(String(Math.round(picked.parsed.stats.lossM)));
-        clearFieldError('elevationGain');
-        clearFieldError('elevationLoss');
-      }
+      setPendingGpxDocument(picked);
+      setPendingGpxName(picked.suggestedRaceName);
     } catch (error) {
       setGpxContent(null);
+      setGpxFileName(null);
+      setPendingGpxDocument(null);
+      setPendingGpxName('');
       setGpxFeedback({ tone: 'warning', message: buildGpxImportErrorMessage(error, t) });
+    } finally {
+      setPickingGpx(false);
     }
+  };
+
+  const handleApplyGpxPreview = () => {
+    if (!pendingGpxDocument) return;
+
+    setGpxContent(pendingGpxDocument.content);
+    setGpxFeedback(pendingGpxDocument.feedback);
+    setGpxFileName(pendingGpxDocument.fileName);
+    setName((current) => (current.trim().length > 0 ? current : pendingGpxName.trim() || pendingGpxDocument.suggestedRaceName));
+
+    if (pendingGpxDocument.parsed.stats.distanceKm > 0) {
+      setDistanceKm(String(pendingGpxDocument.parsed.stats.distanceKm));
+      clearFieldError('distanceKm');
+    }
+    if (pendingGpxDocument.parsed.hasElevation) {
+      setElevationGain(String(Math.round(pendingGpxDocument.parsed.stats.gainM)));
+      setElevationLoss(String(Math.round(pendingGpxDocument.parsed.stats.lossM)));
+      clearFieldError('elevationGain');
+      clearFieldError('elevationLoss');
+    }
+
+    setPendingGpxDocument(null);
+    setPendingGpxName('');
   };
 
   const handleAddAidStation = () => {
@@ -221,10 +241,18 @@ export default function NewRaceScreen() {
       <Text style={styles.sectionTitle}>{t.races.createTitle}</Text>
 
       {/* GPX import */}
-      <TouchableOpacity style={styles.gpxButton} onPress={handlePickGpx}>
-        <Text style={styles.gpxButtonText}>
-          {gpxFileName ? `📄 ${gpxFileName}` : `📂 ${t.races.gpxPickFile}`}
-        </Text>
+      <TouchableOpacity
+        style={[styles.gpxButton, pickingGpx && styles.gpxButtonDisabled]}
+        onPress={() => void handlePickGpx()}
+        disabled={pickingGpx}
+      >
+        {pickingGpx ? (
+          <ActivityIndicator color={Colors.brandPrimary} />
+        ) : (
+          <Text style={styles.gpxButtonText}>
+            {gpxFileName ? `📄 ${gpxFileName}` : `📂 ${t.races.gpxPickFile}`}
+          </Text>
+        )}
       </TouchableOpacity>
       {gpxFeedback ? (
         <View style={[styles.gpxFeedback, gpxFeedback.tone === 'warning' && styles.gpxFeedbackWarning]}>
@@ -374,6 +402,18 @@ export default function NewRaceScreen() {
           <Text style={styles.saveButtonText}>{t.common.create}</Text>
         )}
       </TouchableOpacity>
+
+      <GpxImportPreviewModal
+        visible={Boolean(pendingGpxDocument)}
+        document={pendingGpxDocument}
+        raceName={pendingGpxName}
+        onRaceNameChange={setPendingGpxName}
+        onCancel={() => {
+          setPendingGpxDocument(null);
+          setPendingGpxName('');
+        }}
+        onConfirm={handleApplyGpxPreview}
+      />
     </ScrollView>
   );
 }
@@ -407,6 +447,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 8,
+  },
+  gpxButtonDisabled: {
+    opacity: 0.6,
   },
   gpxButtonText: { color: Colors.brandPrimary, fontSize: 14 },
   gpxFeedback: {
