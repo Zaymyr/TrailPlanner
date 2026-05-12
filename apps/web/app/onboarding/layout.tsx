@@ -17,6 +17,7 @@ export default function OnboardingLayout({ children }: { children: React.ReactNo
         backgroundColor: '#FAF7F2',
         display: 'flex',
         flexDirection: 'column',
+        minHeight: 0,
         zIndex: 9999,
       }}>
         <OnboardingAnalyticsTracker />

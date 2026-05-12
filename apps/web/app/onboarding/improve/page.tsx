@@ -187,7 +187,7 @@ export default function ImprovePage() {
   }
 
   return (
-    <div className="flex flex-col gap-4 px-5 pt-8 pb-8">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-8 pb-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ton plan détaillé 🍃
