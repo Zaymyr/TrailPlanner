@@ -26,7 +26,9 @@ import { RaceSelector } from "../../../components/race-planner/RaceSelector";
 import { PlanSaveBar } from "../../../components/race-planner/PlanSaveBar";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
+import { PlannerSetupSteps, type PlannerSetupStepId } from "./components/PlannerSetupSteps";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
+import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { PageLoadingSkeleton } from "../../../components/PageLoadingSkeleton";
 import {
@@ -370,7 +372,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       isSettingsCollapsed,
       isRaceCatalogOpen,
       catalogSubmissionId,
-      isCourseCollapsed,
       upgradeStatus,
       upgradeError,
       upgradeDialogOpen,
@@ -390,7 +391,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
       setCatalogSubmissionId,
-      setIsCourseCollapsed,
       setUpgradeStatus,
       setUpgradeError,
       setUpgradeDialogOpen,
@@ -399,6 +399,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setOnboardingStep,
     },
   } = usePlannerState();
+  const [openSetupStep, setOpenSetupStep] = useState<PlannerSetupStepId>("course");
 
   useEffect(() => {
     if (initializedQueryRef.current) return;
@@ -442,8 +443,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   // Keep the plan tab active throughout the tutorial.
   // Step 5 targets the site header sign-in button which is always visible.
   const applyOnboardingLayout = useCallback(
-    (_step: number) => {
+    (step: number) => {
       setMobileView("plan");
+      if (step === 1) {
+        setOpenSetupStep("course");
+      } else if (step === 2) {
+        setOpenSetupStep("pacing");
+      }
     },
     [setMobileView],
   );
@@ -986,6 +992,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const formatSodiumAmount = (value: number) =>
     racePlannerCopy.sections.timeline.sodiumLabel.replace("{amount}", value.toFixed(0));
 
+  const formatPaceSummary = (minutes: number, seconds: number) => {
+    const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes)) : 0;
+    const safeSeconds = Number.isFinite(seconds) ? Math.min(Math.max(Math.round(seconds), 0), 59) : 0;
+    return `${safeMinutes}:${String(safeSeconds).padStart(2, "0")}/km`;
+  };
+
   const mergedFuelProducts = useMemo(() => {
     const productsById = new Map<string, FuelProduct>();
     fuelProducts.forEach((product) => productsById.set(product.id, product));
@@ -1099,15 +1111,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
 
   const handleMobileImport = () => {
-    focusSection(sectionIds.courseProfile, "plan");
-    const input = fileInputRef.current;
-    if (!input) return;
+    setOpenSetupStep("course");
+    window.setTimeout(() => {
+      focusSection(sectionIds.courseProfile, "plan");
+      const input = fileInputRef.current;
+      if (!input) return;
 
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-    } else {
-      input.click();
-    }
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    }, 0);
   };
 
   const mobileNavActions = [
@@ -1474,6 +1489,123 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
     defaultValues.raceDistanceKm;
   const courseProfileAidStations = parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations;
+  const elevationGainForSummary =
+    (parsedValues.success ? parsedValues.data.elevationGain : watchedValues?.elevationGain) ??
+    defaultValues.elevationGain;
+  const waterBagLitersForSummary =
+    (parsedValues.success ? parsedValues.data.waterBagLiters : watchedValues?.waterBagLiters) ??
+    defaultValues.waterBagLiters;
+  const durationSummary = pacingOverviewDuration
+    ? formatMinutes(pacingOverviewDuration, racePlannerCopy.units)
+    : "-";
+  const fatigueSummary =
+    fatigueLevelValue <= 0.33
+      ? racePlannerCopy.sections.raceInputs.fields.fatigueLow
+      : fatigueLevelValue >= 0.67
+        ? racePlannerCopy.sections.raceInputs.fields.fatigueHigh
+        : racePlannerCopy.sections.raceInputs.fields.fatigueMedium;
+  const paceSummary =
+    paceTypeValue === "speed"
+      ? `${Math.max(0, speedKphValue).toFixed(1)} km/h`
+      : formatPaceSummary(paceMinutesValue, paceSecondsValue);
+  const courseStepSummary = racePlannerCopy.sections.layout.courseStepSummary
+    .replace("{distance}", formatDistanceWithUnit(totalDistanceKm))
+    .replace("{elevation}", Math.max(0, Math.round(elevationGainForSummary)).toString());
+  const pacingStepSummary = racePlannerCopy.sections.layout.pacingStepSummary
+    .replace("{pace}", paceSummary)
+    .replace("{fatigue}", fatigueSummary)
+    .replace("{duration}", durationSummary);
+  const nutritionStepSummary = racePlannerCopy.sections.layout.nutritionStepSummary
+    .replace("{carbs}", Math.max(0, Math.round(baseIntakeTargets.carbsPerHour)).toString())
+    .replace("{water}", Math.max(0, Math.round(baseIntakeTargets.waterMlPerHour)).toString())
+    .replace("{sodium}", Math.max(0, Math.round(baseIntakeTargets.sodiumMgPerHour)).toString())
+    .replace("{waterBag}", Math.max(0, waterBagLitersForSummary).toFixed(1));
+  const setupContent = (
+    <PlannerSetupSteps
+      ariaLabel={racePlannerCopy.sections.layout.setupStepsLabel}
+      openStep={openSetupStep}
+      onOpenStep={setOpenSetupStep}
+      steps={[
+        {
+          id: "course",
+          title: racePlannerCopy.sections.courseProfile.title,
+          summary: courseStepSummary,
+          content: (
+            <CourseProfileSection
+              sectionId={sectionIds.courseProfile}
+              copy={racePlannerCopy}
+              fileInputRef={fileInputRef}
+              onImportGpx={handleImportGpx}
+              onOpenRaceCatalog={() => setIsRaceCatalogOpen(true)}
+              allowExport={allowExport}
+              onExportGpx={handleExportGpx}
+              onRequestExportUpgrade={() => requestPremiumUpgrade(premiumCopy.exportLocked)}
+              importError={importError}
+              register={register}
+              elevationProfile={elevationProfile}
+              aidStations={courseProfileAidStations}
+              segments={segments}
+              totalDistanceKm={totalDistanceKm}
+              baseMinutesPerKm={baseMinutesPerKm}
+              headingLevel="h3"
+              showCollapseToggle={false}
+            />
+          ),
+        },
+        {
+          id: "pacing",
+          title: racePlannerCopy.sections.raceInputs.pacingTitle,
+          summary: pacingStepSummary,
+          content: (
+            <CommandCenter
+              copy={racePlannerCopy}
+              sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
+              sections={["pacing"]}
+              headingLevel="h3"
+              pacing={{
+                durationMinutes: pacingOverviewDuration,
+                paceType: paceTypeValue,
+                paceMinutes: paceMinutesValue,
+                paceSeconds: paceSecondsValue,
+                speedKph: speedKphValue,
+                fatigueLevel: fatigueLevelValue,
+              }}
+              register={register}
+              onPaceChange={handlePaceUpdate}
+              onSpeedChange={handleSpeedUpdate}
+              formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
+            />
+          ),
+        },
+        {
+          id: "nutrition",
+          title: racePlannerCopy.sections.raceInputs.nutritionTitle,
+          summary: nutritionStepSummary,
+          content: (
+            <CommandCenter
+              copy={racePlannerCopy}
+              sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
+              sections={["intake"]}
+              headingLevel="h3"
+              pacing={{
+                durationMinutes: pacingOverviewDuration,
+                paceType: paceTypeValue,
+                paceMinutes: paceMinutesValue,
+                paceSeconds: paceSecondsValue,
+                speedKph: speedKphValue,
+                fatigueLevel: fatigueLevelValue,
+              }}
+              coachManaged={isCoachManaged}
+              register={register}
+              onPaceChange={handlePaceUpdate}
+              onSpeedChange={handleSpeedUpdate}
+              formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
+            />
+          ),
+        },
+      ]}
+    />
+  );
   const planPrimaryContent = (
     <PlanPrimaryContent
       profileError={profileError}
@@ -1488,11 +1620,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         speedKph: speedKphValue,
         fatigueLevel: fatigueLevelValue,
       }}
-      coachManaged={isCoachManaged}
+      setupContent={setupContent}
       register={register}
-      onPaceChange={handlePaceUpdate}
-      onSpeedChange={handleSpeedUpdate}
-      formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
       segments={segments}
       sectionSegments={sanitizedSectionSegments}
       elevationProfile={elevationProfile}
@@ -1693,26 +1822,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </h1>
         </div>
         <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
-        <CourseProfileSection
-          sectionId={sectionIds.courseProfile}
-          copy={racePlannerCopy}
-          isCollapsed={isCourseCollapsed}
-          onToggleCollapsed={() => setIsCourseCollapsed((prev) => !prev)}
-          fileInputRef={fileInputRef}
-          onImportGpx={handleImportGpx}
-          onOpenRaceCatalog={() => setIsRaceCatalogOpen(true)}
-          allowExport={allowExport}
-          onExportGpx={handleExportGpx}
-          onRequestExportUpgrade={() => requestPremiumUpgrade(premiumCopy.exportLocked)}
-          importError={importError}
-          register={register}
-          elevationProfile={elevationProfile}
-          aidStations={courseProfileAidStations}
-          segments={segments}
-          totalDistanceKm={totalDistanceKm}
-          baseMinutesPerKm={baseMinutesPerKm}
-        />
-
         <RacePlannerLayout
           className="space-y-6"
           planContent={planPrimaryContent}

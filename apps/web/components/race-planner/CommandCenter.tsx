@@ -13,6 +13,8 @@ import { Label } from "../ui/label";
 type CommandCenterProps = {
   copy: RacePlannerTranslations;
   sectionIds: { pacing: string; intake: string };
+  sections?: Array<"pacing" | "intake">;
+  headingLevel?: "h2" | "h3";
   pacing: {
     durationMinutes: number | null;
     paceType: "pace" | "speed";
@@ -46,6 +48,8 @@ const formatPace = (minutesPerKm: number) => {
 export function CommandCenter({
   copy,
   sectionIds,
+  sections = ["pacing", "intake"],
+  headingLevel = "h2",
   pacing,
   coachManaged = false,
   register,
@@ -54,6 +58,10 @@ export function CommandCenter({
   formatDuration,
 }: CommandCenterProps) {
   const [pacingMode, setPacingMode] = useState<"pace" | "speed">(pacing.paceType);
+  const showPacing = sections.includes("pacing");
+  const showIntake = sections.includes("intake");
+  const showBothSections = showPacing && showIntake;
+  const HeadingTag = headingLevel;
   const basePaceMinutesPerKm = useMemo(() => {
     if (pacingMode === "speed") {
       return pacing.speedKph > 0 ? 60 / pacing.speedKph : null;
@@ -91,54 +99,60 @@ export function CommandCenter({
 
   return (
     <div className="space-y-4">
-      <div id="pacing-nutrition-section" className="grid gap-3 md:grid-cols-5">
-        <Card
-          id={sectionIds.pacing}
-          className="border-border/50 bg-muted/30 shadow-sm md:col-span-2 dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none"
-        >
-          <CardHeader className="space-y-3 pb-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-foreground dark:text-slate-100">
-                {copy.sections.raceInputs.pacingTitle}
-              </h2>
-              {pacing.durationMinutes ? (
-                <span className="rounded-md border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                  {formatDuration(pacing.durationMinutes)}
-                </span>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-400">
-                {copy.sections.raceInputs.fields.paceType}
-              </p>
-              <div className="flex items-center gap-2 rounded-md border border-border bg-background p-1 dark:border-slate-800/80 dark:bg-slate-900/80">
-                {(
-                  [
-                    { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
-                    { key: "speed", label: copy.sections.raceInputs.paceOptions.speed as string },
-                  ] satisfies { key: "pace" | "speed"; label: string }[]
-                ).map((option) => {
-                  const isActive = pacingMode === option.key;
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      className={`rounded px-3 py-1 text-xs font-semibold transition ${
-                        isActive
-                          ? "bg-emerald-100 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.2)] dark:bg-emerald-500/20 dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
-                          : "text-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-emerald-100"
-                      }`}
-                      onClick={() => setPacingMode(option.key)}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+      <div
+        id={showPacing ? "pacing-nutrition-section" : undefined}
+        className={showBothSections ? "grid gap-3 md:grid-cols-5" : "grid gap-3"}
+      >
+        {showPacing ? (
+          <Card
+            id={sectionIds.pacing}
+            className={`border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none ${
+              showBothSections ? "md:col-span-2" : ""
+            }`}
+          >
+            <CardHeader className="space-y-3 pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <HeadingTag className="text-sm font-semibold text-foreground dark:text-slate-100">
+                  {copy.sections.raceInputs.pacingTitle}
+                </HeadingTag>
+                {pacing.durationMinutes ? (
+                  <span className="rounded-md border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+                    {formatDuration(pacing.durationMinutes)}
+                  </span>
+                ) : null}
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-400">
+                  {copy.sections.raceInputs.fields.paceType}
+                </p>
+                <div className="flex items-center gap-2 rounded-md border border-border bg-background p-1 dark:border-slate-800/80 dark:bg-slate-900/80">
+                  {(
+                    [
+                      { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
+                      { key: "speed", label: copy.sections.raceInputs.paceOptions.speed as string },
+                    ] satisfies { key: "pace" | "speed"; label: string }[]
+                  ).map((option) => {
+                    const isActive = pacingMode === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        className={`rounded px-3 py-1 text-xs font-semibold transition ${
+                          isActive
+                            ? "bg-emerald-100 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.2)] dark:bg-emerald-500/20 dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
+                            : "text-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-emerald-100"
+                        }`}
+                        onClick={() => setPacingMode(option.key)}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
               {pacingMode === "pace" ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <div className="w-full space-y-1 sm:w-[120px]">
@@ -255,27 +269,31 @@ export function CommandCenter({
                   {fatigueImpact}
                 </p>
               ) : null}
-            </div>
-            <input type="hidden" {...register("paceType")} />
-          </CardContent>
-        </Card>
+              </div>
+              <input type="hidden" {...register("paceType")} />
+            </CardContent>
+          </Card>
+        ) : null}
 
-        <Card
-          id={sectionIds.intake}
-          className="border-border/50 bg-muted/30 shadow-sm md:col-span-3 dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none"
-        >
-          <CardHeader className="pb-3">
-            <h2 className="text-sm font-semibold text-foreground dark:text-slate-100">
-              {copy.sections.raceInputs.nutritionTitle}
-            </h2>
-            <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
-            {coachManaged ? (
-              <p className="text-xs text-amber-700 dark:text-amber-200">
-                {copy.sections.raceInputs.coachManagedNote}
-              </p>
-            ) : null}
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {showIntake ? (
+          <Card
+            id={sectionIds.intake}
+            className={`border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none ${
+              showBothSections ? "md:col-span-3" : ""
+            }`}
+          >
+            <CardHeader className="pb-3">
+              <HeadingTag className="text-sm font-semibold text-foreground dark:text-slate-100">
+                {copy.sections.raceInputs.nutritionTitle}
+              </HeadingTag>
+              <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
+              {coachManaged ? (
+                <p className="text-xs text-amber-700 dark:text-amber-200">
+                  {copy.sections.raceInputs.coachManagedNote}
+                </p>
+              ) : null}
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label
                 htmlFor="targetIntakePerHour"
@@ -345,8 +363,9 @@ export function CommandCenter({
                 {...register("waterBagLiters", { valueAsNumber: true })}
               />
             </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </div>
   );

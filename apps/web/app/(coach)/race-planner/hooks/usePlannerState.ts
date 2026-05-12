@@ -20,7 +20,6 @@ export const usePlannerState = () => {
   const [isSettingsCollapsed, setIsSettingsCollapsedState] = useState(false);
   const [isRaceCatalogOpen, setIsRaceCatalogOpen] = useState(false);
   const [catalogSubmissionId, setCatalogSubmissionId] = useState<string | null>(null);
-  const [isCourseCollapsed, setIsCourseCollapsed] = useState(true);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
@@ -59,7 +58,6 @@ export const usePlannerState = () => {
       isSettingsCollapsed,
       isRaceCatalogOpen,
       catalogSubmissionId,
-      isCourseCollapsed,
       upgradeStatus,
       upgradeError,
       upgradeDialogOpen,
@@ -79,7 +77,6 @@ export const usePlannerState = () => {
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
       setCatalogSubmissionId,
-      setIsCourseCollapsed,
       setUpgradeStatus,
       setUpgradeError,
       setUpgradeDialogOpen,

@@ -376,6 +376,10 @@ export const fr: Translations = {
       layout: {
         collapsePanel: "Masquer le panneau latéral",
         expandPanel: "Afficher le panneau latéral",
+        setupStepsLabel: "Progression des réglages",
+        courseStepSummary: "Distance {distance}, D+ {elevation} m",
+        pacingStepSummary: "{pace}, fatigue {fatigue}, durée estimée {duration}",
+        nutritionStepSummary: "{carbs} g/h, {water} ml/h, {sodium} mg sodium/h, poche {waterBag} L",
       },
       aidStations: {
         title: "Ravitaillements",

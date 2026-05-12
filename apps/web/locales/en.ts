@@ -365,6 +365,10 @@ export const en: Translations = {
       layout: {
         collapsePanel: "Hide side panel",
         expandPanel: "Show side panel",
+        setupStepsLabel: "Setup progress",
+        courseStepSummary: "Distance {distance}, D+ {elevation} m",
+        pacingStepSummary: "{pace}, fatigue {fatigue}, estimated duration {duration}",
+        nutritionStepSummary: "{carbs} g/hr, {water} ml/hr, {sodium} mg sodium/hr, bladder {waterBag} L",
       },
       aidStations: {
         title: "Aid stations",

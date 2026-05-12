@@ -1,13 +1,12 @@
 "use client";
 
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
 import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../../../locales/types";
 import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
-import { CommandCenter } from "../../../../components/race-planner/CommandCenter";
 import type { ElevationPoint, FormValues, SectionSegment, Segment, StationSupply } from "../types";
 import type { RaceTotals } from "../utils/nutrition";
 
@@ -24,11 +23,8 @@ type PlanPrimaryContentProps = {
     speedKph: number;
     fatigueLevel: number;
   };
-  coachManaged?: boolean;
+  setupContent?: ReactNode;
   register: UseFormRegister<FormValues>;
-  onPaceChange: (minutes: number, seconds: number) => void;
-  onSpeedChange: (speedKph: number) => void;
-  formatDuration: (totalMinutes: number) => string;
   segments: Segment[];
   sectionSegments?: Record<string, SectionSegment[]>;
   elevationProfile: ElevationPoint[];
@@ -74,11 +70,8 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   copy,
   sectionIds,
   pacing,
-  coachManaged,
+  setupContent,
   register,
-  onPaceChange,
-  onSpeedChange,
-  formatDuration,
   segments,
   sectionSegments,
   elevationProfile,
@@ -115,16 +108,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   return (
     <div className="space-y-6">
       {showProfileError && profileError ? <p className="text-sm text-amber-200">{profileError}</p> : null}
-      <CommandCenter
-        copy={copy}
-        sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
-        pacing={pacing}
-        coachManaged={coachManaged}
-        register={register}
-        onPaceChange={onPaceChange}
-        onSpeedChange={onSpeedChange}
-        formatDuration={formatDuration}
-      />
+      {setupContent}
 
       <ActionPlan
         copy={copy}

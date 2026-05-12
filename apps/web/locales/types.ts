@@ -270,6 +270,10 @@ export type RacePlannerTranslations = {
     layout: {
       collapsePanel: string;
       expandPanel: string;
+      setupStepsLabel: string;
+      courseStepSummary: string;
+      pacingStepSummary: string;
+      nutritionStepSummary: string;
     };
     aidStations: {
       title: string;
