@@ -316,8 +316,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const initializedQueryRef = useRef(false);
   const hasStoredPlannerDraftRef = useRef(false);
   const restoredDraftKeysRef = useRef<Set<string>>(new Set());
+  const deleteUndoTimersRef = useRef<Map<string, ReturnType<typeof window.setTimeout>>>(new Map());
   const toastIdRef = useRef(0);
   const [plannerToast, setPlannerToast] = useState<PlannerToast | null>(null);
+  const [pendingDeletePlanIds, setPendingDeletePlanIds] = useState<Set<string>>(new Set());
 
   const sectionIds = {
     timeline: "race-timeline",
@@ -578,6 +580,77 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const showPlannerToast = useCallback((toast: Omit<PlannerToast, "id">) => {
     toastIdRef.current += 1;
     setPlannerToast({ id: toastIdRef.current, ...toast });
+  }, []);
+
+  const removePendingPlanDelete = useCallback((planId: string) => {
+    setPendingDeletePlanIds((previous) => {
+      if (!previous.has(planId)) return previous;
+      const next = new Set(previous);
+      next.delete(planId);
+      return next;
+    });
+  }, []);
+
+  const cancelPendingPlanDelete = useCallback(
+    (planId: string) => {
+      const timeout = deleteUndoTimersRef.current.get(planId);
+      if (timeout) {
+        window.clearTimeout(timeout);
+        deleteUndoTimersRef.current.delete(planId);
+      }
+      removePendingPlanDelete(planId);
+    },
+    [removePendingPlanDelete]
+  );
+
+  const visibleSavedPlans = useMemo(
+    () => savedPlans.filter((plan) => !pendingDeletePlanIds.has(plan.id)),
+    [pendingDeletePlanIds, savedPlans]
+  );
+
+  const handleDeletePlanWithUndo = useCallback(
+    (planId: string) => {
+      const plan = savedPlans.find((savedPlan) => savedPlan.id === planId);
+      if (!plan) {
+        void handleDeletePlan(planId);
+        return;
+      }
+
+      setPendingDeletePlanIds((previous) => {
+        const next = new Set(previous);
+        next.add(planId);
+        return next;
+      });
+
+      const timeout = window.setTimeout(() => {
+        deleteUndoTimersRef.current.delete(planId);
+        void handleDeletePlan(planId).finally(() => removePendingPlanDelete(planId));
+      }, 5000);
+      deleteUndoTimersRef.current.set(planId, timeout);
+
+      showPlannerToast({
+        message: racePlannerCopy.account.messages.deletedPlan,
+        actionLabel: racePlannerCopy.page.undo,
+        durationMs: 5000,
+        onAction: () => cancelPendingPlanDelete(planId),
+      });
+    },
+    [
+      cancelPendingPlanDelete,
+      handleDeletePlan,
+      racePlannerCopy.account.messages.deletedPlan,
+      racePlannerCopy.page.undo,
+      removePendingPlanDelete,
+      savedPlans,
+      showPlannerToast,
+    ]
+  );
+
+  useEffect(() => {
+    return () => {
+      deleteUndoTimersRef.current.forEach((timeout) => window.clearTimeout(timeout));
+      deleteUndoTimersRef.current.clear();
+    };
   }, []);
 
   useEffect(() => {
@@ -1469,7 +1542,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           planStatus,
           accountMessage,
           accountError,
-          savedPlans,
+          savedPlans: visibleSavedPlans,
           races,
           userId: session?.id,
           deletingPlanId,
@@ -1481,7 +1554,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
           },
-          onDeletePlan: handleDeletePlan,
+          onDeletePlan: handleDeletePlanWithUndo,
           onNewPlanForRace: (raceId) => {
             void handleUseCatalogRace(raceId);
           },
