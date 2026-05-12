@@ -14,6 +14,7 @@ type RacePlannerLayoutProps = {
   settingsLabel: string;
   isSettingsCollapsed?: boolean;
   onSettingsToggle?: () => void;
+  settingsCount?: number;
   collapseSettingsLabel?: string;
   expandSettingsLabel?: string;
   className?: string;
@@ -30,6 +31,7 @@ export function RacePlannerLayout({
   settingsLabel,
   isSettingsCollapsed = false,
   onSettingsToggle,
+  settingsCount = 0,
   collapseSettingsLabel = "Hide panel",
   expandSettingsLabel = "Show panel",
   className,
@@ -77,13 +79,15 @@ export function RacePlannerLayout({
         </div>
       </div>
 
-      <div className="hidden xl:grid xl:grid-cols-12 xl:gap-6">
+      <div
+        className={
+          isSettingsCollapsed
+            ? "hidden xl:grid xl:grid-cols-[minmax(0,1fr)_40px] xl:gap-4"
+            : "hidden xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(320px,24rem)] xl:gap-6"
+        }
+      >
         <div
-          className={
-            isSettingsCollapsed
-              ? `space-y-6 ${footerOffsetClass} xl:col-span-11 2xl:col-span-11`
-              : `space-y-6 ${footerOffsetClass} xl:col-span-8 2xl:col-span-9`
-          }
+          className={`space-y-6 ${footerOffsetClass}`}
         >
           {planSecondaryContent ? (
             <div className="space-y-6 2xl:grid 2xl:grid-cols-[1.6fr,1fr] 2xl:items-start 2xl:gap-6 2xl:space-y-0">
@@ -102,8 +106,8 @@ export function RacePlannerLayout({
         <div
           className={
             isSettingsCollapsed
-              ? "relative xl:col-span-1 2xl:col-span-1 xl:sticky xl:top-4 xl:self-start"
-              : "relative space-y-6 xl:col-span-4 2xl:col-span-3 xl:sticky xl:top-4 xl:self-start"
+              ? "relative w-10 xl:sticky xl:top-4 xl:self-start"
+              : "relative space-y-6 xl:sticky xl:top-4 xl:self-start"
           }
         >
           {onSettingsToggle ? (
@@ -122,7 +126,21 @@ export function RacePlannerLayout({
             </Button>
           ) : null}
           {isSettingsCollapsed ? (
-            <div className="min-h-[240px] rounded-xl border border-dashed border-border/60 bg-card/30" />
+            <div className="flex min-h-[240px] w-10 flex-col items-center gap-3 rounded-xl border border-border/60 bg-card/60 py-3 text-muted-foreground shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/60">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
+                <path
+                  d="M5 5.5h14M5 12h14M5 18.5h14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-900 dark:bg-blue-900/40 dark:text-blue-50">
+                {settingsCount}
+              </span>
+              <span className="sr-only">{settingsLabel}</span>
+            </div>
           ) : (
             settingsContent
           )}

@@ -1721,9 +1721,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
-          settingsLabel={racePlannerCopy.account.title}
+          settingsLabel={racePlannerCopy.account.coach.myPlans}
           isSettingsCollapsed={isSettingsCollapsed}
           onSettingsToggle={() => setIsSettingsCollapsed((collapsed) => !collapsed)}
+          settingsCount={visibleSavedPlans.length}
           collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
           expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
         />

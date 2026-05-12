@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState, type SetStateAction } from "react";
 
 type FeedbackStatus = "idle" | "submitting" | "success" | "error";
 export type PlannerMobileView = "plan" | "settings";
 export type PlannerUpgradeReason = "autoFill" | "print" | "plans" | null;
+
+const PLANS_PANEL_STORAGE_KEY = "pace-yourself:ui:plans-panel";
 
 export const usePlannerState = () => {
   const [importError, setImportError] = useState<string | null>(null);
@@ -15,7 +17,7 @@ export const usePlannerState = () => {
   const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [isDesktopApp, setIsDesktopApp] = useState(false);
   const [mobileView, setMobileView] = useState<PlannerMobileView>("plan");
-  const [isSettingsCollapsed, setIsSettingsCollapsed] = useState(false);
+  const [isSettingsCollapsed, setIsSettingsCollapsedState] = useState(false);
   const [isRaceCatalogOpen, setIsRaceCatalogOpen] = useState(false);
   const [catalogSubmissionId, setCatalogSubmissionId] = useState<string | null>(null);
   const [isCourseCollapsed, setIsCourseCollapsed] = useState(true);
@@ -25,6 +27,24 @@ export const usePlannerState = () => {
   const [upgradeReason, setUpgradeReason] = useState<PlannerUpgradeReason>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingStep, setOnboardingStep] = useState(0);
+  const setIsSettingsCollapsed = useCallback((value: SetStateAction<boolean>) => {
+    setIsSettingsCollapsedState((previous) => {
+      const next = typeof value === "function" ? value(previous) : value;
+
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(PLANS_PANEL_STORAGE_KEY, next ? "collapsed" : "expanded");
+      }
+
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem(PLANS_PANEL_STORAGE_KEY);
+    if (!stored) return;
+    setIsSettingsCollapsedState(stored === "collapsed");
+  }, []);
 
   return {
     state: {
