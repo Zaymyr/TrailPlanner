@@ -301,6 +301,8 @@ export const fr: Translations = {
           speedKph: "Vitesse (km/h)",
           fatigueLevel: "Facteur fatigue",
           fatigueHelper: "Ralentit progressivement l'allure au fil des heures pour les longues courses.",
+          fatigueImpact:
+            "Avec ce réglage, ton allure passe de {basePace} à {finalPace} après {duration}.",
           fatigueLow: "Tres endurant",
           fatigueMedium: "Standard",
           fatigueHigh: "Prudent",

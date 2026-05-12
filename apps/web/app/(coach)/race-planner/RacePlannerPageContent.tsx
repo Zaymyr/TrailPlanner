@@ -329,6 +329,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { fields, append, replace } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const startSupplies = form.watch("startSupplies") ?? [];
+  const paceTypeValue = form.watch("paceType") ?? defaultValues.paceType;
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
   const speedKphValue = form.watch("speedKph") ?? defaultValues.speedKph;
@@ -1408,6 +1409,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       sectionIds={sectionIds}
       pacing={{
         durationMinutes: pacingOverviewDuration,
+        paceType: paceTypeValue,
         paceMinutes: paceMinutesValue,
         paceSeconds: paceSecondsValue,
         speedKph: speedKphValue,

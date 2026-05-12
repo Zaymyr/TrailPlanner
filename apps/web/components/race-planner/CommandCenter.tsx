@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues } from "../../app/(coach)/race-planner/types";
+import { estimateEffortDurationMinutes } from "../../app/(coach)/race-planner/utils/pacing";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -14,6 +15,7 @@ type CommandCenterProps = {
   sectionIds: { pacing: string; intake: string };
   pacing: {
     durationMinutes: number | null;
+    paceType: "pace" | "speed";
     paceMinutes: number;
     paceSeconds: number;
     speedKph: number;
@@ -31,6 +33,16 @@ const clampSeconds = (value: number) => {
   return Math.min(Math.max(Math.round(value), 0), 59);
 };
 
+const formatPace = (minutesPerKm: number) => {
+  const safeMinutes = Number.isFinite(minutesPerKm) ? Math.max(0, minutesPerKm) : 0;
+  const wholeMinutes = Math.floor(safeMinutes);
+  let seconds = Math.round((safeMinutes - wholeMinutes) * 60);
+  const adjustedMinutes = seconds === 60 ? wholeMinutes + 1 : wholeMinutes;
+  seconds = seconds === 60 ? 0 : seconds;
+
+  return `${adjustedMinutes}:${String(seconds).padStart(2, "0")}/km`;
+};
+
 export function CommandCenter({
   copy,
   sectionIds,
@@ -41,7 +53,41 @@ export function CommandCenter({
   onSpeedChange,
   formatDuration,
 }: CommandCenterProps) {
-  const [pacingMode, setPacingMode] = useState<"pace" | "speed">("pace");
+  const [pacingMode, setPacingMode] = useState<"pace" | "speed">(pacing.paceType);
+  const basePaceMinutesPerKm = useMemo(() => {
+    if (pacingMode === "speed") {
+      return pacing.speedKph > 0 ? 60 / pacing.speedKph : null;
+    }
+
+    const pace = pacing.paceMinutes + pacing.paceSeconds / 60;
+    return pace > 0 ? pace : null;
+  }, [pacing.paceMinutes, pacing.paceSeconds, pacing.speedKph, pacingMode]);
+  const fatigueImpact = useMemo(() => {
+    if (!basePaceMinutesPerKm || !pacing.durationMinutes) return null;
+
+    const finalPaceMinutesPerKm = estimateEffortDurationMinutes(basePaceMinutesPerKm, {
+      distKm: 1,
+      dPlus: 0,
+      dMinus: 0,
+      elapsedBeforeSeconds: pacing.durationMinutes * 60,
+      fatigueLevel: pacing.fatigueLevel,
+    });
+
+    return copy.sections.raceInputs.fields.fatigueImpact
+      .replace("{basePace}", formatPace(basePaceMinutesPerKm))
+      .replace("{finalPace}", formatPace(finalPaceMinutesPerKm))
+      .replace("{duration}", formatDuration(pacing.durationMinutes));
+  }, [
+    basePaceMinutesPerKm,
+    copy.sections.raceInputs.fields.fatigueImpact,
+    formatDuration,
+    pacing.durationMinutes,
+    pacing.fatigueLevel,
+  ]);
+
+  useEffect(() => {
+    setPacingMode(pacing.paceType);
+  }, [pacing.paceType]);
 
   return (
     <div className="space-y-4">
@@ -204,6 +250,11 @@ export function CommandCenter({
               <p className="text-xs text-muted-foreground dark:text-slate-400">
                 {copy.sections.raceInputs.fields.fatigueHelper}
               </p>
+              {fatigueImpact ? (
+                <p className="rounded-md border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+                  {fatigueImpact}
+                </p>
+              ) : null}
             </div>
             <input type="hidden" {...register("paceType")} />
           </CardContent>

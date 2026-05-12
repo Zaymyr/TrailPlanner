@@ -291,6 +291,8 @@ export const en: Translations = {
           speedKph: "Speed (km/h)",
           fatigueLevel: "Fatigue factor",
           fatigueHelper: "Gradually slows the pace as the race gets longer.",
+          fatigueImpact:
+            "With this setting, your pace goes from {basePace} to {finalPace} after {duration}.",
           fatigueLow: "Very durable",
           fatigueMedium: "Standard",
           fatigueHigh: "Conservative",

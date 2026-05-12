@@ -18,6 +18,7 @@ type PlanPrimaryContentProps = {
   sectionIds: { pacing: string; intake: string; timeline: string };
   pacing: {
     durationMinutes: number | null;
+    paceType: "pace" | "speed";
     paceMinutes: number;
     paceSeconds: number;
     speedKph: number;

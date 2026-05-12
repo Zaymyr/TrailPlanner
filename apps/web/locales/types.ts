@@ -198,6 +198,7 @@ export type RacePlannerTranslations = {
         speedKph: string;
         fatigueLevel: string;
         fatigueHelper: string;
+        fatigueImpact: string;
         fatigueLow: string;
         fatigueMedium: string;
         fatigueHigh: string;
