@@ -1040,6 +1040,7 @@ export function ActionPlan({
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const segmentCopy = copy.segments;
+  const autoFillTooltipId = "timeline-auto-fill-tooltip";
   const sortedElevationProfile = useMemo(
     () => [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm),
     [elevationProfile]
@@ -1700,16 +1701,25 @@ export function ActionPlan({
                 </Button>
               </span>
               {segments.length > 0 ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={autoFillLocked ? "premium-glow" : undefined}
-                  onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
-                  title={copy.buttons.autoFillHint}
-                  disabled={autoFillLocked && isUpgradeBusy}
-                >
-                  {copy.buttons.autoFill}
-                </Button>
+                <span className="group relative inline-flex">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={autoFillLocked ? "premium-glow" : undefined}
+                    onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
+                    aria-describedby={autoFillTooltipId}
+                    disabled={autoFillLocked && isUpgradeBusy}
+                  >
+                    {copy.buttons.autoFill}
+                  </Button>
+                  <span
+                    id={autoFillTooltipId}
+                    role="tooltip"
+                    className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-popover px-3 py-2 text-left text-xs leading-snug text-popover-foreground opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-within:opacity-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    {copy.buttons.autoFillHint}
+                  </span>
+                </span>
               ) : null}
               {segments.length > 0 ? (
                 <Button

@@ -514,7 +514,8 @@ export const en: Translations = {
       chooseRace: "Browse races",
       printPlan: "Print plan",
       autoFill: "Automatic fill",
-      autoFillHint: "Automatically fills each aid station with your favorite fuel choices.",
+      autoFillHint:
+        "Automatically calculates what to carry at each aid station from your carbs/water/sodium targets.",
     },
     raceCatalog: {
       title: "Race catalog",

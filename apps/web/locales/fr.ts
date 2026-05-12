@@ -525,7 +525,8 @@ export const fr: Translations = {
       chooseRace: "Parcourir les courses",
       printPlan: "Imprimer le plan",
       autoFill: "Remplissage auto",
-      autoFillHint: "Remplit automatiquement chaque ravito avec tes produits favoris.",
+      autoFillHint:
+        "Calcule automatiquement les quantités à emporter à chaque ravito selon tes cibles glucides/eau/sodium.",
     },
     raceCatalog: {
       title: "Catalogue de courses",
