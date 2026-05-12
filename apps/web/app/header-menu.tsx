@@ -14,6 +14,9 @@ type MenuItem = {
   active: boolean;
 };
 
+const isActivePath = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
 const buttonBaseClass =
   "flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-[hsl(var(--icon))] shadow-sm transition hover:border-[hsl(var(--brand))] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:text-emerald-50";
 
@@ -33,12 +36,12 @@ export function HeaderMenu() {
       {
         label: t.navigation.racePlanner,
         href: "/race-planner",
-        active: pathname === "/race-planner",
+        active: isActivePath(pathname, "/race-planner"),
       },
       {
         label: t.navigation.coach,
         href: "/coach",
-        active: pathname === "/coach",
+        active: isActivePath(pathname, "/coach"),
       },
       {
         label: t.navigation.blog,
@@ -48,17 +51,17 @@ export function HeaderMenu() {
       {
         label: t.navigation.settings,
         href: "/settings",
-        active: pathname === "/settings",
+        active: isActivePath(pathname, "/settings"),
       },
       {
         label: t.navigation.profile,
         href: "/profile",
-        active: pathname === "/profile",
+        active: isActivePath(pathname, "/profile"),
       },
       {
         label: t.navigation.admin,
         href: "/admin",
-        active: pathname === "/admin",
+        active: isActivePath(pathname, "/admin"),
       },
     ],
     [
@@ -142,10 +145,11 @@ export function HeaderMenu() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
+                aria-current={item.active ? "page" : undefined}
+                className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
                   item.active
-                    ? "bg-muted text-foreground dark:bg-emerald-500/20 dark:text-emerald-50"
-                    : "text-muted-foreground dark:text-emerald-100"
+                    ? "border-blue-600 bg-blue-50 text-blue-900 shadow-sm dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-50"
+                    : "border-transparent text-muted-foreground dark:text-emerald-100"
                 }`}
               >
                 {item.label}
@@ -154,6 +158,7 @@ export function HeaderMenu() {
             ))}
             <Link
               href="/premium"
+              aria-current={pathname === "/premium" ? "page" : undefined}
               className={`premium-glow flex items-center justify-between rounded-md border px-3 py-2 text-sm font-semibold transition ${
                 pathname === "/premium"
                   ? "border-amber-400/80 bg-amber-400/90 text-slate-950"
