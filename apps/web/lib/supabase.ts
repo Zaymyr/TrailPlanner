@@ -147,10 +147,7 @@ export const fetchSupabaseUser = async (
     }
 
     const roles = normalizeRoles(parsed.data.app_metadata?.roles);
-    const role =
-      parsed.data.app_metadata?.role ??
-      roles?.[0] ??
-      (typeof parsed.data.user_metadata?.role === "string" ? parsed.data.user_metadata.role : undefined);
+    const role = parsed.data.app_metadata?.role ?? roles?.[0];
 
     return {
       id: parsed.data.id,
