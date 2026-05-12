@@ -254,7 +254,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
         </div>
         <div className="grid gap-5 lg:grid-cols-2">
           <ImagePlaceholder
-            src="/landing/partners-product-detail.png"
+            src="/landing/partners-product-detail.jpeg"
             alt={copy.appearance.imageProductLabel}
             label={copy.appearance.imageProductLabel}
             width={800}
@@ -262,7 +262,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
             className="aspect-[4/3]"
           />
           <ImagePlaceholder
-            src="/landing/partners-aid-station.png"
+            src="/landing/partners-aid-station.jpeg"
             alt={copy.appearance.imageAidStationLabel}
             label={copy.appearance.imageAidStationLabel}
             width={600}
@@ -312,7 +312,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
       <section className="rounded-3xl border border-border bg-card/50 p-6 shadow-inner sm:p-10">
         <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <ImagePlaceholder
-            src="/landing/faustin-trail.jpg"
+            src="/landing/faustin-trail.jpeg"
             alt={copy.about.photoAlt}
             label={copy.about.photoAlt}
             width={600}
