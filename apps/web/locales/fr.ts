@@ -201,6 +201,15 @@ export const fr: Translations = {
     },
   },
   racePlanner: {
+    page: {
+      breadcrumbLabel: "Fil d'Ariane",
+      breadcrumbHome: "Accueil",
+      breadcrumbPlanner: "Planificateur",
+      newPlanTitle: "Nouveau plan",
+      draftRestored: "Brouillon non sauvegardé restauré.",
+      undo: "Annuler",
+      savedAt: "Plan enregistré à {time}",
+    },
     defaults: {
       aidStationName: "Ravito {index}",
       finalBottles: "Dernières bouteilles",

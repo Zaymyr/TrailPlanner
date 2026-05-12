@@ -192,6 +192,15 @@ export const en: Translations = {
     },
   },
   racePlanner: {
+    page: {
+      breadcrumbLabel: "Breadcrumb",
+      breadcrumbHome: "Home",
+      breadcrumbPlanner: "Planner",
+      newPlanTitle: "New plan",
+      draftRestored: "Unsaved draft restored.",
+      undo: "Undo",
+      savedAt: "Plan saved at {time}",
+    },
     defaults: {
       aidStationName: "Aid {index}",
       finalBottles: "Final Bottles",

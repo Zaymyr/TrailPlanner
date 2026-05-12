@@ -99,6 +99,15 @@ export type MobileAppPromptTranslations = {
 };
 
 export type RacePlannerTranslations = {
+  page: {
+    breadcrumbLabel: string;
+    breadcrumbHome: string;
+    breadcrumbPlanner: string;
+    newPlanTitle: string;
+    draftRestored: string;
+    undo: string;
+    savedAt: string;
+  };
   defaults: {
     aidStationName: string;
     finalBottles: string;

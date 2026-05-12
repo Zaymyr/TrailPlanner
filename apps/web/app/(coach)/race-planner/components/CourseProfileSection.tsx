@@ -4,12 +4,7 @@ import type React from "react";
 import type { UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues, Segment } from "../types";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../../../components/ui/card";
+import { Card, CardContent, CardHeader } from "../../../../components/ui/card";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { Button } from "../../../../components/ui/button";
@@ -22,7 +17,7 @@ type CardTitleWithTooltipProps = {
 };
 
 const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps) => (
-  <CardTitle className="flex items-center gap-2">
+  <h2 className="flex items-center gap-2 text-lg font-semibold leading-none text-card-foreground">
     <span>{title}</span>
     <span
       className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
@@ -31,7 +26,7 @@ const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps)
     >
       ?
     </span>
-  </CardTitle>
+  </h2>
 );
 
 type CourseProfileSectionProps = {

@@ -52,9 +52,9 @@ export function CommandCenter({
         >
           <CardHeader className="space-y-3 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground dark:text-slate-100">
+              <h2 className="text-sm font-semibold text-foreground dark:text-slate-100">
                 {copy.sections.raceInputs.pacingTitle}
-              </p>
+              </h2>
               {pacing.durationMinutes ? (
                 <span className="rounded-md border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
                   {formatDuration(pacing.durationMinutes)}
@@ -214,9 +214,9 @@ export function CommandCenter({
           className="border-border-strong bg-card shadow-md md:col-span-3 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
         >
           <CardHeader className="pb-3">
-            <p className="text-sm font-semibold text-foreground dark:text-slate-100">
+            <h2 className="text-sm font-semibold text-foreground dark:text-slate-100">
               {copy.sections.raceInputs.nutritionTitle}
-            </p>
+            </h2>
             <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
             {coachManaged ? (
               <p className="text-xs text-amber-700 dark:text-amber-200">

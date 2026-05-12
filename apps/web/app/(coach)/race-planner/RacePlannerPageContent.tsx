@@ -2,6 +2,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
+import Link from "next/link";
 import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "../../../components/ui/input";
@@ -1396,6 +1397,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (activePlan?.catalogRaceId ? races.find((race) => race.id === activePlan.catalogRaceId)?.name : null) ??
     "Sans course";
   const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
+  const pagePlanTitle = planName.trim() || activePlan?.name || racePlannerCopy.page.newPlanTitle;
   const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
   const hasBlockingOverlayOpen =
     isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || onboardingOpen || upgradeDialogOpen;
@@ -1421,6 +1423,33 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       </Script>
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+        <div className="space-y-3">
+          <nav aria-label={racePlannerCopy.page.breadcrumbLabel} className="text-sm text-muted-foreground">
+            <ol className="flex flex-wrap items-center gap-2">
+              <li>
+                <Link href="/" className="underline-offset-4 transition hover:text-foreground hover:underline">
+                  {racePlannerCopy.page.breadcrumbHome}
+                </Link>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li>
+                <Link
+                  href="/race-planner"
+                  className="underline-offset-4 transition hover:text-foreground hover:underline"
+                >
+                  {racePlannerCopy.page.breadcrumbPlanner}
+                </Link>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li aria-current="page" className="font-medium text-foreground">
+                {pagePlanTitle}
+              </li>
+            </ol>
+          </nav>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
+            {pagePlanTitle}
+          </h1>
+        </div>
         <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
         <CourseProfileSection
           sectionId={sectionIds.courseProfile}
