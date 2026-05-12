@@ -36,6 +36,7 @@ export function RacePlannerLayout({
 }: RacePlannerLayoutProps) {
   const toggleLabel = isSettingsCollapsed ? expandSettingsLabel : collapseSettingsLabel;
   const toggleIconPath = isSettingsCollapsed ? "m9 18 6-6-6-6" : "m15 6-6 6 6 6";
+  const footerOffsetClass = floatingFooter ? "pb-28" : "";
   return (
     <div className={className}>
       <div className="space-y-4 xl:hidden">
@@ -64,7 +65,7 @@ export function RacePlannerLayout({
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className={`space-y-6 ${footerOffsetClass}`}>
           {mobileView === "plan" ? (
             <div className="space-y-6">
               <div className="space-y-6">{planContent}</div>
@@ -72,7 +73,7 @@ export function RacePlannerLayout({
             </div>
           ) : null}
           {mobileView === "settings" ? <div className="space-y-6">{settingsContent}</div> : null}
-          {floatingFooter ? <div className="sticky bottom-24 z-30 xl:hidden">{floatingFooter}</div> : null}
+          {floatingFooter ? <div className="fixed inset-x-0 bottom-0 z-50 px-4 pb-4 xl:hidden">{floatingFooter}</div> : null}
         </div>
       </div>
 
@@ -80,8 +81,8 @@ export function RacePlannerLayout({
         <div
           className={
             isSettingsCollapsed
-              ? "space-y-6 xl:col-span-11 2xl:col-span-11"
-              : "space-y-6 xl:col-span-8 2xl:col-span-9"
+              ? `space-y-6 ${footerOffsetClass} xl:col-span-11 2xl:col-span-11`
+              : `space-y-6 ${footerOffsetClass} xl:col-span-8 2xl:col-span-9`
           }
         >
           {planSecondaryContent ? (
@@ -92,7 +93,11 @@ export function RacePlannerLayout({
           ) : (
             <div className="space-y-6">{planContent}</div>
           )}
-          {floatingFooter ? <div className="sticky bottom-4 z-30 hidden xl:block">{floatingFooter}</div> : null}
+          {floatingFooter ? (
+            <div className="fixed bottom-6 right-6 z-50 hidden w-[min(420px,calc(100vw-3rem))] xl:block">
+              {floatingFooter}
+            </div>
+          ) : null}
         </div>
         <div
           className={

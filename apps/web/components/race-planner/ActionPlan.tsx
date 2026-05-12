@@ -1673,7 +1673,10 @@ export function ActionPlan({
 
   return (
     <>
-      <Card id={sectionId}>
+      <Card
+        id={sectionId}
+        className="border-blue-600/60 bg-blue-50/40 shadow-xl shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/20 dark:shadow-blue-950/30"
+      >
         <CardHeader className="space-y-3">
           <SectionHeader
             title={timelineCopy.title}

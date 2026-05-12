@@ -68,7 +68,10 @@ export const CourseProfileSection = ({
   totalDistanceKm,
   baseMinutesPerKm,
 }: CourseProfileSectionProps) => (
-  <Card id={sectionId} className="relative overflow-hidden">
+  <Card
+    id={sectionId}
+    className="relative overflow-hidden border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/40 dark:shadow-none"
+  >
     <input
       ref={fileInputRef}
       type="file"
@@ -137,7 +140,7 @@ export const CourseProfileSection = ({
     <CardContent className="px-4 pb-10 sm:px-6">
       {(() => {
         const courseControls = (
-          <div className="w-full max-w-xl space-y-4 rounded-lg border border-border bg-card p-4 dark:border-slate-800 dark:bg-slate-950/60 lg:ml-auto">
+          <div className="w-full max-w-xl space-y-4 rounded-lg border border-border/50 bg-background/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/50 lg:ml-auto">
             <div className="space-y-2">
               <p className="text-sm font-semibold text-foreground dark:text-slate-50">{copy.sections.raceInputs.courseTitle}</p>
               <p className="text-xs text-muted-foreground dark:text-slate-400">
@@ -206,7 +209,7 @@ export const CourseProfileSection = ({
 
         return (
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:gap-8">
-            <div className="min-h-[240px] w-full rounded-lg border border-border bg-card p-4 dark:border-slate-800/70 dark:bg-slate-950/40">
+            <div className="min-h-[240px] w-full rounded-lg border border-border/50 bg-background/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
               <ElevationProfileChart
                 profile={elevationProfile}
                 aidStations={aidStations}

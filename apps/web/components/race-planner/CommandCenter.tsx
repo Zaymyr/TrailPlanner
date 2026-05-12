@@ -48,7 +48,7 @@ export function CommandCenter({
       <div id="pacing-nutrition-section" className="grid gap-3 md:grid-cols-5">
         <Card
           id={sectionIds.pacing}
-          className="border-border bg-card shadow-md md:col-span-2 dark:border-slate-800/70 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
+          className="border-border/50 bg-muted/30 shadow-sm md:col-span-2 dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none"
         >
           <CardHeader className="space-y-3 pb-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -211,7 +211,7 @@ export function CommandCenter({
 
         <Card
           id={sectionIds.intake}
-          className="border-border-strong bg-card shadow-md md:col-span-3 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
+          className="border-border/50 bg-muted/30 shadow-sm md:col-span-3 dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none"
         >
           <CardHeader className="pb-3">
             <h2 className="text-sm font-semibold text-foreground dark:text-slate-100">
