@@ -29,7 +29,13 @@ import { PlannerRightPanel } from "./components/PlannerRightPanel";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { PageLoadingSkeleton } from "../../../components/PageLoadingSkeleton";
-import { clearRacePlannerStorage, readRacePlannerStorage, writeRacePlannerStorage } from "../../../lib/race-planner-storage";
+import {
+  clearRacePlannerDraft,
+  getRacePlannerDraftKey,
+  readRacePlannerDraft,
+  writeRacePlannerDraft,
+  writeRacePlannerStorage,
+} from "../../../lib/race-planner-storage";
 import { formatMinutes } from "./utils/format";
 import { minutesPerKm, paceToSpeedKph, speedToPace } from "./utils/pacing";
 import { buildPlannerGpx, parseGpx } from "./utils/gpx";
@@ -221,9 +227,22 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
 
 type PlannerStorageValues = Partial<FormValues> & { startSupplies?: StationSupply[] };
 
+type PlannerToast = {
+  id: number;
+  message: string;
+  actionLabel?: string;
+  durationMs?: number;
+  onAction?: () => void;
+};
+
 const sanitizeRacePlannerStorage = (
-  payload?: { values?: Partial<FormValues>; elevationProfile?: ElevationPoint[] } | null
-): { values: Partial<FormValues>; elevationProfile: ElevationPoint[] } | null => {
+  payload?: {
+    values?: Partial<FormValues>;
+    elevationProfile?: ElevationPoint[];
+    updatedAt?: string;
+    planName?: string;
+  } | null
+): { values: Partial<FormValues>; elevationProfile: ElevationPoint[]; updatedAt: string; planName?: string } | null => {
   if (!payload) return null;
 
   const sanitizedValues = sanitizePlannerValues(payload.values);
@@ -234,6 +253,23 @@ const sanitizeRacePlannerStorage = (
   return {
     values: sanitizedValues,
     elevationProfile: sanitizedElevationProfile,
+    updatedAt: typeof payload.updatedAt === "string" ? payload.updatedAt : "",
+    planName: typeof payload.planName === "string" ? payload.planName : undefined,
+  };
+};
+
+const buildPlannerValuesFromStorage = (defaultValues: FormValues, storedValues: Partial<FormValues>): FormValues => {
+  const sanitizedAidStations = sanitizeAidStations(storedValues.aidStations) ?? [];
+  const aidStations =
+    sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
+  const startSupplies = sanitizeSegmentPlan({ supplies: storedValues.startSupplies }).supplies ?? [];
+
+  return {
+    ...defaultValues,
+    ...storedValues,
+    aidStations,
+    startSupplies,
+    finishPlan: storedValues.finishPlan ?? defaultValues.finishPlan,
   };
 };
 
@@ -279,6 +315,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const queryCatalogRaceIdRef = useRef<string | null>(null);
   const initializedQueryRef = useRef(false);
   const hasStoredPlannerDraftRef = useRef(false);
+  const restoredDraftKeysRef = useRef<Set<string>>(new Set());
+  const toastIdRef = useRef(0);
+  const [plannerToast, setPlannerToast] = useState<PlannerToast | null>(null);
 
   const sectionIds = {
     timeline: "race-timeline",
@@ -494,6 +533,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setUpgradeError(null);
     },
   });
+  const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isCoach = Boolean(isAdmin || session?.role === "coach" || session?.roles?.includes("coach"));
   const isAuthed = Boolean(session?.accessToken);
@@ -534,48 +574,133 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     void handleUseCatalogRace(raceId);
   }, [authStatus, handleUseCatalogRace]);
 
+  const showPlannerToast = useCallback((toast: Omit<PlannerToast, "id">) => {
+    toastIdRef.current += 1;
+    setPlannerToast({ id: toastIdRef.current, ...toast });
+  }, []);
+
   useEffect(() => {
-    const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
+    if (!plannerToast?.durationMs) return;
+
+    const timeout = window.setTimeout(() => {
+      setPlannerToast((current) => (current?.id === plannerToast.id ? null : current));
+    }, plannerToast.durationMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [plannerToast]);
+
+  useEffect(() => {
+    if (queryPlanIdRef.current) return;
+
+    const draftKey = getRacePlannerDraftKey(activePlanId);
+    if (restoredDraftKeysRef.current.has(draftKey)) return;
+
+    const storedPlanner = readRacePlannerDraft<PlannerStorageValues, ElevationPoint[]>(activePlanId);
     const sanitized = sanitizeRacePlannerStorage(storedPlanner);
 
     if (!sanitized) {
       hasStoredPlannerDraftRef.current = false;
-      clearRacePlannerStorage();
+      if (storedPlanner) {
+        clearRacePlannerDraft(activePlanId);
+      }
+      return;
+    }
+
+    const draftUpdatedAt = Date.parse(sanitized.updatedAt);
+    const savedUpdatedAt = activePlan?.updatedAt ? Date.parse(activePlan.updatedAt) : 0;
+    const isDraftNewer =
+      Number.isFinite(draftUpdatedAt) && (!activePlan || !Number.isFinite(savedUpdatedAt) || draftUpdatedAt > savedUpdatedAt);
+
+    if (!isDraftNewer) {
+      hasStoredPlannerDraftRef.current = false;
       return;
     }
 
     hasStoredPlannerDraftRef.current = true;
+    restoredDraftKeysRef.current.add(draftKey);
 
-    const storedValues = sanitized.values;
-    const sanitizedAidStations = sanitizeAidStations(storedValues.aidStations) ?? [];
-    const aidStations =
-      sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
-    const startSupplies = sanitizeSegmentPlan({ supplies: storedValues.startSupplies }).supplies ?? [];
-
-    const mergedValues: FormValues = {
-      ...defaultValues,
-      ...storedValues,
-      aidStations,
-      startSupplies,
-      finishPlan: storedValues.finishPlan ?? defaultValues.finishPlan,
-    };
+    const previousValues = form.getValues();
+    const previousElevationProfile = elevationProfile;
+    const previousPlanName = planName;
+    const mergedValues = buildPlannerValuesFromStorage(defaultValues, sanitized.values);
 
     form.reset(mergedValues, { keepDefaultValues: true });
     setElevationProfile(sanitized.elevationProfile);
-  }, [defaultValues, form]);
+    if (sanitized.planName) {
+      setPlanName(sanitized.planName);
+    }
+
+    showPlannerToast({
+      message: racePlannerCopy.page.draftRestored,
+      actionLabel: racePlannerCopy.page.undo,
+      onAction: () => {
+        form.reset(previousValues, { keepDefaultValues: true });
+        setElevationProfile(previousElevationProfile);
+        setPlanName(previousPlanName);
+        restoredDraftKeysRef.current.delete(draftKey);
+      },
+    });
+  }, [
+    activePlan,
+    activePlanId,
+    defaultValues,
+    elevationProfile,
+    form,
+    planName,
+    racePlannerCopy.page.draftRestored,
+    racePlannerCopy.page.undo,
+    setElevationProfile,
+    setPlanName,
+    showPlannerToast,
+  ]);
 
   useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const writeCurrentDraft = () => {
+      const currentValues = form.getValues();
+      const sanitizedValues = sanitizePlannerValues(currentValues);
+      if (!sanitizedValues) return;
+
+      writeRacePlannerDraft<PlannerStorageValues, ElevationPoint[]>(activePlanId, {
+        version: 1,
+        values: sanitizedValues,
+        elevationProfile: sanitizeElevationProfile(elevationProfile),
+        updatedAt: new Date().toISOString(),
+        planName: planName.trim() || undefined,
+      });
+    };
+
+    const interval = window.setInterval(writeCurrentDraft, 5_000);
+    return () => window.clearInterval(interval);
+  }, [activePlanId, elevationProfile, form, hasUnsavedChanges, planName]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
+  const writePlannerSnapshot = useCallback(() => {
     const currentValues = form.getValues();
     const sanitizedValues = sanitizePlannerValues(currentValues);
-    if (!sanitizedValues) return;
+    if (!sanitizedValues) return false;
 
     writeRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>({
       version: 1,
       values: sanitizedValues,
       elevationProfile: sanitizeElevationProfile(elevationProfile),
       updatedAt: new Date().toISOString(),
+      planName: planName.trim() || undefined,
     });
-  }, [elevationProfile, form, watchedValues]);
+    return true;
+  }, [elevationProfile, form, planName]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -1038,6 +1163,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const handlePrintAssistance = () => {
     if (typeof window === "undefined") return;
+    writePlannerSnapshot();
     window.open("/race-planner/print/assistance", "_blank", "noopener,noreferrer");
   };
 
@@ -1389,9 +1515,28 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     </>
   );
 
+  const handleSaveWithToast = useCallback(async () => {
+    const savedPlan = await handleSavePlan();
+    if (!savedPlan) return;
+
+    clearRacePlannerDraft(activePlanId);
+    if (savedPlan.id !== activePlanId) {
+      clearRacePlannerDraft(savedPlan.id);
+    }
+
+    const savedTime = new Date().toLocaleTimeString(locale === "fr" ? "fr-FR" : "en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    showPlannerToast({
+      message: racePlannerCopy.page.savedAt.replace("{time}", savedTime),
+      durationMs: 4_000,
+    });
+  }, [activePlanId, handleSavePlan, locale, racePlannerCopy.page.savedAt, showPlannerToast]);
+
   if (isLoading) return <PageLoadingSkeleton />;
 
-  const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
   const raceNameForSaveBar =
     activePlan?.raceName ??
     (activePlan?.catalogRaceId ? races.find((race) => race.id === activePlan.catalogRaceId)?.name : null) ??
@@ -1412,7 +1557,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       saveLabel={racePlannerCopy.account.plans.save}
       contextLabel={saveBarContextLabel}
       errorMessage={accountError}
-      onSave={handleSavePlan}
+      onSave={handleSaveWithToast}
     />
   );
 
@@ -1421,6 +1566,28 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       <Script id="software-application-ld" type="application/ld+json" strategy="afterInteractive">
         {JSON.stringify(structuredData)}
       </Script>
+
+      {plannerToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-4 top-4 z-50 flex max-w-sm items-center gap-3 rounded-xl border border-emerald-300/50 bg-card/95 px-4 py-3 text-sm text-foreground shadow-2xl backdrop-blur dark:border-emerald-400/40 dark:bg-slate-950/95 dark:text-slate-50"
+        >
+          <span className="flex-1">{plannerToast.message}</span>
+          {plannerToast.actionLabel && plannerToast.onAction ? (
+            <button
+              type="button"
+              className="rounded-md px-2 py-1 text-sm font-semibold text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200"
+              onClick={() => {
+                plannerToast.onAction?.();
+                setPlannerToast(null);
+              }}
+            >
+              {plannerToast.actionLabel}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
         <div className="space-y-3">
