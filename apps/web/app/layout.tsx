@@ -55,7 +55,9 @@ const createMetadata = (locale: Locale): Metadata => {
       description,
     },
     icons: {
-      icon: [{ url: "/branding/favicon.png", type: "image/png" }],
+      icon: [{ url: "/branding/favicon-v2.png", type: "image/png" }],
+      shortcut: ["/branding/favicon-v2.png"],
+      apple: [{ url: "/branding/logo-icon-v2.png", type: "image/png" }],
     },
   };
 };
@@ -95,11 +97,12 @@ export default function RootLayout({
                     <div className="flex items-center gap-4 flex-shrink-0">
                       <Link href="/" aria-label="Go to home" className="inline-flex flex-shrink-0">
                         <Image
-                          src="/branding/logo-horizontal.png"
+                          src="/branding/logo-horizontal-v2.png"
                           alt="Pace Yourself"
-                          width={220}
-                          height={44}
+                          width={213}
+                          height={50}
                           priority
+                          unoptimized
                           className="h-10 w-auto sm:h-15"
                         />
                       </Link>
