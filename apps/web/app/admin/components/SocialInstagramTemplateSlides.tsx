@@ -213,40 +213,35 @@ function buildAidStationBullets(take: string) {
 }
 
 function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; onDark?: boolean; size?: number }) {
-  const color = onDark ? COLORS.white : accent.main;
+  const width = Math.round(size * 5.2);
+  const height = Math.round(width / (1579 / 370));
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: size * 0.28 }}>
-      <div
+    <div
+      style={{
+        width: `${width}px`,
+        height: `${height}px`,
+        border: onDark ? "1px solid rgba(255,255,255,0.16)" : `1px solid ${accent.light}`,
+        borderRadius: `${Math.max(10, size * 0.2)}px`,
+        background: COLORS.white,
+        boxShadow: onDark ? "0 10px 24px rgba(0,0,0,0.16)" : "0 8px 20px rgba(44, 62, 41, 0.08)",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "hidden",
+        flexShrink: 0,
+      }}
+    >
+      <img
+        src="/branding/logo-horizontal-v2.png"
+        alt="Pace Yourself"
         style={{
-          width: `${size}px`,
-          height: `${size}px`,
-          border: `${Math.max(1, size * 0.08)}px solid ${color}`,
-          borderRadius: `${size * 0.22}px`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: MONO,
-          fontWeight: 700,
-          fontSize: `${size * 0.42}px`,
-          color,
-          letterSpacing: "-0.04em",
-          flexShrink: 0,
+          display: "block",
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
         }}
-      >
-        PY
-      </div>
-      <span
-        style={{
-          fontFamily: SANS,
-          fontWeight: 800,
-          fontSize: `${size * 0.44}px`,
-          letterSpacing: ".05em",
-          textTransform: "uppercase",
-          color,
-        }}
-      >
-        Pace Yourself
-      </span>
+      />
     </div>
   );
 }
