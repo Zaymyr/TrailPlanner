@@ -10,6 +10,10 @@ export default function OnboardingLandingPage() {
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
+      width: '100%',
+      minWidth: 0,
+      overflowX: 'hidden',
+      boxSizing: 'border-box',
       padding: '40px 24px 32px',
     }}>
 

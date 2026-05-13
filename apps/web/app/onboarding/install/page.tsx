@@ -51,7 +51,7 @@ export default function InstallPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-120px)] flex-col items-center justify-center gap-8 px-6 pt-10 pb-8">
+    <div className="flex min-h-[calc(100dvh-120px)] w-full min-w-0 flex-col items-center justify-center gap-8 overflow-x-hidden px-5 pt-10 pb-8 sm:px-6">
       <div className="flex flex-col items-center gap-6 text-center">
         <div
           className="flex h-20 w-20 items-center justify-center rounded-3xl text-4xl"
@@ -98,7 +98,7 @@ export default function InstallPage() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto box-border w-full max-w-[430px] px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <div className="flex flex-col gap-3">

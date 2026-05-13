@@ -75,9 +75,71 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function buildRaceKicker(draft: SocialInstagramTemplateDraft) {
-  const shortName = draft.raceName.split(" ").slice(0, 2).join(" ").toUpperCase();
-  return [shortName, draft.raceYear].filter(Boolean).join(" | ");
+const RACE_LABEL_STOPWORDS = new Set(["DE", "DU", "DES", "LA", "LE", "LES", "L", "D", "ET", "THE", "OF", "AND"]);
+
+function buildRaceKickerLabel(draft: SocialInstagramTemplateDraft, includeLocation = false) {
+  return [draft.raceName.trim(), draft.raceYear.trim(), includeLocation ? draft.raceLocation.trim() : ""].filter(Boolean).join(" | ");
+}
+
+function getAdaptiveTitleFontSize(value: string) {
+  const length = value.trim().length;
+  if (length > 64) return "34px";
+  if (length > 48) return "40px";
+  if (length > 34) return "46px";
+  if (length > 24) return "54px";
+  return "64px";
+}
+
+function getCompactMetaFontSize(value: string) {
+  const length = value.trim().length;
+  if (length > 72) return "12px";
+  if (length > 52) return "14px";
+  return "16px";
+}
+
+function adaptiveCourseTitleStyle(value: string, color: string): CSSProperties {
+  return {
+    maxWidth: "820px",
+    fontSize: getAdaptiveTitleFontSize(value),
+    lineHeight: 1.02,
+    fontWeight: 800,
+    letterSpacing: "-0.045em",
+    overflowWrap: "anywhere",
+    textTransform: "uppercase",
+    color,
+  };
+}
+
+function RaceKicker({
+  draft,
+  color,
+  maxWidth = "660px",
+  align = "left",
+  includeLocation = false,
+}: {
+  draft: SocialInstagramTemplateDraft;
+  color: string;
+  maxWidth?: string;
+  align?: "left" | "center";
+  includeLocation?: boolean;
+}) {
+  const label = buildRaceKickerLabel(draft, includeLocation) || "COURSE | ANNEE";
+
+  return (
+    <div
+      style={{
+        ...monoLabelStyle,
+        color,
+        maxWidth,
+        fontSize: getCompactMetaFontSize(label),
+        lineHeight: 1.35,
+        overflowWrap: "anywhere",
+        textAlign: align,
+      }}
+    >
+      {label}
+    </div>
+  );
 }
 
 function getHookHeroLabel(draft: SocialInstagramTemplateDraft) {
@@ -87,16 +149,26 @@ function getHookHeroLabel(draft: SocialInstagramTemplateDraft) {
     .split(/[\s-]+/)
     .map((token) => token.trim())
     .filter(Boolean);
-  const uppercaseToken = tokens.find((token) => /^[A-Z0-9]{3,8}$/.test(token));
+  const meaningfulTokens = tokens.filter((token) => !RACE_LABEL_STOPWORDS.has(token.toUpperCase()));
+  const compactTokens = meaningfulTokens.length > 0 ? meaningfulTokens : tokens;
+  const uppercaseToken = compactTokens.find((token) => /^[A-Z0-9]{3,8}$/.test(token));
 
   if (uppercaseToken) return uppercaseToken;
-  if (tokens[0] && tokens[0].length <= 8) return tokens[0].toUpperCase();
+  if (compactTokens.length >= 2 && compactTokens.join(" ").length > 14) {
+    return compactTokens.slice(0, 5).map((token) => token[0]).join("").toUpperCase();
+  }
+  if (compactTokens[0] && compactTokens[0].length <= 8) return compactTokens[0].toUpperCase();
 
-  const initials = tokens.slice(0, 5).map((token) => token[0]).join("");
+  const initials = compactTokens.slice(0, 5).map((token) => token[0]).join("");
   return (initials || "RACE").toUpperCase();
 }
 
-function getHookHeroFontSize(label: string) {
+function getHookHeroFontSize(label: string, hasCourseTitle = false) {
+  if (hasCourseTitle) {
+    if (label.length >= 8) return "132px";
+    if (label.length >= 6) return "150px";
+    return "172px";
+  }
   if (label.length >= 8) return "188px";
   if (label.length >= 6) return "212px";
   return "244px";
@@ -234,13 +306,13 @@ function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acc
 
       <div style={{ position: "absolute", top: "192px", left: "52px", right: "52px", zIndex: 10 }}>
         {fullRaceLabel ? (
-          <div style={{ ...monoLabelStyle, color: topMetaColor, maxWidth: "640px", overflowWrap: "anywhere" }}>{fullRaceLabel}</div>
+          <div style={adaptiveCourseTitleStyle(fullRaceLabel, foreground)}>{fullRaceLabel}</div>
         ) : null}
         <div
           style={{
-            marginTop: fullRaceLabel ? "10px" : 0,
+            marginTop: fullRaceLabel ? "18px" : 0,
             maxWidth: "820px",
-            fontSize: getHookHeroFontSize(heroLabel),
+            fontSize: getHookHeroFontSize(heroLabel, Boolean(fullRaceLabel)),
             lineHeight: 0.88,
             fontWeight: 800,
             letterSpacing: "-0.07em",
@@ -355,7 +427,7 @@ function MacroSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; ac
       <div style={{ position: "absolute", top: "26px", left: "56px", right: "56px", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "24px" }}>
           <div>
-            <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{buildRaceKicker(draft) || "COURSE | ANNEE"}</div>
+            <RaceKicker draft={draft} color={COLORS.muted} />
             <div style={{ marginTop: "14px", fontSize: "52px", lineHeight: 1, fontWeight: 800, letterSpacing: "-0.04em" }}>
               Quels sont mes besoins ?
             </div>
@@ -556,7 +628,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
       <div style={{ position: "absolute", top: "26px", left: "56px", right: "56px", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "24px" }}>
           <div>
-            <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{buildRaceKicker(draft) || "COURSE | ANNEE"}</div>
+            <RaceKicker draft={draft} color={COLORS.muted} />
             <div style={{ marginTop: "14px", fontSize: "44px", lineHeight: 1.02, fontWeight: 800, letterSpacing: "-0.04em" }}>
               Plan de nutrition détaillé
             </div>
@@ -779,9 +851,7 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
           zIndex: 10,
         }}
       >
-        <div style={{ fontFamily: MONO, fontSize: "15px", color: COLORS.darkMuted, letterSpacing: ".08em", textTransform: "uppercase" }}>
-          {[draft.raceName, draft.raceYear, draft.raceLocation].filter(Boolean).join(" | ")}
-        </div>
+        <RaceKicker draft={draft} color={COLORS.darkMuted} maxWidth="940px" align="center" includeLocation />
       </div>
     </article>
   );

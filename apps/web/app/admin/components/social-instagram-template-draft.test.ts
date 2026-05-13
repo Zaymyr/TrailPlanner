@@ -99,6 +99,7 @@ describe("social Instagram template draft", () => {
     const defaults = buildSocialInstagramTemplateDraft(template);
     const edited = {
       ...defaults,
+      raceYear: "2027",
       tagline: "Mon ravito ne s'improvise pas.",
       accentKey: "earth" as const,
       aidStations: [...defaults.aidStations, { name: "Finish", km: "85.9", eta: "14h44", take: "Recup" }],
@@ -107,9 +108,11 @@ describe("social Instagram template draft", () => {
     const overrides = buildSocialInstagramTemplateOverrides(defaults, edited);
     const hydrated = applySocialInstagramTemplateOverrides(defaults, overrides);
 
+    expect(overrides.raceYear).toBe("2027");
     expect(overrides.tagline).toBe("Mon ravito ne s'improvise pas.");
     expect(overrides.accentKey).toBe("earth");
     expect(overrides.aidStations).toHaveLength(2);
+    expect(hydrated.raceYear).toBe("2027");
     expect(hydrated.tagline).toBe("Mon ravito ne s'improvise pas.");
     expect(hydrated.accentKey).toBe("earth");
     expect(hydrated.raceName).toBe(defaults.raceName);

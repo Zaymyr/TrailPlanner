@@ -119,7 +119,7 @@ export default function ResultPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3 px-6 pt-10 pb-8">
+    <div className="flex w-full min-w-0 flex-col gap-3 overflow-x-hidden px-5 pt-10 pb-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ton plan est prêt 🎉
@@ -131,7 +131,7 @@ export default function ResultPage() {
 
       {state.elevationProfile && state.elevationProfile.length > 1 && (
         <div
-          className="h-[200px] overflow-visible rounded-2xl"
+          className="h-[200px] min-w-0 overflow-hidden rounded-2xl"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <ElevationProfileChart
@@ -158,50 +158,50 @@ export default function ResultPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5 min-[390px]:gap-2">
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🍬</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.carbsPerHour}g</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Glucides/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Glucides/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">💧</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.waterPerHour}ml</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Eau/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Eau/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🧂</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.sodiumPerHour}mg</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Sodium/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Sodium/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">⏱️</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{estimatedTime}</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Temps estimé</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Temps estimé</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🏃</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{averagePace}</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Allure moyenne</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Allure moyenne</span>
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto box-border w-full max-w-[430px] px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <div className="flex flex-col gap-3">
