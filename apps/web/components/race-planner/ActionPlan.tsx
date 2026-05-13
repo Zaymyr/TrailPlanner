@@ -945,13 +945,11 @@ const productDetailCopy = {
   fr: {
     title: "Détail du produit",
     close: "Fermer",
-    officialSite: "Voir le site du produit",
+    officialSite: "Acheter ce produit",
     notAvailable: "Non renseigné",
     perServing: "Valeurs par unité / portion",
     brand: "Marque",
     type: "Type",
-    sku: "SKU",
-    slug: "Slug",
     carbs: "Glucides",
     sodium: "Sodium",
     calories: "Calories",
@@ -962,13 +960,11 @@ const productDetailCopy = {
   en: {
     title: "Product details",
     close: "Close",
-    officialSite: "Open product website",
+    officialSite: "Buy this product",
     notAvailable: "Not provided",
     perServing: "Values per unit / serving",
     brand: "Brand",
     type: "Type",
-    sku: "SKU",
-    slug: "Slug",
     carbs: "Carbs",
     sodium: "Sodium",
     calories: "Calories",
@@ -1000,8 +996,6 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
   const detailItems = [
     { label: copy.brand, value: formatOptionalText(product.brand, copy.notAvailable) },
     { label: copy.type, value: getFuelTypeLabel(product.fuelType, locale) },
-    { label: copy.sku, value: formatOptionalText(product.sku, copy.notAvailable) },
-    { label: copy.slug, value: product.slug },
   ];
   const nutritionItems = [
     { label: copy.carbs, value: `${product.carbsGrams} g` },
