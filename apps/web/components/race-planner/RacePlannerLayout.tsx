@@ -136,7 +136,7 @@ export function RacePlannerLayout({
                   strokeLinecap="round"
                 />
               </svg>
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-900 dark:bg-blue-900/40 dark:text-blue-50">
+              <span className="rounded-full bg-brand-surface px-2 py-0.5 text-xs font-semibold text-brand dark:bg-emerald-950/60 dark:text-emerald-50">
                 {settingsCount}
               </span>
               <span className="sr-only">{settingsLabel}</span>

@@ -159,7 +159,7 @@ export default function PremiumPage() {
               type="button"
               onClick={handleUpgrade}
               disabled={upgradeStatus === "opening"}
-              className="premium-glow inline-flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-400/90 px-8 py-3 text-sm font-semibold text-slate-950 shadow-md transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-300/40 dark:bg-amber-400/80 dark:hover:bg-amber-400/90"
+              className="premium-glow inline-flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-300/90 px-8 py-3 text-sm font-semibold text-foreground shadow-md transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-300/40 dark:bg-amber-400/80 dark:text-slate-950 dark:hover:bg-amber-400/90"
             >
               {upgradeStatus === "opening" ? (
                 <>
@@ -185,7 +185,7 @@ export default function PremiumPage() {
           <>
             <Link
               href="/sign-up"
-              className="premium-glow inline-flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-400/90 px-8 py-3 text-sm font-semibold text-slate-950 shadow-md transition hover:bg-amber-400 dark:border-amber-300/40 dark:bg-amber-400/80 dark:hover:bg-amber-400/90"
+              className="premium-glow inline-flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-300/90 px-8 py-3 text-sm font-semibold text-foreground shadow-md transition hover:bg-amber-300 dark:border-amber-300/40 dark:bg-amber-400/80 dark:text-slate-950 dark:hover:bg-amber-400/90"
             >
               Create an account to subscribe
             </Link>
@@ -197,7 +197,7 @@ export default function PremiumPage() {
           <>
             <Link
               href="/sign-in"
-              className="premium-glow inline-flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-400/90 px-8 py-3 text-sm font-semibold text-slate-950 shadow-md transition hover:bg-amber-400 dark:border-amber-300/40 dark:bg-amber-400/80 dark:hover:bg-amber-400/90"
+              className="premium-glow inline-flex items-center gap-2 rounded-lg border border-amber-300/60 bg-amber-300/90 px-8 py-3 text-sm font-semibold text-foreground shadow-md transition hover:bg-amber-300 dark:border-amber-300/40 dark:bg-amber-400/80 dark:text-slate-950 dark:hover:bg-amber-400/90"
             >
               ✦ Sign in to subscribe
             </Link>

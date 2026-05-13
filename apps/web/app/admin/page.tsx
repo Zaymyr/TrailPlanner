@@ -24,18 +24,18 @@ export default function AdminPage() {
 
   if (sessionLoading) {
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300">{t.admin.access.checking}</p>
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-border bg-card/90 p-6 shadow-lg shadow-[rgba(45,80,22,0.08)] dark:border-slate-800 dark:bg-slate-950/70">
+        <h1 className="text-2xl font-semibold text-foreground dark:text-slate-50">{t.admin.title}</h1>
+        <p className="text-sm text-muted-foreground dark:text-slate-300">{t.admin.access.checking}</p>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
-        <p className="text-sm text-slate-600 dark:text-slate-300">{t.admin.access.signIn}</p>
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-border bg-card/90 p-6 shadow-lg shadow-[rgba(45,80,22,0.08)] dark:border-slate-800 dark:bg-slate-950/70">
+        <h1 className="text-2xl font-semibold text-foreground dark:text-slate-50">{t.admin.title}</h1>
+        <p className="text-sm text-muted-foreground dark:text-slate-300">{t.admin.access.signIn}</p>
         <div>
           <Link href="/sign-in">
             <Button>{t.admin.access.signInCta}</Button>
@@ -47,11 +47,11 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 rounded-lg border border-border bg-card/90 p-6 shadow-lg shadow-[rgba(45,80,22,0.08)] dark:border-slate-800 dark:bg-slate-950/70">
+        <h1 className="text-2xl font-semibold text-foreground dark:text-slate-50">{t.admin.title}</h1>
         <p className="text-sm text-amber-700 dark:text-amber-200">{t.admin.access.forbidden}</p>
         <div className="flex items-center gap-3">
-          <Link href="/race-planner" className="text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200">
+          <Link href="/race-planner" className="text-brand underline-offset-4 hover:underline dark:text-emerald-200">
             {t.homeHero.cta}
           </Link>
         </div>
@@ -60,17 +60,17 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-lg border border-slate-200 bg-white/90 p-6 shadow-lg dark:border-slate-800 dark:bg-slate-950/70">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 rounded-lg border border-border bg-card/90 p-6 shadow-lg shadow-[rgba(45,80,22,0.08)] dark:border-slate-800 dark:bg-slate-950/70">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{t.admin.title}</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-300">{t.admin.description}</p>
+          <h1 className="text-2xl font-semibold text-foreground dark:text-slate-50">{t.admin.title}</h1>
+          <p className="text-sm text-muted-foreground dark:text-slate-300">{t.admin.description}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/race-planner" className="text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200">
+          <Link href="/race-planner" className="text-brand underline-offset-4 hover:underline dark:text-emerald-200">
             {t.homeHero.cta}
           </Link>
-          <Link href="/settings" className="text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200">
+          <Link href="/settings" className="text-brand underline-offset-4 hover:underline dark:text-emerald-200">
             {t.navigation.settings}
           </Link>
         </div>

@@ -46,10 +46,10 @@ export function GuestSaveBanner({ isAuthed, forceShow = false }: GuestSaveBanner
   const { guestBanner } = t.racePlanner.account;
 
   return (
-    <div className="relative rounded-lg border border-emerald-200/60 bg-emerald-50/80 px-4 py-3 text-sm text-emerald-950 shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-100">
+    <div className="relative rounded-lg border border-brand-border bg-brand-surface px-4 py-3 text-sm text-brand shadow-sm dark:border-emerald-500/20 dark:bg-emerald-950/30 dark:text-emerald-100">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-200/70 text-emerald-900 dark:bg-emerald-500/20 dark:text-emerald-100">
+          <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-card text-brand dark:bg-emerald-500/20 dark:text-emerald-100">
             <svg
               aria-hidden="true"
               className="h-4 w-4"
@@ -67,7 +67,7 @@ export function GuestSaveBanner({ isAuthed, forceShow = false }: GuestSaveBanner
           </span>
           <div className="space-y-1">
             <p className="font-semibold">{guestBanner.title}</p>
-            <p className="text-emerald-900/80 dark:text-emerald-100/80">{guestBanner.description}</p>
+            <p className="text-brand/80 dark:text-emerald-100/80">{guestBanner.description}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -78,7 +78,7 @@ export function GuestSaveBanner({ isAuthed, forceShow = false }: GuestSaveBanner
       </div>
       <button
         type="button"
-        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-emerald-900/70 transition hover:bg-emerald-200/70 hover:text-emerald-950 dark:text-emerald-100/70 dark:hover:bg-emerald-500/20"
+        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-brand/70 transition hover:bg-card hover:text-brand dark:text-emerald-100/70 dark:hover:bg-emerald-500/20"
         aria-label={guestBanner.dismissLabel}
         onClick={handleDismiss}
       >

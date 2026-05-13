@@ -102,7 +102,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId, locale = "en" }:
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-12 sm:px-6 lg:px-8">
-      <header className="space-y-5 rounded-2xl border border-border bg-card/60 p-6 shadow-sm shadow-emerald-900/30 sm:p-8">
+      <header className="space-y-5 rounded-2xl border border-border bg-card/85 p-6 shadow-sm shadow-[rgba(45,80,22,0.08)] sm:p-8 dark:shadow-emerald-900/30">
         <div className="space-y-3">
           <p className="text-xs uppercase tracking-[0.25em] text-[hsl(var(--success))] dark:text-emerald-300">
             Pace Yourself blog
@@ -129,7 +129,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId, locale = "en" }:
           <TagList tags={post.meta.tags} />
           <Link
             href={catalogRaceId ? `${RACE_PLANNER_PATH}?catalogRaceId=${catalogRaceId}` : RACE_PLANNER_PATH}
-            className="inline-flex items-center justify-center rounded-md border border-[hsl(var(--brand))] bg-[hsl(var(--brand))] px-4 py-2 text-sm font-semibold text-[hsl(var(--brand-foreground))] transition hover:bg-[hsl(var(--brand)/0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--brand))] dark:border-emerald-400/70 dark:bg-emerald-500 dark:text-foreground dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-300"
+            className="inline-flex items-center justify-center rounded-md border border-brand bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:border-emerald-400/70 dark:bg-emerald-500 dark:text-foreground dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-300"
           >
             {headerCta}
           </Link>

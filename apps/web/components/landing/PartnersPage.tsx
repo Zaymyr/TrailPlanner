@@ -126,10 +126,10 @@ function ImagePlaceholder({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-2xl border border-border/80 bg-card/60 shadow-2xl shadow-emerald-500/10 ${className}`}
+      className={`relative overflow-hidden rounded-2xl border border-border/80 bg-card/80 shadow-2xl shadow-[rgba(45,80,22,0.10)] dark:shadow-emerald-500/10 ${className}`}
     >
       {hasError ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.16),transparent_34%),linear-gradient(135deg,rgba(148,163,184,0.12),rgba(15,23,42,0.04))] p-6 text-center">
+        <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top_left,hsl(var(--brand-surface)),transparent_34%),linear-gradient(135deg,hsl(var(--muted)),hsl(var(--background)))] p-6 text-center">
           <span className="rounded-full border border-border bg-background/80 px-4 py-2 text-sm font-semibold text-muted-foreground shadow-sm backdrop-blur">
             {label}
           </span>
@@ -204,8 +204,8 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
 
   return (
     <div className="mx-auto max-w-6xl space-y-12 pb-16">
-      <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/80 to-background p-6 shadow-2xl sm:p-10 lg:p-12">
-        <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-emerald-500/10 blur-3xl" aria-hidden />
+      <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/90 to-muted p-6 shadow-[0_24px_70px_rgba(45,80,22,0.10)] sm:p-10 lg:p-12">
+        <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-brand-surface/80 blur-3xl dark:bg-emerald-500/10" aria-hidden />
         <div className="relative max-w-4xl space-y-6">
           <div className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-foreground dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
             Pace Yourself
@@ -217,14 +217,14 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <a
               href={mailtoHref}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-400 px-5 py-3 text-sm font-semibold text-foreground shadow-lg shadow-emerald-500/25 transition hover:-translate-y-[1px] hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
             >
               {copy.hero.ctaPrimary}
               <IconArrowRight className="h-4 w-4" />
             </a>
             <Link
               href="/"
-              className="inline-flex items-center justify-center rounded-lg border border-border bg-card/80 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-emerald-300 hover:text-[hsl(var(--success))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 dark:hover:text-emerald-100"
+              className="inline-flex items-center justify-center rounded-lg border border-border bg-card/80 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:border-emerald-300 dark:hover:text-emerald-100 dark:focus-visible:outline-emerald-300"
             >
               {copy.hero.ctaSecondary}
             </Link>
@@ -232,16 +232,16 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border bg-card/50 p-6 shadow-inner sm:p-10">
+      <section className="rounded-3xl border border-border bg-muted/70 p-6 shadow-inner sm:p-10">
         <div className="space-y-6">
           <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{copy.why.title}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {pillars.map(({ Icon, title, description }) => (
               <article
                 key={title}
-                className="h-full rounded-2xl border border-border/80 bg-card/60 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-emerald-300/60"
+                className="h-full rounded-2xl border border-border/80 bg-card/85 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-brand-border"
               >
-                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400/10 text-emerald-200">
+                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-surface text-brand dark:bg-emerald-400/10 dark:text-emerald-200">
                   <Icon className="h-5 w-5" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">{title}</h3>
@@ -264,7 +264,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
             label={copy.appearance.imageProductLabel}
             width={800}
             height={600}
-            className="aspect-[667/431] bg-background p-3"
+          className="aspect-[667/431] bg-muted p-3"
             imageClassName="object-contain"
           />
           <ImagePlaceholder
@@ -278,16 +278,16 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border bg-card/50 p-6 shadow-inner sm:p-10">
+      <section className="rounded-3xl border border-border bg-muted/70 p-6 shadow-inner sm:p-10">
         <div className="space-y-6">
           <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{copy.process.title}</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {steps.map((step, index) => (
               <article
                 key={step.title}
-                className="rounded-2xl border border-border/80 bg-card/60 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-emerald-300/60"
+                className="rounded-2xl border border-border/80 bg-card/85 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-brand-border"
               >
-                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-400 text-sm font-bold text-slate-950 shadow-lg shadow-emerald-500/20">
+                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] dark:bg-emerald-400 dark:text-slate-950 dark:shadow-emerald-500/20">
                   {index + 1}
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">{step.title}</h3>
@@ -305,7 +305,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
             <ul className="grid gap-3 sm:grid-cols-2">
               {copy.requirements.items.map((item) => (
                 <li key={item} className="flex items-start gap-3 rounded-2xl border border-border/70 bg-card/60 p-4">
-                  <IconCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-300" />
+                  <IconCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand dark:text-emerald-300" />
                   <span className="text-sm text-muted-foreground">{item}</span>
                 </li>
               ))}
@@ -315,7 +315,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-border bg-card/50 p-6 shadow-inner sm:p-10">
+      <section className="rounded-3xl border border-border bg-muted/70 p-6 shadow-inner sm:p-10">
         <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <ImagePlaceholder
             src="/landing/faustin-trail.jpeg"
@@ -338,7 +338,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
 
       <section className="space-y-6 rounded-3xl border border-border bg-card/70 p-6 sm:p-10">
         <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{copy.brands.title}</h2>
-        <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/5 p-5 text-sm font-medium text-muted-foreground">
+        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 text-sm font-medium text-muted-foreground dark:border-emerald-400/30 dark:bg-emerald-400/5">
           {copy.brands.emptyState}
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
@@ -356,19 +356,19 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
 
       <section className="space-y-6 rounded-3xl border border-border bg-card/70 p-6 sm:p-10">
         <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200">FAQ</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">FAQ</p>
           <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{copy.faq.title}</h2>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
           {faqItems.map((item) => (
             <details
               key={item.question}
-              className="group rounded-2xl border border-border/70 bg-card/70 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-emerald-300/60"
+              className="group rounded-2xl border border-border/70 bg-card/85 p-5 shadow-sm transition hover:-translate-y-[1px] hover:border-brand-border"
             >
               <summary className="cursor-pointer list-none text-base font-semibold text-foreground marker:hidden">
                 <span className="flex items-center justify-between gap-4">
                   {item.question}
-                  <span className="text-emerald-300 transition group-open:rotate-45">+</span>
+                  <span className="text-brand transition group-open:rotate-45 dark:text-emerald-300">+</span>
                 </span>
               </summary>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{item.answer}</p>
@@ -377,13 +377,13 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-emerald-400/30 bg-emerald-400/5 p-6 text-center shadow-2xl shadow-emerald-500/10 sm:p-10">
+      <section className="rounded-3xl border border-brand-border bg-brand-surface p-6 text-center shadow-2xl shadow-[rgba(45,80,22,0.10)] sm:p-10 dark:border-emerald-400/30 dark:bg-emerald-400/5 dark:shadow-emerald-500/10">
         <div className="mx-auto max-w-2xl space-y-5">
           <h2 className="text-3xl font-semibold text-foreground sm:text-4xl">{copy.finalCta.title}</h2>
           <p className="text-base text-muted-foreground sm:text-lg">{copy.finalCta.subtitle}</p>
           <a
             href={mailtoHref}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-400 px-6 py-3 text-sm font-semibold text-foreground shadow-lg shadow-emerald-500/25 transition hover:-translate-y-[1px] hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-6 py-3 text-sm font-semibold text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
           >
             {copy.finalCta.button}
             <IconArrowRight className="h-4 w-4" />

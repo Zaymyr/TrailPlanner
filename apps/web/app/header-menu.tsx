@@ -148,7 +148,7 @@ export function HeaderMenu() {
                 aria-current={item.active ? "page" : undefined}
                 className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
                   item.active
-                    ? "border-blue-600 bg-blue-50 text-blue-900 shadow-sm dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-50"
+                    ? "border-brand-border bg-brand-surface text-brand shadow-sm dark:border-emerald-400/70 dark:bg-emerald-950/40 dark:text-emerald-50"
                     : "border-transparent text-muted-foreground dark:text-emerald-100"
                 }`}
               >
@@ -161,8 +161,8 @@ export function HeaderMenu() {
               aria-current={pathname === "/premium" ? "page" : undefined}
               className={`premium-glow flex items-center justify-between rounded-md border px-3 py-2 text-sm font-semibold transition ${
                 pathname === "/premium"
-                  ? "border-amber-400/80 bg-amber-400/90 text-slate-950"
-                  : "border-amber-300/50 bg-amber-400/80 text-slate-950 hover:bg-amber-400"
+                  ? "border-amber-300/80 bg-amber-300/90 text-foreground"
+                  : "border-amber-200/70 bg-amber-300/75 text-foreground hover:bg-amber-300/90"
               }`}
             >
               ✦ {t.navigation.premium}
