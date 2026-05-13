@@ -157,7 +157,7 @@ export const fr: Translations = {
       title: "Comment vos produits apparaissent dans l'app",
       subtitle: "Une intégration soignée, à la hauteur de votre marque.",
       imageProductLabel: "Fiche produit dans l'app",
-      imageAidStationLabel: "Ravitaillement avec produits assignés",
+      imageAidStationLabel: "Exemple de ravito dans l'application",
     },
     process: {
       title: "Un processus simple, sans contrainte",
