@@ -20,7 +20,7 @@ type Props = {
 type FieldSource = "db" | "template";
 
 const textareaClassName =
-  "min-h-[84px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";
+  "min-h-[96px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground shadow-sm transition placeholder:text-muted-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";
 
 const accentSwatches: Array<{ key: SocialInstagramTemplateAccentKey; label: string; color: string }> = [
   { key: "forest", label: "Forest", color: "#335424" },
@@ -43,8 +43,8 @@ function updateAidStationField(
 function SourceBadge({ source }: { source: FieldSource }) {
   const className =
     source === "db"
-      ? "rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-      : "rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
+      ? "inline-flex shrink-0 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+      : "inline-flex shrink-0 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
 
   return <span className={className}>{source === "db" ? "Plan DB" : "Template"}</span>;
 }
@@ -74,7 +74,7 @@ function Field({
 }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-h-6 flex-wrap items-start justify-between gap-2">
         <Label htmlFor={id}>{label}</Label>
         <SourceBadge source={source} />
       </div>
@@ -111,8 +111,8 @@ function SectionCard({
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const className =
     source === "db"
-      ? "rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900 dark:bg-emerald-950/20"
-      : "rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/30";
+      ? "rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 sm:p-5 dark:border-emerald-900 dark:bg-emerald-950/20"
+      : "rounded-xl border border-slate-200 bg-slate-50/80 p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-900/30";
 
   return (
     <details className={`${className} group`} open={isOpen} onToggle={(event) => setIsOpen(event.currentTarget.open)}>
@@ -162,7 +162,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
         description="Ces champs viennent du plan et de la course en base. Tu peux les ajuster localement si besoin."
         defaultOpen
       >
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <Field
             id="social-race-name"
             label="Nom de la course"
@@ -193,7 +193,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
         source="db"
         description="Distance, D+ et temps cible mappés depuis le plan actuel."
       >
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-3">
           <Field id="social-distance" label="Distance (km)" value={draft.distanceKm} onChange={(value) => updateField("distanceKm", value)} source="db" />
           <Field id="social-elevation" label="Denivele + (m)" value={draft.elevationGainM} onChange={(value) => updateField("elevationGainM", value)} source="db" />
           <Field id="social-target-time" label="Temps objectif" value={draft.targetTimeLabel} onChange={(value) => updateField("targetTimeLabel", value)} source="db" />
@@ -288,7 +288,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
         source="template"
         description="Copy purement ?ditoriale pour rendre le carrousel plus social et plus engageant."
       >
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <Field id="social-tagline" label="Tagline slide 1" value={draft.tagline} onChange={(value) => updateField("tagline", value)} source="template" multiline />
           <Field id="social-cta-1" label="CTA slide 1" value={draft.ctaS1} onChange={(value) => updateField("ctaS1", value)} source="template" />
           <Field id="social-cta-2" label="CTA slide 3" value={draft.ctaS2} onChange={(value) => updateField("ctaS2", value)} source="template" />
