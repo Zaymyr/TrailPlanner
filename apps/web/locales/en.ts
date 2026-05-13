@@ -147,7 +147,7 @@ export const en: Translations = {
       title: "How your products appear in the app",
       subtitle: "A clean integration that matches your brand standards.",
       imageProductLabel: "Product detail in the app",
-      imageAidStationLabel: "Aid station with assigned products",
+      imageAidStationLabel: "Aid station example in the app",
     },
     process: {
       title: "A simple, no-strings-attached process",

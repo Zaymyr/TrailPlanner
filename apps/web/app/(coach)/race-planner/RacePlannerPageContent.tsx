@@ -399,7 +399,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setOnboardingStep,
     },
   } = usePlannerState();
-  const [openSetupStep, setOpenSetupStep] = useState<PlannerSetupStepId>("course");
+  const [openSetupStep, setOpenSetupStep] = useState<PlannerSetupStepId | null>("course");
 
   useEffect(() => {
     if (initializedQueryRef.current) return;

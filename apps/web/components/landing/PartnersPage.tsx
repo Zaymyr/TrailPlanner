@@ -136,11 +136,6 @@ function ImagePlaceholder({ src, label, alt, width, height, className = "", prio
           onError={() => setHasError(true)}
         />
       )}
-      {!hasError ? (
-        <div className="absolute inset-x-4 bottom-4 rounded-xl border border-border bg-background/85 px-4 py-3 text-sm font-semibold text-foreground shadow-lg backdrop-blur">
-          {label}
-        </div>
-      ) : null}
     </div>
   );
 }
