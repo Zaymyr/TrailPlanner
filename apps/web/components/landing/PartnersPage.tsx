@@ -249,7 +249,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
         </div>
         <div className="grid gap-5 lg:grid-cols-2">
           <ImagePlaceholder
-            src="/landing/partners-product-detail.jpeg"
+            src="/landing/partners-product-detail.png"
             alt={copy.appearance.imageProductLabel}
             label={copy.appearance.imageProductLabel}
             width={800}
