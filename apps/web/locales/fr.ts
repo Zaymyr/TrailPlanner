@@ -219,6 +219,44 @@ export const fr: Translations = {
       button: "Référencer mes produits",
     },
   },
+  links: {
+    meta: {
+      title: "Pace Yourself — Tous les liens",
+      description: "Tous les liens pour découvrir Pace Yourself, l'application de planification trail.",
+    },
+    tagline: "Planification nutrition & allure pour traileurs",
+    waitlist: {
+      title: "🏔️ Rejoins la beta privée",
+      subtitle: "Accès anticipé + 3 mois Premium offerts pour les premiers inscrits",
+      cta: "Rejoindre la waitlist →",
+    },
+    cards: {
+      blog: {
+        title: "Blog",
+        subtitle: "Articles & guides trail",
+      },
+      app: {
+        title: "Voir l'application",
+        subtitle: "Découvrir Pace Yourself",
+      },
+      partners: {
+        title: "Espace marques",
+        subtitle: "Référencement produits",
+      },
+      instagram: {
+        title: "Instagram",
+        subtitle: "Plans de course & contenus",
+      },
+      contact: {
+        title: "Contact",
+        subtitle: "Me contacter directement",
+      },
+    },
+    footer: {
+      copyright: "© 2026 Pace Yourself",
+      madeBy: "Made by Faustin Bertrand",
+    },
+  },
   navigation: {
     racePlanner: "Planificateur de course",
     coach: "Coach",

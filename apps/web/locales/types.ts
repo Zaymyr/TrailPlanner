@@ -745,6 +745,45 @@ export type PartnersPageTranslations = {
   };
 };
 
+export type LinksPageTranslations = {
+  meta: {
+    title: string;
+    description: string;
+  };
+  tagline: string;
+  waitlist: {
+    title: string;
+    subtitle: string;
+    cta: string;
+  };
+  cards: {
+    blog: {
+      title: string;
+      subtitle: string;
+    };
+    app: {
+      title: string;
+      subtitle: string;
+    };
+    partners: {
+      title: string;
+      subtitle: string;
+    };
+    instagram: {
+      title: string;
+      subtitle: string;
+    };
+    contact: {
+      title: string;
+      subtitle: string;
+    };
+  };
+  footer: {
+    copyright: string;
+    madeBy: string;
+  };
+};
+
 export type ResourcePageCopy = {
   title: string;
   intro: string;
@@ -1551,6 +1590,7 @@ export type Translations = {
   racePlanner: RacePlannerTranslations;
   landing: LandingPageTranslations;
   partners: PartnersPageTranslations;
+  links: LinksPageTranslations;
   auth: AuthTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
