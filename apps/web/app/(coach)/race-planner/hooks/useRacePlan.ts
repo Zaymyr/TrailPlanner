@@ -343,7 +343,7 @@ export const useRacePlan = ({
         finishPlan: plan.plannerValues.finishPlan ?? defaultValues.finishPlan,
       };
 
-      form.reset(mergedValues, { keepDefaultValues: true });
+      form.reset(mergedValues);
       setElevationProfile(plan.elevationProfile);
       setPlanName(plan.name);
       setActivePlanId(plan.id);
@@ -469,7 +469,7 @@ export const useRacePlan = ({
         setPlanName(parsedPlan.name);
         setActivePlanId(parsedPlan.id);
         // Reset dirty state so unsaved-changes indicator clears
-        form.reset(form.getValues(), { keepDefaultValues: true });
+        form.reset(form.getValues());
         savedElevationRef.current = elevationProfile;
         setSavedElevationGeneration((g) => g + 1);
         savedPlan = parsedPlan;

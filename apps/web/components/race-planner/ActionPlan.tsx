@@ -935,6 +935,154 @@ function AidStationCollapsedRow({
   );
 }
 
+type ProductDetailModalProps = {
+  product: FuelProduct | null;
+  locale: "en" | "fr";
+  onClose: () => void;
+};
+
+const productDetailCopy = {
+  fr: {
+    title: "Détail du produit",
+    close: "Fermer",
+    officialSite: "Acheter ce produit",
+    notAvailable: "Non renseigné",
+    perServing: "Valeurs par unité / portion",
+    brand: "Marque",
+    type: "Type",
+    carbs: "Glucides",
+    sodium: "Sodium",
+    calories: "Calories",
+    protein: "Protéines",
+    fat: "Lipides",
+    water: "Eau",
+  },
+  en: {
+    title: "Product details",
+    close: "Close",
+    officialSite: "Buy this product",
+    notAvailable: "Not provided",
+    perServing: "Values per unit / serving",
+    brand: "Brand",
+    type: "Type",
+    carbs: "Carbs",
+    sodium: "Sodium",
+    calories: "Calories",
+    protein: "Protein",
+    fat: "Fat",
+    water: "Water",
+  },
+};
+
+const formatOptionalText = (value: string | null | undefined, fallback: string) =>
+  value && value.trim() ? value : fallback;
+
+function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProps) {
+  const copy = productDetailCopy[locale];
+
+  useEffect(() => {
+    if (!product) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, product]);
+
+  if (!product) return null;
+
+  const detailItems = [
+    { label: copy.brand, value: formatOptionalText(product.brand, copy.notAvailable) },
+    { label: copy.type, value: getFuelTypeLabel(product.fuelType, locale) },
+  ];
+  const nutritionItems = [
+    { label: copy.carbs, value: `${product.carbsGrams} g` },
+    { label: copy.sodium, value: `${product.sodiumMg} mg` },
+    { label: copy.calories, value: `${product.caloriesKcal} kcal` },
+    { label: copy.protein, value: `${product.proteinGrams} g` },
+    { label: copy.fat, value: `${product.fatGrams} g` },
+    { label: copy.water, value: typeof product.waterMl === "number" ? `${product.waterMl} ml` : copy.notAvailable },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+      <button
+        type="button"
+        className="absolute inset-0"
+        aria-label={copy.close}
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-detail-title"
+        className="relative z-10 w-full max-w-2xl overflow-hidden rounded-2xl border border-border-strong bg-card shadow-2xl dark:bg-slate-950"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-300">
+              {copy.title}
+            </p>
+            <h2 id="product-detail-title" className="mt-1 text-xl font-semibold text-foreground dark:text-slate-50">
+              {product.name}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{copy.perServing}</p>
+          </div>
+          <Button variant="ghost" className="h-8 px-2" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+
+        <div className="grid gap-5 p-5 md:grid-cols-[160px_1fr]">
+          <div className="flex h-40 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background dark:bg-slate-900">
+            {product.imageUrl ? (
+              <img src={product.imageUrl} alt="" className="h-full w-full object-contain p-3" />
+            ) : (
+              <span className="text-xs text-muted-foreground">{copy.notAvailable}</span>
+            )}
+          </div>
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {detailItems.map((item) => (
+                <div key={item.label} className="rounded-xl border border-border bg-background p-3 dark:bg-slate-900/70">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 break-words text-sm font-semibold text-foreground dark:text-slate-50">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {nutritionItems.map((item) => (
+                <div key={item.label} className="rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground dark:text-slate-50">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            {product.productUrl ? (
+              <a
+                href={product.productUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+              >
+                {copy.officialSite}
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ActionPlan({
   copy,
   segments,
@@ -1030,6 +1178,7 @@ export function ActionPlan({
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerFuelType, setPickerFuelType] = useState<FuelType | "all">("all");
   const [pickerShowMyProducts, setPickerShowMyProducts] = useState(false);
+  const [productDetail, setProductDetail] = useState<FuelProduct | null>(null);
   const [pickerSort, setPickerSort] = useState<{
     key: "name" | "type" | "carbs" | "sodium" | "calories" | "favorite";
     dir: "asc" | "desc";
@@ -1880,7 +2029,14 @@ export function ActionPlan({
                                   key={product.id}
                                   className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-card px-3 py-1 text-sm text-foreground dark:bg-slate-950/70 dark:text-slate-50"
                                 >
-                                  <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                                  <button
+                                    type="button"
+                                    className="text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                                    onClick={() => setProductDetail(product)}
+                                    aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
+                                  >
+                                    {`${product.name} x${quantity}`}
+                                  </button>
                                   <div className="flex items-center gap-1">
                                     <Button
                                       type="button"
@@ -2798,7 +2954,7 @@ export function ActionPlan({
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
                       const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
-                        <tr key={product.slug} className="border-t border-border">
+                        <tr key={product.slug} className="border-t border-border transition-colors hover:bg-muted/40 dark:hover:bg-slate-900/50">
                           <td className="px-4 py-3">
                             <button
                               type="button"
@@ -2810,7 +2966,14 @@ export function ActionPlan({
                             </button>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="font-semibold">{product.name}</span>
+                            <button
+                              type="button"
+                              className="text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                              onClick={() => setProductDetail(product)}
+                              aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
+                            >
+                              {product.name}
+                            </button>
                           </td>
                           <td className="px-4 py-3">
                             <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
@@ -2837,6 +3000,7 @@ export function ActionPlan({
           </div>
         </div>
       ) : null}
+      <ProductDetailModal product={productDetail} locale={locale} onClose={() => setProductDetail(null)} />
     </>
   );
 }
