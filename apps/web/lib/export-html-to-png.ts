@@ -23,6 +23,44 @@ const loadImage = (objectUrl: string) =>
     image.src = objectUrl;
   });
 
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to inline image assets for the PNG export."));
+    reader.readAsDataURL(blob);
+  });
+
+const imageSourceToDataUrl = async (src: string) => {
+  if (!src || src.startsWith("data:")) return src;
+
+  const response = await fetch(new URL(src, window.location.href).toString(), { cache: "force-cache" });
+
+  if (!response.ok) {
+    throw new Error("Unable to load image assets for the PNG export.");
+  }
+
+  return blobToDataUrl(await response.blob());
+};
+
+const inlineImages = async (source: HTMLElement, target: HTMLElement) => {
+  const sourceImages = Array.from(source.querySelectorAll("img"));
+  const targetImages = Array.from(target.querySelectorAll("img"));
+
+  await Promise.all(
+    sourceImages.map(async (sourceImage, index) => {
+      const targetImage = targetImages[index];
+      const sourceUrl = sourceImage.currentSrc || sourceImage.src || targetImage?.src;
+
+      if (!targetImage || !sourceUrl) return;
+
+      targetImage.src = await imageSourceToDataUrl(sourceUrl);
+      targetImage.removeAttribute("srcset");
+      targetImage.removeAttribute("crossorigin");
+    })
+  );
+};
+
 const copyComputedStyles = (source: HTMLElement, target: HTMLElement) => {
   const computedStyles = window.getComputedStyle(source);
   const serializedStyles = Array.from(computedStyles)
@@ -70,6 +108,7 @@ export async function exportHtmlToPng(element: HTMLElement, fileName: string) {
   const clone = element.cloneNode(true) as HTMLElement;
   clone.setAttribute("xmlns", XHTML_NAMESPACE);
   copyComputedStyles(element, clone);
+  await inlineImages(element, clone);
 
   const wrapper = document.createElement("div");
   wrapper.setAttribute("xmlns", XHTML_NAMESPACE);
