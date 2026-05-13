@@ -30,17 +30,17 @@ export function PlannerSetupSteps({ ariaLabel, steps, openStep, onOpenStep }: Pl
           return (
             <section
               key={step.id}
-              className="overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-sm dark:border-slate-800 dark:bg-slate-950/70"
+              className="overflow-hidden rounded-2xl border border-border/60 bg-card/90 shadow-[0_12px_32px_rgba(45,80,22,0.06)] dark:border-slate-800 dark:bg-slate-950/70"
             >
               <h2 id={titleId}>
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-muted/40 dark:hover:bg-slate-900/50"
+                  className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-brand-surface/60 dark:hover:bg-slate-900/50"
                   aria-expanded={isOpen}
                   aria-controls={contentId}
                   onClick={() => onOpenStep(isOpen ? null : step.id)}
                 >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-blue-600/70 bg-blue-50 text-sm font-semibold text-blue-900 dark:border-blue-400/70 dark:bg-blue-900/30 dark:text-blue-50">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-brand-border bg-brand-surface text-sm font-semibold text-brand dark:border-emerald-400/70 dark:bg-emerald-950/40 dark:text-emerald-50">
                     {index + 1}
                   </span>
                   <span className="min-w-0 flex-1">

@@ -23,7 +23,7 @@ export function GuideCards({ cardsHeading, cardCta, guides }: GuideCardsProps) {
         <h2 className="text-xl font-semibold text-foreground sm:text-2xl">{cardsHeading}</h2>
         <Link
           href="/blog"
-          className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--brand))] dark:text-emerald-100 dark:hover:border-emerald-300 dark:hover:text-emerald-50 dark:focus-visible:outline-emerald-300"
+          className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:text-emerald-100 dark:hover:border-emerald-300 dark:hover:text-emerald-50 dark:focus-visible:outline-emerald-300"
         >
           {cardCta}
         </Link>
@@ -33,7 +33,7 @@ export function GuideCards({ cardsHeading, cardCta, guides }: GuideCardsProps) {
           <Link
             key={guide.slug}
             href={guide.canonicalPath as Route}
-            className="group relative flex h-full flex-col justify-between gap-4 rounded-2xl border border-border bg-card/70 p-5 transition hover:-translate-y-0.5 hover:border-emerald-300/70 hover:bg-card"
+            className="group relative flex h-full flex-col justify-between gap-4 rounded-2xl border border-border bg-card/85 p-5 transition hover:-translate-y-0.5 hover:border-brand-border hover:bg-card"
           >
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground dark:text-emerald-200">

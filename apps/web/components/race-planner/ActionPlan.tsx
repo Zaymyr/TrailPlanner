@@ -593,7 +593,7 @@ function AidStationHeader({ pointIndex, badge, title, meta, onTitleClick }: AidS
       }
     >
       {badge ?? (
-        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-border bg-brand-surface text-sm font-semibold text-brand dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
           {pointIndex}
         </span>
       )}
@@ -619,7 +619,7 @@ function AidStationHeaderRow({
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
-    <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
+    <div className="relative z-20 rounded-2xl border-2 border-brand-border bg-card/95 px-5 py-4 shadow-md shadow-[rgba(45,80,22,0.10)] dark:border-emerald-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
         <AidStationHeader
           pointIndex={pointIndex}
@@ -769,7 +769,7 @@ type EmbarkedSummaryBoxProps = {
 
 function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
   return (
-    <div className="w-full rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5 md:max-w-[300px]">
+    <div className="w-full rounded-xl border border-dashed border-brand-border bg-brand-surface/50 px-4 py-2.5 dark:border-emerald-400/70 dark:bg-emerald-500/5 md:max-w-[300px]">
       <div className="space-y-1.5">
         {items.map((item) => (
           <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
@@ -861,7 +861,7 @@ function BetweenAidStationSection({
 }: BetweenAidStationSectionProps) {
   return (
     <div className="relative pl-4 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/40">
-      <div className="rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55">
+      <div className="rounded-2xl border border-dashed border-brand-border bg-card/85 p-4 shadow-sm dark:border-emerald-400/60 dark:bg-slate-950/55">
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
           <div className="w-full max-w-[260px]">{sectionSummary}</div>
           {nutritionCards.length > 0 ? (
@@ -894,14 +894,14 @@ function AidStationCollapsedRow({
   actions,
 }: AidStationCollapsedRowProps) {
   return (
-    <div className="rounded-2xl border-2 border-blue-500/70 bg-card px-4 py-3 shadow-md dark:border-blue-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+    <div className="rounded-2xl border-2 border-brand-border bg-card/95 px-4 py-3 shadow-md shadow-[rgba(45,80,22,0.10)] dark:border-emerald-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         <div className="relative flex shrink-0 flex-col items-center gap-2">
           {badge ? (
             badge
           ) : (
             <>
-              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
+              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-surface text-[11px] font-semibold text-brand dark:bg-emerald-500/25 dark:text-emerald-100">
                 {pointIndex}
               </span>
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground dark:bg-slate-900/70 dark:text-slate-50">
@@ -910,8 +910,8 @@ function AidStationCollapsedRow({
             </>
           )}
           <div className="hidden flex-col items-center md:flex">
-            <span className="h-8 w-[2px] bg-emerald-400/80" />
-            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
+            <span className="h-8 w-[2px] bg-brand-border dark:bg-emerald-400/80" />
+            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-brand-border dark:border-t-emerald-400/80" />
           </div>
         </div>
         <div className="min-w-0 flex-1 space-y-1 md:order-1">
@@ -1022,7 +1022,7 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
       >
         <div className="flex items-start justify-between gap-4 border-b border-border p-5">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-300">
               {copy.title}
             </p>
             <h2 id="product-detail-title" className="mt-1 text-xl font-semibold text-foreground dark:text-slate-50">
@@ -1058,7 +1058,7 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
               {nutritionItems.map((item) => (
-                <div key={item.label} className="rounded-xl border border-emerald-400/20 bg-emerald-500/5 p-3">
+                <div key={item.label} className="rounded-xl border border-brand-border bg-brand-surface p-3 dark:border-emerald-400/20 dark:bg-emerald-500/5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     {item.label}
                   </p>
@@ -1071,7 +1071,7 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
                 href={product.productUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-600 dark:focus-visible:outline-emerald-400"
               >
                 {copy.officialSite}
               </a>
@@ -1825,7 +1825,7 @@ export function ActionPlan({
     <>
       <Card
         id={sectionId}
-        className="border-blue-600/60 bg-blue-50/40 shadow-xl shadow-blue-500/10 dark:border-blue-400/60 dark:bg-blue-950/20 dark:shadow-blue-950/30"
+        className="border-brand-border bg-brand-surface/45 shadow-xl shadow-[rgba(45,80,22,0.12)] dark:border-emerald-400/60 dark:bg-emerald-950/20 dark:shadow-emerald-950/30"
       >
         <CardHeader className="space-y-3">
           <SectionHeader
@@ -2007,7 +2007,7 @@ export function ActionPlan({
                   (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
                     <div
                       id={item.isStart ? "onboarding-start-supply-zone" : undefined}
-                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-brand-border bg-brand-surface/50 p-2 shadow-inner shadow-[rgba(45,80,22,0.08)] dark:border-emerald-400/50 dark:bg-emerald-500/5 dark:shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -2027,7 +2027,7 @@ export function ActionPlan({
                             ? summarized.items.map(({ product, quantity }) => (
                                 <div
                                   key={product.id}
-                                  className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-card px-3 py-1 text-sm text-foreground dark:bg-slate-950/70 dark:text-slate-50"
+                                  className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-card px-3 py-1 text-sm text-foreground dark:border-emerald-400/40 dark:bg-slate-950/70 dark:text-slate-50"
                                 >
                                   <button
                                     type="button"
@@ -2087,7 +2087,7 @@ export function ActionPlan({
                             id={item.isStart ? "onboarding-open-products-btn" : undefined}
                             type="button"
                             variant="outline"
-                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-background p-0 text-emerald-700 hover:bg-emerald-500/10 dark:bg-slate-950/60 dark:text-emerald-50"
+                            className="h-9 w-9 shrink-0 rounded-full border-brand-border bg-card p-0 text-brand hover:bg-brand-surface dark:border-emerald-400/50 dark:bg-slate-950/60 dark:text-emerald-50"
                             onClick={() =>
                               setSupplyPicker({
                                 type: item.isStart ? "start" : "aid",

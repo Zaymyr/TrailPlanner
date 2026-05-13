@@ -86,8 +86,8 @@ export function HeaderTabs() {
           aria-current={item.active ? "page" : undefined}
           className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
             item.active
-              ? "border-blue-600 bg-blue-50 text-blue-900 shadow-sm dark:border-blue-400 dark:bg-blue-900/30 dark:text-blue-50"
-              : "border-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground dark:text-emerald-100 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50"
+              ? "border-brand-border bg-brand-surface text-brand shadow-sm dark:border-emerald-400/70 dark:bg-emerald-950/40 dark:text-emerald-50"
+              : "border-transparent text-muted-foreground hover:bg-brand-surface/60 hover:text-brand dark:text-emerald-100 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50"
           }`}
         >
           {item.label}
@@ -98,8 +98,8 @@ export function HeaderTabs() {
         aria-current={isPremiumActive ? "page" : undefined}
         className={`premium-glow rounded-md border px-3 py-1.5 text-sm font-semibold transition-colors ${
           isPremiumActive
-            ? "border-amber-400/80 bg-amber-400/90 text-slate-950 dark:border-amber-300/60 dark:bg-amber-400/80"
-            : "border-amber-300/50 bg-amber-400/80 text-slate-950 hover:bg-amber-400 dark:border-amber-300/40 dark:bg-amber-400/70 dark:hover:bg-amber-400/90"
+            ? "border-amber-300/80 bg-amber-300/90 text-foreground shadow-sm dark:border-amber-300/60 dark:bg-amber-400/80 dark:text-slate-950"
+            : "border-amber-200/70 bg-amber-300/75 text-foreground hover:bg-amber-300/90 dark:border-amber-300/40 dark:bg-amber-400/70 dark:text-slate-950 dark:hover:bg-amber-400/90"
         }`}
       >
         ✦ {t.navigation.premium}
