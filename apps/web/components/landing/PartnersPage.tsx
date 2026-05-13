@@ -108,10 +108,20 @@ type ImagePlaceholderProps = {
   width: number;
   height: number;
   className?: string;
+  imageClassName?: string;
   priority?: boolean;
 };
 
-function ImagePlaceholder({ src, label, alt, width, height, className = "", priority }: ImagePlaceholderProps) {
+function ImagePlaceholder({
+  src,
+  label,
+  alt,
+  width,
+  height,
+  className = "",
+  imageClassName = "object-cover",
+  priority,
+}: ImagePlaceholderProps) {
   const [hasError, setHasError] = useState(false);
 
   return (
@@ -132,7 +142,7 @@ function ImagePlaceholder({ src, label, alt, width, height, className = "", prio
           height={height}
           priority={priority}
           sizes="(min-width: 1024px) 520px, 100vw"
-          className="h-full w-full object-cover"
+          className={`h-full w-full ${imageClassName}`}
           onError={() => setHasError(true)}
         />
       )}
@@ -254,7 +264,8 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
             label={copy.appearance.imageProductLabel}
             width={800}
             height={600}
-            className="aspect-[4/3]"
+            className="aspect-[667/431] bg-background p-3"
+            imageClassName="object-contain"
           />
           <ImagePlaceholder
             src="/landing/partners-aid-station.jpeg"
