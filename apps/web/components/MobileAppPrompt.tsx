@@ -12,7 +12,7 @@ const IOS_APP_STORE_URL = process.env.NEXT_PUBLIC_IOS_APP_STORE_URL?.trim() ?? "
 const INSTALL_HELP_URL = "/onboarding/install";
 const DISMISS_KEY = "trailplanner.mobileAppPrompt.dismissedUntil";
 const DISMISS_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
-const HIDDEN_PATH_PREFIXES = ["/admin", "/onboarding"];
+const HIDDEN_PATH_PREFIXES = ["/admin", "/onboarding", "/links", "/en/links"];
 
 type StoreTarget = {
   url: string;
