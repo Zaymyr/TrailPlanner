@@ -176,7 +176,7 @@ export default function RacePage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-6 pt-8 pb-8">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-5 overflow-x-hidden px-5 pt-8 pb-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ta course
@@ -217,8 +217,8 @@ export default function RacePage() {
                   border: isSelected ? "2px solid #2D5016" : "2px solid transparent",
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <span className="pr-3 text-sm font-semibold leading-5" style={{ color: "#1a2e0a" }}>
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-5" style={{ color: "#1a2e0a" }}>
                     {race.name}
                   </span>
                   {isSelected && (
@@ -255,9 +255,9 @@ export default function RacePage() {
                 border: "1px solid #c8dca8",
               }}
             >
-              <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
                 <p
-                  className="text-xs font-semibold uppercase tracking-wide"
+                  className="min-w-0 text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "#2D5016" }}
                 >
                   Points de ravitaillement
@@ -298,7 +298,7 @@ export default function RacePage() {
           {/* Manual entry option */}
           <button
             onClick={handleSelectManual}
-            className="flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all active:scale-[0.98]"
+            className="flex w-full min-w-0 items-center gap-3 rounded-2xl p-4 text-left transition-all active:scale-[0.98]"
             style={{
               backgroundColor: "#ffffff",
               boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
@@ -306,7 +306,7 @@ export default function RacePage() {
             }}
           >
             <span className="text-2xl">✏️</span>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
                 Saisir manuellement
               </span>
@@ -358,7 +358,7 @@ export default function RacePage() {
                     placeholder="42"
                     value={distanceInput}
                     onChange={(e) => setDistanceInput(e.target.value)}
-                    className="h-16 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
+                    className="h-16 min-w-0 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
                     style={{ color: "#1a2e0a" }}
                     min="1"
                     max="500"
@@ -392,7 +392,7 @@ export default function RacePage() {
                     placeholder="1500"
                     value={elevationInput}
                     onChange={(e) => setElevationInput(e.target.value)}
-                    className="h-16 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
+                    className="h-16 min-w-0 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
                     style={{ color: "#1a2e0a" }}
                     min="0"
                     max="10000"
@@ -408,7 +408,7 @@ export default function RacePage() {
       )}
 
       <div
-        className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+        className="fixed inset-x-0 bottom-0 z-20 mx-auto box-border w-full max-w-[430px] px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button

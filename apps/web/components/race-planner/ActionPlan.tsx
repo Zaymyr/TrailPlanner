@@ -539,13 +539,15 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             </div>
           ) : null}
           {isCompact ? (
-            metric.helper ? <p className="text-[9px] font-semibold text-amber-200/80">{metric.helper}</p> : null
+            metric.helper ? (
+              <p className="text-[9px] font-semibold text-amber-700 dark:text-amber-200/80">{metric.helper}</p>
+            ) : null
           ) : (
             <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-slate-200">
               <span className="font-semibold">
                 {targetLabel}: {metric.format(targetValue)}
               </span>
-              {metric.helper ? <span className="text-amber-100">{metric.helper}</span> : null}
+              {metric.helper ? <span className="font-semibold text-amber-700 dark:text-amber-100">{metric.helper}</span> : null}
             </div>
           )}
         </div>
@@ -860,8 +862,8 @@ function BetweenAidStationSection({
   showSubSections,
 }: BetweenAidStationSectionProps) {
   return (
-    <div className="relative pl-4 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/40">
-      <div className="rounded-2xl border border-dashed border-brand-border bg-card/85 p-4 shadow-sm dark:border-emerald-400/60 dark:bg-slate-950/55">
+    <div className="relative">
+      <div className="rounded-t-none rounded-b-2xl border-l border-r border-b border-t-0 border-dashed border-brand-border bg-card/85 p-4 shadow-sm dark:border-emerald-400/60 dark:bg-slate-950/55">
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
           <div className="w-full max-w-[260px]">{sectionSummary}</div>
           {nutritionCards.length > 0 ? (
@@ -1909,7 +1911,7 @@ export function ActionPlan({
           <CoachCommentsBlock comments={planComments} copy={coachCommentsCopy} />
         ) : null}
         {segments.length > 0 ? (
-          <div className="relative space-y-4">
+          <div className="relative space-y-8">
             {(() => {
               return renderItems.map((item, itemIndex) => {
                 const pointNumber = itemIndex + 1;
@@ -2685,7 +2687,7 @@ export function ActionPlan({
 
                 return (
                   <div key={item.id} className="relative pl-8">
-                    <div className="space-y-3">
+                    <div className="flex flex-col">
                       <AidStationHeaderRow
                         pointIndex={pointNumber}
                         badge={aidStationBadge ?? undefined}
@@ -2721,9 +2723,15 @@ export function ActionPlan({
                         }
                       />
                       {contextComments.length > 0 ? (
-                        <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
+                        <div className="mt-3">
+                          <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
+                        </div>
                       ) : null}
-                      {sectionBlock ? <div className="relative">{sectionBlock}</div> : null}
+                      {sectionBlock ? (
+                        <div className={`relative ${contextComments.length > 0 ? "mt-3" : "-mt-px"}`}>
+                          {sectionBlock}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );

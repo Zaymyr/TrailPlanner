@@ -187,7 +187,7 @@ export default function ImprovePage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 pt-8 pb-8">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 overflow-x-hidden px-5 pt-8 pb-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ton plan détaillé 🍃
@@ -198,46 +198,46 @@ export default function ImprovePage() {
       </div>
 
       {/* 1 — Stats */}
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5 min-[390px]:gap-2">
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🍬</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.carbsPerHour}g</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Glucides/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Glucides/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">💧</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.waterPerHour}ml</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Eau/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Eau/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🧂</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.sodiumPerHour}mg</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Sodium/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Sodium/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">⏱️</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{estimatedTime}</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Temps estimé</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Temps estimé</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🏃</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{averagePace}</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Allure moyenne</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Allure moyenne</span>
         </div>
       </div>
 
@@ -294,8 +294,8 @@ export default function ImprovePage() {
               key={i}
               className="flex flex-col gap-1 border-b border-slate-100 py-2.5 last:border-0"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium" style={{ color: "#374151" }}>
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <span className="min-w-0 flex-1 break-words text-sm font-medium" style={{ color: "#374151" }}>
                   {station.name} · {Math.round(station.distanceKm)}km
                 </span>
                 <span className="text-sm text-muted-foreground">
@@ -334,12 +334,12 @@ export default function ImprovePage() {
       )}
 
       {/* CTA */}
-      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto box-border w-full max-w-[430px] px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
           onClick={handleCTA}
-          className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80"
+          className="flex min-h-14 w-full items-center justify-center rounded-xl px-4 py-3 text-center text-base font-semibold leading-tight text-white transition-opacity active:opacity-80"
           style={{ backgroundColor: "#2D5016" }}
         >
           Tu veux savoir quand manger tout ça ? 🗓️

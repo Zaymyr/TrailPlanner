@@ -5,23 +5,17 @@ import { OnboardingAnalyticsTracker } from "./onboarding-analytics-tracker";
 export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
   return (
     <OnboardingProvider>
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100%',
-        height: '100%',
-        overflow: 'hidden',
-        backgroundColor: '#FAF7F2',
-        display: 'flex',
-        flexDirection: 'column',
-        minHeight: 0,
-        zIndex: 9999,
-      }}>
+      <div
+        className="fixed inset-0 z-[9999] flex overflow-hidden"
+        style={{ backgroundColor: '#FAF7F2' }}
+      >
         <OnboardingAnalyticsTracker />
-        {children}
+        <main
+          className="mx-auto flex h-full w-full max-w-[430px] min-w-0 flex-col overflow-x-hidden overflow-y-auto overscroll-contain shadow-[0_0_40px_rgba(45,80,22,0.08)]"
+          style={{ backgroundColor: '#FAF7F2' }}
+        >
+          {children}
+        </main>
       </div>
     </OnboardingProvider>
   )

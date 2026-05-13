@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -54,6 +56,9 @@ function Field({
   onChange,
   source,
   helper,
+  inputMode,
+  maxLength,
+  placeholder,
   multiline = false,
 }: {
   id: string;
@@ -62,6 +67,9 @@ function Field({
   onChange: (value: string) => void;
   source: FieldSource;
   helper?: string;
+  inputMode?: "text" | "numeric" | "decimal" | "email" | "search" | "tel" | "url";
+  maxLength?: number;
+  placeholder?: string;
   multiline?: boolean;
 }) {
   return (
@@ -74,7 +82,14 @@ function Field({
       {multiline ? (
         <textarea id={id} className={textareaClassName} value={value} onChange={(event) => onChange(event.target.value)} />
       ) : (
-        <Input id={id} value={value} onChange={(event) => onChange(event.target.value)} />
+        <Input
+          id={id}
+          value={value}
+          inputMode={inputMode}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          onChange={(event) => onChange(event.target.value)}
+        />
       )}
     </div>
   );
@@ -84,20 +99,23 @@ function SectionCard({
   title,
   source,
   description,
+  defaultOpen = false,
   children,
 }: {
   title: string;
   source: FieldSource;
   description: string;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const className =
     source === "db"
       ? "rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900 dark:bg-emerald-950/20"
       : "rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/30";
 
   return (
-    <details className={`${className} group`}>
+    <details className={`${className} group`} open={isOpen} onToggle={(event) => setIsOpen(event.currentTarget.open)}>
       <summary className="list-none cursor-pointer [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -142,11 +160,29 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
         title="Course"
         source="db"
         description="Ces champs viennent du plan et de la course en base. Tu peux les ajuster localement si besoin."
+        defaultOpen
       >
         <div className="grid gap-3 md:grid-cols-2">
-          <Field id="social-race-name" label="Nom de la course" value={draft.raceName} onChange={(value) => updateField("raceName", value)} source="db" />
+          <Field
+            id="social-race-name"
+            label="Nom de la course"
+            value={draft.raceName}
+            onChange={(value) => updateField("raceName", value)}
+            source="db"
+            helper="La taille du titre s'adapte automatiquement dans les slides."
+          />
           <Field id="social-race-subtitle" label="Sous-titre" value={draft.raceSubtitle} onChange={(value) => updateField("raceSubtitle", value)} source="db" />
-          <Field id="social-race-year" label="Année" value={draft.raceYear} onChange={(value) => updateField("raceYear", value)} source="db" />
+          <Field
+            id="social-race-year"
+            label="Année du visuel"
+            value={draft.raceYear}
+            onChange={(value) => updateField("raceYear", value)}
+            source="db"
+            helper="Modifie ici l'année affichée sur les slides, sans toucher au plan."
+            inputMode="numeric"
+            maxLength={9}
+            placeholder="2026"
+          />
           <Field id="social-start-date" label="Date affichée" value={draft.startDate} onChange={(value) => updateField("startDate", value)} source="db" />
           <Field id="social-race-location" label="Lieu" value={draft.raceLocation} onChange={(value) => updateField("raceLocation", value)} source="db" />
         </div>

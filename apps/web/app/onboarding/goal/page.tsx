@@ -40,7 +40,7 @@ export default function GoalPage() {
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(state.goal);
 
   return (
-    <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
+    <div className="flex w-full min-w-0 flex-col gap-6 overflow-x-hidden px-5 pt-10 pb-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ton objectif
@@ -72,7 +72,7 @@ export default function GoalPage() {
               }}
             >
               <span className="text-3xl">{goal.emoji}</span>
-              <div className="flex flex-col gap-0.5">
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <span className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
                   {goal.label}
                 </span>
@@ -100,7 +100,7 @@ export default function GoalPage() {
         })}
       </div>
 
-      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto box-border w-full max-w-[430px] px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
