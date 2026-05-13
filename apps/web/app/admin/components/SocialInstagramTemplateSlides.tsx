@@ -214,7 +214,9 @@ function buildAidStationBullets(take: string) {
 
 function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; onDark?: boolean; size?: number }) {
   const width = Math.round(size * 5.2);
-  const height = Math.round(width / (1579 / 370));
+  const height = Math.round(size * 1.25);
+  const markSize = Math.round(size * 0.94);
+  const logoColor = accent.main;
 
   return (
     <div
@@ -227,21 +229,58 @@ function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; 
         boxShadow: onDark ? "0 10px 24px rgba(0,0,0,0.16)" : "0 8px 20px rgba(44, 62, 41, 0.08)",
         display: "inline-flex",
         alignItems: "center",
-        justifyContent: "center",
+        justifyContent: "flex-start",
+        gap: `${Math.max(8, size * 0.18)}px`,
+        padding: `0 ${Math.max(10, size * 0.22)}px`,
         overflow: "hidden",
         flexShrink: 0,
       }}
     >
-      <img
-        src="/branding/logo-horizontal-v2.png"
-        alt="Pace Yourself"
+      <svg
+        aria-hidden="true"
+        focusable="false"
+        viewBox="0 0 100 100"
         style={{
           display: "block",
-          width: "100%",
-          height: "100%",
-          objectFit: "contain",
+          width: `${markSize}px`,
+          height: `${markSize}px`,
+          flexShrink: 0,
         }}
-      />
+      >
+        <path
+          d="M18 75a40 40 0 1 1 64-32"
+          fill="none"
+          stroke={logoColor}
+          strokeLinecap="round"
+          strokeWidth="9"
+        />
+        <path
+          d="M34 56 50 40l16 16"
+          fill="none"
+          stroke={logoColor}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="9"
+        />
+        <circle cx="50" cy="66" r="7" fill={logoColor} />
+        <circle cx="66" cy="78" r="4.4" fill={logoColor} />
+        <circle cx="76" cy="71" r="4.2" fill={logoColor} />
+        <circle cx="83" cy="61" r="4" fill={logoColor} />
+        <circle cx="87" cy="49" r="3.8" fill={logoColor} />
+      </svg>
+      <span
+        style={{
+          fontFamily: SANS,
+          fontWeight: 800,
+          fontSize: `${size * 0.42}px`,
+          lineHeight: 1,
+          letterSpacing: "-0.04em",
+          color: logoColor,
+          whiteSpace: "nowrap",
+        }}
+      >
+        Pace Yourself
+      </span>
     </div>
   );
 }
