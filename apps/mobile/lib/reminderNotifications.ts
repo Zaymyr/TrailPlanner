@@ -1,8 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
-import { syncPushDeviceRegistration } from './pushRegistration';
-
 const REMINDER_NOTIFICATIONS_STORAGE_KEY = 'trailplanner.reminderNotifications';
 const THREE_DAYS_MS = 72 * 60 * 60 * 1000;
 const DEFAULT_UNFINISHED_PLAN_DELAY_MS = 24 * 60 * 60 * 1000;
@@ -50,6 +48,21 @@ const DEFAULT_STATE: ReminderNotificationsState = {
   unfinishedPlanReminder: null,
 };
 
+type ScheduledNotificationRequest = Awaited<
+  ReturnType<typeof Notifications.getAllScheduledNotificationsAsync>
+>[number];
+
+let reminderStateQueue: Promise<void> = Promise.resolve();
+
+function serializeReminderStateMutation<T>(operation: () => Promise<T>): Promise<T> {
+  const nextOperation = reminderStateQueue.then(operation, operation);
+  reminderStateQueue = nextOperation.then(
+    () => undefined,
+    () => undefined,
+  );
+  return nextOperation;
+}
+
 async function readState(): Promise<ReminderNotificationsState> {
   try {
     const raw = await AsyncStorage.getItem(REMINDER_NOTIFICATIONS_STORAGE_KEY);
@@ -74,6 +87,46 @@ async function cancelScheduledNotification(notificationId: string | null | undef
   await Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => undefined);
 }
 
+function getReminderNotificationData(notification: ScheduledNotificationRequest) {
+  return notification.content.data as
+    | {
+        reminderType?: unknown;
+        planId?: unknown;
+      }
+    | undefined;
+}
+
+async function cancelScheduledReminderNotifications({
+  reminderType,
+  notificationId,
+  planId,
+}: {
+  reminderType: 'inactivity' | 'unfinished-plan';
+  notificationId?: string | null;
+  planId?: string | null;
+}): Promise<void> {
+  const notificationIds = new Set<string>();
+  if (notificationId) {
+    notificationIds.add(notificationId);
+  }
+
+  const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
+  scheduledNotifications.forEach((notification) => {
+    const data = getReminderNotificationData(notification);
+    if (data?.reminderType !== reminderType) {
+      return;
+    }
+
+    if (planId && data.planId !== planId) {
+      return;
+    }
+
+    notificationIds.add(notification.identifier);
+  });
+
+  await Promise.all([...notificationIds].map((id) => cancelScheduledNotification(id)));
+}
+
 async function ensureReminderPermissions({
   requestIfNeeded = false,
 }: ReminderPermissionOptions = {}): Promise<boolean> {
@@ -87,10 +140,6 @@ async function ensureReminderPermissions({
   }
 
   const { status } = await Notifications.requestPermissionsAsync();
-  if (status === 'granted') {
-    await syncPushDeviceRegistration();
-  }
-
   return status === 'granted';
 }
 
@@ -155,13 +204,38 @@ export async function refreshInactivityReminder({
   delayMs?: number;
   requestIfNeeded?: boolean;
 }): Promise<boolean> {
+  return serializeReminderStateMutation(() =>
+    refreshInactivityReminderInternal({
+      title,
+      body,
+      href,
+      delayMs,
+      requestIfNeeded,
+    }),
+  );
+}
+
+async function refreshInactivityReminderInternal({
+  title,
+  body,
+  href,
+  delayMs,
+  requestIfNeeded,
+}: ReminderCopy & {
+  href: string;
+  delayMs: number;
+  requestIfNeeded: boolean;
+}): Promise<boolean> {
   const hasPermission = await ensureReminderPermissions({ requestIfNeeded });
   if (!hasPermission) {
     return false;
   }
 
   const currentState = await readState();
-  await cancelScheduledNotification(currentState.inactivityNotificationId);
+  await cancelScheduledReminderNotifications({
+    reminderType: 'inactivity',
+    notificationId: currentState.inactivityNotificationId,
+  });
 
   const notificationId = await scheduleReminderNotification({
     title,
@@ -180,8 +254,15 @@ export async function refreshInactivityReminder({
 }
 
 export async function clearInactivityReminder(): Promise<void> {
+  return serializeReminderStateMutation(clearInactivityReminderInternal);
+}
+
+async function clearInactivityReminderInternal(): Promise<void> {
   const currentState = await readState();
-  await cancelScheduledNotification(currentState.inactivityNotificationId);
+  await cancelScheduledReminderNotifications({
+    reminderType: 'inactivity',
+    notificationId: currentState.inactivityNotificationId,
+  });
   await writeState({
     ...currentState,
     inactivityNotificationId: null,
@@ -189,18 +270,23 @@ export async function clearInactivityReminder(): Promise<void> {
 }
 
 export async function clearUnfinishedPlanReminder(planId?: string | null): Promise<void> {
+  return serializeReminderStateMutation(() => clearUnfinishedPlanReminderInternal(planId));
+}
+
+async function clearUnfinishedPlanReminderInternal(planId?: string | null): Promise<void> {
   const currentState = await readState();
   const activeReminder = currentState.unfinishedPlanReminder;
+  const shouldClearStoredReminder = !planId || activeReminder?.planId === planId;
 
-  if (!activeReminder) {
+  await cancelScheduledReminderNotifications({
+    reminderType: 'unfinished-plan',
+    notificationId: shouldClearStoredReminder ? activeReminder?.notificationId : null,
+    planId,
+  });
+  if (!shouldClearStoredReminder) {
     return;
   }
 
-  if (planId && activeReminder.planId !== planId) {
-    return;
-  }
-
-  await cancelScheduledNotification(activeReminder.notificationId);
   await writeState({
     ...currentState,
     unfinishedPlanReminder: null,
@@ -222,8 +308,36 @@ export async function syncUnfinishedPlanReminder({
   delayMs?: number;
   requestIfNeeded?: boolean;
 }): Promise<boolean> {
+  return serializeReminderStateMutation(() =>
+    syncUnfinishedPlanReminderInternal({
+      planId,
+      plannerValues,
+      title,
+      body,
+      href,
+      delayMs,
+      requestIfNeeded,
+    }),
+  );
+}
+
+async function syncUnfinishedPlanReminderInternal({
+  planId,
+  plannerValues,
+  title,
+  body,
+  href,
+  delayMs = DEFAULT_UNFINISHED_PLAN_DELAY_MS,
+  requestIfNeeded = false,
+}: ReminderCopy & {
+  planId: string;
+  plannerValues?: PlannerValuesLike | null;
+  href: string;
+  delayMs?: number;
+  requestIfNeeded?: boolean;
+}): Promise<boolean> {
   if (!isPlanReminderNeeded(plannerValues)) {
-    await clearUnfinishedPlanReminder(planId);
+    await clearUnfinishedPlanReminderInternal(planId);
     return false;
   }
 
@@ -233,7 +347,10 @@ export async function syncUnfinishedPlanReminder({
   }
 
   const currentState = await readState();
-  await cancelScheduledNotification(currentState.unfinishedPlanReminder?.notificationId);
+  await cancelScheduledReminderNotifications({
+    reminderType: 'unfinished-plan',
+    notificationId: currentState.unfinishedPlanReminder?.notificationId,
+  });
 
   const notificationId = await scheduleReminderNotification({
     title,

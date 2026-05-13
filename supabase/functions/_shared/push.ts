@@ -223,6 +223,19 @@ function chunkArray<T>(items: T[], chunkSize: number) {
   return chunks;
 }
 
+function dedupePendingRemindersByToken(reminders: PendingReminder[]) {
+  const seenReminderKeys = new Set<string>();
+  return reminders.filter((reminder) => {
+    const key = `${reminder.expoPushToken}:${reminder.dedupeKey}`;
+    if (seenReminderKeys.has(key)) {
+      return false;
+    }
+
+    seenReminderKeys.add(key);
+    return true;
+  });
+}
+
 function buildInactiveReminderCopy(locale: PushLocale) {
   if (locale === "fr") {
     return {
@@ -535,12 +548,13 @@ export async function upsertPushDevice(input: PushRegisterInput) {
 
 export async function sendScheduledPushReminders(): Promise<ReminderRunSummary> {
   const candidates = await buildPendingReminders();
+  const uniqueCandidates = dedupePendingRemindersByToken(candidates);
   const existingDedupes = await fetchExistingDedupes(
-    candidates.map((candidate) => candidate.pushDeviceId),
-    candidates.map((candidate) => candidate.dedupeKey),
+    uniqueCandidates.map((candidate) => candidate.pushDeviceId),
+    uniqueCandidates.map((candidate) => candidate.dedupeKey),
   );
 
-  const remindersToSend = candidates.filter(
+  const remindersToSend = uniqueCandidates.filter(
     (candidate) => !existingDedupes.has(`${candidate.pushDeviceId}:${candidate.dedupeKey}`),
   );
 

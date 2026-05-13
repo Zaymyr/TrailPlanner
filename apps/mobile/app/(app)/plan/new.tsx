@@ -11,12 +11,15 @@ import { RaceSelector } from '../../../components/RaceSelector';
 import { Colors } from '../../../constants/colors';
 import { usePremium } from '../../../hooks/usePremium';
 import { useI18n } from '../../../lib/i18n';
-import { ensureAppSession } from '../../../lib/appSession';
+import { ensureAppSession, isAnonymousSession } from '../../../lib/appSession';
 import { noteReviewPlanCreated } from '../../../lib/appReview';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
 import { captureAnalyticsEvent } from '../../../lib/posthog';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
-import { syncUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
+import {
+  clearUnfinishedPlanReminder,
+  syncUnfinishedPlanReminder,
+} from '../../../lib/reminderNotifications';
 import { supabase } from '../../../lib/supabase';
 
 type RaceInfo = {
@@ -156,14 +159,18 @@ export default function NewPlanScreen() {
         return;
       }
 
-      await syncUnfinishedPlanReminder({
-        planId: data.id,
-        plannerValues,
-        title: t.reminders.unfinishedPlanTitle,
-        body: t.reminders.unfinishedPlanBody.replace('{name}', seedValues.name),
-        href: `/(app)/plan/${data.id}/edit`,
-        requestIfNeeded: true,
-      });
+      if (isAnonymousSession(session)) {
+        await syncUnfinishedPlanReminder({
+          planId: data.id,
+          plannerValues,
+          title: t.reminders.unfinishedPlanTitle,
+          body: t.reminders.unfinishedPlanBody.replace('{name}', seedValues.name),
+          href: `/(app)/plan/${data.id}/edit`,
+          requestIfNeeded: true,
+        });
+      } else {
+        await clearUnfinishedPlanReminder();
+      }
 
       await noteReviewPlanCreated();
       captureAnalyticsEvent('plan created', {

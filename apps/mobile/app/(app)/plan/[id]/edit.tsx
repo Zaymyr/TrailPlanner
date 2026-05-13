@@ -16,9 +16,13 @@ import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
+import { isAnonymousSession } from '../../../../lib/appSession';
 import { useI18n } from '../../../../lib/i18n';
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
-import { syncUnfinishedPlanReminder } from '../../../../lib/reminderNotifications';
+import {
+  clearUnfinishedPlanReminder,
+  syncUnfinishedPlanReminder,
+} from '../../../../lib/reminderNotifications';
 import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import {
   clearActivePlanEditSession,
@@ -467,14 +471,19 @@ export default function EditPlanScreen() {
             });
           }
 
-          await syncUnfinishedPlanReminder({
-            planId: id,
-            plannerValues,
-            title: t.reminders.unfinishedPlanTitle,
-            body: t.reminders.unfinishedPlanBody.replace('{name}', values.name),
-            href: `/(app)/plan/${id}/edit`,
-            requestIfNeeded: !silent,
-          });
+          const sessionData = await supabase.auth.getSession();
+          if (isAnonymousSession(sessionData.data?.session)) {
+            await syncUnfinishedPlanReminder({
+              planId: id,
+              plannerValues,
+              title: t.reminders.unfinishedPlanTitle,
+              body: t.reminders.unfinishedPlanBody.replace('{name}', values.name),
+              href: `/(app)/plan/${id}/edit`,
+              requestIfNeeded: !silent,
+            });
+          } else {
+            await clearUnfinishedPlanReminder(id);
+          }
 
           return true;
         }
