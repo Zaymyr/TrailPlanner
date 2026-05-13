@@ -31,7 +31,11 @@ import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import { primePlansScreenBootstrap } from '../lib/plansScreenBootstrap';
-import { refreshInactivityReminder } from '../lib/reminderNotifications';
+import {
+  clearInactivityReminder,
+  clearUnfinishedPlanReminder,
+  refreshInactivityReminder,
+} from '../lib/reminderNotifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
@@ -299,6 +303,14 @@ function RootLayoutContent() {
     };
 
     const syncInactivityReminder = async () => {
+      if (authenticatedPushUserId) {
+        await Promise.all([
+          clearInactivityReminder(),
+          clearUnfinishedPlanReminder(),
+        ]);
+        return;
+      }
+
       await refreshInactivityReminder({
         title: t.reminders.inactivityTitle,
         body: t.reminders.inactivityBody,
@@ -315,9 +327,9 @@ function RootLayoutContent() {
 
     const syncBackendPushRegistrationForCurrentSession = () => {
       if (!session?.access_token) return;
+      if (!authenticatedPushUserId) return;
 
       const shouldAutoRequestPermission =
-        authenticatedPushUserId != null &&
         pushPermissionAutoRequestUserIdRef.current !== authenticatedPushUserId;
 
       if (shouldAutoRequestPermission) {
@@ -356,6 +368,7 @@ function RootLayoutContent() {
       subscription.remove();
     };
   }, [
+    authenticatedPushUserId,
     t.appUpdate.readyNotificationBody,
     t.appUpdate.readyNotificationTitle,
     t.reminders.inactivityBody,
@@ -368,9 +381,9 @@ function RootLayoutContent() {
     if (updateState.status !== 'done') return;
     if (AppState.currentState !== 'active') return;
     if (!session?.access_token) return;
+    if (!authenticatedPushUserId) return;
 
     const shouldAutoRequestPermission =
-      authenticatedPushUserId != null &&
       pushPermissionAutoRequestUserIdRef.current !== authenticatedPushUserId;
 
     if (shouldAutoRequestPermission) {

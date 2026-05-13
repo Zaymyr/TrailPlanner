@@ -50,11 +50,15 @@ export function usePlansScreen() {
       setPlans(bootstrap.plans);
       setRaceOwnership(bootstrap.raceOwnership);
 
-      void syncLatestUnfinishedPlanReminder(bootstrap.plans, {
-        title: t.reminders.unfinishedPlanTitle,
-        buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
-        hrefForPlan: (planId) => `/(app)/plan/${planId}/edit`,
-      });
+      if (bootstrap.isAnonymous) {
+        void syncLatestUnfinishedPlanReminder(bootstrap.plans, {
+          title: t.reminders.unfinishedPlanTitle,
+          buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
+          hrefForPlan: (planId) => `/(app)/plan/${planId}/edit`,
+        });
+      } else {
+        void clearUnfinishedPlanReminder();
+      }
 
       return bootstrap;
     } catch (fetchError) {
@@ -131,11 +135,15 @@ export function usePlansScreen() {
             await clearUnfinishedPlanReminder(planId);
             setPlans((current) => {
               const nextPlans = current.filter((plan) => plan.id !== planId);
-              void syncLatestUnfinishedPlanReminder(nextPlans, {
-                title: t.reminders.unfinishedPlanTitle,
-                buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
-                hrefForPlan: (nextPlanId) => `/(app)/plan/${nextPlanId}/edit`,
-              });
+              if (isAnonymous) {
+                void syncLatestUnfinishedPlanReminder(nextPlans, {
+                  title: t.reminders.unfinishedPlanTitle,
+                  buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
+                  hrefForPlan: (nextPlanId) => `/(app)/plan/${nextPlanId}/edit`,
+                });
+              } else {
+                void clearUnfinishedPlanReminder();
+              }
               return nextPlans;
             });
           },
@@ -146,6 +154,7 @@ export function usePlansScreen() {
       t.common.cancel,
       t.common.delete,
       t.common.error,
+      isAnonymous,
       t.plans.deleteMessage,
       t.plans.deleteTitle,
       t.reminders.unfinishedPlanBody,
