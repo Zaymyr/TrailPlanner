@@ -19,7 +19,6 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { PostHogProvider as AnalyticsProvider } from 'posthog-react-native';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
 import {
   BricolageGrotesque_300Light,
@@ -54,6 +53,7 @@ import {
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
+import { getNotificationsModule } from '../lib/notifications';
 import { getPostAuthRoute, shouldOpenOnboarding } from '../lib/onboardingGate';
 import {
   addPendingOnboardingTransitionListener,
@@ -74,15 +74,19 @@ const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 // Show notifications even when the app is in the foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+void getNotificationsModule()
+  .then((Notifications) => {
+    Notifications?.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  })
+  .catch(() => undefined);
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string | null}> {
   state = { error: null };
@@ -136,6 +140,11 @@ type LaunchOverlayPhase = 'active' | 'completing' | 'exiting' | 'hidden';
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isInvalidRefreshTokenError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes('invalid refresh token');
 }
 
 function RootLayoutContent() {
@@ -201,18 +210,6 @@ function RootLayoutContent() {
 
     void SplashScreen.hideAsync().catch(() => undefined);
   }, [fontLoadError, fontsLoaded]);
-
-  if (!fontsLoaded && !fontLoadError) {
-    return null;
-  }
-
-  if (supabaseInitError) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
-        <Text style={{ color: '#ef4444' }}>Supabase Error: {supabaseInitError}</Text>
-      </View>
-    );
-  }
 
   const runStartupUpdateCheck = useCallback(async () => {
     if (startupUpdateRunRef.current) return;
@@ -332,6 +329,9 @@ function RootLayoutContent() {
         }
 
         hasShownForegroundUpdateNotificationRef.current = true;
+        const Notifications = await getNotificationsModule();
+        if (!Notifications) return;
+
         await Notifications.scheduleNotificationAsync({
           content: {
             title: t.appUpdate.readyNotificationTitle,
@@ -536,13 +536,21 @@ function RootLayoutContent() {
     let subscription: { unsubscribe: () => void } | null = null;
 
     try {
-      supabase.auth.getSession().then(({ data: { session: s } }: { data: { session: Session | null } }) => {
-        setSession(s);
-        setReady(true);
-      }).catch((err: Error) => {
-        console.error('Failed to get session:', err);
-        setReady(true);
-      });
+      supabase.auth
+        .getSession()
+        .then(({ data: { session: s } }: { data: { session: Session | null } }) => {
+          setSession(s);
+          setReady(true);
+        })
+        .catch(async (err: Error) => {
+          if (isInvalidRefreshTokenError(err)) {
+            await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+            setSession(null);
+          } else {
+            console.error('Failed to get session:', err);
+          }
+          setReady(true);
+        });
 
       const { data } = supabase.auth.onAuthStateChange(
         (event: AuthChangeEvent, s: Session | null) => {
@@ -697,41 +705,51 @@ function RootLayoutContent() {
 
   // Notification response listener
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
-        const alertId =
-          response.notification.request.content.data?.alertId as
-            | string
-            | undefined;
-        const href = response.notification.request.content.data?.href as string | undefined;
-        const updateAction = response.notification.request.content.data?.updateAction as string | undefined;
-        if (alertId) {
-          const action = response.actionIdentifier;
+    let subscription: { remove: () => void } | null = null;
+    let cancelled = false;
 
-          if (action === 'confirm') {
-            await respondToAlert(alertId, 'confirmed');
-          } else if (action === 'skip') {
-            await respondToAlert(alertId, 'skipped');
-          } else if (action.startsWith('snooze_')) {
-            const minutes = parseInt(action.replace('snooze_', ''), 10);
-            if (SNOOZE_OPTIONS_MINUTES.includes(minutes as 5 | 10 | 15)) {
-              await respondToAlert(alertId, 'snoozed', minutes);
+    void getNotificationsModule().then((Notifications) => {
+      if (!Notifications || cancelled) return;
+
+      subscription = Notifications.addNotificationResponseReceivedListener(
+        async (response) => {
+          const alertId =
+            response.notification.request.content.data?.alertId as
+              | string
+              | undefined;
+          const href = response.notification.request.content.data?.href as string | undefined;
+          const updateAction = response.notification.request.content.data?.updateAction as string | undefined;
+          if (alertId) {
+            const action = response.actionIdentifier;
+
+            if (action === 'confirm') {
+              await respondToAlert(alertId, 'confirmed');
+            } else if (action === 'skip') {
+              await respondToAlert(alertId, 'skipped');
+            } else if (action.startsWith('snooze_')) {
+              const minutes = parseInt(action.replace('snooze_', ''), 10);
+              if (SNOOZE_OPTIONS_MINUTES.includes(minutes as 5 | 10 | 15)) {
+                await respondToAlert(alertId, 'snoozed', minutes);
+              }
             }
           }
-        }
 
-        if (updateAction === 'reload') {
-          await Updates.reloadAsync();
-          return;
-        }
+          if (updateAction === 'reload') {
+            await Updates.reloadAsync();
+            return;
+          }
 
-        if (href) {
-          router.push(href as any);
-        }
-      },
-    );
+          if (href) {
+            router.push(href as any);
+          }
+        },
+      );
+    });
 
-    return () => sub.remove();
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
   }, [router]);
 
   const launchScreen = useMemo<LaunchScreenModel>(() => {
@@ -1006,6 +1024,18 @@ function RootLayoutContent() {
       </View>
     </>
   );
+
+  if (!fontsLoaded && !fontLoadError) {
+    return null;
+  }
+
+  if (supabaseInitError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
+        <Text style={{ color: '#ef4444' }}>Supabase Error: {supabaseInitError}</Text>
+      </View>
+    );
+  }
 
   return (
     <ErrorBoundary>

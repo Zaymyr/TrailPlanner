@@ -1,8 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import {
+  getNotificationsModule,
+  isExpoGoAndroidNotificationsUnsupported,
+  type NotificationsModule,
+} from './notifications';
 import { supabase } from './supabase';
 
 const PUSH_TOKEN_STORAGE_KEY = 'trailplanner.pushToken';
@@ -89,7 +93,7 @@ export async function getLastPushRegistrationStatus() {
   }
 }
 
-async function ensureAndroidPushChannel() {
+async function ensureAndroidPushChannel(Notifications: NotificationsModule) {
   if (Platform.OS !== 'android') {
     return;
   }
@@ -190,7 +194,7 @@ export async function syncPushDeviceRegistration({
 }: SyncPushDeviceRegistrationInput = {}) {
   const { accessToken, authorizationHeader, locale } = await resolvePushRegistrationContext(input);
 
-  if (Platform.OS === 'android' && Constants.appOwnership === 'expo') {
+  if (isExpoGoAndroidNotificationsUnsupported()) {
     const details = {
       appOwnership: Constants.appOwnership,
       executionEnvironment: Constants.executionEnvironment,
@@ -217,7 +221,17 @@ export async function syncPushDeviceRegistration({
     return null;
   }
 
-  await ensureAndroidPushChannel().catch((error) => {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) {
+    await recordPushRegistrationStatus('notifications-unavailable', {
+      appOwnership: Constants.appOwnership,
+      executionEnvironment: Constants.executionEnvironment,
+      platform: Platform.OS,
+    });
+    return null;
+  }
+
+  await ensureAndroidPushChannel(Notifications).catch((error) => {
     console.warn('Unable to configure Android notification channel before push registration.', error);
   });
 
