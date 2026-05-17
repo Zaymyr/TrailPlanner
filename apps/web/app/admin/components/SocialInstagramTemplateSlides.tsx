@@ -285,7 +285,17 @@ function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; 
   );
 }
 
-function TopBar({ accent, eyebrow, onDark = false }: { accent: AccentPalette; eyebrow: string; onDark?: boolean }) {
+function TopBar({
+  accent,
+  eyebrow,
+  onDark = false,
+  showLogo = true,
+}: {
+  accent: AccentPalette;
+  eyebrow: string;
+  onDark?: boolean;
+  showLogo?: boolean;
+}) {
   return (
     <div
       style={{
@@ -302,7 +312,7 @@ function TopBar({ accent, eyebrow, onDark = false }: { accent: AccentPalette; ey
       }}
     >
       <div style={{ ...monoLabelStyle, color: onDark ? COLORS.darkMuted : COLORS.muted }}>{eyebrow}</div>
-      <PYLogo accent={accent} size={36} onDark={onDark} />
+      {showLogo ? <PYLogo accent={accent} size={36} onDark={onDark} /> : null}
     </div>
   );
 }
@@ -812,7 +822,7 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
   return (
     <article style={{ ...baseSlideStyle, background: accent.main, color: COLORS.white }}>
       <div style={stripeStyle(true)} />
-      <TopBar accent={accent} eyebrow="A toi de jouer" onDark />
+      <TopBar accent={accent} eyebrow="A toi de jouer" onDark showLogo={false} />
 
       <div
         style={{
