@@ -1,0 +1,125 @@
+---
+title: GPX Import
+scope: business-rule
+last_verified: 2026-05-17
+ai_priority: high
+related_files:
+  - apps/web/lib/gpx/parseGpx.ts
+  - apps/web/lib/gpx/normalizeImportedWaypoints.ts
+  - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/app/api/races/route.ts
+  - apps/web/app/api/race-catalog/route.ts
+  - apps/web/components/GpxAidStationImporter.tsx
+  - apps/mobile/lib/race-import.ts
+related_tables:
+  - races
+  - race_aid_stations
+  - race_plans
+  - plan_aid_stations
+---
+
+# GPX Import
+
+## Purpose
+
+This document describes how GPX files are parsed, stored, and converted into races, plans, elevation profiles, and aid stations. The parser source of truth is `apps/web/lib/gpx/parseGpx.ts`.
+
+## Key Concepts
+
+- GPX point: track, route, or waypoint coordinate.
+- Point source: parser mode `track`, `route`, or `waypoint`.
+- Waypoint normalization: mapping GPX waypoints to start, finish, and aid stations.
+- Race GPX: source object stored in `race-gpx`.
+- Plan GPX: copied object stored in `plan-gpx`.
+
+## Parser Behavior
+
+`parseGpx`:
+
+- removes BOM and null bytes;
+- rejects empty files;
+- rejects KML and TCX with dedicated error codes;
+- rejects HTML/non-GPX content;
+- parses `trkpt` first, then `rtept`, then `wpt` as a fallback;
+- validates latitude and longitude ranges;
+- computes cumulative distance with haversine distance;
+- computes elevation gain/loss with a 1 m threshold;
+- returns bounds, min/max altitude, start coordinate, waypoints, and point source.
+
+The parser does not use a DOM/XML parser; it uses regex-based extraction tuned to GPX envelope and point tags.
+
+## Waypoint Normalization
+
+`normalizeImportedWaypoints`:
+
+- maps GPX waypoints to nearest track distances;
+- recognizes start names such as `start`, `depart`, `departure`;
+- recognizes finish names such as `finish`, `arrivee`, `arrival`, `arrive`, `end`;
+- excludes waypoints near start/finish from aid stations;
+- removes duplicate aid stations by normalized name and close distance;
+- returns start name, finish name, and sorted aid stations.
+
+## Admin Catalog Import
+
+`apps/web/app/api/race-catalog/route.ts`:
+
+1. Requires bearer token and admin user.
+2. Accepts multipart form data with GPX.
+3. Optionally creates a `race_events` row.
+4. Uploads GPX into private `race-gpx`.
+5. Optionally uploads image into public `race-images`.
+6. Inserts a public/live `races` row.
+7. Inserts `race_aid_stations` from manual stations or normalized GPX waypoints.
+
+## User Private Race Import
+
+`apps/web/app/api/races/route.ts`:
+
+1. Requires bearer token.
+2. Accepts JSON or multipart form input.
+3. Parses optional GPX content.
+4. Uploads GPX into `race-gpx` when provided.
+5. Inserts a private race with `is_public: false`, `created_by: user.id`, and `is_live: true`.
+6. Inserts `race_aid_stations` when supplied or derived.
+
+`apps/mobile/lib/race-import.ts` calls this web route from mobile and then updates the race as private/non-live through Supabase.
+
+## Catalog Plan Import
+
+`apps/web/app/api/plans/from-catalog/route.ts`:
+
+1. Requires bearer token.
+2. Checks entitlements and plan limits.
+3. Applies a 90-second idempotency guard for recent imports of the same race.
+4. Loads a live `races` row and its `race_aid_stations`.
+5. Downloads source GPX from `race-gpx`.
+6. Parses GPX and builds elevation profile.
+7. Copies GPX to `plan-gpx`, falling back to upload when Supabase copy fails.
+8. Creates `race_plans` with `race_id`, `catalog_race_updated_at_at_import`, `plan_gpx_path`, and `plan_course_stats`.
+9. Inserts plan-specific `plan_aid_stations`.
+
+## Review Flow Conflict
+
+`apps/web/components/GpxAidStationImporter.tsx` contains logic for updating existing race aid stations from GPX:
+
+- match by normalized name;
+- match by distance tolerance around 1.5 km;
+- delete unmatched stations when no linked plans exist;
+- mark stations as `needs_review` when linked plans exist.
+
+<!-- CONFLICT: this component references race_aid_stations.needs_review, race_aid_stations.last_gpx_import_at, and plan_aid_stations.race_aid_station_id, but visible migrations in this repo do not create those columns. -->
+
+## Gotchas
+
+- GPX parse errors have specific codes. Preserve them when adding UI messaging.
+- Route points can be used when track points are absent.
+- Waypoint-only files produce a `waypoint` point source and limited route geometry.
+- Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.
+- Catalog GPX and plan GPX live in different buckets.
+
+## Related Docs
+
+- [race_aid_stations](../02-database/tables/race-aid-stations.md)
+- [plan_aid_stations](../02-database/tables/plan-aid-stations.md)
+- [Plan Storage](plan-storage.md)
+- [Infrastructure](../01-architecture/infrastructure.md)
