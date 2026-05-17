@@ -8,14 +8,26 @@ import {
   NativeSyntheticEvent,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
+  type ViewStyle,
 } from 'react-native';
-import { Colors } from '../../constants/colors';
+import {
+  AidStationIcon,
+  TrailIcon,
+  colors,
+  radius,
+  shadows,
+  spacing,
+} from '@pace-yourself/design-system';
 import { TutorialTarget, type TutorialMeasurableTarget } from '../help/SpotlightTutorial';
+import { DataText } from '../themed/DataText';
+import { Heading } from '../themed/Heading';
+import { Text as ThemedText } from '../themed/Text';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
@@ -198,8 +210,20 @@ export function AidStationsSectionV3({
 
   function renderStationBadge(label: string, compact = false) {
     return (
-      <View style={compact ? styles.stationBadgeMini : styles.stationBadge}>
-        <Text style={compact ? styles.stationBadgeMiniText : styles.stationBadgeText}>{label}</Text>
+      <View style={[compact ? styles.stationBadgeMini : styles.stationBadge, planDetailStyles.stationBadge]}>
+        <AidStationIcon
+          color={colors.brand.forest}
+          size={compact ? 13 : 15}
+          strokeWidth={2.1}
+        />
+        <DataText
+          tone="brand"
+          size="xs"
+          weight="semibold"
+          style={compact ? planDetailStyles.stationBadgeMiniText : planDetailStyles.stationBadgeText}
+        >
+          {label}
+        </DataText>
       </View>
     );
   }
@@ -780,14 +804,25 @@ export function AidStationsSectionV3({
           <Pressable
             key={stationKey}
             onPress={() => toggleStation(stationKey)}
-            style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
+            style={[
+              styles.stationCard,
+              planDetailStyles.stationCard,
+              index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+              !isExpanded && collapsedTintStyle,
+              isFocused && styles.stationCardFocused,
+              isFocused && planDetailStyles.stationCardFocused,
+            ]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
             <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
-              <Text style={styles.stationName}>{station.name}</Text>
+              <Heading variant="h3" numberOfLines={1} style={planDetailStyles.stationName}>
+                {station.name}
+              </Heading>
               {renderPauseBadge(station.pauseMinutes)}
-              <Text style={styles.stationKm}>{station.distanceKm} km</Text>
+              <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
+                {station.distanceKm} km
+              </DataText>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
             </View>
             {isExpanded && (
@@ -830,14 +865,24 @@ export function AidStationsSectionV3({
         card = (
           <View
             key={stationKey}
-            style={[styles.stationCard, isFocused && styles.stationCardFocused]}
+            style={[
+              styles.stationCard,
+              planDetailStyles.stationCard,
+              index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+              isFocused && styles.stationCardFocused,
+              isFocused && planDetailStyles.stationCardFocused,
+            ]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
             <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
-              <Text style={styles.stationName}>{station.name}</Text>
+              <Heading variant="h3" numberOfLines={1} style={planDetailStyles.stationName}>
+                {station.name}
+              </Heading>
               {renderPauseBadge(station.pauseMinutes)}
-              <Text style={styles.stationKm}>{station.distanceKm} km</Text>
+              <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
+                {station.distanceKm} km
+              </DataText>
             </View>
           </View>
         );
@@ -847,14 +892,21 @@ export function AidStationsSectionV3({
           <Pressable
             key={stationKey}
             onPress={() => toggleStation(stationKey)}
-            style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
+            style={[
+              styles.stationCard,
+              planDetailStyles.stationCard,
+              index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+              !isExpanded && collapsedTintStyle,
+              isFocused && styles.stationCardFocused,
+              isFocused && planDetailStyles.stationCardFocused,
+            ]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
             <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
-              <Text style={styles.stationName} numberOfLines={1}>
+              <Heading variant="h3" style={planDetailStyles.stationName} numberOfLines={1}>
                 {station.name}
-              </Text>
+              </Heading>
               {renderPauseBadge(station.pauseMinutes)}
               <TouchableOpacity
                 style={styles.headerIconBtn}
@@ -869,16 +921,18 @@ export function AidStationsSectionV3({
                 }
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Ionicons name="create-outline" size={16} color="#6B7280" />
+                <Ionicons name="create-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.headerIconBtn}
                 onPress={() => removeAidStation(index)}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Ionicons name="trash-outline" size={16} color="#6B7280" />
+                <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
-              <Text style={styles.stationKm}>{station.distanceKm} km</Text>
+              <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
+                {station.distanceKm} km
+              </DataText>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
             </View>
             {isExpanded && (
@@ -925,9 +979,9 @@ export function AidStationsSectionV3({
         elements.push(
           <View key={`sep-${index}`} style={styles.separator}>
             <View style={styles.separatorLine} />
-            <Text style={styles.separatorText}>
+            <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.separatorText}>
               {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
-            </Text>
+            </DataText>
             <View style={styles.separatorLine} />
           </View>,
         );
@@ -955,10 +1009,12 @@ export function AidStationsSectionV3({
         >
           <View style={styles.sectionStationLine} />
           {renderStationBadge(getStationBadge(index, station.id), true)}
-          <Text style={styles.sectionStationLabel} numberOfLines={1}>
+          <Heading variant="h3" style={planDetailStyles.sectionStationLabel} numberOfLines={1}>
             {station.name}
-          </Text>
-          <Text style={styles.sectionStationKm}>{station.distanceKm} km</Text>
+          </Heading>
+          <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.sectionStationKm}>
+            {station.distanceKm} km
+          </DataText>
           <View style={styles.sectionStationLine} />
         </View>,
       );
@@ -970,14 +1026,21 @@ export function AidStationsSectionV3({
       const sectionDMinus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dMinus), 0);
 
       elements.push(
-        <View key={`section-card-${station.id ?? index}`} style={styles.sectionViewCard}>
+        <View
+          key={`section-card-${station.id ?? index}`}
+          style={[
+            styles.sectionViewCard,
+            planDetailStyles.sectionCard,
+            index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+          ]}
+        >
           <View style={styles.sectionViewHeader}>
-            <Text style={styles.sectionViewTitle} numberOfLines={1}>
+            <Heading variant="h3" style={planDetailStyles.sectionViewTitle} numberOfLines={1}>
               {station.name} vers {nextStation.name}
-            </Text>
-            <Text style={styles.sectionViewMeta}>
+            </Heading>
+            <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.sectionViewMeta}>
               {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
-            </Text>
+            </DataText>
           </View>
           {summary.profilePoints.length > 1 ? (
             <ProfileMiniChart points={summary.profilePoints} />
@@ -986,13 +1049,19 @@ export function AidStationsSectionV3({
           )}
           <View style={styles.profileMetricsRow}>
             <View style={styles.profileMetricPill}>
-              <Text style={styles.profileMetricPillText}>{summary.distanceKm.toFixed(2)} km</Text>
+              <DataText tone="secondary" size="xs" weight="semibold">
+                {summary.distanceKm.toFixed(2)} km
+              </DataText>
             </View>
             <View style={styles.profileMetricPill}>
-              <Text style={styles.profileMetricPillText}>D+ {Math.round(sectionDPlus)} m</Text>
+              <DataText tone="secondary" size="xs" weight="semibold">
+                D+ {Math.round(sectionDPlus)} m
+              </DataText>
             </View>
             <View style={styles.profileMetricPill}>
-              <Text style={styles.profileMetricPillText}>D- {Math.round(sectionDMinus)} m</Text>
+              <DataText tone="secondary" size="xs" weight="semibold">
+                D- {Math.round(sectionDMinus)} m
+              </DataText>
             </View>
           </View>
           {sectionTimeline.length === 0 ? (
@@ -1006,10 +1075,16 @@ export function AidStationsSectionV3({
                   timelineIndex === sectionTimeline.length - 1 ? styles.sectionTimelineRowLast : null,
                 ]}
               >
-                <Text style={styles.sectionTimelineTime}>{formatTimelineMinute(item.minute)}</Text>
+                <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.sectionTimelineTime}>
+                  {formatTimelineMinute(item.minute)}
+                </DataText>
                 <View style={styles.sectionTimelineInfo}>
-                  <Text style={styles.sectionTimelineLabel}>{item.label}</Text>
-                  <Text style={styles.sectionTimelineDetail}>{item.detail}</Text>
+                  <ThemedText tone="primary" size="sm" weight="semibold">
+                    {item.label}
+                  </ThemedText>
+                  <ThemedText tone="secondary" size="xs" style={planDetailStyles.sectionTimelineDetail}>
+                    {item.detail}
+                  </ThemedText>
                 </View>
               </View>
             ))
@@ -1039,10 +1114,12 @@ export function AidStationsSectionV3({
         >
           <View style={styles.sectionStationLine} />
           {renderStationBadge(getStationBadge(index, station.id), true)}
-          <Text style={styles.sectionStationLabel} numberOfLines={1}>
+          <Heading variant="h3" style={planDetailStyles.sectionStationLabel} numberOfLines={1}>
             {station.name}
-          </Text>
-          <Text style={styles.sectionStationKm}>{station.distanceKm} km</Text>
+          </Heading>
+          <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.sectionStationKm}>
+            {station.distanceKm} km
+          </DataText>
           <View style={styles.sectionStationLine} />
         </View>,
       );
@@ -1053,12 +1130,12 @@ export function AidStationsSectionV3({
       elements.push(
         <View key={`profile-section-${station.id ?? index}`} style={styles.profileSectionBlock}>
           <View style={styles.profileSectionHeader}>
-            <Text style={styles.profileTitle} numberOfLines={1}>
+            <Heading variant="h3" style={planDetailStyles.profileTitle} numberOfLines={1}>
               {station.name} vers {nextStation.name}
-            </Text>
-            <Text style={styles.profileMeta}>
+            </Heading>
+            <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.profileMeta}>
               {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
-            </Text>
+            </DataText>
           </View>
 
           {summary.segmentStats.length === 0 ? (
@@ -1097,12 +1174,25 @@ export function AidStationsSectionV3({
                 const canRemove = controls.canRemove;
 
                 return (
-                  <View key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`} style={styles.profileCard}>
+                  <View
+                    key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`}
+                    style={[
+                      styles.profileCard,
+                      planDetailStyles.sectionCard,
+                      segmentIndex % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+                    ]}
+                  >
                     <View style={styles.profileHeader}>
                       <View style={styles.profileHeaderText}>
-                        <Text style={styles.profileSegmentLabel}>{getSegmentCardTitle(segment.label, segmentIndex)}</Text>
-                        <Text style={styles.profileSegmentTimeLabel}>Temps estime</Text>
-                        <Text style={styles.profileSegmentTime}>{formatSectionDuration(segmentStat.etaSeconds / 60)}</Text>
+                        <Heading variant="h3" style={planDetailStyles.profileSegmentLabel}>
+                          {getSegmentCardTitle(segment.label, segmentIndex)}
+                        </Heading>
+                        <ThemedText tone="tertiary" size="xs" weight="semibold" style={planDetailStyles.profileSegmentTimeLabel}>
+                          Temps estime
+                        </ThemedText>
+                        <DataText tone="brand" size="2xl" weight="bold" style={planDetailStyles.profileSegmentTime}>
+                          {formatSectionDuration(segmentStat.etaSeconds / 60)}
+                        </DataText>
                       </View>
                       <View style={styles.profilePaceWrap}>
                         <Text style={styles.profilePaceLabel}>Allure</Text>
@@ -1148,7 +1238,7 @@ export function AidStationsSectionV3({
                             }}
                             keyboardType="numbers-and-punctuation"
                             placeholder="6:00"
-                            placeholderTextColor="#94A3B8"
+                            placeholderTextColor={colors.text.tertiary}
                             autoCapitalize="none"
                             autoCorrect={false}
                           />
@@ -1180,13 +1270,19 @@ export function AidStationsSectionV3({
 
                     <View style={styles.profileMetricsRow}>
                       <View style={styles.profileMetricPill}>
-                        <Text style={styles.profileMetricPillText}>{segmentStat.distKm.toFixed(2)} km</Text>
+                        <DataText tone="secondary" size="xs" weight="semibold">
+                          {segmentStat.distKm.toFixed(2)} km
+                        </DataText>
                       </View>
                       <View style={styles.profileMetricPill}>
-                        <Text style={styles.profileMetricPillText}>D+ {Math.round(segmentStat.dPlus)} m</Text>
+                        <DataText tone="secondary" size="xs" weight="semibold">
+                          D+ {Math.round(segmentStat.dPlus)} m
+                        </DataText>
                       </View>
                       <View style={styles.profileMetricPill}>
-                        <Text style={styles.profileMetricPillText}>D- {Math.round(segmentStat.dMinus)} m</Text>
+                        <DataText tone="secondary" size="xs" weight="semibold">
+                          D- {Math.round(segmentStat.dMinus)} m
+                        </DataText>
                       </View>
                     </View>
 
@@ -1334,7 +1430,12 @@ export function AidStationsSectionV3({
   return (
     <>
       <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-        <Text style={styles.sectionTitle}>Ravitaillements</Text>
+        <View style={planDetailStyles.sectionHeaderTitle}>
+          <TrailIcon color={colors.brand.forest} size={22} strokeWidth={2.2} />
+          <Heading variant="h2" style={planDetailStyles.sectionTitle}>
+            Ravitaillements
+          </Heading>
+        </View>
         <View style={styles.sectionActions}>
           <TutorialTarget
             onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
@@ -1354,7 +1455,7 @@ export function AidStationsSectionV3({
               <View style={styles.fillBtnContent}>
                 {isAutoFilling ? (
                   <>
-                    <ActivityIndicator size="small" color={Colors.textOnBrand} />
+                    <ActivityIndicator size="small" color={colors.text.inverse} />
                     <Text style={[styles.fillBtnText, styles.fillBtnTextLoading]} numberOfLines={1}>
                       {autoFillLoadingMessage}
                     </Text>
@@ -1411,10 +1512,12 @@ export function AidStationsSectionV3({
 
       <View style={styles.scrollContextBar}>
         {renderStationBadge(contextInfo.badge, true)}
-        <Text style={styles.scrollContextLabel} numberOfLines={1}>
+        <Heading variant="h3" style={planDetailStyles.scrollContextLabel} numberOfLines={1}>
           {contextInfo.label}
-        </Text>
-        <Text style={styles.scrollContextMeta}>{contextInfo.meta}</Text>
+        </Heading>
+        <DataText tone="tertiary" size="xs" weight="medium">
+          {contextInfo.meta}
+        </DataText>
       </View>
 
       <TutorialTarget
@@ -1466,3 +1569,117 @@ export function AidStationsSectionV3({
     </>
   );
 }
+
+const planDetailStyles = StyleSheet.create({
+  sectionHeaderTitle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginBottom: spacing[3],
+  },
+  sectionTitle: {
+    color: colors.brand.forest,
+  },
+  stationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.surface.cream,
+  },
+  stationBadgeText: {
+    fontSize: 12,
+    lineHeight: 15,
+  },
+  stationBadgeMiniText: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  stationCard: {
+    borderRadius: radius.card,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.surface.white,
+    shadowOpacity: 0,
+    elevation: 0,
+    boxShadow: shadows.sm,
+  } as ViewStyle,
+  stationCardFocused: {
+    borderColor: colors.border.brand,
+    boxShadow: shadows.md,
+  } as ViewStyle,
+  cardWhite: {
+    backgroundColor: colors.surface.white,
+  },
+  cardCream: {
+    backgroundColor: colors.surface.cream,
+  },
+  stationName: {
+    flex: 1,
+    color: colors.text.primary,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  stationKm: {
+    marginLeft: spacing[2],
+  },
+  separatorText: {
+    marginHorizontal: spacing[3],
+  },
+  sectionStationLabel: {
+    flexShrink: 1,
+    maxWidth: '50%',
+    color: colors.text.primary,
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  sectionStationKm: {
+    flexShrink: 0,
+  },
+  sectionCard: {
+    borderRadius: radius.card,
+    borderColor: colors.border.subtle,
+    shadowOpacity: 0,
+    elevation: 0,
+    boxShadow: shadows.sm,
+  } as ViewStyle,
+  sectionViewTitle: {
+    color: colors.text.primary,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  sectionViewMeta: {
+    marginTop: spacing[1],
+  },
+  sectionTimelineTime: {
+    width: 58,
+  },
+  sectionTimelineDetail: {
+    marginTop: spacing[0.5],
+  },
+  profileTitle: {
+    color: colors.text.primary,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  profileMeta: {
+    marginTop: spacing[1],
+  },
+  profileSegmentLabel: {
+    color: colors.text.primary,
+    fontSize: 17,
+    lineHeight: 21,
+  },
+  profileSegmentTimeLabel: {
+    marginTop: spacing[2],
+  },
+  profileSegmentTime: {
+    marginTop: spacing[0.5],
+  },
+  scrollContextLabel: {
+    flex: 1,
+    color: colors.text.primary,
+    fontSize: 15,
+    lineHeight: 19,
+  },
+});
