@@ -15,10 +15,25 @@ if (typeof ErrorUtils !== 'undefined') {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import { PostHogProvider as AnalyticsProvider } from 'posthog-react-native';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import * as Notifications from 'expo-notifications';
 import * as Updates from 'expo-updates';
+import {
+  BricolageGrotesque_300Light,
+  BricolageGrotesque_400Regular,
+  BricolageGrotesque_500Medium,
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+} from '@expo-google-fonts/bricolage-grotesque';
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_600SemiBold,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
 import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';
@@ -55,6 +70,8 @@ import {
 import { ensureTrialStatusForSession } from '../lib/trial';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
+
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 // Show notifications even when the app is in the foreground
 Notifications.setNotificationHandler({
@@ -123,6 +140,19 @@ function wait(ms: number) {
 
 function RootLayoutContent() {
   const { locale, t } = useI18n();
+  const [fontsLoaded, fontLoadError] = useFonts({
+    'Bricolage Grotesque': BricolageGrotesque_400Regular,
+    BricolageGrotesque_300Light,
+    BricolageGrotesque_400Regular,
+    BricolageGrotesque_500Medium,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    'JetBrains Mono': JetBrainsMono_400Regular,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [bootstrappingSession, setBootstrappingSession] = useState(false);
@@ -157,6 +187,24 @@ function RootLayoutContent() {
     () => buildAnalyticsScreenName(segments.map((segment) => String(segment))),
     [segments],
   );
+
+  useEffect(() => {
+    if (!fontsLoaded && !fontLoadError) return;
+
+    if (fontsLoaded) {
+      console.log('[design-system] Fonts loaded: Bricolage Grotesque, JetBrains Mono');
+    }
+
+    if (fontLoadError) {
+      console.warn('Design system fonts failed to load:', fontLoadError);
+    }
+
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontLoadError, fontsLoaded]);
+
+  if (!fontsLoaded && !fontLoadError) {
+    return null;
+  }
 
   if (supabaseInitError) {
     return (

@@ -32,7 +32,7 @@ const createConfig = async () => {
     eslint: {
       ignoreDuringBuilds: true,
     },
-    transpilePackages: ['@trailplanner/shared'],
+    transpilePackages: ['@trailplanner/shared', '@pace-yourself/design-system'],
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
   };
 
