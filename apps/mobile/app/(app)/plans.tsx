@@ -1,8 +1,12 @@
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { colors } from '@pace-yourself/design-system';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { PlansList } from '../../components/plans/PlansList';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
-import { Colors } from '../../constants/colors';
+import { Button } from '../../components/themed/Button';
+import { Card } from '../../components/themed/Card';
+import { Screen } from '../../components/themed/Screen';
+import { Text } from '../../components/themed/Text';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
 import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
 
@@ -37,35 +41,41 @@ export default function PlansScreen() {
 
   if (loading || premiumLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.brandPrimary} size="large" />
-      </View>
+      <Screen style={styles.center}>
+        <ActivityIndicator color={colors.brand.forest} size="large" />
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity onPress={handleRetry} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>{t.common.retry}</Text>
-        </TouchableOpacity>
-      </View>
+      <Screen style={styles.center}>
+        <Text tone="brand" size="base" weight="semibold" style={styles.errorText}>
+          {error}
+        </Text>
+        <Button onPress={handleRetry} variant="secondary">
+          {t.common.retry}
+        </Button>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <Screen style={styles.screen}>
       {isAnonymous ? (
-        <View style={styles.guestBanner}>
+        <Card surface="cream" style={styles.guestBanner}>
           <View style={styles.guestBannerCopy}>
-            <Text style={styles.guestBannerTitle}>{t.plans.guestModeBannerTitle}</Text>
-            <Text style={styles.guestBannerBody}>{t.plans.guestModeBannerBody}</Text>
+            <Text tone="brand" size="base" weight="bold">
+              {t.plans.guestModeBannerTitle}
+            </Text>
+            <Text tone="secondary" size="sm" lineHeight="normal">
+              {t.plans.guestModeBannerBody}
+            </Text>
           </View>
-          <TouchableOpacity onPress={handleOpenGuestAccountUpgrade} style={styles.guestBannerButton}>
-            <Text style={styles.guestBannerButtonText}>{t.plans.guestModeBannerCta}</Text>
-          </TouchableOpacity>
-        </View>
+          <Button onPress={handleOpenGuestAccountUpgrade} style={styles.guestBannerButton}>
+            {t.plans.guestModeBannerCta}
+          </Button>
+        </Card>
       ) : null}
 
       <PlansList
@@ -101,72 +111,33 @@ export default function PlansScreen() {
         title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
         visible={premiumModalCopy !== null}
       />
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   guestBanner: {
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 4,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
     gap: 14,
   },
   guestBannerCopy: {
     gap: 6,
   },
-  guestBannerTitle: {
-    color: Colors.brandPrimary,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  guestBannerBody: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   guestBannerButton: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.brandPrimary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  guestBannerButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 14,
-    fontWeight: '700',
   },
   center: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: Colors.danger,
-    fontSize: 15,
     textAlign: 'center',
     marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  retryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 15,
   },
 });

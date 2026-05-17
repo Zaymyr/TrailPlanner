@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundTask from 'expo-background-task';
 
@@ -13,6 +12,7 @@ import {
   type StoredRacePlan,
   type WaterOnlyReminderIntervalMinutes,
 } from './raceLivePlan';
+import { getNotificationsModule, type NotificationsModule } from './notifications';
 import { syncPushDeviceRegistration } from './pushRegistration';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
@@ -57,7 +57,7 @@ export type RaceSession = {
 
 let session: RaceSession | null = null;
 
-async function setupNotificationCategory(): Promise<void> {
+async function setupNotificationCategory(Notifications: NotificationsModule): Promise<void> {
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY, [
     ...SNOOZE_OPTIONS_MINUTES.map((minutes) => ({
       identifier: `snooze_${minutes}`,
@@ -78,6 +78,9 @@ async function setupNotificationCategory(): Promise<void> {
 }
 
 async function fireAlertNotification(alert: ActiveAlert, confirmMode: AlertConfirmMode): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+
   await Notifications.scheduleNotificationAsync({
     content: {
       title: alert.title,
@@ -146,6 +149,9 @@ function applyAutoConfirm(sessionToUpdate: RaceSession, elapsedMinutes: number) 
 }
 
 export async function requestPermissions(): Promise<boolean> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return false;
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -156,7 +162,7 @@ export async function requestPermissions(): Promise<boolean> {
 
   if (finalStatus !== 'granted') return false;
 
-  await setupNotificationCategory();
+  await setupNotificationCategory(Notifications);
   await syncPushDeviceRegistration();
   return true;
 }
@@ -190,7 +196,8 @@ export async function startRace(
     minimumInterval: RACE_ALERT_TASK_MINIMUM_INTERVAL_MINUTES,
   }).catch(() => undefined);
 
-  await Notifications.scheduleNotificationAsync({
+  const Notifications = await getNotificationsModule();
+  await Notifications?.scheduleNotificationAsync({
     content: {
       title: 'Course démarrée',
       body: `${plan.name} - suivi nutrition actif`,

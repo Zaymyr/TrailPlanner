@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
   try {
     const contentType = request.headers.get("content-type") ?? "";
     if (contentType.includes("multipart/form-data")) {
-      const formData = await request.formData();
+      const formData = (await request.formData()) as unknown as globalThis.FormData;
       const gpxFile = formData.get("gpx") as File | null;
       const gpxContent = gpxFile ? await gpxFile.text() : null;
       body = createRaceSchema.parse({

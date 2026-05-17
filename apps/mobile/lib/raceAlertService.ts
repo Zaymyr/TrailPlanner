@@ -1,5 +1,4 @@
 import * as BackgroundTask from 'expo-background-task';
-import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 
 import {
@@ -10,6 +9,7 @@ import {
   type AlertTimingMode,
   type RacePlan as SharedRacePlan,
 } from './shared';
+import { getNotificationsModule, type NotificationsModule } from './notifications';
 import { syncPushDeviceRegistration } from './pushRegistration';
 
 export type ActiveAlert = SharedActiveAlert & {
@@ -94,7 +94,7 @@ function adaptToSharedPlan(plan: RacePlan): SharedRacePlan {
   };
 }
 
-async function setupNotificationCategory(): Promise<void> {
+async function setupNotificationCategory(Notifications: NotificationsModule): Promise<void> {
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY, [
     ...SNOOZE_OPTIONS_MINUTES.map((minutes) => ({
       identifier: `snooze_${minutes}`,
@@ -118,6 +118,9 @@ async function fireAlertNotification(
   alert: ActiveAlert,
   confirmMode: AlertConfirmMode,
 ): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+
   if (confirmMode === 'fire_forget' || confirmMode === 'auto_5' || confirmMode === 'auto_10') {
     await Notifications.scheduleNotificationAsync({
       content: {
@@ -144,6 +147,9 @@ async function fireAlertNotification(
 }
 
 export async function requestPermissions(): Promise<boolean> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return false;
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -156,7 +162,7 @@ export async function requestPermissions(): Promise<boolean> {
     return false;
   }
 
-  await setupNotificationCategory();
+  await setupNotificationCategory(Notifications);
   await syncPushDeviceRegistration();
   return true;
 }
@@ -194,7 +200,8 @@ export async function startRace(
     minimumInterval: RACE_ALERT_TASK_MINIMUM_INTERVAL_MINUTES,
   }).catch(() => undefined);
 
-  await Notifications.scheduleNotificationAsync({
+  const Notifications = await getNotificationsModule();
+  await Notifications?.scheduleNotificationAsync({
     content: {
       title: 'Course démarrée',
       body: `${plan.name} - suivi horaire actif`,

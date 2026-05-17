@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
+
+import { getNotificationsModule } from './notifications';
 
 const REMINDER_NOTIFICATIONS_STORAGE_KEY = 'trailplanner.reminderNotifications';
 const THREE_DAYS_MS = 72 * 60 * 60 * 1000;
@@ -48,9 +49,12 @@ const DEFAULT_STATE: ReminderNotificationsState = {
   unfinishedPlanReminder: null,
 };
 
-type ScheduledNotificationRequest = Awaited<
-  ReturnType<typeof Notifications.getAllScheduledNotificationsAsync>
->[number];
+type ScheduledNotificationRequest = {
+  identifier: string;
+  content: {
+    data?: unknown;
+  };
+};
 
 let reminderStateQueue: Promise<void> = Promise.resolve();
 
@@ -84,6 +88,8 @@ async function writeState(nextState: ReminderNotificationsState): Promise<void> 
 
 async function cancelScheduledNotification(notificationId: string | null | undefined): Promise<void> {
   if (!notificationId) return;
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
   await Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => undefined);
 }
 
@@ -110,6 +116,9 @@ async function cancelScheduledReminderNotifications({
     notificationIds.add(notificationId);
   }
 
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+
   const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync().catch(() => []);
   scheduledNotifications.forEach((notification) => {
     const data = getReminderNotificationData(notification);
@@ -130,6 +139,9 @@ async function cancelScheduledReminderNotifications({
 async function ensureReminderPermissions({
   requestIfNeeded = false,
 }: ReminderPermissionOptions = {}): Promise<boolean> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return false;
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   if (existingStatus === 'granted') {
     return true;
@@ -170,7 +182,10 @@ async function scheduleReminderNotification({
   reminderType: 'inactivity' | 'unfinished-plan';
   planId?: string;
   delayMs: number;
-}): Promise<string> {
+}): Promise<string | null> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return null;
+
   return Notifications.scheduleNotificationAsync({
     content: {
       title,
@@ -244,6 +259,7 @@ async function refreshInactivityReminderInternal({
     reminderType: 'inactivity',
     delayMs,
   });
+  if (!notificationId) return false;
 
   await writeState({
     ...currentState,
@@ -360,6 +376,7 @@ async function syncUnfinishedPlanReminderInternal({
     planId,
     delayMs,
   });
+  if (!notificationId) return false;
 
   await writeState({
     ...currentState,
