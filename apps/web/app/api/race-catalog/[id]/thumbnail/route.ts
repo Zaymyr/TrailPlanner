@@ -56,7 +56,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     );
   }
 
-  const formData = await request.formData().catch(() => null);
+  const formData = (await request.formData().catch(() => null)) as unknown as globalThis.FormData | null;
   if (!formData) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid form data." }, { status: 400 }));
   }

@@ -323,7 +323,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const formData = await request.formData().catch(() => null);
+  const formData = (await request.formData().catch(() => null)) as unknown as globalThis.FormData | null;
 
   if (!formData) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid form data." }, { status: 400 }));

@@ -99,7 +99,7 @@ export async function PUT(request: NextRequest, context: { params: { productId?:
     return withSecurityHeaders(NextResponse.json({ message: "Not authorized." }, { status: 403 }));
   }
 
-  const formData = await request.formData().catch(() => null);
+  const formData = (await request.formData().catch(() => null)) as unknown as globalThis.FormData | null;
   if (!formData) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid form data." }, { status: 400 }));
   }
