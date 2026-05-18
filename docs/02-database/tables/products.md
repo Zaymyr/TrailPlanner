@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-18
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260417103000_add_product_images.sql
   - supabase/migrations/20260417190000_add_product_brand_cleanup.sql
   - apps/web/app/api/products/route.ts
+  - apps/web/app/api/products/[productId]/route.ts
   - apps/web/lib/nutrition-planner.ts
 related_tables:
   - products
@@ -82,6 +83,8 @@ Summary:
 - Anon can read live, non-archived products.
 - Users can read their own products.
 
+Mobile product edits and deletes go through `apps/web/app/api/products/[productId]/route.ts`, which verifies the Supabase bearer token, authorizes either the product owner (`created_by`) or an admin from `app_metadata`, then performs the mutation with the server-side service role.
+
 ## Business Invariants
 
 - `fuel_type` drives nutrition allocation order:
@@ -119,6 +122,7 @@ where fuel_type = 'electrolyte'
 - Do not add `water_ml` to `products` just to support hydration planning. The current algorithm treats water as segment/carry demand.
 - `fuel_type` is a Postgres enum. Adding a type requires a migration and app type update.
 - `brand` is normalized by a database trigger. Do not duplicate brand inference in multiple clients unless needed for preview UX.
+- User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
 
 ## Related Docs
 

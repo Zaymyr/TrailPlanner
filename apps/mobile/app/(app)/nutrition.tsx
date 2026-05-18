@@ -18,6 +18,7 @@ export default function NutritionScreen() {
     loading,
     error,
     userId,
+    isAdmin,
     favorites,
     products,
     favoriteIds,
@@ -25,6 +26,9 @@ export default function NutritionScreen() {
     favoritesExpanded,
     catalogSearch,
     showCreateModal,
+    selectedProduct,
+    savingProduct,
+    deletingProduct,
     creating,
     newName,
     newFuelType,
@@ -51,6 +55,10 @@ export default function NutritionScreen() {
     clearNewImage,
     handleCreateProduct,
     handleCancelCreateProduct,
+    openProductDetail,
+    closeProductDetail,
+    handleUpdateSelectedProduct,
+    handleDeleteSelectedProduct,
   } = useNutritionScreen();
   const screenStyle = useMemo(
     () => [
@@ -107,6 +115,7 @@ export default function NutritionScreen() {
       <NutritionContent
         catalogSearch={catalogSearch}
         creating={creating}
+        deletingProduct={deletingProduct}
         favoriteIds={favoriteIds}
         favoriteLimitBannerLabel={favoriteLimitBannerLabel}
         favoriteLimitMessage={favoriteLimitMessage}
@@ -115,6 +124,7 @@ export default function NutritionScreen() {
         filteredProducts={filteredProducts}
         freeAccessTitle={t.plans.freeAccessTitle}
         fuelFilter={fuelFilter}
+        isAdmin={isAdmin}
         isPremium={isPremium}
         otherBrandsLabel={t.nutrition.otherBrandsLabel}
         newCaloriesKcal={newCaloriesKcal}
@@ -134,10 +144,16 @@ export default function NutritionScreen() {
         onPickNewImage={() => void pickNewImage()}
         onRemoveNewImage={clearNewImage}
         onCloseFavoriteLimitModal={() => setShowFavoriteLimitModal(false)}
+        onCloseProductDetail={closeProductDetail}
+        onDeleteSelectedProduct={handleDeleteSelectedProduct}
+        onOpenProductDetail={openProductDetail}
         onSubmitCreateProduct={() => void handleCreateProduct()}
         onToggleFavorite={(productId, productOverride) => void toggleFavorite(productId, productOverride)}
         onToggleFavorites={() => setFavoritesExpanded((current) => !current)}
+        onUpdateProduct={handleUpdateSelectedProduct}
         products={products}
+        savingProduct={savingProduct}
+        selectedProduct={selectedProduct}
         showCreateModal={showCreateModal}
         showFavoriteLimitModal={showFavoriteLimitModal}
         userId={userId}

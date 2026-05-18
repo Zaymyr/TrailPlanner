@@ -20,6 +20,7 @@ import {
   TouchableOpacity,
   useWindowDimensions,
   View,
+  type GestureResponderEvent,
   type ViewStyle
 } from 'react-native';
 import {
@@ -105,6 +106,11 @@ type Props = {
 };
 
 const VIEW_MODES: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
+const VIEW_MODE_LABELS: Record<(typeof VIEW_MODES)[number], string> = {
+  stations: 'Ravitos',
+  sections: 'Sections',
+  profile: 'Profil',
+};
 const PAGER_MODES: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stations'> = [
   'profile',
   'stations',
@@ -112,6 +118,9 @@ const PAGER_MODES: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stat
   'profile',
   'stations',
 ];
+const PAGER_EDGE_SWIPE_MIN_WIDTH = 104;
+const PAGER_EDGE_SWIPE_MAX_WIDTH = 128;
+const PAGER_SIDE_BUTTON_HIT_SLOP = { top: 18, bottom: 18, left: 18, right: 18 };
 
 export function AidStationsSectionV3({
   values,
@@ -171,6 +180,7 @@ export function AidStationsSectionV3({
     profile: false,
   });
   const userDraggingRef = useRef(false);
+  const pagerEdgeGestureAllowedRef = useRef(false);
   const dragStartModeRef = useRef<'stations' | 'sections' | 'profile'>('stations');
   const previewTargetModeRef = useRef<null | 'stations' | 'sections' | 'profile'>(null);
   const pendingSyncRef = useRef<null | { mode: 'stations' | 'sections' | 'profile'; stationId: string | null; viewportOffset: number }>(null);
@@ -196,6 +206,7 @@ export function AidStationsSectionV3({
   const [displayedViewMode, setDisplayedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
   const [focusedAidStationId, setFocusedAidStationId] = useState<string | null>(values.aidStations[0]?.id ?? null);
   const [pagerHoldPageIndex, setPagerHoldPageIndex] = useState<number | null>(null);
+  const [pagerScrollEnabled, setPagerScrollEnabled] = useState(false);
   const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
   const [viewportHeight, setViewportHeight] = useState(defaultViewportHeight);
   const [anchorsVersion, setAnchorsVersion] = useState(0);
@@ -483,6 +494,15 @@ export function AidStationsSectionV3({
     pagerRef.current?.scrollTo({ x: nextPageIndex * pageWidth, animated: true });
   }
 
+  function getAdjacentViewMode(
+    mode: 'stations' | 'sections' | 'profile',
+    direction: 'previous' | 'next',
+  ) {
+    const currentIndex = VIEW_MODES.indexOf(mode);
+    const offset = direction === 'previous' ? -1 : 1;
+    return VIEW_MODES[(currentIndex + offset + VIEW_MODES.length) % VIEW_MODES.length];
+  }
+
   function resolvePagerMode(pageIndex: number) {
     const boundedPageIndex = Math.max(0, Math.min(PAGER_MODES.length - 1, pageIndex));
     if (boundedPageIndex === 0) {
@@ -513,6 +533,11 @@ export function AidStationsSectionV3({
   }, [pageWidth, displayedViewMode]);
 
   function handlePagerBeginDrag() {
+    if (!pagerEdgeGestureAllowedRef.current) {
+      pagerRef.current?.scrollTo({ x: currentPagerPageIndexRef.current * pageWidth, animated: false });
+      return;
+    }
+
     onNestedScrollInteractionStart?.();
     userDraggingRef.current = true;
     dragStartModeRef.current = displayedViewMode;
@@ -549,6 +574,8 @@ export function AidStationsSectionV3({
     const dragStartMode = dragStartModeRef.current;
     const previewTargetMode = previewTargetModeRef.current;
     userDraggingRef.current = false;
+    pagerEdgeGestureAllowedRef.current = false;
+    setPagerScrollEnabled(false);
     previewTargetModeRef.current = null;
 
     const { mode: nextMode, resetPageIndex } = resolvePagerMode(boundedPageIndex);
@@ -603,6 +630,18 @@ export function AidStationsSectionV3({
     if (pageContentHeightRef.current[mode] === nextHeight) return;
     pageContentHeightRef.current[mode] = nextHeight;
     setAnchorsVersion((prevVersion) => prevVersion + 1);
+  }
+
+  function handlePagerTouchStart(event: GestureResponderEvent) {
+    const startX = event.nativeEvent.locationX;
+    const edgeWidth = Math.min(
+      PAGER_EDGE_SWIPE_MAX_WIDTH,
+      Math.max(PAGER_EDGE_SWIPE_MIN_WIDTH, Math.round(pageWidth * 0.25)),
+    );
+    const allowHorizontalSwipe = startX <= edgeWidth || startX >= pageWidth - edgeWidth;
+    pagerEdgeGestureAllowedRef.current = allowHorizontalSwipe;
+    pagerRef.current?.setNativeProps({ scrollEnabled: allowHorizontalSwipe });
+    setPagerScrollEnabled(allowHorizontalSwipe);
   }
 
   function formatSectionTarget(summary: SectionSummary | null): SectionTarget {
@@ -1432,6 +1471,8 @@ export function AidStationsSectionV3({
   // don't accidentally "re-snap" the pager at the end of a swipe.
   const initialPagerOffset = useMemo(() => ({ x: pageWidth, y: 0 }), [pageWidth]);
   const bottomSpacerHeight = useMemo(() => getBottomSpacerHeight(), [viewportHeight, windowHeight]);
+  const previousViewMode = getAdjacentViewMode(displayedViewMode, 'previous');
+  const nextViewMode = getAdjacentViewMode(displayedViewMode, 'next');
 
   return (
     <>
@@ -1531,11 +1572,16 @@ export function AidStationsSectionV3({
         onRegisterRef={tutorial?.onTargetRegisterRef}
         targetKey="aidStations"
       >
-        <View style={[styles.swipeViewport, { height: viewportHeight }]} onLayout={handleViewportLayout}>
+        <View
+          style={[styles.swipeViewport, { height: viewportHeight }]}
+          onLayout={handleViewportLayout}
+          onTouchStart={handlePagerTouchStart}
+        >
           <ScrollView
             ref={pagerRef}
             horizontal
             pagingEnabled
+            scrollEnabled={pagerScrollEnabled}
             nestedScrollEnabled
             bounces={false}
             showsHorizontalScrollIndicator={false}
@@ -1570,6 +1616,26 @@ export function AidStationsSectionV3({
               </View>
             ))}
           </ScrollView>
+          <TouchableOpacity
+            accessibilityLabel={`Aller à ${VIEW_MODE_LABELS[previousViewMode]}`}
+            accessibilityRole="button"
+            activeOpacity={0.72}
+            hitSlop={PAGER_SIDE_BUTTON_HIT_SLOP}
+            onPress={() => switchViewMode(previousViewMode)}
+            style={[planDetailStyles.pagerSideButton, planDetailStyles.pagerSideButtonLeft]}
+          >
+            <Ionicons name="chevron-back" size={20} color="rgba(45, 80, 22, 0.78)" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={`Aller à ${VIEW_MODE_LABELS[nextViewMode]}`}
+            accessibilityRole="button"
+            activeOpacity={0.72}
+            hitSlop={PAGER_SIDE_BUTTON_HIT_SLOP}
+            onPress={() => switchViewMode(nextViewMode)}
+            style={[planDetailStyles.pagerSideButton, planDetailStyles.pagerSideButtonRight]}
+          >
+            <Ionicons name="chevron-forward" size={20} color="rgba(45, 80, 22, 0.78)" />
+          </TouchableOpacity>
         </View>
       </TutorialTarget>
     </>
@@ -1687,5 +1753,24 @@ const planDetailStyles = StyleSheet.create({
     color: colors.text.primary,
     fontSize: 15,
     lineHeight: 19,
+  },
+  pagerSideButton: {
+    position: 'absolute',
+    top: '42%',
+    width: 44,
+    height: 74,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    opacity: 0.64,
+    zIndex: 8,
+  } as ViewStyle,
+  pagerSideButtonLeft: {
+    left: -16,
+  },
+  pagerSideButtonRight: {
+    right: -16,
   },
 });

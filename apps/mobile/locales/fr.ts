@@ -557,10 +557,10 @@ export const fr: MobileTranslations = {
     planEdit: {
       basicsTitle: 'Bases du plan',
       basicsBody:
-        "Tu ajustes ici les grands réglages du plan. L'onglet Course sert au nom, à la distance et au dénivelé. L'onglet Allure sert à la vitesse de base et à la fatigue. L'onglet Nutrition sert aux cibles horaires qui guideront ensuite les ravitos.",
+        "Le résumé du haut garde les réglages compacts. Appuie sur Paramètres pour modifier la course, l'allure, la fatigue et les cibles horaires sans perdre ta place dans les ravitos.",
       summaryTitle: 'R\u00e9sum\u00e9 rapide',
       summaryBody:
-        "Ce bloc te donne une vue d'ensemble imm\u00e9diate du temps estim\u00e9, de l'allure moyenne, du nombre de ravitos et des apports d\u00e9j\u00e0 pr\u00e9vus. Il est utile pour v\u00e9rifier rapidement si ton plan reste coh\u00e9rent avant de descendre dans le d\u00e9tail.",
+        "Cette ligne compacte te donne une vue rapide du temps estimé, de l'allure moyenne, du nombre de ravitos et des apports déjà prévus avant de descendre dans le détail.",
       viewsTitle: 'Ravitos, Sections, Profil',
       viewsBody:
         "Dans cette zone, Ravitos sert \u00e0 pr\u00e9parer chaque point de ravitaillement et les produits emport\u00e9s. Sections sert \u00e0 voir les besoins entre deux points. Profil sert \u00e0 ajuster plus finement l'allure sur les segments du parcours.",
