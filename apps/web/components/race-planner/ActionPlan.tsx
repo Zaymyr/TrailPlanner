@@ -209,6 +209,7 @@ type FinishSummaryGroup = {
 
 type FinishSummaryCardProps = {
   pointIndex: number;
+  badge?: ReactNode;
   title: string;
   distanceText: string;
   performanceGroup: FinishSummaryGroup;
@@ -255,6 +256,7 @@ function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
 
 function FinishSummaryCard({
   pointIndex,
+  badge,
   title,
   distanceText,
   performanceGroup,
@@ -270,9 +272,11 @@ function FinishSummaryCard({
     <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-[220px] items-start gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
-            {pointIndex}
-          </span>
+          {badge ?? (
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+              {pointIndex}
+            </span>
+          )}
           <div className="space-y-1">
             <div className="text-base font-semibold text-foreground dark:text-slate-50">{title}</div>
             <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{distanceText}</div>
@@ -1967,6 +1971,8 @@ export function ActionPlan({
                   <AidStationBadge step={pointNumber} variant="start" />
                 ) : isAidStation ? (
                   <AidStationBadge step={pointNumber} variant="ravito" />
+                ) : item.isFinish ? (
+                  <AidStationBadge step={pointNumber} variant="finish" />
                 ) : null;
                 const metaContent = (
                   <div className="space-y-1">
@@ -2607,6 +2613,7 @@ export function ActionPlan({
                     <div key={item.id} className="relative pl-8">
                       <FinishSummaryCard
                         pointIndex={pointNumber}
+                        badge={aidStationBadge ?? undefined}
                         title={timelineCopy.finishSummary.title}
                         distanceText={formatDistanceWithUnit(finishSummary.finishDistanceKm)}
                         performanceGroup={performanceGroup}
