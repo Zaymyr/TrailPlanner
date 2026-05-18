@@ -13,7 +13,8 @@ import { Colors } from '../../constants/colors';
 import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
 import { FREE_FAVORITE_LIMIT, FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import { NutritionCreateProductModal } from './NutritionCreateProductModal';
-import type { FavoriteRow, FuelType, Product } from './types';
+import { ProductDetailModal } from './ProductDetailModal';
+import type { FavoriteRow, FuelType, Product, ProductEditDraft } from './types';
 
 type ProductBrandGroup<T> = {
   brandLabel: string;
@@ -117,6 +118,7 @@ function groupItemsByBrand<T>(
 
 type NutritionContentProps = {
   isPremium: boolean;
+  isAdmin: boolean;
   favoritesExpanded: boolean;
   favorites: FavoriteRow[];
   products: Product[];
@@ -134,6 +136,9 @@ type NutritionContentProps = {
   newSodiumMg: string;
   newCaloriesKcal: string;
   newImageDraft: { uri: string; name: string } | null;
+  selectedProduct: Product | null;
+  savingProduct: boolean;
+  deletingProduct: boolean;
   favoriteLimitBannerLabel: string;
   favoriteLimitMessage: string;
   freeAccessTitle: string;
@@ -152,10 +157,15 @@ type NutritionContentProps = {
   onRemoveNewImage: () => void;
   onSubmitCreateProduct: () => void;
   onCancelCreateProduct: () => void;
+  onOpenProductDetail: (product: Product) => void;
+  onCloseProductDetail: () => void;
+  onUpdateProduct: (draft: ProductEditDraft) => Promise<boolean>;
+  onDeleteSelectedProduct: () => void;
 };
 
 export const NutritionContent = memo(function NutritionContent({
   isPremium,
+  isAdmin,
   favoritesExpanded,
   favorites,
   products,
@@ -173,6 +183,9 @@ export const NutritionContent = memo(function NutritionContent({
   newSodiumMg,
   newCaloriesKcal,
   newImageDraft,
+  selectedProduct,
+  savingProduct,
+  deletingProduct,
   favoriteLimitBannerLabel,
   favoriteLimitMessage,
   freeAccessTitle,
@@ -191,9 +204,16 @@ export const NutritionContent = memo(function NutritionContent({
   onRemoveNewImage,
   onSubmitCreateProduct,
   onCancelCreateProduct,
+  onOpenProductDetail,
+  onCloseProductDetail,
+  onUpdateProduct,
+  onDeleteSelectedProduct,
 }: NutritionContentProps) {
   const favoriteGroups = groupItemsByBrand(favorites, (favorite) => favorite.products, otherBrandsLabel);
   const catalogGroups = groupItemsByBrand(filteredProducts, (product) => product, otherBrandsLabel);
+  const canManageSelectedProduct = Boolean(
+    selectedProduct && (isAdmin || selectedProduct.created_by === userId),
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
@@ -231,7 +251,8 @@ export const NutritionContent = memo(function NutritionContent({
                     <ProductCard
                       key={favorite.product_id}
                       isFavorite
-                      isOwnedByUser={false}
+                      isOwnedByUser={favorite.products.created_by === userId}
+                      onPress={() => onOpenProductDetail(favorite.products)}
                       onToggleFavorite={() => onToggleFavorite(favorite.product_id)}
                       product={favorite.products}
                     />
@@ -296,6 +317,7 @@ export const NutritionContent = memo(function NutritionContent({
                   key={product.id}
                   isFavorite={favoriteIds.has(product.id)}
                   isOwnedByUser={product.created_by === userId}
+                  onPress={() => onOpenProductDetail(product)}
                   onToggleFavorite={() => onToggleFavorite(product.id)}
                   product={product}
                 />
@@ -332,6 +354,23 @@ export const NutritionContent = memo(function NutritionContent({
         sodiumMg={newSodiumMg}
         visible={showCreateModal}
       />
+
+      <ProductDetailModal
+        canManage={canManageSelectedProduct}
+        deleting={deletingProduct}
+        isFavorite={selectedProduct ? favoriteIds.has(selectedProduct.id) : false}
+        onClose={onCloseProductDetail}
+        onDelete={onDeleteSelectedProduct}
+        onSave={onUpdateProduct}
+        onToggleFavorite={() => {
+          if (selectedProduct) {
+            onToggleFavorite(selectedProduct.id, selectedProduct);
+          }
+        }}
+        product={selectedProduct}
+        saving={savingProduct}
+        visible={selectedProduct !== null}
+      />
     </ScrollView>
   );
 });
@@ -340,15 +379,17 @@ function ProductCard({
   product,
   isFavorite,
   isOwnedByUser,
+  onPress,
   onToggleFavorite,
 }: {
   product: Product;
   isFavorite: boolean;
   isOwnedByUser: boolean;
+  onPress: () => void;
   onToggleFavorite: () => void;
 }) {
   return (
-    <View style={styles.productCard}>
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.productCard}>
       <View style={styles.productMedia}>
         {product.image_url ? (
           <Image source={{ uri: product.image_url }} style={styles.productImage} />
@@ -375,7 +416,10 @@ function ProductCard({
 
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={onToggleFavorite}
+        onPress={(event) => {
+          event.stopPropagation();
+          onToggleFavorite();
+        }}
         style={[styles.favButton, isFavorite && styles.favButtonActive]}
       >
         <Ionicons
@@ -384,7 +428,7 @@ function ProductCard({
           size={18}
         />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 }
 

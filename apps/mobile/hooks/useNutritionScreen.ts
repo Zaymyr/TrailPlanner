@@ -10,19 +10,63 @@ import type {
   CreateProductResponse,
   FavoriteRow,
   FuelType,
+  ProductEditDraft,
   ProductImageDraft,
   Product,
+  UpdateProductResponse,
 } from '../components/nutrition/types';
 import { usePremium } from '../hooks/usePremium';
 import { useI18n } from '../lib/i18n';
 import { supabase } from '../lib/supabase';
 import { WEB_API_BASE_URL } from '../lib/webApi';
 
+function normalizeRoles(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function resolveIsAdminFromAuthUser(
+  user:
+    | {
+        app_metadata?: Record<string, unknown> | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!user) {
+    return false;
+  }
+
+  const appMetadata = user.app_metadata ?? null;
+  const roles = normalizeRoles(appMetadata?.roles);
+  const role = (typeof appMetadata?.role === 'string' ? appMetadata.role : null) ?? roles[0] ?? null;
+
+  return role === 'admin' || roles.includes('admin');
+}
+
+function productFromApiProduct(product: NonNullable<CreateProductResponse['product']>): Product {
+  return {
+    id: product.id,
+    name: product.name,
+    brand: product.brand ?? null,
+    image_url: product.imageUrl ?? null,
+    fuel_type: product.fuelType,
+    carbs_g: product.carbsGrams,
+    sodium_mg: product.sodiumMg,
+    calories_kcal: product.caloriesKcal,
+    created_by: product.createdBy ?? null,
+  };
+}
+
 export function useNutritionScreen() {
   const { t } = useI18n();
   const { isPremium } = usePremium();
   const [userId, setUserId] = useState<string | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [favorites, setFavorites] = useState<FavoriteRow[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
@@ -40,6 +84,9 @@ export function useNutritionScreen() {
   const [newCaloriesKcal, setNewCaloriesKcal] = useState('');
   const [newImageDraft, setNewImageDraft] = useState<ProductImageDraft | null>(null);
   const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [savingProduct, setSavingProduct] = useState(false);
+  const [deletingProduct, setDeletingProduct] = useState(false);
 
   const fetchData = useCallback(async () => {
     setError(null);
@@ -47,6 +94,7 @@ export function useNutritionScreen() {
     const { data: sessionData } = await supabase.auth.getSession();
     const uid = sessionData?.session?.user?.id;
     const token = sessionData?.session?.access_token ?? null;
+    setIsAdmin(resolveIsAdminFromAuthUser(sessionData?.session?.user));
     if (!uid) return;
 
     setUserId(uid);
@@ -279,14 +327,8 @@ export function useNutritionScreen() {
       }
 
       const createdProduct: Product = {
-        id: body.product.id,
-        name: body.product.name,
-        brand: body.product.brand ?? null,
+        ...productFromApiProduct(body.product),
         image_url: uploadedImageUrl ?? body.product.imageUrl ?? null,
-        fuel_type: body.product.fuelType,
-        carbs_g: body.product.carbsGrams,
-        sodium_mg: body.product.sodiumMg,
-        calories_kcal: body.product.caloriesKcal,
         created_by: body.product.createdBy ?? userId,
       };
 
@@ -335,6 +377,208 @@ export function useNutritionScreen() {
     setShowCreateModal(false);
   }, [resetCreateForm]);
 
+  const openProductDetail = useCallback((product: Product) => {
+    setSelectedProduct(product);
+  }, []);
+
+  const closeProductDetail = useCallback(() => {
+    if (savingProduct || deletingProduct) return;
+    setSelectedProduct(null);
+  }, [deletingProduct, savingProduct]);
+
+  const handleUpdateSelectedProduct = useCallback(
+    async (draft: ProductEditDraft) => {
+      if (!selectedProduct) return false;
+
+      if (!draft.name.trim()) {
+        Alert.alert('Champ requis', 'Le nom du produit est obligatoire.');
+        return false;
+      }
+
+      const carbsGrams = parseNonNegativeDecimalInput(draft.carbsG);
+      const sodiumMg = parseNonNegativeDecimalInput(draft.sodiumMg);
+      const caloriesKcal = parseNonNegativeDecimalInput(draft.caloriesKcal);
+
+      if (carbsGrams === null || sodiumMg === null || caloriesKcal === null) {
+        Alert.alert('Erreur', 'Entre des valeurs valides, positives ou nulles, pour la nutrition.');
+        return false;
+      }
+
+      if (!WEB_API_BASE_URL) {
+        Alert.alert('Erreur', 'Configuration manquante. Contacte le support.');
+        return false;
+      }
+
+      if (!accessToken) {
+        Alert.alert('Erreur', 'Session invalide. Reconnecte-toi puis recommence.');
+        return false;
+      }
+
+      setSavingProduct(true);
+
+      try {
+        const response = await fetch(`${WEB_API_BASE_URL}/api/products/${selectedProduct.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            name: draft.name.trim(),
+            brand: draft.brand.trim() || null,
+            fuelType: draft.fuelType,
+            carbsGrams,
+            sodiumMg,
+            caloriesKcal,
+          }),
+        });
+
+        const body = (await response.json().catch(() => null)) as UpdateProductResponse | null;
+
+        if (!response.ok || !body?.product) {
+          throw new Error(body?.message ?? body?.error ?? 'Impossible de modifier le produit.');
+        }
+
+        let updatedProduct = productFromApiProduct(body.product);
+        let imageUploadWarning: string | null = null;
+
+        if (draft.imageDraft) {
+          try {
+            const formData = new FormData();
+            formData.append(
+              'image',
+              {
+                uri: draft.imageDraft.uri,
+                name: draft.imageDraft.name,
+                type: draft.imageDraft.mimeType,
+              } as any,
+            );
+
+            const imageResponse = await fetch(`${WEB_API_BASE_URL}/api/products/${updatedProduct.id}/image`, {
+              method: 'PUT',
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: formData,
+            });
+
+            const imageBody = (await imageResponse.json().catch(() => null)) as
+              | { imageUrl?: string | null; message?: string }
+              | null;
+
+            if (!imageResponse.ok) {
+              imageUploadWarning =
+                imageBody?.message ?? "Le produit a ete modifie, mais l'image n'a pas pu etre envoyee.";
+            } else {
+              updatedProduct = {
+                ...updatedProduct,
+                image_url: imageBody?.imageUrl ?? updatedProduct.image_url ?? null,
+              };
+            }
+          } catch {
+            imageUploadWarning = "Le produit a ete modifie, mais l'image n'a pas pu etre envoyee.";
+          }
+        }
+
+        setProducts((current) =>
+          current
+            .map((product) => (product.id === updatedProduct.id ? updatedProduct : product))
+            .sort((left, right) => left.name.localeCompare(right.name)),
+        );
+        setFavorites((current) =>
+          current.map((favorite) =>
+            favorite.product_id === updatedProduct.id
+              ? { ...favorite, products: updatedProduct }
+              : favorite,
+          ),
+        );
+        setSelectedProduct(updatedProduct);
+        if (imageUploadWarning) {
+          Alert.alert('Image non ajoutee', imageUploadWarning);
+        }
+        return true;
+      } catch (updateError) {
+        const message =
+          updateError instanceof Error && updateError.message
+            ? updateError.message
+            : 'Impossible de modifier le produit.';
+        Alert.alert('Erreur', message);
+        return false;
+      } finally {
+        setSavingProduct(false);
+      }
+    },
+    [accessToken, selectedProduct],
+  );
+
+  const performDeleteProduct = useCallback(
+    async (product: Product) => {
+      if (!WEB_API_BASE_URL) {
+        Alert.alert('Erreur', 'Configuration manquante. Contacte le support.');
+        return;
+      }
+
+      if (!accessToken) {
+        Alert.alert('Erreur', 'Session invalide. Reconnecte-toi puis recommence.');
+        return;
+      }
+
+      setDeletingProduct(true);
+
+      try {
+        const response = await fetch(`${WEB_API_BASE_URL}/api/products/${product.id}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+
+        const body = (await response.json().catch(() => null)) as { message?: string } | null;
+
+        if (!response.ok) {
+          throw new Error(body?.message ?? 'Impossible de supprimer le produit.');
+        }
+
+        setProducts((current) => current.filter((entry) => entry.id !== product.id));
+        setFavorites((current) => current.filter((favorite) => favorite.product_id !== product.id));
+        setFavoriteIds((current) => {
+          const next = new Set(current);
+          next.delete(product.id);
+          return next;
+        });
+        setSelectedProduct(null);
+      } catch (deleteError) {
+        const message =
+          deleteError instanceof Error && deleteError.message
+            ? deleteError.message
+            : 'Impossible de supprimer le produit.';
+        Alert.alert('Erreur', message);
+      } finally {
+        setDeletingProduct(false);
+      }
+    },
+    [accessToken],
+  );
+
+  const handleDeleteSelectedProduct = useCallback(() => {
+    if (!selectedProduct || deletingProduct) return;
+
+    Alert.alert(
+      'Supprimer le produit',
+      'Ce produit sera retire du catalogue et des favoris. Continuer ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            void performDeleteProduct(selectedProduct);
+          },
+        },
+      ],
+    );
+  }, [deletingProduct, performDeleteProduct, selectedProduct]);
+
   const favoriteLimitBannerLabel = t.nutrition.favoritesLimitBanner.replace(
     '{count}',
     String(FREE_FAVORITE_LIMIT),
@@ -350,6 +594,7 @@ export function useNutritionScreen() {
     loading,
     error,
     userId,
+    isAdmin,
     favorites,
     products,
     favoriteIds,
@@ -365,6 +610,9 @@ export function useNutritionScreen() {
     newCaloriesKcal,
     newImageDraft,
     showFavoriteLimitModal,
+    selectedProduct,
+    savingProduct,
+    deletingProduct,
     filteredProducts,
     favoriteLimitBannerLabel,
     favoriteLimitMessage,
@@ -383,5 +631,9 @@ export function useNutritionScreen() {
     clearNewImage,
     handleCreateProduct,
     handleCancelCreateProduct,
+    openProductDetail,
+    closeProductDetail,
+    handleUpdateSelectedProduct,
+    handleDeleteSelectedProduct,
   };
 }
