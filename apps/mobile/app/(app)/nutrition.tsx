@@ -1,5 +1,5 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Text } from '../../components/themed/Text';
 import { NutritionContent } from '../../components/nutrition/NutritionContent';
 import { Colors } from '../../constants/colors';
 import { useNutritionScreen } from '../../hooks/useNutritionScreen';

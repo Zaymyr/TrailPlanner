@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { AlertConfirmMode } from '../../lib/raceLiveSession';
 import type { WaterOnlyReminderIntervalMinutes } from '../../lib/raceLivePlan';

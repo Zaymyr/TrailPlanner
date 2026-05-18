@@ -4,7 +4,7 @@ import {
   Text as RNText,
   type StyleProp,
   type TextProps as RNTextProps,
-  type TextStyle,
+  type TextStyle
 } from 'react-native';
 
 type TextTone = 'primary' | 'secondary' | 'tertiary' | 'inverse' | 'brand';
@@ -40,12 +40,17 @@ export function Text({
   tone = 'primary',
   size = 'base',
   weight = 'regular',
-  lineHeight = 'normal',
+  lineHeight,
   letterSpacing = 'normal',
   style,
   ...props
 }: Props) {
+  const flattenedStyle = StyleSheet.flatten(style);
   const fontSize = typography.size[size];
+  const styleWeight = getTextWeight(flattenedStyle?.fontWeight);
+  const resolvedWeight = styleWeight ?? weight;
+  const hasCustomFontFamily = typeof flattenedStyle?.fontFamily === 'string';
+  const shouldApplyLineHeight = lineHeight != null || flattenedStyle?.fontSize == null;
 
   return (
     <RNText
@@ -54,15 +59,40 @@ export function Text({
         styles.base,
         {
           color: colorByTone[tone],
-          fontFamily: fontFamilyByWeight[weight],
           fontSize,
           letterSpacing: typography.letterSpacing[letterSpacing] * fontSize,
-          lineHeight: Math.round(fontSize * typography.lineHeight[lineHeight]),
+          ...(shouldApplyLineHeight
+            ? {
+                lineHeight: Math.round(
+                  fontSize * typography.lineHeight[lineHeight ?? 'normal'],
+                ),
+              }
+            : null),
         },
         style,
+        !hasCustomFontFamily
+          ? {
+              fontFamily: fontFamilyByWeight[resolvedWeight],
+              fontWeight: undefined,
+            }
+          : null,
       ]}
     />
   );
+}
+
+function getTextWeight(fontWeight: TextStyle['fontWeight'] | undefined): TextWeight | null {
+  if (fontWeight == null) return null;
+
+  const value = String(fontWeight);
+
+  if (value === '300') return 'light';
+  if (value === '400' || value === 'normal') return 'regular';
+  if (value === '500') return 'medium';
+  if (value === '600') return 'semibold';
+  if (value === '700' || value === '800' || value === '900' || value === 'bold') return 'bold';
+
+  return null;
 }
 
 const styles = StyleSheet.create({

@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  View
+} from 'react-native';
+import { Text } from '../../components/themed/Text';
 import { Colors } from '../../constants/colors';
 import { SpotlightTutorial, TutorialTarget } from '../../components/help/SpotlightTutorial';
 import { ProfileAccountSection } from '../../components/profile/ProfileAccountSection';

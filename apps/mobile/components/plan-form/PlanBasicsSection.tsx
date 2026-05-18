@@ -1,6 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { PanResponder, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement
+} from 'react';
+import {
+  PanResponder,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import type { AccordionSection, PlanFormValues } from './contracts';

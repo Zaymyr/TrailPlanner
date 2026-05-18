@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
+  ScrollView
 } from 'react-native';
+import { Text } from '../../components/themed/Text';
 import { Link } from 'expo-router';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { beginAnonymousEmailUpgrade } from '../../lib/accountConversion';

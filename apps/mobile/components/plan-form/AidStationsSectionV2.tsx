@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState, type ReactElement } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
+import { Text } from '../themed/Text';
 import type { AidStationFormItem } from '../PlanForm';
 import type { GaugeMetric } from './GaugeArc';
 import { styles } from './styles';

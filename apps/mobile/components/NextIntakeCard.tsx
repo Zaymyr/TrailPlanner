@@ -1,4 +1,6 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { DataText } from './themed/DataText';
+import { Text } from './themed/Text';
 import type { ActiveAlert } from '../lib/raceAlertService';
 
 type AlertPayload = {
@@ -49,17 +51,17 @@ export function NextIntakeCard({ alert, departureTime, onConfirm, onSnooze, onSk
       <View style={styles.nutritionRow}>
         {(payload.carbsGrams ?? 0) > 0 && (
           <View style={styles.nutriBadge}>
-            <Text style={styles.nutriText}>🍬 {payload.carbsGrams}g</Text>
+            <DataText style={styles.nutriText}>🍬 {payload.carbsGrams}g</DataText>
           </View>
         )}
         {(payload.waterMl ?? 0) > 0 && (
           <View style={styles.nutriBadge}>
-            <Text style={styles.nutriText}>💧 {payload.waterMl}ml</Text>
+            <DataText style={styles.nutriText}>💧 {payload.waterMl}ml</DataText>
           </View>
         )}
         {(payload.sodiumMg ?? 0) > 0 && (
           <View style={styles.nutriBadge}>
-            <Text style={styles.nutriText}>🧂 {payload.sodiumMg}mg</Text>
+            <DataText style={styles.nutriText}>🧂 {payload.sodiumMg}mg</DataText>
           </View>
         )}
       </View>
@@ -69,7 +71,7 @@ export function NextIntakeCard({ alert, departureTime, onConfirm, onSnooze, onSk
         <View style={styles.productsSection}>
           {products.map((p: any, i: number) => (
             <View key={i} style={styles.productRow}>
-              <Text style={styles.productQty}>{p.quantity}x</Text>
+              <DataText style={styles.productQty}>{p.quantity}x</DataText>
               <Text style={styles.productName}>{p.name}</Text>
               <Text style={styles.productDetail}>
                 {p.carbsGrams > 0 ? `${p.carbsGrams}g glucides` : ''}

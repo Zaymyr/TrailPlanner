@@ -1,5 +1,16 @@
 import React, { useCallback, useMemo } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, SectionList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  SectionList,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
 import { styles } from './styles';

@@ -7,14 +7,13 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Text } from '../themed/Text';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { supabase, supabaseInitError } from '../../lib/supabase';

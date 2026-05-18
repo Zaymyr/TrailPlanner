@@ -8,12 +8,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { FUEL_TYPE_OPTIONS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import type { FuelType } from './types';

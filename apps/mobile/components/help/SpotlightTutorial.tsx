@@ -7,16 +7,15 @@ import {
   ScrollView,
   StyleProp,
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   type LayoutChangeEvent,
   type LayoutRectangle,
   type NativeMethods,
-  type ViewStyle,
+  type ViewStyle
 } from 'react-native';
+import { Text } from '../themed/Text';
 import Svg, { Defs, Mask, Rect } from 'react-native-svg';
-
 import { Colors } from '../../constants/colors';
 import { SpotlightRect, TutorialStep, type SpotlightPlacement } from '../../lib/helpTutorial';
 

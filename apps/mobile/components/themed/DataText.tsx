@@ -4,7 +4,7 @@ import {
   Text,
   type StyleProp,
   type TextProps,
-  type TextStyle,
+  type TextStyle
 } from 'react-native';
 
 type DataTone = 'primary' | 'secondary' | 'tertiary' | 'brand' | 'danger' | 'warning';
@@ -40,7 +40,12 @@ export function DataText({
   style,
   ...props
 }: Props) {
+  const flattenedStyle = StyleSheet.flatten(style);
   const fontSize = typography.size[size];
+  const styleWeight = getDataWeight(flattenedStyle?.fontWeight);
+  const resolvedWeight = styleWeight ?? weight;
+  const hasCustomFontFamily = typeof flattenedStyle?.fontFamily === 'string';
+  const shouldApplyLineHeight = flattenedStyle?.fontSize == null;
 
   return (
     <Text
@@ -49,14 +54,36 @@ export function DataText({
         styles.base,
         {
           color: colorByTone[tone],
-          fontFamily: fontFamilyByWeight[weight],
           fontSize,
-          lineHeight: Math.round(fontSize * typography.lineHeight.snug),
+          ...(shouldApplyLineHeight
+            ? {
+                lineHeight: Math.round(fontSize * typography.lineHeight.snug),
+              }
+            : null),
         },
         style,
+        !hasCustomFontFamily
+          ? {
+              fontFamily: fontFamilyByWeight[resolvedWeight],
+              fontWeight: undefined,
+            }
+          : null,
       ]}
     />
   );
+}
+
+function getDataWeight(fontWeight: TextStyle['fontWeight'] | undefined): DataWeight | null {
+  if (fontWeight == null) return null;
+
+  const value = String(fontWeight);
+
+  if (value === '400' || value === 'normal') return 'regular';
+  if (value === '500') return 'medium';
+  if (value === '600') return 'semibold';
+  if (value === '700' || value === '800' || value === '900' || value === 'bold') return 'bold';
+
+  return null;
 }
 
 const styles = StyleSheet.create({

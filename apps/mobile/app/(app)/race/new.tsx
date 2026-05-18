@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
-  ActivityIndicator,
+  ActivityIndicator
 } from 'react-native';
+import { Text } from '../../../components/themed/Text';
 import { useRouter } from 'expo-router';
 import { useI18n } from '../../../lib/i18n';
 import { noteReviewRaceCreated } from '../../../lib/appReview';
@@ -18,7 +18,7 @@ import {
   createPrivateRace,
   pickAndParseGpxDocument,
   type GpxFeedback,
-  type ImportedGpxDocument,
+  type ImportedGpxDocument
 } from '../../../lib/race-import';
 import { Colors } from '../../../constants/colors';
 

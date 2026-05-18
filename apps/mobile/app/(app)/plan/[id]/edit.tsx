@@ -1,5 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, AppState } from 'react-native';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import {
+  View,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+  AppState
+} from 'react-native';
+import { Text } from '../../../../components/themed/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../lib/supabase';
@@ -19,10 +32,7 @@ import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { isAnonymousSession } from '../../../../lib/appSession';
 import { useI18n } from '../../../../lib/i18n';
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
-import {
-  clearUnfinishedPlanReminder,
-  syncUnfinishedPlanReminder,
-} from '../../../../lib/reminderNotifications';
+import { clearUnfinishedPlanReminder, syncUnfinishedPlanReminder } from '../../../../lib/reminderNotifications';
 import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import {
   clearActivePlanEditSession,
@@ -33,7 +43,7 @@ import {
   getPlanEditDraft,
   getPlanEditProductsBootstrap,
   setActivePlanEditSession,
-  setPlanEditDraft,
+  setPlanEditDraft
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 

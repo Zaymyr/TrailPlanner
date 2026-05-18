@@ -1,5 +1,11 @@
 import { memo } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from '../themed/Text';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 

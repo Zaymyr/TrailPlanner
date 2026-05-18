@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -11,8 +10,9 @@ import {
   ScrollView,
   Modal,
   Pressable,
-  Image,
+  Image
 } from 'react-native';
+import { Text } from '../../components/themed/Text';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
@@ -21,22 +21,10 @@ import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
 import { GpxImportPreviewModal } from '../../components/race/GpxImportPreviewModal';
-import {
-  estimateHourlyTargets,
-  isValidHeightCm,
-  isValidWeightKg,
-} from '../../components/profile/profileEstimator';
+import { estimateHourlyTargets, isValidHeightCm, isValidWeightKg } from '../../components/profile/profileEstimator';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
-import {
-  parseComfortableFlatPace,
-  parseOptionalNonNegativeInteger,
-  WATER_BAG_OPTIONS,
-} from '../../components/profile/profileHelpers';
-import type {
-  CarbEstimatorLevel,
-  HydrationEstimatorLevel,
-  SodiumEstimatorLevel,
-} from '../../components/profile/types';
+import { parseComfortableFlatPace, parseOptionalNonNegativeInteger, WATER_BAG_OPTIONS } from '../../components/profile/profileHelpers';
+import type { CarbEstimatorLevel, HydrationEstimatorLevel, SodiumEstimatorLevel } from '../../components/profile/types';
 import { ensureAppSession, isAnonymousSession } from '../../lib/appSession';
 import { loadPlanProductsBootstrap } from '../../components/plan-form/usePlanProducts';
 import { Colors } from '../../constants/colors';
@@ -50,19 +38,19 @@ import {
   createPrivateRace,
   pickAndParseGpxDocument,
   type GpxFeedback,
-  type ImportedGpxDocument,
+  type ImportedGpxDocument
 } from '../../lib/race-import';
 import {
   clearPendingOnboardingTransition,
   getPendingOnboardingTransition,
   setPendingOnboardingTransition,
-  updatePendingOnboardingTransition,
+  updatePendingOnboardingTransition
 } from '../../lib/onboardingTransition';
 import {
   setActivePlanEditSession,
   setPendingPlanEditHelp,
   setPlanEditDraft,
-  setPlanEditProductsBootstrap,
+  setPlanEditProductsBootstrap
 } from '../../lib/planEditSession';
 
 function sanitizeDigits(value: string, maxLength: number): string {

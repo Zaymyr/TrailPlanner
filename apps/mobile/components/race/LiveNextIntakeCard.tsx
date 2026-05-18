@@ -1,5 +1,6 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { DataText } from '../themed/DataText';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { ActiveAlert } from '../../lib/raceLiveSession';
 
@@ -35,7 +36,7 @@ export function LiveNextIntakeCard({ alert, startedAt, onConfirm, onSnooze, onSk
           <Text style={styles.kicker}>Prochaine prise</Text>
           <Text style={styles.title}>{alert.title}</Text>
         </View>
-        <Text style={styles.time}>{formatTriggerTime(startedAt, alert.triggerMinutes)}</Text>
+        <DataText style={styles.time}>{formatTriggerTime(startedAt, alert.triggerMinutes)}</DataText>
       </View>
 
       <Text style={styles.detail}>{alert.payload.detail}</Text>
@@ -44,9 +45,9 @@ export function LiveNextIntakeCard({ alert, startedAt, onConfirm, onSnooze, onSk
       </Text>
 
       <View style={styles.chips}>
-        {alert.payload.carbsGrams > 0 ? <Text style={styles.chip}>{alert.payload.carbsGrams} g glucides</Text> : null}
-        {alert.payload.sodiumMg > 0 ? <Text style={styles.chip}>{alert.payload.sodiumMg} mg sodium</Text> : null}
-        {alert.payload.waterMl > 0 ? <Text style={styles.chip}>{alert.payload.waterMl} ml eau</Text> : null}
+        {alert.payload.carbsGrams > 0 ? <DataText style={styles.chip}>{alert.payload.carbsGrams} g glucides</DataText> : null}
+        {alert.payload.sodiumMg > 0 ? <DataText style={styles.chip}>{alert.payload.sodiumMg} mg sodium</DataText> : null}
+        {alert.payload.waterMl > 0 ? <DataText style={styles.chip}>{alert.payload.waterMl} ml eau</DataText> : null}
       </View>
 
       <View style={styles.actions}>
@@ -54,10 +55,10 @@ export function LiveNextIntakeCard({ alert, startedAt, onConfirm, onSnooze, onSk
           <Text style={styles.primaryActionText}>Fait</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryAction} onPress={() => onSnooze(5)}>
-          <Text style={styles.secondaryActionText}>+5 min</Text>
+          <DataText style={styles.secondaryActionText}>+5 min</DataText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryAction} onPress={() => onSnooze(10)}>
-          <Text style={styles.secondaryActionText}>+10 min</Text>
+          <DataText style={styles.secondaryActionText}>+10 min</DataText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.ghostAction} onPress={onSkip}>
           <Text style={styles.ghostActionText}>Passer</Text>
