@@ -1,4 +1,3 @@
-import { AidStationIcon } from "@pace-yourself/design-system";
 import type { ComponentPropsWithoutRef } from "react";
 
 const variantStyleMap = {
@@ -13,12 +12,21 @@ const variantStyleMap = {
   },
   ravito: {
     shell:
-      "border-sky-300/80 bg-gradient-to-br from-white via-sky-50 to-emerald-50 text-sky-700 shadow-[0_10px_24px_rgba(14,165,233,0.16)] dark:border-sky-400/50 dark:from-slate-950 dark:via-sky-950/80 dark:to-emerald-950/80 dark:text-sky-100",
-    glow: "bg-sky-500/10 dark:bg-sky-300/10",
+      "border-amber-300/80 bg-gradient-to-br from-white via-amber-50 to-sky-50 text-amber-700 shadow-[0_10px_24px_rgba(245,158,11,0.16)] dark:border-amber-400/50 dark:from-slate-950 dark:via-amber-950/70 dark:to-sky-950/70 dark:text-amber-100",
+    glow: "bg-amber-500/10 dark:bg-amber-300/10",
     glyph:
-      "bg-sky-600 text-white shadow-[0_6px_14px_rgba(2,132,199,0.28)] dark:bg-sky-300 dark:text-sky-950",
+      "bg-amber-600 text-white shadow-[0_6px_14px_rgba(217,119,6,0.28)] dark:bg-amber-300 dark:text-amber-950",
     step:
-      "border-sky-200 bg-white text-sky-950 dark:border-sky-300/40 dark:bg-slate-950 dark:text-sky-100",
+      "border-amber-200 bg-white text-amber-950 dark:border-amber-300/40 dark:bg-slate-950 dark:text-amber-100",
+  },
+  finish: {
+    shell:
+      "border-rose-300/80 bg-gradient-to-br from-white via-rose-50 to-slate-100 text-rose-700 shadow-[0_10px_24px_rgba(244,63,94,0.16)] dark:border-rose-400/50 dark:from-slate-950 dark:via-rose-950/75 dark:to-slate-900 dark:text-rose-100",
+    glow: "bg-rose-500/10 dark:bg-rose-300/10",
+    glyph:
+      "bg-rose-600 text-white shadow-[0_6px_14px_rgba(225,29,72,0.28)] dark:bg-rose-300 dark:text-rose-950",
+    step:
+      "border-rose-200 bg-white text-rose-950 dark:border-rose-300/40 dark:bg-slate-950 dark:text-rose-100",
   },
 } as const;
 
@@ -31,42 +39,126 @@ type GlyphProps = {
   className?: string;
 };
 
-function StartFlagGlyph({ className }: GlyphProps) {
+function StartSignGlyph({ className }: GlyphProps) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 32 32"
       fill="none"
       aria-hidden="true"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
-        d="M7 20V4"
+        d="M7 27V5M25 27V5"
         stroke="currentColor"
-        strokeWidth={2.2}
+        strokeWidth={2.4}
         strokeLinecap="round"
       />
       <path
-        d="M8 5.5h8.6c.8 0 1.2.9.7 1.5l-1.5 2 1.5 2c.5.6.1 1.5-.7 1.5H8"
-        fill="currentColor"
-      />
-      <path
-        d="M5.5 20h4"
+        d="M4.5 6.5h23v10h-23z"
         stroke="currentColor"
-        strokeWidth={2.2}
+        strokeWidth={2.4}
+        strokeLinejoin="round"
+      />
+      <text x="16" y="13.8" fill="currentColor" textAnchor="middle" fontSize="5.7" fontWeight="900">
+        START
+      </text>
+      <path
+        d="M4 27h24"
+        stroke="currentColor"
+        strokeWidth={2.4}
         strokeLinecap="round"
       />
     </svg>
   );
 }
 
-function RavitoGlyph({ className }: GlyphProps) {
-  return <AidStationIcon size={24} className={className} />;
+function RavitoPumpGlyph({ className }: GlyphProps) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M8 27V7.5A2.5 2.5 0 0 1 10.5 5h9A2.5 2.5 0 0 1 22 7.5V27"
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M11.5 8.5h7v6.5h-7z"
+        stroke="currentColor"
+        strokeWidth={2.1}
+        strokeLinejoin="round"
+      />
+      <path
+        d="M22 10h2.4l2.6 3v9.2c0 2.2-1.2 3.8-3.2 3.8s-3.2-1.6-3.2-3.8v-3"
+        stroke="currentColor"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M25 13v4"
+        stroke="currentColor"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+      />
+      <path
+        d="M6 27h18"
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }
+
+function FinishFlagGlyph({ className }: GlyphProps) {
+  return (
+    <svg
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M8 27V5"
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+      />
+      <path
+        d="M9 6h15v13H9z"
+        stroke="currentColor"
+        strokeWidth={2.2}
+        strokeLinejoin="round"
+      />
+      <path d="M10 7h4.7v4.2H10zM19.3 7H24v4.2h-4.7zM14.7 11.2h4.6v4.2h-4.6zM10 15.4h4.7V18H10zM19.3 15.4H24V18h-4.7z" fill="currentColor" />
+      <path
+        d="M6 27h6"
+        stroke="currentColor"
+        strokeWidth={2.4}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+const variantGlyphMap = {
+  start: StartSignGlyph,
+  ravito: RavitoPumpGlyph,
+  finish: FinishFlagGlyph,
+} as const;
 
 export function AidStationBadge({ step, variant, className, ...props }: AidStationBadgeProps) {
   const styles = variantStyleMap[variant];
-  const Glyph = variant === "start" ? StartFlagGlyph : RavitoGlyph;
+  const Glyph = variantGlyphMap[variant];
 
   return (
     <div
@@ -90,7 +182,7 @@ export function AidStationBadge({ step, variant, className, ...props }: AidStati
           .join(" ")}
         aria-hidden="true"
       >
-        <Glyph className="h-6 w-6 sm:h-5 sm:w-5 md:h-6 md:w-6" />
+        <Glyph className="h-7 w-7 sm:h-6 sm:w-6 md:h-7 md:w-7" />
       </span>
       <span
         className={[
