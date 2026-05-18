@@ -550,9 +550,9 @@ export const en: MobileTranslations = {
     },
     planEdit: {
       basicsTitle: 'Plan basics',
-      basicsBody: 'This area covers the main plan setup. Course is for name, distance, and elevation. Pace is for your base speed and fatigue. Nutrition is for hourly targets that later guide the aid-station planning.',
+      basicsBody: 'The compact top summary keeps setup out of the way. Tap Plan settings to edit the course, pace, fatigue, and hourly nutrition targets without losing your place in the aid-station work.',
       summaryTitle: 'Quick summary',
-      summaryBody: 'This block gives you a fast overview of estimated time, average pace, aid stations, and the intake already planned. It helps you quickly check whether the plan still looks coherent before refining details.',
+      summaryBody: 'This compact row gives you a fast overview of estimated time, average pace, aid stations, and planned intake before you refine the details.',
       viewsTitle: 'Aid stations, Sections, Profile',
       viewsBody: 'In this area, Aid stations is for each refueling point and the products you carry. Sections shows needs between two points. Profile lets you fine-tune pace across route segments.',
       autoFillTitle: 'Auto-fill feature',

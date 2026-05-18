@@ -120,11 +120,12 @@ export default function PlanForm({
   const debouncedValues = useDebounced(values, 300);
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Record<AccordionSection, boolean>>({
-    course: !compactBasicsByDefault,
-    pace: !compactBasicsByDefault,
-    nutrition: !compactBasicsByDefault,
-    summary: !compactBasicsByDefault,
+    course: false,
+    pace: false,
+    nutrition: false,
+    summary: false,
   });
+  const [settingsSheetVisible, setSettingsSheetVisible] = useState(false);
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
   const [gaugeAnimateSignals, setGaugeAnimateSignals] = useState<Record<string, number>>({});
   const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
@@ -142,11 +143,12 @@ export default function PlanForm({
     setValues(buildInitialPlanValues(initialValues));
     setExpandedStations(new Set());
     setExpandedSections({
-      course: !compactBasicsByDefault,
-      pace: !compactBasicsByDefault,
-      nutrition: !compactBasicsByDefault,
-      summary: !compactBasicsByDefault,
+      course: false,
+      pace: false,
+      nutrition: false,
+      summary: false,
     });
+    setSettingsSheetVisible(false);
     setEditingStation(null);
     setGaugeAnimateSignals({});
     setShowPremiumUpsell(false);
@@ -383,6 +385,20 @@ export default function PlanForm({
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
 
+  const openSettingsSheet = useCallback(() => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      course: true,
+      pace: true,
+      nutrition: true,
+    }));
+    setSettingsSheetVisible(true);
+  }, []);
+
+  const closeSettingsSheet = useCallback(() => {
+    setSettingsSheetVisible(false);
+  }, []);
+
   const toggleStation = useCallback((stationKey: string) => {
     setExpandedStations((prev) => {
       const next = new Set(prev);
@@ -575,18 +591,13 @@ export default function PlanForm({
         <TutorialTarget
           onMeasure={handleTutorialTargetMeasure}
           onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="basics"
+          targetKey="summary"
         >
           <View>
-            <PlanBasicsSection
-              values={values}
-              expandedSections={expandedSections}
-              toggleSection={toggleSection}
-              update={update}
-              hasSectionTimingOverrides={hasSectionTimingOverrides}
-              onResetSectionTimingOverrides={resetSectionTimingOverrides}
-              NumberInput={NumberInput}
-              waterBagOptions={WATER_BAG_OPTIONS}
+            <PlanHighlightsSection
+              totalDurationLabel={highlights.totalDurationLabel}
+              paceLabel={paceLabel}
+              intermediateCount={highlights.intermediateCount}
             />
           </View>
         </TutorialTarget>
@@ -594,18 +605,21 @@ export default function PlanForm({
         <TutorialTarget
           onMeasure={handleTutorialTargetMeasure}
           onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="summary"
+          targetKey="basics"
         >
           <View>
-            <PlanHighlightsSection
-              expanded={expandedSections.summary}
-              onToggle={() => toggleSection('summary')}
-              totalDurationLabel={highlights.totalDurationLabel}
-              paceLabel={paceLabel}
-              intermediateCount={highlights.intermediateCount}
-              plannedCarbsG={highlights.plannedCarbsG}
-              plannedSodiumMg={highlights.plannedSodiumMg}
-              productBreakdown={highlights.productBreakdown}
+            <PlanBasicsSection
+              values={values}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              settingsVisible={settingsSheetVisible}
+              onOpenSettings={openSettingsSheet}
+              onCloseSettings={closeSettingsSheet}
+              update={update}
+              hasSectionTimingOverrides={hasSectionTimingOverrides}
+              onResetSectionTimingOverrides={resetSectionTimingOverrides}
+              NumberInput={NumberInput}
+              waterBagOptions={WATER_BAG_OPTIONS}
             />
           </View>
         </TutorialTarget>
