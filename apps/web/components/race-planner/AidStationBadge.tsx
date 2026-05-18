@@ -163,10 +163,10 @@ export function AidStationBadge({ step, variant, className, ...props }: AidStati
       {...props}
     >
       <span
-        className="relative flex h-10 w-10 items-center justify-center sm:h-9 sm:w-9 md:h-10 md:w-10"
+        className="relative flex h-12 w-12 items-center justify-center sm:h-11 sm:w-11 md:h-12 md:w-12"
         aria-hidden="true"
       >
-        <Glyph className="h-7 w-7 sm:h-6 sm:w-6 md:h-7 md:w-7" />
+        <Glyph className="h-11 w-11 sm:h-10 sm:w-10 md:h-11 md:w-11" />
       </span>
       <span
         className={[
