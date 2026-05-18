@@ -3,30 +3,21 @@ import type { ComponentPropsWithoutRef } from "react";
 const variantStyleMap = {
   start: {
     shell:
-      "border-emerald-300/80 bg-gradient-to-br from-white via-emerald-50 to-lime-100 text-emerald-700 shadow-[0_10px_24px_rgba(16,185,129,0.18)] dark:border-emerald-400/50 dark:from-slate-950 dark:via-emerald-950/80 dark:to-slate-900 dark:text-emerald-100",
-    glow: "bg-emerald-500/10 dark:bg-emerald-300/10",
-    glyph:
-      "bg-emerald-600 text-white shadow-[0_6px_14px_rgba(5,150,105,0.28)] dark:bg-emerald-400 dark:text-emerald-950",
+      "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-950/30 dark:text-emerald-100",
     step:
-      "border-emerald-200 bg-white text-emerald-950 dark:border-emerald-300/40 dark:bg-slate-950 dark:text-emerald-100",
+      "border-emerald-200 bg-white text-emerald-800 dark:border-emerald-400/40 dark:bg-slate-950 dark:text-emerald-100",
   },
   ravito: {
     shell:
-      "border-amber-300/80 bg-gradient-to-br from-white via-amber-50 to-sky-50 text-amber-700 shadow-[0_10px_24px_rgba(245,158,11,0.16)] dark:border-amber-400/50 dark:from-slate-950 dark:via-amber-950/70 dark:to-sky-950/70 dark:text-amber-100",
-    glow: "bg-amber-500/10 dark:bg-amber-300/10",
-    glyph:
-      "bg-amber-600 text-white shadow-[0_6px_14px_rgba(217,119,6,0.28)] dark:bg-amber-300 dark:text-amber-950",
+      "border-border bg-muted/60 text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-100",
     step:
-      "border-amber-200 bg-white text-amber-950 dark:border-amber-300/40 dark:bg-slate-950 dark:text-amber-100",
+      "border-border bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100",
   },
   finish: {
     shell:
-      "border-rose-300/80 bg-gradient-to-br from-white via-rose-50 to-slate-100 text-rose-700 shadow-[0_10px_24px_rgba(244,63,94,0.16)] dark:border-rose-400/50 dark:from-slate-950 dark:via-rose-950/75 dark:to-slate-900 dark:text-rose-100",
-    glow: "bg-rose-500/10 dark:bg-rose-300/10",
-    glyph:
-      "bg-rose-600 text-white shadow-[0_6px_14px_rgba(225,29,72,0.28)] dark:bg-rose-300 dark:text-rose-950",
+      "border-emerald-400 bg-emerald-100 text-emerald-800 shadow-sm dark:border-emerald-400/60 dark:bg-emerald-500/15 dark:text-emerald-100",
     step:
-      "border-rose-200 bg-white text-rose-950 dark:border-rose-300/40 dark:bg-slate-950 dark:text-rose-100",
+      "border-emerald-300 bg-white text-emerald-800 dark:border-emerald-400/40 dark:bg-slate-950 dark:text-emerald-100",
   },
 } as const;
 
@@ -171,15 +162,8 @@ export function AidStationBadge({ step, variant, className, ...props }: AidStati
         .join(" ")}
       {...props}
     >
-      <span className={["absolute inset-1 rounded-xl", styles.glow].join(" ")} aria-hidden="true" />
-      <span className="absolute left-2 top-2 h-2 w-2 rounded-full bg-current opacity-35" aria-hidden="true" />
       <span
-        className={[
-          "relative flex h-10 w-10 items-center justify-center rounded-xl sm:h-9 sm:w-9 md:h-10 md:w-10",
-          styles.glyph,
-        ]
-          .filter(Boolean)
-          .join(" ")}
+        className="relative flex h-10 w-10 items-center justify-center sm:h-9 sm:w-9 md:h-10 md:w-10"
         aria-hidden="true"
       >
         <Glyph className="h-7 w-7 sm:h-6 sm:w-6 md:h-7 md:w-7" />
