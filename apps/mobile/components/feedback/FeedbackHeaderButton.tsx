@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,11 +21,12 @@ import { supabase, supabaseInitError } from '../../lib/supabase';
 type FeedbackKind = 'bug' | 'feedback';
 
 type FeedbackHeaderButtonProps = {
+  children?: (open: () => void) => ReactNode;
   contextLabel?: string;
-  leading?: React.ReactNode;
+  leading?: ReactNode;
 };
 
-export function FeedbackHeaderButton({ contextLabel, leading }: FeedbackHeaderButtonProps) {
+export function FeedbackHeaderButton({ children, contextLabel, leading }: FeedbackHeaderButtonProps) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [kind, setKind] = useState<FeedbackKind>('bug');
@@ -103,16 +104,20 @@ export function FeedbackHeaderButton({ contextLabel, leading }: FeedbackHeaderBu
 
   return (
     <>
-      <View style={styles.headerActions}>
-        {leading}
-        <TouchableOpacity
-          accessibilityLabel={t.feedback.triggerLabel}
-          onPress={handleOpen}
-          style={styles.iconButton}
-        >
-          <Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+      {children ? (
+        children(handleOpen)
+      ) : (
+        <View style={styles.headerActions}>
+          {leading}
+          <TouchableOpacity
+            accessibilityLabel={t.feedback.triggerLabel}
+            onPress={handleOpen}
+            style={styles.iconButton}
+          >
+            <Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal
         animationType="fade"

@@ -5,9 +5,11 @@ import {
   StyleSheet,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../../components/themed/Text';
 import { Colors } from '../../constants/colors';
 import { SpotlightTutorial, TutorialTarget } from '../../components/help/SpotlightTutorial';
+import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { ProfileAccountSection } from '../../components/profile/ProfileAccountSection';
 import { ProfileChangelogModal } from '../../components/profile/ProfileChangelogModal';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
@@ -24,6 +26,7 @@ import { useProfileScreen } from '../../hooks/useProfileScreen';
 import { type TutorialStep } from '../../lib/helpTutorial';
 
 export default function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const {
     locale,
     setLocale,
@@ -163,6 +166,16 @@ export default function ProfileScreen() {
     ],
     [t.helpTutorial],
   );
+  const contentStyle = useMemo(
+    () => [
+      styles.content,
+      {
+        paddingBottom: 120,
+        paddingTop: Math.max(20, insets.top + 12),
+      },
+    ],
+    [insets.top],
+  );
 
   const {
     handleProfileTabChange,
@@ -204,7 +217,7 @@ export default function ProfileScreen() {
       style={styles.screen}
     >
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={contentStyle}
         onContentSizeChange={(_, height) => setTutorialContentHeight(height)}
         onMomentumScrollEnd={handleTutorialScrollSettled}
         onScroll={handleTutorialScrollEvent}
@@ -366,6 +379,11 @@ export default function ProfileScreen() {
           <ProfileSaveButton label={saveButtonLabel} loading={saving} onPress={handleSave} />
         </TutorialTarget>
       </ScrollView>
+
+      <RootScreenActionMenu
+        contextLabel={t.profile.title}
+        help={{ type: 'tutorial', screenKey: 'profile' }}
+      />
 
       <SpotlightTutorial
         activeStepIndex={tutorialStepIndex}

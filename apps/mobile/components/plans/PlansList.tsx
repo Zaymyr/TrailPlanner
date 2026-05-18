@@ -4,8 +4,7 @@ import {
   SectionList,
   StyleSheet,
   TouchableOpacity,
-  View,
-  type ViewStyle
+  View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -15,7 +14,6 @@ import {
   TrailIcon,
   colors,
   radius,
-  shadows,
   spacing
 } from '@pace-yourself/design-system';
 import { Button } from '../themed/Button';
@@ -50,7 +48,6 @@ type PlansListProps = {
   onOpenRacePlan: (planId: string) => void;
   onOpenLockedPlan: () => void;
   onCreateFirstPlan: () => void;
-  onOpenCatalog: () => void;
 };
 
 export const PlansList = memo(function PlansList({
@@ -77,7 +74,6 @@ export const PlansList = memo(function PlansList({
   onOpenRacePlan,
   onOpenLockedPlan,
   onCreateFirstPlan,
-  onOpenCatalog,
 }: PlansListProps) {
   const localizedEmptyTitle =
     locale === 'fr' ? "Aucun plan à l'horizon" : 'The trail starts here';
@@ -195,12 +191,6 @@ export const PlansList = memo(function PlansList({
           </View>
         }
       />
-
-      <TouchableOpacity activeOpacity={0.85} onPress={onOpenCatalog} style={styles.fab}>
-        <Text tone="inverse" size="2xl" weight="bold" style={styles.fabText}>
-          +
-        </Text>
-      </TouchableOpacity>
     </View>
   );
 });
@@ -357,7 +347,7 @@ const styles = StyleSheet.create({
   list: {
     padding: spacing[4],
     gap: spacing[2],
-    paddingBottom: 100,
+    paddingBottom: 120,
   },
   listEmpty: {
     flex: 1,
@@ -502,21 +492,6 @@ const styles = StyleSheet.create({
   startButtonText: {
     textAlign: 'center',
     maxWidth: 72,
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: radius.full,
-    backgroundColor: colors.brand.forest,
-    justifyContent: 'center',
-    alignItems: 'center',
-    boxShadow: shadows.md,
-  } as ViewStyle,
-  fabText: {
-    lineHeight: 32,
   },
   emptyContainer: {
     flex: 1,
