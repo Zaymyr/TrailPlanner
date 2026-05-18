@@ -75,12 +75,15 @@ const isSlideId = (value: string): value is SocialInstagramTemplateSlideId =>
 const PREVIEW_SCALE = 0.34;
 const PREVIEW_SLIDE_WIDTH = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH * PREVIEW_SCALE);
 const PREVIEW_SLIDE_HEIGHT = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT * PREVIEW_SCALE);
+const EXPORT_DOWNLOAD_DELAY_MS = 180;
 const ADMIN_COPY = {
-  description: "Choisis un plan, ajuste le template Instagram puis exporte chaque slide en PNG.",
+  description: "Choisis un plan, ajuste le template Instagram puis exporte les 4 slides en PNG.",
   previewDescription: "Aperçu réduit dans l'Admin. L'export PNG garde le format complet 1080 x 1080.",
   scrollHint: "Le preview est reduit pour rester lisible ici. L'export garde la taille complete du slide.",
   editorDescription: "Les champs verts viennent du plan en base. Les champs neutres servent a l'habillage social et restent modifiables localement.",
 } as const;
+
+const wait = (durationMs: number) => new Promise((resolve) => window.setTimeout(resolve, durationMs));
 
 export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
   const carouselRef = useRef<HTMLDivElement | null>(null);
@@ -243,18 +246,22 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
   };
 
   const handleExport = async () => {
-    const activeSlide = slideExportRefs.current[activeSlideId];
-
-    if (!template || !activeSlide) return;
+    if (!template) return;
 
     setExportError(null);
     setIsExporting(true);
 
     try {
-      await exportHtmlToPng(
-        activeSlide,
-        `${sanitizeFileName(`${template.plan.name}-${activeSlideId}`)}.png`
-      );
+      for (const slideId of socialInstagramTemplateSlideIds) {
+        const slide = slideExportRefs.current[slideId];
+
+        if (!slide) {
+          throw new Error(t.exportError);
+        }
+
+        await exportHtmlToPng(slide, `${sanitizeFileName(`${template.plan.name}-${slideId}`)}.png`);
+        await wait(EXPORT_DOWNLOAD_DELAY_MS);
+      }
     } catch (error) {
       setExportError(error instanceof Error ? error.message : t.exportError);
     } finally {

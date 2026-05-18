@@ -18,6 +18,9 @@ type Props = {
 
 const SANS = "\"DM Sans\", \"Avenir Next\", \"Segoe UI Variable\", \"Segoe UI\", sans-serif";
 const MONO = "\"DM Mono\", \"IBM Plex Mono\", \"SFMono-Regular\", Consolas, monospace";
+const BRAND_LOGO_MARK_GREEN = "/branding/pace-yourself-logo-mark-green-transparent.png";
+const BRAND_LOGO_MARK_WHITE = "/branding/pace-yourself-logo-mark-white-transparent.png";
+const BRAND_GREEN = "#2a5b1f";
 const COLORS = {
   cream: "#ece6db",
   white: "#fbfaf6",
@@ -212,62 +215,35 @@ function buildAidStationBullets(take: string) {
     .slice(0, 3);
 }
 
-function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; onDark?: boolean; size?: number }) {
-  const width = Math.round(size * 5.2);
-  const height = Math.round(size * 1.25);
-  const markSize = Math.round(size * 0.94);
-  const logoColor = accent.main;
+function PYLogo({ onDark = false, size = 34 }: { onDark?: boolean; size?: number }) {
+  const height = Math.round(size * 1.45);
+  const markSize = Math.round(size * 1.35);
+  const logoColor = onDark ? COLORS.white : BRAND_GREEN;
 
   return (
     <div
       style={{
-        width: `${width}px`,
         height: `${height}px`,
-        border: onDark ? "1px solid rgba(255,255,255,0.16)" : `1px solid ${accent.light}`,
-        borderRadius: `${Math.max(10, size * 0.2)}px`,
-        background: COLORS.white,
-        boxShadow: onDark ? "0 10px 24px rgba(0,0,0,0.16)" : "0 8px 20px rgba(44, 62, 41, 0.08)",
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "flex-start",
-        gap: `${Math.max(8, size * 0.18)}px`,
-        padding: `0 ${Math.max(10, size * 0.22)}px`,
-        overflow: "hidden",
+        gap: `${Math.max(8, size * 0.2)}px`,
         flexShrink: 0,
       }}
     >
-      <svg
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         aria-hidden="true"
-        focusable="false"
-        viewBox="0 0 100 100"
+        alt=""
+        src={onDark ? BRAND_LOGO_MARK_WHITE : BRAND_LOGO_MARK_GREEN}
         style={{
           display: "block",
           width: `${markSize}px`,
           height: `${markSize}px`,
           flexShrink: 0,
+          objectFit: "contain",
         }}
-      >
-        <path
-          d="M18 75a40 40 0 1 1 64-32"
-          fill="none"
-          stroke={logoColor}
-          strokeLinecap="round"
-          strokeWidth="9"
-        />
-        <path
-          d="M34 56 50 40l16 16"
-          fill="none"
-          stroke={logoColor}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="9"
-        />
-        <circle cx="50" cy="66" r="7" fill={logoColor} />
-        <circle cx="66" cy="78" r="4.4" fill={logoColor} />
-        <circle cx="76" cy="71" r="4.2" fill={logoColor} />
-        <circle cx="83" cy="61" r="4" fill={logoColor} />
-        <circle cx="87" cy="49" r="3.8" fill={logoColor} />
-      </svg>
+      />
       <span
         style={{
           fontFamily: SANS,
@@ -286,12 +262,10 @@ function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; 
 }
 
 function TopBar({
-  accent,
   eyebrow,
   onDark = false,
   showLogo = true,
 }: {
-  accent: AccentPalette;
   eyebrow: string;
   onDark?: boolean;
   showLogo?: boolean;
@@ -312,7 +286,7 @@ function TopBar({
       }}
     >
       <div style={{ ...monoLabelStyle, color: onDark ? COLORS.darkMuted : COLORS.muted }}>{eyebrow}</div>
-      {showLogo ? <PYLogo accent={accent} size={36} onDark={onDark} /> : null}
+      {showLogo ? <PYLogo size={36} onDark={onDark} /> : null}
     </div>
   );
 }
@@ -344,7 +318,7 @@ function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acc
           zIndex: 10,
         }}
       >
-        <PYLogo accent={accent} size={42} onDark={isDark} />
+        <PYLogo size={42} onDark={isDark} />
         <div style={{ fontFamily: MONO, fontSize: "18px", color: topMetaColor }}>{draft.startDate || "Plan de course"}</div>
       </div>
 
@@ -476,7 +450,7 @@ function MacroSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; ac
               Quels sont mes besoins ?
             </div>
           </div>
-          <PYLogo accent={accent} size={36} />
+          <PYLogo size={36} />
         </div>
       </div>
 
@@ -677,7 +651,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
               Plan de nutrition détaillé
             </div>
           </div>
-          <PYLogo accent={accent} size={36} />
+          <PYLogo size={36} />
         </div>
       </div>
 
@@ -725,7 +699,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
           zIndex: 10,
         }}
       >
-        <div style={{ ...monoLabelStyle, color: COLORS.muted }}>Ce que je vise pour tenir jusqu'au bout</div>
+        <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{"Ce que je vise pour tenir jusqu'au bout"}</div>
         <div style={{ marginTop: "10px", fontSize: "24px", lineHeight: 1.25, color: COLORS.muted }}>
           Objectifs moyens puis reprises aux ravitos les plus utiles.
         </div>
@@ -795,7 +769,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
                       ))
                     ) : (
                       <div style={{ fontSize: "17px", lineHeight: 1.32, color: COLORS.muted }}>
-                        Aucun détail de reprise n'est renseigné pour ce ravito.
+                        {"Aucun détail de reprise n'est renseigné pour ce ravito."}
                       </div>
                     )}
                   </div>
@@ -804,9 +778,9 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
             })
           ) : (
             <div style={{ ...cardStyle, padding: "22px 24px", borderRadius: "18px" }}>
-              <div style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text }}>Aucun ravito détaillé pour l'instant.</div>
+              <div style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text }}>{"Aucun ravito détaillé pour l'instant."}</div>
               <div style={{ marginTop: "8px", fontSize: "18px", lineHeight: 1.35, color: COLORS.muted }}>
-                Tu peux completer cette slide depuis l'editeur Admin si tu veux ajouter les reprises clefs.
+                {"Tu peux completer cette slide depuis l'editeur Admin si tu veux ajouter les reprises clefs."}
               </div>
             </div>
           )}
@@ -822,7 +796,7 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
   return (
     <article style={{ ...baseSlideStyle, background: accent.main, color: COLORS.white }}>
       <div style={stripeStyle(true)} />
-      <TopBar accent={accent} eyebrow="A toi de jouer" onDark showLogo={false} />
+      <TopBar eyebrow="A toi de jouer" onDark showLogo={false} />
 
       <div
         style={{
@@ -854,7 +828,7 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
           zIndex: 10,
         }}
       >
-        <PYLogo accent={accent} size={72} onDark />
+        <PYLogo size={72} onDark />
         <div style={{ width: "64px", height: "2px", background: "rgba(255,255,255,0.25)", margin: "44px auto 40px" }} />
         <div style={{ fontSize: "64px", fontWeight: 800, lineHeight: 1.15, color: COLORS.white, letterSpacing: "-0.02em", maxWidth: "800px" }}>
           Et toi, tu as
