@@ -7,13 +7,15 @@ import {
   View,
   type LayoutRectangle,
   type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  type NativeSyntheticEvent
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { TutorialTarget, type TutorialMeasurableTarget } from './help/SpotlightTutorial';
 import { useI18n } from '../lib/i18n';
-import { AidStationsSectionV3 as AidStationsSection } from './plan-form/AidStationsSectionV3';
+import {
+  AidStationsSectionV3 as AidStationsSection
+} from './plan-form/AidStationsSectionV3';
 import {
   ARRIVEE_ID,
   DEPART_ID,
@@ -24,7 +26,7 @@ import {
   type FavProduct,
   type PlanFormValues,
   type PlanTarget,
-  type Supply,
+  type Supply
 } from './plan-form/contracts';
 import { EditStationModal, type EditingStation } from './plan-form/EditStationModal';
 import { buildInitialPlanValues, getEffectiveSodiumTarget } from './plan-form/helpers';
@@ -33,7 +35,7 @@ import {
   buildPlanHighlights,
   buildSectionIntakeTimelineV2,
   formatGaugeValue,
-  getGaugeColor,
+  getGaugeColor
 } from './plan-form/metrics';
 import { NumberInput } from './plan-form/NumberInput';
 import { PlanBasicsSection } from './plan-form/PlanBasicsSection';
@@ -45,12 +47,13 @@ import { type PlanProductsBootstrap, usePlanProducts } from './plan-form/usePlan
 import { usePlanSections } from './plan-form/usePlanSections';
 import { usePlanSupplies } from './plan-form/usePlanSupplies';
 import type { GaugeMetric } from './plan-form/GaugeArc';
-import type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset } from './plan-form/profile-utils';
-import {
-  buildContinuousIntakeTimeline,
-  buildContinuousSections,
-  buildSectionTimelineFromContinuous,
-} from '../lib/continuousNutrition';
+import type {
+  ElevationPoint,
+  SectionSegment,
+  SectionSubSegmentStats,
+  SegmentPreset
+} from './plan-form/profile-utils';
+import { buildContinuousIntakeTimeline, buildContinuousSections, buildSectionTimelineFromContinuous } from '../lib/continuousNutrition';
 import type { PlanEditTutorialTargetKey } from '../hooks/usePlanEditTutorial';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };

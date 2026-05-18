@@ -1,16 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import {
   ActivityIndicator,
   Alert,
   Modal,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Text } from '../../../components/themed/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-
 import type { PlanProduct } from '../../../components/plan-form/contracts';
 import { LiveFuelGauge } from '../../../components/race/LiveFuelGauge';
 import { LiveNextIntakeCard } from '../../../components/race/LiveNextIntakeCard';
@@ -27,7 +32,7 @@ import {
   respondToAlert,
   startRace,
   stopRace,
-  updateWaterOnlyAlertSchedule,
+  updateWaterOnlyAlertSchedule
 } from '../../../lib/raceLiveSession';
 import type { ActiveAlert } from '../../../lib/raceLiveSession';
 import {
@@ -38,7 +43,7 @@ import {
   WATER_ONLY_REMINDER_INTERVALS,
   type LiveRaceSection,
   type StoredRacePlan,
-  type WaterOnlyReminderIntervalMinutes,
+  type WaterOnlyReminderIntervalMinutes
 } from '../../../lib/raceLivePlan';
 import { supabase } from '../../../lib/supabase';
 import { useI18n } from '../../../lib/i18n';

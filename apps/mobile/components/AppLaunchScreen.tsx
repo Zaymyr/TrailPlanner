@@ -1,5 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  View
+} from 'react-native';
+import { Text } from './themed/Text';
 import { Colors } from '../constants/colors';
 
 type LaunchAction = {

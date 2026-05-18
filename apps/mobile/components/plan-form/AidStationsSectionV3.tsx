@@ -1,5 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement
+} from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
@@ -9,12 +16,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
-  type ViewStyle,
+  type ViewStyle
 } from 'react-native';
 import {
   AidStationIcon,
@@ -22,12 +28,12 @@ import {
   colors,
   radius,
   shadows,
-  spacing,
+  spacing
 } from '@pace-yourself/design-system';
 import { TutorialTarget, type TutorialMeasurableTarget } from '../help/SpotlightTutorial';
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
-import { Text as ThemedText } from '../themed/Text';
+import { Text, Text as ThemedText } from '../themed/Text';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
@@ -39,7 +45,7 @@ import type {
   PlanProduct,
   PlanTarget,
   SectionSummary,
-  SectionTarget,
+  SectionTarget
 } from './contracts';
 import { getGaugeTolerance } from './metrics';
 import { adjustedPaceMinutesPerKm, getElevationSlice } from './profile-utils';

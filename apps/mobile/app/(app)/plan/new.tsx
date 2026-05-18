@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Alert, Text, View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
+import { Text } from '../../../components/themed/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-
 import { DEFAULT_PLAN_VALUES, type PlanFormValues, type ElevationPoint } from '../../../components/PlanForm';
 import { AppHeaderTitle } from '../../../components/navigation/AppHeaderTitle';
 import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
@@ -16,10 +16,7 @@ import { noteReviewPlanCreated } from '../../../lib/appReview';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
 import { captureAnalyticsEvent } from '../../../lib/posthog';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
-import {
-  clearUnfinishedPlanReminder,
-  syncUnfinishedPlanReminder,
-} from '../../../lib/reminderNotifications';
+import { clearUnfinishedPlanReminder, syncUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
 import { supabase } from '../../../lib/supabase';
 
 type RaceInfo = {

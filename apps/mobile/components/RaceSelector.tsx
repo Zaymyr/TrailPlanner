@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   FlatList,
   ActivityIndicator,
   Modal,
-  Pressable,
+  Pressable
 } from 'react-native';
+import { Text } from './themed/Text';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useI18n } from '../lib/i18n';

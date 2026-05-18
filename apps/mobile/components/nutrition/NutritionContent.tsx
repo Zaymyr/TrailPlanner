@@ -3,13 +3,12 @@ import {
   Image,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Text } from '../themed/Text';
 import { Ionicons } from '@expo/vector-icons';
-
 import { Colors } from '../../constants/colors';
 import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
 import { FREE_FAVORITE_LIMIT, FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';

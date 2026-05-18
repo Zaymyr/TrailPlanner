@@ -1,4 +1,11 @@
-import { Modal, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { styles } from './styles';
 

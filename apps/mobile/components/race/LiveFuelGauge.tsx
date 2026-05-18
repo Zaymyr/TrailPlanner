@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { DataText } from '../themed/DataText';
+import { Text } from '../themed/Text';
 import type { DimensionValue } from 'react-native';
-
 import { Colors } from '../../constants/colors';
 import type { LiveMetricState } from '../../lib/raceLivePlan';
 
@@ -42,7 +43,7 @@ export function LiveFuelGauge({ metric }: Props) {
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.label}>{metric.label}</Text>
-        <Text style={[styles.percent, { color }]}>{levelPercent}%</Text>
+        <DataText style={[styles.percent, { color }]}>{levelPercent}%</DataText>
       </View>
 
       <View style={styles.track}>
@@ -61,12 +62,14 @@ export function LiveFuelGauge({ metric }: Props) {
       </View>
 
       <View style={styles.metaRow}>
-        <Text style={styles.metaText}>Base {formatValue(metric, metric.targetPerHour)}</Text>
-        <Text style={styles.metaText}>Ecoule {formatValue(metric, metric.depletion)}</Text>
-        <Text style={styles.metaText}>Pris {formatValue(metric, metric.consumed)}</Text>
+        <DataText style={styles.metaText}>Base {formatValue(metric, metric.targetPerHour)}</DataText>
+        <DataText style={styles.metaText}>Ecoule {formatValue(metric, metric.depletion)}</DataText>
+        <DataText style={styles.metaText}>Pris {formatValue(metric, metric.consumed)}</DataText>
       </View>
 
-      <Text style={styles.currentValue}>Niveau actuel: {formatValue(metric, metric.current)}</Text>
+      <DataText style={styles.currentValue}>
+        Niveau actuel: {formatValue(metric, metric.current)}
+      </DataText>
     </View>
   );
 }

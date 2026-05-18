@@ -5,7 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   View,
-  type ViewStyle,
+  type ViewStyle
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -16,9 +16,8 @@ import {
   colors,
   radius,
   shadows,
-  spacing,
+  spacing
 } from '@pace-yourself/design-system';
-
 import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
 import { DataText } from '../themed/DataText';
@@ -325,9 +324,25 @@ function PlanCard({
         {!isAccessible ? (
           <Ionicons color={colors.accent.amber} name="lock-closed" size={18} />
         ) : (
-          <Text tone="inverse" size="xs" weight="bold" style={styles.startButtonText}>
-            {isActivePlan ? inProgressLabel : startButtonLabel}
-          </Text>
+          <>
+            <Ionicons
+              color={colors.text.inverse}
+              name={isActivePlan ? 'radio-button-on' : 'play'}
+              size={15}
+            />
+            <Text
+              adjustsFontSizeToFit
+              lineHeight="tight"
+              minimumFontScale={0.82}
+              numberOfLines={1}
+              tone="inverse"
+              size="xs"
+              weight="bold"
+              style={styles.startButtonText}
+            >
+              {isActivePlan ? inProgressLabel : startButtonLabel}
+            </Text>
+          </>
         )}
       </TouchableOpacity>
     </Card>
@@ -465,10 +480,11 @@ const styles = StyleSheet.create({
     borderColor: colors.accent.amber,
   },
   startButton: {
-    width: 76,
+    width: 88,
     minHeight: 76,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: spacing[1],
     paddingHorizontal: spacing[2],
     paddingVertical: spacing[2],
     backgroundColor: colors.brand.forest,
@@ -485,8 +501,7 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
+    maxWidth: 72,
   },
   fab: {
     position: 'absolute',

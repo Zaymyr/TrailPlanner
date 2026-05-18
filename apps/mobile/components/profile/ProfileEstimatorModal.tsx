@@ -4,17 +4,17 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type {
   CarbEstimatorLevel,
   EstimatedHourlyTargets,
   HydrationEstimatorLevel,
-  SodiumEstimatorLevel,
+  SodiumEstimatorLevel
 } from './types';
 
 type ProfileEstimatorModalProps = {

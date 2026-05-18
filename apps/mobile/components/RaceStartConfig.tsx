@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from './themed/Text';
 
 export type AlertConfirmMode = 'manual' | 'auto_5' | 'auto_10' | 'fire_forget';
 

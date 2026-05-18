@@ -3,12 +3,11 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import type { ImportedGpxDocument } from '../../lib/race-import';
