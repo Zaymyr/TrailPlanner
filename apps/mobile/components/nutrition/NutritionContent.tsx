@@ -255,24 +255,26 @@ export const NutritionContent = memo(function NutritionContent({
         value={catalogSearch}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.filterContent}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-      >
-        {FUEL_FILTERS.map((type) => (
-          <TouchableOpacity
-            key={type}
-            onPress={() => onChangeFuelFilter(type)}
-            style={[styles.filterChip, fuelFilter === type && styles.filterChipActive]}
-          >
-            <Text style={[styles.filterChipText, fuelFilter === type && styles.filterChipTextActive]}>
-              {FUEL_TYPE_LABELS[type]}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.filterBar}>
+        <ScrollView
+          contentContainerStyle={styles.filterContent}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {FUEL_FILTERS.map((type) => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => onChangeFuelFilter(type)}
+              style={[styles.filterChip, fuelFilter === type && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, fuelFilter === type && styles.filterChipTextActive]}>
+                {FUEL_TYPE_LABELS[type]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {filteredProducts.length === 0 ? (
         <View style={styles.emptyCategory}>
@@ -463,20 +465,29 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: 12,
   },
-  filterScroll: {
+  filterBar: {
+    minHeight: 40,
     marginBottom: 12,
+    zIndex: 1,
+  },
+  filterScroll: {
+    flexGrow: 0,
   },
   filterContent: {
+    alignItems: 'center',
     gap: 8,
+    minHeight: 40,
     paddingRight: 8,
   },
   filterChip: {
+    minHeight: 34,
     backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: Colors.border,
+    justifyContent: 'center',
   },
   filterChipActive: {
     backgroundColor: Colors.brandPrimary,
