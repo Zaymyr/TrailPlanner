@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-18
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -124,6 +124,7 @@ erDiagram
 - RLS is enabled on the main app tables; tests and server routes must be explicit about role context.
 - Some admin policies in older migrations still reference `user_metadata`; new policies must use `app_metadata`, profile role, or service role patterns.
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
+- Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 
 ## Related Docs
 

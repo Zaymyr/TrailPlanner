@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -50,7 +50,11 @@ function parseRequestedDate(input: string): string | null {
   return `${year}-${month}-${day}`;
 }
 
-export function RaceRequestHeaderButton() {
+type RaceRequestHeaderButtonProps = {
+  children?: (open: () => void) => ReactNode;
+};
+
+export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonProps) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [raceName, setRaceName] = useState('');
@@ -121,13 +125,17 @@ export function RaceRequestHeaderButton() {
 
   return (
     <>
-      <TouchableOpacity
-        accessibilityLabel={t.raceRequests.triggerLabel}
-        onPress={() => setVisible(true)}
-        style={styles.iconButton}
-      >
-        <Ionicons name="paper-plane-outline" size={18} color={Colors.textPrimary} />
-      </TouchableOpacity>
+      {children ? (
+        children(() => setVisible(true))
+      ) : (
+        <TouchableOpacity
+          accessibilityLabel={t.raceRequests.triggerLabel}
+          onPress={() => setVisible(true)}
+          style={styles.iconButton}
+        >
+          <Ionicons name="paper-plane-outline" size={18} color={Colors.textPrimary} />
+        </TouchableOpacity>
+      )}
 
       <Modal
         animationType="fade"

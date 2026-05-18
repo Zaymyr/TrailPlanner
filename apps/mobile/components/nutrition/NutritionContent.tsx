@@ -142,7 +142,6 @@ type NutritionContentProps = {
   onToggleFavorite: (productId: string, productOverride?: Product) => void;
   onChangeFuelFilter: (value: FuelType | 'all') => void;
   onChangeCatalogSearch: (value: string) => void;
-  onOpenCreateModal: () => void;
   onCloseFavoriteLimitModal: () => void;
   onChangeNewName: (value: string) => void;
   onChangeNewFuelType: (value: FuelType) => void;
@@ -182,7 +181,6 @@ export const NutritionContent = memo(function NutritionContent({
   onToggleFavorite,
   onChangeFuelFilter,
   onChangeCatalogSearch,
-  onOpenCreateModal,
   onCloseFavoriteLimitModal,
   onChangeNewName,
   onChangeNewFuelType,
@@ -247,9 +245,6 @@ export const NutritionContent = memo(function NutritionContent({
 
       <View style={styles.catalogHeader}>
         <Text style={styles.sectionTitle}>Catalogue produits</Text>
-        <TouchableOpacity onPress={onOpenCreateModal} style={styles.createButton}>
-          <Text style={styles.createButtonText}>+ Mon produit</Text>
-        </TouchableOpacity>
       </View>
 
       <TextInput
@@ -398,7 +393,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 48,
+    paddingBottom: 120,
   },
   sectionTitle: {
     fontSize: 16,
@@ -454,23 +449,8 @@ const styles = StyleSheet.create({
   catalogHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: 14,
     marginBottom: 8,
-  },
-  createButton: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.brandPrimary,
-    marginBottom: 4,
-  },
-  createButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '600',
   },
   catalogSearchInput: {
     backgroundColor: Colors.surface,

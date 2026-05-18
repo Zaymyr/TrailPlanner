@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { colors } from '@pace-yourself/design-system';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { PlansList } from '../../components/plans/PlansList';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 import { Button } from '../../components/themed/Button';
@@ -9,8 +12,10 @@ import { Screen } from '../../components/themed/Screen';
 import { Text } from '../../components/themed/Text';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
 import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
+import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 
 export default function PlansScreen() {
+  const insets = useSafeAreaInsets();
   const {
     locale,
     t,
@@ -32,12 +37,44 @@ export default function PlansScreen() {
     handleCreateFirstPlan,
     handleOpenGuestAccountUpgrade,
     handleEditRace,
-    handleOpenCatalog,
     handleOpenEditPlan,
     handleOpenRacePlan,
     handleOpenLockedPlan,
     closePremiumModal,
   } = usePlansScreen();
+  const screenStyle = useMemo(
+    () => [
+      styles.screen,
+      {
+        paddingTop: Math.max(0, insets.top),
+      },
+    ],
+    [insets.top],
+  );
+  const actionItems = useMemo<FloatingActionMenuItem[]>(
+    () => [
+      {
+        key: 'new-plan',
+        label: t.plans.newPlan,
+        icon: 'add-circle-outline',
+        onPress: handleCreateFirstPlan,
+      },
+    ],
+    [handleCreateFirstPlan, t.plans.newPlan],
+  );
+  const helpCopy = useMemo(
+    () =>
+      locale === 'fr'
+        ? {
+            title: t.plans.title,
+            body: "Retrouve tes plans par course, relance un plan en cours, ou cr\u00e9e un nouveau plan depuis le menu. Les ic\u00f4nes de carte ouvrent l'\u00e9dition, le live ou les actions de suppression.",
+          }
+        : {
+            title: t.plans.title,
+            body: 'Find your plans grouped by race, resume an active plan, or create a new plan from the menu. The card icons open editing, live mode, or delete actions.',
+          },
+    [locale, t.plans.title],
+  );
 
   if (loading || premiumLoading) {
     return (
@@ -61,7 +98,7 @@ export default function PlansScreen() {
   }
 
   return (
-    <Screen style={styles.screen}>
+    <Screen style={screenStyle}>
       {isAnonymous ? (
         <Card surface="cream" style={styles.guestBanner}>
           <View style={styles.guestBannerCopy}>
@@ -94,7 +131,6 @@ export default function PlansScreen() {
         onCreateFirstPlan={handleCreateFirstPlan}
         onDeletePlan={handleDelete}
         onEditRace={handleEditRace}
-        onOpenCatalog={handleOpenCatalog}
         onOpenEditPlan={handleOpenEditPlan}
         onOpenLockedPlan={handleOpenLockedPlan}
         onOpenRacePlan={handleOpenRacePlan}
@@ -110,6 +146,12 @@ export default function PlansScreen() {
         onClose={closePremiumModal}
         title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
         visible={premiumModalCopy !== null}
+      />
+
+      <RootScreenActionMenu
+        actions={actionItems}
+        contextLabel={t.plans.title}
+        help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
       />
     </Screen>
   );

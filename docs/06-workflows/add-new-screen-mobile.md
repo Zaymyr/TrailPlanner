@@ -6,6 +6,8 @@ ai_priority: medium
 related_files:
   - apps/mobile/app
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/components/navigation/FloatingActionMenu.tsx
+  - apps/mobile/components/navigation/RootScreenActionMenu.tsx
   - apps/mobile/lib/posthog.ts
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/app.config.ts
@@ -25,6 +27,8 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Premium gate: access checks from `usePremium`.
 - Analytics screen: PostHog screen name from route segments.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`.
+- Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.
+- Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
 
 ## Steps
 
@@ -38,6 +42,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 8. Add localized strings through the existing locale files when the UI needs text.
 9. Import mobile text from `components/themed/Text` / `Heading`, not from `react-native`; use `DataText` for metric-like values.
 10. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens.
+11. For a new root tab, add the help/feedback entry point through `RootScreenActionMenu`; add screen-specific actions there instead of occupying native header space.
 
 ## Validation
 
@@ -57,6 +62,9 @@ For native behavior, build/run with the development client profile from `apps/mo
 - Do not bypass RevenueCat/subscription sync for premium screens.
 - Do not call service-role-only web routes from the mobile client.
 - Do not use React Native's raw `Text` for normal app UI; it bypasses the shared Bricolage Grotesque and JetBrains Mono typography.
+- Do not reintroduce duplicate header titles on root tab screens unless the tab bar no longer identifies the current section.
+- Do not put root-tab help, feedback, or create actions back into the native header; use the floating root action menu so the screen keeps the reclaimed vertical space.
+- Do not remove the opened menu backdrop or high-contrast action styling unless replacing it with an equally readable treatment across busy root screens.
 
 ## Related Docs
 

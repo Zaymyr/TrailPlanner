@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -61,6 +61,7 @@ Because API routes use service role for event writes, client/mobile read access 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
 - Race rows can refer to an existing or newly created event.
 - Mobile catalog groups event races and also displays standalone races with no event.
+- Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Common Queries

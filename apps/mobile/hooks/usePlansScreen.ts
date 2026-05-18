@@ -245,10 +245,6 @@ export function usePlansScreen() {
     [router],
   );
 
-  const handleOpenCatalog = useCallback(() => {
-    router.push('/(app)/catalog');
-  }, [router]);
-
   const handleOpenEditPlan = useCallback(
     (planId: string) => {
       router.push(`/(app)/plan/${planId}/edit` as any);
@@ -291,7 +287,6 @@ export function usePlansScreen() {
     handleCreateFirstPlan,
     handleOpenGuestAccountUpgrade,
     handleEditRace,
-    handleOpenCatalog,
     handleOpenEditPlan,
     handleOpenRacePlan,
     handleOpenLockedPlan,

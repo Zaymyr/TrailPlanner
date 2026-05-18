@@ -1,11 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { TouchableOpacity, View } from 'react-native';
-import { Text } from '../../components/themed/Text';
 import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
-import { HelpHeaderButton } from '../../components/help/HelpHeaderButton';
-import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
@@ -13,6 +9,8 @@ import { getActivePlanEditHref } from '../../lib/planEditSession';
 export const unstable_settings = {
   initialRouteName: 'plans',
 };
+
+const ROOT_TAB_ROUTES = new Set(['profile', 'catalog', 'plans', 'nutrition']);
 
 export default function AppLayout() {
   const router = useRouter();
@@ -72,29 +70,34 @@ export default function AppLayout() {
     <Tabs
       backBehavior="initialRoute"
       initialRouteName="plans"
-      screenOptions={({ route }) => ({
-        headerStyle: { backgroundColor: Colors.background },
-        headerTintColor: Colors.textPrimary,
-        headerShadowVisible: false,
-        headerTitleAlign: 'left',
-        headerTitle: () => <AppHeaderTitle title={getHeaderTitle(route.name)} />,
-        headerTitleContainerStyle: {
-          left: 16,
-          right: getHeaderTitleRightInset(route.name),
-        },
-        tabBarStyle: {
-          backgroundColor: Colors.background,
-          borderTopColor: Colors.border,
-          borderTopWidth: 1,
-          height: 68,
-          paddingBottom: 8,
-        },
-        tabBarActiveTintColor: Colors.brandPrimary,
-        tabBarInactiveTintColor: Colors.textMuted,
-        headerRight: () => (
-          <FeedbackHeaderButton contextLabel={getFeedbackContext(route.name)} />
-        ),
-      })}
+      screenOptions={({ route }) => {
+        const isRootTab = ROOT_TAB_ROUTES.has(route.name);
+
+        return {
+          headerShown: !isRootTab,
+          headerStyle: { backgroundColor: Colors.background },
+          headerTintColor: Colors.textPrimary,
+          headerShadowVisible: false,
+          headerTitleAlign: 'left',
+          headerTitle: () => <AppHeaderTitle title={getHeaderTitle(route.name)} />,
+          headerTitleContainerStyle: {
+            left: 16,
+            right: getHeaderTitleRightInset(route.name),
+          },
+          tabBarStyle: {
+            backgroundColor: Colors.background,
+            borderTopColor: Colors.border,
+            borderTopWidth: 1,
+            height: 68,
+            paddingBottom: 8,
+          },
+          tabBarActiveTintColor: Colors.brandPrimary,
+          tabBarInactiveTintColor: Colors.textMuted,
+          headerRight: () => (
+            <FeedbackHeaderButton contextLabel={getFeedbackContext(route.name)} />
+          ),
+        };
+      }}
     >
       {/* Far left: Profile */}
       <Tabs.Screen
@@ -102,12 +105,6 @@ export default function AppLayout() {
         options={{
           title: t.profile.title,
           tabBarLabel: t.profile.title,
-          headerRight: () => (
-            <FeedbackHeaderButton
-              contextLabel={getFeedbackContext('profile')}
-              leading={<HelpHeaderButton screenKey="profile" />}
-            />
-          ),
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
@@ -122,22 +119,6 @@ export default function AppLayout() {
           tabBarLabel: catalogLabel,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trail-sign" size={size} color={color} />
-          ),
-          headerRight: () => (
-            <FeedbackHeaderButton
-              contextLabel={catalogLabel}
-              leading={(
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <TouchableOpacity
-                    onPress={() => router.push('/(app)/race/new')}
-                    style={{ paddingHorizontal: 12, paddingVertical: 4 }}
-                  >
-                    <Text style={{ color: Colors.brandPrimary, fontSize: 26, fontWeight: '600' }}>+</Text>
-                  </TouchableOpacity>
-                  <RaceRequestHeaderButton />
-                </View>
-              )}
-            />
           ),
         }}
       />
