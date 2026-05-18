@@ -32,16 +32,8 @@ const downloadBlob = (blob: Blob, fileName: string) => {
     link.href = objectUrl;
     link.click();
   } finally {
-    URL.revokeObjectURL(objectUrl);
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
   }
-};
-
-const replaceExtension = (fileName: string, extension: string) => {
-  if (/\.[^./\\]+$/.test(fileName)) {
-    return fileName.replace(/\.[^./\\]+$/, extension);
-  }
-
-  return `${fileName}${extension}`;
 };
 
 const isCanvasSecurityError = (error: unknown) => {
@@ -154,11 +146,9 @@ export async function exportHtmlToPng(element: HTMLElement, fileName: string) {
     </svg>
   `;
 
-  const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
-  const svgUrl = URL.createObjectURL(svgBlob);
-
   try {
-    const image = await loadImage(svgUrl);
+    const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+    const image = await loadImage(await blobToDataUrl(svgBlob));
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -174,13 +164,10 @@ export async function exportHtmlToPng(element: HTMLElement, fileName: string) {
     const pngBlob = await canvasToBlob(canvas);
     downloadBlob(pngBlob, fileName);
   } catch (error) {
-    if (!isCanvasSecurityError(error)) {
-      throw error;
+    if (isCanvasSecurityError(error)) {
+      throw new Error("Unable to render the PNG export in this browser.");
     }
 
-    // Some browsers mark foreignObject canvas renders as tainted. Keep export usable.
-    downloadBlob(svgBlob, replaceExtension(fileName, ".svg"));
-  } finally {
-    URL.revokeObjectURL(svgUrl);
+    throw error;
   }
 }

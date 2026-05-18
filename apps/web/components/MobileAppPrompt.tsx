@@ -147,7 +147,7 @@ export function MobileAppPrompt() {
   return (
     <aside
       aria-label={t.mobileAppPrompt.title}
-      className="fixed inset-x-3 bottom-3 z-40 md:hidden"
+      className="fixed bottom-4 left-1/2 z-40 w-[min(calc(100vw-2rem),22rem)] -translate-x-1/2 md:hidden"
       role="dialog"
     >
       <div className="relative rounded-lg border border-emerald-200 bg-white p-4 pr-10 text-slate-950 shadow-xl shadow-slate-950/15 dark:border-emerald-500/30 dark:bg-slate-950 dark:text-slate-50">
