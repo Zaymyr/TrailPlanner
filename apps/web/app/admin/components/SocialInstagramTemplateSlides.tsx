@@ -119,12 +119,14 @@ function RaceKicker({
   maxWidth = "660px",
   align = "left",
   includeLocation = false,
+  fontSize,
 }: {
   draft: SocialInstagramTemplateDraft;
   color: string;
   maxWidth?: string;
   align?: "left" | "center";
   includeLocation?: boolean;
+  fontSize?: string;
 }) {
   const label = buildRaceKickerLabel(draft, includeLocation) || "COURSE | ANNEE";
 
@@ -134,7 +136,7 @@ function RaceKicker({
         ...monoLabelStyle,
         color,
         maxWidth,
-        fontSize: getCompactMetaFontSize(label),
+        fontSize: fontSize ?? getCompactMetaFontSize(label),
         lineHeight: 1.35,
         overflowWrap: "anywhere",
         textAlign: align,
@@ -261,36 +263,6 @@ function PYLogo({ onDark = false, size = 34 }: { onDark?: boolean; size?: number
   );
 }
 
-function TopBar({
-  eyebrow,
-  onDark = false,
-  showLogo = true,
-}: {
-  eyebrow: string;
-  onDark?: boolean;
-  showLogo?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        height: "96px",
-        padding: "0 56px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        zIndex: 10,
-      }}
-    >
-      <div style={{ ...monoLabelStyle, color: onDark ? COLORS.darkMuted : COLORS.muted }}>{eyebrow}</div>
-      {showLogo ? <PYLogo size={36} onDark={onDark} /> : null}
-    </div>
-  );
-}
-
 function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; accent: AccentPalette }) {
   const isDark = draft.darkSlide1;
   const heroLabel = getHookHeroLabel(draft);
@@ -318,7 +290,7 @@ function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acc
           zIndex: 10,
         }}
       >
-        <PYLogo size={42} onDark={isDark} />
+        <PYLogo size={58} onDark={isDark} />
         <div style={{ fontFamily: MONO, fontSize: "18px", color: topMetaColor }}>{draft.startDate || "Plan de course"}</div>
       </div>
 
@@ -378,23 +350,28 @@ function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acc
           {normalizeQuoteText(draft.tagline)}
         </div>
 
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "14px", fontSize: "30px", fontWeight: 800 }}>
+        <div style={{ display: "flex", alignItems: "center", maxWidth: "760px", fontSize: "30px", fontWeight: 800 }}>
           <div
             style={{
-              display: "inline-flex",
+              display: "flex",
               alignItems: "center",
+              width: "100%",
+              minHeight: "94px",
               gap: "14px",
               marginTop: "30px",
-              padding: "18px 26px",
-              borderRadius: "999px",
+              padding: "18px 30px",
+              borderRadius: "28px",
               background: isDark ? "rgba(255,255,255,0.1)" : accent.light,
               border: isDark ? "1px solid rgba(255,255,255,0.16)" : `1px solid ${COLORS.line}`,
               color: isDark ? COLORS.cream : accent.main,
               boxShadow: isDark ? "none" : "0 8px 20px rgba(44, 62, 41, 0.08)",
+              lineHeight: 1.08,
             }}
           >
-            <span style={{ fontSize: "30px" }}>-&gt;</span>
-            <span>{draft.ctaS1 || "Alors ca se planifie !"}</span>
+            <span style={{ fontSize: "34px", flexShrink: 0 }}>-&gt;</span>
+            <span style={{ display: "block", minWidth: 0, overflowWrap: "anywhere" }}>
+              {draft.ctaS1 || "Alors ca se planifie !"}
+            </span>
           </div>
         </div>
       </div>
@@ -796,14 +773,12 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
   return (
     <article style={{ ...baseSlideStyle, background: accent.main, color: COLORS.white }}>
       <div style={stripeStyle(true)} />
-      <TopBar eyebrow="A toi de jouer" onDark showLogo={false} />
-
       <div
         style={{
           position: "absolute",
-          right: "-18px",
-          top: "62px",
-          fontSize: "520px",
+          right: "-34px",
+          top: "98px",
+          fontSize: "560px",
           fontWeight: 800,
           color: "rgba(255,255,255,0.06)",
           lineHeight: 1,
@@ -818,41 +793,68 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
       <div
         style={{
           position: "absolute",
-          inset: 0,
+          top: "42px",
+          left: "56px",
+          right: "56px",
+          height: "88px",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          padding: "0 80px",
-          textAlign: "center",
+          justifyContent: "space-between",
           zIndex: 10,
         }}
       >
-        <PYLogo size={72} onDark />
-        <div style={{ width: "64px", height: "2px", background: "rgba(255,255,255,0.25)", margin: "44px auto 40px" }} />
-        <div style={{ fontSize: "64px", fontWeight: 800, lineHeight: 1.15, color: COLORS.white, letterSpacing: "-0.02em", maxWidth: "800px" }}>
+        <div
+          style={{
+            ...monoLabelStyle,
+            color: COLORS.darkMuted,
+            fontSize: "22px",
+            lineHeight: 1,
+            letterSpacing: ".14em",
+          }}
+        >
+          A toi de jouer
+        </div>
+        <PYLogo size={58} onDark />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          left: "72px",
+          right: "72px",
+          top: "202px",
+          zIndex: 10,
+        }}
+      >
+        <div style={{ width: "76px", height: "3px", background: "rgba(255,255,255,0.28)", marginBottom: "42px" }} />
+        <div style={{ fontSize: "92px", fontWeight: 800, lineHeight: 1.03, color: COLORS.white, letterSpacing: "-0.025em", maxWidth: "760px" }}>
           Et toi, tu as
           <br />
           un <span style={{ color: accent.warm }}>plan</span> ?
         </div>
-        <div style={{ fontSize: "28px", color: COLORS.darkMuted, marginTop: "20px", maxWidth: "640px", lineHeight: 1.4 }}>
+        <div style={{ fontSize: "38px", color: COLORS.darkMuted, marginTop: "30px", maxWidth: "820px", lineHeight: 1.26 }}>
           Distance, dénivelé, allure, ravitos... tout se calcule. Tout se prépare.
         </div>
         <div
           style={{
-            marginTop: "52px",
+            marginTop: "62px",
             background: COLORS.white,
-            borderRadius: "24px",
-            padding: "28px 72px",
-            display: "inline-flex",
+            borderRadius: "28px",
+            minHeight: "112px",
+            width: "820px",
+            maxWidth: "100%",
+            padding: "24px 46px",
+            display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
           }}
         >
-          <span style={{ fontSize: "34px", fontWeight: 800, color: accent.main, letterSpacing: ".01em" }}>-&gt; {draft.ctaS4}</span>
+          <span style={{ fontSize: "38px", fontWeight: 800, lineHeight: 1.1, color: accent.main, letterSpacing: ".01em", overflowWrap: "anywhere" }}>
+            -&gt; {draft.ctaS4}
+          </span>
         </div>
-        <div style={{ marginTop: "28px", fontFamily: MONO, fontSize: "22px", color: COLORS.darkMuted, letterSpacing: ".04em" }}>{draft.appHandle}</div>
+        <div style={{ marginTop: "30px", fontFamily: MONO, fontSize: "28px", color: COLORS.darkMuted, letterSpacing: ".04em" }}>{draft.appHandle}</div>
       </div>
 
       <div
@@ -869,7 +871,7 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
           zIndex: 10,
         }}
       >
-        <RaceKicker draft={draft} color={COLORS.darkMuted} maxWidth="940px" align="center" includeLocation />
+        <RaceKicker draft={draft} color={COLORS.darkMuted} maxWidth="940px" align="center" includeLocation fontSize="18px" />
       </div>
     </article>
   );
