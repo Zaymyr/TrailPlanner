@@ -187,7 +187,7 @@ supabase.auth.onAuthStateChange((_event, session) => savePlan(session));
 - `race_events` is used by code, but its create-table migration is not visible in this repo.
 - Some code references race/import review columns not visible in migrations.
 - Stripe product and active price IDs are env/dashboard facts, not repo constants.
-- No Resend implementation was found in repo code.
+- Resend currently has only an admin Contacts sync; production transactional email ownership is still maintainer-confirmation territory.
 
 ## When Unsure
 

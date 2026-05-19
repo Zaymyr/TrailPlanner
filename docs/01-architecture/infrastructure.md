@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - vercel.json
@@ -124,6 +124,7 @@ Document variable names, not secret values. Important names visible in code incl
 - `EXPO_PUBLIC_POSTHOG_KEY`
 - `EXPO_PUBLIC_POSTHOG_TOKEN`
 - `EXPO_PUBLIC_POSTHOG_HOST`
+- `RESEND_API_KEY`
 - `REVENUECAT_*`
 - `EXPO_PUBLIC_REVENUECAT_*`
 
@@ -131,6 +132,7 @@ Document variable names, not secret values. Important names visible in code incl
 
 - Never commit actual environment values into docs.
 - The service role key must stay server-side or inside Supabase functions.
+- `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
 - The archived storage doc predates the image buckets.
 
@@ -138,6 +140,7 @@ Document variable names, not secret values. Important names visible in code incl
 
 - [Overview](overview.md)
 - [Supabase Edge Functions](../05-integrations/supabase-edge-functions.md)
+- [Resend](../05-integrations/resend.md)
 - [Analytics](../05-integrations/analytics.md)
 - [RLS Policies](../02-database/rls-policies.md)
 - [Debug Supabase Auth](../06-workflows/debug-supabase-auth.md)
