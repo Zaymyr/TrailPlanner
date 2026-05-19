@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { styles } from './styles';
@@ -15,6 +16,8 @@ export type EditingStation = {
   name: string;
   km: string;
   pauseMinutes: string;
+  waterRefill: boolean;
+  solidRefill: boolean;
 } | null;
 
 type Props = {
@@ -25,6 +28,38 @@ type Props = {
 
 export function EditStationModal({ editingStation, setEditingStation, onSave }: Props) {
   const isCreateMode = editingStation?.mode === 'create';
+  const updateService = (field: 'waterRefill' | 'solidRefill') => {
+    setEditingStation((prev) => (prev ? { ...prev, [field]: !prev[field] } : prev));
+  };
+  const renderServiceOption = (
+    field: 'waterRefill' | 'solidRefill',
+    label: string,
+    description: string,
+    icon: keyof typeof Ionicons.glyphMap,
+  ) => {
+    const checked = Boolean(editingStation?.[field]);
+
+    return (
+      <TouchableOpacity
+        style={[styles.stationServiceOption, checked && styles.stationServiceOptionActive]}
+        onPress={() => updateService(field)}
+        activeOpacity={0.86}
+      >
+        <View style={styles.stationServiceCheck}>
+          <Ionicons
+            name={checked ? 'checkbox' : 'square-outline'}
+            size={20}
+            color={checked ? Colors.brandPrimary : Colors.textMuted}
+          />
+        </View>
+        <Ionicons name={icon} size={19} color={checked ? Colors.brandPrimary : Colors.textMuted} />
+        <View style={styles.stationServiceText}>
+          <Text style={styles.stationServiceLabel}>{label}</Text>
+          <Text style={styles.stationServiceDescription}>{description}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <Modal
@@ -69,6 +104,11 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
             placeholder="0"
             placeholderTextColor={Colors.textMuted}
           />
+          <Text style={styles.label}>Services disponibles</Text>
+          <View style={styles.stationServiceOptions}>
+            {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou poche.', 'water-outline')}
+            {renderServiceOption('solidRefill', 'Solide', 'Gels, barres, boisson et sodium.', 'nutrition-outline')}
+          </View>
           <TouchableOpacity style={styles.saveButton} onPress={onSave}>
             <Text style={styles.saveButtonText}>
               {isCreateMode ? 'Ajouter le ravitaillement' : 'Enregistrer'}

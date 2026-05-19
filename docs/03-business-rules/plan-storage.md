@@ -1,15 +1,20 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
   - apps/web/app/api/onboarding/save-plan/route.ts
   - apps/web/app/(coach)/race-planner/hooks/useRacePlan.ts
+  - apps/web/app/(coach)/race-planner/utils/plan-sanitizers.ts
+  - apps/web/app/(coach)/race-planner/utils/__tests__/plan-sanitizers.test.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/lib/race-planner-storage.ts
   - apps/web/lib/auth-storage.ts
+  - apps/mobile/app/(app)/plan/[id]/edit.tsx
+  - apps/mobile/app/(app)/plan/new.tsx
+  - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
   - race_plans
   - plan_aid_stations
@@ -28,6 +33,7 @@ This document explains where planner state lives before signup, during onboardin
 - `planner_values`: JSONB planner state in `race_plans`.
 - Hydration: mapping saved JSON back into form state.
 - Idempotency guard: client and server duplicate-save protection.
+- Aid station service flags: `waterRefill` and `solidRefill` are stored per station. Missing flags hydrate as enabled for backward compatibility.
 
 ## Onboarding Stage
 
@@ -71,6 +77,11 @@ After signup, `race_plans` is the source of truth:
 - `race_id` links to source race when applicable.
 - `plan_gpx_path` and `plan_course_stats` store catalog GPX import metadata.
 
+Aid station entries in `planner_values.aidStations` persist both service flags:
+
+- `waterRefill: false` means the station cannot refill water.
+- `solidRefill: false` means the station cannot provide carb/sodium products, and persisted `supplies` for that station should hydrate as empty.
+
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans.
 
 ## Hydration on Read
@@ -97,6 +108,7 @@ It:
 
 - Do not save twice on Supabase email confirmation or duplicate session events.
 - Do not assume every saved plan has current planner JSON shape.
+- Treat missing `solidRefill` and `waterRefill` values as enabled on intermediate aid stations.
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 

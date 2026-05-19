@@ -42,6 +42,7 @@ import { PlanBasicsSection } from './plan-form/PlanBasicsSection';
 import { PlanHighlightsSection } from './plan-form/PlanHighlightsSection';
 import { ProductPickerModal, type PickerProduct } from './plan-form/ProductPickerModal';
 import { PremiumUpsellModal } from './premium/PremiumUpsellModal';
+import { buildCarryoverCoverages } from './plan-form/carryover';
 import { styles } from './plan-form/styles';
 import { type PlanProductsBootstrap, usePlanProducts } from './plan-form/usePlanProducts';
 import { usePlanSections } from './plan-form/usePlanSections';
@@ -239,7 +240,6 @@ export default function PlanForm({
     allProducts,
     favoriteProductIds,
     setFavoriteProductIds,
-    buildSectionSummary,
     isPremium,
     elevationProfile,
     onRequirePremium: openPremiumUpsell,
@@ -250,7 +250,10 @@ export default function PlanForm({
   const aidStationsSummaryKey = useMemo(
     () =>
       values.aidStations
-        .map((station) => `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}`)
+        .map(
+          (station) =>
+            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}`,
+        )
         .join(';'),
     [values.aidStations],
   );
@@ -290,6 +293,37 @@ export default function PlanForm({
     () => buildContinuousIntakeTimeline({ values: debouncedValues, productMap, elevationProfile }),
     [elevationProfile, productMap, debouncedValues],
   );
+  const carryoverCoverageMap = useMemo(() => {
+    const sections = liveSectionSummaries.map((summary) => {
+      const target: PlanTarget = summary.sectionIndex === 0 ? 'start' : summary.sectionIndex;
+      const allowsSolid = target === 'start' || values.aidStations[summary.sectionIndex]?.solidRefill !== false;
+      return {
+        sectionIndex: summary.sectionIndex,
+        targetCarbsG: summary.targetCarbsG,
+        targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
+        supplies: allowsSolid ? getSupplies(target) : [],
+      };
+    });
+
+    return buildCarryoverCoverages(sections, productMap);
+  }, [getSupplies, liveSectionSummaries, productMap, values.aidStations]);
+  const waterAvailabilityBySection = useMemo(() => {
+    const map = new Map<number, number>();
+    const waterCapacityMl = Math.max(0, values.waterBagLiters * 1000);
+    let availableWaterMl = waterCapacityMl;
+
+    liveSectionSummaries.forEach((summary) => {
+      map.set(summary.sectionIndex, Math.max(0, availableWaterMl));
+      availableWaterMl = Math.max(0, availableWaterMl - summary.targetWaterMl);
+
+      const arrivalStation = values.aidStations[summary.sectionIndex + 1];
+      if (arrivalStation?.id !== ARRIVEE_ID && arrivalStation?.waterRefill !== false) {
+        availableWaterMl = waterCapacityMl;
+      }
+    });
+
+    return map;
+  }, [liveSectionSummaries, values.aidStations, values.waterBagLiters]);
   const paceLabel = useMemo(() => {
     const safeMinutesPerKm = highlights.totalDurationMin / Math.max(values.raceDistanceKm, 0.01);
     const totalSeconds = Math.max(1, Math.round(safeMinutesPerKm * 60));
@@ -312,16 +346,26 @@ export default function PlanForm({
             targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
             targetWaterMl: summary.targetWaterMl,
           },
+          carryoverCoverage: carryoverCoverageMap.get(summary.sectionIndex) ?? null,
           getSupplies,
           productMap,
           aidStations: values.aidStations,
           waterBagLiters: values.waterBagLiters,
+          availableWaterMl: waterAvailabilityBySection.get(summary.sectionIndex),
         }),
       );
     });
 
     return map;
-  }, [getSupplies, liveSectionSummaries, productMap, values.aidStations, values.waterBagLiters]);
+  }, [
+    carryoverCoverageMap,
+    getSupplies,
+    liveSectionSummaries,
+    productMap,
+    values.aidStations,
+    values.waterBagLiters,
+    waterAvailabilityBySection,
+  ]);
 
   const getGaugeMetricsForTarget = useCallback(
     (
@@ -341,13 +385,15 @@ export default function PlanForm({
       return buildGaugeMetrics({
         target,
         sectionTarget: effectiveSectionTarget,
+        carryoverCoverage: carryoverCoverageMap.get(target === 'start' ? 0 : target) ?? null,
         getSupplies,
         productMap,
         aidStations: values.aidStations,
         waterBagLiters: values.waterBagLiters,
+        availableWaterMl: waterAvailabilityBySection.get(target === 'start' ? 0 : target),
       });
     },
-    [gaugeMetricsMap, getSupplies, productMap, values.aidStations, values.waterBagLiters],
+    [carryoverCoverageMap, gaugeMetricsMap, getSupplies, productMap, values.aidStations, values.waterBagLiters, waterAvailabilityBySection],
   );
 
   const sectionTimelineMap = useMemo(() => {
@@ -378,8 +424,9 @@ export default function PlanForm({
       productMap,
       aidStations: values.aidStations,
       waterBagLiters: values.waterBagLiters,
+      availableWaterMl: waterAvailabilityBySection.get(target === 'start' ? 0 : target),
     });
-  }, [getSupplies, productMap, sectionTimelineMap, values.aidStations, values.waterBagLiters]);
+  }, [getSupplies, productMap, sectionTimelineMap, values.aidStations, values.waterBagLiters, waterAvailabilityBySection]);
 
   const toggleSection = (section: AccordionSection) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -463,7 +510,8 @@ export default function PlanForm({
       createAidStation({
         name: nextName,
         distanceKm: nextDistanceKm,
-        waterRefill: true,
+        waterRefill: editingStation.waterRefill,
+        solidRefill: editingStation.solidRefill,
         pauseMinutes: nextPauseMinutes,
         supplies: [],
       });
@@ -474,7 +522,10 @@ export default function PlanForm({
     updateAidStation(editingStation.index, {
       name: nextName,
       distanceKm: nextDistanceKm,
+      waterRefill: editingStation.waterRefill,
+      solidRefill: editingStation.solidRefill,
       pauseMinutes: nextPauseMinutes,
+      ...(editingStation.solidRefill ? {} : { supplies: [] }),
     });
     setEditingStation(null);
   };
@@ -495,6 +546,8 @@ export default function PlanForm({
       name: `Ravito ${intermediates.length + 1}`,
       km: suggestedKm > 0 ? String(suggestedKm) : '10',
       pauseMinutes: '0',
+      waterRefill: true,
+      solidRefill: true,
     });
   }, [values.aidStations, values.raceDistanceKm]);
 

@@ -9,6 +9,7 @@ import type {
 import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
 import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
 import type { FuelProduct } from "../../lib/product-types";
+import { buildCarryoverCoverageByItemId } from "./carryoverNutrition";
 
 export type RenderItem = {
   id: string;
@@ -140,7 +141,10 @@ export function useActionPlanDerivedData({
     const totalGels = segments.reduce((total, segment) => total + (segment.gelsPlanned ?? 0), 0);
     const totalElevationGain = segments.reduce((total, segment) => total + (segment.elevationGainM ?? 0), 0);
     const totalElevationLoss = segments.reduce((total, segment) => total + (segment.elevationLossM ?? 0), 0);
-    const allSupplies = [...startSupplies, ...segments.flatMap((segment) => segment.supplies ?? [])];
+    const allSupplies = [
+      ...startSupplies,
+      ...segments.flatMap((segment) => (segment.solidRefill === false ? [] : segment.supplies ?? [])),
+    ];
     const totalCalories = allSupplies.reduce((total, supply) => {
       const product = productById[supply.productId];
       if (!product) return total;
@@ -221,17 +225,23 @@ export function useActionPlanDerivedData({
   const summarizedSuppliesByItemId = useMemo(() => {
     const map = new Map<string, ReturnType<typeof summarizeSuppliesForProducts>>();
     renderItems.forEach((item) => {
-      const supplies = item.isStart ? startSupplies : item.checkpointSegment?.supplies;
+      const supplies =
+        item.isStart || item.checkpointSegment?.solidRefill !== false ? (item.isStart ? startSupplies : item.checkpointSegment?.supplies) : [];
       map.set(item.id, summarizeSuppliesForProducts(supplies, productById));
     });
     return map;
   }, [productById, renderItems, startSupplies]);
 
+  const carryoverCoverageByItemId = useMemo(
+    () => buildCarryoverCoverageByItemId(renderItems, startSupplies, productById),
+    [productById, renderItems, startSupplies]
+  );
+
   const aidSuppliesByStationIndex = useMemo(() => {
     const map = new Map<number, StationSupply[]>();
     segments.forEach((segment) => {
       if (typeof segment.aidStationIndex !== "number") return;
-      map.set(segment.aidStationIndex, segment.supplies ?? []);
+      map.set(segment.aidStationIndex, segment.solidRefill === false ? [] : segment.supplies ?? []);
     });
     return map;
   }, [segments]);
@@ -243,6 +253,7 @@ export function useActionPlanDerivedData({
     finishSummary,
     sectionComputationByItemId,
     summarizedSuppliesByItemId,
+    carryoverCoverageByItemId,
     aidSuppliesByStationIndex,
   };
 }

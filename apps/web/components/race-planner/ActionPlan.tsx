@@ -146,7 +146,7 @@ type ActionPlanProps = {
   sectionId: string;
   onPrintAssistance: () => void;
   onAutomaticFill: () => void;
-  onAddAidStation: (station: { name: string; distanceKm: number }) => void;
+  onAddAidStation: (station: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean }) => void;
   onRemoveAidStation: (index: number) => void;
   register: UseFormRegister<FormValues>;
   setValue: UseFormSetValue<FormValues>;
@@ -1168,12 +1168,16 @@ export function ActionPlan({
         name: string;
         distance: string;
         pauseMinutes: string;
+        waterRefill: boolean;
+        solidRefill: boolean;
       }
     | {
         mode: "create";
         name: string;
         distance: string;
         pauseMinutes: string;
+        waterRefill: boolean;
+        solidRefill: boolean;
       }
   >(null);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -1292,8 +1296,14 @@ export function ActionPlan({
       name: copy.defaults.aidStationName,
       distance: "0",
       pauseMinutes: "",
+      waterRefill: true,
+      solidRefill: true,
     });
   const updateEditorField = useCallback((field: "name" | "distance" | "pauseMinutes", value: string) => {
+    setEditorState((current) => (current ? { ...current, [field]: value } : current));
+    setEditorError(null);
+  }, []);
+  const updateEditorService = useCallback((field: "waterRefill" | "solidRefill", value: boolean) => {
     setEditorState((current) => (current ? { ...current, [field]: value } : current));
     setEditorError(null);
   }, []);
@@ -1524,6 +1534,7 @@ export function ActionPlan({
     finishSummary,
     sectionComputationByItemId,
     summarizedSuppliesByItemId,
+    carryoverCoverageByItemId,
     aidSuppliesByStationIndex,
   } = useActionPlanDerivedData({
     segments,
@@ -1754,8 +1765,18 @@ export function ActionPlan({
       setValue(`aidStations.${editorState.index}.name`, name);
       setValue(`aidStations.${editorState.index}.distanceKm`, distanceValue);
       setValue(`aidStations.${editorState.index}.pauseMinutes`, pauseValue);
+      setValue(`aidStations.${editorState.index}.waterRefill`, editorState.waterRefill);
+      setValue(`aidStations.${editorState.index}.solidRefill`, editorState.solidRefill);
+      if (!editorState.solidRefill) {
+        setValue(`aidStations.${editorState.index}.supplies`, []);
+      }
     } else {
-      onAddAidStation({ name, distanceKm: distanceValue });
+      onAddAidStation({
+        name,
+        distanceKm: distanceValue,
+        waterRefill: editorState.waterRefill,
+        solidRefill: editorState.solidRefill,
+      });
     }
     closeEditor();
   }, [closeEditor, copy.validation.nonNegative, copy.validation.required, editorState, onAddAidStation, setValue]);
@@ -1927,12 +1948,17 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.waterRefill` as const)
                     : null;
+                const solidRefillFieldName =
+                  typeof item.aidStationIndex === "number"
+                    ? (`aidStations.${item.aidStationIndex}.solidRefill` as const)
+                    : null;
                 const pauseMinutesValue =
                   typeof item.checkpointSegment?.pauseMinutes === "number" ? item.checkpointSegment.pauseMinutes : 0;
                 const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
                 const summarized = summarizedSuppliesByItemId.get(item.id) ?? null;
+                const carryoverCoverage = carryoverCoverageByItemId.get(item.id) ?? null;
                 const isCollapsible =
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
@@ -1959,6 +1985,17 @@ export function ActionPlan({
                 ) : null;
                 const titleContent = item.title;
                 const isAidStation = typeof item.aidStationIndex === "number" && !item.isFinish;
+                const waterRefillAvailable = item.isStart || item.checkpointSegment?.waterRefill !== false;
+                const solidRefillAvailable = item.isStart || item.checkpointSegment?.solidRefill !== false;
+                const serviceLabel = item.isStart
+                  ? locale === "fr" ? "Stock initial" : "Initial stock"
+                  : waterRefillAvailable && solidRefillAvailable
+                    ? locale === "fr" ? "Eau + solide" : "Water + solid"
+                    : waterRefillAvailable
+                      ? locale === "fr" ? "Eau seulement" : "Water only"
+                      : solidRefillAvailable
+                        ? locale === "fr" ? "Solide seulement" : "Solid only"
+                        : locale === "fr" ? "Aucun service" : "No service";
                 const commentContextKey = item.isStart
                   ? "start"
                   : item.isFinish
@@ -1977,8 +2014,13 @@ export function ActionPlan({
                 const metaContent = (
                   <div className="space-y-1">
                     <div>{metaText}</div>
-                    <div className="text-[11px] text-muted-foreground dark:text-slate-400">
-                      {timelineCopy.pauseLabel}: {pauseMinutesValue}
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground dark:text-slate-400">
+                      <span>{timelineCopy.pauseLabel}: {pauseMinutesValue}</span>
+                      {!item.isFinish ? (
+                        <span className="rounded-full border border-border bg-background px-2 py-0.5 font-semibold text-foreground dark:bg-slate-900/60 dark:text-slate-100">
+                          {serviceLabel}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -2011,8 +2053,25 @@ export function ActionPlan({
                       <span>{aidStationsCopy.labels.waterRefill}</span>
                     </label>
                   ) : null;
+                const solidRefillToggle =
+                  distanceFieldName && !isCollapsed && solidRefillFieldName ? (
+                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                        {...register(solidRefillFieldName, {
+                          onChange: (event) => {
+                            if (!event.target.checked && typeof item.aidStationIndex === "number") {
+                              setValue(`aidStations.${item.aidStationIndex}.supplies`, []);
+                            }
+                          },
+                        })}
+                      />
+                      <span>{aidStationsCopy.labels.solidRefill}</span>
+                    </label>
+                  ) : null;
                 const suppliesDropZone =
-                  (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
+                  (item.isStart || (typeof item.aidStationIndex === "number" && solidRefillAvailable)) && !isCollapsed ? (
                     <div
                       id={item.isStart ? "onboarding-start-supply-zone" : undefined}
                       className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-brand-border bg-brand-surface/50 p-2 shadow-inner shadow-[rgba(45,80,22,0.08)] dark:border-emerald-400/50 dark:bg-emerald-500/5 dark:shadow-emerald-500/10"
@@ -2091,6 +2150,7 @@ export function ActionPlan({
                         </div>
                         <div className="flex items-center gap-2">
                           {waterRefillToggle}
+                          {solidRefillToggle}
                           <Button
                             id={item.isStart ? "onboarding-open-products-btn" : undefined}
                             type="button"
@@ -2108,6 +2168,18 @@ export function ActionPlan({
                             +
                           </Button>
                         </div>
+                      </div>
+                    </div>
+                  ) : typeof item.aidStationIndex === "number" && !isCollapsed ? (
+                    <div className="flex w-full flex-1 items-center justify-between gap-2 rounded-2xl border border-dashed border-border bg-muted/40 p-3 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                      <span>
+                        {locale === "fr"
+                          ? "Solide desactive : gels, boisson et sodium sont reportes au ravito precedent."
+                          : "Solid fuel disabled: gels, drink mix, and sodium move to the previous aid station."}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {waterRefillToggle}
+                        {solidRefillToggle}
                       </div>
                     </div>
                   ) : null;
@@ -2128,8 +2200,8 @@ export function ActionPlan({
                     : sectionSegment?.segmentMinutes ?? 0;
                 const sectionSummaryGain = sectionTotals?.dPlus ?? sectionSegment?.elevationGainM ?? 0;
                 const sectionSummaryLoss = sectionTotals?.dMinus ?? sectionSegment?.elevationLossM ?? 0;
-                const plannedFuel = summarized?.totals.carbs ?? 0;
-                const plannedSodium = summarized?.totals.sodium ?? 0;
+                const plannedFuel = carryoverCoverage?.currentCarbs ?? summarized?.totals.carbs ?? 0;
+                const plannedSodium = carryoverCoverage?.currentSodium ?? summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
                 const paceAdjustmentFieldName = sectionSegment
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
@@ -2725,6 +2797,8 @@ export function ActionPlan({
                                       typeof item.checkpointSegment?.pauseMinutes === "number"
                                         ? String(item.checkpointSegment.pauseMinutes)
                                         : "",
+                                    waterRefill: item.checkpointSegment?.waterRefill !== false,
+                                    solidRefill: item.checkpointSegment?.solidRefill !== false,
                                   })
                             : undefined
                         }
@@ -2822,6 +2896,36 @@ export function ActionPlan({
                   />
                 </div>
               ) : null}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={editorState.waterRefill}
+                    onChange={(event) => updateEditorService("waterRefill", event.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                  />
+                  <span>
+                    <span className="block font-semibold text-foreground dark:text-slate-50">
+                      {aidStationsCopy.labels.waterRefill}
+                    </span>
+                    {locale === "fr" ? "Remplissage des flasques." : "Bottle refill."}
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={editorState.solidRefill}
+                    onChange={(event) => updateEditorService("solidRefill", event.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                  />
+                  <span>
+                    <span className="block font-semibold text-foreground dark:text-slate-50">
+                      {aidStationsCopy.labels.solidRefill}
+                    </span>
+                    {locale === "fr" ? "Gels, boisson et sodium." : "Gels, drink mix, and sodium."}
+                  </span>
+                </label>
+              </div>
               {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
             </div>
             <div className="flex items-center justify-end gap-2">

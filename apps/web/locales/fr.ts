@@ -518,6 +518,7 @@ export const fr: Translations = {
           name: "Nom",
           distance: "Distance (km)",
           waterRefill: "Eau disponible",
+          solidRefill: "Solide disponible",
         },
         remove: "Supprimer",
       },

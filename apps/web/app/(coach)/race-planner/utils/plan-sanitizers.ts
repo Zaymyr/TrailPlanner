@@ -100,7 +100,14 @@ export function buildImplicitSectionSegments(
 }
 
 export function sanitizeAidStations(
-  stations?: { name?: string; distanceKm?: number; waterRefill?: boolean; pauseMinutes?: number }[]
+  stations?: {
+    name?: string;
+    distanceKm?: number;
+    waterRefill?: boolean;
+    solidRefill?: boolean;
+    pauseMinutes?: number;
+    supplies?: Array<{ productId?: string; quantity?: number }>;
+  }[]
 ): AidStation[] {
   if (!stations?.length) return [];
 
@@ -115,7 +122,9 @@ export function sanitizeAidStations(
       name: station.name,
       distanceKm: station.distanceKm,
       waterRefill: station.waterRefill !== false,
+      solidRefill: station.solidRefill !== false,
       ...plan,
+      ...(station.solidRefill === false ? { supplies: [] } : {}),
     });
   });
 

@@ -32,7 +32,7 @@ type PlanPrimaryContentProps = {
   raceTotals: RaceTotals | null;
   onPrintAssistance: () => void;
   onAutomaticFill: () => void;
-  onAddAidStation: (station: { name: string; distanceKm: number }) => void;
+  onAddAidStation: (station: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean }) => void;
   onRemoveAidStation: (index: number) => void;
   setValue: UseFormSetValue<FormValues>;
   formatDistanceWithUnit: (value: number) => string;

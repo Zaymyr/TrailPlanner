@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -9,7 +9,32 @@ related_files:
   - apps/web/lib/fuel-types.ts
   - apps/web/lib/default-products.ts
   - apps/web/app/api/plans/route.ts
+  - apps/web/app/(coach)/race-planner/RacePlannerPageContent.tsx
+  - apps/web/app/(coach)/race-planner/types.ts
+  - apps/web/app/(coach)/race-planner/components/PlanPrimaryContent.tsx
+  - apps/web/app/(coach)/race-planner/utils/plan-sanitizers.ts
+  - apps/web/app/(coach)/race-planner/utils/__tests__/carryover-nutrition.test.ts
+  - apps/web/app/(coach)/race-planner/utils/__tests__/plan-sanitizers.test.ts
   - apps/web/app/(coach)/race-planner/utils/segments.ts
+  - apps/web/components/race-planner/ActionPlan.tsx
+  - apps/web/components/race-planner/carryoverNutrition.ts
+  - apps/web/components/race-planner/useActionPlanDerivedData.ts
+  - apps/web/locales/types.ts
+  - apps/web/locales/fr.ts
+  - apps/web/locales/en.ts
+  - apps/mobile/app/(app)/plan/[id]/edit.tsx
+  - apps/mobile/app/(app)/plan/new.tsx
+  - apps/mobile/components/PlanForm.tsx
+  - apps/mobile/components/plan-form/AidStationsSectionV3.tsx
+  - apps/mobile/components/plan-form/carryover.ts
+  - apps/mobile/components/plan-form/contracts.ts
+  - apps/mobile/components/plan-form/EditStationModal.tsx
+  - apps/mobile/components/plan-form/helpers.ts
+  - apps/mobile/components/plan-form/metrics.ts
+  - apps/mobile/components/plan-form/styles.ts
+  - apps/mobile/components/plan-form/usePlanSupplies.ts
+  - apps/mobile/lib/continuousNutrition.ts
+  - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
   - products
   - race_plans
@@ -19,7 +44,7 @@ related_tables:
 
 ## Purpose
 
-This document describes how Pace Yourself allocates products to segment nutrition needs. The implementation source of truth is `apps/web/lib/nutrition-planner.ts`.
+This document describes how Pace Yourself allocates products to segment nutrition needs. The legacy API allocation source is `apps/web/lib/nutrition-planner.ts`; current planner UIs also use carryover inventory simulation in web and mobile planner components.
 
 ## Key Concepts
 
@@ -28,6 +53,9 @@ This document describes how Pace Yourself allocates products to segment nutritio
 - Electrolyte: product type allocated first based on water demand.
 - Carb source: non-electrolyte, non-capsule product with carbs.
 - Salt capsule: capsule product used last for sodium top-up.
+- Carryover inventory: whole product units physically available after previous sections.
+- Nutrition balance: surplus carbs or sodium from consumed whole units that can cover later section demand.
+- Aid station services: `waterRefill` controls water refill availability, while `solidRefill` controls product pickup for carbs and sodium.
 
 ## Inputs
 
@@ -48,7 +76,34 @@ Planner segment code in `apps/web/app/(coach)/race-planner/utils/segments.ts` co
 - water carrying capacity;
 - per-hour carb/water/sodium targets.
 
-## Allocation Order
+## Planner Carryover Rule
+
+The current planner rule is cumulative across the race, not reset per aid station.
+
+For each outgoing section, the simulator uses the checkpoint at the start of that section:
+
+1. Add products picked up at that checkpoint to the runner's physical inventory only when `solidRefill !== false`.
+2. Subtract the next section's carb and sodium needs from the nutrition balance.
+3. Consume whole product units from inventory until the cumulative carb/sodium deficit is covered, or until inventory cannot cover it.
+4. Carry forward both remaining product units and any nutrient surplus created by whole-unit consumption.
+
+Product units are indivisible. A gel, capsule, bar, drink mix serving, or food item is either unconsumed or fully consumed. If a 25 g gel is consumed to cover a 20 g carb gap just before an aid station, the extra 5 g remains as positive nutrition balance for the next section. The runner may still pick up more inventory at the aid station, but the planner should not require another immediate gel if the nutrition balance already covers the outgoing section.
+
+If an aid station has `solidRefill === false`, the runner cannot pick up carb/sodium products there. Auto-fill assigns any top-up needed for the outgoing section to the most recent previous checkpoint where solid pickup is enabled, so the runner carries that inventory through the skipped aid station.
+
+Web implementation:
+
+- `apps/web/components/race-planner/carryoverNutrition.ts` simulates whole-unit inventory and nutrition balance for timeline coverage.
+- `apps/web/app/(coach)/race-planner/RacePlannerPageContent.tsx` uses the same carryover rule when auto-filling supplies.
+
+Mobile implementation:
+
+- `apps/mobile/components/plan-form/carryover.ts` simulates whole-unit inventory and nutrition balance for gauges.
+- `apps/mobile/components/plan-form/usePlanSupplies.ts` uses the same carryover rule when auto-filling supplies.
+
+Water remains separate from product inventory. The planner carries forward remaining water capacity between sections; a station with `waterRefill === false` does not refill the bag, so the outgoing section starts with whatever water remains from the previous section.
+
+## Legacy API Allocation Order
 
 `allocateSegmentNutrition` uses this order:
 
@@ -133,6 +188,9 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 ## Gotchas
 
+- Planner UI product coverage is cumulative. Do not compute carbs/sodium coverage from only the products assigned to the current aid station.
+- Product quantities are whole units for consumption. Fractional product inventory must not be consumed as a fractional gel/bar/capsule.
+- Nutrient surplus from a consumed whole unit carries forward; it is not discarded at aid stations.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.
 - Carb allocation uses product carbs as weights; products with `carbs_g <= 5` are excluded from carb-source allocation.
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.

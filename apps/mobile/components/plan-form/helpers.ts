@@ -34,9 +34,15 @@ export function injectSystemStations(stations: AidStationFormItem[], distanceKm:
   );
 
   return [
-    { id: DEPART_ID, name: 'Départ', distanceKm: 0, waterRefill: true, pauseMinutes: 0, supplies: [] },
-    ...intermediates.map((station) => ({ ...station, pauseMinutes: Math.max(0, station.pauseMinutes ?? 0) })),
-    { id: ARRIVEE_ID, name: 'Arrivée', distanceKm, waterRefill: false, pauseMinutes: 0 },
+    { id: DEPART_ID, name: 'Départ', distanceKm: 0, waterRefill: true, solidRefill: true, pauseMinutes: 0, supplies: [] },
+    ...intermediates.map((station) => ({
+      ...station,
+      waterRefill: station.waterRefill !== false,
+      solidRefill: station.solidRefill !== false,
+      pauseMinutes: Math.max(0, station.pauseMinutes ?? 0),
+      supplies: station.solidRefill === false ? [] : station.supplies,
+    })),
+    { id: ARRIVEE_ID, name: 'Arrivée', distanceKm, waterRefill: false, solidRefill: false, pauseMinutes: 0 },
   ];
 }
 
@@ -52,8 +58,10 @@ export function buildInitialPlanValues(initialValues: PlanFormValues): PlanFormV
     aidStations: injectSystemStations(
       initialValues.aidStations.map((station) => ({
         ...station,
+        waterRefill: station.waterRefill !== false,
+        solidRefill: station.solidRefill !== false,
         pauseMinutes: Math.max(0, station.pauseMinutes ?? 0),
-        supplies: normalizeSupplies(station.supplies),
+        supplies: station.solidRefill === false ? [] : normalizeSupplies(station.supplies),
       })),
       initialValues.raceDistanceKm,
     ),
