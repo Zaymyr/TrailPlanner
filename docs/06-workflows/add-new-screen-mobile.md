@@ -1,10 +1,11 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-05-18
+last_verified: 2026-05-19
 ai_priority: medium
 related_files:
   - apps/mobile/app
+  - apps/mobile/app/(app)/training-live.tsx
   - apps/mobile/app/_layout.tsx
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
@@ -29,6 +30,8 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
+- Hidden utility screens, such as free training live, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`.
+- Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
 
 ## Steps
 
@@ -65,6 +68,7 @@ For native behavior, build/run with the development client profile from `apps/mo
 - Do not reintroduce duplicate header titles on root tab screens unless the tab bar no longer identifies the current section.
 - Do not put root-tab help, feedback, or create actions back into the native header; use the floating root action menu so the screen keeps the reclaimed vertical space.
 - Do not remove the opened menu backdrop or high-contrast action styling unless replacing it with an equally readable treatment across busy root screens.
+- Do not expose temporary flows like free training as new bottom tabs unless they become primary navigation destinations.
 
 ## Related Docs
 
