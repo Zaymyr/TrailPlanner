@@ -34,6 +34,9 @@ related_files:
   - apps/mobile/components/plan-form/styles.ts
   - apps/mobile/components/plan-form/usePlanSupplies.ts
   - apps/mobile/lib/continuousNutrition.ts
+  - apps/mobile/lib/freeTrainingLive.ts
+  - apps/mobile/lib/raceLiveSession.ts
+  - apps/mobile/app/(app)/training-live.tsx
   - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
   - products
@@ -102,6 +105,30 @@ Mobile implementation:
 - `apps/mobile/components/plan-form/usePlanSupplies.ts` uses the same carryover rule when auto-filling supplies.
 
 Water remains separate from product inventory. The planner carries forward remaining water capacity between sections; a station with `waterRefill === false` does not refill the bag, so the outgoing section starts with whatever water remains from the previous section.
+
+## Free Training Live Rule
+
+The mobile free training flow starts a temporary live session without creating or saving a `race_plans` row.
+
+The runner chooses:
+
+- hourly targets for carbs, water, and sodium;
+- carried liquid capacity;
+- carried products and quantities.
+
+The setup UI may present hourly targets and liquid capacity in a collapsed summary by default, but the calculation must always use the current editable values.
+
+Targets set to `0` are ignored. They do not reduce autonomy, do not generate reminders, and are not shown as active live levels. For active targets, the flow computes resource autonomy independently:
+
+- water autonomy = one default hour before drinking is required, plus carried liquid capacity divided by water target; carried capacity may be `0`;
+- carb autonomy = one default hour before eating is required, plus carried product carbs divided by carb target;
+- sodium autonomy = one default hour before sodium intake is required, plus carried product sodium divided by sodium target.
+
+If no water, carb, or sodium supply is carried and the matching target is active, mobile still creates a one-hour initial buffer and can remind the runner when intake becomes due. This buffer is an autonomy baseline, not a delay before consuming carried supplies: when water or products are carried, reminders are scheduled from the start of the live session using the normal live rhythm. The UI shows both the first shortage and the last active resource end. During live tracking, reminders continue only for resources with remaining inventory or the initial buffer. If water, carbs, or sodium run out before another resource, those reminders stop silently while the remaining active resources continue.
+
+Liquid products (`drink_mix` and `electrolyte`) occupy carried water capacity. Mobile uses `DEFAULT_FLUID_PRODUCT_VOLUME_ML` (`500 ml`) per liquid product serving. A runner cannot start free training if the selected liquid products require more volume than the carried liquid capacity. Liquid product nutrients are consumed with the water reminders; they do not add extra water beyond the carried capacity.
+
+The free training session uses the same in-memory live session store as race live mode, but passes prebuilt alert specs instead of section-derived plan alerts.
 
 ## Legacy API Allocation Order
 
@@ -191,6 +218,10 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Planner UI product coverage is cumulative. Do not compute carbs/sodium coverage from only the products assigned to the current aid station.
 - Product quantities are whole units for consumption. Fractional product inventory must not be consumed as a fractional gel/bar/capsule.
 - Nutrient surplus from a consumed whole unit carries forward; it is not discarded at aid stations.
+- Free training ignores targets set to `0`; do not treat them as zero-minute blockers.
+- Free training gives active water, carb, and sodium targets a default one-hour buffer even when no matching supply is carried.
+- The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
+- Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.
 - Carb allocation uses product carbs as weights; products with `carbs_g <= 5` are excluded from carb-source allocation.
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.

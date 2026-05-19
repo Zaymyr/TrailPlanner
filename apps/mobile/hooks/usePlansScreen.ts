@@ -234,6 +234,10 @@ export function usePlansScreen() {
     router.push('/(app)/plan/new');
   }, [router]);
 
+  const handleStartFreeTraining = useCallback(() => {
+    router.push('/(app)/training-live' as any);
+  }, [router]);
+
   const handleOpenGuestAccountUpgrade = useCallback(() => {
     router.push('/(auth)/login');
   }, [router]);
@@ -285,6 +289,7 @@ export function usePlansScreen() {
     handleDelete,
     toggleSection,
     handleCreateFirstPlan,
+    handleStartFreeTraining,
     handleOpenGuestAccountUpgrade,
     handleEditRace,
     handleOpenEditPlan,

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@pace-yourself/design-system';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
@@ -35,6 +36,7 @@ export default function PlansScreen() {
     handleDelete,
     toggleSection,
     handleCreateFirstPlan,
+    handleStartFreeTraining,
     handleOpenGuestAccountUpgrade,
     handleEditRace,
     handleOpenEditPlan,
@@ -99,6 +101,21 @@ export default function PlansScreen() {
 
   return (
     <Screen style={screenStyle}>
+      <TouchableOpacity activeOpacity={0.86} onPress={handleStartFreeTraining} style={styles.trainingCta}>
+        <View style={styles.trainingCtaIcon}>
+          <Ionicons color={colors.text.inverse} name="walk-outline" size={20} />
+        </View>
+        <View style={styles.trainingCtaCopy}>
+          <Text tone="brand" size="base" weight="bold">
+            {t.trainingLive.menuLabel}
+          </Text>
+          <Text tone="secondary" size="sm" lineHeight="normal">
+            {t.trainingLive.introTitle}
+          </Text>
+        </View>
+        <Ionicons color={colors.brand.forest} name="chevron-forward" size={20} />
+      </TouchableOpacity>
+
       {isAnonymous ? (
         <Card surface="cream" style={styles.guestBanner}>
           <View style={styles.guestBannerCopy}>
@@ -166,6 +183,33 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 4,
     gap: 14,
+  },
+  trainingCta: {
+    minHeight: 70,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border.brand,
+    backgroundColor: colors.surface.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  trainingCtaIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brand.forest,
+  },
+  trainingCtaCopy: {
+    flex: 1,
+    gap: 3,
   },
   guestBannerCopy: {
     gap: 6,
