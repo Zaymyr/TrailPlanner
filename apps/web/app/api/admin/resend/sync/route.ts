@@ -15,11 +15,13 @@ import { getResendConfig, type ResendContactPayload, upsertResendContact } from 
 
 const syncRequestSchema = z.object({
   dryRun: z.boolean().optional().default(false),
+  startPage: z.coerce.number().int().min(1).optional().default(1),
   pageSize: z.coerce.number().int().min(1).max(200).optional().default(100),
   maxPages: z.coerce.number().int().min(1).max(500).optional(),
   includeAnonymous: z.boolean().optional().default(false),
-  includeProperties: z.boolean().optional().default(true),
+  includeProperties: z.boolean().optional().default(false),
   defaultUnsubscribed: z.boolean().optional().default(true),
+  resendRequestDelayMs: z.coerce.number().int().min(0).max(2000).optional().default(250),
 });
 
 const supabaseAdminUserSchema = z.object({
@@ -254,7 +256,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { dryRun, pageSize, maxPages, includeAnonymous, includeProperties, defaultUnsubscribed } = parsedBody.data;
+  const {
+    dryRun,
+    startPage,
+    pageSize,
+    maxPages,
+    includeAnonymous,
+    includeProperties,
+    defaultUnsubscribed,
+    resendRequestDelayMs,
+  } = parsedBody.data;
   const { supabaseUrl, supabaseServiceRoleKey } = auth.supabaseService;
   const failures: { userId: string; email: string | null; statusCode?: number; message: string }[] = [];
   let pagesProcessed = 0;
@@ -262,14 +273,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   let skippedNoEmail = 0;
   let skippedAnonymous = 0;
   let contactsPrepared = 0;
+  let propertiesDropped = 0;
   let created = 0;
   let updated = 0;
   let failed = 0;
   let hasMoreFailures = false;
 
   try {
-    for (let page = 1; ; page += 1) {
-      if (maxPages && page > maxPages) break;
+    const lastPage = maxPages ? startPage + maxPages - 1 : null;
+
+    for (let page = startPage; ; page += 1) {
+      if (lastPage && page > lastPage) break;
 
       const users = await fetchSupabaseUsersPage(supabaseUrl, supabaseServiceRoleKey, page, pageSize);
       pagesProcessed += 1;
@@ -306,14 +320,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
         if (dryRun) continue;
 
-        const result = await upsertResendContact(resendConfig, contact);
+        const result = await upsertResendContact(resendConfig, contact, {
+          requestDelayMs: resendRequestDelayMs,
+        });
 
         if (result.status === "created") {
+          if (result.propertiesDropped) propertiesDropped += 1;
           created += 1;
           continue;
         }
 
         if (result.status === "updated") {
+          if (result.propertiesDropped) propertiesDropped += 1;
           updated += 1;
           continue;
         }
@@ -342,11 +360,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           dryRun,
           defaultUnsubscribed,
           includeProperties,
+          resendRequestDelayMs,
+          startPage,
           pagesProcessed,
           usersRead,
           contactsPrepared,
           contactsWouldSync: dryRun ? contactsPrepared : 0,
           contactsSynced: dryRun ? 0 : created + updated,
+          propertiesDropped,
           created,
           updated,
           skipped: skippedNoEmail + skippedAnonymous,

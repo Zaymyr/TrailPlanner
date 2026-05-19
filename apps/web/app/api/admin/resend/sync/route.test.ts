@@ -96,7 +96,9 @@ describe("POST /api/admin/resend/sync", () => {
       )
       .mockResolvedValueOnce(buildJsonResponse({ object: "contact", id: "contact-id" }));
 
-    const response = await POST(syncRequest({ pageSize: 2, defaultUnsubscribed: false }));
+    const response = await POST(
+      syncRequest({ pageSize: 2, defaultUnsubscribed: false, resendRequestDelayMs: 0 })
+    );
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -116,6 +118,49 @@ describe("POST /api/admin/resend/sync", () => {
       firstName: "Ada",
       lastName: "Byron",
       unsubscribed: false,
+    });
+  });
+
+  it("can include Resend properties when requested", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse({
+          users: [
+            {
+              id: "11111111-1111-1111-1111-111111111111",
+              email: "Ada@Example.com",
+              created_at: "2026-05-01T10:00:00.000Z",
+              last_sign_in_at: "2026-05-03T10:00:00.000Z",
+              app_metadata: { roles: ["coach"] },
+              user_metadata: { full_name: "Ada Lovelace" },
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([{ user_id: "11111111-1111-1111-1111-111111111111", full_name: "Ada Byron" }])
+      )
+      .mockResolvedValueOnce(buildJsonResponse({ object: "contact", id: "contact-id" }));
+
+    const response = await POST(
+      syncRequest({ pageSize: 2, defaultUnsubscribed: false, includeProperties: true, resendRequestDelayMs: 0 })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.summary).toMatchObject({
+      includeProperties: true,
+      contactsSynced: 1,
+      created: 1,
+      failed: 0,
+    });
+
+    const resendCall = mockFetch.mock.calls.find(([url]) => String(url) === "https://api.resend.com/contacts");
+    expect(resendCall).toBeDefined();
+    const [, resendInit] = resendCall!;
+    expect(JSON.parse(resendInit?.body as string)).toMatchObject({
       properties: {
         source: "supabase",
         supabase_user_id: "11111111-1111-1111-1111-111111111111",
@@ -124,6 +169,45 @@ describe("POST /api/admin/resend/sync", () => {
         app_roles: "coach",
       },
     });
+  });
+
+  it("retries without properties when Resend custom properties are missing", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse({
+          users: [
+            {
+              id: "11111111-1111-1111-1111-111111111111",
+              email: "ada@example.com",
+              created_at: "2026-05-01T10:00:00.000Z",
+              app_metadata: { role: "user" },
+              user_metadata: {},
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse({ message: "One or more properties do not exist" }, { status: 422 }))
+      .mockResolvedValueOnce(buildJsonResponse({ object: "contact", id: "contact-id" }));
+
+    const response = await POST(syncRequest({ pageSize: 2, includeProperties: true, resendRequestDelayMs: 0 }));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.summary).toMatchObject({
+      contactsSynced: 1,
+      propertiesDropped: 1,
+      created: 1,
+      failed: 0,
+    });
+
+    const resendBodies = mockFetch.mock.calls
+      .filter(([url]) => String(url) === "https://api.resend.com/contacts")
+      .map(([, init]) => JSON.parse(init?.body as string));
+    expect(resendBodies[0]).toHaveProperty("properties");
+    expect(resendBodies[1]).not.toHaveProperty("properties");
   });
 
   it("updates existing Resend contacts when create reports a duplicate", async () => {
@@ -147,7 +231,7 @@ describe("POST /api/admin/resend/sync", () => {
       .mockResolvedValueOnce(buildJsonResponse({ message: "Contact already exists" }, { status: 409 }))
       .mockResolvedValueOnce(buildJsonResponse({ object: "contact", id: "contact-id" }));
 
-    const response = await POST(syncRequest({ pageSize: 2 }));
+    const response = await POST(syncRequest({ pageSize: 2, resendRequestDelayMs: 0 }));
     const payload = await response.json();
 
     expect(response.status).toBe(200);

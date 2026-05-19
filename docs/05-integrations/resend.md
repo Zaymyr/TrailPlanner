@@ -51,15 +51,21 @@ Request options:
 ```json
 {
   "dryRun": true,
+  "startPage": 1,
   "pageSize": 100,
   "maxPages": 5,
   "includeAnonymous": false,
-  "includeProperties": true,
-  "defaultUnsubscribed": true
+  "includeProperties": false,
+  "defaultUnsubscribed": true,
+  "resendRequestDelayMs": 250
 }
 ```
 
 `defaultUnsubscribed` defaults to `true` so imported contacts are not automatically subscribed to Broadcasts without an explicit consent decision. Set it to `false` only when consent is handled outside this route.
+
+`includeProperties` defaults to `false` because Resend rejects unknown custom properties with `422 One or more properties do not exist`. If properties are enabled and Resend rejects them, the route retries that contact without properties and counts it in `summary.propertiesDropped`.
+
+`resendRequestDelayMs` defaults to `250` to stay under Resend's request rate limits. Use `startPage`, `pageSize`, and `maxPages` to run smaller batches when a deployment has a short function timeout.
 
 The app still has:
 
@@ -80,6 +86,8 @@ The app still has:
 - Do not expose `RESEND_API_KEY` or the Supabase service role key to client/mobile code.
 - Resend Audiences are deprecated in the current Resend API navigation; use Contacts, Segments, and Topics for new sync work.
 - The sync route imports contacts into Resend; it does not prove users opted into marketing. Keep `defaultUnsubscribed: true` unless consent is known.
+- Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.
+- Resend can return `429` during large syncs. Keep the default request delay or run batches with `startPage`/`maxPages`.
 - Do not add a Resend dependency unless SDK-specific behavior is needed; current code uses REST through `fetch`.
 - Coach invite table behavior is not proof that app-managed email sending exists.
 
