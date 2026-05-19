@@ -81,6 +81,19 @@ describe("sanitizeAidStations", () => {
     const result = sanitizeAidStations([{ name: "A", distanceKm: 5, waterRefill: false }]);
     expect(result[0].waterRefill).toBe(false);
   });
+
+  it("defaults solidRefill to true and clears supplies when disabled", () => {
+    const result = sanitizeAidStations([
+      {
+        name: "A",
+        distanceKm: 5,
+        solidRefill: false,
+        supplies: [{ productId: "gel", quantity: 2 }],
+      },
+    ]);
+    expect(result[0].solidRefill).toBe(false);
+    expect(result[0].supplies).toEqual([]);
+  });
 });
 
 describe("dedupeAidStations", () => {

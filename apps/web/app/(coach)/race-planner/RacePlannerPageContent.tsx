@@ -56,6 +56,7 @@ import { usePlannerState } from "./hooks/usePlannerState";
 import { useRacePlan } from "./hooks/useRacePlan";
 import { OnboardingOverlay } from "../../../components/race-planner/OnboardingOverlay";
 import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
+import { addSuppliesToInventory, consumeInventoryForTargets } from "../../../components/race-planner/carryoverNutrition";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -129,11 +130,11 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   sodiumIntakePerHour: 600,
   startSupplies: [],
   aidStations: [
-    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true },
-    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true, solidRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true, solidRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true, solidRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true, solidRefill: true },
+    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true, solidRefill: true },
   ],
   finishPlan: {},
 });
@@ -185,6 +186,7 @@ const createAidStationSchema = (validation: RacePlannerTranslations["validation"
     name: z.string().min(1, validation.required),
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
     waterRefill: z.coerce.boolean().optional().default(true),
+    solidRefill: z.coerce.boolean().optional().default(true),
   });
 
 const createFormSchema = (copy: RacePlannerTranslations) =>
@@ -1314,10 +1316,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
   const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
   const handleAddAidStation = useCallback(
-    (station?: { name: string; distanceKm: number }) => {
+    (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean }) => {
       append({
         name: station?.name ?? formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
         distanceKm: station?.distanceKm ?? 0,
+        waterRefill: station?.waterRefill !== false,
+        solidRefill: station?.solidRefill !== false,
       });
     },
     [append, fields.length, racePlannerCopy.defaults.aidStationName]
@@ -1399,45 +1403,65 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       const favoriteMatches = selectedProducts
         .map((favorite) => mergedById.get(favorite.id) ?? mergedFuelProducts.find((product) => product.slug === favorite.slug))
-        .filter((product): product is FuelProduct => Boolean(product && product.carbsGrams > 0));
+        .filter((product): product is FuelProduct => Boolean(product && (product.carbsGrams > 0 || product.sodiumMg > 0)));
 
       if (favoriteMatches.length > 0) {
         return favoriteMatches;
       }
 
-      return mergedFuelProducts.filter((product) => product.carbsGrams > 0);
+      return mergedFuelProducts.filter((product) => product.carbsGrams > 0 || product.sodiumMg > 0);
     })();
 
     if (productOptions.length === 0) return;
 
     const buildPlanForTarget = (targetFuelGrams: number, targetSodiumMg: number): StationSupply[] => {
-      if (!Number.isFinite(targetFuelGrams) || targetFuelGrams <= 0) return [];
+      const safeTargetFuelGrams = Number.isFinite(targetFuelGrams) ? Math.max(0, targetFuelGrams) : 0;
+      const safeTargetSodiumMg = Number.isFinite(targetSodiumMg) ? Math.max(0, targetSodiumMg) : 0;
+      if (safeTargetFuelGrams <= 0 && safeTargetSodiumMg <= 0) return [];
 
-      const options = productOptions
+      const carbCandidates = productOptions
         .slice()
         .sort((a, b) => b.carbsGrams - a.carbsGrams)
-        .slice(0, 3)
-        .map((product) => ({
+        .slice(0, safeTargetFuelGrams > 0 && safeTargetSodiumMg > 0 ? 2 : 3);
+      const sodiumCandidates = productOptions
+        .slice()
+        .sort((a, b) => b.sodiumMg - a.sodiumMg)
+        .slice(0, safeTargetFuelGrams > 0 && safeTargetSodiumMg > 0 ? 1 : 3);
+      const candidateProducts = Array.from(
+        new Map(
+          (safeTargetFuelGrams > 0 && safeTargetSodiumMg <= 0
+            ? carbCandidates
+            : safeTargetFuelGrams <= 0 && safeTargetSodiumMg > 0
+              ? sodiumCandidates
+              : [...carbCandidates, ...sodiumCandidates]
+          ).map((product) => [product.id, product])
+        ).values()
+      ).slice(0, 3);
+      const options = candidateProducts.map((product) => ({
         id: product.id,
         carbs: Math.max(product.carbsGrams, 0),
         sodium: Math.max(product.sodiumMg ?? 0, 0),
       }));
 
-      const minCarbs = Math.max(Math.min(...options.map((option) => option.carbs)), 1);
-      const maxUnits = Math.min(12, Math.max(3, Math.ceil(targetFuelGrams / minCarbs) + 2));
+      const minCarbs = Math.max(Math.min(...options.map((option) => Math.max(option.carbs, 1))), 1);
+      const minSodium = Math.max(Math.min(...options.map((option) => Math.max(option.sodium, 1))), 1);
+      const maxUnits = Math.min(
+        12,
+        Math.max(3, Math.ceil(safeTargetFuelGrams / minCarbs) + 2, Math.ceil(safeTargetSodiumMg / minSodium) + 1)
+      );
       const best = { score: Number.POSITIVE_INFINITY, combo: [] as number[] };
 
       const evaluateCombo = (combo: number[]) => {
         const plannedCarbs = combo.reduce((total, qty, index) => total + qty * options[index].carbs, 0);
         const plannedSodium = combo.reduce((total, qty, index) => total + qty * options[index].sodium, 0);
-        const carbDiff = Math.abs(plannedCarbs - targetFuelGrams) / Math.max(targetFuelGrams, 1);
+        const carbDiff = Math.abs(plannedCarbs - safeTargetFuelGrams) / Math.max(safeTargetFuelGrams, 1);
         const sodiumDiff =
-          targetSodiumMg > 0 ? Math.abs(plannedSodium - targetSodiumMg) / targetSodiumMg : 0;
-        const underfillPenalty = plannedCarbs < targetFuelGrams ? 0.2 : 0;
+          safeTargetSodiumMg > 0 ? Math.abs(plannedSodium - safeTargetSodiumMg) / safeTargetSodiumMg : 0;
+        const underfillPenalty = plannedCarbs < safeTargetFuelGrams ? 0.2 : 0;
         const itemPenalty = combo.reduce((sum, qty) => sum + qty, 0) * 0.01;
         const score = carbDiff * 1.5 + sodiumDiff * 0.5 + underfillPenalty + itemPenalty;
 
-        if (score < best.score && plannedCarbs > 0) {
+        if (score < best.score && (plannedCarbs > 0 || plannedSodium > 0)) {
           best.score = score;
           best.combo = combo.slice();
         }
@@ -1467,18 +1491,66 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         .filter((supply) => supply.quantity > 0);
     };
 
-    const firstSegment = segments[0];
-    if (firstSegment) {
-      const startPlan = buildPlanForTarget(firstSegment.targetFuelGrams, firstSegment.targetSodiumMg);
-      form.setValue("startSupplies", startPlan, { shouldDirty: true, shouldValidate: true });
-    }
+    const productsById = Object.fromEntries(productOptions.map((product) => [product.id, product]));
+    const inventory = new Map<string, number>();
+    const balance = { carbs: 0, sodium: 0 };
+    type SupplyTarget = "start" | number;
+    const plannedSuppliesByTarget = new Map<SupplyTarget, StationSupply[]>();
+    const aidStations = form.getValues("aidStations") ?? [];
+    let lastSolidTarget: SupplyTarget = "start";
+    const mergeSupplies = (base: StationSupply[], extra: StationSupply[]) => {
+      const quantities = new Map<string, number>();
+
+      [...base, ...extra].forEach((supply) => {
+        quantities.set(supply.productId, (quantities.get(supply.productId) ?? 0) + supply.quantity);
+      });
+
+      return [...quantities.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+    };
 
     segments.forEach((segment, index) => {
-      const nextSegment = segments[index + 1];
-      if (!nextSegment || typeof segment.aidStationIndex !== "number") return;
+      const pickupTarget: SupplyTarget | undefined = index === 0 ? "start" : segments[index - 1]?.aidStationIndex;
+      const pickupAllowsSolid =
+        pickupTarget === "start" ||
+        (typeof pickupTarget === "number" && aidStations[pickupTarget]?.solidRefill !== false);
 
-      const supplies = buildPlanForTarget(nextSegment.targetFuelGrams, nextSegment.targetSodiumMg);
-      form.setValue(`aidStations.${segment.aidStationIndex}.supplies`, supplies, {
+      if (pickupAllowsSolid && pickupTarget !== undefined) {
+        lastSolidTarget = pickupTarget;
+      }
+
+      consumeInventoryForTargets({
+        inventory,
+        productsById,
+        balance,
+        targetCarbs: segment.targetFuelGrams,
+        targetSodium: segment.targetSodiumMg,
+      });
+
+      const remainingFuelGrams = Math.max(0, -balance.carbs);
+      const remainingSodiumMg = Math.max(0, -balance.sodium);
+      if (remainingFuelGrams <= 0 && remainingSodiumMg <= 0) return;
+
+      const supplies = buildPlanForTarget(remainingFuelGrams, remainingSodiumMg);
+      plannedSuppliesByTarget.set(
+        lastSolidTarget,
+        mergeSupplies(plannedSuppliesByTarget.get(lastSolidTarget) ?? [], supplies)
+      );
+      addSuppliesToInventory(inventory, supplies);
+      consumeInventoryForTargets({
+        inventory,
+        productsById,
+        balance,
+        targetCarbs: 0,
+        targetSodium: 0,
+      });
+    });
+
+    form.setValue("startSupplies", plannedSuppliesByTarget.get("start") ?? [], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    aidStations.forEach((station, index) => {
+      form.setValue(`aidStations.${index}.supplies`, station.solidRefill === false ? [] : plannedSuppliesByTarget.get(index) ?? [], {
         shouldDirty: true,
         shouldValidate: true,
       });

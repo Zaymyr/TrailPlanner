@@ -97,7 +97,8 @@ function buildPlannerValues(values: PlanFormValues) {
     aidStations: values.aidStations.map((station) => ({
       name: station.name,
       distanceKm: station.distanceKm,
-      waterRefill: station.waterRefill,
+      waterRefill: station.waterRefill !== false,
+      solidRefill: station.solidRefill !== false,
       pauseMinutes: station.pauseMinutes ?? 0,
       supplies: [],
     })),

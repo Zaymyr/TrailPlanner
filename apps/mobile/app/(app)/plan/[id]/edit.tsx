@@ -71,6 +71,7 @@ type RacePlanRow = {
       name: string;
       distanceKm: number;
       waterRefill: boolean;
+      solidRefill?: boolean;
       pauseMinutes?: number;
       supplies?: Array<{ productId: string; quantity: number }>;
     }>;
@@ -100,9 +101,13 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
     aidStations: (pv.aidStations ?? []).map((s) => ({
       name: s.name,
       distanceKm: s.distanceKm,
-      waterRefill: s.waterRefill,
+      waterRefill: s.waterRefill !== false,
+      solidRefill: s.solidRefill !== false,
       pauseMinutes: s.pauseMinutes ?? 0,
-      supplies: (s.supplies ?? []).map((sup): Supply => ({ productId: sup.productId, quantity: sup.quantity ?? 1 })),
+      supplies:
+        s.solidRefill === false
+          ? []
+          : (s.supplies ?? []).map((sup): Supply => ({ productId: sup.productId, quantity: sup.quantity ?? 1 })),
     })),
   };
 }
@@ -446,9 +451,13 @@ export default function EditPlanScreen() {
         aidStations: values.aidStations.map((s) => ({
           name: s.name,
           distanceKm: s.distanceKm,
-          waterRefill: s.waterRefill,
+          waterRefill: s.waterRefill !== false,
+          solidRefill: s.solidRefill !== false,
           pauseMinutes: s.pauseMinutes ?? 0,
-          supplies: (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
+          supplies:
+            s.solidRefill === false
+              ? []
+              : (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
         })),
       };
 

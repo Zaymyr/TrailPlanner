@@ -8,6 +8,7 @@ import type {
   Supply,
 } from '../components/plan-form/contracts';
 import {
+  ARRIVEE_ID,
   DEFAULT_FLUID_MIX_SHARE,
   DEFAULT_FLUID_PRODUCT_VOLUME_ML,
 } from '../components/plan-form/contracts';
@@ -30,6 +31,8 @@ export type ContinuousSection = {
   targetWaterMl: number;
   supplies: Supply[];
   waterRefill: boolean;
+  solidRefill: boolean;
+  availableWaterMl: number;
 };
 
 export type ContinuousIntakeEvent = IntakeTimelineItem & {
@@ -100,7 +103,7 @@ function getSuppliesForTarget(values: PlanFormValues, target: PlanTarget) {
 }
 
 function getAvailableWaterMl(section: ContinuousSection, waterBagLiters: number) {
-  return section.waterRefill ? waterBagLiters * 1000 : 0;
+  return section.availableWaterMl ?? (section.waterRefill ? waterBagLiters * 1000 : 0);
 }
 
 function roundToStep(minute: number, step = TIMELINE_ROUNDING_STEP_MIN) {
@@ -420,6 +423,8 @@ export function buildContinuousSections({
   const baseSpeedKph = getBaseSpeedKph(values);
   const sections: ContinuousSection[] = [];
   let startMinute = 0;
+  const waterCapacityMl = Math.max(0, values.waterBagLiters * 1000);
+  let availableWaterMl = waterCapacityMl;
 
   for (let sectionIndex = 0; sectionIndex < values.aidStations.length - 1; sectionIndex += 1) {
     const target: PlanTarget = sectionIndex === 0 ? 'start' : sectionIndex;
@@ -436,6 +441,7 @@ export function buildContinuousSections({
     const toStation = values.aidStations[summary.sectionIndex + 1];
     const roundedStartMinute = roundToStep(startMinute);
     const roundedEndMinute = roundToStep(startMinute + summary.durationMin);
+    const currentStationAllowsSolid = target === 'start' || fromStation?.solidRefill !== false;
 
     sections.push({
       target,
@@ -451,11 +457,17 @@ export function buildContinuousSections({
       targetCarbsG: summary.targetCarbsG,
       targetSodiumMg: summary.targetSodiumMg,
       targetWaterMl: summary.targetWaterMl,
-      supplies: getSuppliesForTarget(values, target),
-      waterRefill: target === 'start' || values.aidStations[summary.sectionIndex]?.waterRefill === true,
+      supplies: currentStationAllowsSolid ? getSuppliesForTarget(values, target) : [],
+      waterRefill: target === 'start' || fromStation?.waterRefill !== false,
+      solidRefill: currentStationAllowsSolid,
+      availableWaterMl: Math.max(0, availableWaterMl),
     });
 
     startMinute += summary.durationMin;
+    availableWaterMl = Math.max(0, availableWaterMl - summary.targetWaterMl);
+    if (toStation?.id !== ARRIVEE_ID && toStation?.waterRefill !== false) {
+      availableWaterMl = waterCapacityMl;
+    }
   }
 
   return sections;

@@ -198,12 +198,16 @@ function buildPlannerValues(values: PlanFormValues) {
     aidStations: values.aidStations.map((station) => ({
       name: station.name,
       distanceKm: station.distanceKm,
-      waterRefill: station.waterRefill,
+      waterRefill: station.waterRefill !== false,
+      solidRefill: station.solidRefill !== false,
       pauseMinutes: station.pauseMinutes ?? 0,
-      supplies: (station.supplies ?? []).map((supply) => ({
-        productId: supply.productId,
-        quantity: supply.quantity,
-      })),
+      supplies:
+        station.solidRefill === false
+          ? []
+          : (station.supplies ?? []).map((supply) => ({
+              productId: supply.productId,
+              quantity: supply.quantity,
+            })),
     })),
   };
 }
@@ -220,6 +224,7 @@ function buildFallbackAidStations(distanceKm: number): AidStationFormItem[] {
     name: `Ravito ${index + 1}`,
     distanceKm: Math.round((index + 1) * interval * 10) / 10,
     waterRefill: true,
+    solidRefill: true,
     pauseMinutes: 0,
     supplies: [],
   }));
@@ -275,12 +280,17 @@ function buildAutoFilledPlanValues({
   });
 
   const sectionSupplyMap = new Map<number, Supply[]>();
+  let lastSolidSectionIndex = 0;
 
   sections.forEach((section) => {
+    if (section.solidRefill) {
+      lastSolidSectionIndex = section.sectionIndex;
+    }
+
     let nextSupplies = [...(assignedBySection.get(section.sectionIndex) ?? [])];
     const baseCovered = sumSuppliesNutrition(nextSupplies, productsById);
     const effectiveSectionSodiumTarget = getEffectiveSodiumTarget(section.targetSodiumMg);
-    const availableWaterMl = section.waterRefill ? values.waterBagLiters * 1000 : 0;
+    const availableWaterMl = section.availableWaterMl ?? (section.waterRefill ? values.waterBagLiters * 1000 : 0);
     const carbTolerance = getGaugeTolerance('carbs', section.targetCarbsG);
     const sodiumTolerance = getGaugeTolerance('sodium', effectiveSectionSodiumTarget);
     let remainingCarbs = Math.max(0, section.targetCarbsG - baseCovered.carbs);
@@ -320,7 +330,7 @@ function buildAutoFilledPlanValues({
       );
     }
 
-    sectionSupplyMap.set(section.sectionIndex, nextSupplies);
+    sectionSupplyMap.set(lastSolidSectionIndex, mergeSupplyLists(sectionSupplyMap.get(lastSolidSectionIndex) ?? [], nextSupplies));
   });
 
   const newStartSupplies = sectionSupplyMap.get(0) ?? [];
@@ -328,7 +338,8 @@ function buildAutoFilledPlanValues({
     .filter((station) => station.id !== 'depart' && station.id !== 'arrivee')
     .map((station, index) => ({
       ...station,
-      supplies: sectionSupplyMap.get(index + 1) ?? [],
+      solidRefill: station.solidRefill !== false,
+      supplies: station.solidRefill === false ? [] : sectionSupplyMap.get(index + 1) ?? [],
     }));
 
   return {

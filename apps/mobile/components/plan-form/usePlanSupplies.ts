@@ -2,7 +2,7 @@ import { Alert } from 'react-native';
 import { useCallback } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import { supabase } from '../../lib/supabase';
-import { buildContinuousSections, buildSuggestedSolidIntakePlan } from '../../lib/continuousNutrition';
+import { buildContinuousSections } from '../../lib/continuousNutrition';
 import {
   ARRIVEE_ID,
   DEPART_ID,
@@ -11,9 +11,9 @@ import {
   type PlanFormValues,
   type PlanProduct,
   type PlanTarget,
-  type SectionSummary,
   type Supply,
 } from './contracts';
+import { addSuppliesToInventory, consumeInventoryForTargets, type CarryoverProduct } from './carryover';
 import { buildPlanForTarget, getEffectiveSodiumTarget, injectSystemStations } from './helpers';
 import { getGaugeTolerance } from './metrics';
 import type { ElevationPoint } from './profile-utils';
@@ -24,7 +24,6 @@ type Args = {
   allProducts: PlanProduct[];
   favoriteProductIds: Set<string>;
   setFavoriteProductIds: Dispatch<SetStateAction<Set<string>>>;
-  buildSectionSummary: (target: PlanTarget) => SectionSummary | null;
   isPremium: boolean;
   elevationProfile?: ElevationPoint[];
   onRequirePremium: () => void;
@@ -158,7 +157,6 @@ export function usePlanSupplies({
   allProducts,
   favoriteProductIds,
   setFavoriteProductIds,
-  buildSectionSummary,
   isPremium,
   elevationProfile = [],
   onRequirePremium,
@@ -190,6 +188,7 @@ export function usePlanSupplies({
   const getSupplies = useCallback(
     (target: PlanTarget): Supply[] => {
       if (target === 'start') return values.startSupplies ?? [];
+      if (values.aidStations[target]?.solidRefill === false) return [];
       return values.aidStations[target]?.supplies ?? [];
     },
     [values.aidStations, values.startSupplies],
@@ -202,9 +201,10 @@ export function usePlanSupplies({
         return;
       }
 
+      if (values.aidStations[target]?.solidRefill === false) return;
       updateAidStation(target, { supplies });
     },
-    [setValues, updateAidStation],
+    [setValues, updateAidStation, values.aidStations],
   );
 
   const increaseQty = useCallback(
@@ -258,6 +258,7 @@ export function usePlanSupplies({
       name: `Ravito ${intermediates.length + 1}`,
       distanceKm: newKm > 0 ? newKm : 10,
       waterRefill: true,
+      solidRefill: true,
       pauseMinutes: 0,
       supplies: [],
     };
@@ -278,8 +279,9 @@ export function usePlanSupplies({
       const sanitizedStation: AidStationFormItem = {
         ...station,
         waterRefill: station.waterRefill ?? true,
+        solidRefill: station.solidRefill !== false,
         pauseMinutes: station.pauseMinutes ?? 0,
-        supplies: station.supplies ?? [],
+        supplies: station.solidRefill === false ? [] : station.supplies ?? [],
       };
 
       const insertIndex = intermediateStations.findIndex(
@@ -317,6 +319,7 @@ export function usePlanSupplies({
       name: `Ravito ${index + 1}`,
       distanceKm: Math.round((index + 1) * interval * 10) / 10,
       waterRefill: true,
+      solidRefill: true,
       pauseMinutes: 0,
       supplies: [],
     }));
@@ -386,38 +389,38 @@ export function usePlanSupplies({
     const sodiumSpecialists = pickSodiumSpecialists(solidCandidates);
     const fluidMixPool = pickFluidMixPool(poolAsFavorites.filter((product) => isFluidFuelType(product.fuelType)));
     const sections = buildContinuousSections({ values, elevationProfile });
-    const assignedBySection = new Map<number, Supply[]>();
-    const suggestedSolidPlan = buildSuggestedSolidIntakePlan({
-      values,
-      solidProducts: carbBasePool.map((product) => ({
-        id: product.id,
-        name: product.name,
-        carbs_g: product.carbsGrams,
-        sodium_mg: product.sodiumMg,
-      })),
-      elevationProfile,
-    });
-
-    suggestedSolidPlan.events.forEach((event) => {
-      if (!event.productId) return;
-      const sectionSupplies = assignedBySection.get(event.sectionIndex) ?? [];
-      const existing = sectionSupplies.find((supply) => supply.productId === event.productId);
-      if (existing) existing.quantity += 1;
-      else sectionSupplies.push({ productId: event.productId, quantity: 1 });
-      assignedBySection.set(event.sectionIndex, sectionSupplies);
-    });
-
     const sectionSupplyMap = new Map<number, Supply[]>();
+    const carryoverProductsById: Record<string, CarryoverProduct> = Object.fromEntries(
+      poolAsFavorites.map((product) => [
+        product.id,
+        { id: product.id, carbsGrams: product.carbsGrams, sodiumMg: product.sodiumMg },
+      ]),
+    );
+    const inventory = new Map<string, number>();
+    const balance = { carbs: 0, sodium: 0 };
+    let lastSolidSectionIndex = 0;
 
     sections.forEach((section) => {
-      let nextSupplies = [...(assignedBySection.get(section.sectionIndex) ?? [])];
-      const baseCovered = sumSuppliesNutrition(nextSupplies, productsById);
+      if (section.solidRefill) {
+        lastSolidSectionIndex = section.sectionIndex;
+      }
+
       const effectiveSectionSodiumTarget = getEffectiveSodiumTarget(section.targetSodiumMg);
-      const availableWaterMl = section.waterRefill ? values.waterBagLiters * 1000 : 0;
+      consumeInventoryForTargets({
+        inventory,
+        productsById: carryoverProductsById,
+        balance,
+        targetCarbsG: section.targetCarbsG,
+        targetSodiumMg: effectiveSectionSodiumTarget,
+        sectionIndex: section.sectionIndex,
+      });
+
+      let nextSupplies: Supply[] = [];
+      const availableWaterMl = section.availableWaterMl ?? (section.waterRefill ? values.waterBagLiters * 1000 : 0);
       const carbTolerance = getGaugeTolerance('carbs', section.targetCarbsG);
       const sodiumTolerance = getGaugeTolerance('sodium', effectiveSectionSodiumTarget);
-      let remainingCarbs = Math.max(0, section.targetCarbsG - baseCovered.carbs);
-      let remainingSodium = Math.max(0, effectiveSectionSodiumTarget - baseCovered.sodium);
+      let remainingCarbs = Math.max(0, -balance.carbs);
+      let remainingSodium = Math.max(0, -balance.sodium);
 
       if ((remainingCarbs > carbTolerance || remainingSodium > sodiumTolerance) && fluidMixPool.length > 0 && availableWaterMl > 0) {
         const fluidCarbGoal = Math.max(0, Math.min(remainingCarbs, section.targetCarbsG * 0.45));
@@ -428,8 +431,8 @@ export function usePlanSupplies({
         });
         nextSupplies = mergeSupplyLists(nextSupplies, fluidTopUp);
         const afterFluid = sumSuppliesNutrition(nextSupplies, productsById);
-        remainingCarbs = Math.max(0, section.targetCarbsG - afterFluid.carbs);
-        remainingSodium = Math.max(0, effectiveSectionSodiumTarget - afterFluid.sodium);
+        remainingCarbs = Math.max(0, -balance.carbs - afterFluid.carbs);
+        remainingSodium = Math.max(0, -balance.sodium - afterFluid.sodium);
       }
 
       if (remainingCarbs > carbTolerance && carbBasePool.length > 0) {
@@ -441,12 +444,22 @@ export function usePlanSupplies({
       }
 
       const afterCarbTopUp = sumSuppliesNutrition(nextSupplies, productsById);
-      const sodiumStillMissing = Math.max(0, effectiveSectionSodiumTarget - afterCarbTopUp.sodium);
+      const sodiumStillMissing = Math.max(0, -balance.sodium - afterCarbTopUp.sodium);
       if (sodiumStillMissing > sodiumTolerance && sodiumSpecialists.length > 0) {
         nextSupplies = mergeSupplyLists(nextSupplies, buildSodiumTopUpSupplies(sodiumStillMissing, sodiumSpecialists));
       }
 
-      sectionSupplyMap.set(section.sectionIndex, nextSupplies);
+      const targetSectionSupplies = sectionSupplyMap.get(lastSolidSectionIndex) ?? [];
+      sectionSupplyMap.set(lastSolidSectionIndex, mergeSupplyLists(targetSectionSupplies, nextSupplies));
+      addSuppliesToInventory(inventory, nextSupplies);
+      consumeInventoryForTargets({
+        inventory,
+        productsById: carryoverProductsById,
+        balance,
+        targetCarbsG: 0,
+        targetSodiumMg: 0,
+        sectionIndex: section.sectionIndex,
+      });
     });
 
     const newStartSupplies = sectionSupplyMap.get(0) ?? [];
@@ -454,7 +467,8 @@ export function usePlanSupplies({
       .filter((station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID)
       .map((station, index) => ({
         ...station,
-        supplies: sectionSupplyMap.get(index + 1) ?? [],
+        solidRefill: station.solidRefill !== false,
+        supplies: station.solidRefill === false ? [] : sectionSupplyMap.get(index + 1) ?? [],
       }));
 
     setValues((prev) => ({

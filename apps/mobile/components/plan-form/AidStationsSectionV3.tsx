@@ -213,7 +213,10 @@ export function AidStationsSectionV3({
   const aidStationsMetaKey = useMemo(
     () =>
       values.aidStations
-        .map((station) => `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}`)
+        .map(
+          (station) =>
+            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}`,
+        )
         .join(';'),
     [values.aidStations],
   );
@@ -263,6 +266,37 @@ export function AidStationsSectionV3({
     return (
       <View style={styles.stationPauseBadge}>
         <Text style={styles.stationPauseText}>+{safePause} min</Text>
+      </View>
+    );
+  }
+
+  function getServiceLabel(waterRefill: boolean, solidRefill: boolean) {
+    if (waterRefill && solidRefill) return 'Eau + solide';
+    if (waterRefill) return 'Eau seulement';
+    if (solidRefill) return 'Solide seulement';
+    return 'Aucun service';
+  }
+
+  function renderServiceChips(station: PlanFormValues['aidStations'][number], isDepart: boolean, isArrivee: boolean) {
+    if (isArrivee) return null;
+
+    const waterRefill = isDepart || station.waterRefill !== false;
+    const solidRefill = isDepart || station.solidRefill !== false;
+    const serviceLabel = isDepart ? 'Stock initial' : getServiceLabel(waterRefill, solidRefill);
+    const active = waterRefill || solidRefill;
+
+    return (
+      <View style={styles.stationServiceChipRow}>
+        <View style={[styles.stationServiceChip, active && styles.stationServiceChipActive]}>
+          <Ionicons
+            name={waterRefill && solidRefill ? 'restaurant-outline' : waterRefill ? 'water-outline' : solidRefill ? 'nutrition-outline' : 'remove-circle-outline'}
+            size={13}
+            color={active ? colors.brand.forest : colors.text.tertiary}
+          />
+          <Text style={[styles.stationServiceChipText, active && styles.stationServiceChipTextActive]}>
+            {serviceLabel}
+          </Text>
+        </View>
       </View>
     );
   }
@@ -870,6 +904,7 @@ export function AidStationsSectionV3({
               </DataText>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
             </View>
+            {renderServiceChips(station, isDepart, isArrivee)}
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
@@ -929,6 +964,7 @@ export function AidStationsSectionV3({
                 {station.distanceKm} km
               </DataText>
             </View>
+            {renderServiceChips(station, isDepart, isArrivee)}
           </View>
         );
       } else {
@@ -962,6 +998,8 @@ export function AidStationsSectionV3({
                     name: station.name,
                     km: String(station.distanceKm),
                     pauseMinutes: String(station.pauseMinutes ?? 0),
+                    waterRefill: station.waterRefill !== false,
+                    solidRefill: station.solidRefill !== false,
                   })
                 }
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
@@ -980,6 +1018,7 @@ export function AidStationsSectionV3({
               </DataText>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
             </View>
+            {renderServiceChips(station, isDepart, isArrivee)}
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
@@ -990,15 +1029,23 @@ export function AidStationsSectionV3({
                   getGaugeColor={getGaugeColor}
                   animateSignal={animateSignal}
                 />
-                <SuppliesList
-                  supplies={getSupplies(index)}
-                  productMap={productMap}
-                  fuelLabels={fuelLabels}
-                  onOpenPicker={() => openPicker(index)}
-                  onIncreaseQty={(productId) => increaseQty(index, productId)}
-                  onDecreaseQty={(productId) => decreaseQty(index, productId)}
-                  onRemoveSupply={(productId) => removeSupply(index, productId)}
-                />
+                {station.solidRefill === false ? (
+                  <View style={styles.suppliesDisabledBox}>
+                    <Text style={styles.suppliesDisabledText}>
+                      Solide desactive : gels, boisson et sodium seront a prendre au ravito precedent.
+                    </Text>
+                  </View>
+                ) : (
+                  <SuppliesList
+                    supplies={getSupplies(index)}
+                    productMap={productMap}
+                    fuelLabels={fuelLabels}
+                    onOpenPicker={() => openPicker(index)}
+                    onIncreaseQty={(productId) => increaseQty(index, productId)}
+                    onDecreaseQty={(productId) => decreaseQty(index, productId)}
+                    onRemoveSupply={(productId) => removeSupply(index, productId)}
+                  />
+                )}
               </>
             )}
             {!isExpanded && (

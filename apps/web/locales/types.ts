@@ -283,6 +283,7 @@ export type RacePlannerTranslations = {
         name: string;
         distance: string;
         waterRefill: string;
+        solidRefill: string;
       };
       remove: string;
     };
