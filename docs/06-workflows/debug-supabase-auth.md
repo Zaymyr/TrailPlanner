@@ -1,14 +1,16 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
+  - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/web/lib/supabase.ts
   - apps/web/lib/auth-storage.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/lib/resendContactSync.ts
 related_tables:
   - user_profiles
   - subscriptions
@@ -38,6 +40,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 6. If the issue is RLS, reproduce with authenticated JWT context or a manual SQL check.
 7. If service routes work but client queries fail, inspect policies and grants.
 8. If mobile differs, inspect `apps/mobile/app/_layout.tsx` and mobile session helpers.
+9. If the issue is Resend contact sync, confirm the session is not anonymous and then inspect `POST /api/resend/contact`.
 
 ## Useful Searches
 
@@ -45,6 +48,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 rg -n "onAuthStateChange|SIGNED_IN|USER_UPDATED" apps
 rg -n "ensureTrialStatus|trial_ends_at|trial_started_at" apps supabase
 rg -n "create policy|auth.uid|app_metadata|user_metadata" supabase/migrations
+rg -n "resend/contact|syncResendContact|resendContactSynced" apps
 ```
 
 ## Do Not
@@ -53,6 +57,7 @@ rg -n "create policy|auth.uid|app_metadata|user_metadata" supabase/migrations
 - Do not query `auth.users` from client code.
 - Do not use service-role success as proof that RLS is correct.
 - Do not add `user_metadata` admin checks.
+- Do not debug Resend contact sync from the mobile secret layer; mobile should only send the Supabase access token to the web bridge.
 
 ## Related Docs
 

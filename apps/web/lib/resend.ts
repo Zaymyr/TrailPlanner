@@ -29,6 +29,16 @@ export type ResendContactPayload = {
   properties?: Record<string, string>;
 };
 
+export type ResendIdentifiedUser = {
+  id: string;
+  email?: string | null;
+  isAnonymous?: boolean;
+  appMetadata?: {
+    provider?: string;
+  } | null;
+  userMetadata?: Record<string, unknown> | null;
+};
+
 export type ResendContactSyncResult =
   | {
       status: "created" | "updated";
@@ -45,6 +55,22 @@ export type ResendContactSyncOptions = {
   requestDelayMs?: number;
   maxRetries?: number;
 };
+
+export type ResendIdentifiedUserSyncResult =
+  | {
+      status: "skipped";
+      reason: "missing-email" | "anonymous-user" | "missing-config";
+    }
+  | {
+      status: "created" | "updated";
+      id?: string;
+      propertiesDropped?: boolean;
+    }
+  | {
+      status: "failed";
+      statusCode?: number;
+      message: string;
+    };
 
 const resendContactResponseSchema = z
   .object({
@@ -72,6 +98,34 @@ const extractErrorMessage = (payload: unknown, fallback: string): string => {
   if (typeof candidate.name === "string" && candidate.name.trim()) return candidate.name;
 
   return fallback;
+};
+
+const getMetadataString = (metadata: Record<string, unknown> | null | undefined, keys: string[]): string | null => {
+  if (!metadata) return null;
+
+  for (const key of keys) {
+    const value = metadata[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+
+  return null;
+};
+
+const splitName = (fullName: string | null): Pick<ResendContactPayload, "firstName" | "lastName"> => {
+  if (!fullName) return {};
+
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return {};
+  if (parts.length === 1) return { firstName: parts[0] };
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
 };
 
 const isExistingContactError = (status: number, payload: unknown): boolean => {
@@ -218,4 +272,35 @@ export const upsertResendContact = async (
   const retryResult = await upsert(contactWithoutProperties);
 
   return retryResult.status === "failed" ? retryResult : { ...retryResult, propertiesDropped: true };
+};
+
+export const syncIdentifiedUserToResendContact = async (
+  user: ResendIdentifiedUser,
+  options: ResendContactSyncOptions = {}
+): Promise<ResendIdentifiedUserSyncResult> => {
+  if (user.isAnonymous || user.appMetadata?.provider === "anonymous") {
+    return { status: "skipped", reason: "anonymous-user" };
+  }
+
+  const email = user.email?.trim().toLowerCase();
+  if (!email) {
+    return { status: "skipped", reason: "missing-email" };
+  }
+
+  const config = getResendConfig();
+  if (!config) {
+    return { status: "skipped", reason: "missing-config" };
+  }
+
+  const fullName = getMetadataString(user.userMetadata, ["full_name", "name"]);
+
+  return upsertResendContact(
+    config,
+    {
+      email,
+      ...splitName(fullName),
+      unsubscribed: false,
+    },
+    options
+  );
 };

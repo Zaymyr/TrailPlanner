@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -10,6 +10,7 @@ related_files:
   - apps/mobile/app/_layout.tsx
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/lib/race-import.ts
+  - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/posthog.ts
 related_tables:
   - races
@@ -32,6 +33,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - App session: Supabase session synchronized into mobile helpers.
 - RevenueCat: native in-app purchase source that syncs into Supabase subscriptions.
 - Web API bridge: mobile calls selected Next.js API routes for operations that need server keys.
+- Resend contact sync: mobile calls the web API bridge after identified, non-anonymous sessions; the Resend key remains server-side.
 
 ## Framework Setup
 
@@ -78,7 +80,8 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 - trial status initialization;
 - premium state gating through `usePremium`;
 - PostHog provider;
-- push registration once a session is active.
+- push registration once a session is active;
+- Resend contact sync once an identified, non-anonymous session is active.
 
 The layout also tracks auth analytics for signed-in and signed-out events.
 
@@ -116,6 +119,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
+- Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
 
 ## Related Docs
 

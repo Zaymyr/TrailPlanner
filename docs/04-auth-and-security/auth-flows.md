@@ -1,14 +1,16 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
+  - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/web/lib/auth-storage.ts
   - apps/web/lib/supabase.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/trial.ts
 related_tables:
   - user_profiles
@@ -44,6 +46,8 @@ The route:
 6. Returns normalized user/session data.
 7. Sets HTTP-only auth cookies.
 
+After a web session is verified, `useVerifiedSession` also calls `POST /api/resend/contact` once per `userId + email` browser storage marker. That route re-validates the bearer token, skips anonymous users, and only syncs identified users into Resend Contacts.
+
 ## Mobile Auth
 
 `apps/mobile/app/_layout.tsx` listens to Supabase auth state. On active sessions it:
@@ -52,7 +56,8 @@ The route:
 - initializes trial status;
 - handles guest merge/conversion flows;
 - identifies analytics users when applicable;
-- registers push tokens after session is active.
+- registers push tokens after session is active;
+- syncs identified, non-anonymous users to Resend through the web API bridge.
 
 ## Admin Detection
 
@@ -75,6 +80,7 @@ The web session route checks `coach_invites` after user verification. When a pen
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Trial repair runs during session verification and must stay idempotent.
 - Coach invite acceptance should remain service-side because it links users across tables.
+- Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.
 
 ## Related Docs
 
