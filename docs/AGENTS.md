@@ -136,6 +136,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 
 - Stripe: `docs/05-integrations/stripe.md`
 - Resend Broadcasts: `docs/05-integrations/resend-broadcasts.md`
+- Mulebar catalog scraping: `docs/05-integrations/mulebar-scraping.md`
 - RevenueCat context: `docs/03-business-rules/premium-entitlement.md`
 - Supabase functions: `docs/05-integrations/supabase-edge-functions.md`
 - Analytics: `docs/05-integrations/analytics.md`
