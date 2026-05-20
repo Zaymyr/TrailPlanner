@@ -1,5 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
+import { Colors } from '../../constants/colors';
+import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 import { styles } from './styles';
 
@@ -22,12 +25,11 @@ type Props = {
   animateSignal?: number;
 };
 
-const PRIMARY_SEGMENTS = 28;
-const COMPACT_PRIMARY_SEGMENTS = 12;
-const OVERFLOW_SEGMENTS = 14;
-const MAX_VISUAL_RATIO = 2;
-const BASE_SEGMENT_COLOR = '#D7D4CC';
-const BASE_SEGMENT_OPACITY = 0.35;
+const MAX_VISUAL_RATIO = 1;
+const RING_TRACK_COLOR = '#DCD8CF';
+const RING_TRACK_OVERFLOW_COLOR = '#C9C2B4';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 function darkenHex(hex: string, factor = 0.55): string {
   const clean = hex.replace('#', '');
@@ -38,51 +40,6 @@ function darkenHex(hex: string, factor = 0.55): string {
   return `#${Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0')}`;
 }
 
-function RingSegment({
-  angle,
-  radius,
-  width,
-  height,
-  color,
-  opacity,
-  scale,
-}: {
-  angle: number;
-  radius: number;
-  width: number;
-  height: number;
-  color: string;
-  opacity: number | Animated.AnimatedInterpolation<number>;
-  scale?: number | Animated.AnimatedInterpolation<number>;
-}) {
-  return (
-    <View
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        alignItems: 'center',
-        justifyContent: 'center',
-        transform: [{ rotate: `${angle}deg` }],
-      }}
-    >
-      <Animated.View
-        style={{
-          width,
-          height,
-          borderRadius: width / 2,
-          backgroundColor: color,
-          opacity,
-          transform: [{ translateY: -radius }, { scale: scale ?? 1 }],
-        }}
-      />
-    </View>
-  );
-}
-
 export const GaugeArc = React.memo(function GaugeArc({
   metric,
   formatGaugeValue,
@@ -90,15 +47,17 @@ export const GaugeArc = React.memo(function GaugeArc({
   compact = false,
   animateSignal = 0,
 }: Props) {
-  const size = compact ? 32 : 66;
+  const size = compact ? 32 : 68;
   const center = size / 2;
-  const innerRadius = compact ? 11 : 24;
-  const overflowRadius = compact ? 15 : 31;
-  const primarySegmentCount = compact ? COMPACT_PRIMARY_SEGMENTS : PRIMARY_SEGMENTS;
-  const overflowSegmentCount = compact ? 0 : OVERFLOW_SEGMENTS;
+  const strokeWidth = compact ? 4 : 5;
+  const radius = compact ? 13 : 28;
+  const overflowRadius = radius + 4;
+  const circumference = 2 * Math.PI * radius;
+  const overflowCircumference = 2 * Math.PI * overflowRadius;
   const safeRatio = Number.isFinite(metric.ratio) ? Math.max(0, metric.ratio) : 0;
   const safeStatusRatio = Number.isFinite(metric.statusRatio) ? Math.max(0, metric.statusRatio ?? 0) : safeRatio;
   const visualRatio = Math.min(safeRatio, MAX_VISUAL_RATIO);
+  const overflowVisualRatio = Math.min(Math.max(safeRatio - 1, 0), 1);
   const displayPct = metric.target > 0 ? Math.round((metric.current / metric.target) * 100) : 0;
   const animatedRatio = useRef(new Animated.Value(visualRatio)).current;
   const hasMounted = useRef(false);
@@ -128,9 +87,19 @@ export const GaugeArc = React.memo(function GaugeArc({
       toValue: visualRatio,
       duration: 460,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   }, [animateSignal, animatedRatio, compact, visualRatio]);
+
+  const dashOffset = compact
+    ? circumference * (1 - visualRatio)
+    : animatedRatio.interpolate({
+        inputRange: [0, MAX_VISUAL_RATIO],
+        outputRange: [circumference, 0],
+        extrapolate: 'clamp',
+      });
+  const centerSize = compact ? 18 : 44;
+  const percentFontSize = displayPct >= 1000 ? 10 : displayPct >= 100 ? 11 : 12;
 
   return (
     <View style={styles.gaugeCard}>
@@ -143,98 +112,84 @@ export const GaugeArc = React.memo(function GaugeArc({
           justifyContent: 'center',
         }}
       >
-        {Array.from({ length: primarySegmentCount }, (_, index) => {
-          const angle = -90 + (360 / primarySegmentCount) * index;
-          const start = index / primarySegmentCount;
-          const end = (index + 1) / primarySegmentCount;
-          const staticOpacity = visualRatio >= end ? 1 : visualRatio <= start ? 0 : (visualRatio - start) / Math.max(end - start, 0.0001);
-          const opacity = compact
-            ? staticOpacity
-            : animatedRatio.interpolate({
-                inputRange: [0, start, end, MAX_VISUAL_RATIO],
-                outputRange: [0, 0, 1, 1],
-                extrapolate: 'clamp',
-              });
-          const scale = compact
-            ? 0.8 + staticOpacity * 0.2
-            : animatedRatio.interpolate({
-                inputRange: [0, start, end, MAX_VISUAL_RATIO],
-                outputRange: [0.75, 0.75, 1, 1],
-                extrapolate: 'clamp',
-              });
-
-          return (
-            <React.Fragment key={`primary-${index}`}>
-              <RingSegment
-                angle={angle}
-                radius={innerRadius}
-                width={compact ? 3 : 4}
-                height={compact ? 7 : 12}
-                color={BASE_SEGMENT_COLOR}
-                opacity={BASE_SEGMENT_OPACITY}
+        <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {!compact && overflowVisualRatio > 0 ? (
+            <>
+              <Circle
+                cx={center}
+                cy={center}
+                r={overflowRadius}
+                stroke={RING_TRACK_OVERFLOW_COLOR}
+                strokeWidth={2}
+                fill="none"
+                opacity={0.28}
               />
-              <RingSegment
-                angle={angle}
-                radius={innerRadius}
-                width={compact ? 3 : 4}
-                height={compact ? 7 : 12}
-                color={fillColor}
-                opacity={opacity}
-                scale={scale}
+              <Circle
+                cx={center}
+                cy={center}
+                r={overflowRadius}
+                stroke={overflowColor}
+                strokeWidth={2}
+                fill="none"
+                strokeDasharray={`${overflowCircumference} ${overflowCircumference}`}
+                strokeDashoffset={overflowCircumference * (1 - overflowVisualRatio)}
+                strokeLinecap="round"
+                opacity={0.5}
+                transform={`rotate(-90 ${center} ${center})`}
               />
-            </React.Fragment>
-          );
-        })}
-
-        {Array.from({ length: overflowSegmentCount }, (_, index) => {
-          const angle = -90 + (360 / overflowSegmentCount) * index;
-          const start = 1 + index / overflowSegmentCount;
-          const end = 1 + (index + 1) / overflowSegmentCount;
-          const opacity = animatedRatio.interpolate({
-            inputRange: [0, 1, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0, 0, 0, 1, 1],
-            extrapolate: 'clamp',
-          });
-          const scale = animatedRatio.interpolate({
-            inputRange: [0, 1, start, end, MAX_VISUAL_RATIO],
-            outputRange: [0.7, 0.7, 0.7, 1, 1],
-            extrapolate: 'clamp',
-          });
-
-          return (
-            <RingSegment
-              key={`overflow-${index}`}
-              angle={angle}
-              radius={overflowRadius}
-              width={compact ? 2 : 3}
-              height={compact ? 5 : 8}
-              color={overflowColor}
-              opacity={opacity}
-              scale={scale}
-            />
-          );
-        })}
+            </>
+          ) : null}
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={RING_TRACK_COLOR}
+            strokeWidth={strokeWidth}
+            fill="none"
+            opacity={0.9}
+          />
+          <AnimatedCircle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={fillColor}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeDasharray={`${circumference} ${circumference}`}
+            strokeDashoffset={dashOffset as unknown as number}
+            strokeLinecap="round"
+            transform={`rotate(-90 ${center} ${center})`}
+          />
+        </Svg>
 
         <View
           style={{
             position: 'absolute',
-            width: center,
-            height: center,
-            borderRadius: center / 2,
-            backgroundColor: '#F7F6F2',
+            width: centerSize,
+            height: centerSize,
+            borderRadius: centerSize / 2,
+            backgroundColor: Colors.surface,
             borderWidth: 1,
-            borderColor: '#E7E2D8',
+            borderColor: Colors.border,
             alignItems: 'center',
             justifyContent: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 3,
-            elevation: 1,
           }}
         >
           {!compact && (
-            <Text style={{ fontSize: 12, fontWeight: '800', color: fillColor }}>{displayPct}%</Text>
+            <DataText
+              weight="bold"
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.68}
+              style={{
+                maxWidth: centerSize - 7,
+                color: fillColor,
+                fontSize: percentFontSize,
+                textAlign: 'center',
+              }}
+            >
+              {displayPct}%
+            </DataText>
           )}
         </View>
       </View>
@@ -244,9 +199,9 @@ export const GaugeArc = React.memo(function GaugeArc({
       )}
 
       {!compact && (
-        <Text style={styles.gaugeValue}>
+        <DataText weight="bold" style={styles.gaugeValue}>
           {formatGaugeValue(metric, metric.current)} / {formatGaugeValue(metric, metric.target)}
-        </Text>
+        </DataText>
       )}
     </View>
   );

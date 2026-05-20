@@ -26,6 +26,7 @@ import {
   type FavProduct,
   type PlanFormValues,
   type PlanTarget,
+  type SectionTarget,
   type Supply
 } from './plan-form/contracts';
 import { EditStationModal, type EditingStation } from './plan-form/EditStationModal';
@@ -307,6 +308,51 @@ export default function PlanForm({
 
     return buildCarryoverCoverages(sections, productMap);
   }, [getSupplies, liveSectionSummaries, productMap, values.aidStations]);
+  const resupplyWindowTargetMap = useMemo(() => {
+    const map = new Map<number, SectionTarget>();
+    const summariesByIndex = new Map(liveSectionSummaries.map((summary) => [summary.sectionIndex, summary] as const));
+
+    const shouldStopAtArrival = (sectionIndex: number, service: 'solid' | 'water') => {
+      const arrivalStation = values.aidStations[sectionIndex + 1];
+      if (!arrivalStation || arrivalStation.id === ARRIVEE_ID) return true;
+      return service === 'solid'
+        ? arrivalStation.solidRefill !== false
+        : arrivalStation.waterRefill !== false;
+    };
+
+    liveSectionSummaries.forEach((summary) => {
+      let targetCarbsG = 0;
+      let targetSodiumMg = 0;
+      let targetWaterMl = 0;
+
+      for (let sectionIndex = summary.sectionIndex; sectionIndex < values.aidStations.length - 1; sectionIndex += 1) {
+        const sectionSummary = summariesByIndex.get(sectionIndex);
+        if (!sectionSummary) break;
+
+        targetCarbsG += sectionSummary.targetCarbsG;
+        targetSodiumMg += getEffectiveSodiumTarget(sectionSummary.targetSodiumMg);
+
+        if (shouldStopAtArrival(sectionIndex, 'solid')) break;
+      }
+
+      for (let sectionIndex = summary.sectionIndex; sectionIndex < values.aidStations.length - 1; sectionIndex += 1) {
+        const sectionSummary = summariesByIndex.get(sectionIndex);
+        if (!sectionSummary) break;
+
+        targetWaterMl += sectionSummary.targetWaterMl;
+
+        if (shouldStopAtArrival(sectionIndex, 'water')) break;
+      }
+
+      map.set(summary.sectionIndex, {
+        targetCarbsG,
+        targetSodiumMg,
+        targetWaterMl,
+      });
+    });
+
+    return map;
+  }, [liveSectionSummaries, values.aidStations]);
   const waterAvailabilityBySection = useMemo(() => {
     const map = new Map<number, number>();
     const waterCapacityMl = Math.max(0, values.waterBagLiters * 1000);
@@ -337,15 +383,16 @@ export default function PlanForm({
 
     liveSectionSummaries.forEach((summary) => {
       const target: PlanTarget = summary.sectionIndex === 0 ? 'start' : summary.sectionIndex;
+      const resupplyWindowTarget = resupplyWindowTargetMap.get(summary.sectionIndex) ?? {
+        targetCarbsG: summary.targetCarbsG,
+        targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
+        targetWaterMl: summary.targetWaterMl,
+      };
       map.set(
         getTargetCacheKey(target),
         buildGaugeMetrics({
           target,
-          sectionTarget: {
-            targetCarbsG: summary.targetCarbsG,
-            targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
-            targetWaterMl: summary.targetWaterMl,
-          },
+          sectionTarget: resupplyWindowTarget,
           carryoverCoverage: carryoverCoverageMap.get(summary.sectionIndex) ?? null,
           getSupplies,
           productMap,
@@ -362,6 +409,7 @@ export default function PlanForm({
     getSupplies,
     liveSectionSummaries,
     productMap,
+    resupplyWindowTargetMap,
     values.aidStations,
     values.waterBagLiters,
     waterAvailabilityBySection,
@@ -375,25 +423,28 @@ export default function PlanForm({
       const cached = gaugeMetricsMap.get(getTargetCacheKey(target));
       if (cached) return cached;
 
-      const effectiveSectionTarget = sectionTarget
-        ? {
-            ...sectionTarget,
-            targetSodiumMg: getEffectiveSodiumTarget(sectionTarget.targetSodiumMg),
-          }
-        : undefined;
+      const targetIndex = target === 'start' ? 0 : target;
+      const resupplyWindowTarget = resupplyWindowTargetMap.get(targetIndex);
+      const effectiveSectionTarget = resupplyWindowTarget ??
+        (sectionTarget
+          ? {
+              ...sectionTarget,
+              targetSodiumMg: getEffectiveSodiumTarget(sectionTarget.targetSodiumMg),
+            }
+          : undefined);
 
       return buildGaugeMetrics({
         target,
         sectionTarget: effectiveSectionTarget,
-        carryoverCoverage: carryoverCoverageMap.get(target === 'start' ? 0 : target) ?? null,
+        carryoverCoverage: carryoverCoverageMap.get(targetIndex) ?? null,
         getSupplies,
         productMap,
         aidStations: values.aidStations,
         waterBagLiters: values.waterBagLiters,
-        availableWaterMl: waterAvailabilityBySection.get(target === 'start' ? 0 : target),
+        availableWaterMl: waterAvailabilityBySection.get(targetIndex),
       });
     },
-    [carryoverCoverageMap, gaugeMetricsMap, getSupplies, productMap, values.aidStations, values.waterBagLiters, waterAvailabilityBySection],
+    [carryoverCoverageMap, gaugeMetricsMap, getSupplies, productMap, resupplyWindowTargetMap, values.aidStations, values.waterBagLiters, waterAvailabilityBySection],
   );
 
   const sectionTimelineMap = useMemo(() => {

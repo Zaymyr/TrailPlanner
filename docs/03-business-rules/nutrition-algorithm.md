@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-05-19
+last_verified: 2026-05-20
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -91,6 +91,12 @@ For each outgoing section, the simulator uses the checkpoint at the start of tha
 4. Carry forward both remaining product units and any nutrient surplus created by whole-unit consumption.
 
 Product units are indivisible. A gel, capsule, bar, drink mix serving, or food item is either unconsumed or fully consumed. If a 25 g gel is consumed to cover a 20 g carb gap just before an aid station, the extra 5 g remains as positive nutrition balance for the next section. The runner may still pick up more inventory at the aid station, but the planner should not require another immediate gel if the nutrition balance already covers the outgoing section.
+
+When a remaining deficit is smaller than one product unit, the simulator still consumes the best available product that contributes to that deficit. The resulting overshoot is intentional whole-unit surplus and must be reflected in coverage gauges.
+
+Mobile ravito gauges display available carbs and sodium at the start of the outgoing segment, not only the units the simulator expects to consume on that segment. Extra products added manually stay in physical inventory for later sections, but the gauge value still increases because the runner is carrying them when leaving that checkpoint.
+
+Gauge targets are resource-specific refill windows. At a checkpoint, carbs and sodium targets sum every outgoing section until the next checkpoint where `solidRefill !== false`. Water targets sum every outgoing section until the next checkpoint where `waterRefill !== false`. These windows can differ: a station with water but no solid resets only the water window, while carbs and sodium continue to accumulate until the next solid pickup point.
 
 If an aid station has `solidRefill === false`, the runner cannot pick up carb/sodium products there. Auto-fill assigns any top-up needed for the outgoing section to the most recent previous checkpoint where solid pickup is enabled, so the runner carries that inventory through the skipped aid station.
 
@@ -217,6 +223,9 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 - Planner UI product coverage is cumulative. Do not compute carbs/sodium coverage from only the products assigned to the current aid station.
 - Product quantities are whole units for consumption. Fractional product inventory must not be consumed as a fractional gel/bar/capsule.
+- A product that covers a small remaining carb or sodium deficit must still count even if it overshoots; do not discard it because of an overshoot penalty.
+- Mobile gauge values must use available carried inventory, not only consumed inventory, so manual oversupply remains visible.
+- Mobile gauge targets must follow resource refill windows, not only the immediate next section; water and solid windows are independent.
 - Nutrient surplus from a consumed whole unit carries forward; it is not discarded at aid stations.
 - Free training ignores targets set to `0`; do not treat them as zero-minute blockers.
 - Free training gives active water, carb, and sodium targets a default one-hour buffer even when no matching supply is carried.

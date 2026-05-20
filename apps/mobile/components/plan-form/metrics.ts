@@ -193,8 +193,16 @@ export function buildGaugeMetrics({
   const supplies = getSupplies(target);
   const availableWaterMl = availableWaterMlOverride ?? getAvailableWaterMl(target, aidStations, waterBagLiters);
   const summarized = summarizeSuppliesWithFluidConstraint(supplies, productMap, availableWaterMl);
-  const currentCarbs = carryoverCoverage?.currentCarbsG ?? summarized.totalCarbs;
-  const currentSodium = carryoverCoverage?.currentSodiumMg ?? summarized.totalSodium;
+  const currentCarbs = Math.max(
+    summarized.totalCarbs,
+    carryoverCoverage?.currentCarbsG ?? 0,
+    carryoverCoverage?.availableCarbsG ?? 0,
+  );
+  const currentSodium = Math.max(
+    summarized.totalSodium,
+    carryoverCoverage?.currentSodiumMg ?? 0,
+    carryoverCoverage?.availableSodiumMg ?? 0,
+  );
 
   return [
     {

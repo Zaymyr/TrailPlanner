@@ -70,8 +70,8 @@ export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }:
             <Image
               src={primarySrc}
               alt={heroImageAlt}
-              width={1321}
-              height={230}
+              width={858}
+              height={172}
               sizes="(min-width: 1024px) 560px, 100vw"
               className="h-auto w-full object-cover"
               onError={() => {
@@ -85,8 +85,8 @@ export function DemoSection({ demo, heroImageAlt, secondaryImageAlt, ctaLabel }:
             <Image
               src={secondarySrc}
               alt={secondaryImageAlt}
-              width={1803}
-              height={283}
+              width={770}
+              height={381}
               sizes="(min-width: 1024px) 560px, 100vw"
               className="h-auto w-full object-cover"
               onError={() => {

@@ -1,36 +1,47 @@
-<svg width="1321" height="230" viewBox="0 0 1321 230" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1321" height="230" rx="20" fill="#0C1429"/>
-  <rect x="24" y="24" width="1273" height="182" rx="16" fill="#0F1B33" stroke="#124B41" stroke-width="2"/>
-  <g filter="url(#glow)">
-    <rect x="40" y="48" width="1241" height="6" rx="3" fill="#0D231D"/>
-  </g>
-  <g transform="translate(56,74)">
-    <rect width="1209" height="56" rx="16" fill="#101A33" stroke="#1B3A38" stroke-width="2"/>
-    <rect x="16" y="30" width="1177" height="10" rx="5" fill="#A94A66"/>
-    <rect x="16" y="30" width="720" height="10" rx="5" fill="#D28A37"/>
-    <rect x="16" y="30" width="420" height="10" rx="5" fill="#2F8F83"/>
-    <circle cx="460" cy="35" r="7" fill="#0C1429" stroke="#E6F7F3" stroke-width="2"/>
-    <circle cx="720" cy="35" r="7" fill="#0C1429" stroke="#E6F7F3" stroke-width="2"/>
-    <circle cx="1020" cy="35" r="7" fill="#0C1429" stroke="#E6F7F3" stroke-width="2"/>
-    <text x="20" y="20" fill="#E6F7F3" font-family="Inter, system-ui" font-size="16" font-weight="700">Carbs on course</text>
-    <text x="960" y="20" fill="#9AE6C7" font-family="Inter, system-ui" font-size="12" font-weight="600">Above target</text>
-    <text x="20" y="54" fill="#D9E3FF" font-family="Inter, system-ui" font-size="12" font-weight="500">Cible : 146 g</text>
-  </g>
-  <g transform="translate(56,138)">
-    <rect width="1209" height="56" rx="16" fill="#101A33" stroke="#1B3A38" stroke-width="2"/>
-    <rect x="16" y="30" width="1177" height="10" rx="5" fill="#A94A66" opacity="0.35"/>
-    <rect x="16" y="30" width="940" height="10" rx="5" fill="#2F8F83"/>
-    <rect x="16" y="30" width="620" height="10" rx="5" fill="#D28A37"/>
-    <circle cx="660" cy="35" r="7" fill="#0C1429" stroke="#E6F7F3" stroke-width="2"/>
-    <circle cx="980" cy="35" r="7" fill="#0C1429" stroke="#E6F7F3" stroke-width="2"/>
-    <text x="20" y="20" fill="#E6F7F3" font-family="Inter, system-ui" font-size="16" font-weight="700">Water & sodium balance</text>
-    <text x="1020" y="20" fill="#9AE6C7" font-family="Inter, system-ui" font-size="12" font-weight="600">Within target</text>
-    <text x="20" y="54" fill="#D9E3FF" font-family="Inter, system-ui" font-size="12" font-weight="500">Cible : 1040 ml</text>
+<svg width="858" height="172" viewBox="0 0 858 172" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="858" height="172" fill="#fff"/>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <g filter="url(#shadow)">
+      <rect x="13" y="11" width="267" height="148" rx="19" fill="#fff" stroke="#ff9aae"/>
+      <text x="69" y="44" fill="#2b2d2f" font-size="13" font-weight="700">Glucides totaux</text>
+      <text x="24" y="94" fill="#ef2f62" font-size="28" font-weight="800">0 g</text>
+      <rect x="25" y="100" width="243" height="9" rx="4.5" fill="#f58b8f"/>
+      <rect x="119" y="100" width="32" height="9" fill="#ffc269"/>
+      <rect x="151" y="100" width="61" height="9" fill="#51bf79"/>
+      <rect x="212" y="100" width="20" height="9" fill="#ffc269"/>
+      <path d="M25 98l-7-8h14l-7 8z" fill="#ef2f62"/>
+      <path d="M180 117l-7 8h14l-7-8z" fill="#8b8f8a"/>
+      <text x="170" y="130" fill="#6f756c" font-size="10">76 g</text>
+    </g>
+    <g filter="url(#shadow)">
+      <rect x="295" y="11" width="267" height="148" rx="19" fill="#fff" stroke="#ffc46a"/>
+      <text x="352" y="44" fill="#2b2d2f" font-size="13" font-weight="700">Eau totale</text>
+      <text x="306" y="94" fill="#d96f00" font-size="28" font-weight="800">1500 ml</text>
+      <rect x="307" y="100" width="243" height="9" rx="4.5" fill="#f58b8f"/>
+      <rect x="402" y="100" width="31" height="9" fill="#ffc269"/>
+      <rect x="433" y="100" width="61" height="9" fill="#51bf79"/>
+      <rect x="494" y="100" width="19" height="9" fill="#ffc269"/>
+      <path d="M502 98l-7-8h14l-7 8z" fill="#d96f00"/>
+      <path d="M370 117l-7 8h14l-7-8z" fill="#8b8f8a"/>
+      <text x="356" y="130" fill="#6f756c" font-size="10">542 ml</text>
+      <text x="307" y="145" fill="#c85f00" font-size="11">Volume max : 1500 ml d'eau</text>
+    </g>
+    <g filter="url(#shadow)">
+      <rect x="578" y="11" width="267" height="148" rx="19" fill="#fff" stroke="#ff9aae"/>
+      <text x="633" y="44" fill="#2b2d2f" font-size="13" font-weight="700">Sodium total</text>
+      <text x="589" y="94" fill="#ef2f62" font-size="28" font-weight="800">0 mg</text>
+      <rect x="590" y="100" width="243" height="9" rx="4.5" fill="#f58b8f"/>
+      <rect x="685" y="100" width="31" height="9" fill="#ffc269"/>
+      <rect x="716" y="100" width="61" height="9" fill="#51bf79"/>
+      <rect x="777" y="100" width="20" height="9" fill="#ffc269"/>
+      <path d="M590 98l-7-8h14l-7 8z" fill="#ef2f62"/>
+      <path d="M755 117l-7 8h14l-7-8z" fill="#8b8f8a"/>
+      <text x="739" y="130" fill="#6f756c" font-size="10">650 mg</text>
+    </g>
   </g>
   <defs>
-    <filter id="glow" x="0" y="0" width="1321" height="230" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-      <feGaussianBlur stdDeviation="24" result="blur"/>
-      <feBlend in="SourceGraphic" in2="blur" mode="normal"/>
+    <filter id="shadow" x="0" y="0" width="858" height="172" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="1" dy="4" stdDeviation="2" flood-color="#000" flood-opacity=".08"/>
     </filter>
   </defs>
 </svg>
