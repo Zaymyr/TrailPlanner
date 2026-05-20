@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-05-18
+last_verified: 2026-05-20
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -31,6 +31,7 @@ related_tables:
 - Live product: product visible to users.
 - Archived product: hidden from normal reads.
 - User product: product with `created_by` set.
+- Verified/shared catalog product: product with `created_by` null, shown as validated official catalog data in clients.
 - Intrinsic nutrition: carbs, sodium, calories, protein, fat per product unit.
 
 ## Columns
@@ -85,6 +86,8 @@ Summary:
 
 Mobile product edits and deletes go through `apps/web/app/api/products/[productId]/route.ts`, which verifies the Supabase bearer token, authorizes either the product owner (`created_by`) or an admin from `app_metadata`, then performs the mutation with the server-side service role.
 
+The public product API preserves `createdBy: null` for shared catalog rows so clients can show a verified/validated badge. User-created products return their owner id in `createdBy`.
+
 ## Business Invariants
 
 - `fuel_type` drives nutrition allocation order:
@@ -100,7 +103,7 @@ Mobile product edits and deletes go through `apps/web/app/api/products/[productI
 Fetch visible products:
 
 ```sql
-select id, slug, name, fuel_type, carbs_g, sodium_mg, brand, image_url
+select id, slug, name, fuel_type, carbs_g, sodium_mg, brand, image_url, created_by
 from public.products
 where is_live = true
   and is_archived = false

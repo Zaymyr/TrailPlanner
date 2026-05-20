@@ -87,7 +87,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   proteinGrams: Number(row.protein_g) || 0,
   fatGrams: Number(row.fat_g) || 0,
   waterMl: 0,
-  createdBy: row.created_by ?? undefined,
+  createdBy: row.created_by ?? null,
 });
 
 const buildSlug = (name: string) => {

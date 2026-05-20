@@ -108,6 +108,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
   const busy = saving || deleting;
   const editable = canManage && isEditing && !busy;
   const accessLabel = canManage ? 'Modifiable' : 'Lecture seule';
+  const isVerified = currentProduct.created_by === null;
   const imagePreviewUri = imageDraft?.uri ?? currentProduct.image_url ?? null;
 
   async function handleSave() {
@@ -184,6 +185,12 @@ export const ProductDetailModal = memo(function ProductDetailModal({
           <View style={styles.header}>
             <View style={styles.titleBlock}>
               <Text style={styles.modalTitle}>Fiche produit</Text>
+              {isVerified ? (
+                <View style={styles.verifiedPill}>
+                  <Ionicons color={Colors.brandPrimary} name="checkmark-circle" size={13} />
+                  <Text style={styles.verifiedPillText}>Validé</Text>
+                </View>
+              ) : null}
               <View style={[styles.accessPill, canManage ? styles.accessPillEdit : styles.accessPillRead]}>
                 <Text style={[styles.accessPillText, canManage ? styles.accessTextEdit : styles.accessTextRead]}>
                   {accessLabel}
@@ -419,12 +426,30 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 10,
   },
   modalTitle: {
     color: Colors.textPrimary,
     fontSize: 18,
     fontWeight: '800',
+  },
+  verifiedPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  verifiedPillText: {
+    color: Colors.brandPrimary,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
   },
   accessPill: {
     borderRadius: 999,
