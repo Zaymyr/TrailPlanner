@@ -1,11 +1,14 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-05-19
+last_verified: 2026-05-20
 ai_priority: medium
 related_files:
   - package.json
   - apps/web/package.json
+  - emails/resend/production-launch.html
+  - emails/resend/production-launch.txt
+  - apps/web/public/landing/mobile-app-plan-screen.jpeg
   - apps/web/lib/resend.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/resend/contact/route.test.ts
@@ -24,12 +27,13 @@ related_tables:
 
 ## Purpose
 
-This document records the current Resend integration in the repo. Resend is used to sync Supabase Auth users into Resend Contacts through an admin bulk route and a per-user authenticated route. App-managed transactional email sending is still not implemented here.
+This document records the current Resend integration in the repo. Resend is used to sync Supabase Auth users into Resend Contacts through an admin bulk route and a per-user authenticated route. A static production-launch Broadcast template also lives in the repo. App-managed transactional email sending is still not implemented here.
 
 ## Key Concepts
 
 - Resend: external email API provider.
 - Resend Contacts: global contacts database used by Resend Broadcasts, Segments, and Topics.
+- Resend Broadcasts: marketing/product emails managed from Resend, not from app runtime routes.
 - Supabase Auth email: email delivery managed by Supabase Auth configuration.
 - Coach invite: app table and flow for connecting coach/coachee accounts.
 - Admin sync: server-side route that reads Supabase Auth users with the service role and upserts matching Resend contacts.
@@ -37,8 +41,10 @@ This document records the current Resend integration in the repo. Resend is used
 
 ## Current Status
 
-The repo has two server-side Resend Contacts sync surfaces:
+The repo has one checked-in Broadcast template and two server-side Resend Contacts sync surfaces:
 
+- `emails/resend/production-launch.html` is a static HTML template for the Google Play production launch Broadcast. Its support ask mentions both a Google Play rating and the `@pace_your.self` Instagram account.
+- `emails/resend/production-launch.txt` is the matching plain-text copy.
 - `apps/web/lib/resend.ts` wraps the Resend Contacts REST API with `fetch`; no `resend` npm dependency is installed.
 - `apps/web/app/api/resend/contact/route.ts` exposes `POST /api/resend/contact` for the current authenticated user.
 - `apps/web/app/api/resend/contact/route.test.ts` covers anonymous-user skipping, identified-user syncing, and Resend failure handling.
@@ -92,6 +98,15 @@ The app still has:
 - UI/actions that can resend an invite conceptually through Supabase Auth, not Resend;
 - no React Email templates or Resend email-sending route.
 
+The production-launch template is intended for Resend Broadcasts or manual dashboard use. It references public HTTPS assets served by the web app:
+
+- `https://pace-yourself.com/branding/logo-horizontal-v2.png`
+- `https://pace-yourself.com/landing/mobile-app-plan-screen.jpeg`
+
+Keep those image paths stable while a Broadcast is live, or update the template before sending.
+
+For future Broadcast creation and dashboard draft updates, use [Resend Broadcasts](resend-broadcasts.md). That playbook records the REST `segment_id` field name, verified sender-domain constraint, UTF-8-safe update path, and validation checklist.
+
 <!-- TODO: verify with maintainer: confirm whether production transactional email is handled fully by Supabase Auth/dashboard templates or by an external Resend setup outside this repo. -->
 
 ## Environment Variables
@@ -105,6 +120,9 @@ The app still has:
 - Resend Audiences are deprecated in the current Resend API navigation; use Contacts, Segments, and Topics for new sync work.
 - The admin sync route imports contacts into Resend; it does not prove users opted into marketing. Keep `defaultUnsubscribed: true` unless consent is known.
 - The authenticated web/mobile sync route is only for identified, non-anonymous users and currently sets `unsubscribed: false`.
+- The production-launch template is marketing/product-announcement copy. Use it only for contacts with the appropriate consent/subscription status and keep the `{{{RESEND_UNSUBSCRIBE_URL}}}` link.
+- For French or other non-ASCII Broadcast copy, upload with UTF-8-safe tooling such as Node `JSON.stringify`; avoid Windows PowerShell `ConvertTo-Json` for long email bodies.
+- Email images should be public HTTPS PNG/JPG assets or Resend CID attachments for API sends. Avoid local file paths, SVGs, and large base64 data URIs in Broadcast HTML.
 - Web and mobile keep a local "already synced" marker, but Resend upsert behavior must remain idempotent because sessions can refresh or clients can retry.
 - Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.
 - Resend can return `429` during large syncs. Keep the default request delay or run batches with `startPage`/`maxPages`.
@@ -114,6 +132,7 @@ The app still has:
 ## Related Docs
 
 - [Auth Flows](../04-auth-and-security/auth-flows.md)
+- [Resend Broadcasts](resend-broadcasts.md)
 - [Session Management](../04-auth-and-security/session-management.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [RLS Policies](../02-database/rls-policies.md)

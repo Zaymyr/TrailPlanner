@@ -15,6 +15,8 @@ export type CarryoverCoverage = {
   sectionIndex: number;
   currentCarbsG: number;
   currentSodiumMg: number;
+  availableCarbsG: number;
+  availableSodiumMg: number;
   consumedSupplies: Supply[];
   endBalance: CarryoverBalance;
 };
@@ -59,6 +61,23 @@ const suppliesFromMap = (supplies: Map<string, number>): Supply[] =>
     .filter(([, quantity]) => quantity > 0)
     .map(([productId, quantity]) => ({ productId, quantity }));
 
+function inventoryNutrients(
+  inventory: Map<string, number>,
+  productsById: Record<string, CarryoverProduct | PlanProduct>,
+) {
+  let carbs = 0;
+  let sodium = 0;
+
+  for (const [productId, quantity] of inventory.entries()) {
+    if (quantity <= 0) continue;
+    const nutrients = productNutrients(productsById[productId]);
+    carbs += nutrients.carbs * quantity;
+    sodium += nutrients.sodium * quantity;
+  }
+
+  return { carbs, sodium };
+}
+
 export function addSuppliesToInventory(inventory: Map<string, number>, supplies: Supply[] | undefined) {
   supplies?.forEach((supply) => {
     const quantity = toWholeUnits(supply.quantity);
@@ -81,6 +100,11 @@ function pickBestInventoryProduct(
     const nutrients = productNutrients(productsById[productId]);
     if (nutrients.carbs <= 0 && nutrients.sodium <= 0) continue;
 
+    const coversDeficit =
+      (carbDeficit > 0 && nutrients.carbs > 0) ||
+      (sodiumDeficit > 0 && nutrients.sodium > 0);
+    if (!coversDeficit) continue;
+
     const carbUse = carbDeficit > 0 ? Math.min(carbDeficit, nutrients.carbs) / Math.max(carbDeficit, 1) : 0;
     const sodiumUse =
       sodiumDeficit > 0 ? Math.min(sodiumDeficit, nutrients.sodium) / Math.max(sodiumDeficit, 1) : 0;
@@ -98,7 +122,7 @@ function pickBestInventoryProduct(
     }
   }
 
-  return best && best.score > 0 ? best.productId : null;
+  return best?.productId ?? null;
 }
 
 export function consumeInventoryForTargets({
@@ -111,6 +135,11 @@ export function consumeInventoryForTargets({
 }: ConsumeArgs): CarryoverCoverage {
   const safeTargetCarbs = safeNumber(targetCarbsG);
   const safeTargetSodium = safeNumber(targetSodiumMg);
+  const startingBalance = { ...balance };
+  const startingInventory = inventoryNutrients(inventory, productsById);
+  const availableCarbsG = Math.max(0, startingBalance.carbs + startingInventory.carbs);
+  const availableSodiumMg = Math.max(0, startingBalance.sodium + startingInventory.sodium);
+
   balance.carbs -= safeTargetCarbs;
   balance.sodium -= safeTargetSodium;
 
@@ -138,6 +167,8 @@ export function consumeInventoryForTargets({
     sectionIndex,
     currentCarbsG: Math.max(0, safeTargetCarbs + balance.carbs),
     currentSodiumMg: Math.max(0, safeTargetSodium + balance.sodium),
+    availableCarbsG,
+    availableSodiumMg,
     consumedSupplies: suppliesFromMap(consumed),
     endBalance: { ...balance },
   };

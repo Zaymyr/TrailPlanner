@@ -73,6 +73,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 
 - [Stripe](05-integrations/stripe.md)
 - [Resend](05-integrations/resend.md)
+- [Resend Broadcasts](05-integrations/resend-broadcasts.md)
 - [Supabase Edge Functions](05-integrations/supabase-edge-functions.md)
 - [Analytics](05-integrations/analytics.md)
 
