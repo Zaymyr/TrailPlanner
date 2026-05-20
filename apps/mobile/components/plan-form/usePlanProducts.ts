@@ -23,7 +23,7 @@ export async function loadPlanProductsBootstrap(userId: string | null | undefine
   const [productsResult, favoriteRowsResult] = await Promise.all([
     supabase
       .from('products')
-      .select('id, name, fuel_type, carbs_g, sodium_mg, calories_kcal')
+      .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
       .eq('is_live', true)
       .eq('is_archived', false)
       .order('name'),
@@ -91,7 +91,10 @@ export function usePlanProducts({ values, initialData }: Args) {
   const pickerSearchLower = pickerSearch.trim().toLowerCase();
   const filteredAllProducts = useMemo(() => {
     const filtered = allProducts.filter(
-      (product) => pickerSearchLower === '' || product.name.toLowerCase().includes(pickerSearchLower),
+      (product) =>
+        pickerSearchLower === '' ||
+        product.name.toLowerCase().includes(pickerSearchLower) ||
+        (product.brand ?? '').toLowerCase().includes(pickerSearchLower),
     );
 
     return [...filtered].sort((left, right) => {
