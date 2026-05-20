@@ -30,5 +30,6 @@ Before doing ANY task in this repo, read in this order:
 | Business logic (nutrition, pacing, GPX) | `docs/03-business-rules/` |
 | Stripe / Resend / Edge Functions | `docs/05-integrations/` |
 | Resend broadcast email | `docs/05-integrations/resend-broadcasts.md` + `docs/05-integrations/resend.md` |
+| Mulebar catalog scraping | `docs/05-integrations/mulebar-scraping.md` |
 | Mobile screen | `docs/01-architecture/mobile-app.md` + `docs/07-design-system/` |
 | New feature | `docs/06-workflows/ship-a-feature.md` |

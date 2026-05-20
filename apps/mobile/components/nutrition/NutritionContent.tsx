@@ -116,6 +116,10 @@ function groupItemsByBrand<T>(
     .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel));
 }
 
+function isVerifiedProduct(product: Product) {
+  return product.created_by === null;
+}
+
 type NutritionContentProps = {
   isPremium: boolean;
   isAdmin: boolean;
@@ -388,6 +392,8 @@ function ProductCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
+  const isVerified = isVerifiedProduct(product);
+
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.productCard}>
       <View style={styles.productMedia}>
@@ -400,7 +406,17 @@ function ProductCard({
         )}
       </View>
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>{product.name}</Text>
+        <View style={styles.productNameRow}>
+          <Text numberOfLines={2} style={styles.productName}>
+            {product.name}
+          </Text>
+          {isVerified ? (
+            <View style={styles.verifiedBadge}>
+              <Ionicons color={Colors.brandPrimary} name="checkmark-circle" size={12} />
+              <Text style={styles.verifiedBadgeText}>Validé</Text>
+            </View>
+          ) : null}
+        </View>
         <Text style={styles.productType}>
           {FUEL_TYPE_LABELS[product.fuel_type] ?? product.fuel_type}
           {isOwnedByUser ? <Text style={styles.myProductTag}> · Mon produit</Text> : null}
@@ -616,11 +632,35 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  productNameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
+  },
   productName: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 2,
+  },
+  verifiedBadge: {
+    minHeight: 20,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  verifiedBadgeText: {
+    color: Colors.brandPrimary,
+    fontSize: 10,
+    fontWeight: '800',
   },
   productType: {
     fontSize: 11,

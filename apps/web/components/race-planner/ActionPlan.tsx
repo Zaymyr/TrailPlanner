@@ -39,6 +39,7 @@ import { AddMarkerModal } from "./AddMarkerModal";
 import { AutoSegmentModal } from "./AutoSegmentModal";
 import { EditSubSectionModal } from "./EditSubSectionModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
+import { isVerifiedProduct, VerifiedProductBadge } from "../products/VerifiedProductBadge";
 import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
 import { useActionPlanDerivedData } from "./useActionPlanDerivedData";
 import {
@@ -999,6 +1000,7 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
 
   if (!product) return null;
 
+  const isVerified = isVerifiedProduct(product);
   const detailItems = [
     { label: copy.brand, value: formatOptionalText(product.brand, copy.notAvailable) },
     { label: copy.type, value: getFuelTypeLabel(product.fuelType, locale) },
@@ -1034,6 +1036,7 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
             <h2 id="product-detail-title" className="mt-1 text-xl font-semibold text-foreground dark:text-slate-50">
               {product.name}
             </h2>
+            {isVerified ? <VerifiedProductBadge locale={locale} className="mt-2" /> : null}
             <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{copy.perServing}</p>
           </div>
           <Button variant="ghost" className="h-8 px-2" onClick={onClose}>
@@ -3085,14 +3088,17 @@ export function ActionPlan({
                             </button>
                           </td>
                           <td className="px-4 py-3">
-                            <button
-                              type="button"
-                              className="text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
-                              onClick={() => setProductDetail(product)}
-                              aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
-                            >
-                              {product.name}
-                            </button>
+                            <div className="flex min-w-0 flex-col items-start gap-1">
+                              <button
+                                type="button"
+                                className="text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                                onClick={() => setProductDetail(product)}
+                                aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
+                              >
+                                {product.name}
+                              </button>
+                              {isVerifiedProduct(product) ? <VerifiedProductBadge locale={locale} /> : null}
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <FuelTypeBadge fuelType={product.fuelType} locale={locale} />

@@ -13,6 +13,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { FuelTypeBadge, getFuelTypeLabel } from "../../components/products/FuelTypeBadge";
+import { isVerifiedProduct, VerifiedProductBadge } from "../../components/products/VerifiedProductBadge";
 import { readStoredSession } from "../../lib/auth-storage";
 import { defaultEntitlements, fetchEntitlements } from "../../lib/entitlements-client";
 import { defaultFuelType, fuelTypeSchema, fuelTypeValues } from "../../lib/fuel-types";
@@ -573,18 +574,21 @@ export default function SettingsPage() {
                           </button>
                         </TableCell>
                         <TableCell className="font-semibold text-foreground">
-                          {product.productUrl ? (
-                            <a
-                              href={product.productUrl}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="hover:underline text-[hsl(var(--success))]"
-                            >
-                              {product.name}
-                            </a>
-                          ) : (
-                            <span>{product.name}</span>
-                          )}
+                          <div className="flex min-w-0 flex-col items-start gap-1">
+                            {product.productUrl ? (
+                              <a
+                                href={product.productUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="hover:underline text-[hsl(var(--success))]"
+                              >
+                                {product.name}
+                              </a>
+                            ) : (
+                              <span>{product.name}</span>
+                            )}
+                            {isVerifiedProduct(product) ? <VerifiedProductBadge locale={locale} /> : null}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
