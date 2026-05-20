@@ -574,20 +574,34 @@ export default function SettingsPage() {
                           </button>
                         </TableCell>
                         <TableCell className="font-semibold text-foreground">
-                          <div className="flex min-w-0 flex-col items-start gap-1">
+                          <div className="flex min-w-[220px] items-center gap-3">
+                            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background dark:bg-slate-900">
+                              {isVerifiedProduct(product) ? (
+                                <VerifiedProductBadge
+                                  locale={locale}
+                                  className="absolute right-0.5 top-0.5 h-5 w-5"
+                                />
+                              ) : null}
+                              {product.imageUrl ? (
+                                <img src={product.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1.5" />
+                              ) : (
+                                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                  {product.name.slice(0, 1)}
+                                </span>
+                              )}
+                            </div>
                             {product.productUrl ? (
                               <a
                                 href={product.productUrl}
                                 target="_blank"
                                 rel="noreferrer noopener"
-                                className="hover:underline text-[hsl(var(--success))]"
+                                className="min-w-0 hover:underline text-[hsl(var(--success))]"
                               >
                                 {product.name}
                               </a>
                             ) : (
-                              <span>{product.name}</span>
+                              <span className="min-w-0">{product.name}</span>
                             )}
-                            {isVerifiedProduct(product) ? <VerifiedProductBadge locale={locale} /> : null}
                           </div>
                         </TableCell>
                         <TableCell>

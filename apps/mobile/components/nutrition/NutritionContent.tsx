@@ -16,6 +16,8 @@ import { NutritionCreateProductModal } from './NutritionCreateProductModal';
 import { ProductDetailModal } from './ProductDetailModal';
 import type { FavoriteRow, FuelType, Product, ProductEditDraft } from './types';
 
+const verifiedProductIcon = require('../../assets/verified-product.png');
+
 type ProductBrandGroup<T> = {
   brandLabel: string;
   items: T[];
@@ -404,18 +406,17 @@ function ProductCard({
             <Ionicons color={Colors.textMuted} name="image-outline" size={18} />
           </View>
         )}
+        {isVerified ? (
+          <View style={styles.verifiedIconBadge}>
+            <Image source={verifiedProductIcon} style={styles.verifiedIconImage} />
+          </View>
+        ) : null}
       </View>
       <View style={styles.productInfo}>
         <View style={styles.productNameRow}>
           <Text numberOfLines={2} style={styles.productName}>
             {product.name}
           </Text>
-          {isVerified ? (
-            <View style={styles.verifiedBadge}>
-              <Ionicons color={Colors.brandPrimary} name="checkmark-circle" size={12} />
-              <Text style={styles.verifiedBadgeText}>Validé</Text>
-            </View>
-          ) : null}
         </View>
         <Text style={styles.productType}>
           {FUEL_TYPE_LABELS[product.fuel_type] ?? product.fuel_type}
@@ -610,6 +611,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   productMedia: {
+    position: 'relative',
     marginRight: 12,
   },
   productImage: {
@@ -645,22 +647,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textPrimary,
   },
-  verifiedBadge: {
-    minHeight: 20,
+  verifiedIconBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  verifiedBadgeText: {
-    color: Colors.brandPrimary,
-    fontSize: 10,
-    fontWeight: '800',
+  verifiedIconImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   productType: {
     fontSize: 11,

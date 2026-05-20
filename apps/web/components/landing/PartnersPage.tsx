@@ -101,6 +101,37 @@ const IconCheck = (props: IconProps) => (
   </svg>
 );
 
+const integratedBrandByLocale = {
+  fr: {
+    name: "Mulebar",
+    status: "Catalogue intégré",
+    description:
+      "27 produits de nutrition trail référencés dans Pace Yourself : gels, barres, boissons d'effort, électrolytes et vrais aliments avec données validées.",
+    href: "https://mulebar.com",
+    cta: "Découvrir Mulebar",
+    tags: ["27 produits", "Données validées", "Lien produit officiel"],
+  },
+  en: {
+    name: "Mulebar",
+    status: "Integrated catalog",
+    description:
+      "27 trail nutrition products listed in Pace Yourself: gels, bars, drink mixes, electrolytes, and real food with validated data.",
+    href: "https://mulebar.com",
+    cta: "Visit Mulebar",
+    tags: ["27 products", "Validated data", "Official product links"],
+  },
+} satisfies Record<
+  Locale,
+  {
+    name: string;
+    status: string;
+    description: string;
+    href: string;
+    cta: string;
+    tags: string[];
+  }
+>;
+
 type ImagePlaceholderProps = {
   src: string;
   label: string;
@@ -152,6 +183,7 @@ function ImagePlaceholder({
 
 export function PartnersPage({ copy, locale }: PartnersPageProps) {
   const mailtoHref = mailtoByLocale[locale];
+  const integratedBrand = integratedBrandByLocale[locale];
   const pillars = [
     {
       Icon: IconEye,
@@ -338,19 +370,59 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
 
       <section className="space-y-6 rounded-3xl border border-border bg-card/70 p-6 sm:p-10">
         <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{copy.brands.title}</h2>
-        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 text-sm font-medium text-muted-foreground dark:border-emerald-400/30 dark:bg-emerald-400/5">
-          {copy.brands.emptyState}
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div
-              key={index}
-              className="flex aspect-[4/3] items-center justify-center rounded-2xl border border-dashed border-border bg-card/40"
-              aria-hidden
-            >
-              <span className="h-8 w-20 rounded-full bg-muted/50" />
+        <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+          <article className="overflow-hidden rounded-2xl border border-brand-border bg-brand-surface shadow-sm dark:border-emerald-400/30 dark:bg-emerald-400/5">
+            <div className="grid min-h-52 gap-0 md:grid-cols-[0.8fr_1.2fr]">
+              <div className="flex items-center justify-center bg-card/70 p-6 dark:bg-slate-950/50">
+                <div className="flex aspect-square w-full max-w-44 items-center justify-center rounded-full border border-brand-border bg-background text-center shadow-inner dark:border-emerald-400/30 dark:bg-slate-950">
+                  <span className="text-3xl font-black uppercase tracking-[0.12em] text-brand dark:text-emerald-200">
+                    {integratedBrand.name}
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col justify-between gap-5 p-6">
+                <div className="space-y-3">
+                  <p className="inline-flex rounded-full border border-brand-border bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand dark:border-emerald-400/30 dark:bg-slate-950 dark:text-emerald-200">
+                    {integratedBrand.status}
+                  </p>
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-semibold text-foreground">{integratedBrand.name}</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{integratedBrand.description}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {integratedBrand.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-semibold text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <a
+                  href={integratedBrand.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-brand-border bg-card px-4 py-2 text-sm font-semibold text-brand transition hover:bg-background focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:border-emerald-400/30 dark:bg-slate-950 dark:text-emerald-200"
+                >
+                  {integratedBrand.cta}
+                  <IconArrowRight className="h-4 w-4" />
+                </a>
+              </div>
             </div>
-          ))}
+          </article>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div
+                key={index}
+                className="flex min-h-24 items-center justify-center rounded-2xl border border-dashed border-border bg-card/40"
+                aria-hidden
+              >
+                <span className="h-8 w-20 rounded-full bg-muted/50" />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -984,6 +984,37 @@ const productDetailCopy = {
 const formatOptionalText = (value: string | null | undefined, fallback: string) =>
   value && value.trim() ? value : fallback;
 
+const pickerOtherBrandLabel = {
+  fr: "Autres marques",
+  en: "Other brands",
+};
+
+const inferPickerBrand = (product: FuelProduct, locale: "en" | "fr") => {
+  const explicitBrand = product.brand?.trim();
+  if (explicitBrand) return explicitBrand;
+
+  const firstToken = product.name
+    .split(/\s+/)
+    .map((part) => part.replace(/^[^A-Za-z0-9À-ÿ]+|[^A-Za-z0-9À-ÿ]+$/g, ""))
+    .find(Boolean);
+
+  return firstToken && firstToken.length > 2 ? firstToken : pickerOtherBrandLabel[locale];
+};
+
+const groupPickerProductsByBrand = (products: FuelProduct[], locale: "en" | "fr") => {
+  const groups = products.reduce((map, product) => {
+    const brand = inferPickerBrand(product, locale);
+    const current = map.get(brand) ?? [];
+    current.push(product);
+    map.set(brand, current);
+    return map;
+  }, new Map<string, FuelProduct[]>());
+
+  return Array.from(groups.entries())
+    .map(([brand, items]) => ({ brand, items }))
+    .sort((left, right) => left.brand.localeCompare(right.brand, locale, { sensitivity: "base" }));
+};
+
 function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProps) {
   const copy = productDetailCopy[locale];
 
@@ -1036,7 +1067,6 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
             <h2 id="product-detail-title" className="mt-1 text-xl font-semibold text-foreground dark:text-slate-50">
               {product.name}
             </h2>
-            {isVerified ? <VerifiedProductBadge locale={locale} className="mt-2" /> : null}
             <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{copy.perServing}</p>
           </div>
           <Button variant="ghost" className="h-8 px-2" onClick={onClose}>
@@ -1045,7 +1075,13 @@ function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProp
         </div>
 
         <div className="grid gap-5 p-5 md:grid-cols-[160px_1fr]">
-          <div className="flex h-40 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background dark:bg-slate-900">
+          <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background dark:bg-slate-900">
+            {isVerified ? (
+              <VerifiedProductBadge
+                locale={locale}
+                className="absolute right-2 top-2 z-10 h-7 w-7"
+              />
+            ) : null}
             {product.imageUrl ? (
               <img src={product.imageUrl} alt="" className="h-full w-full object-contain p-3" />
             ) : (
@@ -1520,8 +1556,12 @@ export function ActionPlan({
     const term = pickerSearch.trim().toLowerCase();
     const localIds = new Set(localProductIds ?? []);
     return fuelProducts.filter((product) => {
+      const brand = inferPickerBrand(product, locale).toLowerCase();
       const matchesSearch =
-        !term || product.name.toLowerCase().includes(term) || product.slug.toLowerCase().includes(term);
+        !term ||
+        product.name.toLowerCase().includes(term) ||
+        product.slug.toLowerCase().includes(term) ||
+        brand.includes(term);
       const matchesType = pickerFuelType === "all" || product.fuelType === pickerFuelType;
       const matchesOwnership =
         !pickerShowMyProducts ||
@@ -1529,7 +1569,35 @@ export function ActionPlan({
         localIds.has(product.id);
       return matchesSearch && matchesType && matchesOwnership;
     });
-  }, [fuelProducts, localProductIds, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
+  }, [fuelProducts, localProductIds, locale, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
+  const sortedPickerProducts = useMemo(() => {
+    return [...filteredPickerProducts].sort((a, b) => {
+      const dir = pickerSort.dir === "asc" ? 1 : -1;
+      if (pickerSort.key === "favorite") {
+        const aFav = Number(pickerFavoriteSet.has(a.slug));
+        const bFav = Number(pickerFavoriteSet.has(b.slug));
+        if (aFav === bFav) return a.name.localeCompare(b.name, locale, { sensitivity: "base" });
+        return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
+      }
+      if (pickerSort.key === "name") return a.name.localeCompare(b.name, locale, { sensitivity: "base" }) * dir;
+      if (pickerSort.key === "type") return a.fuelType.localeCompare(b.fuelType, locale, { sensitivity: "base" }) * dir;
+      if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
+      if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
+      return (a.caloriesKcal - b.caloriesKcal) * dir;
+    });
+  }, [filteredPickerProducts, locale, pickerFavoriteSet, pickerSort]);
+  const groupedPickerProducts = useMemo(
+    () => groupPickerProductsByBrand(sortedPickerProducts, locale),
+    [locale, sortedPickerProducts]
+  );
+  const pickerTableRows = useMemo(
+    () =>
+      groupedPickerProducts.flatMap((group) => [
+        { type: "group" as const, key: `group-${group.brand}`, brand: group.brand, count: group.items.length },
+        ...group.items.map((product) => ({ type: "product" as const, key: product.slug, product })),
+      ]),
+    [groupedPickerProducts]
+  );
   const {
     renderItems,
     collapsibleKeys,
@@ -3057,22 +3125,28 @@ export function ActionPlan({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPickerProducts
-                    .sort((a, b) => {
-                      const dir = pickerSort.dir === "asc" ? 1 : -1;
-                      if (pickerSort.key === "favorite") {
-                        const aFav = Number(pickerFavoriteSet.has(a.slug));
-                        const bFav = Number(pickerFavoriteSet.has(b.slug));
-                        if (aFav === bFav) return 0;
-                        return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
+                  {pickerTableRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        Aucun produit trouvé.
+                      </td>
+                    </tr>
+                  ) : pickerTableRows.map((row) => {
+                      if (row.type === "group") {
+                        return (
+                          <tr key={row.key} className="border-t border-border bg-muted/50 dark:bg-slate-900/50">
+                            <td colSpan={7} className="px-4 py-2">
+                              <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {row.brand}
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-background px-1.5 text-[11px] text-foreground dark:bg-slate-950 dark:text-slate-200">
+                                  {row.count}
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        );
                       }
-                      if (pickerSort.key === "name") return a.name.localeCompare(b.name) * dir;
-                      if (pickerSort.key === "type") return a.fuelType.localeCompare(b.fuelType) * dir;
-                      if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
-                      if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
-                      return (a.caloriesKcal - b.caloriesKcal) * dir;
-                    })
-                    .map((product) => {
+                      const product = row.product;
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
                       const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
@@ -3080,7 +3154,7 @@ export function ActionPlan({
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              className={`text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
+                              className={`text-lg ${isFavorite ? "text-amber-500 dark:text-amber-300" : "text-muted-foreground dark:text-slate-500"} hover:text-amber-400 dark:hover:text-amber-200`}
                               onClick={() => toggleFavorite(product.slug)}
                               aria-label="Favori"
                             >
@@ -3088,16 +3162,30 @@ export function ActionPlan({
                             </button>
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex min-w-0 flex-col items-start gap-1">
+                            <div className="flex min-w-[220px] items-center gap-3">
+                              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background dark:bg-slate-900">
+                                {isVerifiedProduct(product) ? (
+                                  <VerifiedProductBadge
+                                    locale={locale}
+                                    className="absolute right-0.5 top-0.5 h-5 w-5"
+                                  />
+                                ) : null}
+                                {product.imageUrl ? (
+                                  <img src={product.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1.5" />
+                                ) : (
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    {product.name.slice(0, 1)}
+                                  </span>
+                                )}
+                              </div>
                               <button
                                 type="button"
-                                className="text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                                className="min-w-0 text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
                                 onClick={() => setProductDetail(product)}
                                 aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
                               >
                                 {product.name}
                               </button>
-                              {isVerifiedProduct(product) ? <VerifiedProductBadge locale={locale} /> : null}
                             </div>
                           </td>
                           <td className="px-4 py-3">

@@ -21,6 +21,8 @@ import { Text } from '../themed/Text';
 import { FUEL_TYPE_LABELS, FUEL_TYPE_OPTIONS } from './nutritionConstants';
 import type { FuelType, Product, ProductEditDraft, ProductImageDraft } from './types';
 
+const verifiedProductIcon = require('../../assets/verified-product.png');
+
 type ProductDetailModalProps = {
   canManage: boolean;
   deleting: boolean;
@@ -185,12 +187,6 @@ export const ProductDetailModal = memo(function ProductDetailModal({
           <View style={styles.header}>
             <View style={styles.titleBlock}>
               <Text style={styles.modalTitle}>Fiche produit</Text>
-              {isVerified ? (
-                <View style={styles.verifiedPill}>
-                  <Ionicons color={Colors.brandPrimary} name="checkmark-circle" size={13} />
-                  <Text style={styles.verifiedPillText}>Validé</Text>
-                </View>
-              ) : null}
               <View style={[styles.accessPill, canManage ? styles.accessPillEdit : styles.accessPillRead]}>
                 <Text style={[styles.accessPillText, canManage ? styles.accessTextEdit : styles.accessTextRead]}>
                   {accessLabel}
@@ -216,6 +212,11 @@ export const ProductDetailModal = memo(function ProductDetailModal({
                   <Ionicons color={Colors.textMuted} name="image-outline" size={26} />
                 </View>
               )}
+              {isVerified ? (
+                <View style={styles.verifiedImageBadge}>
+                  <Image source={verifiedProductIcon} style={styles.verifiedImageBadgeIcon} />
+                </View>
+              ) : null}
             </View>
 
             {editable ? (
@@ -434,23 +435,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
-  verifiedPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  verifiedPillText: {
-    color: Colors.brandPrimary,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
   accessPill: {
     borderRadius: 999,
     borderWidth: 1,
@@ -489,6 +473,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   imageFrame: {
+    position: 'relative',
     height: 164,
     borderRadius: 18,
     overflow: 'hidden',
@@ -505,6 +490,26 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  verifiedImageBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  verifiedImageBadgeIcon: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   imageActions: {
     flexDirection: 'row',

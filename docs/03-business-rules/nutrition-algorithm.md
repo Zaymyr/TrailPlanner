@@ -19,19 +19,26 @@ related_files:
   - apps/web/components/race-planner/ActionPlan.tsx
   - apps/web/components/race-planner/carryoverNutrition.ts
   - apps/web/components/race-planner/useActionPlanDerivedData.ts
+  - apps/web/components/products/VerifiedProductBadge.tsx
+  - apps/web/public/branding/verified-product.png
   - apps/web/locales/types.ts
   - apps/web/locales/fr.ts
   - apps/web/locales/en.ts
   - apps/mobile/app/(app)/plan/[id]/edit.tsx
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/components/PlanForm.tsx
+  - apps/mobile/assets/verified-product.png
+  - apps/mobile/components/nutrition/NutritionContent.tsx
+  - apps/mobile/components/nutrition/ProductDetailModal.tsx
   - apps/mobile/components/plan-form/AidStationsSectionV3.tsx
   - apps/mobile/components/plan-form/carryover.ts
   - apps/mobile/components/plan-form/contracts.ts
   - apps/mobile/components/plan-form/EditStationModal.tsx
   - apps/mobile/components/plan-form/helpers.ts
   - apps/mobile/components/plan-form/metrics.ts
+  - apps/mobile/components/plan-form/ProductPickerModal.tsx
   - apps/mobile/components/plan-form/styles.ts
+  - apps/mobile/components/plan-form/usePlanProducts.ts
   - apps/mobile/components/plan-form/usePlanSupplies.ts
   - apps/mobile/lib/continuousNutrition.ts
   - apps/mobile/lib/freeTrainingLive.ts
@@ -231,7 +238,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Free training gives active water, carb, and sodium targets a default one-hour buffer even when no matching supply is carried.
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
 - Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
-- Verified/official product badges are presentation only. They are derived from `created_by is null` and must not change allocation order or nutrition math.
+- Verified/official product badges are presentation only. They are derived from `created_by is null`, use the custom verified icon asset on product images in catalog and plan pickers, and must not change allocation order or nutrition math.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.
 - Carb allocation uses product carbs as weights; products with `carbs_g <= 5` are excluded from carb-source allocation.
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.
