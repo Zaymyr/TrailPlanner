@@ -1,13 +1,14 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/web/package.json
   - apps/web/next.config.mjs
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/web/app/api/auth/session/route.ts
+  - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/stripe/checkout/route.ts
@@ -62,6 +63,7 @@ The client session entry point is `apps/web/app/hooks/useVerifiedSession.tsx`. I
 - verifies access tokens by calling `apps/web/app/api/auth/session/route.ts`;
 - passes refresh tokens through the `x-refresh-token` header when needed;
 - fetches entitlements through `apps/web/lib/entitlements.ts`;
+- triggers the authenticated Resend contact sync for identified, non-anonymous sessions;
 - clears planner local storage on sign-out.
 
 The session API route validates Supabase users through `apps/web/lib/supabase.ts`, calls `ensureTrialStatus`, accepts pending coach invites, and sets HTTP-only cookies through auth cookie helpers.
@@ -96,6 +98,8 @@ Stripe routes live under `apps/web/app/api/stripe`:
 
 RevenueCat routes live under `apps/web/app/api/revenuecat`. They synchronize mobile purchases into the same `subscriptions` table with provider `google` or `apple`.
 
+Resend contact sync lives under `apps/web/app/api/resend/contact/route.ts`. It validates the current Supabase bearer token, skips anonymous users, rate-limits by user id, and upserts a Resend contact using the server-only `RESEND_API_KEY`.
+
 ## Security Posture
 
 Server routes generally use:
@@ -110,6 +114,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 ## Gotchas
 
 - Do not store service-role keys in client code. `getSupabaseServiceConfig` is server-only by usage.
+- Do not expose `RESEND_API_KEY` to browser or mobile code; both clients must call server routes.
 - `planner_values` is intentionally flexible JSON. Validate route inputs, but do not assume every old plan has every current field.
 - `/api/race-catalog` and `/api/races` both write `races`, but the admin route creates public catalog rows and the user route creates private rows.
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).

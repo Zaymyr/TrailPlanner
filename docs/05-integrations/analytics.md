@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -83,12 +83,15 @@ The mobile PostHog client:
 - captures app lifecycle events;
 - supports identify, reset, event capture, and screen tracking helpers.
 
+`apps/mobile/app/_layout.tsx` is also the home for other session side effects such as push registration and Resend contact sync. Those side effects should stay separate from PostHog identify/reset calls.
+
 ## Gotchas
 
 - Never paste real PostHog keys into docs.
 - Do not include sensitive URL tokens in analytics paths.
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
 - Use environment variable names, not values.
+- Do not use analytics identity as proof that a user should be synced to marketing contacts; Resend sync must validate the Supabase session separately.
 
 ## Related Docs
 

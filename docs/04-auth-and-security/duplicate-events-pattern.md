@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -65,12 +65,15 @@ This is the last line of defense if the browser guard fails.
 
 Mobile listens to `supabase.auth.onAuthStateChange` in `apps/mobile/app/_layout.tsx` and other auth screens. The audited code tracks `SIGNED_IN` and sign-out analytics; no direct `USER_UPDATED` handling was found in the same onboarding-save pattern.
 
+The layout also runs session side effects such as push registration and Resend contact sync behind in-flight refs and persistent client markers. These are not onboarding plan saves, but they follow the same idempotency principle because Supabase sessions can refresh or be observed more than once.
+
 ## Gotchas
 
 - A `useRef` guard alone does not survive redirects.
 - A storage flag alone can stale-lock a user if never cleared.
 - Server idempotency is still needed because clients can retry or double-submit.
 - Keep `trailplanner.pendingPlanId` cleanup near plan hydration.
+- New session side effects in `_layout.tsx` should use the same guard mindset: skip anonymous users when required and make retries safe.
 
 ## Related Docs
 

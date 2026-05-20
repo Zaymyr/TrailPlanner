@@ -44,6 +44,7 @@ import {
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
+import { syncResendContactRegistration } from '../lib/resendContactSync';
 import { primePlansScreenBootstrap } from '../lib/plansScreenBootstrap';
 import {
   clearInactivityReminder,
@@ -177,6 +178,7 @@ function RootLayoutContent() {
   const foregroundUpdateCheckInFlightRef = useRef(false);
   const hasShownForegroundUpdateNotificationRef = useRef(false);
   const pushRegistrationInFlightRef = useRef(false);
+  const resendContactSyncInFlightRef = useRef(false);
   const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
   const identifiedAnalyticsUserIdRef = useRef<string | null>(null);
   const lastTrackedScreenKeyRef = useRef<string | null>(null);
@@ -589,6 +591,20 @@ function RootLayoutContent() {
     if (!session) return;
 
     void ensureTrialStatusForSession(session);
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || isAnonymousSession(session) || !session.access_token) return;
+    if (resendContactSyncInFlightRef.current) return;
+
+    resendContactSyncInFlightRef.current = true;
+    void syncResendContactRegistration(session)
+      .catch((error) => {
+        console.error('Unable to sync Resend contact:', error);
+      })
+      .finally(() => {
+        resendContactSyncInFlightRef.current = false;
+      });
   }, [session]);
 
   useEffect(() => {

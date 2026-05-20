@@ -1,12 +1,13 @@
 ---
 title: Session Management
 scope: auth
-last_verified: 2026-05-17
+last_verified: 2026-05-19
 ai_priority: high
 related_files:
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/web/lib/auth-storage.ts
   - apps/web/app/api/auth/session/route.ts
+  - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/auth/signout/route.ts
   - apps/web/lib/trial-server.ts
 related_tables:
@@ -34,6 +35,7 @@ This document describes how the web app stores, verifies, refreshes, and clears 
 - `trailplanner.accessToken`
 - `trailplanner.refreshToken`
 - `trailplanner.sessionEmail`
+- `trailplanner.resendContactSynced:<userId>:<email>`
 
 Persisting a session dispatches:
 
@@ -48,6 +50,8 @@ Persisting a session dispatches:
 - browser storage changes;
 - `trailplanner:session-updated`;
 - periodic interval around 30 minutes.
+
+After successful verification, the context calls `POST /api/resend/contact` for identified, non-anonymous users that have not already been marked in localStorage with `trailplanner.resendContactSynced:<userId>:<email>`.
 
 ## Sign Out
 
@@ -77,6 +81,7 @@ The route also sets HTTP-only cookies for web requests.
 - Session refresh can race across tabs; handlers must be idempotent.
 - Clearing planner storage on sign-out is intentional because anonymous/onboarding state can leak otherwise.
 - Keep access-token and refresh-token handling synchronized with mobile/web session expectations.
+- Resend contact sync is best-effort and must not block session verification, entitlements refresh, or sign-out cleanup.
 
 ## Related Docs
 
