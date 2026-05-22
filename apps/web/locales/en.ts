@@ -118,6 +118,96 @@ export const en: Translations = {
       },
     ],
   },
+  partners: {
+    meta: {
+      title: "List your products in Pace Yourself",
+      description:
+        "The trail race planner that integrates real products from nutrition brands. Validated data, outbound link to your site, official integration.",
+    },
+    hero: {
+      title: "List your products in Pace Yourself",
+      subtitle:
+        "The trail race planner that integrates real products from nutrition brands. Validated data, outbound link to your site, official integration.",
+      ctaPrimary: "List my products",
+      ctaSecondary: "See the app",
+    },
+    why: {
+      title: "Why join Pace Yourself",
+      pillar1Title: "Targeted visibility",
+      pillar1Description:
+        "Each listed product links to your website via a tracked outbound link. 100% qualified traffic from runners actively planning their races.",
+      pillar2Title: "Validated data",
+      pillar2Description:
+        "Your products are listed based on data you provide. No scraping, no approximations, no outdated information.",
+      pillar3Title: "Brand control",
+      pillar3Description:
+        "You approve the name, description, and visuals used. You maintain control over your brand identity within the app.",
+    },
+    appearance: {
+      title: "How your products appear in the app",
+      subtitle: "A clean integration that matches your brand standards.",
+      imageProductLabel: "Product detail in the app",
+      imageAidStationLabel: "Aid station with assigned products",
+    },
+    process: {
+      title: "A simple, no-strings-attached process",
+      step1Title: "You send us your data",
+      step1Description: "A nutritional file, technical sheet, or simple PDF. No specific format required.",
+      step2Title: "We integrate your products",
+      step2Description: "Careful integration with final review of the product card with you before publication.",
+      step3Title: "Your products become available to runners",
+      step3Description:
+        "Available in the catalog, integrable in any race plan, with direct links to your website.",
+    },
+    requirements: {
+      title: "The information we need",
+      items: [
+        "Product name",
+        "Type (gel, drink, bar, electrolyte…)",
+        "Carbs per serving (g)",
+        "Sodium per serving (mg)",
+        "Caffeine if applicable (mg)",
+        "Link to official product page",
+        "Product visual (only with your written consent)",
+      ],
+      reassurance:
+        "No contractual commitment. No exclusivity required. You can request product removal at any time.",
+    },
+    about: {
+      title: "Behind Pace Yourself",
+      paragraph1:
+        "My name is Faustin Bertrand. I started Pace Yourself because I was tired of managing race plans in clunky spreadsheets.",
+      paragraph2:
+        "A trail runner myself, I finished the Marathon du Mont-Blanc in 9h12 and I'm currently training for the UTMB Saint-Jacques 80k. This on-the-ground experience drives the product choices in the app: what actually works in a race, not what works in theory.",
+      paragraph3:
+        "Pace Yourself is in launch phase, with its first Premium users. Building a reliable, brand-validated product catalog is my priority before scaling.",
+      photoAlt: "Faustin Bertrand trail running",
+    },
+    brands: {
+      title: "They trust us",
+      emptyState: "This section will fill up soon. Be among the first brands to join Pace Yourself.",
+    },
+    faq: {
+      title: "Frequently asked questions",
+      q1Question: "How much does it cost?",
+      q1Answer:
+        "Listing is free. Pace Yourself generates revenue through Premium subscriptions from runners, not from brands.",
+      q2Question: "Is there a contractual commitment?",
+      q2Answer:
+        "None. A simple email agreement is enough. You can request product removal at any time.",
+      q3Question: "What data formats do you accept?",
+      q3Answer:
+        "PDF, Excel, CSV, or simple email with the information. We adapt to what's easiest for you.",
+      q4Question: "Will my products be promoted or just listed?",
+      q4Answer:
+        "Fairly listed in the catalog. No paid promotion. Plan algorithms recommend products that best match the runner's nutritional goals.",
+    },
+    finalCta: {
+      title: "Ready to join Pace Yourself?",
+      subtitle: "Free listing, no commitment.",
+      button: "List my products",
+    },
+  },
   navigation: {
     racePlanner: "Race planner",
     coach: "Coach",

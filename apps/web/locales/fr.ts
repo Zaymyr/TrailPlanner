@@ -128,6 +128,97 @@ export const fr: Translations = {
       },
     ],
   },
+  partners: {
+    meta: {
+      title: "Referencez vos produits dans Pace Yourself",
+      description:
+        "L'application de planification trail qui integre les produits reels des marques de nutrition. Donnees validees, lien sortant vers votre site, integration officielle.",
+    },
+    hero: {
+      title: "Referencez vos produits dans Pace Yourself",
+      subtitle:
+        "L'application de planification trail qui integre les produits reels des marques de nutrition. Donnees validees, lien sortant vers votre site, integration officielle.",
+      ctaPrimary: "Referencer mes produits",
+      ctaSecondary: "Voir l'application",
+    },
+    why: {
+      title: "Pourquoi rejoindre Pace Yourself",
+      pillar1Title: "Visibilite ciblee",
+      pillar1Description:
+        "Chaque produit liste renvoie vers votre site via un lien sortant tracke. Trafic 100% qualifie de coureurs en phase de planification de course.",
+      pillar2Title: "Donnees validees",
+      pillar2Description:
+        "Vos produits sont references a partir des donnees que vous nous fournissez. Pas de scraping, pas d'approximations, pas d'informations obsoletes.",
+      pillar3Title: "Controle de l'image",
+      pillar3Description:
+        "Vous validez le nom, la description et le visuel utilises. Vous gardez la main sur votre identite de marque dans l'app.",
+    },
+    appearance: {
+      title: "Comment vos produits apparaissent dans l'app",
+      subtitle: "Une integration soignee, a la hauteur de votre marque.",
+      imageProductLabel: "Fiche produit dans l'app",
+      imageAidStationLabel: "Ravitaillement avec produits assignes",
+    },
+    process: {
+      title: "Un processus simple, sans contrainte",
+      step1Title: "Vous nous envoyez vos donnees",
+      step1Description:
+        "Un fichier nutritionnel, une fiche technique ou un simple PDF. Pas besoin de format particulier.",
+      step2Title: "On integre vos produits",
+      step2Description: "Integration soignee avec validation finale de la fiche avec vous avant publication.",
+      step3Title: "Vos produits sont accessibles aux coureurs",
+      step3Description:
+        "Disponibles dans le catalogue, integrables a n'importe quel plan de course, avec lien direct vers votre site.",
+    },
+    requirements: {
+      title: "Les informations dont nous avons besoin",
+      items: [
+        "Nom du produit",
+        "Type (gel, boisson, barre, electrolyte…)",
+        "Glucides par portion (g)",
+        "Sodium par portion (mg)",
+        "Cafeine si applicable (mg)",
+        "Lien vers la page produit officielle",
+        "Visuel produit (uniquement avec votre accord ecrit)",
+      ],
+      reassurance:
+        "Aucun engagement contractuel. Aucune exclusivite demandee. Vous pouvez retirer vos produits a tout moment sur simple demande.",
+    },
+    about: {
+      title: "Derriere Pace Yourself",
+      paragraph1:
+        "Je m'appelle Faustin Bertrand. J'ai lance Pace Yourself parce que j'en avais marre de gerer mes plans de course dans des tableurs Excel branlants.",
+      paragraph2:
+        "Trail runner moi-meme, j'ai termine le Marathon du Mont-Blanc en 9h12 et je prepare actuellement l'UTMB 80k de Saint-Jacques. C'est cette experience terrain qui guide les choix produit de l'app : ce qui marche vraiment en course, pas ce qui marche en theorie.",
+      paragraph3:
+        "Pace Yourself est en phase de lancement, avec ses premiers utilisateurs Premium. Construire un catalogue produit fiable et valide par les marques, c'est ma priorite avant de scaler.",
+      photoAlt: "Faustin Bertrand en trail",
+    },
+    brands: {
+      title: "Ils nous font confiance",
+      emptyState: "Section bientot remplie. Soyez l'une des premieres marques a rejoindre Pace Yourself.",
+    },
+    faq: {
+      title: "Questions frequentes",
+      q1Question: "Combien ca coute ?",
+      q1Answer:
+        "Le referencement est gratuit. Pace Yourself genere son revenu via les abonnements Premium des coureurs, pas via les marques.",
+      q2Question: "Y a-t-il un engagement contractuel ?",
+      q2Answer:
+        "Aucun. Un simple accord par email suffit. Vous pouvez demander le retrait de vos produits a tout moment.",
+      q3Question: "Quels formats de donnees acceptez-vous ?",
+      q3Answer:
+        "PDF, Excel, CSV, ou simple email avec les informations. On s'adapte a ce qui est le plus simple pour vous.",
+      q4Question: "Mes produits seront-ils mis en avant ou simplement listes ?",
+      q4Answer:
+        "Listes equitablement dans le catalogue. Aucune mise en avant payante. Les algorithmes de plan recommandent les produits qui correspondent le mieux aux objectifs nutritionnels du coureur.",
+    },
+    finalCta: {
+      title: "Pret a rejoindre Pace Yourself ?",
+      subtitle: "Referencement gratuit, sans engagement.",
+      button: "Referencer mes produits",
+    },
+  },
   navigation: {
     racePlanner: "Planificateur de course",
     coach: "Coach",

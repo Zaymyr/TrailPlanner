@@ -1458,11 +1458,81 @@ export type CoachCoacheeDetailTranslations = {
   };
 };
 
+export type PartnersPageTranslations = {
+  meta: {
+    title: string;
+    description: string;
+  };
+  hero: {
+    title: string;
+    subtitle: string;
+    ctaPrimary: string;
+    ctaSecondary: string;
+  };
+  why: {
+    title: string;
+    pillar1Title: string;
+    pillar1Description: string;
+    pillar2Title: string;
+    pillar2Description: string;
+    pillar3Title: string;
+    pillar3Description: string;
+  };
+  appearance: {
+    title: string;
+    subtitle: string;
+    imageProductLabel: string;
+    imageAidStationLabel: string;
+  };
+  process: {
+    title: string;
+    step1Title: string;
+    step1Description: string;
+    step2Title: string;
+    step2Description: string;
+    step3Title: string;
+    step3Description: string;
+  };
+  requirements: {
+    title: string;
+    items: string[];
+    reassurance: string;
+  };
+  about: {
+    title: string;
+    paragraph1: string;
+    paragraph2: string;
+    paragraph3: string;
+    photoAlt: string;
+  };
+  brands: {
+    title: string;
+    emptyState: string;
+  };
+  faq: {
+    title: string;
+    q1Question: string;
+    q1Answer: string;
+    q2Question: string;
+    q2Answer: string;
+    q3Question: string;
+    q3Answer: string;
+    q4Question: string;
+    q4Answer: string;
+  };
+  finalCta: {
+    title: string;
+    subtitle: string;
+    button: string;
+  };
+};
+
 export type Translations = {
   homeHero: HomeHeroTranslations;
   mobileAppPrompt: MobileAppPromptTranslations;
   racePlanner: RacePlannerTranslations;
   landing: LandingPageTranslations;
+  partners: PartnersPageTranslations;
   auth: AuthTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {

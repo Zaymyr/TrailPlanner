@@ -1,6 +1,6 @@
 import { getSupabaseUrl } from "./supabase";
 
-type OAuthProvider = "google";
+export type OAuthProvider = "google" | "apple";
 
 type BuildOAuthUrlOptions = {
   provider: OAuthProvider;
@@ -30,8 +30,16 @@ export const buildSupabaseOAuthUrl = ({
   return authorizeUrl.toString();
 };
 
-export const redirectToGoogleOAuth = () => {
-  const authorizeUrl = buildSupabaseOAuthUrl({ provider: "google" });
+export const redirectToOAuth = (provider: OAuthProvider, redirectPath?: string) => {
+  const authorizeUrl = buildSupabaseOAuthUrl({ provider, redirectPath });
 
   window.location.href = authorizeUrl;
+};
+
+export const redirectToGoogleOAuth = () => {
+  redirectToOAuth("google");
+};
+
+export const redirectToAppleOAuth = () => {
+  redirectToOAuth("apple");
 };
