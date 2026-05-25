@@ -9,6 +9,7 @@ const baseValues = {
   paceMinutes: 5,
   paceSeconds: 0,
   speedKph: 0,
+  fatigueLevel: 0.5,
   targetIntakePerHour: 60,
   waterIntakePerHour: 500,
   sodiumIntakePerHour: 1000,

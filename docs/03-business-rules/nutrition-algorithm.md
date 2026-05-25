@@ -239,6 +239,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
 - Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
 - Verified/official product badges are presentation only. They are derived from `created_by is null`, use the custom verified icon asset on product images in catalog and plan pickers, and must not change allocation order or nutrition math.
+- Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; duplicate aliases can break `next build` before planner or catalog pages compile.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.
 - Carb allocation uses product carbs as weights; products with `carbs_g <= 5` are excluded from carb-source allocation.
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.

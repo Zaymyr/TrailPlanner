@@ -27,6 +27,7 @@ const baseValues: FormValues = {
   paceMinutes: 6,
   paceSeconds: 0,
   speedKph: 10,
+  fatigueLevel: 0.5,
   targetIntakePerHour: 60,
   waterIntakePerHour: 600,
   sodiumIntakePerHour: 500,
