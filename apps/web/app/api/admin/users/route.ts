@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
 import { withSecurityHeaders } from "../../../../lib/http";
 import {
   extractBearerToken,
@@ -11,9 +13,9 @@ import {
 } from "../../../../lib/supabase";
 
 const supabaseAdminUserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().min(1),
   email: z.string().nullable().optional(),
-  created_at: z.string(),
+  created_at: z.string().nullable().optional(),
   last_sign_in_at: z.string().nullable().optional(),
   app_metadata: z
     .object({
@@ -25,14 +27,14 @@ const supabaseAdminUserSchema = z.object({
 });
 
 const usersEnvelopeSchema = z.object({
-  users: z.array(supabaseAdminUserSchema),
+  users: z.array(z.unknown()),
 });
 
 const mappedUsersSchema = z.object({
   users: z.array(
     z.object({
       id: z.string(),
-      email: z.string().nullable().optional(),
+      email: z.string().optional(),
       createdAt: z.string(),
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
@@ -86,10 +88,12 @@ const singleUserSchema = z.object({
   user: mappedUsersSchema.shape.users.element,
 });
 
+const userIdUuidSchema = z.string().uuid();
+
 const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
   id: user.id,
-  email: user.email,
-  createdAt: user.created_at,
+  email: user.email ?? undefined,
+  createdAt: user.created_at ?? new Date(0).toISOString(),
   lastSignInAt: user.last_sign_in_at ?? undefined,
   role: user.app_metadata?.role,
   roles:
@@ -198,6 +202,11 @@ const isSubscriptionActive = (subscription: z.infer<typeof subscriptionRowSchema
   return isSubscriptionStatusActive(subscription?.status, subscription?.current_period_end);
 };
 
+type RefreshTokenPayload = {
+  access_token: string;
+  refresh_token?: string;
+};
+
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -210,13 +219,37 @@ const authorizeAdmin = async (request: NextRequest) => {
     };
   }
 
-  const token = extractBearerToken(request.headers.get("authorization"));
+  const cookieStore = cookies();
+  let accessToken =
+    extractBearerToken(request.headers.get("authorization")) ?? cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
+  let refreshToken =
+    extractBearerToken(request.headers.get("x-refresh-token")) ?? cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
 
-  if (!token) {
+  if (!accessToken) {
     return { error: withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 })) };
   }
 
-  const supabaseUser = await fetchSupabaseUser(token, supabaseAnon);
+  let supabaseUser = await fetchSupabaseUser(accessToken, supabaseAnon);
+
+  if (!supabaseUser && refreshToken) {
+    const refreshResponse = await fetch(`${supabaseAnon.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseAnon.supabaseAnonKey,
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store",
+    });
+
+    const refreshData = (await refreshResponse.json().catch(() => null)) as RefreshTokenPayload | null;
+
+    if (refreshResponse.ok && refreshData?.access_token) {
+      accessToken = refreshData.access_token;
+      refreshToken = refreshData.refresh_token ?? refreshToken;
+      supabaseUser = await fetchSupabaseUser(accessToken, supabaseAnon);
+    }
+  }
 
   if (!supabaseUser || !isAdminUser(supabaseUser)) {
     return { error: withSecurityHeaders(NextResponse.json({ message: "Admin access required." }, { status: 403 })) };
@@ -246,16 +279,20 @@ export async function GET(request: NextRequest) {
     }
 
     const parsedEnvelope = usersEnvelopeSchema.safeParse(payload);
-    const parsedList = z.array(supabaseAdminUserSchema).safeParse(payload);
+    const parsedList = z.array(z.unknown()).safeParse(payload);
 
-    const users = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
+    const rawUsers = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
 
-    if (!users) {
+    if (!rawUsers) {
       return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
     }
 
-    const mapped = users.map(mapUser);
+    const mapped = rawUsers
+      .map((entry) => supabaseAdminUserSchema.safeParse(entry))
+      .filter((entry): entry is { success: true; data: z.infer<typeof supabaseAdminUserSchema> } => entry.success)
+      .map((entry) => mapUser(entry.data));
     const userIds = mapped.map((user) => user.id);
+    const relationalUserIds = userIds.filter((userId) => userIdUuidSchema.safeParse(userId).success);
     let grantsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.premiumGrant>>();
     let trialsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.trial>>();
     let subscriptionsByUserId = new Map<
@@ -266,10 +303,10 @@ export async function GET(request: NextRequest) {
     let favoritesByUserId = new Map<string, string[]>();
     let profilesByUserId = new Map<string, z.infer<typeof userProfileInsightRowSchema>>();
 
-    if (userIds.length > 0) {
+    if (relationalUserIds.length > 0) {
       const [grantsResponse, trialsResponse, subscriptionsResponse, coachProfilesResponse, plansResponse, favoritesResponse, productsResponse, profilesResponse] = await Promise.all([
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=id,user_id,starts_at,initial_duration_days,reason,ends_at&order=starts_at.desc`,
           {
@@ -281,7 +318,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,trial_ends_at`,
           {
@@ -293,7 +330,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,status,current_period_end`,
           {
@@ -305,7 +342,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/coach_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/coach_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,subscription_status`,
           {
@@ -317,7 +354,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/race_plans?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/race_plans?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,name,created_at&order=created_at.desc`,
           {
@@ -329,7 +366,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/user_favorite_products?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_favorite_products?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,product_id`,
           {
@@ -348,7 +385,7 @@ export async function GET(request: NextRequest) {
           cache: "no-store",
         }),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,sign_in_count,first_sign_in_at,last_sign_in_at,age,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km`,
           {
