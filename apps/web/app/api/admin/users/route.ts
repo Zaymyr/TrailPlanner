@@ -25,7 +25,7 @@ const supabaseAdminUserSchema = z.object({
 });
 
 const usersEnvelopeSchema = z.object({
-  users: z.array(supabaseAdminUserSchema),
+  users: z.array(z.unknown()),
 });
 
 const mappedUsersSchema = z.object({
@@ -248,7 +248,7 @@ export async function GET(request: NextRequest) {
     }
 
     const parsedEnvelope = usersEnvelopeSchema.safeParse(payload);
-    const parsedList = z.array(supabaseAdminUserSchema).safeParse(payload);
+    const parsedList = z.array(z.unknown()).safeParse(payload);
 
     const rawUsers = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
 
