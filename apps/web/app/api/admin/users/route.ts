@@ -61,6 +61,16 @@ const mappedUsersSchema = z.object({
         })
         .nullable()
         .optional(),
+      insights: z
+        .object({
+          signInCount: z.number().int().nonnegative().nullable(),
+          activityWindowDays: z.number().int().nonnegative().nullable(),
+          planCount: z.number().int().nonnegative(),
+          latestPlanName: z.string().nullable(),
+          favoriteProducts: z.array(z.string()),
+          onboardingCompleted: z.boolean(),
+        })
+        .optional(),
     })
   ),
 });
@@ -139,6 +149,30 @@ const subscriptionRowSchema = z.object({
 const coachProfileRowSchema = z.object({
   user_id: z.string().uuid(),
   subscription_status: z.string().nullable().optional(),
+});
+
+const racePlanRowSchema = z.object({
+  user_id: z.string().uuid(),
+  name: z.string(),
+  created_at: z.string(),
+});
+
+const userFavoriteProductRowSchema = z.object({
+  user_id: z.string().uuid(),
+  product_id: z.string().uuid(),
+});
+
+const productNameRowSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+});
+
+const userProfileInsightRowSchema = z.object({
+  user_id: z.string().uuid(),
+  age: z.number().nullable().optional(),
+  water_bag_liters: z.number().nullable().optional(),
+  utmb_index: z.number().nullable().optional(),
+  comfortable_flat_pace_min_per_km: z.number().nullable().optional(),
 });
 
 const buildTrial = (trial: z.infer<typeof trialRowSchema>, now: Date) => {
@@ -225,9 +259,12 @@ export async function GET(request: NextRequest) {
       string,
       z.infer<typeof mappedUsersSchema.shape.users.element.shape.subscription>
     >();
+    let planRows: z.infer<typeof racePlanRowSchema>[] = [];
+    let favoritesByUserId = new Map<string, string[]>();
+    let profilesByUserId = new Map<string, z.infer<typeof userProfileInsightRowSchema>>();
 
     if (userIds.length > 0) {
-      const [grantsResponse, trialsResponse, subscriptionsResponse, coachProfilesResponse] = await Promise.all([
+      const [grantsResponse, trialsResponse, subscriptionsResponse, coachProfilesResponse, plansResponse, favoritesResponse, productsResponse, profilesResponse] = await Promise.all([
         fetch(
           `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${userIds.join(
             ","
@@ -276,13 +313,60 @@ export async function GET(request: NextRequest) {
             cache: "no-store",
           }
         ),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/race_plans?user_id=in.(${userIds.join(
+            ","
+          )})&select=user_id,name,created_at&order=created_at.desc`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_favorite_products?user_id=in.(${userIds.join(
+            ","
+          )})&select=user_id,product_id`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
+        fetch(`${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,name`, {
+          headers: {
+            apikey: auth.supabaseService.supabaseServiceRoleKey,
+            Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+          },
+          cache: "no-store",
+        }),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
+            ","
+          )})&select=user_id,age,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
       ]);
 
-      const [grantsPayload, trialsPayload, subscriptionsPayload, coachProfilesPayload] = await Promise.all([
+      const [grantsPayload, trialsPayload, subscriptionsPayload, coachProfilesPayload, plansPayload, favoritesPayload, productsPayload, profilesPayload] = await Promise.all([
         grantsResponse.json().catch(() => null),
         trialsResponse.json().catch(() => null),
         subscriptionsResponse.json().catch(() => null),
         coachProfilesResponse.json().catch(() => null),
+        plansResponse.json().catch(() => null),
+        favoritesResponse.json().catch(() => null),
+        productsResponse.json().catch(() => null),
+        profilesResponse.json().catch(() => null),
       ]);
 
       if (grantsResponse.ok) {
@@ -367,14 +451,74 @@ export async function GET(request: NextRequest) {
       } else {
         console.error("Unable to load coach profile payload", coachProfilesPayload);
       }
+
+      if (plansResponse.ok) {
+        const parsedPlans = z.array(racePlanRowSchema).safeParse(plansPayload);
+        if (parsedPlans.success) planRows = parsedPlans.data;
+      }
+
+      if (favoritesResponse.ok && productsResponse.ok) {
+        const parsedFavorites = z.array(userFavoriteProductRowSchema).safeParse(favoritesPayload);
+        const parsedProducts = z.array(productNameRowSchema).safeParse(productsPayload);
+        if (parsedFavorites.success && parsedProducts.success) {
+          const productNames = new Map(parsedProducts.data.map((product) => [product.id, product.name]));
+          for (const favorite of parsedFavorites.data) {
+            const label = productNames.get(favorite.product_id);
+            if (!label) continue;
+            const current = favoritesByUserId.get(favorite.user_id) ?? [];
+            if (current.length < 5) current.push(label);
+            favoritesByUserId.set(favorite.user_id, current);
+          }
+        }
+      }
+
+      if (profilesResponse.ok) {
+        const parsedProfiles = z.array(userProfileInsightRowSchema).safeParse(profilesPayload);
+        if (parsedProfiles.success) {
+          profilesByUserId = new Map(parsedProfiles.data.map((profile) => [profile.user_id, profile]));
+        }
+      }
     }
 
-    const mappedWithGrants = mapped.map((user) => ({
-      ...user,
-      premiumGrant: grantsByUserId.get(user.id) ?? null,
-      trial: trialsByUserId.get(user.id) ?? null,
-      subscription: subscriptionsByUserId.get(user.id) ?? null,
-    }));
+    const plansByUserId = new Map<string, z.infer<typeof racePlanRowSchema>[]>();
+    for (const plan of planRows) {
+      const current = plansByUserId.get(plan.user_id) ?? [];
+      current.push(plan);
+      plansByUserId.set(plan.user_id, current);
+    }
+
+    const mappedWithGrants = mapped.map((user) => {
+      const userPlans = plansByUserId.get(user.id) ?? [];
+      const profile = profilesByUserId.get(user.id);
+      const onboardingCompleted = Boolean(
+        profile &&
+          (profile.age !== null ||
+            profile.water_bag_liters !== null ||
+            profile.utmb_index !== null ||
+            profile.comfortable_flat_pace_min_per_km !== null)
+      );
+      const createdAt = new Date(user.createdAt);
+      const lastSignInAt = user.lastSignInAt ? new Date(user.lastSignInAt) : null;
+      const activityWindowDays =
+        lastSignInAt && Number.isFinite(lastSignInAt.getTime()) && Number.isFinite(createdAt.getTime())
+          ? Math.max(0, Math.ceil((lastSignInAt.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000)))
+          : null;
+
+      return {
+        ...user,
+        premiumGrant: grantsByUserId.get(user.id) ?? null,
+        trial: trialsByUserId.get(user.id) ?? null,
+        subscription: subscriptionsByUserId.get(user.id) ?? null,
+        insights: {
+          signInCount: null,
+          activityWindowDays,
+          planCount: userPlans.length,
+          latestPlanName: userPlans[0]?.name ?? null,
+          favoriteProducts: favoritesByUserId.get(user.id) ?? [],
+          onboardingCompleted,
+        },
+      };
+    });
 
     return withSecurityHeaders(NextResponse.json(mappedUsersSchema.parse({ users: mappedWithGrants })));
   } catch (error) {
