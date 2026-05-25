@@ -884,6 +884,22 @@ export type AdminTranslations = {
       createdAt: string;
       lastSignInAt: string;
       premium: string;
+      details: string;
+    };
+    details: {
+      open: string;
+      title: string;
+      createdAt: string;
+      lastSignInAt: string;
+      signInCount: string;
+      activityWindow: string;
+      planCount: string;
+      latestPlan: string;
+      favoriteProducts: string;
+      onboarding: string;
+      completed: string;
+      notCompleted: string;
+      unavailable: string;
     };
     premium: {
       starts: string;

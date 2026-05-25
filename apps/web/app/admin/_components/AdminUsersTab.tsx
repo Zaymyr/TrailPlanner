@@ -44,6 +44,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const [revokingGrantId, setRevokingGrantId] = useState<string | null>(null);
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [premiumDialogUser, setPremiumDialogUser] = useState<AdminUser | null>(null);
+  const [detailsDialogUser, setDetailsDialogUser] = useState<AdminUser | null>(null);
 
   const premiumReasonOptions = useMemo(
     () => [
@@ -312,6 +313,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
                   <TableHead className="text-slate-600 dark:text-slate-300">
                     {t.admin.users.table.premium}
                   </TableHead>
+                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.details}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -447,6 +449,11 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
                         </Button>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setDetailsDialogUser(user)}>
+                        {t.admin.users.details.open}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -539,6 +546,27 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(detailsDialogUser)} onOpenChange={(open) => !open && setDetailsDialogUser(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t.admin.users.details.title}</DialogTitle>
+            <DialogDescription>{detailsDialogUser?.email ?? "—"}</DialogDescription>
+          </DialogHeader>
+          {detailsDialogUser ? (
+            <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
+              <p><span className="font-semibold">{t.admin.users.details.createdAt}</span> {formatDate(detailsDialogUser.createdAt)}</p>
+              <p><span className="font-semibold">{t.admin.users.details.lastSignInAt}</span> {formatDate(detailsDialogUser.lastSignInAt)}</p>
+              <p><span className="font-semibold">{t.admin.users.details.signInCount}</span> {detailsDialogUser.insights?.signInCount ?? t.admin.users.details.unavailable}</p>
+              <p><span className="font-semibold">{t.admin.users.details.activityWindow}</span> {detailsDialogUser.insights?.activityWindowDays !== null && detailsDialogUser.insights?.activityWindowDays !== undefined ? `${detailsDialogUser.insights.activityWindowDays}j` : t.admin.users.details.unavailable}</p>
+              <p><span className="font-semibold">{t.admin.users.details.planCount}</span> {detailsDialogUser.insights?.planCount ?? 0}</p>
+              <p><span className="font-semibold">{t.admin.users.details.latestPlan}</span> {detailsDialogUser.insights?.latestPlanName ?? "—"}</p>
+              <p><span className="font-semibold">{t.admin.users.details.favoriteProducts}</span> {(detailsDialogUser.insights?.favoriteProducts ?? []).join(", ") || "—"}</p>
+              <p><span className="font-semibold">{t.admin.users.details.onboarding}</span> {detailsDialogUser.insights?.onboardingCompleted ? t.admin.users.details.completed : t.admin.users.details.notCompleted}</p>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

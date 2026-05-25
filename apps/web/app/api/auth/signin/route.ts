@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getSupabaseAnonConfig } from "../../../../lib/supabase";
+import { getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../../lib/supabase";
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
 
 const signInSchema = z.object({
@@ -17,8 +17,9 @@ export async function POST(request: Request) {
   }
 
   const supabaseConfig = getSupabaseAnonConfig();
+  const supabaseService = getSupabaseServiceConfig();
 
-  if (!supabaseConfig) {
+  if (!supabaseConfig || !supabaseService) {
     return NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 });
   }
 
@@ -67,6 +68,21 @@ export async function POST(request: Request) {
         secure: isSecure,
         path: "/",
         maxAge: 60 * 60 * 24 * 30,
+      });
+    }
+
+    if (result.user?.id) {
+      void fetch(`${supabaseService.supabaseUrl}/rest/v1/rpc/increment_user_sign_in`, {
+        method: "POST",
+        headers: {
+          apikey: supabaseService.supabaseServiceRoleKey,
+          Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ p_user_id: result.user.id }),
+        cache: "no-store",
+      }).catch((error) => {
+        console.error("Unable to increment sign-in metrics", error);
       });
     }
 
