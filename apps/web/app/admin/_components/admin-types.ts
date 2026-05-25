@@ -68,7 +68,7 @@ export const adminUsersSchema = z.object({
   users: z.array(
     z.object({
       id: z.string(),
-      email: z.string().email().optional(),
+      email: z.string().optional(),
       createdAt: z.string(),
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
