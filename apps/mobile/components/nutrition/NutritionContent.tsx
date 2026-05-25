@@ -119,7 +119,7 @@ function groupItemsByBrand<T>(
 }
 
 function isVerifiedProduct(product: Product) {
-  return product.created_by === null;
+  return product.is_official === true;
 }
 
 type NutritionContentProps = {

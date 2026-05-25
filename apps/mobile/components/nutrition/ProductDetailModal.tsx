@@ -110,7 +110,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
   const busy = saving || deleting;
   const editable = canManage && isEditing && !busy;
   const accessLabel = canManage ? 'Modifiable' : 'Lecture seule';
-  const isVerified = currentProduct.created_by === null;
+  const isVerified = currentProduct.is_official === true;
   const imagePreviewUri = imageDraft?.uri ?? currentProduct.image_url ?? null;
 
   async function handleSave() {

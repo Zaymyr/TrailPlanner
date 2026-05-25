@@ -23,7 +23,7 @@ export async function loadPlanProductsBootstrap(userId: string | null | undefine
   const [productsResult, favoriteRowsResult] = await Promise.all([
     supabase
       .from('products')
-      .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+      .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official')
       .eq('is_live', true)
       .eq('is_archived', false)
       .order('name'),

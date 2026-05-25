@@ -57,6 +57,13 @@ These migrations add profile and billing support:
 - `supabase/migrations/20250701100000_add_subscriptions_table.sql`
 - `supabase/migrations/20250902121500_allow_anon_read_products.sql`
 - `supabase/migrations/20250214120000_add_product_url_to_products.sql`
+- `supabase/migrations/20260525191426_add_official_product_metadata.sql`
+
+`20260525191426_add_official_product_metadata.sql` adds:
+
+- `products.is_official` as the explicit official/shared catalog flag;
+- `products.official_name` to preserve the exact source label from brand imports;
+- a one-time backfill/harmonization pass for the current official Baouw, Mulebar, Maurten, Aptonia, and Precision Fuel catalog rows.
 
 ### Trace Era Removed
 
@@ -147,6 +154,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Do not add `user_metadata` admin checks in new policies.
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
+- Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 
 ## Related Docs
 

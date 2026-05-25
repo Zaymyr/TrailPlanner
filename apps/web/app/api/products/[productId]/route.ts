@@ -30,6 +30,7 @@ const supabaseProductSchema = z.object({
   protein_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
   fat_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
   created_by: z.string().uuid().optional().nullable(),
+  is_official: z.boolean().optional().default(false),
 });
 
 const productResponseSchema = z.object({
@@ -49,6 +50,7 @@ const productResponseSchema = z.object({
     fatGrams: z.number(),
     waterMl: z.number().optional(),
     createdBy: z.string().uuid().optional().nullable(),
+    isOfficial: z.boolean().optional(),
   }),
 });
 
@@ -70,7 +72,7 @@ const updateProductSchema = z.object({
 });
 
 const productSelect =
-  "id,slug,sku,name,brand,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by";
+  "id,slug,sku,name,brand,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by,is_official";
 
 const toProduct = (row: z.infer<typeof supabaseProductSchema>) => ({
   id: row.id,
@@ -88,6 +90,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>) => ({
   fatGrams: Number(row.fat_g) || 0,
   waterMl: 0,
   createdBy: row.created_by ?? null,
+  isOfficial: row.is_official ?? false,
 });
 
 const authorizeProductMutation = async (request: NextRequest, productId: string) => {

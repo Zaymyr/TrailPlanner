@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-05-20
+last_verified: 2026-05-25
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -10,8 +10,11 @@ related_files:
   - supabase/migrations/20260322100000_add_created_by_to_products.sql
   - supabase/migrations/20260417103000_add_product_images.sql
   - supabase/migrations/20260417190000_add_product_brand_cleanup.sql
+  - supabase/migrations/20260525191426_add_official_product_metadata.sql
+  - apps/web/app/api/admin/products/route.ts
   - apps/web/app/api/products/route.ts
   - apps/web/app/api/products/[productId]/route.ts
+  - apps/web/lib/official-product-names.ts
   - apps/web/lib/nutrition-planner.ts
 related_tables:
   - products
@@ -31,7 +34,8 @@ related_tables:
 - Live product: product visible to users.
 - Archived product: hidden from normal reads.
 - User product: product with `created_by` set.
-- Verified/shared catalog product: product with `created_by` null, shown as validated official catalog data in clients.
+- Official/shared catalog product: product with `is_official = true`, shown as validated official catalog data in clients.
+- Official source name: exact label from the brand site/import stored in `official_name`.
 - Intrinsic nutrition: carbs, sodium, calories, protein, fat per product unit.
 
 ## Columns
@@ -48,11 +52,13 @@ related_tables:
 | `product_url` | `text` | nullable | Product URL. |
 | `image_url` | `text` | nullable | Public product image URL. |
 | `brand` | `text` | nullable, normalized by trigger | Product brand. |
+| `official_name` | `text` | nullable | Exact source label from the official brand site/import before harmonization. |
 | `calories_kcal` | `numeric` | not null, default `0` | Calories per unit. |
 | `carbs_g` | `numeric` | not null, default `0` | Carbohydrates per unit. |
 | `sodium_mg` | `numeric` | not null, default `0` | Sodium per unit. |
 | `protein_g` | `numeric` | not null, default `0` | Protein per unit. |
 | `fat_g` | `numeric` | not null, default `0` | Fat per unit. |
+| `is_official` | `boolean` | not null, default `false` | Explicit flag for official/shared catalog products. |
 | `is_live` | `boolean` | not null, default `false` | Visibility flag. |
 | `is_archived` | `boolean` | not null, default `false` | Archive flag. |
 | `created_by` | `uuid` | nullable, references `auth.users(id)` on delete set null | User who created the product. |
@@ -72,6 +78,7 @@ There is no `water_ml` database column.
 - `products_fuel_type_idx` on `fuel_type`
 - `products_created_by_idx` on `created_by`
 - `products_brand_idx` on `lower(brand)`
+- `products_is_official_idx` on `is_official` where true
 
 ## RLS Policies
 
@@ -86,7 +93,7 @@ Summary:
 
 Mobile product edits and deletes go through `apps/web/app/api/products/[productId]/route.ts`, which verifies the Supabase bearer token, authorizes either the product owner (`created_by`) or an admin from `app_metadata`, then performs the mutation with the server-side service role.
 
-The public product API preserves `createdBy: null` for shared catalog rows so clients can show a verified/validated badge. User-created products return their owner id in `createdBy`.
+The public product API returns `isOfficial: true` for official/shared catalog rows so clients can show a verified/validated badge. `createdBy` remains ownership metadata only. User-created products return their owner id in `createdBy` and `isOfficial: false`.
 
 ## Business Invariants
 
@@ -95,6 +102,7 @@ The public product API preserves `createdBy: null` for shared catalog rows so cl
   - carb sources such as gels/drink mixes next;
   - `capsule` last for sodium top-up.
 - Product rows store nutrition per unit only. Water is a plan/carry context handled by planner logic.
+- For official imports, `official_name` keeps the source label while `name` is the harmonized display label used in app UI and search.
 - Web API product mappings set client `waterMl` to `0` because water is not stored on products.
 - The 500 ml electrolyte serving assumption lives in `apps/web/lib/nutrition-planner.ts`, not in the product schema.
 
@@ -103,7 +111,7 @@ The public product API preserves `createdBy: null` for shared catalog rows so cl
 Fetch visible products:
 
 ```sql
-select id, slug, name, fuel_type, carbs_g, sodium_mg, brand, image_url, created_by
+select id, slug, name, official_name, fuel_type, carbs_g, sodium_mg, brand, image_url, created_by, is_official
 from public.products
 where is_live = true
   and is_archived = false
@@ -125,6 +133,7 @@ where fuel_type = 'electrolyte'
 - Do not add `water_ml` to `products` just to support hydration planning. The current algorithm treats water as segment/carry demand.
 - `fuel_type` is a Postgres enum. Adding a type requires a migration and app type update.
 - `brand` is normalized by a database trigger. Do not duplicate brand inference in multiple clients unless needed for preview UX.
+- Do not infer "official/shared" from `created_by is null`. Use `is_official`. `created_by` is owner metadata and can be null for reasons unrelated to official catalog curation.
 - User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
 
 ## Related Docs

@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-05-17
+last_verified: 2026-05-25
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -80,6 +80,7 @@ Use:
 - `anon` grants are intentional for anonymous Supabase users only when policies still bind to `auth.uid()`.
 - Coach policies must require an active coach relationship.
 - Archived schema docs may show stale policy names.
+- Avoid overloading owner columns for presentation metadata. For example, `products.is_official` is the official/shared catalog flag; `products.created_by` remains ownership only.
 
 ## Related Docs
 

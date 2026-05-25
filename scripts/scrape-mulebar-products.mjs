@@ -175,6 +175,12 @@ const stripTags = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const normalizeWhitespace = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+
+const ensureGramSpacing = (value) => normalizeWhitespace(value).replace(/(\d)\s*g\b/gi, "$1 g");
+
+const capitalizeFirst = (value) => (value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value);
+
 const normalizeText = (value) =>
   stripTags(String(value ?? ""))
     .normalize("NFD")
@@ -204,6 +210,36 @@ const roundMetric = (value, digits = 1) => {
 const roundInteger = (value) => {
   if (value === null || value === undefined || Number.isNaN(value)) return undefined;
   return Math.round(value);
+};
+
+const extractMulebarFlavor = (title) => {
+  const normalized = ensureGramSpacing(title);
+
+  if (normalized.includes("/")) {
+    return normalized.split("/").slice(1).join("/").trim();
+  }
+
+  const afterBrand = normalized.match(/Mulebar\s+(.*)$/i)?.[1]?.trim();
+  return afterBrand ? capitalizeFirst(afterBrand) : normalized;
+};
+
+const harmonizeMulebarDisplayName = (title, fuelType) => {
+  const flavor = extractMulebarFlavor(title);
+
+  switch (fuelType) {
+    case "gel":
+      return `Gel ${flavor}`;
+    case "bar":
+      return `Barre ${flavor}`;
+    case "real_food":
+      return `Purée ${flavor}`;
+    case "drink_mix":
+      return `Boisson effort ${flavor}`;
+    case "electrolyte":
+      return `Hydratation ${flavor}`;
+    default:
+      return ensureGramSpacing(title);
+  }
 };
 
 const inferFuelType = (product) => {
@@ -389,7 +425,8 @@ const buildProductRecord = ({ product, html }) => {
 
   return {
     product: {
-      name: product.title,
+      name: harmonizeMulebarDisplayName(product.title, fuelType),
+      officialName: ensureGramSpacing(product.title),
       brand: "Mulebar",
       slug: `mulebar-${slugify(product.handle || product.title)}`,
       sku: `MULEBAR-${slugify(skuSource).toUpperCase()}`,
