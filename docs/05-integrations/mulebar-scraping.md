@@ -1,7 +1,7 @@
 ---
 title: Mulebar Product Scraping
 scope: integration
-last_verified: 2026-05-20
+last_verified: 2026-05-25
 ai_priority: medium
 related_files:
   - scripts/scrape-mulebar-products.mjs
@@ -21,6 +21,7 @@ related_tables:
 - The nutrition table on the product page is the source of truth when available.
 - JSON-LD nutrition is used only as a fallback because some storefront values are expressed per 100 g even when `servingSize` is present.
 - Product output uses the app product unit model: calories, carbs, sodium, protein, and fat are per usable unit or serving.
+- The scraper now emits both a harmonized display `name` and an `officialName` source label for official catalog imports.
 - Sodium is stored as sodium in milligrams. If Mulebar exposes salt in grams, the script converts it with `sodium_mg = salt_g * 1000 / 2.54`.
 - The script never inserts into Supabase. Paste the generated JSON into the admin import UI after review.
 
@@ -58,7 +59,8 @@ Useful options:
 
 | Mulebar signal | Pace Yourself field |
 | --- | --- |
-| Product title | `name` |
+| Harmonized Mulebar display name | `name` |
+| Product title | `officialName` |
 | `Mulebar` | `brand` |
 | Shopify handle | `slug`, prefixed with `mulebar-` |
 | First unit-like variant SKU | `sku`, prefixed with `MULEBAR-` |
@@ -73,6 +75,7 @@ Useful options:
 - Shopify JSON alone does not contain reliable per-serving nutrition for all products; the product page must be fetched.
 - Salt and sodium are different values. The database stores sodium, not salt.
 - Energy cakes and drink powders can have package sizes larger than the serving. Verify that the serving column is the intended app unit before import.
+- Keep `officialName` aligned with the exact storefront label. `name` is allowed to be shorter because Pace Yourself uses it as the harmonized in-app display label.
 - Do not run the script in a tight loop. Keep a delay and use it only for authorized catalog refreshes.
 
 ## Related Docs

@@ -26,6 +26,7 @@ const supabaseProductSchema = z.object({
   protein_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
   fat_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
   created_by: z.string().uuid().optional().nullable(),
+  is_official: z.boolean().optional().default(false),
 });
 
 const productResponseSchema = z.object({
@@ -46,6 +47,7 @@ const productResponseSchema = z.object({
       fatGrams: z.number(),
       waterMl: z.number().optional(),
       createdBy: z.string().uuid().optional().nullable(),
+      isOfficial: z.boolean().optional(),
     })
   ),
 });
@@ -88,6 +90,7 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => (
   fatGrams: Number(row.fat_g) || 0,
   waterMl: 0,
   createdBy: row.created_by ?? null,
+  isOfficial: row.is_official ?? false,
 });
 
 const buildSlug = (name: string) => {
@@ -140,7 +143,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,brand,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by${fuelTypeQuery}${createdByQuery}&order=updated_at.desc`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/products?is_live=eq.true&is_archived=eq.false&select=id,slug,sku,name,brand,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by,is_official${fuelTypeQuery}${createdByQuery}&order=updated_at.desc`,
       {
         headers: {
           apikey: supabaseConfig.supabaseAnonKey,
@@ -231,6 +234,8 @@ export async function POST(request: NextRequest) {
         is_live: true,
         is_archived: false,
         created_by: supabaseUser.id,
+        is_official: false,
+        official_name: null,
       }),
     });
 

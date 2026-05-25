@@ -55,6 +55,7 @@ export type PlanProduct = {
   sodium_mg: number | null;
   calories_kcal: number | null;
   created_by?: string | null;
+  is_official?: boolean | null;
 };
 
 export type SectionTarget = {

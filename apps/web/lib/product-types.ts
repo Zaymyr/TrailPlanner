@@ -18,6 +18,7 @@ export const fuelProductSchema = z.object({
   fatGrams: z.number(),
   waterMl: z.number().optional(),
   createdBy: z.string().uuid().optional().nullable(),
+  isOfficial: z.boolean().optional(),
 });
 
 export type FuelProduct = z.infer<typeof fuelProductSchema>;

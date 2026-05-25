@@ -5,7 +5,7 @@ type VerifiedProductBadgeProps = {
   locale?: "en" | "fr";
 };
 
-export const isVerifiedProduct = (product: { createdBy?: string | null }) => product.createdBy === null;
+export const isVerifiedProduct = (product: { isOfficial?: boolean | null }) => product.isOfficial === true;
 
 export function VerifiedProductBadge({ className, locale = "fr" }: VerifiedProductBadgeProps) {
   const label = locale === "fr" ? "Données validées" : "Verified data";

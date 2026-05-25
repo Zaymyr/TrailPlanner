@@ -72,7 +72,7 @@ function groupProductsByBrand(products: PickerProduct[], titlePrefix?: string) {
 }
 
 function isVerifiedProduct(product: PickerProduct) {
-  return product.created_by === null;
+  return product.is_official === true;
 }
 
 export const ProductPickerModal = React.memo(function ProductPickerModal({

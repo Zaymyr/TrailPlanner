@@ -17,6 +17,7 @@ export type Product = {
   sodium_mg: number | null;
   calories_kcal: number | null;
   created_by?: string | null;
+  is_official?: boolean | null;
 };
 
 export type ProductImageDraft = {
@@ -52,6 +53,7 @@ export type CreateProductResponse = {
     sodiumMg: number;
     caloriesKcal: number;
     createdBy?: string | null;
+    isOfficial?: boolean | null;
   };
   message?: string;
   error?: string;

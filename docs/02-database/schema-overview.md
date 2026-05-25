@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-05-18
+last_verified: 2026-05-25
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -54,7 +54,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |
 | `premium_grants` | Manual premium overrides with optional end dates. |
-| `products` | Fuel product catalog and user-created products. |
+| `products` | Fuel product catalog and user-created products, with explicit `is_official` metadata for curated/shared catalog rows. |
 | `push_devices` | Expo push tokens and device metadata per user. |
 | `push_notification_events` | Push reminder send log and dedupe records. |
 | `race_aid_stations` | Aid stations attached to `races`. |
@@ -125,6 +125,7 @@ erDiagram
 - Some admin policies in older migrations still reference `user_metadata`; new policies must use `app_metadata`, profile role, or service role patterns.
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
+- `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 
 ## Related Docs
 
