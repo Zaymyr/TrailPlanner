@@ -34,7 +34,7 @@ const mappedUsersSchema = z.object({
   users: z.array(
     z.object({
       id: z.string(),
-      email: z.string().nullable().optional(),
+      email: z.string().optional(),
       createdAt: z.string(),
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
