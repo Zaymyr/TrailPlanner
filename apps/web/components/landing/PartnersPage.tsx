@@ -14,7 +14,10 @@ type PartnersPageProps = {
 type IconProps = SVGProps<SVGSVGElement>;
 
 const MULEBAR_LOGO_SRC = "/landing/mulebar-logo.jpg";
-const MULEBAR_APRICOT_PECAN_IMAGE_SRC = "/landing/mulebar-apricot-pecan-detail.jpg";
+const PRODUCT_DETAIL_IMAGE_BY_LOCALE: Record<Locale, string> = {
+  fr: "/landing/partners-product-detail-fr.svg",
+  en: "/landing/partners-product-detail-en.svg",
+};
 
 const mailtoByLocale: Record<Locale, string> = {
   fr: "mailto:faustin@pace-yourself.com?subject=Referencement%20produits%20-%20%5BNom%20de%20votre%20marque%5D",
@@ -246,95 +249,17 @@ type ProductDetailShowcaseProps = {
 
 function ProductDetailShowcase({ locale, className = "" }: ProductDetailShowcaseProps) {
   const copy = productDetailShowcaseByLocale[locale];
-  const [hasImageError, setHasImageError] = useState(false);
 
   return (
-    <div
-      className={`overflow-hidden rounded-2xl border border-border/80 bg-[#f6f4ef] shadow-2xl shadow-[rgba(45,80,22,0.10)] ${className}`}
-    >
-      <div className="flex h-full flex-col">
-        <div className="border-b border-[#d8d7cf] px-4 py-4 sm:px-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#3f6f1d]">{copy.eyebrow}</p>
-              <h3 className="mt-3 text-lg font-semibold leading-tight text-slate-800 sm:text-[1.65rem]">
-                {copy.title}
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">{copy.subtitle}</p>
-            </div>
-            <span className="text-xl leading-none text-[#3f6f1d]" aria-hidden>
-              ×
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-1 flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5">
-          <div className="flex gap-4">
-            <div className="relative flex aspect-[4/5] w-[31%] min-w-[128px] max-w-[190px] shrink-0 items-center justify-center overflow-hidden rounded-[28px] border border-[#e4decb] bg-[#f1ede1] p-3">
-              <div className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#3f6f1d] text-white shadow-md">
-                <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
-                  <path
-                    d="M6.5 12.5 10.2 16l7.3-8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2.5"
-                  />
-                </svg>
-              </div>
-              {hasImageError ? (
-                <span className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  {copy.imageFallback}
-                </span>
-              ) : (
-                <Image
-                  src={MULEBAR_APRICOT_PECAN_IMAGE_SRC}
-                  alt={copy.imageAlt}
-                  width={1080}
-                  height={1080}
-                  sizes="190px"
-                  className="h-full w-full object-cover object-left"
-                  onError={() => setHasImageError(true)}
-                />
-              )}
-            </div>
-
-            <div className="grid min-w-0 flex-1 gap-3">
-              <div className="grid grid-cols-2 gap-3">
-                {copy.fields.map((field) => (
-                  <div
-                    key={field.label}
-                    className="rounded-[22px] border border-[#deddd4] bg-[#f7f5ef] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
-                  >
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">{field.label}</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-800">{field.value}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                {copy.metrics.map((metric) => (
-                  <div
-                    key={metric.label}
-                    className="rounded-[22px] border border-[#bfd8aa] bg-[#eef4e7] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
-                  >
-                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">{metric.label}</p>
-                    <p className="mt-2 text-lg font-semibold text-slate-800">{metric.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <span className="inline-flex rounded-[18px] bg-[#2f641f] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(47,100,31,0.18)]">
-              {copy.cta}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ImagePlaceholder
+      src={PRODUCT_DETAIL_IMAGE_BY_LOCALE[locale]}
+      alt={copy.imageAlt}
+      label={copy.imageFallback}
+      width={800}
+      height={517}
+      className={className}
+      imageClassName="object-contain"
+    />
   );
 }
 
