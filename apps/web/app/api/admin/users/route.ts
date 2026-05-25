@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
 import { withSecurityHeaders } from "../../../../lib/http";
 import {
   extractBearerToken,
@@ -200,6 +202,11 @@ const isSubscriptionActive = (subscription: z.infer<typeof subscriptionRowSchema
   return isSubscriptionStatusActive(subscription?.status, subscription?.current_period_end);
 };
 
+type RefreshTokenPayload = {
+  access_token: string;
+  refresh_token?: string;
+};
+
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -212,13 +219,37 @@ const authorizeAdmin = async (request: NextRequest) => {
     };
   }
 
-  const token = extractBearerToken(request.headers.get("authorization"));
+  const cookieStore = cookies();
+  let accessToken =
+    extractBearerToken(request.headers.get("authorization")) ?? cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
+  let refreshToken =
+    extractBearerToken(request.headers.get("x-refresh-token")) ?? cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
 
-  if (!token) {
+  if (!accessToken) {
     return { error: withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 })) };
   }
 
-  const supabaseUser = await fetchSupabaseUser(token, supabaseAnon);
+  let supabaseUser = await fetchSupabaseUser(accessToken, supabaseAnon);
+
+  if (!supabaseUser && refreshToken) {
+    const refreshResponse = await fetch(`${supabaseAnon.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseAnon.supabaseAnonKey,
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store",
+    });
+
+    const refreshData = (await refreshResponse.json().catch(() => null)) as RefreshTokenPayload | null;
+
+    if (refreshResponse.ok && refreshData?.access_token) {
+      accessToken = refreshData.access_token;
+      refreshToken = refreshData.refresh_token ?? refreshToken;
+      supabaseUser = await fetchSupabaseUser(accessToken, supabaseAnon);
+    }
+  }
 
   if (!supabaseUser || !isAdminUser(supabaseUser)) {
     return { error: withSecurityHeaders(NextResponse.json({ message: "Admin access required." }, { status: 403 })) };
