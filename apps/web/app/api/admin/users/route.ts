@@ -11,9 +11,9 @@ import {
 } from "../../../../lib/supabase";
 
 const supabaseAdminUserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string().min(1),
   email: z.string().nullable().optional(),
-  created_at: z.string(),
+  created_at: z.string().nullable().optional(),
   last_sign_in_at: z.string().nullable().optional(),
   app_metadata: z
     .object({
@@ -89,7 +89,7 @@ const singleUserSchema = z.object({
 const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
   id: user.id,
   email: user.email,
-  createdAt: user.created_at,
+  createdAt: user.created_at ?? new Date(0).toISOString(),
   lastSignInAt: user.last_sign_in_at ?? undefined,
   role: user.app_metadata?.role,
   roles:
@@ -248,13 +248,16 @@ export async function GET(request: NextRequest) {
     const parsedEnvelope = usersEnvelopeSchema.safeParse(payload);
     const parsedList = z.array(supabaseAdminUserSchema).safeParse(payload);
 
-    const users = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
+    const rawUsers = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
 
-    if (!users) {
+    if (!rawUsers) {
       return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
     }
 
-    const mapped = users.map(mapUser);
+    const mapped = rawUsers
+      .map((entry) => supabaseAdminUserSchema.safeParse(entry))
+      .filter((entry): entry is { success: true; data: z.infer<typeof supabaseAdminUserSchema> } => entry.success)
+      .map((entry) => mapUser(entry.data));
     const userIds = mapped.map((user) => user.id);
     let grantsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.premiumGrant>>();
     let trialsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.trial>>();
