@@ -12,7 +12,7 @@ import {
 
 const supabaseAdminUserSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email().optional(),
+  email: z.string().nullable().optional(),
   created_at: z.string(),
   last_sign_in_at: z.string().nullable().optional(),
   app_metadata: z
@@ -32,7 +32,7 @@ const mappedUsersSchema = z.object({
   users: z.array(
     z.object({
       id: z.string(),
-      email: z.string().optional(),
+      email: z.string().nullable().optional(),
       createdAt: z.string(),
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
