@@ -1,3 +1,4 @@
+import { getPostHogBrowserClient, isPostHogBrowserReady } from "./posthog-browser";
 import { canLoadAnalytics } from "./cookies/consent";
 
 type AnalyticsValue = string | number | boolean | null | undefined;
@@ -24,6 +25,10 @@ export function trackGoogleAnalyticsEvent(eventName: string, params: AnalyticsPa
   }
 
   const payload = removeUndefinedParams(params);
+
+  if (isPostHogBrowserReady()) {
+    getPostHogBrowserClient().capture(eventName, payload);
+  }
 
   if (typeof window.gtag === "function") {
     window.gtag("event", eventName, payload);

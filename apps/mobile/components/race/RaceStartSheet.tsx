@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { AlertConfirmMode } from '../../lib/raceLiveSession';
 import type { WaterOnlyReminderIntervalMinutes } from '../../lib/raceLivePlan';
@@ -34,13 +40,13 @@ const CONFIRM_MODES: Array<{
   {
     value: 'auto_5',
     label: 'Auto 5 min',
-    description: 'La prise est validee automatiquement apres 5 min sans action.',
-    tag: 'Recommande',
+    description: 'La prise est validée automatiquement après 5 min sans action.',
+    tag: 'Recommand?',
   },
   {
     value: 'auto_10',
     label: 'Auto 10 min',
-    description: 'La prise est validee automatiquement apres 10 min sans action.',
+    description: 'La prise est validée automatiquement après 10 min sans action.',
   },
   {
     value: 'fire_forget',
@@ -64,7 +70,7 @@ export function RaceStartSheet({
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Demarrer le suivi live</Text>
+            <Text style={styles.headerTitle}>Démarrer le suivi live</Text>
             <Text style={styles.headerSubtitle} numberOfLines={2}>
               {raceName}
             </Text>
@@ -79,12 +85,12 @@ export function RaceStartSheet({
               <Text style={styles.noticeTitle}>
                 {includeWaterOnlyAlerts
                   ? `Rappels eau seule toutes les ${waterOnlyReminderIntervalMinutes} min`
-                  : 'Rappels eau seule desactives'}
+                  : 'Rappels eau seule désactivés'}
               </Text>
               <Text style={styles.noticeText}>
                 {includeWaterOnlyAlerts
-                  ? "Le volume par prise est ajuste pour garder l'objectif d'eau du plan."
-                  : "Les prises d'eau grisees dans l'apercu ne genereront pas de notification."}
+                  ? "Le volume par prise est ajust? pour garder l'objectif d'eau du plan."
+                  : "Les prises d'eau grisées dans l'aperçu ne généreront pas de notification."}
               </Text>
             </View>
 
@@ -117,7 +123,7 @@ export function RaceStartSheet({
               style={styles.startButton}
               onPress={() => onStart({ confirmMode, includeWaterOnlyAlerts, waterOnlyReminderIntervalMinutes })}
             >
-              <Text style={styles.startText}>Demarrer</Text>
+              <Text style={styles.startText}>Démarrer</Text>
             </TouchableOpacity>
           </View>
         </View>

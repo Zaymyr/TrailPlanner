@@ -106,12 +106,12 @@ const IconCheck = (props: IconProps) => (
 const integratedBrandByLocale = {
   fr: {
     name: "Mulebar",
-    status: "Catalogue integre",
+    status: "Catalogue intégré",
     description:
-      "27 produits de nutrition trail references dans Pace Yourself : gels, barres, boissons d'effort, electrolytes et vrais aliments avec donnees validees.",
+      "27 produits de nutrition trail référencés dans Pace Yourself : gels, barres, boissons d'effort, électrolytes et vrais aliments avec données validées.",
     href: "https://mulebar.com",
-    cta: "Decouvrir Mulebar",
-    tags: ["27 produits", "Donnees validees", "Lien produit officiel"],
+    cta: "Découvrir Mulebar",
+    tags: ["27 produits", "Données validées", "Lien produit officiel"],
   },
   en: {
     name: "Mulebar",

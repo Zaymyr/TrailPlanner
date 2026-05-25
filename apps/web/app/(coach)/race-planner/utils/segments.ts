@@ -59,6 +59,7 @@ export function buildSegments(
       originalIndex: index,
       kind: "aid" as const,
       waterRefill: station.waterRefill !== false,
+      solidRefill: station.solidRefill !== false,
     }))
     .sort((a, b) => a.distanceKm - b.distanceKm);
 
@@ -66,8 +67,9 @@ export function buildSegments(
     originalIndex?: number;
     kind: "start" | "aid" | "finish";
     waterRefill?: boolean;
+    solidRefill?: boolean;
   })[] = [
-    { name: startLabel, distanceKm: 0, kind: "start" as const, waterRefill: true },
+    { name: startLabel, distanceKm: 0, kind: "start" as const, waterRefill: true, solidRefill: true },
     ...stationsWithIndex.filter((s) => s.distanceKm < values.raceDistanceKm),
     {
       name: finishLabel,
@@ -75,6 +77,7 @@ export function buildSegments(
       originalIndex: undefined,
       kind: "finish",
       waterRefill: true,
+      solidRefill: false,
       ...(values.finishPlan ?? {}),
     },
   ];
@@ -154,7 +157,9 @@ export function buildSegments(
       elevationGainM: Math.round(elevationDelta.gain),
       elevationLossM: Math.round(elevationDelta.loss),
       pickupGels: station.pickupGels,
-      supplies: station.supplies,
+      supplies: station.solidRefill === false ? [] : station.supplies,
+      waterRefill: station.waterRefill !== false,
+      solidRefill: station.solidRefill !== false,
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
       waterCapacityMl: waterCapacityMl ?? undefined,

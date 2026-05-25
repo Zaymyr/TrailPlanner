@@ -2,8 +2,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
+import Link from "next/link";
 import Script from "next/script";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
@@ -25,10 +26,18 @@ import { RaceSelector } from "../../../components/race-planner/RaceSelector";
 import { PlanSaveBar } from "../../../components/race-planner/PlanSaveBar";
 import { PlanPrimaryContent } from "./components/PlanPrimaryContent";
 import { PlannerRightPanel } from "./components/PlannerRightPanel";
+import { PlannerSetupSteps, type PlannerSetupStepId } from "./components/PlannerSetupSteps";
 import { GuestSaveBanner } from "../../../components/GuestSaveBanner";
+import { CommandCenter } from "../../../components/race-planner/CommandCenter";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { PageLoadingSkeleton } from "../../../components/PageLoadingSkeleton";
-import { clearRacePlannerStorage, readRacePlannerStorage, writeRacePlannerStorage } from "../../../lib/race-planner-storage";
+import {
+  clearRacePlannerDraft,
+  getRacePlannerDraftKey,
+  readRacePlannerDraft,
+  writeRacePlannerDraft,
+  writeRacePlannerStorage,
+} from "../../../lib/race-planner-storage";
 import { formatMinutes } from "./utils/format";
 import { minutesPerKm, paceToSpeedKph, speedToPace } from "./utils/pacing";
 import { buildPlannerGpx, parseGpx } from "./utils/gpx";
@@ -47,6 +56,7 @@ import { usePlannerState } from "./hooks/usePlannerState";
 import { useRacePlan } from "./hooks/useRacePlan";
 import { OnboardingOverlay } from "../../../components/race-planner/OnboardingOverlay";
 import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
+import { addSuppliesToInventory, consumeInventoryForTargets } from "../../../components/race-planner/carryoverNutrition";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -120,11 +130,11 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   sodiumIntakePerHour: 600,
   startSupplies: [],
   aidStations: [
-    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true },
-    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true, solidRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true, solidRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true, solidRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true, solidRefill: true },
+    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true, solidRefill: true },
   ],
   finishPlan: {},
 });
@@ -176,6 +186,7 @@ const createAidStationSchema = (validation: RacePlannerTranslations["validation"
     name: z.string().min(1, validation.required),
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
     waterRefill: z.coerce.boolean().optional().default(true),
+    solidRefill: z.coerce.boolean().optional().default(true),
   });
 
 const createFormSchema = (copy: RacePlannerTranslations) =>
@@ -220,9 +231,22 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
 
 type PlannerStorageValues = Partial<FormValues> & { startSupplies?: StationSupply[] };
 
+type PlannerToast = {
+  id: number;
+  message: string;
+  actionLabel?: string;
+  durationMs?: number;
+  onAction?: () => void;
+};
+
 const sanitizeRacePlannerStorage = (
-  payload?: { values?: Partial<FormValues>; elevationProfile?: ElevationPoint[] } | null
-): { values: Partial<FormValues>; elevationProfile: ElevationPoint[] } | null => {
+  payload?: {
+    values?: Partial<FormValues>;
+    elevationProfile?: ElevationPoint[];
+    updatedAt?: string;
+    planName?: string;
+  } | null
+): { values: Partial<FormValues>; elevationProfile: ElevationPoint[]; updatedAt: string; planName?: string } | null => {
   if (!payload) return null;
 
   const sanitizedValues = sanitizePlannerValues(payload.values);
@@ -233,10 +257,28 @@ const sanitizeRacePlannerStorage = (
   return {
     values: sanitizedValues,
     elevationProfile: sanitizedElevationProfile,
+    updatedAt: typeof payload.updatedAt === "string" ? payload.updatedAt : "",
+    planName: typeof payload.planName === "string" ? payload.planName : undefined,
+  };
+};
+
+const buildPlannerValuesFromStorage = (defaultValues: FormValues, storedValues: Partial<FormValues>): FormValues => {
+  const sanitizedAidStations = sanitizeAidStations(storedValues.aidStations) ?? [];
+  const aidStations =
+    sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
+  const startSupplies = sanitizeSegmentPlan({ supplies: storedValues.startSupplies }).supplies ?? [];
+
+  return {
+    ...defaultValues,
+    ...storedValues,
+    aidStations,
+    startSupplies,
+    finishPlan: storedValues.finishPlan ?? defaultValues.finishPlan,
   };
 };
 
 export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
+  const router = useRouter();
   const { t, locale } = useI18n();
   const racePlannerCopy = t.racePlanner;
   const premiumCopy = racePlannerCopy.account.premium;
@@ -277,6 +319,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const queryCatalogRaceIdRef = useRef<string | null>(null);
   const initializedQueryRef = useRef(false);
   const hasStoredPlannerDraftRef = useRef(false);
+  const restoredDraftKeysRef = useRef<Set<string>>(new Set());
+  const deleteUndoTimersRef = useRef<Map<string, number>>(new Map());
+  const toastIdRef = useRef(0);
+  const [plannerToast, setPlannerToast] = useState<PlannerToast | null>(null);
+  const [pendingDeletePlanIds, setPendingDeletePlanIds] = useState<Set<string>>(new Set());
 
   const sectionIds = {
     timeline: "race-timeline",
@@ -288,6 +335,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { fields, append, replace } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const startSupplies = form.watch("startSupplies") ?? [];
+  const paceTypeValue = form.watch("paceType") ?? defaultValues.paceType;
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
   const speedKphValue = form.watch("speedKph") ?? defaultValues.speedKph;
@@ -326,7 +374,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       isSettingsCollapsed,
       isRaceCatalogOpen,
       catalogSubmissionId,
-      isCourseCollapsed,
       upgradeStatus,
       upgradeError,
       upgradeDialogOpen,
@@ -346,7 +393,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setIsSettingsCollapsed,
       setIsRaceCatalogOpen,
       setCatalogSubmissionId,
-      setIsCourseCollapsed,
       setUpgradeStatus,
       setUpgradeError,
       setUpgradeDialogOpen,
@@ -355,6 +401,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setOnboardingStep,
     },
   } = usePlannerState();
+  const [openSetupStep, setOpenSetupStep] = useState<PlannerSetupStepId | null>("course");
 
   useEffect(() => {
     if (initializedQueryRef.current) return;
@@ -398,8 +445,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   // Keep the plan tab active throughout the tutorial.
   // Step 5 targets the site header sign-in button which is always visible.
   const applyOnboardingLayout = useCallback(
-    (_step: number) => {
+    (step: number) => {
       setMobileView("plan");
+      if (step === 1) {
+        setOpenSetupStep("course");
+      } else if (step === 2) {
+        setOpenSetupStep("pacing");
+      }
     },
     [setMobileView],
   );
@@ -492,6 +544,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       setUpgradeError(null);
     },
   });
+  const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isCoach = Boolean(isAdmin || session?.role === "coach" || session?.roles?.includes("coach"));
   const isAuthed = Boolean(session?.accessToken);
@@ -532,48 +585,204 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     void handleUseCatalogRace(raceId);
   }, [authStatus, handleUseCatalogRace]);
 
+  const showPlannerToast = useCallback((toast: Omit<PlannerToast, "id">) => {
+    toastIdRef.current += 1;
+    setPlannerToast({ id: toastIdRef.current, ...toast });
+  }, []);
+
+  const removePendingPlanDelete = useCallback((planId: string) => {
+    setPendingDeletePlanIds((previous) => {
+      if (!previous.has(planId)) return previous;
+      const next = new Set(previous);
+      next.delete(planId);
+      return next;
+    });
+  }, []);
+
+  const cancelPendingPlanDelete = useCallback(
+    (planId: string) => {
+      const timeout = deleteUndoTimersRef.current.get(planId);
+      if (timeout) {
+        window.clearTimeout(timeout);
+        deleteUndoTimersRef.current.delete(planId);
+      }
+      removePendingPlanDelete(planId);
+    },
+    [removePendingPlanDelete]
+  );
+
+  const visibleSavedPlans = useMemo(
+    () => savedPlans.filter((plan) => !pendingDeletePlanIds.has(plan.id)),
+    [pendingDeletePlanIds, savedPlans]
+  );
+
+  const handleDeletePlanWithUndo = useCallback(
+    (planId: string) => {
+      const plan = savedPlans.find((savedPlan) => savedPlan.id === planId);
+      if (!plan) {
+        void handleDeletePlan(planId);
+        return;
+      }
+
+      setPendingDeletePlanIds((previous) => {
+        const next = new Set(previous);
+        next.add(planId);
+        return next;
+      });
+
+      const timeout = window.setTimeout(() => {
+        deleteUndoTimersRef.current.delete(planId);
+        void handleDeletePlan(planId).finally(() => removePendingPlanDelete(planId));
+      }, 5000);
+      deleteUndoTimersRef.current.set(planId, timeout);
+
+      showPlannerToast({
+        message: racePlannerCopy.account.messages.deletedPlan,
+        actionLabel: racePlannerCopy.page.undo,
+        durationMs: 5000,
+        onAction: () => cancelPendingPlanDelete(planId),
+      });
+    },
+    [
+      cancelPendingPlanDelete,
+      handleDeletePlan,
+      racePlannerCopy.account.messages.deletedPlan,
+      racePlannerCopy.page.undo,
+      removePendingPlanDelete,
+      savedPlans,
+      showPlannerToast,
+    ]
+  );
+
   useEffect(() => {
-    const storedPlanner = readRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>();
+    return () => {
+      deleteUndoTimersRef.current.forEach((timeout) => window.clearTimeout(timeout));
+      deleteUndoTimersRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!plannerToast?.durationMs) return;
+
+    const timeout = window.setTimeout(() => {
+      setPlannerToast((current) => (current?.id === plannerToast.id ? null : current));
+    }, plannerToast.durationMs);
+
+    return () => window.clearTimeout(timeout);
+  }, [plannerToast]);
+
+  useEffect(() => {
+    if (queryPlanIdRef.current) return;
+
+    const draftKey = getRacePlannerDraftKey(activePlanId);
+    if (restoredDraftKeysRef.current.has(draftKey)) return;
+
+    const storedPlanner = readRacePlannerDraft<PlannerStorageValues, ElevationPoint[]>(activePlanId);
     const sanitized = sanitizeRacePlannerStorage(storedPlanner);
 
     if (!sanitized) {
       hasStoredPlannerDraftRef.current = false;
-      clearRacePlannerStorage();
+      if (storedPlanner) {
+        clearRacePlannerDraft(activePlanId);
+      }
+      return;
+    }
+
+    const draftUpdatedAt = Date.parse(sanitized.updatedAt);
+    const savedUpdatedAt = activePlan?.updatedAt ? Date.parse(activePlan.updatedAt) : 0;
+    const isDraftNewer =
+      Number.isFinite(draftUpdatedAt) && (!activePlan || !Number.isFinite(savedUpdatedAt) || draftUpdatedAt > savedUpdatedAt);
+
+    if (!isDraftNewer) {
+      hasStoredPlannerDraftRef.current = false;
       return;
     }
 
     hasStoredPlannerDraftRef.current = true;
+    restoredDraftKeysRef.current.add(draftKey);
 
-    const storedValues = sanitized.values;
-    const sanitizedAidStations = sanitizeAidStations(storedValues.aidStations) ?? [];
-    const aidStations =
-      sanitizedAidStations.length > 0 ? dedupeAidStations(sanitizedAidStations) : defaultValues.aidStations;
-    const startSupplies = sanitizeSegmentPlan({ supplies: storedValues.startSupplies }).supplies ?? [];
-
-    const mergedValues: FormValues = {
-      ...defaultValues,
-      ...storedValues,
-      aidStations,
-      startSupplies,
-      finishPlan: storedValues.finishPlan ?? defaultValues.finishPlan,
-    };
+    const previousValues = form.getValues();
+    const previousElevationProfile = elevationProfile;
+    const previousPlanName = planName;
+    const mergedValues = buildPlannerValuesFromStorage(defaultValues, sanitized.values);
 
     form.reset(mergedValues, { keepDefaultValues: true });
     setElevationProfile(sanitized.elevationProfile);
-  }, [defaultValues, form]);
+    if (sanitized.planName) {
+      setPlanName(sanitized.planName);
+    }
+
+    showPlannerToast({
+      message: racePlannerCopy.page.draftRestored,
+      actionLabel: racePlannerCopy.page.undo,
+      onAction: () => {
+        form.reset(previousValues, { keepDefaultValues: true });
+        setElevationProfile(previousElevationProfile);
+        setPlanName(previousPlanName);
+        restoredDraftKeysRef.current.delete(draftKey);
+      },
+    });
+  }, [
+    activePlan,
+    activePlanId,
+    defaultValues,
+    elevationProfile,
+    form,
+    planName,
+    racePlannerCopy.page.draftRestored,
+    racePlannerCopy.page.undo,
+    setElevationProfile,
+    setPlanName,
+    showPlannerToast,
+  ]);
 
   useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const writeCurrentDraft = () => {
+      const currentValues = form.getValues();
+      const sanitizedValues = sanitizePlannerValues(currentValues);
+      if (!sanitizedValues) return;
+
+      writeRacePlannerDraft<PlannerStorageValues, ElevationPoint[]>(activePlanId, {
+        version: 1,
+        values: sanitizedValues,
+        elevationProfile: sanitizeElevationProfile(elevationProfile),
+        updatedAt: new Date().toISOString(),
+        planName: planName.trim() || undefined,
+      });
+    };
+
+    const interval = window.setInterval(writeCurrentDraft, 5_000);
+    return () => window.clearInterval(interval);
+  }, [activePlanId, elevationProfile, form, hasUnsavedChanges, planName]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasUnsavedChanges]);
+
+  const writePlannerSnapshot = useCallback(() => {
     const currentValues = form.getValues();
     const sanitizedValues = sanitizePlannerValues(currentValues);
-    if (!sanitizedValues) return;
+    if (!sanitizedValues) return false;
 
     writeRacePlannerStorage<PlannerStorageValues, ElevationPoint[]>({
       version: 1,
       values: sanitizedValues,
       elevationProfile: sanitizeElevationProfile(elevationProfile),
       updatedAt: new Date().toISOString(),
+      planName: planName.trim() || undefined,
     });
-  }, [elevationProfile, form, watchedValues]);
+    return true;
+  }, [elevationProfile, form, planName]);
 
   useEffect(() => {
     if (!session?.accessToken) {
@@ -715,6 +924,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     () => formattedPremiumPrice ?? premiumCopy.premiumModal.priceValue,
     [formattedPremiumPrice, premiumCopy.premiumModal.priceValue]
   );
+  const isGuestSession = session?.isAnonymous === true;
   const sanitizedWatchedAidStations = sanitizeAidStations(watchedValues?.aidStations);
   const sanitizedSectionSegments = useMemo(
     () =>
@@ -784,6 +994,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const formatSodiumAmount = (value: number) =>
     racePlannerCopy.sections.timeline.sodiumLabel.replace("{amount}", value.toFixed(0));
 
+  const formatPaceSummary = (minutes: number, seconds: number) => {
+    const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes)) : 0;
+    const safeSeconds = Number.isFinite(seconds) ? Math.min(Math.max(Math.round(seconds), 0), 59) : 0;
+    return `${safeMinutes}:${String(safeSeconds).padStart(2, "0")}/km`;
+  };
+
   const mergedFuelProducts = useMemo(() => {
     const productsById = new Map<string, FuelProduct>();
     fuelProducts.forEach((product) => productsById.set(product.id, product));
@@ -837,6 +1053,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       return;
     }
 
+    if (session?.isAnonymous) {
+      setUpgradeDialogOpen(false);
+      router.push("/sign-up");
+      return;
+    }
+
     setUpgradeStatus("opening");
     setUpgradeError(null);
 
@@ -873,7 +1095,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     premiumCopy.checkoutError,
     premiumCopy.premiumModal.popupBlocked,
     racePlannerCopy.account.errors.missingSession,
+    router,
     session?.accessToken,
+    session?.isAnonymous,
     setUpgradeError,
     setUpgradeDialogOpen,
     setUpgradeStatus,
@@ -889,15 +1113,18 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
 
   const handleMobileImport = () => {
-    focusSection(sectionIds.courseProfile, "plan");
-    const input = fileInputRef.current;
-    if (!input) return;
+    setOpenSetupStep("course");
+    window.setTimeout(() => {
+      focusSection(sectionIds.courseProfile, "plan");
+      const input = fileInputRef.current;
+      if (!input) return;
 
-    if (typeof input.showPicker === "function") {
-      input.showPicker();
-    } else {
-      input.click();
-    }
+      if (typeof input.showPicker === "function") {
+        input.showPicker();
+      } else {
+        input.click();
+      }
+    }, 0);
   };
 
   const mobileNavActions = [
@@ -1027,6 +1254,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const handlePrintAssistance = () => {
     if (typeof window === "undefined") return;
+    writePlannerSnapshot();
     window.open("/race-planner/print/assistance", "_blank", "noopener,noreferrer");
   };
 
@@ -1050,8 +1278,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
         },
-        body: JSON.stringify({ subject, detail }),
+        body: JSON.stringify({ kind: "feedback", screen: "race-planner", subject, detail }),
       });
 
       const payload = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -1087,10 +1316,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
   const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
   const handleAddAidStation = useCallback(
-    (station?: { name: string; distanceKm: number }) => {
+    (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean }) => {
       append({
         name: station?.name ?? formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
         distanceKm: station?.distanceKm ?? 0,
+        waterRefill: station?.waterRefill !== false,
+        solidRefill: station?.solidRefill !== false,
       });
     },
     [append, fields.length, racePlannerCopy.defaults.aidStationName]
@@ -1172,45 +1403,65 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       const favoriteMatches = selectedProducts
         .map((favorite) => mergedById.get(favorite.id) ?? mergedFuelProducts.find((product) => product.slug === favorite.slug))
-        .filter((product): product is FuelProduct => Boolean(product && product.carbsGrams > 0));
+        .filter((product): product is FuelProduct => Boolean(product && (product.carbsGrams > 0 || product.sodiumMg > 0)));
 
       if (favoriteMatches.length > 0) {
         return favoriteMatches;
       }
 
-      return mergedFuelProducts.filter((product) => product.carbsGrams > 0);
+      return mergedFuelProducts.filter((product) => product.carbsGrams > 0 || product.sodiumMg > 0);
     })();
 
     if (productOptions.length === 0) return;
 
     const buildPlanForTarget = (targetFuelGrams: number, targetSodiumMg: number): StationSupply[] => {
-      if (!Number.isFinite(targetFuelGrams) || targetFuelGrams <= 0) return [];
+      const safeTargetFuelGrams = Number.isFinite(targetFuelGrams) ? Math.max(0, targetFuelGrams) : 0;
+      const safeTargetSodiumMg = Number.isFinite(targetSodiumMg) ? Math.max(0, targetSodiumMg) : 0;
+      if (safeTargetFuelGrams <= 0 && safeTargetSodiumMg <= 0) return [];
 
-      const options = productOptions
+      const carbCandidates = productOptions
         .slice()
         .sort((a, b) => b.carbsGrams - a.carbsGrams)
-        .slice(0, 3)
-        .map((product) => ({
+        .slice(0, safeTargetFuelGrams > 0 && safeTargetSodiumMg > 0 ? 2 : 3);
+      const sodiumCandidates = productOptions
+        .slice()
+        .sort((a, b) => b.sodiumMg - a.sodiumMg)
+        .slice(0, safeTargetFuelGrams > 0 && safeTargetSodiumMg > 0 ? 1 : 3);
+      const candidateProducts = Array.from(
+        new Map(
+          (safeTargetFuelGrams > 0 && safeTargetSodiumMg <= 0
+            ? carbCandidates
+            : safeTargetFuelGrams <= 0 && safeTargetSodiumMg > 0
+              ? sodiumCandidates
+              : [...carbCandidates, ...sodiumCandidates]
+          ).map((product) => [product.id, product])
+        ).values()
+      ).slice(0, 3);
+      const options = candidateProducts.map((product) => ({
         id: product.id,
         carbs: Math.max(product.carbsGrams, 0),
         sodium: Math.max(product.sodiumMg ?? 0, 0),
       }));
 
-      const minCarbs = Math.max(Math.min(...options.map((option) => option.carbs)), 1);
-      const maxUnits = Math.min(12, Math.max(3, Math.ceil(targetFuelGrams / minCarbs) + 2));
+      const minCarbs = Math.max(Math.min(...options.map((option) => Math.max(option.carbs, 1))), 1);
+      const minSodium = Math.max(Math.min(...options.map((option) => Math.max(option.sodium, 1))), 1);
+      const maxUnits = Math.min(
+        12,
+        Math.max(3, Math.ceil(safeTargetFuelGrams / minCarbs) + 2, Math.ceil(safeTargetSodiumMg / minSodium) + 1)
+      );
       const best = { score: Number.POSITIVE_INFINITY, combo: [] as number[] };
 
       const evaluateCombo = (combo: number[]) => {
         const plannedCarbs = combo.reduce((total, qty, index) => total + qty * options[index].carbs, 0);
         const plannedSodium = combo.reduce((total, qty, index) => total + qty * options[index].sodium, 0);
-        const carbDiff = Math.abs(plannedCarbs - targetFuelGrams) / Math.max(targetFuelGrams, 1);
+        const carbDiff = Math.abs(plannedCarbs - safeTargetFuelGrams) / Math.max(safeTargetFuelGrams, 1);
         const sodiumDiff =
-          targetSodiumMg > 0 ? Math.abs(plannedSodium - targetSodiumMg) / targetSodiumMg : 0;
-        const underfillPenalty = plannedCarbs < targetFuelGrams ? 0.2 : 0;
+          safeTargetSodiumMg > 0 ? Math.abs(plannedSodium - safeTargetSodiumMg) / safeTargetSodiumMg : 0;
+        const underfillPenalty = plannedCarbs < safeTargetFuelGrams ? 0.2 : 0;
         const itemPenalty = combo.reduce((sum, qty) => sum + qty, 0) * 0.01;
         const score = carbDiff * 1.5 + sodiumDiff * 0.5 + underfillPenalty + itemPenalty;
 
-        if (score < best.score && plannedCarbs > 0) {
+        if (score < best.score && (plannedCarbs > 0 || plannedSodium > 0)) {
           best.score = score;
           best.combo = combo.slice();
         }
@@ -1240,18 +1491,66 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         .filter((supply) => supply.quantity > 0);
     };
 
-    const firstSegment = segments[0];
-    if (firstSegment) {
-      const startPlan = buildPlanForTarget(firstSegment.targetFuelGrams, firstSegment.targetSodiumMg);
-      form.setValue("startSupplies", startPlan, { shouldDirty: true, shouldValidate: true });
-    }
+    const productsById = Object.fromEntries(productOptions.map((product) => [product.id, product]));
+    const inventory = new Map<string, number>();
+    const balance = { carbs: 0, sodium: 0 };
+    type SupplyTarget = "start" | number;
+    const plannedSuppliesByTarget = new Map<SupplyTarget, StationSupply[]>();
+    const aidStations = form.getValues("aidStations") ?? [];
+    let lastSolidTarget: SupplyTarget = "start";
+    const mergeSupplies = (base: StationSupply[], extra: StationSupply[]) => {
+      const quantities = new Map<string, number>();
+
+      [...base, ...extra].forEach((supply) => {
+        quantities.set(supply.productId, (quantities.get(supply.productId) ?? 0) + supply.quantity);
+      });
+
+      return [...quantities.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+    };
 
     segments.forEach((segment, index) => {
-      const nextSegment = segments[index + 1];
-      if (!nextSegment || typeof segment.aidStationIndex !== "number") return;
+      const pickupTarget: SupplyTarget | undefined = index === 0 ? "start" : segments[index - 1]?.aidStationIndex;
+      const pickupAllowsSolid =
+        pickupTarget === "start" ||
+        (typeof pickupTarget === "number" && aidStations[pickupTarget]?.solidRefill !== false);
 
-      const supplies = buildPlanForTarget(nextSegment.targetFuelGrams, nextSegment.targetSodiumMg);
-      form.setValue(`aidStations.${segment.aidStationIndex}.supplies`, supplies, {
+      if (pickupAllowsSolid && pickupTarget !== undefined) {
+        lastSolidTarget = pickupTarget;
+      }
+
+      consumeInventoryForTargets({
+        inventory,
+        productsById,
+        balance,
+        targetCarbs: segment.targetFuelGrams,
+        targetSodium: segment.targetSodiumMg,
+      });
+
+      const remainingFuelGrams = Math.max(0, -balance.carbs);
+      const remainingSodiumMg = Math.max(0, -balance.sodium);
+      if (remainingFuelGrams <= 0 && remainingSodiumMg <= 0) return;
+
+      const supplies = buildPlanForTarget(remainingFuelGrams, remainingSodiumMg);
+      plannedSuppliesByTarget.set(
+        lastSolidTarget,
+        mergeSupplies(plannedSuppliesByTarget.get(lastSolidTarget) ?? [], supplies)
+      );
+      addSuppliesToInventory(inventory, supplies);
+      consumeInventoryForTargets({
+        inventory,
+        productsById,
+        balance,
+        targetCarbs: 0,
+        targetSodium: 0,
+      });
+    });
+
+    form.setValue("startSupplies", plannedSuppliesByTarget.get("start") ?? [], {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    aidStations.forEach((station, index) => {
+      form.setValue(`aidStations.${index}.supplies`, station.solidRefill === false ? [] : plannedSuppliesByTarget.get(index) ?? [], {
         shouldDirty: true,
         shouldValidate: true,
       });
@@ -1262,6 +1561,123 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
     defaultValues.raceDistanceKm;
   const courseProfileAidStations = parsedValues.success ? parsedValues.data.aidStations : sanitizedWatchedAidStations;
+  const elevationGainForSummary =
+    (parsedValues.success ? parsedValues.data.elevationGain : watchedValues?.elevationGain) ??
+    defaultValues.elevationGain;
+  const waterBagLitersForSummary =
+    (parsedValues.success ? parsedValues.data.waterBagLiters : watchedValues?.waterBagLiters) ??
+    defaultValues.waterBagLiters;
+  const durationSummary = pacingOverviewDuration
+    ? formatMinutes(pacingOverviewDuration, racePlannerCopy.units)
+    : "-";
+  const fatigueSummary =
+    fatigueLevelValue <= 0.33
+      ? racePlannerCopy.sections.raceInputs.fields.fatigueLow
+      : fatigueLevelValue >= 0.67
+        ? racePlannerCopy.sections.raceInputs.fields.fatigueHigh
+        : racePlannerCopy.sections.raceInputs.fields.fatigueMedium;
+  const paceSummary =
+    paceTypeValue === "speed"
+      ? `${Math.max(0, speedKphValue).toFixed(1)} km/h`
+      : formatPaceSummary(paceMinutesValue, paceSecondsValue);
+  const courseStepSummary = racePlannerCopy.sections.layout.courseStepSummary
+    .replace("{distance}", formatDistanceWithUnit(totalDistanceKm))
+    .replace("{elevation}", Math.max(0, Math.round(elevationGainForSummary)).toString());
+  const pacingStepSummary = racePlannerCopy.sections.layout.pacingStepSummary
+    .replace("{pace}", paceSummary)
+    .replace("{fatigue}", fatigueSummary)
+    .replace("{duration}", durationSummary);
+  const nutritionStepSummary = racePlannerCopy.sections.layout.nutritionStepSummary
+    .replace("{carbs}", Math.max(0, Math.round(baseIntakeTargets.carbsPerHour)).toString())
+    .replace("{water}", Math.max(0, Math.round(baseIntakeTargets.waterMlPerHour)).toString())
+    .replace("{sodium}", Math.max(0, Math.round(baseIntakeTargets.sodiumMgPerHour)).toString())
+    .replace("{waterBag}", Math.max(0, waterBagLitersForSummary).toFixed(1));
+  const setupContent = (
+    <PlannerSetupSteps
+      ariaLabel={racePlannerCopy.sections.layout.setupStepsLabel}
+      openStep={openSetupStep}
+      onOpenStep={setOpenSetupStep}
+      steps={[
+        {
+          id: "course",
+          title: racePlannerCopy.sections.courseProfile.title,
+          summary: courseStepSummary,
+          content: (
+            <CourseProfileSection
+              sectionId={sectionIds.courseProfile}
+              copy={racePlannerCopy}
+              fileInputRef={fileInputRef}
+              onImportGpx={handleImportGpx}
+              onOpenRaceCatalog={() => setIsRaceCatalogOpen(true)}
+              allowExport={allowExport}
+              onExportGpx={handleExportGpx}
+              onRequestExportUpgrade={() => requestPremiumUpgrade(premiumCopy.exportLocked)}
+              importError={importError}
+              register={register}
+              elevationProfile={elevationProfile}
+              aidStations={courseProfileAidStations}
+              segments={segments}
+              totalDistanceKm={totalDistanceKm}
+              baseMinutesPerKm={baseMinutesPerKm}
+              headingLevel="h3"
+              showCollapseToggle={false}
+            />
+          ),
+        },
+        {
+          id: "pacing",
+          title: racePlannerCopy.sections.raceInputs.pacingTitle,
+          summary: pacingStepSummary,
+          content: (
+            <CommandCenter
+              copy={racePlannerCopy}
+              sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
+              sections={["pacing"]}
+              headingLevel="h3"
+              pacing={{
+                durationMinutes: pacingOverviewDuration,
+                paceType: paceTypeValue,
+                paceMinutes: paceMinutesValue,
+                paceSeconds: paceSecondsValue,
+                speedKph: speedKphValue,
+                fatigueLevel: fatigueLevelValue,
+              }}
+              register={register}
+              onPaceChange={handlePaceUpdate}
+              onSpeedChange={handleSpeedUpdate}
+              formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
+            />
+          ),
+        },
+        {
+          id: "nutrition",
+          title: racePlannerCopy.sections.raceInputs.nutritionTitle,
+          summary: nutritionStepSummary,
+          content: (
+            <CommandCenter
+              copy={racePlannerCopy}
+              sectionIds={{ pacing: sectionIds.pacing, intake: sectionIds.intake }}
+              sections={["intake"]}
+              headingLevel="h3"
+              pacing={{
+                durationMinutes: pacingOverviewDuration,
+                paceType: paceTypeValue,
+                paceMinutes: paceMinutesValue,
+                paceSeconds: paceSecondsValue,
+                speedKph: speedKphValue,
+                fatigueLevel: fatigueLevelValue,
+              }}
+              coachManaged={isCoachManaged}
+              register={register}
+              onPaceChange={handlePaceUpdate}
+              onSpeedChange={handleSpeedUpdate}
+              formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
+            />
+          ),
+        },
+      ]}
+    />
+  );
   const planPrimaryContent = (
     <PlanPrimaryContent
       profileError={profileError}
@@ -1270,16 +1686,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       sectionIds={sectionIds}
       pacing={{
         durationMinutes: pacingOverviewDuration,
+        paceType: paceTypeValue,
         paceMinutes: paceMinutesValue,
         paceSeconds: paceSecondsValue,
         speedKph: speedKphValue,
         fatigueLevel: fatigueLevelValue,
       }}
-      coachManaged={isCoachManaged}
+      setupContent={setupContent}
       register={register}
-      onPaceChange={handlePaceUpdate}
-      onSpeedChange={handleSpeedUpdate}
-      formatDuration={(totalMinutes) => formatMinutes(totalMinutes, racePlannerCopy.units)}
       segments={segments}
       sectionSegments={sanitizedSectionSegments}
       elevationProfile={elevationProfile}
@@ -1329,7 +1743,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           planStatus,
           accountMessage,
           accountError,
-          savedPlans,
+          savedPlans: visibleSavedPlans,
           races,
           userId: session?.id,
           deletingPlanId,
@@ -1341,7 +1755,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           onLoadPlan: (plan) => {
             handleLoadPlan(plan);
           },
-          onDeletePlan: handleDeletePlan,
+          onDeletePlan: handleDeletePlanWithUndo,
           onNewPlanForRace: (raceId) => {
             void handleUseCatalogRace(raceId);
           },
@@ -1377,14 +1791,34 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     </>
   );
 
+  const handleSaveWithToast = useCallback(async () => {
+    const savedPlan = await handleSavePlan();
+    if (!savedPlan) return;
+
+    clearRacePlannerDraft(activePlanId);
+    if (savedPlan.id !== activePlanId) {
+      clearRacePlannerDraft(savedPlan.id);
+    }
+
+    const savedTime = new Date().toLocaleTimeString(locale === "fr" ? "fr-FR" : "en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    showPlannerToast({
+      message: racePlannerCopy.page.savedAt.replace("{time}", savedTime),
+      durationMs: 4_000,
+    });
+  }, [activePlanId, handleSavePlan, locale, racePlannerCopy.page.savedAt, showPlannerToast]);
+
   if (isLoading) return <PageLoadingSkeleton />;
 
-  const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
   const raceNameForSaveBar =
     activePlan?.raceName ??
     (activePlan?.catalogRaceId ? races.find((race) => race.id === activePlan.catalogRaceId)?.name : null) ??
     "Sans course";
   const planNameForSaveBar = planName.trim() || racePlannerCopy.account.plans.defaultName;
+  const pagePlanTitle = planName.trim() || activePlan?.name || racePlannerCopy.page.newPlanTitle;
   const saveBarContextLabel = `${raceNameForSaveBar} — ${planNameForSaveBar}`;
   const hasBlockingOverlayOpen =
     isRaceSelectorOpen || isRaceCatalogOpen || feedbackOpen || onboardingOpen || upgradeDialogOpen;
@@ -1399,7 +1833,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       saveLabel={racePlannerCopy.account.plans.save}
       contextLabel={saveBarContextLabel}
       errorMessage={accountError}
-      onSave={handleSavePlan}
+      onSave={handleSaveWithToast}
     />
   );
 
@@ -1409,28 +1843,57 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         {JSON.stringify(structuredData)}
       </Script>
 
-      <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
-        <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
-        <CourseProfileSection
-          sectionId={sectionIds.courseProfile}
-          copy={racePlannerCopy}
-          isCollapsed={isCourseCollapsed}
-          onToggleCollapsed={() => setIsCourseCollapsed((prev) => !prev)}
-          fileInputRef={fileInputRef}
-          onImportGpx={handleImportGpx}
-          onOpenRaceCatalog={() => setIsRaceCatalogOpen(true)}
-          allowExport={allowExport}
-          onExportGpx={handleExportGpx}
-          onRequestExportUpgrade={() => requestPremiumUpgrade(premiumCopy.exportLocked)}
-          importError={importError}
-          register={register}
-          elevationProfile={elevationProfile}
-          aidStations={courseProfileAidStations}
-          segments={segments}
-          totalDistanceKm={totalDistanceKm}
-          baseMinutesPerKm={baseMinutesPerKm}
-        />
+      {plannerToast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed right-4 top-4 z-50 flex max-w-sm items-center gap-3 rounded-xl border border-emerald-300/50 bg-card/95 px-4 py-3 text-sm text-foreground shadow-2xl backdrop-blur dark:border-emerald-400/40 dark:bg-slate-950/95 dark:text-slate-50"
+        >
+          <span className="flex-1">{plannerToast.message}</span>
+          {plannerToast.actionLabel && plannerToast.onAction ? (
+            <button
+              type="button"
+              className="rounded-md px-2 py-1 text-sm font-semibold text-emerald-700 underline-offset-4 hover:underline dark:text-emerald-200"
+              onClick={() => {
+                plannerToast.onAction?.();
+                setPlannerToast(null);
+              }}
+            >
+              {plannerToast.actionLabel}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
+      <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+        <div className="space-y-3">
+          <nav aria-label={racePlannerCopy.page.breadcrumbLabel} className="text-sm text-muted-foreground">
+            <ol className="flex flex-wrap items-center gap-2">
+              <li>
+                <Link href="/" className="underline-offset-4 transition hover:text-foreground hover:underline">
+                  {racePlannerCopy.page.breadcrumbHome}
+                </Link>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li>
+                <Link
+                  href="/race-planner"
+                  className="underline-offset-4 transition hover:text-foreground hover:underline"
+                >
+                  {racePlannerCopy.page.breadcrumbPlanner}
+                </Link>
+              </li>
+              <li aria-hidden="true">/</li>
+              <li aria-current="page" className="font-medium text-foreground">
+                {pagePlanTitle}
+              </li>
+            </ol>
+          </nav>
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
+            {pagePlanTitle}
+          </h1>
+        </div>
+        <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
         <RacePlannerLayout
           className="space-y-6"
           planContent={planPrimaryContent}
@@ -1439,9 +1902,10 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
-          settingsLabel={racePlannerCopy.account.title}
+          settingsLabel={racePlannerCopy.account.coach.myPlans}
           isSettingsCollapsed={isSettingsCollapsed}
           onSettingsToggle={() => setIsSettingsCollapsed((collapsed) => !collapsed)}
+          settingsCount={visibleSavedPlans.length}
           collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
           expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
         />
@@ -1633,7 +2097,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                   {premiumCopy.premiumModal.cancel}
                 </Button>
                 <Button type="button" onClick={handleUpgrade} disabled={upgradeStatus === "opening"}>
-                  {upgradeStatus === "opening" ? premiumCopy.opening : premiumCopy.premiumModal.subscribe}
+                  {upgradeStatus === "opening"
+                    ? premiumCopy.opening
+                    : isGuestSession
+                      ? t.auth.signUp.submit
+                      : premiumCopy.premiumModal.subscribe}
                 </Button>
               </div>
             </div>

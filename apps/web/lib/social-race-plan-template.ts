@@ -128,16 +128,16 @@ type SocialSection = {
   etaMinutes: number | null;
 };
 
-const START_LABEL = "Depart";
-const FINISH_LABEL = "Arrivee";
+const START_LABEL = "Départ";
+const FINISH_LABEL = "Arrivée";
 
 const STATIC_ASSUMPTIONS = [
-  "Les ETA sont relatifs au depart et s'appuient sur l'allure, la fatigue et les sous-sections enregistrees dans le plan.",
-  "Quand un ravito n'a pas de detail produit, le template bascule sur une estimation par section.",
+  "Les ETA sont relatifs au départ et s'appuient sur l'allure, la fatigue et les sous-sections enregistrées dans le plan.",
+  "Quand un ravito n'a pas de détail produit, le template bascule sur une estimation par section.",
 ];
 
 const STATIC_DISCLAIMER =
-  "Plan indicatif a ajuster selon la meteo, les sensations, la tolerance digestive et les ravitos reels du jour J.";
+  "Plan indicatif à ajuster selon la météo, les sensations, la tolérance digestive et les ravitos réels du jour J.";
 
 const STATIC_CTA = "Construis ton plan de course sur Pace Yourself.";
 
@@ -454,7 +454,7 @@ function buildStartCarry(
       applyEstimateTargets(
         buildEstimateItem(
           sections[0],
-          "Aucun ravitaillement de depart detaille n'est enregistre dans ce plan."
+          "Aucun ravitaillement de départ détaillé n'est enregistré dans ce plan."
         ),
         sections[0],
         context.averageTargets
@@ -485,7 +485,7 @@ function buildAidStationSummary(
               applyEstimateTargets(
                 buildEstimateItem(
                   upcomingSection,
-                  "Aucun detail de reprise n'est enregistre pour ce ravito."
+                  "Aucun détail de reprise n'est enregistré pour ce ravito."
                 ),
                 upcomingSection,
                 context.averageTargets

@@ -88,6 +88,11 @@ export default function RacePage() {
 
   // Derived only for rendering the summary card — NOT used for canContinue or handleContinue
   const selectedRace = races.find((r) => r.id === selectedRaceId) ?? null;
+  const selectedRacePreviewAidStations = selectedRace?.race_aid_stations.slice(0, 3) ?? [];
+  const selectedRaceHiddenAidStationCount = Math.max(
+    0,
+    (selectedRace?.race_aid_stations.length ?? 0) - selectedRacePreviewAidStations.length
+  );
 
   function handleSelectRace(race: Race) {
     trackOnboardingEvent("action", {
@@ -171,13 +176,13 @@ export default function RacePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-5 overflow-x-hidden px-5 pt-8 pb-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ta course
         </h1>
         <p className="text-sm" style={{ color: "#6b7c5a" }}>
-          Sélectionne ta course ou saisis manuellement
+          Choisis une course ou renseigne juste distance et D+
         </p>
       </div>
 
@@ -205,15 +210,15 @@ export default function RacePage() {
               <button
                 key={race.id}
                 onClick={() => handleSelectRace(race)}
-                className="flex w-full flex-col gap-2 rounded-2xl p-4 text-left transition-all active:scale-[0.98]"
+                className="flex w-full flex-col gap-1.5 rounded-2xl p-3.5 text-left transition-all active:scale-[0.98]"
                 style={{
                   backgroundColor: "#ffffff",
                   boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
                   border: isSelected ? "2px solid #2D5016" : "2px solid transparent",
                 }}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
+                <div className="flex min-w-0 items-center justify-between gap-3">
+                  <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-5" style={{ color: "#1a2e0a" }}>
                     {race.name}
                   </span>
                   {isSelected && (
@@ -233,28 +238,10 @@ export default function RacePage() {
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: "#e8f0e0", color: "#2D5016" }}
-                  >
-                    {race.distance_km} km
-                  </span>
-                  <span
-                    className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                    style={{ backgroundColor: "#e8f0e0", color: "#2D5016" }}
-                  >
-                    {race.elevation_gain_m} m D+
-                  </span>
-                  {race.race_aid_stations.length > 0 && (
-                    <span
-                      className="rounded-full px-2.5 py-0.5 text-xs font-medium"
-                      style={{ backgroundColor: "#f0ece6", color: "#6b7c5a" }}
-                    >
-                      {race.race_aid_stations.length} ravitos
-                    </span>
-                  )}
-                </div>
+                <p className="text-xs" style={{ color: "#6b7c5a" }}>
+                  {race.distance_km} km • {race.elevation_gain_m} m D+
+                  {race.race_aid_stations.length > 0 ? ` • ${race.race_aid_stations.length} ravitos` : ""}
+                </p>
               </button>
             );
           })}
@@ -262,37 +249,47 @@ export default function RacePage() {
           {/* Summary card for selected race */}
           {selectedRace && (
             <div
-              className="rounded-2xl p-4"
+              className="rounded-2xl p-3.5"
               style={{
                 backgroundColor: "#f0f6e8",
                 border: "1px solid #c8dca8",
               }}
             >
-              <p
-                className="mb-2 text-xs font-semibold uppercase tracking-wide"
-                style={{ color: "#2D5016" }}
-              >
-                Points de ravitaillement
-              </p>
+              <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
+                <p
+                  className="min-w-0 text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "#2D5016" }}
+                >
+                  Points de ravitaillement
+                </p>
+                <span className="text-[11px] font-medium" style={{ color: "#6b7c5a" }}>
+                  {selectedRace.race_aid_stations.length} au total
+                </span>
+              </div>
               {selectedRace.race_aid_stations.length === 0 ? (
                 <p className="text-sm" style={{ color: "#6b7c5a" }}>
                   Aucun ravito défini pour cette course
                 </p>
               ) : (
                 <div className="flex flex-col gap-1.5">
-                  {selectedRace.race_aid_stations.map((s) => (
+                  {selectedRacePreviewAidStations.map((s) => (
                     <div key={s.id} className="flex items-center gap-2">
                       <div
-                        className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                        className="flex h-5.5 w-5.5 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white"
                         style={{ backgroundColor: "#2D5016" }}
                       >
                         {Math.round(s.km)}
                       </div>
-                      <span className="text-sm" style={{ color: "#1a2e0a" }}>
+                      <span className="truncate text-sm" style={{ color: "#1a2e0a" }}>
                         {s.name}
                       </span>
                     </div>
                   ))}
+                  {selectedRaceHiddenAidStationCount > 0 && (
+                    <p className="pl-7 text-xs font-medium" style={{ color: "#6b7c5a" }}>
+                      + {selectedRaceHiddenAidStationCount} autres ravitos
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -301,7 +298,7 @@ export default function RacePage() {
           {/* Manual entry option */}
           <button
             onClick={handleSelectManual}
-            className="flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-all active:scale-[0.98]"
+            className="flex w-full min-w-0 items-center gap-3 rounded-2xl p-4 text-left transition-all active:scale-[0.98]"
             style={{
               backgroundColor: "#ffffff",
               boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
@@ -309,12 +306,12 @@ export default function RacePage() {
             }}
           >
             <span className="text-2xl">✏️</span>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="text-base font-semibold" style={{ color: "#1a2e0a" }}>
                 Saisir manuellement
               </span>
-              <span className="text-sm" style={{ color: "#6b7c5a" }}>
-                Entrer distance et dénivelé
+              <span className="text-xs" style={{ color: "#6b7c5a" }}>
+                Distance + D+ uniquement
               </span>
             </div>
             {isManual && (
@@ -361,7 +358,7 @@ export default function RacePage() {
                     placeholder="42"
                     value={distanceInput}
                     onChange={(e) => setDistanceInput(e.target.value)}
-                    className="h-16 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
+                    className="h-16 min-w-0 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
                     style={{ color: "#1a2e0a" }}
                     min="1"
                     max="500"
@@ -395,7 +392,7 @@ export default function RacePage() {
                     placeholder="1500"
                     value={elevationInput}
                     onChange={(e) => setElevationInput(e.target.value)}
-                    className="h-16 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
+                    className="h-16 min-w-0 flex-1 bg-transparent px-5 text-2xl font-bold outline-none placeholder:font-normal placeholder:text-gray-300"
                     style={{ color: "#1a2e0a" }}
                     min="0"
                     max="10000"
@@ -411,7 +408,7 @@ export default function RacePage() {
       )}
 
       <div
-        className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+        className="fixed inset-x-0 bottom-0 z-20 mx-auto box-border w-full max-w-[430px] px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button

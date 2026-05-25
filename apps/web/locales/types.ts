@@ -99,6 +99,15 @@ export type MobileAppPromptTranslations = {
 };
 
 export type RacePlannerTranslations = {
+  page: {
+    breadcrumbLabel: string;
+    breadcrumbHome: string;
+    breadcrumbPlanner: string;
+    newPlanTitle: string;
+    draftRestored: string;
+    undo: string;
+    savedAt: string;
+  };
   defaults: {
     aidStationName: string;
     finalBottles: string;
@@ -127,6 +136,10 @@ export type RacePlannerTranslations = {
   };
   gpx: {
     errors: {
+      emptyFile: string;
+      invalidFile: string;
+      unsupportedFormat: string;
+      invalidEncoding: string;
       noTrackPoints: string;
       invalidCoordinates: string;
       unableToImport: string;
@@ -185,6 +198,7 @@ export type RacePlannerTranslations = {
         speedKph: string;
         fatigueLevel: string;
         fatigueHelper: string;
+        fatigueImpact: string;
         fatigueLow: string;
         fatigueMedium: string;
         fatigueHigh: string;
@@ -256,6 +270,10 @@ export type RacePlannerTranslations = {
     layout: {
       collapsePanel: string;
       expandPanel: string;
+      setupStepsLabel: string;
+      courseStepSummary: string;
+      pacingStepSummary: string;
+      nutritionStepSummary: string;
     };
     aidStations: {
       title: string;
@@ -265,6 +283,7 @@ export type RacePlannerTranslations = {
         name: string;
         distance: string;
         waterRefill: string;
+        solidRefill: string;
       };
       remove: string;
     };
@@ -656,6 +675,114 @@ export type LandingPageTranslations = {
     title: string;
     description: string;
   }>;
+};
+
+export type PartnersPageTranslations = {
+  meta: {
+    title: string;
+    description: string;
+  };
+  hero: {
+    title: string;
+    subtitle: string;
+    ctaPrimary: string;
+    ctaSecondary: string;
+  };
+  why: {
+    title: string;
+    pillar1Title: string;
+    pillar1Description: string;
+    pillar2Title: string;
+    pillar2Description: string;
+    pillar3Title: string;
+    pillar3Description: string;
+  };
+  appearance: {
+    title: string;
+    subtitle: string;
+    imageProductLabel: string;
+    imageAidStationLabel: string;
+  };
+  process: {
+    title: string;
+    step1Title: string;
+    step1Description: string;
+    step2Title: string;
+    step2Description: string;
+    step3Title: string;
+    step3Description: string;
+  };
+  requirements: {
+    title: string;
+    items: string[];
+    reassurance: string;
+  };
+  about: {
+    title: string;
+    paragraph1: string;
+    paragraph2: string;
+    paragraph3: string;
+    photoAlt: string;
+  };
+  brands: {
+    title: string;
+    emptyState: string;
+  };
+  faq: {
+    title: string;
+    q1Question: string;
+    q1Answer: string;
+    q2Question: string;
+    q2Answer: string;
+    q3Question: string;
+    q3Answer: string;
+    q4Question: string;
+    q4Answer: string;
+  };
+  finalCta: {
+    title: string;
+    subtitle: string;
+    button: string;
+  };
+};
+
+export type LinksPageTranslations = {
+  meta: {
+    title: string;
+    description: string;
+  };
+  tagline: string;
+  waitlist: {
+    title: string;
+    subtitle: string;
+    cta: string;
+  };
+  cards: {
+    blog: {
+      title: string;
+      subtitle: string;
+    };
+    app: {
+      title: string;
+      subtitle: string;
+    };
+    partners: {
+      title: string;
+      subtitle: string;
+    };
+    instagram: {
+      title: string;
+      subtitle: string;
+    };
+    contact: {
+      title: string;
+      subtitle: string;
+    };
+  };
+  footer: {
+    copyright: string;
+    madeBy: string;
+  };
 };
 
 export type ResourcePageCopy = {
@@ -1533,6 +1660,7 @@ export type Translations = {
   racePlanner: RacePlannerTranslations;
   landing: LandingPageTranslations;
   partners: PartnersPageTranslations;
+  links: LinksPageTranslations;
   auth: AuthTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {

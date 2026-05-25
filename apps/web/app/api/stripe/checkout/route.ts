@@ -3,7 +3,13 @@ import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
 import { getStripeConfig, postStripeForm } from "../../../../lib/stripe";
-import { getSupabaseAnonConfig, getSupabaseServiceConfig, extractBearerToken, fetchSupabaseUser } from "../../../../lib/supabase";
+import {
+  getSupabaseAnonConfig,
+  getSupabaseServiceConfig,
+  extractBearerToken,
+  fetchSupabaseUser,
+  isAnonymousUser,
+} from "../../../../lib/supabase";
 
 const requestSchema = z.object({
   priceId: z.string().optional(),
@@ -92,6 +98,15 @@ export async function POST(request: NextRequest) {
 
   if (!user?.id) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
+  }
+
+  if (isAnonymousUser(user)) {
+    return withSecurityHeaders(
+      NextResponse.json(
+        { message: "Guest accounts must create a full account before subscribing." },
+        { status: 403 }
+      )
+    );
   }
 
   const rateLimit = await checkRateLimitAsync(`stripe:checkout:${user.id}`, 5, 60_000);

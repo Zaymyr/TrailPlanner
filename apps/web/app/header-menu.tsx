@@ -7,6 +7,7 @@ import type { Route } from "next";
 
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 import { useI18n } from "./i18n-provider";
+import { applyTheme, getInitialTheme, type Theme } from "../lib/theme";
 
 type MenuItem = {
   label: string;
@@ -14,15 +15,21 @@ type MenuItem = {
   active: boolean;
 };
 
+const isActivePath = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
 const buttonBaseClass =
   "flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-[hsl(var(--icon))] shadow-sm transition hover:border-[hsl(var(--brand))] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:text-emerald-50";
+const menuActionClass =
+  "flex min-h-10 items-center justify-between gap-2 rounded-md border border-border px-2.5 py-2 text-sm font-medium text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:text-emerald-50 dark:hover:bg-emerald-500/10";
 
 export function HeaderMenu() {
-  const { t } = useI18n();
+  const { locale, t, toggleLocale } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const { session, clearSession } = useVerifiedSession();
   const [isOpen, setIsOpen] = useState(false);
+  const [theme, setTheme] = useState<Theme>("dark");
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
@@ -33,12 +40,12 @@ export function HeaderMenu() {
       {
         label: t.navigation.racePlanner,
         href: "/race-planner",
-        active: pathname === "/race-planner",
+        active: isActivePath(pathname, "/race-planner"),
       },
       {
         label: t.navigation.coach,
         href: "/coach",
-        active: pathname === "/coach",
+        active: isActivePath(pathname, "/coach"),
       },
       {
         label: t.navigation.blog,
@@ -48,17 +55,17 @@ export function HeaderMenu() {
       {
         label: t.navigation.settings,
         href: "/settings",
-        active: pathname === "/settings",
+        active: isActivePath(pathname, "/settings"),
       },
       {
         label: t.navigation.profile,
         href: "/profile",
-        active: pathname === "/profile",
+        active: isActivePath(pathname, "/profile"),
       },
       {
         label: t.navigation.admin,
         href: "/admin",
-        active: pathname === "/admin",
+        active: isActivePath(pathname, "/admin"),
       },
     ],
     [
@@ -81,6 +88,12 @@ export function HeaderMenu() {
     }
     return true;
   });
+
+  useEffect(() => {
+    const initialTheme = getInitialTheme();
+    applyTheme(initialTheme);
+    setTheme(initialTheme);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -122,6 +135,15 @@ export function HeaderMenu() {
     }
   };
 
+  const handleThemeToggle = () => {
+    const updatedTheme = theme === "dark" ? "light" : "dark";
+    applyTheme(updatedTheme);
+    window.localStorage.setItem("theme", updatedTheme);
+    setTheme(updatedTheme);
+  };
+
+  const nextTheme = theme === "dark" ? "light" : "dark";
+
   return (
     <div className="relative" ref={menuRef}>
       <button
@@ -136,16 +158,41 @@ export function HeaderMenu() {
       </button>
 
       {isOpen ? (
-        <div className="absolute left-0 z-20 mt-2 w-56 rounded-lg border border-border-strong bg-card/95 p-2 shadow-xl dark:bg-card/60 dark:backdrop-blur">
+        <div className="absolute right-0 z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-lg border border-border-strong bg-card/95 p-2 shadow-xl dark:bg-card/60 dark:backdrop-blur">
+          <div className="mb-2 grid grid-cols-2 gap-2 border-b border-border pb-2">
+            <button
+              type="button"
+              className={menuActionClass}
+              aria-label={locale === "fr" ? "Passer en anglais" : "Switch to French"}
+              onClick={toggleLocale}
+            >
+              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Lang</span>
+              <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-[hsl(var(--success))] dark:text-emerald-200">
+                {locale.toUpperCase()}
+              </span>
+            </button>
+            <button
+              type="button"
+              className={menuActionClass}
+              aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+              onClick={handleThemeToggle}
+            >
+              <span className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Theme</span>
+              <span className="rounded bg-background px-2 py-1 text-xs font-semibold text-[hsl(var(--success))] dark:text-emerald-200">
+                {nextTheme}
+              </span>
+            </button>
+          </div>
           <nav aria-label={t.navigation.menuLabel} className="space-y-1">
             {visibleMenuItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
+                aria-current={item.active ? "page" : undefined}
+                className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
                   item.active
-                    ? "bg-muted text-foreground dark:bg-emerald-500/20 dark:text-emerald-50"
-                    : "text-muted-foreground dark:text-emerald-100"
+                    ? "border-brand-border bg-brand-surface text-brand shadow-sm dark:border-emerald-400/70 dark:bg-emerald-950/40 dark:text-emerald-50"
+                    : "border-transparent text-muted-foreground dark:text-emerald-100"
                 }`}
               >
                 {item.label}
@@ -154,10 +201,11 @@ export function HeaderMenu() {
             ))}
             <Link
               href="/premium"
+              aria-current={pathname === "/premium" ? "page" : undefined}
               className={`premium-glow flex items-center justify-between rounded-md border px-3 py-2 text-sm font-semibold transition ${
                 pathname === "/premium"
-                  ? "border-amber-400/80 bg-amber-400/90 text-slate-950"
-                  : "border-amber-300/50 bg-amber-400/80 text-slate-950 hover:bg-amber-400"
+                  ? "border-amber-300/80 bg-amber-300/90 text-foreground"
+                  : "border-amber-200/70 bg-amber-300/75 text-foreground hover:bg-amber-300/90"
               }`}
             >
               ✦ {t.navigation.premium}
@@ -171,7 +219,14 @@ export function HeaderMenu() {
               >
                 {t.racePlanner.account.auth.signOut}
               </button>
-            ) : null}
+            ) : (
+              <Link
+                href="/sign-in"
+                className="mt-1 flex w-full items-center justify-center rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted dark:text-emerald-50 dark:hover:bg-emerald-500/10"
+              >
+                {t.racePlanner.account.auth.signIn}
+              </Link>
+            )}
           </nav>
         </div>
       ) : null}

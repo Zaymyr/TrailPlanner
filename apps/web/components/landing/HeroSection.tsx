@@ -47,8 +47,8 @@ export function HeroSection({ hero }: HeroSectionProps) {
   const [heroSrc, setHeroSrc] = useState("/landing/hero.png");
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/80 to-background p-4 shadow-2xl sm:p-8 lg:p-12">
-      <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-emerald-500/10 blur-3xl" aria-hidden />
+    <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/90 to-muted p-4 shadow-[0_24px_70px_rgba(45,80,22,0.10)] sm:p-8 lg:p-12">
+      <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-brand-surface/80 blur-3xl dark:bg-emerald-500/10" aria-hidden />
       <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr]">
         <div className="relative space-y-6">
           <div className="inline-flex items-center rounded-full border border-border bg-card px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-foreground dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
@@ -61,7 +61,7 @@ export function HeroSection({ hero }: HeroSectionProps) {
           <ul className="space-y-3 text-base text-muted-foreground">
             {hero.bullets.map((item) => (
               <li key={item} className="flex items-start gap-3">
-                <IconCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-300" />
+                <IconCheck className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand dark:text-emerald-300" />
                 <span>{item}</span>
               </li>
             ))}
@@ -70,14 +70,14 @@ export function HeroSection({ hero }: HeroSectionProps) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
               href="/race-planner"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-400 px-5 py-3 text-sm font-semibold text-foreground shadow-lg shadow-emerald-500/25 transition hover:-translate-y-[1px] hover:bg-emerald-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
             >
               {hero.primaryCta}
               <IconArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="#demo"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card/80 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-emerald-300 hover:text-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card/80 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:border-emerald-300 dark:hover:text-emerald-100 dark:focus-visible:outline-emerald-300"
             >
               <IconPlay className="h-4 w-4" />
               {hero.secondaryCta}
@@ -86,13 +86,13 @@ export function HeroSection({ hero }: HeroSectionProps) {
         </div>
 
         <div className="relative">
-          <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
-          <div className="rounded-2xl border border-border/80 bg-card/60 p-3 shadow-2xl shadow-emerald-500/10">
+          <div className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-brand-surface blur-3xl dark:bg-emerald-500/20" />
+          <div className="rounded-2xl border border-border/80 bg-card/80 p-3 shadow-2xl shadow-[rgba(45,80,22,0.10)] dark:shadow-emerald-500/10">
             <Image
               src={heroSrc}
               alt={hero.heroImageAlt}
-              width={1321}
-              height={230}
+              width={858}
+              height={172}
               priority
               sizes="(min-width: 1024px) 560px, 100vw"
               className="w-full rounded-xl object-cover"

@@ -8,8 +8,8 @@ import {
   fetchSupabaseUser,
   getSupabaseAnonConfig,
   getSupabaseServiceConfig,
+  isAnonymousUser,
   type SupabaseServiceConfig,
-  type SupabaseUser,
 } from "../../../../lib/supabase";
 
 type AdminClient = SupabaseClient;
@@ -59,9 +59,6 @@ const createAdminClient = () => {
     },
   });
 };
-
-const isAnonymousUser = (user: SupabaseUser | null) =>
-  user?.isAnonymous === true || user?.appMetadata?.provider === "anonymous";
 
 async function refreshSupabaseAccessToken(
   refreshToken: string,

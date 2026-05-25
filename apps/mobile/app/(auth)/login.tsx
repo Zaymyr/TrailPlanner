@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
-  Platform,
+  Platform
 } from 'react-native';
+import { Text } from '../../components/themed/Text';
 import { Link } from 'expo-router';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import {
-  clearPendingGuestMerge,
-  preparePendingGuestMerge,
-} from '../../lib/accountConversion';
+import { clearPendingGuestMerge, preparePendingGuestMerge } from '../../lib/accountConversion';
 import { isAnonymousSession } from '../../lib/appSession';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { supabase } from '../../lib/supabase';

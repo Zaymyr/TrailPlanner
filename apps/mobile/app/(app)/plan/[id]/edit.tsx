@@ -1,5 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, AppState } from 'react-native';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import {
+  View,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+  AppState
+} from 'react-native';
+import { Text } from '../../../../components/themed/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../lib/supabase';
@@ -16,7 +29,10 @@ import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
+import { isAnonymousSession } from '../../../../lib/appSession';
 import { useI18n } from '../../../../lib/i18n';
+import { captureAnalyticsEvent } from '../../../../lib/posthog';
+import { clearUnfinishedPlanReminder, syncUnfinishedPlanReminder } from '../../../../lib/reminderNotifications';
 import { loadPlanProductsBootstrap, type PlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import {
   clearActivePlanEditSession,
@@ -27,7 +43,7 @@ import {
   getPlanEditDraft,
   getPlanEditProductsBootstrap,
   setActivePlanEditSession,
-  setPlanEditDraft,
+  setPlanEditDraft
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 
@@ -55,6 +71,7 @@ type RacePlanRow = {
       name: string;
       distanceKm: number;
       waterRefill: boolean;
+      solidRefill?: boolean;
       pauseMinutes?: number;
       supplies?: Array<{ productId: string; quantity: number }>;
     }>;
@@ -84,9 +101,13 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
     aidStations: (pv.aidStations ?? []).map((s) => ({
       name: s.name,
       distanceKm: s.distanceKm,
-      waterRefill: s.waterRefill,
+      waterRefill: s.waterRefill !== false,
+      solidRefill: s.solidRefill !== false,
       pauseMinutes: s.pauseMinutes ?? 0,
-      supplies: (s.supplies ?? []).map((sup): Supply => ({ productId: sup.productId, quantity: sup.quantity ?? 1 })),
+      supplies:
+        s.solidRefill === false
+          ? []
+          : (s.supplies ?? []).map((sup): Supply => ({ productId: sup.productId, quantity: sup.quantity ?? 1 })),
     })),
   };
 }
@@ -430,9 +451,13 @@ export default function EditPlanScreen() {
         aidStations: values.aidStations.map((s) => ({
           name: s.name,
           distanceKm: s.distanceKm,
-          waterRefill: s.waterRefill,
+          waterRefill: s.waterRefill !== false,
+          solidRefill: s.solidRefill !== false,
           pauseMinutes: s.pauseMinutes ?? 0,
-          supplies: (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
+          supplies:
+            s.solidRefill === false
+              ? []
+              : (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
         })),
       };
 
@@ -465,6 +490,20 @@ export default function EditPlanScreen() {
             });
           }
 
+          const sessionData = await supabase.auth.getSession();
+          if (isAnonymousSession(sessionData.data?.session)) {
+            await syncUnfinishedPlanReminder({
+              planId: id,
+              plannerValues,
+              title: t.reminders.unfinishedPlanTitle,
+              body: t.reminders.unfinishedPlanBody.replace('{name}', values.name),
+              href: `/(app)/plan/${id}/edit`,
+              requestIfNeeded: !silent,
+            });
+          } else {
+            await clearUnfinishedPlanReminder(id);
+          }
+
           return true;
         }
 
@@ -478,7 +517,7 @@ export default function EditPlanScreen() {
       activeSavePromiseRef.current = savePromise;
       return savePromise;
     },
-    [id],
+    [id, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const saveLatestDraft = useCallback(
@@ -566,6 +605,10 @@ export default function EditPlanScreen() {
 
     if (saved) {
       await noteReviewPlanSaved();
+      captureAnalyticsEvent('plan saved', {
+        aid_station_count: draft.aidStations.length,
+        segment_count: draft.sectionSegments?.length ?? 0,
+      });
       clearActivePlanEditSession(id);
       router.replace('/(app)/plans');
       return;

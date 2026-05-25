@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
@@ -11,29 +10,21 @@ import {
   ScrollView,
   Modal,
   Pressable,
-  Image,
+  Image
 } from 'react-native';
+import { Text } from '../../components/themed/Text';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
-import {
-  estimateHourlyTargets,
-  isValidHeightCm,
-  isValidWeightKg,
-} from '../../components/profile/profileEstimator';
-import {
-  parseComfortableFlatPace,
-  parseOptionalNonNegativeInteger,
-  WATER_BAG_OPTIONS,
-} from '../../components/profile/profileHelpers';
-import type {
-  CarbEstimatorLevel,
-  HydrationEstimatorLevel,
-  SodiumEstimatorLevel,
-} from '../../components/profile/types';
+import { GpxImportPreviewModal } from '../../components/race/GpxImportPreviewModal';
+import { estimateHourlyTargets, isValidHeightCm, isValidWeightKg } from '../../components/profile/profileEstimator';
+import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { parseComfortableFlatPace, parseOptionalNonNegativeInteger, WATER_BAG_OPTIONS } from '../../components/profile/profileHelpers';
+import type { CarbEstimatorLevel, HydrationEstimatorLevel, SodiumEstimatorLevel } from '../../components/profile/types';
 import { ensureAppSession, isAnonymousSession } from '../../lib/appSession';
 import { loadPlanProductsBootstrap } from '../../components/plan-form/usePlanProducts';
 import { Colors } from '../../constants/colors';
@@ -41,17 +32,25 @@ import { useI18n } from '../../lib/i18n';
 import { noteReviewOnboardingCompleted, noteReviewPlanCreated } from '../../lib/appReview';
 import { markOnboardingJustCompleted } from '../../lib/onboardingGate';
 import { createOnboardingDemoPlan } from '../../lib/onboardingDemoPlan';
+import { captureAnalyticsEvent } from '../../lib/posthog';
+import {
+  buildGpxImportErrorMessage,
+  createPrivateRace,
+  pickAndParseGpxDocument,
+  type GpxFeedback,
+  type ImportedGpxDocument
+} from '../../lib/race-import';
 import {
   clearPendingOnboardingTransition,
   getPendingOnboardingTransition,
   setPendingOnboardingTransition,
-  updatePendingOnboardingTransition,
+  updatePendingOnboardingTransition
 } from '../../lib/onboardingTransition';
 import {
   setActivePlanEditSession,
   setPendingPlanEditHelp,
   setPlanEditDraft,
-  setPlanEditProductsBootstrap,
+  setPlanEditProductsBootstrap
 } from '../../lib/planEditSession';
 
 function sanitizeDigits(value: string, maxLength: number): string {
@@ -324,6 +323,9 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
+  const [session, setSession] = useState<Session | null>(null);
+  const [authChoiceLoading, setAuthChoiceLoading] = useState(false);
+  const [authChoiceError, setAuthChoiceError] = useState<string | null>(null);
   const [weightKg, setWeightKg] = useState('');
   const [heightCm, setHeightCm] = useState('');
   const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
@@ -347,6 +349,10 @@ export default function OnboardingScreen() {
   const [loadingRaces, setLoadingRaces] = useState(false);
   const [raceLoadError, setRaceLoadError] = useState<string | null>(null);
   const [hasLoadedRaceOptions, setHasLoadedRaceOptions] = useState(false);
+  const [importingRaceGpx, setImportingRaceGpx] = useState(false);
+  const [raceImportFeedback, setRaceImportFeedback] = useState<GpxFeedback | null>(null);
+  const [pendingRaceGpxDocument, setPendingRaceGpxDocument] = useState<ImportedGpxDocument | null>(null);
+  const [pendingRaceGpxName, setPendingRaceGpxName] = useState('');
   const [nutritionProducts, setNutritionProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [expandedNutritionBrands, setExpandedNutritionBrands] = useState<string[]>([]);
@@ -366,6 +372,11 @@ export default function OnboardingScreen() {
   const completedRaceNameParam: string | null = null;
   const completedHasSelectedProductsParam = false;
   const totalSteps = 6;
+  const isGuestOnboardingSession = isAnonymousSession(session);
+  const { googleModule, handleGoogleLogin } = useGoogleAuth({
+    noOauthUrlMessage: t.auth.noOauthUrl,
+    session,
+  });
   const parsedEstimatorWeight = useMemo(
     () => parseOptionalNonNegativeInteger(estimatorWeightKg),
     [estimatorWeightKg],
@@ -504,10 +515,9 @@ export default function OnboardingScreen() {
         .map(([brandLabel, products]) => ({
           brandLabel,
           products,
-          selectedCount: products.filter((product) => selectedProductIds.includes(product.id)).length,
         }))
         .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel)),
-    [filteredNutritionProducts, locale, selectedProductIds],
+    [filteredNutritionProducts, locale],
   );
   const hiddenNutritionProducts = useMemo(() => [] as Product[], []);
   const selectedRaceEventDate = selectedRaceEvent
@@ -629,6 +639,33 @@ export default function OnboardingScreen() {
     },
   ];
 
+  useEffect(() => {
+    let mounted = true;
+
+    void ensureAppSession()
+      .then((nextSession) => {
+        if (mounted) {
+          setSession(nextSession);
+        }
+      })
+      .catch((error) => {
+        console.error('Unable to resolve onboarding session:', error);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, nextSession: Session | null) => {
+      if (mounted) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   async function loadRaceOptions() {
     setLoadingRaces(true);
     setRaceLoadError(null);
@@ -674,7 +711,6 @@ export default function OnboardingScreen() {
               .select('id, name, distance_km, elevation_gain_m, location_text, race_date, is_public, created_by, thumbnail_url')
               .eq('is_public', false)
               .eq('created_by', userId)
-              .eq('is_live', true)
               .order('race_date', { ascending: true, nullsFirst: false })
               .order('name', { ascending: true })
           : Promise.resolve({ data: [], error: null }),
@@ -785,6 +821,36 @@ export default function OnboardingScreen() {
 
     void loadNutritionProducts();
   }, [hasLoadedNutritionProducts, loadingNutritionProducts, step]);
+
+  async function handleStartWithGoogle() {
+    setAuthChoiceError(null);
+    setAuthChoiceLoading(true);
+    captureAnalyticsEvent('onboarding auth choice selected', { choice: 'google' });
+
+    try {
+      await handleGoogleLogin();
+      setStep(2);
+    } catch (error) {
+      if (
+        googleModule?.isErrorWithCode(error) &&
+        (error.code === googleModule.statusCodes.SIGN_IN_CANCELLED ||
+          error.code === googleModule.statusCodes.IN_PROGRESS)
+      ) {
+        return;
+      }
+
+      console.error('Google onboarding sign-in error:', error);
+      setAuthChoiceError(t.auth.googleError);
+    } finally {
+      setAuthChoiceLoading(false);
+    }
+  }
+
+  function handleContinueWithoutAccount() {
+    setAuthChoiceError(null);
+    captureAnalyticsEvent('onboarding auth choice selected', { choice: 'guest' });
+    setStep(2);
+  }
 
   function validatePersonalStep(): {
     parsedWeightKg: number | null;
@@ -928,6 +994,7 @@ export default function OnboardingScreen() {
       progress: 0.08,
     });
     let nextRoute: string | null = '/(app)/plans';
+    let onboardingCompleted = false;
 
     try {
       setLoadingProgress(0.16);
@@ -952,6 +1019,7 @@ export default function OnboardingScreen() {
           parsedDefaultSodiumPerHour: performanceStep.parsedDefaultSodiumPerHour,
           selectedProductIds,
         });
+        onboardingCompleted = true;
 
         if (selectedRace) {
           setLoadingPlanName(selectedRace.name);
@@ -1037,6 +1105,12 @@ export default function OnboardingScreen() {
             setLoadingProgress(1);
             updatePendingOnboardingTransition({ progress: 1 });
             await noteReviewPlanCreated();
+            captureAnalyticsEvent('plan created', {
+              source: 'onboarding',
+              distance_km: selectedRace.distance_km,
+              elevation_gain_m: selectedRace.elevation_gain_m,
+              favorite_product_count: selectedProductIds.length,
+            });
             nextRoute = `/(app)/plan/${demoPlan.id}/edit?showHelp=1`;
           }
         }
@@ -1044,7 +1118,15 @@ export default function OnboardingScreen() {
     } catch (error) {
       console.error('Unable to finish onboarding:', error);
     } finally {
-      await noteReviewOnboardingCompleted();
+      if (onboardingCompleted) {
+        await noteReviewOnboardingCompleted();
+        captureAnalyticsEvent('onboarding completed', {
+          created_plan: nextRoute.includes('/plan/'),
+          favorite_product_count: selectedProductIds.length,
+          has_race: Boolean(selectedRace),
+        });
+      }
+
       if (nextRoute) {
         const currentUserId = (await supabase.auth.getSession()).data.session?.user?.id ?? null;
         if (currentUserId) {
@@ -1090,7 +1172,96 @@ export default function OnboardingScreen() {
   function handleSelectRace(raceId: string) {
     setSelectedRaceId(raceId);
     setSelectedRaceEvent(null);
+    setRaceImportFeedback(null);
     setStep(6);
+  }
+
+  async function handleImportRaceFromGpx() {
+    setImportingRaceGpx(true);
+    setRaceImportFeedback(null);
+
+    try {
+      const picked = await pickAndParseGpxDocument(t);
+      if (!picked) {
+        return;
+      }
+
+      if (picked.parsed.stats.distanceKm <= 0) {
+        setRaceImportFeedback({
+          tone: 'warning',
+          message: `${picked.feedback.message} ${t.races.validationDistancePositive}`,
+        });
+        return;
+      }
+      setPendingRaceGpxDocument(picked);
+      setPendingRaceGpxName(picked.suggestedRaceName);
+    } catch (error) {
+      setRaceImportFeedback({
+        tone: 'warning',
+        message: buildGpxImportErrorMessage(error, t),
+      });
+    } finally {
+      setImportingRaceGpx(false);
+    }
+  }
+
+  function handleCancelRaceGpxPreview() {
+    if (importingRaceGpx) return;
+    setPendingRaceGpxDocument(null);
+    setPendingRaceGpxName('');
+  }
+
+  async function handleConfirmRaceGpxImport() {
+    if (!pendingRaceGpxDocument) return;
+
+    setImportingRaceGpx(true);
+    setRaceImportFeedback(null);
+
+    try {
+      const { race } = await createPrivateRace({
+        name: pendingRaceGpxName.trim() || pendingRaceGpxDocument.suggestedRaceName,
+        distanceKm: pendingRaceGpxDocument.parsed.stats.distanceKm,
+        elevationGainM: Math.round(pendingRaceGpxDocument.parsed.stats.gainM),
+        elevationLossM: Math.round(pendingRaceGpxDocument.parsed.stats.lossM),
+        gpxContent: pendingRaceGpxDocument.content,
+        aidStations: [],
+      });
+
+      const nextRace: RaceOption = {
+        id: race.id,
+        name: race.name,
+        distance_km: race.distance_km,
+        elevation_gain_m: race.elevation_gain_m,
+        location_text: race.location_text ?? null,
+        race_date: null,
+        is_public: race.is_public,
+        created_by: race.created_by ?? null,
+        thumbnail_url: null,
+      };
+
+      setPersonalRaceOptions((current) =>
+        sortRaceOptions([nextRace, ...current.filter((raceOption) => raceOption.id !== nextRace.id)]),
+      );
+      setSelectedRaceId(nextRace.id);
+      setSelectedRaceEvent(null);
+      setRaceSearch('');
+      setRaceImportFeedback(
+        pendingRaceGpxDocument.feedback.tone === 'warning' ? pendingRaceGpxDocument.feedback : null,
+      );
+      setPendingRaceGpxDocument(null);
+      setPendingRaceGpxName('');
+      setStep(6);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message === 'Session expired.'
+            ? t.raceRequests.sessionExpired
+            : error.message
+          : t.races.createFailed;
+      setRaceImportFeedback({ tone: 'warning', message });
+    } finally {
+      setImportingRaceGpx(false);
+    }
   }
 
   function toggleProductSelection(productId: string) {
@@ -1276,9 +1447,49 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
-        </TouchableOpacity>
+        {isGuestOnboardingSession ? (
+          <View style={styles.authChoiceCard}>
+            <View style={styles.authChoiceBadge}>
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={18}
+                color={Colors.brandPrimary}
+              />
+            </View>
+
+            <Text style={styles.authChoiceTitle}>{t.onboarding.welcomeAccountTitle}</Text>
+            <Text style={styles.authChoiceBody}>{t.onboarding.welcomeAccountBody}</Text>
+
+            <TouchableOpacity
+              style={[styles.googleStartButton, authChoiceLoading && styles.buttonDisabled]}
+              onPress={() => void handleStartWithGoogle()}
+              disabled={authChoiceLoading}
+            >
+              <Ionicons name="logo-google" size={18} color={Colors.brandPrimary} />
+              <Text style={styles.googleStartButtonText}>
+                {authChoiceLoading ? t.auth.loggingIn : t.onboarding.welcomeAccountGoogleCta}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.secondaryButton, authChoiceLoading && styles.buttonDisabled]}
+              onPress={handleContinueWithoutAccount}
+              disabled={authChoiceLoading}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {t.onboarding.welcomeAccountGuestCta}
+              </Text>
+            </TouchableOpacity>
+
+            {authChoiceError ? <Text style={styles.errorText}>{authChoiceError}</Text> : null}
+
+            <Text style={styles.authChoiceHint}>{t.onboarding.welcomeAccountHint}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
+            <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
+          </TouchableOpacity>
+        )}
       </OnboardingShell>
     );
   }
@@ -1581,6 +1792,35 @@ export default function OnboardingScreen() {
         <Text style={styles.predictionHint}>{t.onboarding.raceHint}</Text>
 
         <View style={styles.sectionCard}>
+          <View style={[styles.noticeBox, styles.raceImportNoticeBox]}>
+            <Text style={styles.noticeTitle}>{t.onboarding.raceImportTitle}</Text>
+            <Text style={styles.noticeText}>{t.onboarding.raceImportSubtitle}</Text>
+            <TouchableOpacity
+              style={[styles.importGpxButton, importingRaceGpx && styles.buttonDisabled]}
+              onPress={handleImportRaceFromGpx}
+              disabled={importingRaceGpx}
+            >
+              {importingRaceGpx ? (
+                <ActivityIndicator color={Colors.brandPrimary} />
+              ) : (
+                <View style={styles.importGpxButtonContent}>
+                  <Ionicons name="document-attach-outline" size={18} color={Colors.brandPrimary} />
+                  <Text style={styles.importGpxButtonText}>{t.onboarding.raceImportCta}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            {raceImportFeedback ? (
+              <View
+                style={[
+                  styles.importGpxFeedback,
+                  raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
+                ]}
+              >
+                <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
+              </View>
+            ) : null}
+          </View>
+
           {selectedRaceSummary ? (
             <View style={styles.inlineInfoRow}>
               <View style={styles.selectionCountPill}>
@@ -1734,7 +1974,7 @@ export default function OnboardingScreen() {
                           styles.raceChoiceCard,
                           selected && styles.raceChoiceCardSelected,
                         ]}
-                        onPress={() => setSelectedRaceId(race.id)}
+                        onPress={() => handleSelectRace(race.id)}
                       >
                         <View style={styles.raceChoiceHeader}>
                           <Text style={styles.raceChoiceTitle}>{race.name}</Text>
@@ -1760,6 +2000,16 @@ export default function OnboardingScreen() {
         </View>
 
         </OnboardingShell>
+
+        <GpxImportPreviewModal
+          visible={Boolean(pendingRaceGpxDocument)}
+          document={pendingRaceGpxDocument}
+          raceName={pendingRaceGpxName}
+          onRaceNameChange={setPendingRaceGpxName}
+          onCancel={handleCancelRaceGpxPreview}
+          onConfirm={() => void handleConfirmRaceGpxImport()}
+          confirming={importingRaceGpx}
+        />
 
         <Modal
           visible={Boolean(selectedRaceEvent)}
@@ -1851,7 +2101,6 @@ export default function OnboardingScreen() {
       <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
         <Text style={styles.title}>{t.onboarding.nutritionTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.nutritionSubtitle}</Text>
-        <Text style={styles.predictionHint}>{t.onboarding.nutritionHint}</Text>
 
         <View style={styles.sectionCard}>
           {selectedRaceSummary ? (
@@ -1866,10 +2115,25 @@ export default function OnboardingScreen() {
             </View>
           ) : null}
 
-          <View style={styles.inlineInfoRow}>
-            <View style={styles.selectionCountPill}>
-              <Text style={styles.selectionCountText}>{selectedCountLabel}</Text>
+          {raceImportFeedback ? (
+            <View
+              style={[
+                styles.importGpxFeedback,
+                raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
+              ]}
+            >
+              <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
             </View>
+          ) : null}
+
+          <View style={[styles.noticeBox, styles.nutritionNoticeBox]}>
+            <Text style={styles.noticeTitle}>{t.onboarding.nutritionHintTitle}</Text>
+            <Text style={styles.noticeText}>{t.onboarding.nutritionHint}</Text>
+            <Text style={styles.nutritionSelectionStatus}>
+              {selectedProductIds.length > 0
+                ? selectedCountLabel
+                : t.onboarding.nutritionSelectionEmpty}
+            </Text>
           </View>
 
           <TextInput
@@ -1920,13 +2184,6 @@ export default function OnboardingScreen() {
                       <Text style={styles.productBrandTitle}>{group.brandLabel}</Text>
 
                       <View style={styles.productBrandHeaderActions}>
-                        <View style={styles.productBrandCountPill}>
-                          <Text style={styles.productBrandCountText}>
-                            {group.selectedCount > 0
-                              ? `${group.selectedCount}/${group.products.length}`
-                              : String(group.products.length)}
-                          </Text>
-                        </View>
                         <Ionicons
                           name={brandExpanded ? 'chevron-up' : 'chevron-down'}
                           size={18}
@@ -2319,6 +2576,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
   },
+  authChoiceCard: {
+    gap: 12,
+  },
+  authChoiceBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  authChoiceTitle: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  authChoiceBody: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  authChoiceHint: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
   phaseList: {
     gap: 14,
     marginBottom: 28,
@@ -2549,6 +2838,23 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: Colors.textOnBrand,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  googleStartButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  googleStartButtonText: {
+    color: Colors.brandPrimary,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -3070,6 +3376,51 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 24,
   },
+  raceImportNoticeBox: {
+    marginBottom: 16,
+  },
+  importGpxButton: {
+    minHeight: 48,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    marginTop: 4,
+  },
+  importGpxButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  importGpxButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  importGpxFeedback: {
+    marginTop: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  importGpxFeedbackWarning: {
+    borderColor: Colors.warning,
+  },
+  importGpxFeedbackText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  nutritionNoticeBox: {
+    marginBottom: 14,
+  },
   noticeTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
@@ -3080,5 +3431,11 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
+  },
+  nutritionSelectionStatus: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 2,
   },
 });

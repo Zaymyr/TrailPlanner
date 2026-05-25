@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState, type ReactElement } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { TouchableOpacity, View } from 'react-native';
+import { Text } from '../themed/Text';
 import type { AidStationFormItem } from '../PlanForm';
 import type { GaugeMetric } from './GaugeArc';
 import { styles } from './styles';
@@ -76,7 +77,7 @@ export function AidStationsSectionV2({
   const [viewMode, setViewMode] = useState<'stations' | 'sections'>('stations');
 
   function formatTimelineMinute(minute: number) {
-    if (minute <= 0) return 'Depart';
+    if (minute <= 0) return 'Départ';
     return `${minute} min`;
   }
 

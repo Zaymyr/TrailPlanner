@@ -1,12 +1,22 @@
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '@pace-yourself/design-system';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { PlansList } from '../../components/plans/PlansList';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
-import { Colors } from '../../constants/colors';
+import { Button } from '../../components/themed/Button';
+import { Card } from '../../components/themed/Card';
+import { Screen } from '../../components/themed/Screen';
+import { Text } from '../../components/themed/Text';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
 import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
+import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 
 export default function PlansScreen() {
+  const insets = useSafeAreaInsets();
   const {
     locale,
     t,
@@ -26,46 +36,100 @@ export default function PlansScreen() {
     handleDelete,
     toggleSection,
     handleCreateFirstPlan,
+    handleStartFreeTraining,
     handleOpenGuestAccountUpgrade,
     handleEditRace,
-    handleOpenCatalog,
     handleOpenEditPlan,
     handleOpenRacePlan,
     handleOpenLockedPlan,
     closePremiumModal,
   } = usePlansScreen();
+  const screenStyle = useMemo(
+    () => [
+      styles.screen,
+      {
+        paddingTop: Math.max(0, insets.top),
+      },
+    ],
+    [insets.top],
+  );
+  const actionItems = useMemo<FloatingActionMenuItem[]>(
+    () => [
+      {
+        key: 'new-plan',
+        label: t.plans.newPlan,
+        icon: 'add-circle-outline',
+        onPress: handleCreateFirstPlan,
+      },
+    ],
+    [handleCreateFirstPlan, t.plans.newPlan],
+  );
+  const helpCopy = useMemo(
+    () =>
+      locale === 'fr'
+        ? {
+            title: t.plans.title,
+            body: "Retrouve tes plans par course, relance un plan en cours, ou cr\u00e9e un nouveau plan depuis le menu. Les ic\u00f4nes de carte ouvrent l'\u00e9dition, le live ou les actions de suppression.",
+          }
+        : {
+            title: t.plans.title,
+            body: 'Find your plans grouped by race, resume an active plan, or create a new plan from the menu. The card icons open editing, live mode, or delete actions.',
+          },
+    [locale, t.plans.title],
+  );
 
   if (loading || premiumLoading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.brandPrimary} size="large" />
-      </View>
+      <Screen style={styles.center}>
+        <ActivityIndicator color={colors.brand.forest} size="large" />
+      </Screen>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity onPress={handleRetry} style={styles.retryButton}>
-          <Text style={styles.retryButtonText}>{t.common.retry}</Text>
-        </TouchableOpacity>
-      </View>
+      <Screen style={styles.center}>
+        <Text tone="brand" size="base" weight="semibold" style={styles.errorText}>
+          {error}
+        </Text>
+        <Button onPress={handleRetry} variant="secondary">
+          {t.common.retry}
+        </Button>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.screen}>
-      {isAnonymous ? (
-        <View style={styles.guestBanner}>
-          <View style={styles.guestBannerCopy}>
-            <Text style={styles.guestBannerTitle}>{t.plans.guestModeBannerTitle}</Text>
-            <Text style={styles.guestBannerBody}>{t.plans.guestModeBannerBody}</Text>
-          </View>
-          <TouchableOpacity onPress={handleOpenGuestAccountUpgrade} style={styles.guestBannerButton}>
-            <Text style={styles.guestBannerButtonText}>{t.plans.guestModeBannerCta}</Text>
-          </TouchableOpacity>
+    <Screen style={screenStyle}>
+      <TouchableOpacity activeOpacity={0.86} onPress={handleStartFreeTraining} style={styles.trainingCta}>
+        <View style={styles.trainingCtaIcon}>
+          <Ionicons color={colors.text.inverse} name="walk-outline" size={20} />
         </View>
+        <View style={styles.trainingCtaCopy}>
+          <Text tone="brand" size="base" weight="bold">
+            {t.trainingLive.menuLabel}
+          </Text>
+          <Text tone="secondary" size="sm" lineHeight="normal">
+            {t.trainingLive.introTitle}
+          </Text>
+        </View>
+        <Ionicons color={colors.brand.forest} name="chevron-forward" size={20} />
+      </TouchableOpacity>
+
+      {isAnonymous ? (
+        <Card surface="cream" style={styles.guestBanner}>
+          <View style={styles.guestBannerCopy}>
+            <Text tone="brand" size="base" weight="bold">
+              {t.plans.guestModeBannerTitle}
+            </Text>
+            <Text tone="secondary" size="sm" lineHeight="normal">
+              {t.plans.guestModeBannerBody}
+            </Text>
+          </View>
+          <Button onPress={handleOpenGuestAccountUpgrade} style={styles.guestBannerButton}>
+            {t.plans.guestModeBannerCta}
+          </Button>
+        </Card>
       ) : null}
 
       <PlansList
@@ -84,7 +148,6 @@ export default function PlansScreen() {
         onCreateFirstPlan={handleCreateFirstPlan}
         onDeletePlan={handleDelete}
         onEditRace={handleEditRace}
-        onOpenCatalog={handleOpenCatalog}
         onOpenEditPlan={handleOpenEditPlan}
         onOpenLockedPlan={handleOpenLockedPlan}
         onOpenRacePlan={handleOpenRacePlan}
@@ -101,72 +164,66 @@ export default function PlansScreen() {
         title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
         visible={premiumModalCopy !== null}
       />
-    </View>
+
+      <RootScreenActionMenu
+        actions={actionItems}
+        contextLabel={t.plans.title}
+        help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
+      />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
   },
   guestBanner: {
     marginHorizontal: 16,
     marginTop: 12,
     marginBottom: 4,
-    padding: 16,
-    borderRadius: 18,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
     gap: 14,
+  },
+  trainingCta: {
+    minHeight: 70,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: colors.border.brand,
+    backgroundColor: colors.surface.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  trainingCtaIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.brand.forest,
+  },
+  trainingCtaCopy: {
+    flex: 1,
+    gap: 3,
   },
   guestBannerCopy: {
     gap: 6,
   },
-  guestBannerTitle: {
-    color: Colors.brandPrimary,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  guestBannerBody: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   guestBannerButton: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.brandPrimary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-  },
-  guestBannerButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 14,
-    fontWeight: '700',
   },
   center: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: Colors.background,
     padding: 24,
   },
   errorText: {
-    color: Colors.danger,
-    fontSize: 15,
     textAlign: 'center',
     marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-  },
-  retryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 15,
   },
 });

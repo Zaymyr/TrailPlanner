@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -7,13 +7,13 @@ import {
   Platform,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Text } from '../themed/Text';
 import { Ionicons } from '@expo/vector-icons';
-
+import Constants from 'expo-constants';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { supabase, supabaseInitError } from '../../lib/supabase';
@@ -21,11 +21,12 @@ import { supabase, supabaseInitError } from '../../lib/supabase';
 type FeedbackKind = 'bug' | 'feedback';
 
 type FeedbackHeaderButtonProps = {
+  children?: (open: () => void) => ReactNode;
   contextLabel?: string;
-  leading?: React.ReactNode;
+  leading?: ReactNode;
 };
 
-export function FeedbackHeaderButton({ contextLabel, leading }: FeedbackHeaderButtonProps) {
+export function FeedbackHeaderButton({ children, contextLabel, leading }: FeedbackHeaderButtonProps) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [kind, setKind] = useState<FeedbackKind>('bug');
@@ -34,13 +35,17 @@ export function FeedbackHeaderButton({ contextLabel, leading }: FeedbackHeaderBu
   const [submitting, setSubmitting] = useState(false);
 
   const submitLabel = kind === 'bug' ? t.feedback.sendBug : t.feedback.sendFeedback;
+  const appVersion = Constants.expoConfig?.version?.trim() || null;
   const metadata = useMemo(() => {
     const lines = [`${t.feedback.sourceLabel}: mobile`];
     if (contextLabel) {
       lines.push(`${t.feedback.screenLabel}: ${contextLabel}`);
     }
+    if (appVersion) {
+      lines.push(`Version: ${appVersion}`);
+    }
     return lines.join('\n');
-  }, [contextLabel, t.feedback.screenLabel, t.feedback.sourceLabel]);
+  }, [appVersion, contextLabel, t.feedback.screenLabel, t.feedback.sourceLabel]);
 
   const handleOpen = () => setVisible(true);
   const handleClose = () => {
@@ -63,7 +68,23 @@ export function FeedbackHeaderButton({ contextLabel, leading }: FeedbackHeaderBu
     }
 
     setSubmitting(true);
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user?.id) {
+      setSubmitting(false);
+      Alert.alert(t.common.error, userError?.message || t.feedback.sendFailed);
+      return;
+    }
+
     const { error } = await supabase.from('app_feedback').insert({
+      user_id: user.id,
+      kind,
+      source: 'mobile',
+      screen: contextLabel?.trim() || null,
+      app_version: appVersion,
       subject: `[${kind}] ${nextSubject}`,
       detail: `${nextDetail}\n\n---\n${metadata}`,
     });
@@ -83,16 +104,20 @@ export function FeedbackHeaderButton({ contextLabel, leading }: FeedbackHeaderBu
 
   return (
     <>
-      <View style={styles.headerActions}>
-        {leading}
-        <TouchableOpacity
-          accessibilityLabel={t.feedback.triggerLabel}
-          onPress={handleOpen}
-          style={styles.iconButton}
-        >
-          <Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+      {children ? (
+        children(handleOpen)
+      ) : (
+        <View style={styles.headerActions}>
+          {leading}
+          <TouchableOpacity
+            accessibilityLabel={t.feedback.triggerLabel}
+            onPress={handleOpen}
+            style={styles.iconButton}
+          >
+            <Ionicons name="bug-outline" size={20} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal
         animationType="fade"

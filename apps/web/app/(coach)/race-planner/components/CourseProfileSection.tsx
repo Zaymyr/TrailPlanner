@@ -4,41 +4,41 @@ import type React from "react";
 import type { UseFormRegister } from "react-hook-form";
 import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { AidStation, ElevationPoint, FormValues, Segment } from "../types";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../../../../components/ui/card";
+import { Card, CardContent, CardHeader } from "../../../../components/ui/card";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import { Button } from "../../../../components/ui/button";
-import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "../../../../components/race-planner/TimelineIcons";
+import { ChevronDownIcon, ChevronUpIcon } from "../../../../components/race-planner/TimelineIcons";
 import { ElevationProfileChart } from "./ElevationProfileChart";
 
 type CardTitleWithTooltipProps = {
   title: string;
   description: string;
+  headingLevel?: "h2" | "h3";
 };
 
-const CardTitleWithTooltip = ({ title, description }: CardTitleWithTooltipProps) => (
-  <CardTitle className="flex items-center gap-2">
-    <span>{title}</span>
-    <span
-      className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-      title={description}
-      aria-label={description}
-    >
-      ?
-    </span>
-  </CardTitle>
-);
+const CardTitleWithTooltip = ({ title, description, headingLevel = "h2" }: CardTitleWithTooltipProps) => {
+  const HeadingTag = headingLevel;
+
+  return (
+    <HeadingTag className="flex items-center gap-2 text-lg font-semibold leading-none text-card-foreground">
+      <span>{title}</span>
+      <span
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+        title={description}
+        aria-label={description}
+      >
+        ?
+      </span>
+    </HeadingTag>
+  );
+};
 
 type CourseProfileSectionProps = {
   sectionId: string;
   copy: RacePlannerTranslations;
-  isCollapsed: boolean;
-  onToggleCollapsed: () => void;
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   onImportGpx: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onOpenRaceCatalog: () => void;
@@ -52,12 +52,14 @@ type CourseProfileSectionProps = {
   segments: Segment[];
   totalDistanceKm: number;
   baseMinutesPerKm: number | null;
+  headingLevel?: "h2" | "h3";
+  showCollapseToggle?: boolean;
 };
 
 export const CourseProfileSection = ({
   sectionId,
   copy,
-  isCollapsed,
+  isCollapsed = false,
   onToggleCollapsed,
   fileInputRef,
   onImportGpx,
@@ -72,8 +74,13 @@ export const CourseProfileSection = ({
   segments,
   totalDistanceKm,
   baseMinutesPerKm,
+  headingLevel = "h2",
+  showCollapseToggle = true,
 }: CourseProfileSectionProps) => (
-  <Card id={sectionId} className="relative overflow-hidden">
+  <Card
+    id={sectionId}
+    className="relative overflow-hidden border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/40 dark:shadow-none"
+  >
     <input
       ref={fileInputRef}
       type="file"
@@ -83,7 +90,11 @@ export const CourseProfileSection = ({
     />
     <CardHeader className="space-y-0 pb-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <CardTitleWithTooltip title={copy.sections.courseProfile.title} description={copy.sections.courseProfile.description} />
+        <CardTitleWithTooltip
+          title={copy.sections.courseProfile.title}
+          description={copy.sections.courseProfile.description}
+          headingLevel={headingLevel}
+        />
         {isCollapsed ? (
           <div className="flex flex-1 flex-wrap items-center justify-end gap-2">
             <div id="onboarding-course-btns" className="flex flex-wrap items-center gap-2">
@@ -139,10 +150,10 @@ export const CourseProfileSection = ({
         ) : null}
       </div>
     </CardHeader>
-    <CardContent className="px-4 pb-10 sm:px-6">
+    <CardContent className={showCollapseToggle ? "px-4 pb-10 sm:px-6" : "px-4 pb-4 sm:px-6"}>
       {(() => {
         const courseControls = (
-          <div className="w-full max-w-xl space-y-4 rounded-lg border border-border bg-card p-4 dark:border-slate-800 dark:bg-slate-950/60 lg:ml-auto">
+          <div className="w-full max-w-xl space-y-4 rounded-lg border border-border/50 bg-background/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/50 lg:ml-auto">
             <div className="space-y-2">
               <p className="text-sm font-semibold text-foreground dark:text-slate-50">{copy.sections.raceInputs.courseTitle}</p>
               <p className="text-xs text-muted-foreground dark:text-slate-400">
@@ -211,7 +222,7 @@ export const CourseProfileSection = ({
 
         return (
           <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px] xl:gap-8">
-            <div className="min-h-[240px] w-full rounded-lg border border-border bg-card p-4 dark:border-slate-800/70 dark:bg-slate-950/40">
+            <div className="min-h-[240px] w-full rounded-lg border border-border/50 bg-background/70 p-4 dark:border-slate-800/60 dark:bg-slate-950/40">
               <ElevationProfileChart
                 profile={elevationProfile}
                 aidStations={aidStations}
@@ -227,16 +238,18 @@ export const CourseProfileSection = ({
         );
       })()}
     </CardContent>
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
-      <Button
-        type="button"
-        variant="ghost"
-        className="pointer-events-auto h-10 w-10 rounded-full border border-border bg-card text-foreground shadow-md hover:bg-muted dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:hover:bg-slate-900/60"
-        aria-label={isCollapsed ? "Expand course profile" : "Collapse course profile"}
-        onClick={onToggleCollapsed}
-      >
-        {isCollapsed ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
-      </Button>
-    </div>
+    {showCollapseToggle && onToggleCollapsed ? (
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-2">
+        <Button
+          type="button"
+          variant="ghost"
+          className="pointer-events-auto h-10 w-10 rounded-full border border-border bg-card text-foreground shadow-md hover:bg-muted dark:border-slate-800 dark:bg-slate-950/80 dark:text-slate-100 dark:hover:bg-slate-900/60"
+          aria-label={isCollapsed ? "Expand course profile" : "Collapse course profile"}
+          onClick={onToggleCollapsed}
+        >
+          {isCollapsed ? <ChevronUpIcon className="h-5 w-5" /> : <ChevronDownIcon className="h-5 w-5" />}
+        </Button>
+      </div>
+    ) : null}
   </Card>
 );

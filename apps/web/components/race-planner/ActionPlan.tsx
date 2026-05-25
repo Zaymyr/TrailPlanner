@@ -39,6 +39,7 @@ import { AddMarkerModal } from "./AddMarkerModal";
 import { AutoSegmentModal } from "./AutoSegmentModal";
 import { EditSubSectionModal } from "./EditSubSectionModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
+import { isVerifiedProduct, VerifiedProductBadge } from "../products/VerifiedProductBadge";
 import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
 import { useActionPlanDerivedData } from "./useActionPlanDerivedData";
 import {
@@ -146,7 +147,7 @@ type ActionPlanProps = {
   sectionId: string;
   onPrintAssistance: () => void;
   onAutomaticFill: () => void;
-  onAddAidStation: (station: { name: string; distanceKm: number }) => void;
+  onAddAidStation: (station: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean }) => void;
   onRemoveAidStation: (index: number) => void;
   register: UseFormRegister<FormValues>;
   setValue: UseFormSetValue<FormValues>;
@@ -209,6 +210,7 @@ type FinishSummaryGroup = {
 
 type FinishSummaryCardProps = {
   pointIndex: number;
+  badge?: ReactNode;
   title: string;
   distanceText: string;
   performanceGroup: FinishSummaryGroup;
@@ -255,6 +257,7 @@ function SummaryGroup({ title, icon, primary, secondary }: FinishSummaryGroup) {
 
 function FinishSummaryCard({
   pointIndex,
+  badge,
   title,
   distanceText,
   performanceGroup,
@@ -270,9 +273,11 @@ function FinishSummaryCard({
     <div className="rounded-2xl border border-border-strong bg-card p-4 shadow-md dark:bg-slate-950/85 dark:shadow-[0_4px_30px_rgba(15,23,42,0.45)]">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-[220px] items-start gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
-            {pointIndex}
-          </span>
+          {badge ?? (
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/25 text-sm font-semibold text-emerald-100">
+              {pointIndex}
+            </span>
+          )}
           <div className="space-y-1">
             <div className="text-base font-semibold text-foreground dark:text-slate-50">{title}</div>
             <div className="text-xs font-normal text-muted-foreground dark:text-slate-300">{distanceText}</div>
@@ -539,13 +544,15 @@ function NutritionCard({ metric, variant = "default", waterCapacityMl, targetLab
             </div>
           ) : null}
           {isCompact ? (
-            metric.helper ? <p className="text-[9px] font-semibold text-amber-200/80">{metric.helper}</p> : null
+            metric.helper ? (
+              <p className="text-[9px] font-semibold text-amber-700 dark:text-amber-200/80">{metric.helper}</p>
+            ) : null
           ) : (
             <div className="flex items-center justify-between text-xs text-muted-foreground dark:text-slate-200">
               <span className="font-semibold">
                 {targetLabel}: {metric.format(targetValue)}
               </span>
-              {metric.helper ? <span className="text-amber-100">{metric.helper}</span> : null}
+              {metric.helper ? <span className="font-semibold text-amber-700 dark:text-amber-100">{metric.helper}</span> : null}
             </div>
           )}
         </div>
@@ -593,7 +600,7 @@ function AidStationHeader({ pointIndex, badge, title, meta, onTitleClick }: AidS
       }
     >
       {badge ?? (
-        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-100 text-sm font-semibold text-emerald-900 dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full border border-brand-border bg-brand-surface text-sm font-semibold text-brand dark:border-transparent dark:bg-emerald-500/25 dark:text-emerald-100">
           {pointIndex}
         </span>
       )}
@@ -619,7 +626,7 @@ function AidStationHeaderRow({
   onTitleClick,
 }: AidStationHeaderRowProps) {
   return (
-    <div className="relative z-20 rounded-2xl border-2 border-blue-500/70 bg-card px-5 py-4 shadow-md dark:border-blue-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
+    <div className="relative z-20 rounded-2xl border-2 border-brand-border bg-card/95 px-5 py-4 shadow-md shadow-[rgba(45,80,22,0.10)] dark:border-emerald-400/70 dark:bg-slate-950/95 dark:shadow-[0_10px_36px_rgba(15,23,42,0.4)]">
       <div className="grid gap-4 lg:grid-cols-[minmax(0,240px)_1fr_auto] lg:items-center">
         <AidStationHeader
           pointIndex={pointIndex}
@@ -769,7 +776,7 @@ type EmbarkedSummaryBoxProps = {
 
 function EmbarkedSummaryBox({ items }: EmbarkedSummaryBoxProps) {
   return (
-    <div className="w-full rounded-xl border border-dashed border-emerald-400/70 bg-emerald-500/5 px-4 py-2.5 md:max-w-[300px]">
+    <div className="w-full rounded-xl border border-dashed border-brand-border bg-brand-surface/50 px-4 py-2.5 dark:border-emerald-400/70 dark:bg-emerald-500/5 md:max-w-[300px]">
       <div className="space-y-1.5">
         {items.map((item) => (
           <div key={item.key} className="flex items-center justify-between gap-2 text-xs text-foreground dark:text-slate-50">
@@ -860,8 +867,8 @@ function BetweenAidStationSection({
   showSubSections,
 }: BetweenAidStationSectionProps) {
   return (
-    <div className="relative pl-4 before:absolute before:left-2 before:top-0 before:bottom-0 before:border-l before:border-border/40">
-      <div className="rounded-2xl border border-dashed border-blue-500/60 bg-card p-4 shadow-sm dark:border-blue-400/60 dark:bg-slate-950/55">
+    <div className="relative">
+      <div className="rounded-t-none rounded-b-2xl border-l border-r border-b border-t-0 border-dashed border-brand-border bg-card/85 p-4 shadow-sm dark:border-emerald-400/60 dark:bg-slate-950/55">
         <div className="flex flex-col gap-4 md:flex-row md:items-start">
           <div className="w-full max-w-[260px]">{sectionSummary}</div>
           {nutritionCards.length > 0 ? (
@@ -894,14 +901,14 @@ function AidStationCollapsedRow({
   actions,
 }: AidStationCollapsedRowProps) {
   return (
-    <div className="rounded-2xl border-2 border-blue-500/70 bg-card px-4 py-3 shadow-md dark:border-blue-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
+    <div className="rounded-2xl border-2 border-brand-border bg-card/95 px-4 py-3 shadow-md shadow-[rgba(45,80,22,0.10)] dark:border-emerald-400/70 dark:bg-slate-950/90 dark:shadow-[0_6px_26px_rgba(15,23,42,0.4)]">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         <div className="relative flex shrink-0 flex-col items-center gap-2">
           {badge ? (
             badge
           ) : (
             <>
-              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/25 text-[11px] font-semibold text-emerald-100">
+              <span className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-brand-surface text-[11px] font-semibold text-brand dark:bg-emerald-500/25 dark:text-emerald-100">
                 {pointIndex}
               </span>
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-foreground dark:bg-slate-900/70 dark:text-slate-50">
@@ -910,8 +917,8 @@ function AidStationCollapsedRow({
             </>
           )}
           <div className="hidden flex-col items-center md:flex">
-            <span className="h-8 w-[2px] bg-emerald-400/80" />
-            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-emerald-400/80" />
+            <span className="h-8 w-[2px] bg-brand-border dark:bg-emerald-400/80" />
+            <span className="h-0 w-0 border-x-[6px] border-t-[8px] border-x-transparent border-t-brand-border dark:border-t-emerald-400/80" />
           </div>
         </div>
         <div className="min-w-0 flex-1 space-y-1 md:order-1">
@@ -930,6 +937,192 @@ function AidStationCollapsedRow({
             {actions}
           </div>
         ) : null}
+      </div>
+    </div>
+  );
+}
+
+type ProductDetailModalProps = {
+  product: FuelProduct | null;
+  locale: "en" | "fr";
+  onClose: () => void;
+};
+
+const productDetailCopy = {
+  fr: {
+    title: "Détail du produit",
+    close: "Fermer",
+    officialSite: "Acheter ce produit",
+    notAvailable: "Non renseigné",
+    perServing: "Valeurs par unité / portion",
+    brand: "Marque",
+    type: "Type",
+    carbs: "Glucides",
+    sodium: "Sodium",
+    calories: "Calories",
+    protein: "Protéines",
+    fat: "Lipides",
+    water: "Eau",
+  },
+  en: {
+    title: "Product details",
+    close: "Close",
+    officialSite: "Buy this product",
+    notAvailable: "Not provided",
+    perServing: "Values per unit / serving",
+    brand: "Brand",
+    type: "Type",
+    carbs: "Carbs",
+    sodium: "Sodium",
+    calories: "Calories",
+    protein: "Protein",
+    fat: "Fat",
+    water: "Water",
+  },
+};
+
+const formatOptionalText = (value: string | null | undefined, fallback: string) =>
+  value && value.trim() ? value : fallback;
+
+const pickerOtherBrandLabel = {
+  fr: "Autres marques",
+  en: "Other brands",
+};
+
+const inferPickerBrand = (product: FuelProduct, locale: "en" | "fr") => {
+  const explicitBrand = product.brand?.trim();
+  if (explicitBrand) return explicitBrand;
+
+  const firstToken = product.name
+    .split(/\s+/)
+    .map((part) => part.replace(/^[^A-Za-z0-9À-ÿ]+|[^A-Za-z0-9À-ÿ]+$/g, ""))
+    .find(Boolean);
+
+  return firstToken && firstToken.length > 2 ? firstToken : pickerOtherBrandLabel[locale];
+};
+
+const groupPickerProductsByBrand = (products: FuelProduct[], locale: "en" | "fr") => {
+  const groups = products.reduce((map, product) => {
+    const brand = inferPickerBrand(product, locale);
+    const current = map.get(brand) ?? [];
+    current.push(product);
+    map.set(brand, current);
+    return map;
+  }, new Map<string, FuelProduct[]>());
+
+  return Array.from(groups.entries())
+    .map(([brand, items]) => ({ brand, items }))
+    .sort((left, right) => left.brand.localeCompare(right.brand, locale, { sensitivity: "base" }));
+};
+
+function ProductDetailModal({ product, locale, onClose }: ProductDetailModalProps) {
+  const copy = productDetailCopy[locale];
+
+  useEffect(() => {
+    if (!product) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, product]);
+
+  if (!product) return null;
+
+  const isVerified = isVerifiedProduct(product);
+  const detailItems = [
+    { label: copy.brand, value: formatOptionalText(product.brand, copy.notAvailable) },
+    { label: copy.type, value: getFuelTypeLabel(product.fuelType, locale) },
+  ];
+  const nutritionItems = [
+    { label: copy.carbs, value: `${product.carbsGrams} g` },
+    { label: copy.sodium, value: `${product.sodiumMg} mg` },
+    { label: copy.calories, value: `${product.caloriesKcal} kcal` },
+    { label: copy.protein, value: `${product.proteinGrams} g` },
+    { label: copy.fat, value: `${product.fatGrams} g` },
+    { label: copy.water, value: typeof product.waterMl === "number" ? `${product.waterMl} ml` : copy.notAvailable },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+      <button
+        type="button"
+        className="absolute inset-0"
+        aria-label={copy.close}
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="product-detail-title"
+        className="relative z-10 w-full max-w-2xl overflow-hidden rounded-2xl border border-border-strong bg-card shadow-2xl dark:bg-slate-950"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-300">
+              {copy.title}
+            </p>
+            <h2 id="product-detail-title" className="mt-1 text-xl font-semibold text-foreground dark:text-slate-50">
+              {product.name}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">{copy.perServing}</p>
+          </div>
+          <Button variant="ghost" className="h-8 px-2" onClick={onClose}>
+            ×
+          </Button>
+        </div>
+
+        <div className="grid gap-5 p-5 md:grid-cols-[160px_1fr]">
+          <div className="relative flex h-40 items-center justify-center overflow-hidden rounded-2xl border border-border bg-background dark:bg-slate-900">
+            {isVerified ? (
+              <VerifiedProductBadge
+                locale={locale}
+                className="absolute right-2 top-2 z-10 h-7 w-7"
+              />
+            ) : null}
+            {product.imageUrl ? (
+              <img src={product.imageUrl} alt="" className="h-full w-full object-contain p-3" />
+            ) : (
+              <span className="text-xs text-muted-foreground">{copy.notAvailable}</span>
+            )}
+          </div>
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {detailItems.map((item) => (
+                <div key={item.label} className="rounded-xl border border-border bg-background p-3 dark:bg-slate-900/70">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 break-words text-sm font-semibold text-foreground dark:text-slate-50">
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {nutritionItems.map((item) => (
+                <div key={item.label} className="rounded-xl border border-brand-border bg-brand-surface p-3 dark:border-emerald-400/20 dark:bg-emerald-500/5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {item.label}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-foreground dark:text-slate-50">{item.value}</p>
+                </div>
+              ))}
+            </div>
+            {product.productUrl ? (
+              <a
+                href={product.productUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-500 dark:text-white dark:hover:bg-emerald-600 dark:focus-visible:outline-emerald-400"
+              >
+                {copy.officialSite}
+              </a>
+            ) : null}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1014,12 +1207,16 @@ export function ActionPlan({
         name: string;
         distance: string;
         pauseMinutes: string;
+        waterRefill: boolean;
+        solidRefill: boolean;
       }
     | {
         mode: "create";
         name: string;
         distance: string;
         pauseMinutes: string;
+        waterRefill: boolean;
+        solidRefill: boolean;
       }
   >(null);
   const [editorError, setEditorError] = useState<string | null>(null);
@@ -1030,6 +1227,7 @@ export function ActionPlan({
   const [pickerSearch, setPickerSearch] = useState("");
   const [pickerFuelType, setPickerFuelType] = useState<FuelType | "all">("all");
   const [pickerShowMyProducts, setPickerShowMyProducts] = useState(false);
+  const [productDetail, setProductDetail] = useState<FuelProduct | null>(null);
   const [pickerSort, setPickerSort] = useState<{
     key: "name" | "type" | "carbs" | "sodium" | "calories" | "favorite";
     dir: "asc" | "desc";
@@ -1040,6 +1238,7 @@ export function ActionPlan({
   const timelineCopy = copy.sections.timeline;
   const aidStationsCopy = copy.sections.aidStations;
   const segmentCopy = copy.segments;
+  const autoFillTooltipId = "timeline-auto-fill-tooltip";
   const sortedElevationProfile = useMemo(
     () => [...elevationProfile].sort((a, b) => a.distanceKm - b.distanceKm),
     [elevationProfile]
@@ -1136,8 +1335,14 @@ export function ActionPlan({
       name: copy.defaults.aidStationName,
       distance: "0",
       pauseMinutes: "",
+      waterRefill: true,
+      solidRefill: true,
     });
   const updateEditorField = useCallback((field: "name" | "distance" | "pauseMinutes", value: string) => {
+    setEditorState((current) => (current ? { ...current, [field]: value } : current));
+    setEditorError(null);
+  }, []);
+  const updateEditorService = useCallback((field: "waterRefill" | "solidRefill", value: boolean) => {
     setEditorState((current) => (current ? { ...current, [field]: value } : current));
     setEditorError(null);
   }, []);
@@ -1351,8 +1556,12 @@ export function ActionPlan({
     const term = pickerSearch.trim().toLowerCase();
     const localIds = new Set(localProductIds ?? []);
     return fuelProducts.filter((product) => {
+      const brand = inferPickerBrand(product, locale).toLowerCase();
       const matchesSearch =
-        !term || product.name.toLowerCase().includes(term) || product.slug.toLowerCase().includes(term);
+        !term ||
+        product.name.toLowerCase().includes(term) ||
+        product.slug.toLowerCase().includes(term) ||
+        brand.includes(term);
       const matchesType = pickerFuelType === "all" || product.fuelType === pickerFuelType;
       const matchesOwnership =
         !pickerShowMyProducts ||
@@ -1360,7 +1569,35 @@ export function ActionPlan({
         localIds.has(product.id);
       return matchesSearch && matchesType && matchesOwnership;
     });
-  }, [fuelProducts, localProductIds, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
+  }, [fuelProducts, localProductIds, locale, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
+  const sortedPickerProducts = useMemo(() => {
+    return [...filteredPickerProducts].sort((a, b) => {
+      const dir = pickerSort.dir === "asc" ? 1 : -1;
+      if (pickerSort.key === "favorite") {
+        const aFav = Number(pickerFavoriteSet.has(a.slug));
+        const bFav = Number(pickerFavoriteSet.has(b.slug));
+        if (aFav === bFav) return a.name.localeCompare(b.name, locale, { sensitivity: "base" });
+        return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
+      }
+      if (pickerSort.key === "name") return a.name.localeCompare(b.name, locale, { sensitivity: "base" }) * dir;
+      if (pickerSort.key === "type") return a.fuelType.localeCompare(b.fuelType, locale, { sensitivity: "base" }) * dir;
+      if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
+      if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
+      return (a.caloriesKcal - b.caloriesKcal) * dir;
+    });
+  }, [filteredPickerProducts, locale, pickerFavoriteSet, pickerSort]);
+  const groupedPickerProducts = useMemo(
+    () => groupPickerProductsByBrand(sortedPickerProducts, locale),
+    [locale, sortedPickerProducts]
+  );
+  const pickerTableRows = useMemo(
+    () =>
+      groupedPickerProducts.flatMap((group) => [
+        { type: "group" as const, key: `group-${group.brand}`, brand: group.brand, count: group.items.length },
+        ...group.items.map((product) => ({ type: "product" as const, key: product.slug, product })),
+      ]),
+    [groupedPickerProducts]
+  );
   const {
     renderItems,
     collapsibleKeys,
@@ -1368,6 +1605,7 @@ export function ActionPlan({
     finishSummary,
     sectionComputationByItemId,
     summarizedSuppliesByItemId,
+    carryoverCoverageByItemId,
     aidSuppliesByStationIndex,
   } = useActionPlanDerivedData({
     segments,
@@ -1598,8 +1836,18 @@ export function ActionPlan({
       setValue(`aidStations.${editorState.index}.name`, name);
       setValue(`aidStations.${editorState.index}.distanceKm`, distanceValue);
       setValue(`aidStations.${editorState.index}.pauseMinutes`, pauseValue);
+      setValue(`aidStations.${editorState.index}.waterRefill`, editorState.waterRefill);
+      setValue(`aidStations.${editorState.index}.solidRefill`, editorState.solidRefill);
+      if (!editorState.solidRefill) {
+        setValue(`aidStations.${editorState.index}.supplies`, []);
+      }
     } else {
-      onAddAidStation({ name, distanceKm: distanceValue });
+      onAddAidStation({
+        name,
+        distanceKm: distanceValue,
+        waterRefill: editorState.waterRefill,
+        solidRefill: editorState.solidRefill,
+      });
     }
     closeEditor();
   }, [closeEditor, copy.validation.nonNegative, copy.validation.required, editorState, onAddAidStation, setValue]);
@@ -1673,7 +1921,10 @@ export function ActionPlan({
 
   return (
     <>
-      <Card id={sectionId}>
+      <Card
+        id={sectionId}
+        className="border-brand-border bg-brand-surface/45 shadow-xl shadow-[rgba(45,80,22,0.12)] dark:border-emerald-400/60 dark:bg-emerald-950/20 dark:shadow-emerald-950/30"
+      >
         <CardHeader className="space-y-3">
           <SectionHeader
             title={timelineCopy.title}
@@ -1697,16 +1948,25 @@ export function ActionPlan({
                 </Button>
               </span>
               {segments.length > 0 ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={autoFillLocked ? "premium-glow" : undefined}
-                  onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
-                  title={copy.buttons.autoFillHint}
-                  disabled={autoFillLocked && isUpgradeBusy}
-                >
-                  {copy.buttons.autoFill}
-                </Button>
+                <span className="group relative inline-flex">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={autoFillLocked ? "premium-glow" : undefined}
+                    onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
+                    aria-describedby={autoFillTooltipId}
+                    disabled={autoFillLocked && isUpgradeBusy}
+                  >
+                    {copy.buttons.autoFill}
+                  </Button>
+                  <span
+                    id={autoFillTooltipId}
+                    role="tooltip"
+                    className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-72 rounded-lg border border-border bg-popover px-3 py-2 text-left text-xs leading-snug text-popover-foreground opacity-0 shadow-lg transition group-hover:opacity-100 group-focus-within:opacity-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    {copy.buttons.autoFillHint}
+                  </span>
+                </span>
               ) : null}
               {segments.length > 0 ? (
                 <Button
@@ -1747,7 +2007,7 @@ export function ActionPlan({
           <CoachCommentsBlock comments={planComments} copy={coachCommentsCopy} />
         ) : null}
         {segments.length > 0 ? (
-          <div className="relative space-y-4">
+          <div className="relative space-y-8">
             {(() => {
               return renderItems.map((item, itemIndex) => {
                 const pointNumber = itemIndex + 1;
@@ -1759,12 +2019,17 @@ export function ActionPlan({
                   typeof item.aidStationIndex === "number"
                     ? (`aidStations.${item.aidStationIndex}.waterRefill` as const)
                     : null;
+                const solidRefillFieldName =
+                  typeof item.aidStationIndex === "number"
+                    ? (`aidStations.${item.aidStationIndex}.solidRefill` as const)
+                    : null;
                 const pauseMinutesValue =
                   typeof item.checkpointSegment?.pauseMinutes === "number" ? item.checkpointSegment.pauseMinutes : 0;
                 const metaText = `${formatDistanceWithUnit(item.distanceKm)} · ${timelineCopy.etaLabel}: ${formatMinutes(item.etaMinutes)}`;
 
                 const nextSegment = item.upcomingSegment;
                 const summarized = summarizedSuppliesByItemId.get(item.id) ?? null;
+                const carryoverCoverage = carryoverCoverageByItemId.get(item.id) ?? null;
                 const isCollapsible =
                   !!nextSegment && (item.isStart || (typeof item.aidStationIndex === "number" && !item.isFinish));
                 const collapseKey = isCollapsible ? (item.isStart ? "start" : String(item.aidStationIndex)) : null;
@@ -1791,6 +2056,17 @@ export function ActionPlan({
                 ) : null;
                 const titleContent = item.title;
                 const isAidStation = typeof item.aidStationIndex === "number" && !item.isFinish;
+                const waterRefillAvailable = item.isStart || item.checkpointSegment?.waterRefill !== false;
+                const solidRefillAvailable = item.isStart || item.checkpointSegment?.solidRefill !== false;
+                const serviceLabel = item.isStart
+                  ? locale === "fr" ? "Stock initial" : "Initial stock"
+                  : waterRefillAvailable && solidRefillAvailable
+                    ? locale === "fr" ? "Eau + solide" : "Water + solid"
+                    : waterRefillAvailable
+                      ? locale === "fr" ? "Eau seulement" : "Water only"
+                      : solidRefillAvailable
+                        ? locale === "fr" ? "Solide seulement" : "Solid only"
+                        : locale === "fr" ? "Aucun service" : "No service";
                 const commentContextKey = item.isStart
                   ? "start"
                   : item.isFinish
@@ -1803,12 +2079,19 @@ export function ActionPlan({
                   <AidStationBadge step={pointNumber} variant="start" />
                 ) : isAidStation ? (
                   <AidStationBadge step={pointNumber} variant="ravito" />
+                ) : item.isFinish ? (
+                  <AidStationBadge step={pointNumber} variant="finish" />
                 ) : null;
                 const metaContent = (
                   <div className="space-y-1">
                     <div>{metaText}</div>
-                    <div className="text-[11px] text-muted-foreground dark:text-slate-400">
-                      {timelineCopy.pauseLabel}: {pauseMinutesValue}
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground dark:text-slate-400">
+                      <span>{timelineCopy.pauseLabel}: {pauseMinutesValue}</span>
+                      {!item.isFinish ? (
+                        <span className="rounded-full border border-border bg-background px-2 py-0.5 font-semibold text-foreground dark:bg-slate-900/60 dark:text-slate-100">
+                          {serviceLabel}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -1841,11 +2124,28 @@ export function ActionPlan({
                       <span>{aidStationsCopy.labels.waterRefill}</span>
                     </label>
                   ) : null;
+                const solidRefillToggle =
+                  distanceFieldName && !isCollapsed && solidRefillFieldName ? (
+                    <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-2 py-1 text-[11px] text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                        {...register(solidRefillFieldName, {
+                          onChange: (event) => {
+                            if (!event.target.checked && typeof item.aidStationIndex === "number") {
+                              setValue(`aidStations.${item.aidStationIndex}.supplies`, []);
+                            }
+                          },
+                        })}
+                      />
+                      <span>{aidStationsCopy.labels.solidRefill}</span>
+                    </label>
+                  ) : null;
                 const suppliesDropZone =
-                  (item.isStart || typeof item.aidStationIndex === "number") && !isCollapsed ? (
+                  (item.isStart || (typeof item.aidStationIndex === "number" && solidRefillAvailable)) && !isCollapsed ? (
                     <div
                       id={item.isStart ? "onboarding-start-supply-zone" : undefined}
-                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-emerald-400/50 bg-emerald-500/5 p-2 shadow-inner shadow-emerald-500/10"
+                      className="flex w-full flex-1 flex-col gap-2 rounded-2xl border border-dashed border-brand-border bg-brand-surface/50 p-2 shadow-inner shadow-[rgba(45,80,22,0.08)] dark:border-emerald-400/50 dark:bg-emerald-500/5 dark:shadow-emerald-500/10"
                       onDragOver={(event) => event.preventDefault()}
                       onDrop={(event) => {
                         event.preventDefault();
@@ -1865,9 +2165,16 @@ export function ActionPlan({
                             ? summarized.items.map(({ product, quantity }) => (
                                 <div
                                   key={product.id}
-                                  className="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-card px-3 py-1 text-sm text-foreground dark:bg-slate-950/70 dark:text-slate-50"
+                                  className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-card px-3 py-1 text-sm text-foreground dark:border-emerald-400/40 dark:bg-slate-950/70 dark:text-slate-50"
                                 >
-                                  <span className="font-semibold">{`${product.name} x${quantity}`}</span>
+                                  <button
+                                    type="button"
+                                    className="text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                                    onClick={() => setProductDetail(product)}
+                                    aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
+                                  >
+                                    {`${product.name} x${quantity}`}
+                                  </button>
                                   <div className="flex items-center gap-1">
                                     <Button
                                       type="button"
@@ -1914,11 +2221,12 @@ export function ActionPlan({
                         </div>
                         <div className="flex items-center gap-2">
                           {waterRefillToggle}
+                          {solidRefillToggle}
                           <Button
                             id={item.isStart ? "onboarding-open-products-btn" : undefined}
                             type="button"
                             variant="outline"
-                            className="h-9 w-9 shrink-0 rounded-full border-emerald-400/50 bg-background p-0 text-emerald-700 hover:bg-emerald-500/10 dark:bg-slate-950/60 dark:text-emerald-50"
+                            className="h-9 w-9 shrink-0 rounded-full border-brand-border bg-card p-0 text-brand hover:bg-brand-surface dark:border-emerald-400/50 dark:bg-slate-950/60 dark:text-emerald-50"
                             onClick={() =>
                               setSupplyPicker({
                                 type: item.isStart ? "start" : "aid",
@@ -1931,6 +2239,18 @@ export function ActionPlan({
                             +
                           </Button>
                         </div>
+                      </div>
+                    </div>
+                  ) : typeof item.aidStationIndex === "number" && !isCollapsed ? (
+                    <div className="flex w-full flex-1 items-center justify-between gap-2 rounded-2xl border border-dashed border-border bg-muted/40 p-3 text-xs font-medium text-muted-foreground dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                      <span>
+                        {locale === "fr"
+                          ? "Solide desactive : gels, boisson et sodium sont reportes au ravito precedent."
+                          : "Solid fuel disabled: gels, drink mix, and sodium move to the previous aid station."}
+                      </span>
+                      <div className="flex shrink-0 items-center gap-2">
+                        {waterRefillToggle}
+                        {solidRefillToggle}
                       </div>
                     </div>
                   ) : null;
@@ -1951,8 +2271,8 @@ export function ActionPlan({
                     : sectionSegment?.segmentMinutes ?? 0;
                 const sectionSummaryGain = sectionTotals?.dPlus ?? sectionSegment?.elevationGainM ?? 0;
                 const sectionSummaryLoss = sectionTotals?.dMinus ?? sectionSegment?.elevationLossM ?? 0;
-                const plannedFuel = summarized?.totals.carbs ?? 0;
-                const plannedSodium = summarized?.totals.sodium ?? 0;
+                const plannedFuel = carryoverCoverage?.currentCarbs ?? summarized?.totals.carbs ?? 0;
+                const plannedSodium = carryoverCoverage?.currentSodium ?? summarized?.totals.sodium ?? 0;
                 const plannedWater = sectionSegment?.plannedWaterMl ?? 0;
                 const paceAdjustmentFieldName = sectionSegment
                   ? getSegmentFieldName(sectionSegment, "paceAdjustmentMinutesPerKm")
@@ -2436,6 +2756,7 @@ export function ActionPlan({
                     <div key={item.id} className="relative pl-8">
                       <FinishSummaryCard
                         pointIndex={pointNumber}
+                        badge={aidStationBadge ?? undefined}
                         title={timelineCopy.finishSummary.title}
                         distanceText={formatDistanceWithUnit(finishSummary.finishDistanceKm)}
                         performanceGroup={performanceGroup}
@@ -2516,7 +2837,7 @@ export function ActionPlan({
 
                 return (
                   <div key={item.id} className="relative pl-8">
-                    <div className="space-y-3">
+                    <div className="flex flex-col">
                       <AidStationHeaderRow
                         pointIndex={pointNumber}
                         badge={aidStationBadge ?? undefined}
@@ -2547,14 +2868,22 @@ export function ActionPlan({
                                       typeof item.checkpointSegment?.pauseMinutes === "number"
                                         ? String(item.checkpointSegment.pauseMinutes)
                                         : "",
+                                    waterRefill: item.checkpointSegment?.waterRefill !== false,
+                                    solidRefill: item.checkpointSegment?.solidRefill !== false,
                                   })
                             : undefined
                         }
                       />
                       {contextComments.length > 0 ? (
-                        <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
+                        <div className="mt-3">
+                          <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
+                        </div>
                       ) : null}
-                      {sectionBlock ? <div className="relative">{sectionBlock}</div> : null}
+                      {sectionBlock ? (
+                        <div className={`relative ${contextComments.length > 0 ? "mt-3" : "-mt-px"}`}>
+                          {sectionBlock}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -2638,6 +2967,36 @@ export function ActionPlan({
                   />
                 </div>
               ) : null}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={editorState.waterRefill}
+                    onChange={(event) => updateEditorService("waterRefill", event.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                  />
+                  <span>
+                    <span className="block font-semibold text-foreground dark:text-slate-50">
+                      {aidStationsCopy.labels.waterRefill}
+                    </span>
+                    {locale === "fr" ? "Remplissage des flasques." : "Bottle refill."}
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-2 rounded-xl border border-border bg-background p-3 text-xs text-muted-foreground dark:bg-slate-900/60 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={editorState.solidRefill}
+                    onChange={(event) => updateEditorService("solidRefill", event.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                  />
+                  <span>
+                    <span className="block font-semibold text-foreground dark:text-slate-50">
+                      {aidStationsCopy.labels.solidRefill}
+                    </span>
+                    {locale === "fr" ? "Gels, boisson et sodium." : "Gels, drink mix, and sodium."}
+                  </span>
+                </label>
+              </div>
               {editorError ? <p className="text-xs text-amber-200">{editorError}</p> : null}
             </div>
             <div className="flex items-center justify-end gap-2">
@@ -2766,30 +3125,36 @@ export function ActionPlan({
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPickerProducts
-                    .sort((a, b) => {
-                      const dir = pickerSort.dir === "asc" ? 1 : -1;
-                      if (pickerSort.key === "favorite") {
-                        const aFav = Number(pickerFavoriteSet.has(a.slug));
-                        const bFav = Number(pickerFavoriteSet.has(b.slug));
-                        if (aFav === bFav) return 0;
-                        return pickerSort.dir === "asc" ? aFav - bFav : bFav - aFav;
+                  {pickerTableRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                        Aucun produit trouvé.
+                      </td>
+                    </tr>
+                  ) : pickerTableRows.map((row) => {
+                      if (row.type === "group") {
+                        return (
+                          <tr key={row.key} className="border-t border-border bg-muted/50 dark:bg-slate-900/50">
+                            <td colSpan={7} className="px-4 py-2">
+                              <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                {row.brand}
+                                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-background px-1.5 text-[11px] text-foreground dark:bg-slate-950 dark:text-slate-200">
+                                  {row.count}
+                                </span>
+                              </span>
+                            </td>
+                          </tr>
+                        );
                       }
-                      if (pickerSort.key === "name") return a.name.localeCompare(b.name) * dir;
-                      if (pickerSort.key === "type") return a.fuelType.localeCompare(b.fuelType) * dir;
-                      if (pickerSort.key === "carbs") return (a.carbsGrams - b.carbsGrams) * dir;
-                      if (pickerSort.key === "sodium") return (a.sodiumMg - b.sodiumMg) * dir;
-                      return (a.caloriesKcal - b.caloriesKcal) * dir;
-                    })
-                    .map((product) => {
+                      const product = row.product;
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
                       const isFavorite = pickerFavoriteSet.has(product.slug);
                       return (
-                        <tr key={product.slug} className="border-t border-border">
+                        <tr key={product.slug} className="border-t border-border transition-colors hover:bg-muted/40 dark:hover:bg-slate-900/50">
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              className={`text-lg ${isFavorite ? "text-amber-500" : "text-muted-foreground"} hover:text-amber-400 dark:${isFavorite ? "text-amber-300" : "text-slate-500"} dark:hover:text-amber-200`}
+                              className={`text-lg ${isFavorite ? "text-amber-500 dark:text-amber-300" : "text-muted-foreground dark:text-slate-500"} hover:text-amber-400 dark:hover:text-amber-200`}
                               onClick={() => toggleFavorite(product.slug)}
                               aria-label="Favori"
                             >
@@ -2797,7 +3162,31 @@ export function ActionPlan({
                             </button>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="font-semibold">{product.name}</span>
+                            <div className="flex min-w-[220px] items-center gap-3">
+                              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background dark:bg-slate-900">
+                                {isVerifiedProduct(product) ? (
+                                  <VerifiedProductBadge
+                                    locale={locale}
+                                    className="absolute right-0.5 top-0.5 h-5 w-5"
+                                  />
+                                ) : null}
+                                {product.imageUrl ? (
+                                  <img src={product.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1.5" />
+                                ) : (
+                                  <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                    {product.name.slice(0, 1)}
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                className="min-w-0 text-left font-semibold underline-offset-2 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400"
+                                onClick={() => setProductDetail(product)}
+                                aria-label={`${productDetailCopy[locale].title}: ${product.name}`}
+                              >
+                                {product.name}
+                              </button>
+                            </div>
                           </td>
                           <td className="px-4 py-3">
                             <FuelTypeBadge fuelType={product.fuelType} locale={locale} />
@@ -2824,6 +3213,7 @@ export function ActionPlan({
           </div>
         </div>
       ) : null}
+      <ProductDetailModal product={productDetail} locale={locale} onClose={() => setProductDetail(null)} />
     </>
   );
 }

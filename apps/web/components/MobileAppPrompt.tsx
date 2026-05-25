@@ -12,7 +12,7 @@ const IOS_APP_STORE_URL = process.env.NEXT_PUBLIC_IOS_APP_STORE_URL?.trim() ?? "
 const INSTALL_HELP_URL = "/onboarding/install";
 const DISMISS_KEY = "trailplanner.mobileAppPrompt.dismissedUntil";
 const DISMISS_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
-const HIDDEN_PATH_PREFIXES = ["/admin", "/onboarding"];
+const HIDDEN_PATH_PREFIXES = ["/admin", "/onboarding", "/links", "/en/links"];
 
 type StoreTarget = {
   url: string;
@@ -147,7 +147,7 @@ export function MobileAppPrompt() {
   return (
     <aside
       aria-label={t.mobileAppPrompt.title}
-      className="fixed inset-x-3 bottom-3 z-40 md:hidden"
+      className="fixed bottom-4 left-1/2 z-40 w-[min(calc(100vw-2rem),22rem)] -translate-x-1/2 md:hidden"
       role="dialog"
     >
       <div className="relative rounded-lg border border-emerald-200 bg-white p-4 pr-10 text-slate-950 shadow-xl shadow-slate-950/15 dark:border-emerald-500/30 dark:bg-slate-950 dark:text-slate-50">

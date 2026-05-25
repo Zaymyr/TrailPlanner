@@ -14,6 +14,7 @@ export type AidStationFormItem = {
   name: string;
   distanceKm: number;
   waterRefill: boolean;
+  solidRefill?: boolean;
   pauseMinutes?: number;
   supplies?: Supply[];
 };
@@ -47,10 +48,13 @@ export type PlanFormValues = {
 export type PlanProduct = {
   id: string;
   name: string;
+  brand?: string | null;
+  image_url?: string | null;
   fuel_type: string;
   carbs_g: number | null;
   sodium_mg: number | null;
   calories_kcal: number | null;
+  created_by?: string | null;
 };
 
 export type SectionTarget = {

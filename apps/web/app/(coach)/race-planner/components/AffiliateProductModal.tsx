@@ -123,54 +123,54 @@ export function AffiliateProductModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 py-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 py-8 backdrop-blur-sm">
       <div className="absolute inset-0" onClick={onClose} aria-hidden />
       <div className="relative w-full max-w-lg">
-        <Card className="border border-slate-800 bg-slate-900 text-slate-50">
+        <Card className="border border-border bg-card text-foreground dark:border-slate-800 dark:bg-slate-900 dark:text-slate-50">
           <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle>{displayName}</CardTitle>
-              <p className="mt-1 text-sm text-slate-400">{query.data?.product.name ?? displayName}</p>
+              <p className="mt-1 text-sm text-muted-foreground dark:text-slate-400">{query.data?.product.name ?? displayName}</p>
             </div>
             <button
               type="button"
               aria-label="Close"
               onClick={onClose}
-              className="rounded-md border border-slate-800 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800"
+              className="rounded-md border border-border px-3 py-1 text-sm text-muted-foreground hover:bg-muted hover:text-foreground dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Close
             </button>
           </CardHeader>
           <CardContent className="space-y-4">
-            {query.isLoading && <p className="text-sm text-slate-400">Loading product...</p>}
+            {query.isLoading && <p className="text-sm text-muted-foreground dark:text-slate-400">Loading product...</p>}
             {query.isError && <p className="text-sm text-red-400">Unable to load product details.</p>}
             {query.data && (
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-sm">
+                <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted p-3 text-sm dark:border-slate-800 dark:bg-slate-900/60">
                   <div>
-                    <p className="text-slate-400">Carbs</p>
-                    <p className="font-semibold text-slate-50">{query.data.product.carbs.toFixed(0)} g</p>
+                    <p className="text-muted-foreground dark:text-slate-400">Carbs</p>
+                    <p className="font-semibold text-foreground dark:text-slate-50">{query.data.product.carbs.toFixed(0)} g</p>
                   </div>
                   <div>
-                    <p className="text-slate-400">Sodium</p>
-                    <p className="font-semibold text-slate-50">{query.data.product.sodium.toFixed(0)} mg</p>
+                    <p className="text-muted-foreground dark:text-slate-400">Sodium</p>
+                    <p className="font-semibold text-foreground dark:text-slate-50">{query.data.product.sodium.toFixed(0)} mg</p>
                   </div>
                 </div>
 
                 {recommendation && (
-                  <div className="space-y-1 rounded-lg border border-emerald-800/50 bg-emerald-950/50 p-3 text-sm text-emerald-100">
-                    <p className="font-semibold text-emerald-200">Recommendation</p>
+                  <div className="space-y-1 rounded-lg border border-brand-border bg-brand-surface p-3 text-sm text-brand dark:border-emerald-800/50 dark:bg-emerald-950/50 dark:text-emerald-100">
+                    <p className="font-semibold text-brand dark:text-emerald-200">Recommendation</p>
                     <p>Carbs: {recommendation.carbsUnits} units</p>
                     <p>Sodium: {recommendation.sodiumUnits} units</p>
-                    <p className="text-emerald-300">Suggested total: {recommendation.recommended} units</p>
+                    <p className="text-brand-light dark:text-emerald-300">Suggested total: {recommendation.recommended} units</p>
                   </div>
                 )}
 
                 <div className="space-y-2 text-sm">
-                  <p className="font-semibold text-slate-100">Offer</p>
-                  <p className="text-slate-300">Merchant: {query.data.offer.merchant}</p>
+                  <p className="font-semibold text-foreground dark:text-slate-100">Offer</p>
+                  <p className="text-muted-foreground dark:text-slate-300">Merchant: {query.data.offer.merchant}</p>
                   {query.data.offer.countryCode && (
-                    <p className="text-slate-400">Country: {query.data.offer.countryCode}</p>
+                    <p className="text-muted-foreground dark:text-slate-400">Country: {query.data.offer.countryCode}</p>
                   )}
                 </div>
 

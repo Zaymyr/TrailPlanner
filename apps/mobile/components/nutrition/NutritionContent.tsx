@@ -3,18 +3,20 @@ import {
   Image,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Text } from '../themed/Text';
 import { Ionicons } from '@expo/vector-icons';
-
 import { Colors } from '../../constants/colors';
 import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
 import { FREE_FAVORITE_LIMIT, FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import { NutritionCreateProductModal } from './NutritionCreateProductModal';
-import type { FavoriteRow, FuelType, Product } from './types';
+import { ProductDetailModal } from './ProductDetailModal';
+import type { FavoriteRow, FuelType, Product, ProductEditDraft } from './types';
+
+const verifiedProductIcon = require('../../assets/verified-product.png');
 
 type ProductBrandGroup<T> = {
   brandLabel: string;
@@ -116,8 +118,13 @@ function groupItemsByBrand<T>(
     .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel));
 }
 
+function isVerifiedProduct(product: Product) {
+  return product.created_by === null;
+}
+
 type NutritionContentProps = {
   isPremium: boolean;
+  isAdmin: boolean;
   favoritesExpanded: boolean;
   favorites: FavoriteRow[];
   products: Product[];
@@ -135,6 +142,9 @@ type NutritionContentProps = {
   newSodiumMg: string;
   newCaloriesKcal: string;
   newImageDraft: { uri: string; name: string } | null;
+  selectedProduct: Product | null;
+  savingProduct: boolean;
+  deletingProduct: boolean;
   favoriteLimitBannerLabel: string;
   favoriteLimitMessage: string;
   freeAccessTitle: string;
@@ -143,7 +153,6 @@ type NutritionContentProps = {
   onToggleFavorite: (productId: string, productOverride?: Product) => void;
   onChangeFuelFilter: (value: FuelType | 'all') => void;
   onChangeCatalogSearch: (value: string) => void;
-  onOpenCreateModal: () => void;
   onCloseFavoriteLimitModal: () => void;
   onChangeNewName: (value: string) => void;
   onChangeNewFuelType: (value: FuelType) => void;
@@ -154,10 +163,15 @@ type NutritionContentProps = {
   onRemoveNewImage: () => void;
   onSubmitCreateProduct: () => void;
   onCancelCreateProduct: () => void;
+  onOpenProductDetail: (product: Product) => void;
+  onCloseProductDetail: () => void;
+  onUpdateProduct: (draft: ProductEditDraft) => Promise<boolean>;
+  onDeleteSelectedProduct: () => void;
 };
 
 export const NutritionContent = memo(function NutritionContent({
   isPremium,
+  isAdmin,
   favoritesExpanded,
   favorites,
   products,
@@ -175,6 +189,9 @@ export const NutritionContent = memo(function NutritionContent({
   newSodiumMg,
   newCaloriesKcal,
   newImageDraft,
+  selectedProduct,
+  savingProduct,
+  deletingProduct,
   favoriteLimitBannerLabel,
   favoriteLimitMessage,
   freeAccessTitle,
@@ -183,7 +200,6 @@ export const NutritionContent = memo(function NutritionContent({
   onToggleFavorite,
   onChangeFuelFilter,
   onChangeCatalogSearch,
-  onOpenCreateModal,
   onCloseFavoriteLimitModal,
   onChangeNewName,
   onChangeNewFuelType,
@@ -194,9 +210,16 @@ export const NutritionContent = memo(function NutritionContent({
   onRemoveNewImage,
   onSubmitCreateProduct,
   onCancelCreateProduct,
+  onOpenProductDetail,
+  onCloseProductDetail,
+  onUpdateProduct,
+  onDeleteSelectedProduct,
 }: NutritionContentProps) {
   const favoriteGroups = groupItemsByBrand(favorites, (favorite) => favorite.products, otherBrandsLabel);
   const catalogGroups = groupItemsByBrand(filteredProducts, (product) => product, otherBrandsLabel);
+  const canManageSelectedProduct = Boolean(
+    selectedProduct && (isAdmin || selectedProduct.created_by === userId),
+  );
 
   return (
     <ScrollView contentContainerStyle={styles.content} style={styles.container}>
@@ -234,7 +257,8 @@ export const NutritionContent = memo(function NutritionContent({
                     <ProductCard
                       key={favorite.product_id}
                       isFavorite
-                      isOwnedByUser={false}
+                      isOwnedByUser={favorite.products.created_by === userId}
+                      onPress={() => onOpenProductDetail(favorite.products)}
                       onToggleFavorite={() => onToggleFavorite(favorite.product_id)}
                       product={favorite.products}
                     />
@@ -248,9 +272,6 @@ export const NutritionContent = memo(function NutritionContent({
 
       <View style={styles.catalogHeader}>
         <Text style={styles.sectionTitle}>Catalogue produits</Text>
-        <TouchableOpacity onPress={onOpenCreateModal} style={styles.createButton}>
-          <Text style={styles.createButtonText}>+ Mon produit</Text>
-        </TouchableOpacity>
       </View>
 
       <TextInput
@@ -261,24 +282,26 @@ export const NutritionContent = memo(function NutritionContent({
         value={catalogSearch}
       />
 
-      <ScrollView
-        contentContainerStyle={styles.filterContent}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterScroll}
-      >
-        {FUEL_FILTERS.map((type) => (
-          <TouchableOpacity
-            key={type}
-            onPress={() => onChangeFuelFilter(type)}
-            style={[styles.filterChip, fuelFilter === type && styles.filterChipActive]}
-          >
-            <Text style={[styles.filterChipText, fuelFilter === type && styles.filterChipTextActive]}>
-              {FUEL_TYPE_LABELS[type]}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.filterBar}>
+        <ScrollView
+          contentContainerStyle={styles.filterContent}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filterScroll}
+        >
+          {FUEL_FILTERS.map((type) => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => onChangeFuelFilter(type)}
+              style={[styles.filterChip, fuelFilter === type && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, fuelFilter === type && styles.filterChipTextActive]}>
+                {FUEL_TYPE_LABELS[type]}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {filteredProducts.length === 0 ? (
         <View style={styles.emptyCategory}>
@@ -300,6 +323,7 @@ export const NutritionContent = memo(function NutritionContent({
                   key={product.id}
                   isFavorite={favoriteIds.has(product.id)}
                   isOwnedByUser={product.created_by === userId}
+                  onPress={() => onOpenProductDetail(product)}
                   onToggleFavorite={() => onToggleFavorite(product.id)}
                   product={product}
                 />
@@ -336,6 +360,23 @@ export const NutritionContent = memo(function NutritionContent({
         sodiumMg={newSodiumMg}
         visible={showCreateModal}
       />
+
+      <ProductDetailModal
+        canManage={canManageSelectedProduct}
+        deleting={deletingProduct}
+        isFavorite={selectedProduct ? favoriteIds.has(selectedProduct.id) : false}
+        onClose={onCloseProductDetail}
+        onDelete={onDeleteSelectedProduct}
+        onSave={onUpdateProduct}
+        onToggleFavorite={() => {
+          if (selectedProduct) {
+            onToggleFavorite(selectedProduct.id, selectedProduct);
+          }
+        }}
+        product={selectedProduct}
+        saving={savingProduct}
+        visible={selectedProduct !== null}
+      />
     </ScrollView>
   );
 });
@@ -344,15 +385,19 @@ function ProductCard({
   product,
   isFavorite,
   isOwnedByUser,
+  onPress,
   onToggleFavorite,
 }: {
   product: Product;
   isFavorite: boolean;
   isOwnedByUser: boolean;
+  onPress: () => void;
   onToggleFavorite: () => void;
 }) {
+  const isVerified = isVerifiedProduct(product);
+
   return (
-    <View style={styles.productCard}>
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.productCard}>
       <View style={styles.productMedia}>
         {product.image_url ? (
           <Image source={{ uri: product.image_url }} style={styles.productImage} />
@@ -361,9 +406,18 @@ function ProductCard({
             <Ionicons color={Colors.textMuted} name="image-outline" size={18} />
           </View>
         )}
+        {isVerified ? (
+          <View style={styles.verifiedIconBadge}>
+            <Image source={verifiedProductIcon} style={styles.verifiedIconImage} />
+          </View>
+        ) : null}
       </View>
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>{product.name}</Text>
+        <View style={styles.productNameRow}>
+          <Text numberOfLines={2} style={styles.productName}>
+            {product.name}
+          </Text>
+        </View>
         <Text style={styles.productType}>
           {FUEL_TYPE_LABELS[product.fuel_type] ?? product.fuel_type}
           {isOwnedByUser ? <Text style={styles.myProductTag}> · Mon produit</Text> : null}
@@ -379,7 +433,10 @@ function ProductCard({
 
       <TouchableOpacity
         activeOpacity={0.8}
-        onPress={onToggleFavorite}
+        onPress={(event) => {
+          event.stopPropagation();
+          onToggleFavorite();
+        }}
         style={[styles.favButton, isFavorite && styles.favButtonActive]}
       >
         <Ionicons
@@ -388,7 +445,7 @@ function ProductCard({
           size={18}
         />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -399,7 +456,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 16,
-    paddingBottom: 48,
+    paddingBottom: 120,
   },
   sectionTitle: {
     fontSize: 16,
@@ -455,23 +512,8 @@ const styles = StyleSheet.create({
   catalogHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginTop: 14,
     marginBottom: 8,
-  },
-  createButton: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.brandPrimary,
-    marginBottom: 4,
-  },
-  createButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '600',
   },
   catalogSearchInput: {
     backgroundColor: Colors.surface,
@@ -484,20 +526,29 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     marginBottom: 12,
   },
-  filterScroll: {
+  filterBar: {
+    minHeight: 40,
     marginBottom: 12,
+    zIndex: 1,
+  },
+  filterScroll: {
+    flexGrow: 0,
   },
   filterContent: {
+    alignItems: 'center',
     gap: 8,
+    minHeight: 40,
     paddingRight: 8,
   },
   filterChip: {
+    minHeight: 34,
     backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: Colors.border,
+    justifyContent: 'center',
   },
   filterChipActive: {
     backgroundColor: Colors.brandPrimary,
@@ -560,6 +611,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   productMedia: {
+    position: 'relative',
     marginRight: 12,
   },
   productImage: {
@@ -582,11 +634,38 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  productNameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
+  },
   productName: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 2,
+  },
+  verifiedIconBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  verifiedIconImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   productType: {
     fontSize: 11,

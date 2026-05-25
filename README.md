@@ -1,5 +1,11 @@
 # TrailPlanner
 
+## Documentation
+
+Project documentation starts in [`docs/README.md`](docs/README.md).
+
+AI assistants should start with [`docs/AGENTS.md`](docs/AGENTS.md), then follow the routing rules for database, auth, business logic, integrations, mobile, or design-system work.
+
 ## Environment
 
 - `NEXT_PUBLIC_ROUTING_API_KEY`: optional API key for routing provider features.

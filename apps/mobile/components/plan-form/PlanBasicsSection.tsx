@@ -1,6 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
-import { PanResponder, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement
+} from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  ScrollView,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { DataText } from '../themed/DataText';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import type { AccordionSection, PlanFormValues } from './contracts';
@@ -11,6 +30,9 @@ type Props = {
   values: PlanFormValues;
   expandedSections: Record<AccordionSection, boolean>;
   toggleSection: (section: AccordionSection) => void;
+  settingsVisible: boolean;
+  onOpenSettings: () => void;
+  onCloseSettings: () => void;
   update: (key: keyof PlanFormValues, value: PlanFormValues[keyof PlanFormValues]) => void;
   hasSectionTimingOverrides: boolean;
   onResetSectionTimingOverrides: () => void;
@@ -22,6 +44,9 @@ export function PlanBasicsSection({
   values,
   expandedSections,
   toggleSection,
+  settingsVisible,
+  onOpenSettings,
+  onCloseSettings,
   update,
   hasSectionTimingOverrides,
   onResetSectionTimingOverrides,
@@ -34,6 +59,13 @@ export function PlanBasicsSection({
     values.paceType === 'pace'
       ? `${String(values.paceMinutes).padStart(2, '0')}:${String(values.paceSeconds).padStart(2, '0')} min/km`
       : `${values.speedKph.toFixed(1)} km/h`;
+  const settingsMetaSummary = [
+    `${values.raceDistanceKm || 0} km`,
+    `D+ ${values.elevationGain || 0} m`,
+    `${values.targetIntakePerHour || 0} g/h`,
+    `${values.waterIntakePerHour || 0} ml/h`,
+    `${values.sodiumIntakePerHour || 0} mg/h`,
+  ].join(' · ');
   const fatigueLevel = Number.isFinite(values.fatigueLevel) ? Math.min(1, Math.max(0, values.fatigueLevel)) : 0.5;
   const [fatiguePreviewLevel, setFatiguePreviewLevel] = useState(fatigueLevel);
   const isDraggingFatigueRef = useRef(false);
@@ -103,7 +135,7 @@ export function PlanBasicsSection({
           updateFatigueLevel(getFatigueRatioFromLocation(event.nativeEvent.locationX), true);
         },
       }),
-    [getFatigueRatioFromLocation, updateFatigueLevel],
+    [fatigueTrackWidth, getFatigueRatioFromLocation, updateFatigueLevel],
   );
 
   const renderAccordionHeader = (
@@ -145,185 +177,236 @@ export function PlanBasicsSection({
 
   return (
     <>
-      {renderAccordionHeader('course', 'Course', [
-        values.name?.trim() || 'Sans nom',
-        `${values.raceDistanceKm || 0} km`,
-        `D+ ${values.elevationGain || 0} m`,
-      ])}
-      {expandedSections.course && (
-        <>
-          <Text style={styles.label}>Nom du plan</Text>
-          <TextInput
-            style={styles.textInput}
-            value={values.name}
-            onChangeText={(t) => update('name', t)}
-            placeholder="Ex : UTMB 2025"
-            placeholderTextColor={Colors.textMuted}
-          />
+      <TouchableOpacity
+        accessibilityLabel="Ouvrir les paramètres du plan"
+        accessibilityRole="button"
+        activeOpacity={0.84}
+        onPress={onOpenSettings}
+        style={styles.planOverviewHeader}
+      >
+        <View style={styles.planOverviewSettingsIcon}>
+          <Ionicons name="options-outline" size={18} color={Colors.brandPrimary} />
+        </View>
+        <View style={styles.planOverviewCopy}>
+          <Text style={styles.planOverviewTitle}>Paramètres du plan</Text>
+          <DataText tone="secondary" size="xs" weight="medium" numberOfLines={1} style={styles.planOverviewMeta}>
+            {settingsMetaSummary}
+          </DataText>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+      </TouchableOpacity>
 
-          <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <Text style={styles.label}>Distance (km)</Text>
-              <NumberInput
-                value={values.raceDistanceKm}
-                onChange={(v) => update('raceDistanceKm', v)}
-                placeholder="50"
-              />
-            </View>
-            <View style={[styles.rowItem, { marginLeft: 12 }]}>
-              <Text style={styles.label}>D+ (m)</Text>
-              <NumberInput value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
-            </View>
-          </View>
-        </>
-      )}
-
-      {renderAccordionHeader(
-        'pace',
-        'Allure',
-        [paceSummary, fatigueDescriptor],
-        true,
-      )}
-      {expandedSections.pace && (
-        <>
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]}
-              onPress={() => update('paceType', 'pace')}
-            >
-              <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>
-                Allure (min/km)
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]}
-              onPress={() => update('paceType', 'speed')}
-            >
-              <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>
-                Vitesse (km/h)
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {values.paceType === 'pace' ? (
-            <View style={styles.row}>
-              <View style={styles.rowItem}>
-                <Text style={styles.label}>Minutes</Text>
-                <NumberInput value={values.paceMinutes} onChange={(v) => update('paceMinutes', Math.floor(v))} placeholder="6" />
+      <Modal visible={settingsVisible} transparent animationType="slide" onRequestClose={onCloseSettings}>
+        <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={styles.modalOverlay} onPress={onCloseSettings} />
+          <View style={styles.settingsSheet}>
+            <View style={styles.settingsSheetHandle} />
+            <View style={styles.settingsSheetHeader}>
+              <View style={styles.settingsSheetHeaderCopy}>
+                <Text style={styles.settingsSheetTitle}>Paramètres du plan</Text>
+                <Text style={styles.settingsSheetSubtitle}>Course, allure et cibles nutritionnelles</Text>
               </View>
-              <View style={[styles.rowItem, { marginLeft: 12 }]}>
-                <Text style={styles.label}>Secondes</Text>
-                <NumberInput
-                  value={values.paceSeconds}
-                  onChange={(v) => update('paceSeconds', Math.min(59, Math.floor(v)))}
-                  placeholder="30"
-                />
-              </View>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.label}>Vitesse (km/h)</Text>
-              <NumberInput value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
-            </>
-          )}
-
-          <Text style={styles.label}>{t.plans.fatigueLabel}</Text>
-          <Text style={styles.waterBagHint}>{t.plans.fatigueHint}</Text>
-          <View style={styles.fatigueSliderWrap}>
-            <View style={styles.fatigueSliderTrack}>
-              <View
-                style={styles.fatigueSliderTouchArea}
-                onLayout={(event) => setFatigueTrackWidth(event.nativeEvent.layout.width)}
-                {...panResponder.panHandlers}
-              />
-              <View style={[styles.fatigueSliderFill, { width: `${displayedFatigueLevel * 100}%` }]} />
-              <View style={[styles.fatigueSliderThumb, { left: fatigueThumbLeft }]} />
-            </View>
-          </View>
-          <View style={styles.fatigueSliderLabels}>
-            {[
-              { label: t.plans.fatigueLow, active: displayedFatigueLevel <= 0.33 },
-              { label: t.plans.fatigueMedium, active: displayedFatigueLevel > 0.33 && displayedFatigueLevel < 0.67 },
-              { label: t.plans.fatigueHigh, active: displayedFatigueLevel >= 0.67 },
-            ].map((option) => (
-              <Text
-                key={option.label}
-                style={[styles.fatigueSliderLabel, option.active && styles.fatigueSliderLabelActive]}
-              >
-                {option.label}
-              </Text>
-            ))}
-          </View>
-          {hasSectionTimingOverrides ? (
-            <View style={styles.sectionTimingResetBox}>
-              <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
-              <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
-                <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </>
-      )}
-
-      {renderAccordionHeader(
-        'nutrition',
-        'Nutrition',
-        [
-          `${values.targetIntakePerHour || 0} g/h`,
-          `${values.waterIntakePerHour || 0} ml/h`,
-          `${values.sodiumIntakePerHour || 0} mg/h`,
-          `Poche eau ${values.waterBagLiters} L`,
-        ],
-        true,
-      )}
-      {expandedSections.nutrition && (
-        <>
-          <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <Text style={styles.label}>Glucides (g/h)</Text>
-              <NumberInput
-                value={values.targetIntakePerHour}
-                onChange={(v) => update('targetIntakePerHour', v)}
-                placeholder="70"
-              />
-            </View>
-            <View style={[styles.rowItem, { marginLeft: 12 }]}>
-              <Text style={styles.label}>Eau (ml/h)</Text>
-              <NumberInput
-                value={values.waterIntakePerHour}
-                onChange={(v) => update('waterIntakePerHour', v)}
-                placeholder="500"
-              />
-            </View>
-          </View>
-          <View style={styles.row}>
-            <View style={styles.rowItem}>
-              <Text style={styles.label}>Sodium (mg/h)</Text>
-              <NumberInput
-                value={values.sodiumIntakePerHour}
-                onChange={(v) => update('sodiumIntakePerHour', v)}
-                placeholder="600"
-              />
-            </View>
-            <View style={[styles.rowItem, { marginLeft: 12 }]} />
-          </View>
-
-          <Text style={styles.label}>Volume de la poche à eau</Text>
-          <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
-          <View style={styles.waterBagRow}>
-            {waterBagOptions.map((opt) => (
               <TouchableOpacity
-                key={opt}
-                style={[styles.waterBagBtn, values.waterBagLiters === opt && styles.waterBagBtnActive]}
-                onPress={() => update('waterBagLiters', opt)}
+                accessibilityLabel="Fermer les paramètres du plan"
+                onPress={onCloseSettings}
+                style={styles.pickerCloseBtn}
               >
-                <Text style={[styles.waterBagBtnText, values.waterBagLiters === opt && styles.waterBagBtnTextActive]}>
-                  {opt}L
-                </Text>
+                <Ionicons name="close" size={18} color={Colors.textSecondary} />
               </TouchableOpacity>
-            ))}
+            </View>
+
+            <ScrollView
+              contentContainerStyle={styles.settingsSheetContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              {renderAccordionHeader('course', 'Course', [
+                values.name?.trim() || 'Sans nom',
+                `${values.raceDistanceKm || 0} km`,
+                `D+ ${values.elevationGain || 0} m`,
+              ])}
+              {expandedSections.course && (
+                <>
+                  <Text style={styles.label}>Nom du plan</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={values.name}
+                    onChangeText={(text) => update('name', text)}
+                    placeholder="Ex : UTMB 2025"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+
+                  <View style={styles.row}>
+                    <View style={styles.rowItem}>
+                      <Text style={styles.label}>Distance (km)</Text>
+                      <NumberInput
+                        value={values.raceDistanceKm}
+                        onChange={(v) => update('raceDistanceKm', v)}
+                        placeholder="50"
+                      />
+                    </View>
+                    <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                      <Text style={styles.label}>D+ (m)</Text>
+                      <NumberInput value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
+                    </View>
+                  </View>
+                </>
+              )}
+
+              {renderAccordionHeader(
+                'pace',
+                'Allure',
+                [paceSummary, fatigueDescriptor],
+                true,
+              )}
+              {expandedSections.pace && (
+                <>
+                  <View style={styles.toggleRow}>
+                    <TouchableOpacity
+                      style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]}
+                      onPress={() => update('paceType', 'pace')}
+                    >
+                      <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>
+                        Allure (min/km)
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]}
+                      onPress={() => update('paceType', 'speed')}
+                    >
+                      <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>
+                        Vitesse (km/h)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  {values.paceType === 'pace' ? (
+                    <View style={styles.row}>
+                      <View style={styles.rowItem}>
+                        <Text style={styles.label}>Minutes</Text>
+                        <NumberInput value={values.paceMinutes} onChange={(v) => update('paceMinutes', Math.floor(v))} placeholder="6" />
+                      </View>
+                      <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                        <Text style={styles.label}>Secondes</Text>
+                        <NumberInput
+                          value={values.paceSeconds}
+                          onChange={(v) => update('paceSeconds', Math.min(59, Math.floor(v)))}
+                          placeholder="30"
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={styles.label}>Vitesse (km/h)</Text>
+                      <NumberInput value={values.speedKph} onChange={(v) => update('speedKph', v)} placeholder="10" />
+                    </>
+                  )}
+
+                  <Text style={styles.label}>{t.plans.fatigueLabel}</Text>
+                  <Text style={styles.waterBagHint}>{t.plans.fatigueHint}</Text>
+                  <View style={styles.fatigueSliderWrap}>
+                    <View style={styles.fatigueSliderTrack}>
+                      <View
+                        style={styles.fatigueSliderTouchArea}
+                        onLayout={(event) => setFatigueTrackWidth(event.nativeEvent.layout.width)}
+                        {...panResponder.panHandlers}
+                      />
+                      <View style={[styles.fatigueSliderFill, { width: `${displayedFatigueLevel * 100}%` }]} />
+                      <View style={[styles.fatigueSliderThumb, { left: fatigueThumbLeft }]} />
+                    </View>
+                  </View>
+                  <View style={styles.fatigueSliderLabels}>
+                    {[
+                      { label: t.plans.fatigueLow, active: displayedFatigueLevel <= 0.33 },
+                      { label: t.plans.fatigueMedium, active: displayedFatigueLevel > 0.33 && displayedFatigueLevel < 0.67 },
+                      { label: t.plans.fatigueHigh, active: displayedFatigueLevel >= 0.67 },
+                    ].map((option) => (
+                      <Text
+                        key={option.label}
+                        style={[styles.fatigueSliderLabel, option.active && styles.fatigueSliderLabelActive]}
+                      >
+                        {option.label}
+                      </Text>
+                    ))}
+                  </View>
+                  {hasSectionTimingOverrides ? (
+                    <View style={styles.sectionTimingResetBox}>
+                      <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
+                      <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
+                        <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </>
+              )}
+
+              {renderAccordionHeader(
+                'nutrition',
+                'Nutrition',
+                [
+                  `${values.targetIntakePerHour || 0} g/h`,
+                  `${values.waterIntakePerHour || 0} ml/h`,
+                  `${values.sodiumIntakePerHour || 0} mg/h`,
+                  `Poche eau ${values.waterBagLiters} L`,
+                ],
+                true,
+              )}
+              {expandedSections.nutrition && (
+                <>
+                  <View style={styles.row}>
+                    <View style={styles.rowItem}>
+                      <Text style={styles.label}>Glucides (g/h)</Text>
+                      <NumberInput
+                        value={values.targetIntakePerHour}
+                        onChange={(v) => update('targetIntakePerHour', v)}
+                        placeholder="70"
+                      />
+                    </View>
+                    <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                      <Text style={styles.label}>Eau (ml/h)</Text>
+                      <NumberInput
+                        value={values.waterIntakePerHour}
+                        onChange={(v) => update('waterIntakePerHour', v)}
+                        placeholder="500"
+                      />
+                    </View>
+                  </View>
+                  <View style={styles.row}>
+                    <View style={styles.rowItem}>
+                      <Text style={styles.label}>Sodium (mg/h)</Text>
+                      <NumberInput
+                        value={values.sodiumIntakePerHour}
+                        onChange={(v) => update('sodiumIntakePerHour', v)}
+                        placeholder="600"
+                      />
+                    </View>
+                    <View style={[styles.rowItem, { marginLeft: 12 }]} />
+                  </View>
+
+                  <Text style={styles.label}>Volume de la poche à eau</Text>
+                  <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
+                  <View style={styles.waterBagRow}>
+                    {waterBagOptions.map((opt) => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[styles.waterBagBtn, values.waterBagLiters === opt && styles.waterBagBtnActive]}
+                        onPress={() => update('waterBagLiters', opt)}
+                      >
+                        <Text style={[styles.waterBagBtnText, values.waterBagLiters === opt && styles.waterBagBtnTextActive]}>
+                          {opt}L
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              <TouchableOpacity activeOpacity={0.86} onPress={onCloseSettings} style={styles.settingsSheetDoneButton}>
+                <Text style={styles.settingsSheetDoneButtonText}>Terminé</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
-        </>
-      )}
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   );
 }

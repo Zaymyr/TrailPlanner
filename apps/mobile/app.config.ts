@@ -2,6 +2,12 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME?.trim();
+  const androidGoogleServicesFile =
+    process.env.GOOGLE_SERVICES_JSON?.trim() ??
+    process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE?.trim();
+  const iosGoogleServicesFile =
+    process.env.GOOGLE_SERVICE_INFO_PLIST?.trim() ??
+    process.env.EXPO_IOS_GOOGLE_SERVICES_FILE?.trim();
   const googleSigninPlugin: [string, any][] = googleIosUrlScheme
     ? [[
         '@react-native-google-signin/google-signin',
@@ -35,6 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: 'com.paceyourself.app',
+      ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : {}),
       usesAppleSignIn: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -49,6 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         foregroundImage: './assets/adaptive-icon.png',
         backgroundColor: '#f7efe8',
       },
+      ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {}),
       package: 'com.paceyourself.app',
       blockedPermissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
@@ -61,10 +69,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-router',
       'expo-apple-authentication',
       'expo-background-task',
+      'expo-localization',
       'expo-secure-store',
       [
         'expo-notifications',
         {
+          icon: './assets/notification-icon.png',
           color: '#22c55e',
         },
       ],

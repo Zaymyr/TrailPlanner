@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Modal,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import { Text } from './themed/Text';
 
 export type AlertConfirmMode = 'manual' | 'auto_5' | 'auto_10' | 'fire_forget';
 
@@ -24,23 +31,23 @@ const CONFIRM_MODES: Array<{
   {
     value: 'manual',
     label: 'Manuel',
-    description: "Je confirme depuis l'app apres chaque prise.",
+    description: "Je confirme depuis l'app après chaque prise.",
   },
   {
     value: 'auto_5',
     label: 'Auto-confirm 5 min',
-    description: "Ideal pour Garmin - confirme automatiquement si pas d'action.",
+    description: "Idéal pour Garmin - confirme automatiquement si pas d'action.",
     tag: 'Garmin',
   },
   {
     value: 'auto_10',
     label: 'Auto-confirm 10 min',
-    description: 'Confirme automatiquement apres 10 min sans action.',
+    description: 'Confirme automatiquement après 10 min sans action.',
   },
   {
     value: 'fire_forget',
     label: 'Sans suivi',
-    description: 'Notifications envoyees, aucune confirmation requise.',
+    description: 'Notifications envoyées, aucune confirmation requise.',
   },
 ];
 
@@ -52,7 +59,7 @@ export default function RaceStartConfig({ visible, raceName, onStart, onCancel }
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Demarrer</Text>
+            <Text style={styles.headerTitle}>Démarrer</Text>
             <Text style={styles.headerSubtitle} numberOfLines={2}>
               {raceName}
             </Text>
@@ -91,7 +98,7 @@ export default function RaceStartConfig({ visible, raceName, onStart, onCancel }
               <Text style={styles.cancelBtnText}>Annuler</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.startBtn} onPress={() => onStart({ timingMode: 'time', confirmMode })}>
-              <Text style={styles.startBtnText}>Demarrer</Text>
+              <Text style={styles.startBtnText}>Démarrer</Text>
             </TouchableOpacity>
           </View>
         </View>

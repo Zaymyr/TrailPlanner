@@ -1,4 +1,6 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { DataText } from './themed/DataText';
+import { Text } from './themed/Text';
 
 type Props = {
   label: string;
@@ -25,7 +27,10 @@ export function NutritionGauge({ label, icon, consumed, target, unit, lastHourCo
       <View style={styles.header}>
         <Text style={styles.icon}>{icon}</Text>
         <Text style={styles.label}>{label}</Text>
-        <Text style={styles.value}>{Math.round(consumed)}<Text style={styles.unit}>{unit}</Text></Text>
+        <DataText style={styles.value}>
+          {Math.round(consumed)}
+          <DataText style={styles.unit}>{unit}</DataText>
+        </DataText>
       </View>
 
       {/* Jauge depuis le départ */}
@@ -37,9 +42,9 @@ export function NutritionGauge({ label, icon, consumed, target, unit, lastHourCo
             backgroundColor: getColor(globalPct)
           }]} />
         </View>
-        <Text style={[styles.gaugeTarget, { color: getColor(globalPct) }]}>
+        <DataText style={[styles.gaugeTarget, { color: getColor(globalPct) }]}>
           {Math.round(target)}{unit}
-        </Text>
+        </DataText>
       </View>
 
       {/* Jauge dernière heure */}
@@ -51,9 +56,9 @@ export function NutritionGauge({ label, icon, consumed, target, unit, lastHourCo
             backgroundColor: getColor(hourPct)
           }]} />
         </View>
-        <Text style={[styles.gaugeTarget, { color: getColor(hourPct) }]}>
+        <DataText style={[styles.gaugeTarget, { color: getColor(hourPct) }]}>
           {Math.round(lastHourTarget)}{unit}/h
-        </Text>
+        </DataText>
       </View>
     </View>
   );

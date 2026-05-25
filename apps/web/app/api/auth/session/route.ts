@@ -7,6 +7,7 @@ import {
   fetchSupabaseUser,
   getSupabaseAnonConfig,
   getSupabaseServiceConfig,
+  isAnonymousUser,
 } from "../../../../lib/supabase";
 import { ensureTrialStatus } from "../../../../lib/trial-server";
 
@@ -189,6 +190,7 @@ export async function GET(request: Request) {
       email: user.email,
       role: user.role,
       roles: user.roles,
+      isAnonymous: isAnonymousUser(user),
     },
     access_token: accessToken,
     refresh_token: refreshToken ?? undefined,

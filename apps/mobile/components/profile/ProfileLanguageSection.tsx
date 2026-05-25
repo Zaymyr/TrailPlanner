@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { Locale } from '../../locales/types';
 

@@ -26,7 +26,7 @@ export function PlanSaveBar({
   if (!isVisible) return null;
 
   return (
-    <div className="flex w-full flex-col gap-3 rounded-xl border border-amber-300/40 bg-card/95 p-3 shadow-2xl backdrop-blur dark:border-amber-500/40 dark:bg-slate-950/90 sm:flex-row sm:items-center sm:justify-between sm:p-4">
+    <div className="flex w-full flex-col gap-3 rounded-2xl border border-amber-400/70 bg-amber-50/95 p-3 shadow-[0_18px_45px_rgba(146,64,14,0.22)] backdrop-blur dark:border-amber-400/50 dark:bg-slate-950/95 dark:shadow-[0_18px_45px_rgba(0,0,0,0.42)] sm:flex-row sm:items-center sm:justify-between sm:p-4">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">{unsavedLabel}</p>
         <p className="truncate text-xs text-muted-foreground dark:text-slate-300">{contextLabel}</p>
@@ -38,7 +38,7 @@ export function PlanSaveBar({
         disabled={isSaving || isDisabled}
         className="w-full sm:w-auto"
       >
-        {isSaving ? `${saveLabel}…` : saveLabel}
+        {isSaving ? `${saveLabel}...` : saveLabel}
       </Button>
     </div>
   );

@@ -10,3 +10,5 @@ expo-env.d.ts
 .env.local
 android/
 ios/
+google-services.json
+GoogleService-Info.plist

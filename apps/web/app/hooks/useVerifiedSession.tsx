@@ -21,6 +21,7 @@ export type VerifiedSession = {
   email?: string;
   role?: string;
   roles?: string[];
+  isAnonymous?: boolean;
 };
 
 type SessionResponse = {
@@ -29,6 +30,7 @@ type SessionResponse = {
     email?: string;
     role?: string;
     roles?: string[];
+    isAnonymous?: boolean;
   };
   access_token?: string;
   refresh_token?: string;
@@ -45,6 +47,36 @@ type VerifiedSessionContextValue = {
 };
 
 const VerifiedSessionContext = createContext<VerifiedSessionContextValue | null>(null);
+const RESEND_CONTACT_SYNCED_KEY_PREFIX = "trailplanner.resendContactSynced";
+
+const syncResendContactOnce = async (session: VerifiedSession): Promise<void> => {
+  if (typeof window === "undefined") return;
+  if (session.isAnonymous || !session.id || !session.email || !session.accessToken) return;
+
+  const normalizedEmail = session.email.trim().toLowerCase();
+  if (!normalizedEmail) return;
+
+  const storageKey = `${RESEND_CONTACT_SYNCED_KEY_PREFIX}:${session.id}:${normalizedEmail}`;
+  if (window.localStorage.getItem(storageKey)) return;
+
+  try {
+    const response = await fetch("/api/resend/contact", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    const payload = (await response.json().catch(() => null)) as { status?: string; reason?: string } | null;
+
+    if (response.ok && payload?.reason !== "missing-config") {
+      window.localStorage.setItem(storageKey, new Date().toISOString());
+    }
+  } catch (error) {
+    console.error("Unable to sync Resend contact", error);
+  }
+};
 
 const useVerifiedSessionState = (): VerifiedSessionContextValue => {
   const [session, setSession] = useState<VerifiedSession | null>(null);
@@ -134,9 +166,11 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
           email: user?.email ?? stored.email,
           role: user?.role,
           roles: user?.roles,
+          isAnonymous: user?.isAnonymous,
         };
 
         setSession(nextSession);
+        void syncResendContactOnce(nextSession);
 
         await refreshEntitlements(nextAccessToken);
 

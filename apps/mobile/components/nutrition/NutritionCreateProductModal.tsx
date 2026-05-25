@@ -8,12 +8,11 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { FUEL_TYPE_OPTIONS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import type { FuelType } from './types';
@@ -72,7 +71,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.modalTitle}>Creer un produit</Text>
+            <Text style={styles.modalTitle}>Créer un produit</Text>
 
             <Text style={styles.inputLabel}>Nom *</Text>
             <TextInput
@@ -90,7 +89,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
                 <Image source={{ uri: imagePreviewUri }} style={styles.imagePreview} />
               ) : (
                 <View style={styles.imagePlaceholder}>
-                  <Text style={styles.imagePlaceholderText}>Apercu</Text>
+                  <Text style={styles.imagePlaceholderText}>Aperçu</Text>
                 </View>
               )}
               <View style={styles.imageCopy}>
@@ -176,7 +175,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
               {creating ? (
                 <ActivityIndicator color={Colors.textOnBrand} />
               ) : (
-                <Text style={styles.submitButtonText}>Creer et ajouter aux favoris</Text>
+                <Text style={styles.submitButtonText}>Créer et ajouter aux favoris</Text>
               )}
             </TouchableOpacity>
 

@@ -35,15 +35,56 @@ export type ParsedGpx = {
   pointSource: "track" | "route" | "waypoint";
 };
 
+export type GpxParseErrorCode =
+  | "empty_file"
+  | "invalid_encoding"
+  | "not_gpx"
+  | "unsupported_kml"
+  | "unsupported_tcx"
+  | "invalid_coordinates"
+  | "no_coordinates";
+
+const GPX_PARSE_ERROR_MESSAGES: Record<GpxParseErrorCode, string> = {
+  empty_file: "The GPX file is empty.",
+  invalid_encoding: "The file could not be read correctly. It may use an unsupported encoding.",
+  not_gpx: "This file does not look like a GPX file.",
+  unsupported_kml: "This file is KML, not GPX. Export it as a .gpx file and try again.",
+  unsupported_tcx: "This file is TCX, not GPX. Export it as a .gpx file and try again.",
+  invalid_coordinates: "Track, route, or waypoint coordinates are present but invalid.",
+  no_coordinates: "No track, route, or waypoint coordinates found in GPX.",
+};
+
+export class GpxParseError extends Error {
+  code: GpxParseErrorCode;
+
+  constructor(code: GpxParseErrorCode, message = GPX_PARSE_ERROR_MESSAGES[code]) {
+    super(message);
+    this.name = "GpxParseError";
+    this.code = code;
+  }
+}
+
+type PointParseSummary = {
+  totalTags: number;
+  validCount: number;
+};
+
 const toNumber = (value: string | null | undefined): number | null => {
   if (!value) return null;
   const parsed = Number(value.trim().replace(",", "."));
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const decodeNumericEntity = (value: string) => {
+  const isHex = value[0]?.toLowerCase() === "x";
+  const codePoint = Number.parseInt(isHex ? value.slice(1) : value, isHex ? 16 : 10);
+  return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : `&#${value};`;
+};
+
 const decodeEntities = (text: string | null | undefined) => {
   if (!text) return "";
   return text
+    .replace(/&#(x?[0-9a-f]+);/gi, (_match, value: string) => decodeNumericEntity(value))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
@@ -65,24 +106,65 @@ const readAttribute = (attributes: string, name: string): string | null => {
 };
 
 const readTagText = (content: string, name: string): string | null => {
-  const match = content.match(new RegExp(`<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}>`, "i"));
+  const match = content.match(
+    new RegExp(`<(?:[\\w.-]+:)?${name}\\b[^>]*>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${name}>`, "i")
+  );
   return match?.[1] ?? null;
 };
 
+const sanitizeContent = (content: string) => {
+  const withoutBom = content.replace(/^\uFEFF/, "");
+  const hadNullBytes = withoutBom.includes("\u0000");
+
+  return {
+    content: withoutBom.replace(/\u0000/g, "").trim(),
+    hadNullBytes,
+  };
+};
+
+const validateGpxEnvelope = (content: string, hadNullBytes: boolean) => {
+  if (!content) {
+    throw new GpxParseError("empty_file");
+  }
+
+  if (/<(?:[\w.-]+:)?kml\b/i.test(content)) {
+    throw new GpxParseError("unsupported_kml");
+  }
+
+  if (/<(?:[\w.-]+:)?(?:trainingcenterdatabase|tcx)\b/i.test(content)) {
+    throw new GpxParseError("unsupported_tcx");
+  }
+
+  if (/<(?:!doctype\s+html|html|head|body)\b/i.test(content)) {
+    throw new GpxParseError("not_gpx");
+  }
+
+  if (!/<(?:[\w.-]+:)?gpx\b/i.test(content)) {
+    throw new GpxParseError(hadNullBytes ? "invalid_encoding" : "not_gpx");
+  }
+};
+
+const isValidCoordinate = (lat: number, lng: number) =>
+  lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
 export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-  const R = 6371e3;
-  const φ1 = toRadians(lat1);
-  const φ2 = toRadians(lat2);
-  const Δφ = toRadians(lat2 - lat1);
-  const Δλ = toRadians(lon2 - lon1);
+  const earthRadiusM = 6371e3;
+  const phi1 = toRadians(lat1);
+  const phi2 = toRadians(lat2);
+  const deltaPhi = toRadians(lat2 - lat1);
+  const deltaLambda = toRadians(lon2 - lon1);
 
   const a =
-    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return earthRadiusM * c;
 };
 
 export const parseGpx = (content: string): ParsedGpx => {
+  const normalized = sanitizeContent(content);
+  validateGpxEnvelope(normalized.content, normalized.hadNullBytes);
+
   const points: GpxPoint[] = [];
   let totalMeters = 0;
   let gainM = 0;
@@ -96,8 +178,12 @@ export const parseGpx = (content: string): ParsedGpx => {
   const elevationThreshold = 1;
   let previousEle: number | null = null;
   const trackNameMatch =
-    content.match(/<metadata>[\s\S]*?<name>([\s\S]*?)<\/name>[\s\S]*?<\/metadata>/i) ??
-    content.match(/<trk>[\s\S]*?<name>([\s\S]*?)<\/name>/i);
+    normalized.content.match(
+      /<(?:[\w.-]+:)?metadata\b[\s\S]*?<(?:[\w.-]+:)?name\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?name>[\s\S]*?<\/(?:[\w.-]+:)?metadata>/i
+    ) ??
+    normalized.content.match(
+      /<(?:[\w.-]+:)?trk\b[\s\S]*?<(?:[\w.-]+:)?name\b[^>]*>([\s\S]*?)<\/(?:[\w.-]+:)?name>/i
+    );
   const trackName = decodeEntities(trackNameMatch?.[1]) || null;
 
   const appendPoint = (lat: number, lng: number, ele: number | null, time: string | null) => {
@@ -118,6 +204,7 @@ export const parseGpx = (content: string): ParsedGpx => {
           lossM += Math.abs(diff);
         }
       }
+
       previousEle = ele;
     }
 
@@ -142,35 +229,37 @@ export const parseGpx = (content: string): ParsedGpx => {
     }
   };
 
-  const appendPointElements = (tagName: "trkpt" | "rtept" | "wpt") => {
+  const appendPointElements = (tagName: "trkpt" | "rtept" | "wpt"): PointParseSummary => {
     const pointRegex = new RegExp(
       `<(?:[\\w.-]+:)?${tagName}\\b([^>]*)(?:>([\\s\\S]*?)<\\/(?:[\\w.-]+:)?${tagName}>|\\s*\\/>)`,
       "gi"
     );
     let pointMatch: RegExpExecArray | null = null;
-    let count = 0;
+    let totalTags = 0;
+    let validCount = 0;
 
-    while ((pointMatch = pointRegex.exec(content))) {
+    while ((pointMatch = pointRegex.exec(normalized.content))) {
+      totalTags += 1;
       const attributes = pointMatch[1];
       const inner = pointMatch[2] ?? "";
       const lat = toNumber(readAttribute(attributes, "lat"));
-      const lng = toNumber(readAttribute(attributes, "lon"));
+      const lng = toNumber(readAttribute(attributes, "lon") ?? readAttribute(attributes, "lng"));
 
-      if (lat === null || lng === null) continue;
+      if (lat === null || lng === null || !isValidCoordinate(lat, lng)) continue;
 
       const ele = toNumber(readTagText(inner, "ele"));
       const time = readTagText(inner, "time");
       appendPoint(lat, lng, ele, time);
-      count += 1;
+      validCount += 1;
     }
 
-    return count;
+    return { totalTags, validCount };
   };
 
   let pointSource: ParsedGpx["pointSource"] = "track";
-  const parsedTrackPointCount = appendPointElements("trkpt");
+  const parsedTrackPoints = appendPointElements("trkpt");
 
-  if (parsedTrackPointCount === 0) {
+  if (parsedTrackPoints.validCount === 0) {
     pointSource = "route";
     appendPointElements("rtept");
   }
@@ -181,18 +270,25 @@ export const parseGpx = (content: string): ParsedGpx => {
   }
 
   if (points.length === 0) {
-    throw new Error("No track, route, or waypoint coordinates found in GPX.");
+    const trackPoints = appendPointElements("trkpt");
+    const routePoints = appendPointElements("rtept");
+    const waypointPoints = appendPointElements("wpt");
+    const hasPointTags = trackPoints.totalTags + routePoints.totalTags + waypointPoints.totalTags > 0;
+    throw new GpxParseError(hasPointTags ? "invalid_coordinates" : "no_coordinates");
   }
 
   const waypoints: GpxWaypoint[] = [];
   const wptRegex = /<(?:[\w.-]+:)?wpt\b([^>]*)(?:>([\s\S]*?)<\/(?:[\w.-]+:)?wpt>|\s*\/>)/gi;
   let wptMatch: RegExpExecArray | null = null;
-  while ((wptMatch = wptRegex.exec(content))) {
+
+  while ((wptMatch = wptRegex.exec(normalized.content))) {
     const attributes = wptMatch[1];
     const inner = wptMatch[2] ?? "";
     const lat = toNumber(readAttribute(attributes, "lat"));
-    const lng = toNumber(readAttribute(attributes, "lon"));
-    if (lat === null || lng === null) continue;
+    const lng = toNumber(readAttribute(attributes, "lon") ?? readAttribute(attributes, "lng"));
+
+    if (lat === null || lng === null || !isValidCoordinate(lat, lng)) continue;
+
     const name = decodeEntities(readTagText(inner, "name")) || null;
     const desc = decodeEntities(readTagText(inner, "desc")) || null;
     waypoints.push({ lat, lng, name, desc });

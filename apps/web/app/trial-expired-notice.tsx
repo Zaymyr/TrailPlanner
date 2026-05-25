@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { TrialExpiredBanner } from "../components/trial-expired/TrialExpiredBanner";
 import { TrialExpiredModal } from "../components/trial-expired/TrialExpiredModal";
@@ -19,13 +20,24 @@ const COPY = {
   missingSession: "Connecte-toi pour accéder à l’abonnement Premium.",
 };
 
+const GUEST_COPY = {
+  banner: "Ton essai Premium est terminé. Crée un compte pour pouvoir t’abonner.",
+  modalTitle: "Crée un compte pour continuer",
+  modalBody:
+    "Les comptes invités ne peuvent pas souscrire directement. Crée un compte pour conserver tes données puis accéder à l’abonnement Premium.",
+  cta: "Créer un compte",
+};
+
 export const TrialExpiredNotice = () => {
+  const router = useRouter();
   const { session, entitlements } = useVerifiedSession();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [upgradeStatus, setUpgradeStatus] = useState<"idle" | "opening">("idle");
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [isMarkingSeen, setIsMarkingSeen] = useState(false);
+  const isGuestSession = session?.isAnonymous === true;
+  const noticeCopy = isGuestSession ? { ...COPY, ...GUEST_COPY } : COPY;
 
   const isTrialExpired = useMemo(() => {
     if (!entitlements.trialEndsAt) return false;
@@ -77,6 +89,13 @@ export const TrialExpiredNotice = () => {
   }, [handleMarkSeen]);
 
   const handleUpgrade = useCallback(async () => {
+    if (isGuestSession) {
+      setUpgradeError(null);
+      setIsModalOpen(false);
+      router.push("/sign-up");
+      return;
+    }
+
     setUpgradeError(null);
     setUpgradeStatus("opening");
 
@@ -115,7 +134,7 @@ export const TrialExpiredNotice = () => {
     } finally {
       setUpgradeStatus("idle");
     }
-  }, [handleMarkSeen, session?.accessToken]);
+  }, [handleMarkSeen, isGuestSession, router, session?.accessToken]);
 
   if (!shouldShowBanner) {
     return null;
@@ -124,8 +143,8 @@ export const TrialExpiredNotice = () => {
   return (
     <>
       <TrialExpiredBanner
-        message={COPY.banner}
-        ctaLabel={COPY.cta}
+        message={noticeCopy.banner}
+        ctaLabel={noticeCopy.cta}
         loadingLabel={COPY.opening}
         onUpgrade={handleUpgrade}
         isLoading={upgradeStatus === "opening"}
@@ -133,9 +152,9 @@ export const TrialExpiredNotice = () => {
       />
       <TrialExpiredModal
         open={isModalOpen}
-        title={COPY.modalTitle}
-        description={COPY.modalBody}
-        primaryLabel={COPY.cta}
+        title={noticeCopy.modalTitle}
+        description={noticeCopy.modalBody}
+        primaryLabel={noticeCopy.cta}
         secondaryLabel={COPY.later}
         onClose={handleDismiss}
         onUpgrade={handleUpgrade}

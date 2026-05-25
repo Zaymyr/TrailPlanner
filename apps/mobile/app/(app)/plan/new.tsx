@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { Alert, Text, View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
+import { Text } from '../../../components/themed/Text';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
-
 import { DEFAULT_PLAN_VALUES, type PlanFormValues, type ElevationPoint } from '../../../components/PlanForm';
 import { AppHeaderTitle } from '../../../components/navigation/AppHeaderTitle';
 import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellModal';
@@ -11,10 +11,12 @@ import { RaceSelector } from '../../../components/RaceSelector';
 import { Colors } from '../../../constants/colors';
 import { usePremium } from '../../../hooks/usePremium';
 import { useI18n } from '../../../lib/i18n';
-import { ensureAppSession } from '../../../lib/appSession';
+import { ensureAppSession, isAnonymousSession } from '../../../lib/appSession';
 import { noteReviewPlanCreated } from '../../../lib/appReview';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../lib/planAccess';
+import { captureAnalyticsEvent } from '../../../lib/posthog';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
+import { clearUnfinishedPlanReminder, syncUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
 import { supabase } from '../../../lib/supabase';
 
 type RaceInfo = {
@@ -95,7 +97,8 @@ function buildPlannerValues(values: PlanFormValues) {
     aidStations: values.aidStations.map((station) => ({
       name: station.name,
       distanceKm: station.distanceKm,
-      waterRefill: station.waterRefill,
+      waterRefill: station.waterRefill !== false,
+      solidRefill: station.solidRefill !== false,
       pauseMinutes: station.pauseMinutes ?? 0,
       supplies: [],
     })),
@@ -105,6 +108,7 @@ function buildPlannerValues(values: PlanFormValues) {
 export default function NewPlanScreen() {
   const { raceId, catalogRaceId } = useLocalSearchParams<{ raceId?: string; catalogRaceId?: string }>();
   const resolvedRaceId = raceId ?? catalogRaceId ?? null;
+  const planCreationSource = catalogRaceId ? 'catalog' : raceId ? 'preselected_race' : 'selector';
   const router = useRouter();
   const { t } = useI18n();
   const { isPremium, isLoading: premiumLoading } = usePremium();
@@ -132,12 +136,13 @@ export default function NewPlanScreen() {
         return;
       }
 
+      const plannerValues = buildPlannerValues(seedValues);
       const { data, error } = await supabase
         .from('race_plans')
         .insert({
           user_id: uid,
           name: seedValues.name,
-          planner_values: buildPlannerValues(seedValues),
+          planner_values: plannerValues,
           elevation_profile: elevationProfile,
           race_id: race.id,
         })
@@ -152,10 +157,29 @@ export default function NewPlanScreen() {
         return;
       }
 
+      if (isAnonymousSession(session)) {
+        await syncUnfinishedPlanReminder({
+          planId: data.id,
+          plannerValues,
+          title: t.reminders.unfinishedPlanTitle,
+          body: t.reminders.unfinishedPlanBody.replace('{name}', seedValues.name),
+          href: `/(app)/plan/${data.id}/edit`,
+          requestIfNeeded: true,
+        });
+      } else {
+        await clearUnfinishedPlanReminder();
+      }
+
       await noteReviewPlanCreated();
+      captureAnalyticsEvent('plan created', {
+        source: planCreationSource,
+        aid_station_count: seedValues.aidStations.length,
+        distance_km: race.distance_km,
+        elevation_gain_m: race.elevation_gain_m,
+      });
       router.replace(`/(app)/plan/${data.id}/edit`);
     },
-    [resolvedRaceId, router, t.common.error],
+    [planCreationSource, resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const loadRaceSeed = useCallback(async () => {

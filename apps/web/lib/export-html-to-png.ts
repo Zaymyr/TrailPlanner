@@ -23,6 +23,69 @@ const loadImage = (objectUrl: string) =>
     image.src = objectUrl;
   });
 
+const downloadBlob = (blob: Blob, fileName: string) => {
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    const link = document.createElement("a");
+    link.download = fileName;
+    link.href = objectUrl;
+    link.click();
+  } finally {
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+  }
+};
+
+const isCanvasSecurityError = (error: unknown) => {
+  if (error instanceof DOMException && error.name === "SecurityError") {
+    return true;
+  }
+
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return /tainted canvases|operation is insecure|security/i.test(error.message);
+};
+
+const blobToDataUrl = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Unable to inline image assets for the PNG export."));
+    reader.readAsDataURL(blob);
+  });
+
+const imageSourceToDataUrl = async (src: string) => {
+  if (!src || src.startsWith("data:")) return src;
+
+  const response = await fetch(new URL(src, window.location.href).toString(), { cache: "force-cache" });
+
+  if (!response.ok) {
+    throw new Error("Unable to load image assets for the PNG export.");
+  }
+
+  return blobToDataUrl(await response.blob());
+};
+
+const inlineImages = async (source: HTMLElement, target: HTMLElement) => {
+  const sourceImages = Array.from(source.querySelectorAll("img"));
+  const targetImages = Array.from(target.querySelectorAll("img"));
+
+  await Promise.all(
+    sourceImages.map(async (sourceImage, index) => {
+      const targetImage = targetImages[index];
+      const sourceUrl = sourceImage.currentSrc || sourceImage.src || targetImage?.src;
+
+      if (!targetImage || !sourceUrl) return;
+
+      targetImage.src = await imageSourceToDataUrl(sourceUrl);
+      targetImage.removeAttribute("srcset");
+      targetImage.removeAttribute("crossorigin");
+    })
+  );
+};
+
 const copyComputedStyles = (source: HTMLElement, target: HTMLElement) => {
   const computedStyles = window.getComputedStyle(source);
   const serializedStyles = Array.from(computedStyles)
@@ -70,6 +133,7 @@ export async function exportHtmlToPng(element: HTMLElement, fileName: string) {
   const clone = element.cloneNode(true) as HTMLElement;
   clone.setAttribute("xmlns", XHTML_NAMESPACE);
   copyComputedStyles(element, clone);
+  await inlineImages(element, clone);
 
   const wrapper = document.createElement("div");
   wrapper.setAttribute("xmlns", XHTML_NAMESPACE);
@@ -82,11 +146,9 @@ export async function exportHtmlToPng(element: HTMLElement, fileName: string) {
     </svg>
   `;
 
-  const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
-  const svgUrl = URL.createObjectURL(svgBlob);
-
   try {
-    const image = await loadImage(svgUrl);
+    const svgBlob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
+    const image = await loadImage(await blobToDataUrl(svgBlob));
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
@@ -100,17 +162,12 @@ export async function exportHtmlToPng(element: HTMLElement, fileName: string) {
     context.drawImage(image, 0, 0, width, height);
 
     const pngBlob = await canvasToBlob(canvas);
-    const pngUrl = URL.createObjectURL(pngBlob);
-
-    try {
-      const link = document.createElement("a");
-      link.download = fileName;
-      link.href = pngUrl;
-      link.click();
-    } finally {
-      URL.revokeObjectURL(pngUrl);
+    downloadBlob(pngBlob, fileName);
+  } catch (error) {
+    if (isCanvasSecurityError(error)) {
+      throw new Error("Unable to render the PNG export in this browser.");
     }
-  } finally {
-    URL.revokeObjectURL(svgUrl);
+
+    throw error;
   }
 }

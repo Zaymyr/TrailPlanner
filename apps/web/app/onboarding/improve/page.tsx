@@ -84,10 +84,14 @@ export default function ImprovePage() {
 
   const paceMinPerKm = calculateAdjustedPace(distance, elevation, goal);
   const speedKph = 60 / paceMinPerKm;
-  const rawAidStations = (state.checkpoints ?? []).map((cp) => ({
-    name: cp.name,
-    distanceKm: cp.km,
-  }));
+  const rawAidStations = useMemo(
+    () =>
+      (state.checkpoints ?? []).map((cp) => ({
+        name: cp.name,
+        distanceKm: cp.km,
+      })),
+    [state.checkpoints],
+  );
 
   // Each display station carries nutrition for the segment FROM it to the next.
   // The planner computes backward-looking segments (prev→current), so we pass
@@ -95,32 +99,43 @@ export default function ImprovePage() {
   //   display[0] = start  → plannerOutput[0] = first ravito (0 → ravito1)
   //   display[i] = ravito_i → plannerOutput[i] = ravito_{i+1} (ravito_i → ravito_{i+1})
   //   display[last] = last ravito → plannerOutput[last] = finish (last → end)
-  const startStation = { name: t.racePlanner.onboarding.improve.startLabel, distanceKm: 0 };
-  const finishStation = { name: "finish", distanceKm: distance };
-  const plannerStations = [...rawAidStations, finishStation];
-  const displayList = [startStation, ...rawAidStations];
+  const allStationsWithNutrition = useMemo(() => {
+    if (state.fuelTypes.length === 0) {
+      return [];
+    }
 
-  const plannerOutput =
-    state.fuelTypes.length > 0
-      ? computeAidStationNutrition(
-          plannerStations,
-          state.fuelTypes,
-          plan.carbsPerHour,
-          speedKph,
-          products,
-          FUEL_TYPE_WEIGHTS,
-          plan.sodiumPerHour,
-          plan.waterPerHour,
-        )
-      : [];
+    const startStation = { name: t.racePlanner.onboarding.improve.startLabel, distanceKm: 0 };
+    const finishStation = { name: "finish", distanceKm: distance };
+    const plannerStations = [...rawAidStations, finishStation];
+    const displayList = [startStation, ...rawAidStations];
+    const plannerOutput = computeAidStationNutrition(
+      plannerStations,
+      state.fuelTypes,
+      plan.carbsPerHour,
+      speedKph,
+      products,
+      FUEL_TYPE_WEIGHTS,
+      plan.sodiumPerHour,
+      plan.waterPerHour,
+    );
 
-  const allStationsWithNutrition = state.fuelTypes.length > 0
-    ? displayList.map((station, i) => ({
-        ...station,
-        nutrition: plannerOutput[i]?.nutrition ?? [],
-      }))
-    : [];
-  const PREVIEW_COUNT = 3;
+    return displayList.map((station, i) => ({
+      ...station,
+      nutrition: plannerOutput[i]?.nutrition ?? [],
+    }));
+  }, [
+    distance,
+    plan.carbsPerHour,
+    plan.sodiumPerHour,
+    plan.waterPerHour,
+    products,
+    rawAidStations,
+    speedKph,
+    state.fuelTypes,
+    t.racePlanner.onboarding.improve.startLabel,
+  ]);
+  const PREVIEW_COUNT = 2;
+  const PREVIEW_PRODUCT_COUNT = 2;
   const previewStations = allStationsWithNutrition.slice(0, PREVIEW_COUNT);
   const hiddenCount = allStationsWithNutrition.length - PREVIEW_COUNT;
 
@@ -172,7 +187,7 @@ export default function ImprovePage() {
   }
 
   return (
-    <div className="flex flex-col gap-5 px-6 pt-10 pb-8">
+    <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col gap-4 overflow-x-hidden px-5 pt-8 pb-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Ton plan détaillé 🍃
@@ -183,63 +198,63 @@ export default function ImprovePage() {
       </div>
 
       {/* 1 — Stats */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5 min-[390px]:gap-2">
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🍬</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.carbsPerHour}g</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Glucides/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Glucides/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">💧</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.waterPerHour}ml</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Eau/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Eau/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🧂</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{plan.sodiumPerHour}mg</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Sodium/h</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Sodium/h</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">⏱️</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{estimatedTime}</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Temps estimé</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Temps estimé</span>
         </div>
         <div
-          className="flex items-center gap-2 rounded-2xl px-3 py-2"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-2xl px-3 py-2"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
           <span className="text-base">🏃</span>
           <span className="text-sm font-bold" style={{ color: "#1a2e0a" }}>{averagePace}</span>
-          <span className="text-xs" style={{ color: "#6b7c5a" }}>Allure moyenne</span>
+          <span className="min-w-0 text-xs leading-tight" style={{ color: "#6b7c5a" }}>Allure moyenne</span>
         </div>
       </div>
 
       {/* 2 — Ton mix nutritionnel */}
       {state.fuelTypes.length > 0 && (
         <div
-          className="rounded-2xl p-5"
+          className="rounded-2xl p-3.5"
           style={{ backgroundColor: "#ffffff", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
         >
-          <h2 className="mb-3 text-base font-semibold" style={{ color: "#1a2e0a" }}>
+          <h2 className="mb-2 text-base font-semibold" style={{ color: "#1a2e0a" }}>
             {t.racePlanner.onboarding.improve.nutritionMix.title}
           </h2>
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="mb-2 flex flex-wrap gap-1.5">
             {state.fuelTypes.map((type) => (
               <span
                 key={type}
-                className="flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium text-white"
+                className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium text-white"
                 style={{ backgroundColor: FUEL_TYPE_COLOR[type] ?? "#94a3b8" }}
               >
                 {FUEL_TYPE_EMOJI[type] ?? "📦"}{" "}
@@ -277,32 +292,37 @@ export default function ImprovePage() {
           {previewStations.map((station, i) => (
             <div
               key={i}
-              className="flex flex-col gap-1 border-b border-slate-100 py-3 last:border-0"
+              className="flex flex-col gap-1 border-b border-slate-100 py-2.5 last:border-0"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium" style={{ color: "#374151" }}>
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <span className="min-w-0 flex-1 break-words text-sm font-medium" style={{ color: "#374151" }}>
                   {station.name} · {Math.round(station.distanceKm)}km
                 </span>
                 <span className="text-sm text-muted-foreground">
                   ≈{Math.round((station.nutrition ?? []).reduce((sum, n) => sum + n.carbsG, 0))}g
                 </span>
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                {(station.nutrition ?? []).map((item) => (
+              <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1">
+                {(station.nutrition ?? []).slice(0, PREVIEW_PRODUCT_COUNT).map((item) => (
                   <span
                     key={item.fuelType}
-                    className="flex items-center gap-1 text-sm"
+                    className="flex items-center gap-1 text-xs"
                     style={{ color: "#1a2e0a" }}
                   >
                     {FUEL_TYPE_EMOJI[item.fuelType] ?? "📦"} {item.productName} ×{Math.ceil(item.quantity)}
                   </span>
                 ))}
+                {(station.nutrition ?? []).length > PREVIEW_PRODUCT_COUNT && (
+                  <span className="text-xs font-medium" style={{ color: "#6b7c5a" }}>
+                    + {(station.nutrition ?? []).length - PREVIEW_PRODUCT_COUNT}
+                  </span>
+                )}
               </div>
             </div>
           ))}
           {hiddenCount > 0 && (
-            <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/40 p-5 text-center">
-              <p className="mb-3 text-sm text-foreground">
+            <div className="mt-3 rounded-xl border border-dashed border-border bg-muted/40 p-3.5 text-center">
+              <p className="mb-2 text-sm text-foreground">
                 🔒 {t.racePlanner.onboarding.improve.hiddenRavitos.replace("{count}", String(hiddenCount))}
               </p>
               <Button variant="outline" onClick={handleCTA}>
@@ -314,12 +334,12 @@ export default function ImprovePage() {
       )}
 
       {/* CTA */}
-      <div className="fixed bottom-0 left-1/2 w-full max-w-[430px] -translate-x-1/2 px-5 pb-8 pt-4"
+      <div className="fixed inset-x-0 bottom-0 z-20 mx-auto box-border w-full max-w-[430px] px-5 pb-8 pt-4"
         style={{ backgroundColor: "#FAF7F2" }}
       >
         <button
           onClick={handleCTA}
-          className="flex h-14 w-full items-center justify-center rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80"
+          className="flex min-h-14 w-full items-center justify-center rounded-xl px-4 py-3 text-center text-base font-semibold leading-tight text-white transition-opacity active:opacity-80"
           style={{ backgroundColor: "#2D5016" }}
         >
           Tu veux savoir quand manger tout ça ? 🗓️

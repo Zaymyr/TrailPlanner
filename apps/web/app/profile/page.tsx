@@ -439,6 +439,7 @@ export default function ProfilePage() {
   const coachNameLabel = coachContact?.fullName ?? t.profile.coachRelationship.unknownCoach;
   const coachEmailLabel = coachContact?.email ?? t.profile.coachRelationship.unknownEmail;
   const showCoachPremiumNote = showCoachRelationshipOnly && coachRelationshipStatus === "active";
+  const isGuestSession = session?.isAnonymous === true;
   const coachPlanLabel = useMemo(() => {
     if (!coachPlanName) return t.profile.subscription.coachTiers.noActivePlan;
     return coachTierLabels[coachPlanName as keyof typeof coachTierLabels] ?? coachPlanName.toUpperCase();
@@ -446,6 +447,12 @@ export default function ProfilePage() {
   const handleUpgrade = useCallback(async () => {
     if (!session?.accessToken) {
       setUpgradeError(t.profile.authRequired);
+      return;
+    }
+
+    if (session?.isAnonymous) {
+      setUpgradeDialogOpen(false);
+      router.push("/sign-up");
       return;
     }
 
@@ -482,7 +489,9 @@ export default function ProfilePage() {
       setUpgradeStatus("idle");
     }
   }, [
+    router,
     session?.accessToken,
+    session?.isAnonymous,
     t.profile.authRequired,
     t.profile.premiumModal.popupBlocked,
     t.profile.subscription.checkoutError,
@@ -830,10 +839,17 @@ export default function ProfilePage() {
               <div className="flex flex-wrap gap-3">
                 <Button
                   type="button"
-                  onClick={() => setUpgradeDialogOpen(true)}
+                  onClick={() => {
+                    if (isGuestSession) {
+                      router.push("/sign-up");
+                      return;
+                    }
+
+                    setUpgradeDialogOpen(true);
+                  }}
                   disabled={isEntitlementsLoading || entitlements.isPremium || upgradeStatus === "opening"}
                 >
-                  {t.profile.subscription.subscribeCta}
+                  {isGuestSession ? t.auth.signUp.submit : t.profile.subscription.subscribeCta}
                 </Button>
                 {entitlements.isPremium ? (
                   <Button

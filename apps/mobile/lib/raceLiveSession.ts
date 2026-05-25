@@ -1,4 +1,3 @@
-import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import * as BackgroundTask from 'expo-background-task';
 
@@ -13,6 +12,8 @@ import {
   type StoredRacePlan,
   type WaterOnlyReminderIntervalMinutes,
 } from './raceLivePlan';
+import { getNotificationsModule, type NotificationsModule } from './notifications';
+import { syncPushDeviceRegistration } from './pushRegistration';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 const RACE_ALERT_TASK = 'RACE_ALERT_TASK';
@@ -45,6 +46,11 @@ type RaceStartOptions = {
   waterOnlyReminderIntervalMinutes?: WaterOnlyReminderIntervalMinutes;
 };
 
+type LiveSessionNotificationCopy = {
+  title: string;
+  body: string;
+};
+
 export type RaceSession = {
   plan: StoredRacePlan;
   confirmMode: AlertConfirmMode;
@@ -56,7 +62,7 @@ export type RaceSession = {
 
 let session: RaceSession | null = null;
 
-async function setupNotificationCategory(): Promise<void> {
+async function setupNotificationCategory(Notifications: NotificationsModule): Promise<void> {
   await Notifications.setNotificationCategoryAsync(NOTIFICATION_CATEGORY, [
     ...SNOOZE_OPTIONS_MINUTES.map((minutes) => ({
       identifier: `snooze_${minutes}`,
@@ -77,6 +83,9 @@ async function setupNotificationCategory(): Promise<void> {
 }
 
 async function fireAlertNotification(alert: ActiveAlert, confirmMode: AlertConfirmMode): Promise<void> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+
   await Notifications.scheduleNotificationAsync({
     content: {
       title: alert.title,
@@ -130,6 +139,36 @@ function toPendingActiveAlert(alert: LiveAlertSpec): ActiveAlert {
   };
 }
 
+async function startLiveSession(
+  plan: StoredRacePlan,
+  alerts: LiveAlertSpec[],
+  confirmMode: AlertConfirmMode,
+  waterOnlyReminderIntervalMinutes: WaterOnlyReminderIntervalMinutes | null,
+  notificationCopy: LiveSessionNotificationCopy,
+): Promise<void> {
+  session = {
+    plan,
+    confirmMode,
+    waterOnlyReminderIntervalMinutes,
+    startedAt: Date.now(),
+    alerts: alerts.map<ActiveAlert>(toPendingActiveAlert),
+    intakeHistory: [],
+  };
+
+  await BackgroundTask.registerTaskAsync(RACE_ALERT_TASK, {
+    minimumInterval: RACE_ALERT_TASK_MINIMUM_INTERVAL_MINUTES,
+  }).catch(() => undefined);
+
+  const Notifications = await getNotificationsModule();
+  await Notifications?.scheduleNotificationAsync({
+    content: {
+      title: notificationCopy.title,
+      body: notificationCopy.body,
+    },
+    trigger: null,
+  });
+}
+
 function applyAutoConfirm(sessionToUpdate: RaceSession, elapsedMinutes: number) {
   if (sessionToUpdate.confirmMode !== 'auto_5' && sessionToUpdate.confirmMode !== 'auto_10') return;
 
@@ -145,6 +184,9 @@ function applyAutoConfirm(sessionToUpdate: RaceSession, elapsedMinutes: number) 
 }
 
 export async function requestPermissions(): Promise<boolean> {
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return false;
+
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 
@@ -155,7 +197,8 @@ export async function requestPermissions(): Promise<boolean> {
 
   if (finalStatus !== 'granted') return false;
 
-  await setupNotificationCategory();
+  await setupNotificationCategory(Notifications);
+  await syncPushDeviceRegistration();
   return true;
 }
 
@@ -172,28 +215,22 @@ export async function startRace(
   const alerts = buildLiveAlertSpecs(plan, productMap, {
     waterOnlyReminderIntervalMinutes: waterOnlyReminderIntervalMinutes ?? DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN,
   })
-    .filter((alert) => waterOnlyReminderIntervalMinutes !== null || !isWaterOnlyAlertSpec(alert))
-    .map<ActiveAlert>(toPendingActiveAlert);
+    .filter((alert) => waterOnlyReminderIntervalMinutes !== null || !isWaterOnlyAlertSpec(alert));
 
-  session = {
-    plan,
-    confirmMode,
-    waterOnlyReminderIntervalMinutes,
-    startedAt: Date.now(),
-    alerts,
-    intakeHistory: [],
-  };
+  await startLiveSession(plan, alerts, confirmMode, waterOnlyReminderIntervalMinutes, {
+    title: 'Course demarree',
+    body: `${plan.name} - suivi nutrition actif`,
+  });
+}
 
-  await BackgroundTask.registerTaskAsync(RACE_ALERT_TASK, {
-    minimumInterval: RACE_ALERT_TASK_MINIMUM_INTERVAL_MINUTES,
-  }).catch(() => undefined);
-
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: 'Course démarrée',
-      body: `${plan.name} - suivi nutrition actif`,
-    },
-    trigger: null,
+export async function startFreeTraining(
+  plan: StoredRacePlan,
+  alerts: LiveAlertSpec[],
+  confirmMode: AlertConfirmMode = 'manual',
+): Promise<void> {
+  await startLiveSession(plan, alerts, confirmMode, null, {
+    title: 'Entrainement demarre',
+    body: `${plan.name} - suivi nutrition actif`,
   });
 }
 

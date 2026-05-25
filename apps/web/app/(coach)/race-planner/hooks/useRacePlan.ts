@@ -343,7 +343,7 @@ export const useRacePlan = ({
         finishPlan: plan.plannerValues.finishPlan ?? defaultValues.finishPlan,
       };
 
-      form.reset(mergedValues, { keepDefaultValues: true });
+      form.reset(mergedValues);
       setElevationProfile(plan.elevationProfile);
       setPlanName(plan.name);
       setActivePlanId(plan.id);
@@ -370,18 +370,18 @@ export const useRacePlan = ({
     handleLoadPlan(planToLoad);
   }, [savedPlans, handleLoadPlan]);
 
-  const handleSavePlan = useCallback(async () => {
+  const handleSavePlan = useCallback(async (): Promise<SavedPlan | null> => {
     setAccountError(null);
     setAccountMessage(null);
 
     if (!session?.accessToken) {
       setAccountError(racePlannerCopy.account.errors.missingSession);
-      return;
+      return null;
     }
 
     if (!parsedValues.success) {
       setAccountError(racePlannerCopy.account.errors.saveFailed);
-      return;
+      return null;
     }
 
     const trimmedName = planName.trim() || racePlannerCopy.account.plans.defaultName;
@@ -392,13 +392,13 @@ export const useRacePlan = ({
     // Block save if the name is already used by a DIFFERENT plan
     if (existingPlanByName && existingPlanByName.id !== activePlanId) {
       setAccountError(racePlannerCopy.account.errors.duplicateName);
-      return;
+      return null;
     }
 
     if (planLimitReached && !existingPlanByName) {
       setAccountError(premiumCopy.planLimitReached);
       requestPremiumUpgrade(premiumCopy.planLimitReached, "plans");
-      return;
+      return null;
     }
 
     setPlanStatus("saving");
@@ -453,30 +453,34 @@ export const useRacePlan = ({
       if (response.status === 402) {
         setAccountError(data?.message ?? premiumCopy.planLimitReached);
         requestPremiumUpgrade(data?.message ?? premiumCopy.planLimitReached, "plans");
-        return;
+        return null;
       }
 
       if (!response.ok || !data?.plan) {
         setAccountError(data?.message ?? racePlannerCopy.account.errors.saveFailed);
-        return;
+        return null;
       }
 
       const parsedPlan = mapSavedPlan(data.plan);
+      let savedPlan: SavedPlan | null = null;
 
       if (parsedPlan) {
         setSavedPlans((previous) => [parsedPlan, ...previous.filter((plan) => plan.id !== parsedPlan.id)]);
         setPlanName(parsedPlan.name);
         setActivePlanId(parsedPlan.id);
         // Reset dirty state so unsaved-changes indicator clears
-        form.reset(form.getValues(), { keepDefaultValues: true });
+        form.reset(form.getValues());
         savedElevationRef.current = elevationProfile;
         setSavedElevationGeneration((g) => g + 1);
+        savedPlan = parsedPlan;
       }
 
       setAccountMessage(racePlannerCopy.account.messages.savedPlan);
+      return savedPlan;
     } catch (error) {
       console.error("Unable to save plan", error);
       setAccountError(racePlannerCopy.account.errors.saveFailed);
+      return null;
     } finally {
       setPlanStatus("idle");
     }

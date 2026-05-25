@@ -83,7 +83,7 @@ const TagFilter = ({ tags, activeTag }: { tags: TagSummary[]; activeTag?: string
         key={tagLabel}
         href={href}
         className={cn(
-          "group inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300",
+          "group inline-flex items-center gap-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:focus-visible:outline-emerald-300",
           isActive && "font-medium",
         )}
       >
@@ -91,8 +91,8 @@ const TagFilter = ({ tags, activeTag }: { tags: TagSummary[]; activeTag?: string
           label={tagLabel}
           variant={isActive ? "default" : "muted"}
           className={cn(
-            "group-hover:border-[hsl(var(--brand))] group-hover:text-[hsl(var(--brand))] dark:group-hover:border-emerald-500 dark:group-hover:text-emerald-100",
-            isActive && "shadow-[0_0_0_1px_rgba(52,211,153,0.5)] dark:shadow-[0_0_0_1px_rgba(52,211,153,0.5)]",
+            "group-hover:border-brand-border group-hover:text-brand dark:group-hover:border-emerald-500 dark:group-hover:text-emerald-100",
+            isActive && "shadow-[0_0_0_1px_hsl(var(--brand-border))] dark:shadow-[0_0_0_1px_rgba(52,211,153,0.5)]",
           )}
         />
         {typeof count === "number" && <span className="text-xs text-slate-400">{count}</span>}

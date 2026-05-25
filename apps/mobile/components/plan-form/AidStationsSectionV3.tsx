@@ -1,20 +1,40 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement
+} from 'react';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
   type LayoutRectangle,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Pressable,
   ScrollView,
-  Text,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
+  type GestureResponderEvent,
+  type ViewStyle
 } from 'react-native';
-import { Colors } from '../../constants/colors';
+import {
+  AidStationIcon,
+  TrailIcon,
+  colors,
+  radius,
+  shadows,
+  spacing
+} from '@pace-yourself/design-system';
 import { TutorialTarget, type TutorialMeasurableTarget } from '../help/SpotlightTutorial';
+import { DataText } from '../themed/DataText';
+import { Heading } from '../themed/Heading';
+import { Text, Text as ThemedText } from '../themed/Text';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
 import { ProfileMiniChart } from './ProfileMiniChart';
@@ -26,7 +46,7 @@ import type {
   PlanProduct,
   PlanTarget,
   SectionSummary,
-  SectionTarget,
+  SectionTarget
 } from './contracts';
 import { getGaugeTolerance } from './metrics';
 import { adjustedPaceMinutesPerKm, getElevationSlice } from './profile-utils';
@@ -86,6 +106,11 @@ type Props = {
 };
 
 const VIEW_MODES: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
+const VIEW_MODE_LABELS: Record<(typeof VIEW_MODES)[number], string> = {
+  stations: 'Ravitos',
+  sections: 'Sections',
+  profile: 'Profil',
+};
 const PAGER_MODES: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stations'> = [
   'profile',
   'stations',
@@ -93,6 +118,9 @@ const PAGER_MODES: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stat
   'profile',
   'stations',
 ];
+const PAGER_EDGE_SWIPE_MIN_WIDTH = 104;
+const PAGER_EDGE_SWIPE_MAX_WIDTH = 128;
+const PAGER_SIDE_BUTTON_HIT_SLOP = { top: 18, bottom: 18, left: 18, right: 18 };
 
 export function AidStationsSectionV3({
   values,
@@ -152,6 +180,7 @@ export function AidStationsSectionV3({
     profile: false,
   });
   const userDraggingRef = useRef(false);
+  const pagerEdgeGestureAllowedRef = useRef(false);
   const dragStartModeRef = useRef<'stations' | 'sections' | 'profile'>('stations');
   const previewTargetModeRef = useRef<null | 'stations' | 'sections' | 'profile'>(null);
   const pendingSyncRef = useRef<null | { mode: 'stations' | 'sections' | 'profile'; stationId: string | null; viewportOffset: number }>(null);
@@ -177,13 +206,17 @@ export function AidStationsSectionV3({
   const [displayedViewMode, setDisplayedViewMode] = useState<'stations' | 'sections' | 'profile'>('stations');
   const [focusedAidStationId, setFocusedAidStationId] = useState<string | null>(values.aidStations[0]?.id ?? null);
   const [pagerHoldPageIndex, setPagerHoldPageIndex] = useState<number | null>(null);
+  const [pagerScrollEnabled, setPagerScrollEnabled] = useState(false);
   const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
   const [viewportHeight, setViewportHeight] = useState(defaultViewportHeight);
   const [anchorsVersion, setAnchorsVersion] = useState(0);
   const aidStationsMetaKey = useMemo(
     () =>
       values.aidStations
-        .map((station) => `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}`)
+        .map(
+          (station) =>
+            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}`,
+        )
         .join(';'),
     [values.aidStations],
   );
@@ -197,14 +230,26 @@ export function AidStationsSectionV3({
 
   function renderStationBadge(label: string, compact = false) {
     return (
-      <View style={compact ? styles.stationBadgeMini : styles.stationBadge}>
-        <Text style={compact ? styles.stationBadgeMiniText : styles.stationBadgeText}>{label}</Text>
+      <View style={[compact ? styles.stationBadgeMini : styles.stationBadge, planDetailStyles.stationBadge]}>
+        <AidStationIcon
+          color={colors.brand.forest}
+          size={compact ? 13 : 15}
+          strokeWidth={2.1}
+        />
+        <DataText
+          tone="brand"
+          size="xs"
+          weight="semibold"
+          style={compact ? planDetailStyles.stationBadgeMiniText : planDetailStyles.stationBadgeText}
+        >
+          {label}
+        </DataText>
       </View>
     );
   }
 
   function formatTimelineMinute(minute: number) {
-    if (minute <= 0) return 'Depart';
+    if (minute <= 0) return 'Départ';
     return `${minute} min`;
   }
 
@@ -221,6 +266,37 @@ export function AidStationsSectionV3({
     return (
       <View style={styles.stationPauseBadge}>
         <Text style={styles.stationPauseText}>+{safePause} min</Text>
+      </View>
+    );
+  }
+
+  function getServiceLabel(waterRefill: boolean, solidRefill: boolean) {
+    if (waterRefill && solidRefill) return 'Eau + solide';
+    if (waterRefill) return 'Eau seulement';
+    if (solidRefill) return 'Solide seulement';
+    return 'Aucun service';
+  }
+
+  function renderServiceChips(station: PlanFormValues['aidStations'][number], isDepart: boolean, isArrivee: boolean) {
+    if (isArrivee) return null;
+
+    const waterRefill = isDepart || station.waterRefill !== false;
+    const solidRefill = isDepart || station.solidRefill !== false;
+    const serviceLabel = isDepart ? 'Stock initial' : getServiceLabel(waterRefill, solidRefill);
+    const active = waterRefill || solidRefill;
+
+    return (
+      <View style={styles.stationServiceChipRow}>
+        <View style={[styles.stationServiceChip, active && styles.stationServiceChipActive]}>
+          <Ionicons
+            name={waterRefill && solidRefill ? 'restaurant-outline' : waterRefill ? 'water-outline' : solidRefill ? 'nutrition-outline' : 'remove-circle-outline'}
+            size={13}
+            color={active ? colors.brand.forest : colors.text.tertiary}
+          />
+          <Text style={[styles.stationServiceChipText, active && styles.stationServiceChipTextActive]}>
+            {serviceLabel}
+          </Text>
+        </View>
       </View>
     );
   }
@@ -452,6 +528,15 @@ export function AidStationsSectionV3({
     pagerRef.current?.scrollTo({ x: nextPageIndex * pageWidth, animated: true });
   }
 
+  function getAdjacentViewMode(
+    mode: 'stations' | 'sections' | 'profile',
+    direction: 'previous' | 'next',
+  ) {
+    const currentIndex = VIEW_MODES.indexOf(mode);
+    const offset = direction === 'previous' ? -1 : 1;
+    return VIEW_MODES[(currentIndex + offset + VIEW_MODES.length) % VIEW_MODES.length];
+  }
+
   function resolvePagerMode(pageIndex: number) {
     const boundedPageIndex = Math.max(0, Math.min(PAGER_MODES.length - 1, pageIndex));
     if (boundedPageIndex === 0) {
@@ -482,6 +567,11 @@ export function AidStationsSectionV3({
   }, [pageWidth, displayedViewMode]);
 
   function handlePagerBeginDrag() {
+    if (!pagerEdgeGestureAllowedRef.current) {
+      pagerRef.current?.scrollTo({ x: currentPagerPageIndexRef.current * pageWidth, animated: false });
+      return;
+    }
+
     onNestedScrollInteractionStart?.();
     userDraggingRef.current = true;
     dragStartModeRef.current = displayedViewMode;
@@ -518,6 +608,8 @@ export function AidStationsSectionV3({
     const dragStartMode = dragStartModeRef.current;
     const previewTargetMode = previewTargetModeRef.current;
     userDraggingRef.current = false;
+    pagerEdgeGestureAllowedRef.current = false;
+    setPagerScrollEnabled(false);
     previewTargetModeRef.current = null;
 
     const { mode: nextMode, resetPageIndex } = resolvePagerMode(boundedPageIndex);
@@ -574,6 +666,18 @@ export function AidStationsSectionV3({
     setAnchorsVersion((prevVersion) => prevVersion + 1);
   }
 
+  function handlePagerTouchStart(event: GestureResponderEvent) {
+    const startX = event.nativeEvent.locationX;
+    const edgeWidth = Math.min(
+      PAGER_EDGE_SWIPE_MAX_WIDTH,
+      Math.max(PAGER_EDGE_SWIPE_MIN_WIDTH, Math.round(pageWidth * 0.25)),
+    );
+    const allowHorizontalSwipe = startX <= edgeWidth || startX >= pageWidth - edgeWidth;
+    pagerEdgeGestureAllowedRef.current = allowHorizontalSwipe;
+    pagerRef.current?.setNativeProps({ scrollEnabled: allowHorizontalSwipe });
+    setPagerScrollEnabled(allowHorizontalSwipe);
+  }
+
   function formatSectionTarget(summary: SectionSummary | null): SectionTarget {
     return {
       targetCarbsG: summary?.targetCarbsG ?? 0,
@@ -618,10 +722,10 @@ export function AidStationsSectionV3({
     const severity = hasCritical ? 'danger' : hasWarning ? 'warning' : 'ok';
     const title =
       severity === 'ok'
-        ? 'Couvert pour le prochain segment'
+        ? 'Couvert jusqu au prochain point utile'
         : severity === 'warning'
-          ? 'Un peu juste pour tenir'
-          : 'Risque de manque sur le segment';
+          ? 'Un peu juste pour tenir la suite'
+          : 'Risque de manque avant recharge';
 
     const shortLabel =
       severity === 'ok'
@@ -635,7 +739,7 @@ export function AidStationsSectionV3({
         severity,
         title,
         shortLabel,
-        detail: 'Ce que tu emportes ici suffit pour couvrir le prochain segment avec une marge correcte.',
+        detail: 'Ce que tu emportes ici suffit jusqu au prochain point ou tu peux recharger cette ressource.',
         action: 'Tu peux repartir comme ca.',
         chips,
       };
@@ -667,8 +771,8 @@ export function AidStationsSectionV3({
 
     const detail =
       topDeficit.key === 'water'
-        ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu au prochain point.`
-        : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir correctement.`;
+        ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu au prochain point d eau.`
+        : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir jusqu au prochain point solide.`;
 
     return {
       severity,
@@ -776,22 +880,31 @@ export function AidStationsSectionV3({
       if (isDepart) {
         const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
-          <View
+          <Pressable
             key={stationKey}
-            style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
+            onPress={() => toggleStation(stationKey)}
+            style={[
+              styles.stationCard,
+              planDetailStyles.stationCard,
+              index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+              !isExpanded && collapsedTintStyle,
+              isFocused && styles.stationCardFocused,
+              isFocused && planDetailStyles.stationCardFocused,
+            ]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
-            <TouchableOpacity
-              onPress={() => toggleStation(stationKey)}
-              activeOpacity={0.7}
-              style={styles.stationHeaderRow}
-            >
+            <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
-              <Text style={styles.stationName}>{station.name}</Text>
+              <Heading variant="h3" numberOfLines={1} style={planDetailStyles.stationName}>
+                {station.name}
+              </Heading>
               {renderPauseBadge(station.pauseMinutes)}
-              <Text style={styles.stationKm}>{station.distanceKm} km</Text>
+              <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
+                {station.distanceKm} km
+              </DataText>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
-            </TouchableOpacity>
+            </View>
+            {renderServiceChips(station, isDepart, isArrivee)}
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
@@ -826,40 +939,55 @@ export function AidStationsSectionV3({
                 </View>
               </>
             )}
-          </View>
+          </Pressable>
         );
       } else if (isArrivee) {
         card = (
           <View
             key={stationKey}
-            style={[styles.stationCard, isFocused && styles.stationCardFocused]}
+            style={[
+              styles.stationCard,
+              planDetailStyles.stationCard,
+              index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+              isFocused && styles.stationCardFocused,
+              isFocused && planDetailStyles.stationCardFocused,
+            ]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
             <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
-              <Text style={styles.stationName}>{station.name}</Text>
+              <Heading variant="h3" numberOfLines={1} style={planDetailStyles.stationName}>
+                {station.name}
+              </Heading>
               {renderPauseBadge(station.pauseMinutes)}
-              <Text style={styles.stationKm}>{station.distanceKm} km</Text>
+              <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
+                {station.distanceKm} km
+              </DataText>
             </View>
+            {renderServiceChips(station, isDepart, isArrivee)}
           </View>
         );
       } else {
         const collapsedTintStyle = getCollapsedTint(metrics);
         card = (
-          <View
+          <Pressable
             key={stationKey}
-            style={[styles.stationCard, !isExpanded && collapsedTintStyle, isFocused && styles.stationCardFocused]}
+            onPress={() => toggleStation(stationKey)}
+            style={[
+              styles.stationCard,
+              planDetailStyles.stationCard,
+              index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+              !isExpanded && collapsedTintStyle,
+              isFocused && styles.stationCardFocused,
+              isFocused && planDetailStyles.stationCardFocused,
+            ]}
             onLayout={(event) => registerAnchor('stations', index, event)}
           >
-            <TouchableOpacity
-              onPress={() => toggleStation(stationKey)}
-              activeOpacity={0.7}
-              style={styles.stationHeaderRow}
-            >
+            <View style={styles.stationHeaderRow}>
               {renderStationBadge(getStationBadge(index, station.id))}
-              <Text style={styles.stationName} numberOfLines={1}>
+              <Heading variant="h3" style={planDetailStyles.stationName} numberOfLines={1}>
                 {station.name}
-              </Text>
+              </Heading>
               {renderPauseBadge(station.pauseMinutes)}
               <TouchableOpacity
                 style={styles.headerIconBtn}
@@ -870,22 +998,27 @@ export function AidStationsSectionV3({
                     name: station.name,
                     km: String(station.distanceKm),
                     pauseMinutes: String(station.pauseMinutes ?? 0),
+                    waterRefill: station.waterRefill !== false,
+                    solidRefill: station.solidRefill !== false,
                   })
                 }
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Ionicons name="create-outline" size={16} color="#6B7280" />
+                <Ionicons name="create-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.headerIconBtn}
                 onPress={() => removeAidStation(index)}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
-                <Ionicons name="trash-outline" size={16} color="#6B7280" />
+                <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
-              <Text style={styles.stationKm}>{station.distanceKm} km</Text>
+              <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
+                {station.distanceKm} km
+              </DataText>
               <Text style={styles.chevron}>{isExpanded ? '^' : 'v'}</Text>
-            </TouchableOpacity>
+            </View>
+            {renderServiceChips(station, isDepart, isArrivee)}
             {isExpanded && (
               <>
                 <View style={styles.cardDivider} />
@@ -896,15 +1029,23 @@ export function AidStationsSectionV3({
                   getGaugeColor={getGaugeColor}
                   animateSignal={animateSignal}
                 />
-                <SuppliesList
-                  supplies={getSupplies(index)}
-                  productMap={productMap}
-                  fuelLabels={fuelLabels}
-                  onOpenPicker={() => openPicker(index)}
-                  onIncreaseQty={(productId) => increaseQty(index, productId)}
-                  onDecreaseQty={(productId) => decreaseQty(index, productId)}
-                  onRemoveSupply={(productId) => removeSupply(index, productId)}
-                />
+                {station.solidRefill === false ? (
+                  <View style={styles.suppliesDisabledBox}>
+                    <Text style={styles.suppliesDisabledText}>
+                      Solide desactive : gels, boisson et sodium seront a prendre au ravito precedent.
+                    </Text>
+                  </View>
+                ) : (
+                  <SuppliesList
+                    supplies={getSupplies(index)}
+                    productMap={productMap}
+                    fuelLabels={fuelLabels}
+                    onOpenPicker={() => openPicker(index)}
+                    onIncreaseQty={(productId) => increaseQty(index, productId)}
+                    onDecreaseQty={(productId) => decreaseQty(index, productId)}
+                    onRemoveSupply={(productId) => removeSupply(index, productId)}
+                  />
+                )}
               </>
             )}
             {!isExpanded && (
@@ -920,7 +1061,7 @@ export function AidStationsSectionV3({
                 </View>
               </>
             )}
-          </View>
+          </Pressable>
         );
       }
 
@@ -930,9 +1071,9 @@ export function AidStationsSectionV3({
         elements.push(
           <View key={`sep-${index}`} style={styles.separator}>
             <View style={styles.separatorLine} />
-            <Text style={styles.separatorText}>
+            <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.separatorText}>
               {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
-            </Text>
+            </DataText>
             <View style={styles.separatorLine} />
           </View>,
         );
@@ -960,10 +1101,12 @@ export function AidStationsSectionV3({
         >
           <View style={styles.sectionStationLine} />
           {renderStationBadge(getStationBadge(index, station.id), true)}
-          <Text style={styles.sectionStationLabel} numberOfLines={1}>
+          <Heading variant="h3" style={planDetailStyles.sectionStationLabel} numberOfLines={1}>
             {station.name}
-          </Text>
-          <Text style={styles.sectionStationKm}>{station.distanceKm} km</Text>
+          </Heading>
+          <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.sectionStationKm}>
+            {station.distanceKm} km
+          </DataText>
           <View style={styles.sectionStationLine} />
         </View>,
       );
@@ -975,14 +1118,21 @@ export function AidStationsSectionV3({
       const sectionDMinus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dMinus), 0);
 
       elements.push(
-        <View key={`section-card-${station.id ?? index}`} style={styles.sectionViewCard}>
+        <View
+          key={`section-card-${station.id ?? index}`}
+          style={[
+            styles.sectionViewCard,
+            planDetailStyles.sectionCard,
+            index % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+          ]}
+        >
           <View style={styles.sectionViewHeader}>
-            <Text style={styles.sectionViewTitle} numberOfLines={1}>
+            <Heading variant="h3" style={planDetailStyles.sectionViewTitle} numberOfLines={1}>
               {station.name} vers {nextStation.name}
-            </Text>
-            <Text style={styles.sectionViewMeta}>
+            </Heading>
+            <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.sectionViewMeta}>
               {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
-            </Text>
+            </DataText>
           </View>
           {summary.profilePoints.length > 1 ? (
             <ProfileMiniChart points={summary.profilePoints} />
@@ -991,13 +1141,19 @@ export function AidStationsSectionV3({
           )}
           <View style={styles.profileMetricsRow}>
             <View style={styles.profileMetricPill}>
-              <Text style={styles.profileMetricPillText}>{summary.distanceKm.toFixed(2)} km</Text>
+              <DataText tone="secondary" size="xs" weight="semibold">
+                {summary.distanceKm.toFixed(2)} km
+              </DataText>
             </View>
             <View style={styles.profileMetricPill}>
-              <Text style={styles.profileMetricPillText}>D+ {Math.round(sectionDPlus)} m</Text>
+              <DataText tone="secondary" size="xs" weight="semibold">
+                D+ {Math.round(sectionDPlus)} m
+              </DataText>
             </View>
             <View style={styles.profileMetricPill}>
-              <Text style={styles.profileMetricPillText}>D- {Math.round(sectionDMinus)} m</Text>
+              <DataText tone="secondary" size="xs" weight="semibold">
+                D- {Math.round(sectionDMinus)} m
+              </DataText>
             </View>
           </View>
           {sectionTimeline.length === 0 ? (
@@ -1011,10 +1167,16 @@ export function AidStationsSectionV3({
                   timelineIndex === sectionTimeline.length - 1 ? styles.sectionTimelineRowLast : null,
                 ]}
               >
-                <Text style={styles.sectionTimelineTime}>{formatTimelineMinute(item.minute)}</Text>
+                <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.sectionTimelineTime}>
+                  {formatTimelineMinute(item.minute)}
+                </DataText>
                 <View style={styles.sectionTimelineInfo}>
-                  <Text style={styles.sectionTimelineLabel}>{item.label}</Text>
-                  <Text style={styles.sectionTimelineDetail}>{item.detail}</Text>
+                  <ThemedText tone="primary" size="sm" weight="semibold">
+                    {item.label}
+                  </ThemedText>
+                  <ThemedText tone="secondary" size="xs" style={planDetailStyles.sectionTimelineDetail}>
+                    {item.detail}
+                  </ThemedText>
                 </View>
               </View>
             ))
@@ -1044,10 +1206,12 @@ export function AidStationsSectionV3({
         >
           <View style={styles.sectionStationLine} />
           {renderStationBadge(getStationBadge(index, station.id), true)}
-          <Text style={styles.sectionStationLabel} numberOfLines={1}>
+          <Heading variant="h3" style={planDetailStyles.sectionStationLabel} numberOfLines={1}>
             {station.name}
-          </Text>
-          <Text style={styles.sectionStationKm}>{station.distanceKm} km</Text>
+          </Heading>
+          <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.sectionStationKm}>
+            {station.distanceKm} km
+          </DataText>
           <View style={styles.sectionStationLine} />
         </View>,
       );
@@ -1058,12 +1222,12 @@ export function AidStationsSectionV3({
       elements.push(
         <View key={`profile-section-${station.id ?? index}`} style={styles.profileSectionBlock}>
           <View style={styles.profileSectionHeader}>
-            <Text style={styles.profileTitle} numberOfLines={1}>
+            <Heading variant="h3" style={planDetailStyles.profileTitle} numberOfLines={1}>
               {station.name} vers {nextStation.name}
-            </Text>
-            <Text style={styles.profileMeta}>
+            </Heading>
+            <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.profileMeta}>
               {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
-            </Text>
+            </DataText>
           </View>
 
           {summary.segmentStats.length === 0 ? (
@@ -1102,12 +1266,25 @@ export function AidStationsSectionV3({
                 const canRemove = controls.canRemove;
 
                 return (
-                  <View key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`} style={styles.profileCard}>
+                  <View
+                    key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`}
+                    style={[
+                      styles.profileCard,
+                      planDetailStyles.sectionCard,
+                      segmentIndex % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
+                    ]}
+                  >
                     <View style={styles.profileHeader}>
                       <View style={styles.profileHeaderText}>
-                        <Text style={styles.profileSegmentLabel}>{getSegmentCardTitle(segment.label, segmentIndex)}</Text>
-                        <Text style={styles.profileSegmentTimeLabel}>Temps estime</Text>
-                        <Text style={styles.profileSegmentTime}>{formatSectionDuration(segmentStat.etaSeconds / 60)}</Text>
+                        <Heading variant="h3" style={planDetailStyles.profileSegmentLabel}>
+                          {getSegmentCardTitle(segment.label, segmentIndex)}
+                        </Heading>
+                        <ThemedText tone="tertiary" size="xs" weight="semibold" style={planDetailStyles.profileSegmentTimeLabel}>
+                          Temps estime
+                        </ThemedText>
+                        <DataText tone="brand" size="2xl" weight="bold" style={planDetailStyles.profileSegmentTime}>
+                          {formatSectionDuration(segmentStat.etaSeconds / 60)}
+                        </DataText>
                       </View>
                       <View style={styles.profilePaceWrap}>
                         <Text style={styles.profilePaceLabel}>Allure</Text>
@@ -1153,7 +1330,7 @@ export function AidStationsSectionV3({
                             }}
                             keyboardType="numbers-and-punctuation"
                             placeholder="6:00"
-                            placeholderTextColor="#94A3B8"
+                            placeholderTextColor={colors.text.tertiary}
                             autoCapitalize="none"
                             autoCorrect={false}
                           />
@@ -1185,13 +1362,19 @@ export function AidStationsSectionV3({
 
                     <View style={styles.profileMetricsRow}>
                       <View style={styles.profileMetricPill}>
-                        <Text style={styles.profileMetricPillText}>{segmentStat.distKm.toFixed(2)} km</Text>
+                        <DataText tone="secondary" size="xs" weight="semibold">
+                          {segmentStat.distKm.toFixed(2)} km
+                        </DataText>
                       </View>
                       <View style={styles.profileMetricPill}>
-                        <Text style={styles.profileMetricPillText}>D+ {Math.round(segmentStat.dPlus)} m</Text>
+                        <DataText tone="secondary" size="xs" weight="semibold">
+                          D+ {Math.round(segmentStat.dPlus)} m
+                        </DataText>
                       </View>
                       <View style={styles.profileMetricPill}>
-                        <Text style={styles.profileMetricPillText}>D- {Math.round(segmentStat.dMinus)} m</Text>
+                        <DataText tone="secondary" size="xs" weight="semibold">
+                          D- {Math.round(segmentStat.dMinus)} m
+                        </DataText>
                       </View>
                     </View>
 
@@ -1335,11 +1518,18 @@ export function AidStationsSectionV3({
   // don't accidentally "re-snap" the pager at the end of a swipe.
   const initialPagerOffset = useMemo(() => ({ x: pageWidth, y: 0 }), [pageWidth]);
   const bottomSpacerHeight = useMemo(() => getBottomSpacerHeight(), [viewportHeight, windowHeight]);
+  const previousViewMode = getAdjacentViewMode(displayedViewMode, 'previous');
+  const nextViewMode = getAdjacentViewMode(displayedViewMode, 'next');
 
   return (
     <>
       <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-        <Text style={styles.sectionTitle}>Ravitaillements</Text>
+        <View style={planDetailStyles.sectionHeaderTitle}>
+          <TrailIcon color={colors.brand.forest} size={22} strokeWidth={2.2} />
+          <Heading variant="h2" style={planDetailStyles.sectionTitle}>
+            Ravitaillements
+          </Heading>
+        </View>
         <View style={styles.sectionActions}>
           <TutorialTarget
             onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
@@ -1359,7 +1549,7 @@ export function AidStationsSectionV3({
               <View style={styles.fillBtnContent}>
                 {isAutoFilling ? (
                   <>
-                    <ActivityIndicator size="small" color={Colors.textOnBrand} />
+                    <ActivityIndicator size="small" color={colors.text.inverse} />
                     <Text style={[styles.fillBtnText, styles.fillBtnTextLoading]} numberOfLines={1}>
                       {autoFillLoadingMessage}
                     </Text>
@@ -1416,10 +1606,12 @@ export function AidStationsSectionV3({
 
       <View style={styles.scrollContextBar}>
         {renderStationBadge(contextInfo.badge, true)}
-        <Text style={styles.scrollContextLabel} numberOfLines={1}>
+        <Heading variant="h3" style={planDetailStyles.scrollContextLabel} numberOfLines={1}>
           {contextInfo.label}
-        </Text>
-        <Text style={styles.scrollContextMeta}>{contextInfo.meta}</Text>
+        </Heading>
+        <DataText tone="tertiary" size="xs" weight="medium">
+          {contextInfo.meta}
+        </DataText>
       </View>
 
       <TutorialTarget
@@ -1427,11 +1619,16 @@ export function AidStationsSectionV3({
         onRegisterRef={tutorial?.onTargetRegisterRef}
         targetKey="aidStations"
       >
-        <View style={[styles.swipeViewport, { height: viewportHeight }]} onLayout={handleViewportLayout}>
+        <View
+          style={[styles.swipeViewport, { height: viewportHeight }]}
+          onLayout={handleViewportLayout}
+          onTouchStart={handlePagerTouchStart}
+        >
           <ScrollView
             ref={pagerRef}
             horizontal
             pagingEnabled
+            scrollEnabled={pagerScrollEnabled}
             nestedScrollEnabled
             bounces={false}
             showsHorizontalScrollIndicator={false}
@@ -1466,8 +1663,161 @@ export function AidStationsSectionV3({
               </View>
             ))}
           </ScrollView>
+          <TouchableOpacity
+            accessibilityLabel={`Aller à ${VIEW_MODE_LABELS[previousViewMode]}`}
+            accessibilityRole="button"
+            activeOpacity={0.72}
+            hitSlop={PAGER_SIDE_BUTTON_HIT_SLOP}
+            onPress={() => switchViewMode(previousViewMode)}
+            style={[planDetailStyles.pagerSideButton, planDetailStyles.pagerSideButtonLeft]}
+          >
+            <Ionicons name="chevron-back" size={20} color="rgba(45, 80, 22, 0.78)" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={`Aller à ${VIEW_MODE_LABELS[nextViewMode]}`}
+            accessibilityRole="button"
+            activeOpacity={0.72}
+            hitSlop={PAGER_SIDE_BUTTON_HIT_SLOP}
+            onPress={() => switchViewMode(nextViewMode)}
+            style={[planDetailStyles.pagerSideButton, planDetailStyles.pagerSideButtonRight]}
+          >
+            <Ionicons name="chevron-forward" size={20} color="rgba(45, 80, 22, 0.78)" />
+          </TouchableOpacity>
         </View>
       </TutorialTarget>
     </>
   );
 }
+
+const planDetailStyles = StyleSheet.create({
+  sectionHeaderTitle: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+    marginBottom: spacing[3],
+  },
+  sectionTitle: {
+    color: colors.brand.forest,
+  },
+  stationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.surface.cream,
+  },
+  stationBadgeText: {
+    fontSize: 12,
+    lineHeight: 15,
+  },
+  stationBadgeMiniText: {
+    fontSize: 10,
+    lineHeight: 13,
+  },
+  stationCard: {
+    borderRadius: radius.card,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.surface.white,
+    shadowOpacity: 0,
+    elevation: 0,
+    boxShadow: shadows.sm,
+  } as ViewStyle,
+  stationCardFocused: {
+    borderColor: colors.border.brand,
+    boxShadow: shadows.md,
+  } as ViewStyle,
+  cardWhite: {
+    backgroundColor: colors.surface.white,
+  },
+  cardCream: {
+    backgroundColor: colors.surface.cream,
+  },
+  stationName: {
+    flex: 1,
+    color: colors.text.primary,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  stationKm: {
+    marginLeft: spacing[2],
+  },
+  separatorText: {
+    marginHorizontal: spacing[3],
+  },
+  sectionStationLabel: {
+    flexShrink: 1,
+    maxWidth: '50%',
+    color: colors.text.primary,
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  sectionStationKm: {
+    flexShrink: 0,
+  },
+  sectionCard: {
+    borderRadius: radius.card,
+    borderColor: colors.border.subtle,
+    shadowOpacity: 0,
+    elevation: 0,
+    boxShadow: shadows.sm,
+  } as ViewStyle,
+  sectionViewTitle: {
+    color: colors.text.primary,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  sectionViewMeta: {
+    marginTop: spacing[1],
+  },
+  sectionTimelineTime: {
+    width: 58,
+  },
+  sectionTimelineDetail: {
+    marginTop: spacing[0.5],
+  },
+  profileTitle: {
+    color: colors.text.primary,
+    fontSize: 18,
+    lineHeight: 22,
+  },
+  profileMeta: {
+    marginTop: spacing[1],
+  },
+  profileSegmentLabel: {
+    color: colors.text.primary,
+    fontSize: 17,
+    lineHeight: 21,
+  },
+  profileSegmentTimeLabel: {
+    marginTop: spacing[2],
+  },
+  profileSegmentTime: {
+    marginTop: spacing[0.5],
+  },
+  scrollContextLabel: {
+    flex: 1,
+    color: colors.text.primary,
+    fontSize: 15,
+    lineHeight: 19,
+  },
+  pagerSideButton: {
+    position: 'absolute',
+    top: '42%',
+    width: 44,
+    height: 74,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    opacity: 0.64,
+    zIndex: 8,
+  } as ViewStyle,
+  pagerSideButtonLeft: {
+    left: -16,
+  },
+  pagerSideButtonRight: {
+    right: -16,
+  },
+});

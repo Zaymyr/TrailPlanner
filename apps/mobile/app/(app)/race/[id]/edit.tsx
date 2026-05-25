@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
-  ActivityIndicator,
+  ActivityIndicator
 } from 'react-native';
+import { Text } from '../../../../components/themed/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
 import { WEB_API_BASE_URL } from '../../../../lib/webApi';

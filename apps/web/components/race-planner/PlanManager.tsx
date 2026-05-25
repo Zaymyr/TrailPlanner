@@ -144,7 +144,7 @@ export function PlanManager({
   }, [races, savedPlans, userId]);
 
   return (
-    <Card>
+    <Card className="border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none">
       <CardContent className="space-y-4 pt-6">
         {sessionEmail ? (
           <div className="space-y-4">

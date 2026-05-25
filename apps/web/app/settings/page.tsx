@@ -13,6 +13,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { FuelTypeBadge, getFuelTypeLabel } from "../../components/products/FuelTypeBadge";
+import { isVerifiedProduct, VerifiedProductBadge } from "../../components/products/VerifiedProductBadge";
 import { readStoredSession } from "../../lib/auth-storage";
 import { defaultEntitlements, fetchEntitlements } from "../../lib/entitlements-client";
 import { defaultFuelType, fuelTypeSchema, fuelTypeValues } from "../../lib/fuel-types";
@@ -26,10 +27,10 @@ import { useI18n } from "../i18n-provider";
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 const productDetailSchema = z.object({ product: fuelProductSchema });
 const baseButtonClass =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300";
+  "inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:focus-visible:outline-emerald-300";
 const outlineButtonClass =
-  "border border-border text-[hsl(var(--success))] hover:bg-muted hover:text-foreground dark:border-emerald-300 dark:text-emerald-100 dark:hover:bg-emerald-950/60";
-const primaryButtonClass = "bg-emerald-400 text-slate-950 hover:bg-emerald-300";
+  "border border-border text-brand hover:border-brand-border hover:bg-brand-surface hover:text-brand dark:border-emerald-300 dark:text-emerald-100 dark:hover:bg-emerald-950/60";
+const primaryButtonClass = "bg-brand text-brand-foreground hover:bg-brand-light dark:bg-emerald-400 dark:text-slate-950 dark:hover:bg-emerald-300";
 const createLocalProductId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -393,7 +394,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl border border-border-strong bg-card p-3 text-foreground shadow-md shadow-emerald-900/20 sm:p-6 dark:bg-slate-950/60">
+    <div className="mx-auto flex w-full flex-col gap-6 rounded-2xl border border-border bg-card p-3 text-foreground shadow-md shadow-[rgba(45,80,22,0.08)] sm:p-6 dark:border-border-strong dark:bg-slate-950/60 dark:shadow-emerald-900/20">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-foreground">{t.productSettings.title}</h1>
@@ -573,18 +574,35 @@ export default function SettingsPage() {
                           </button>
                         </TableCell>
                         <TableCell className="font-semibold text-foreground">
-                          {product.productUrl ? (
-                            <a
-                              href={product.productUrl}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="hover:underline text-[hsl(var(--success))]"
-                            >
-                              {product.name}
-                            </a>
-                          ) : (
-                            <span>{product.name}</span>
-                          )}
+                          <div className="flex min-w-[220px] items-center gap-3">
+                            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background dark:bg-slate-900">
+                              {isVerifiedProduct(product) ? (
+                                <VerifiedProductBadge
+                                  locale={locale}
+                                  className="absolute right-0.5 top-0.5 h-5 w-5"
+                                />
+                              ) : null}
+                              {product.imageUrl ? (
+                                <img src={product.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1.5" />
+                              ) : (
+                                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                  {product.name.slice(0, 1)}
+                                </span>
+                              )}
+                            </div>
+                            {product.productUrl ? (
+                              <a
+                                href={product.productUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="min-w-0 hover:underline text-[hsl(var(--success))]"
+                              >
+                                {product.name}
+                              </a>
+                            ) : (
+                              <span className="min-w-0">{product.name}</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <FuelTypeBadge fuelType={product.fuelType} locale={locale} />

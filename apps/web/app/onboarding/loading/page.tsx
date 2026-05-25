@@ -41,7 +41,7 @@ export default function LoadingPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-[calc(100dvh-120px)] flex-col items-center justify-center gap-8 px-6 pt-10 pb-8">
+    <div className="flex min-h-[calc(100dvh-120px)] w-full min-w-0 flex-col items-center justify-center gap-8 overflow-x-hidden px-5 pt-10 pb-8 sm:px-6">
       <div className="flex flex-col items-center gap-4">
         <div
           className="flex h-16 w-16 items-center justify-center rounded-full"

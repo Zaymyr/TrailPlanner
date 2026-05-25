@@ -72,15 +72,18 @@ const sanitizeFileName = (value: string) => {
 const isSlideId = (value: string): value is SocialInstagramTemplateSlideId =>
   socialInstagramTemplateSlideIds.some((slideId) => slideId === value);
 
-const PREVIEW_SCALE = 0.27;
+const PREVIEW_SCALE = 0.34;
 const PREVIEW_SLIDE_WIDTH = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_WIDTH * PREVIEW_SCALE);
 const PREVIEW_SLIDE_HEIGHT = Math.round(SOCIAL_INSTAGRAM_TEMPLATE_SLIDE_HEIGHT * PREVIEW_SCALE);
+const EXPORT_DOWNLOAD_DELAY_MS = 180;
 const ADMIN_COPY = {
-  description: "Choisis un plan, ajuste le template Instagram puis exporte chaque slide en PNG.",
-  previewDescription: "Apercu reduit dans l'Admin. L'export PNG garde le format complet 1080 x 1080.",
+  description: "Choisis un plan, ajuste le template Instagram puis exporte les 4 slides en PNG.",
+  previewDescription: "Aperçu réduit dans l'Admin. L'export PNG garde le format complet 1080 x 1080.",
   scrollHint: "Le preview est reduit pour rester lisible ici. L'export garde la taille complete du slide.",
   editorDescription: "Les champs verts viennent du plan en base. Les champs neutres servent a l'habillage social et restent modifiables localement.",
 } as const;
+
+const wait = (durationMs: number) => new Promise((resolve) => window.setTimeout(resolve, durationMs));
 
 export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
   const carouselRef = useRef<HTMLDivElement | null>(null);
@@ -243,18 +246,22 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
   };
 
   const handleExport = async () => {
-    const activeSlide = slideExportRefs.current[activeSlideId];
-
-    if (!template || !activeSlide) return;
+    if (!template) return;
 
     setExportError(null);
     setIsExporting(true);
 
     try {
-      await exportHtmlToPng(
-        activeSlide,
-        `${sanitizeFileName(`${template.plan.name}-${activeSlideId}`)}.png`
-      );
+      for (const slideId of socialInstagramTemplateSlideIds) {
+        const slide = slideExportRefs.current[slideId];
+
+        if (!slide) {
+          throw new Error(t.exportError);
+        }
+
+        await exportHtmlToPng(slide, `${sanitizeFileName(`${template.plan.name}-${slideId}`)}.png`);
+        await wait(EXPORT_DOWNLOAD_DELAY_MS);
+      }
     } catch (error) {
       setExportError(error instanceof Error ? error.message : t.exportError);
     } finally {
@@ -281,97 +288,86 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <div className="grid gap-6 xl:grid-cols-[minmax(520px,560px)_minmax(0,1fr)]">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="admin-social-template-plan">{t.planLabel}</Label>
-              <select
-                id="admin-social-template-plan"
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                value={selectedPlanId}
-                onChange={(event) => {
-                  setExportError(null);
-                  setSelectedPlanId(event.target.value);
-                }}
-                disabled={plansQuery.isLoading || (plansQuery.data?.length ?? 0) === 0}
-              >
-                <option value="">{t.planPlaceholder}</option>
-                {(plansQuery.data ?? []).map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {formatPlanLabel(plan)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" onClick={() => void plansQuery.refetch()} disabled={plansQuery.isLoading}>
-                {plansQuery.isLoading ? t.refreshingPlans : t.refreshPlans}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void templateQuery.refetch()}
-                disabled={!selectedPlanId || templateQuery.isLoading}
-              >
-                {templateQuery.isLoading ? t.refreshingPreview : t.refreshPreview}
-              </Button>
-              <Button type="button" onClick={() => void handleExport()} disabled={!templateQuery.data || isExporting}>
-                {isExporting ? t.exporting : t.exportPng}
-              </Button>
-            </div>
-
-            {selectedPlan ? (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
-                  {t.selectionTitle}
-                </p>
-                <p className="mt-2 text-base font-semibold text-slate-900 dark:text-slate-50">{selectedPlan.name}</p>
-                {selectedPlan.races?.name ? (
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{selectedPlan.races.name}</p>
-                ) : null}
-                {formatUpdatedAt(selectedPlan.updated_at) ? (
-                  <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                    {t.updatedAt.replace("{date}", formatUpdatedAt(selectedPlan.updated_at) ?? "")}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            {draft ? (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Edition du template</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.editorDescription}</p>
-                </div>
-                <AdminSocialInstagramTemplatePanel
-                  draft={draft}
-                  onDraftChange={handleDraftChange}
-                  onReset={handleResetDraft}
-                />
-              </div>
-            ) : null}
-
-            {plansQuery.error ? (
-              <p className="text-sm text-red-600 dark:text-red-300">
-                {plansQuery.error instanceof Error ? plansQuery.error.message : t.loadPlansError}
-              </p>
-            ) : null}
-
-            {templateQuery.error ? (
-              <p className="text-sm text-red-600 dark:text-red-300">
-                {templateQuery.error instanceof Error ? templateQuery.error.message : t.loadTemplateError}
-              </p>
-            ) : null}
-
-            {exportError ? <p className="text-sm text-red-600 dark:text-red-300">{exportError}</p> : null}
-
-            {(plansQuery.data?.length ?? 0) === 0 && !plansQuery.isLoading ? (
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t.emptyPlans}</p>
-            ) : null}
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="space-y-2">
+            <Label htmlFor="admin-social-template-plan">{t.planLabel}</Label>
+            <select
+              id="admin-social-template-plan"
+              className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+              value={selectedPlanId}
+              onChange={(event) => {
+                setExportError(null);
+                setSelectedPlanId(event.target.value);
+              }}
+              disabled={plansQuery.isLoading || (plansQuery.data?.length ?? 0) === 0}
+            >
+              <option value="">{t.planPlaceholder}</option>
+              {(plansQuery.data ?? []).map((plan) => (
+                <option key={plan.id} value={plan.id}>
+                  {formatPlanLabel(plan)}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="space-y-3">
+          <div className="flex flex-wrap gap-2 xl:justify-end">
+            <Button type="button" variant="outline" onClick={() => void plansQuery.refetch()} disabled={plansQuery.isLoading}>
+              {plansQuery.isLoading ? t.refreshingPlans : t.refreshPlans}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void templateQuery.refetch()}
+              disabled={!selectedPlanId || templateQuery.isLoading}
+            >
+              {templateQuery.isLoading ? t.refreshingPreview : t.refreshPreview}
+            </Button>
+            <Button type="button" onClick={() => void handleExport()} disabled={!templateQuery.data || isExporting}>
+              {isExporting ? t.exporting : t.exportPng}
+            </Button>
+          </div>
+        </div>
+
+        {selectedPlan ? (
+          <div className="rounded-lg border border-border bg-muted/60 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              {t.selectionTitle}
+            </p>
+            <div className="mt-2 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-base font-semibold text-slate-900 dark:text-slate-50">{selectedPlan.name}</p>
+                {selectedPlan.races?.name ? (
+                  <p className="text-sm text-slate-600 dark:text-slate-300">{selectedPlan.races.name}</p>
+                ) : null}
+              </div>
+              {formatUpdatedAt(selectedPlan.updated_at) ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t.updatedAt.replace("{date}", formatUpdatedAt(selectedPlan.updated_at) ?? "")}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {plansQuery.error ? (
+          <p className="text-sm text-red-600 dark:text-red-300">
+            {plansQuery.error instanceof Error ? plansQuery.error.message : t.loadPlansError}
+          </p>
+        ) : null}
+
+        {templateQuery.error ? (
+          <p className="text-sm text-red-600 dark:text-red-300">
+            {templateQuery.error instanceof Error ? templateQuery.error.message : t.loadTemplateError}
+          </p>
+        ) : null}
+
+        {exportError ? <p className="text-sm text-red-600 dark:text-red-300">{exportError}</p> : null}
+
+        {(plansQuery.data?.length ?? 0) === 0 && !plansQuery.isLoading ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">{t.emptyPlans}</p>
+        ) : null}
+
+        <section className="space-y-3 rounded-2xl border border-border bg-muted/50 p-4 dark:border-slate-800 dark:bg-slate-900/30">
             <div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{t.previewTitle}</p>
               <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.previewDescription}</p>
@@ -412,7 +408,7 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
 
                 <div
                   ref={carouselRef}
-                  className="flex snap-x snap-mandatory gap-4 overflow-x-auto rounded-xl border border-slate-200 bg-slate-100 p-4 dark:border-slate-800 dark:bg-slate-900/40"
+                  className="flex w-full snap-x snap-mandatory gap-4 overflow-x-auto rounded-xl border border-border bg-background p-4 dark:border-slate-800 dark:bg-slate-950/50"
                 >
                   {slideDefinitions.map((slide) => (
                     <div
@@ -463,8 +459,21 @@ export default function AdminSocialTemplatesSection({ accessToken, t }: Props) {
                 {selectedPlanId ? (templateQuery.isLoading ? t.loadingPreview : t.previewEmpty) : t.noPlanSelected}
               </div>
             )}
-          </div>
-        </div>
+        </section>
+
+        {draft ? (
+          <section className="space-y-3 border-t border-border pt-6">
+            <div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Edition du template</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">{ADMIN_COPY.editorDescription}</p>
+            </div>
+            <AdminSocialInstagramTemplatePanel
+              draft={draft}
+              onDraftChange={handleDraftChange}
+              onReset={handleResetDraft}
+            />
+          </section>
+        ) : null}
       </CardContent>
     </Card>
   );

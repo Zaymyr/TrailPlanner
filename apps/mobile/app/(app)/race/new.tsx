@@ -1,25 +1,28 @@
 import { useState } from 'react';
 import {
   View,
-  Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
   Alert,
-  ActivityIndicator,
+  ActivityIndicator
 } from 'react-native';
+import { Text } from '../../../components/themed/Text';
 import { useRouter } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
-import { supabase } from '../../../lib/supabase';
-import { WEB_API_BASE_URL } from '../../../lib/webApi';
 import { useI18n } from '../../../lib/i18n';
 import { noteReviewRaceCreated } from '../../../lib/appReview';
-import { parseGpxForRaceImport, type MobileGpxParseResult } from '../../../lib/gpx';
+import { GpxImportPreviewModal } from '../../../components/race/GpxImportPreviewModal';
+import {
+  buildGpxImportErrorMessage,
+  createPrivateRace,
+  pickAndParseGpxDocument,
+  type GpxFeedback,
+  type ImportedGpxDocument
+} from '../../../lib/race-import';
 import { Colors } from '../../../constants/colors';
 
 type AidStation = { name: string; km: string; water: boolean };
-type GpxFeedback = { tone: 'success' | 'warning'; message: string };
 type FieldErrors = Partial<Record<'name' | 'distanceKm' | 'elevationGain' | 'elevationLoss' | 'raceDate' | 'aidStations', string>>;
 type ValidatedRaceForm = {
   distanceKm: number;
@@ -44,27 +47,6 @@ const FieldError = ({ message }: { message?: string }) => (
   message ? <Text style={styles.fieldError}>{message}</Text> : null
 );
 
-const buildGpxFeedback = (parsed: MobileGpxParseResult, t: ReturnType<typeof useI18n>['t']): GpxFeedback => {
-  const base =
-    parsed.pointSource === 'route'
-      ? t.races.gpxRouteFallback
-      : parsed.pointSource === 'waypoint'
-        ? t.races.gpxWaypointFallback
-      : t.races.gpxImportSuccess;
-  const message = base
-    .replace('{points}', String(parsed.pointCount))
-    .replace('{distance}', String(parsed.stats.distanceKm));
-
-  if (!parsed.hasElevation) {
-    return { tone: 'warning', message: `${message} ${t.races.gpxNoElevation}` };
-  }
-
-  return {
-    tone: parsed.pointSource === 'track' ? 'success' : 'warning',
-    message,
-  };
-};
-
 export default function NewRaceScreen() {
   const router = useRouter();
   const { t } = useI18n();
@@ -78,7 +60,10 @@ export default function NewRaceScreen() {
   const [gpxContent, setGpxContent] = useState<string | null>(null);
   const [gpxFileName, setGpxFileName] = useState<string | null>(null);
   const [gpxFeedback, setGpxFeedback] = useState<GpxFeedback | null>(null);
+  const [pendingGpxDocument, setPendingGpxDocument] = useState<ImportedGpxDocument | null>(null);
+  const [pendingGpxName, setPendingGpxName] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [pickingGpx, setPickingGpx] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const clearFieldError = (field: keyof FieldErrors) => {
@@ -161,45 +146,44 @@ export default function NewRaceScreen() {
   };
 
   const handlePickGpx = async () => {
+    setPickingGpx(true);
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/gpx+xml', 'application/gpx', 'application/xml', 'text/xml', 'text/plain', 'application/octet-stream'],
-        copyToCacheDirectory: true,
-      });
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset?.uri) return;
-
+      const picked = await pickAndParseGpxDocument(t);
+      if (!picked) return;
+      setPendingGpxDocument(picked);
+      setPendingGpxName(picked.suggestedRaceName);
+    } catch (error) {
       setGpxContent(null);
-      setGpxFeedback(null);
-      setGpxFileName(asset.name ?? 'route.gpx');
-
-      const response = await fetch(asset.uri);
-      const text = await response.text();
-      setGpxContent(text);
-
-      try {
-        const parsed = parseGpxForRaceImport(text);
-
-        if (parsed.stats.distanceKm > 0) {
-          setDistanceKm(String(parsed.stats.distanceKm));
-          clearFieldError('distanceKm');
-        }
-        if (parsed.hasElevation) {
-          setElevationGain(String(Math.round(parsed.stats.gainM)));
-          setElevationLoss(String(Math.round(parsed.stats.lossM)));
-          clearFieldError('elevationGain');
-          clearFieldError('elevationLoss');
-        }
-
-        setGpxFeedback(buildGpxFeedback(parsed, t));
-      } catch {
-        setGpxContent(null);
-        setGpxFeedback({ tone: 'warning', message: t.races.gpxImportFailedDetails });
-      }
-    } catch {
-      Alert.alert('Erreur', 'Impossible de lire le fichier GPX.');
+      setGpxFileName(null);
+      setPendingGpxDocument(null);
+      setPendingGpxName('');
+      setGpxFeedback({ tone: 'warning', message: buildGpxImportErrorMessage(error, t) });
+    } finally {
+      setPickingGpx(false);
     }
+  };
+
+  const handleApplyGpxPreview = () => {
+    if (!pendingGpxDocument) return;
+
+    setGpxContent(pendingGpxDocument.content);
+    setGpxFeedback(pendingGpxDocument.feedback);
+    setGpxFileName(pendingGpxDocument.fileName);
+    setName((current) => (current.trim().length > 0 ? current : pendingGpxName.trim() || pendingGpxDocument.suggestedRaceName));
+
+    if (pendingGpxDocument.parsed.stats.distanceKm > 0) {
+      setDistanceKm(String(pendingGpxDocument.parsed.stats.distanceKm));
+      clearFieldError('distanceKm');
+    }
+    if (pendingGpxDocument.parsed.hasElevation) {
+      setElevationGain(String(Math.round(pendingGpxDocument.parsed.stats.gainM)));
+      setElevationLoss(String(Math.round(pendingGpxDocument.parsed.stats.lossM)));
+      clearFieldError('elevationGain');
+      clearFieldError('elevationLoss');
+    }
+
+    setPendingGpxDocument(null);
+    setPendingGpxName('');
   };
 
   const handleAddAidStation = () => {
@@ -217,82 +201,36 @@ export default function NewRaceScreen() {
     setFieldErrors({});
     setSaving(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData?.session?.access_token;
-      const userId = sessionData?.session?.user?.id;
-      if (!token || !userId) {
-        Alert.alert('Erreur', 'Session expirée.');
-        return;
-      }
-
-      const slug =
-        name.trim().toLowerCase()
-          .replace(/\s+/g, '-')
-          .replace(/[^a-z0-9-]/g, '') +
-        '-' +
-        Date.now();
-
-      const aid_stations = validation.values.aidStations;
-
-      const payload: Record<string, unknown> = {
+      const { race } = await createPrivateRace({
         name: name.trim(),
-        distance_km: validation.values.distanceKm,
-        elevation_gain_m: validation.values.elevationGain,
-        elevation_loss_m: validation.values.elevationLoss,
-        location_text: location.trim() || null,
-        race_date: raceDate || null,
-        aid_stations,
-        gpx_content: gpxContent,
-        is_public: false,
-        is_live: false,
-        is_published: false,
-        event_id: null,
-        created_by: userId,
-        slug,
-      };
-
-      const response = await fetch(`${WEB_API_BASE_URL}/api/races`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        distanceKm: validation.values.distanceKm,
+        elevationGainM: validation.values.elevationGain,
+        elevationLossM: validation.values.elevationLoss,
+        locationText: location.trim() || null,
+        raceDate: raceDate || null,
+        aidStations: validation.values.aidStations,
+        gpxContent,
       });
-
-      const data = await response.json().catch(() => null);
-
-      if (!response.ok || !data?.race) {
-        Alert.alert('Erreur', data?.message ?? t.races.createFailed);
-        return;
-      }
-
-      // Ensure private fields are set regardless of server behaviour
-      await supabase
-        .from('races')
-        .update({
-          is_public: false,
-          is_live: false,
-          is_published: false,
-          created_by: userId,
-          slug,
-          event_id: null,
-        })
-        .eq('id', data.race.id);
 
       await noteReviewRaceCreated();
       Alert.alert('', t.races.created, [
         {
           text: t.plans.newPlanForRace.replace('+', '').trim(),
-          onPress: () => router.replace({ pathname: '/(app)/plan/new', params: { raceId: data.race.id } }),
+          onPress: () => router.replace({ pathname: '/(app)/plan/new', params: { raceId: race.id } }),
         },
         {
           text: t.common.back,
           onPress: () => router.back(),
         },
       ]);
-    } catch {
-      Alert.alert('Erreur', t.races.createFailed);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message === 'Session expired.'
+            ? t.raceRequests.sessionExpired
+            : error.message
+          : t.races.createFailed;
+      Alert.alert('Erreur', message);
     } finally {
       setSaving(false);
     }
@@ -303,10 +241,18 @@ export default function NewRaceScreen() {
       <Text style={styles.sectionTitle}>{t.races.createTitle}</Text>
 
       {/* GPX import */}
-      <TouchableOpacity style={styles.gpxButton} onPress={handlePickGpx}>
-        <Text style={styles.gpxButtonText}>
-          {gpxFileName ? `📄 ${gpxFileName}` : `📂 ${t.races.gpxPickFile}`}
-        </Text>
+      <TouchableOpacity
+        style={[styles.gpxButton, pickingGpx && styles.gpxButtonDisabled]}
+        onPress={() => void handlePickGpx()}
+        disabled={pickingGpx}
+      >
+        {pickingGpx ? (
+          <ActivityIndicator color={Colors.brandPrimary} />
+        ) : (
+          <Text style={styles.gpxButtonText}>
+            {gpxFileName ? `📄 ${gpxFileName}` : `📂 ${t.races.gpxPickFile}`}
+          </Text>
+        )}
       </TouchableOpacity>
       {gpxFeedback ? (
         <View style={[styles.gpxFeedback, gpxFeedback.tone === 'warning' && styles.gpxFeedbackWarning]}>
@@ -456,6 +402,18 @@ export default function NewRaceScreen() {
           <Text style={styles.saveButtonText}>{t.common.create}</Text>
         )}
       </TouchableOpacity>
+
+      <GpxImportPreviewModal
+        visible={Boolean(pendingGpxDocument)}
+        document={pendingGpxDocument}
+        raceName={pendingGpxName}
+        onRaceNameChange={setPendingGpxName}
+        onCancel={() => {
+          setPendingGpxDocument(null);
+          setPendingGpxName('');
+        }}
+        onConfirm={handleApplyGpxPreview}
+      />
     </ScrollView>
   );
 }
@@ -489,6 +447,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 8,
+  },
+  gpxButtonDisabled: {
+    opacity: 0.6,
   },
   gpxButtonText: { color: Colors.brandPrimary, fontSize: 14 },
   gpxFeedback: {

@@ -8,14 +8,16 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import { Text } from '../../components/themed/Text';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
+import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
@@ -336,7 +338,9 @@ function PersonalRacesSection({
 
 export default function CatalogScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
+  const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventGroup | null>(null);
@@ -507,6 +511,50 @@ export default function CatalogScreen() {
       ).length,
     [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter],
   );
+  const listContentStyle = useMemo(
+    () => [
+      styles.list,
+      {
+        paddingBottom: 120,
+        paddingTop: Math.max(16, insets.top + 12),
+      },
+      filteredEventGroups.length === 0 && filteredPersonalRaces.length === 0 && styles.listEmpty,
+    ],
+    [filteredEventGroups.length, filteredPersonalRaces.length, insets.top],
+  );
+  const loadingListStyle = useMemo(
+    () => [
+      styles.list,
+      {
+        paddingTop: Math.max(16, insets.top + 12),
+      },
+    ],
+    [insets.top],
+  );
+  const actionItems = useMemo<FloatingActionMenuItem[]>(
+    () => [
+      {
+        key: 'create-race',
+        label: locale === 'fr' ? 'Cr\u00e9er une course' : 'Create race',
+        icon: 'add-circle-outline',
+        onPress: () => router.push('/(app)/race/new'),
+      },
+    ],
+    [locale, router],
+  );
+  const helpCopy = useMemo(
+    () =>
+      locale === 'fr'
+        ? {
+            title: 'Courses',
+            body: "Recherche une course, filtre par distance ou date, puis choisis le format qui servira de base au plan. Le menu regroupe aussi la cr\u00e9ation d'une course et les demandes d'ajout.",
+          }
+        : {
+            title: 'Races',
+            body: 'Search races, filter by distance or date, then pick the format that will become the plan base. The menu also groups race creation and catalog requests.',
+          },
+    [locale],
+  );
 
   const selectedEventDate = selectedEvent ? formatEventDate(selectedEvent.race_date, locale) : null;
   const selectedEventMeta = selectedEvent
@@ -529,7 +577,7 @@ export default function CatalogScreen() {
 
   if (loading) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.list}>
+      <ScrollView style={styles.container} contentContainerStyle={loadingListStyle}>
         <SkeletonEventCard />
         <SkeletonEventCard />
       </ScrollView>
@@ -559,10 +607,7 @@ export default function CatalogScreen() {
       <FlatList
         data={filteredEventGroups}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={[
-          styles.list,
-          filteredEventGroups.length === 0 && filteredPersonalRaces.length === 0 && styles.listEmpty,
-        ]}
+        contentContainerStyle={listContentStyle}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -629,6 +674,13 @@ export default function CatalogScreen() {
           />
         )}
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
+      />
+
+      <RootScreenActionMenu
+        actions={actionItems}
+        contextLabel={catalogLabel}
+        help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
+        includeRaceRequest
       />
 
       <Modal

@@ -15,9 +15,24 @@ if (typeof ErrorUtils !== 'undefined') {
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Session } from '@supabase/supabase-js';
-import * as Notifications from 'expo-notifications';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import { PostHogProvider as AnalyticsProvider } from 'posthog-react-native';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
+import {
+  BricolageGrotesque_300Light,
+  BricolageGrotesque_400Regular,
+  BricolageGrotesque_500Medium,
+  BricolageGrotesque_600SemiBold,
+  BricolageGrotesque_700Bold,
+} from '@expo-google-fonts/bricolage-grotesque';
+import {
+  JetBrainsMono_400Regular,
+  JetBrainsMono_500Medium,
+  JetBrainsMono_600SemiBold,
+  JetBrainsMono_700Bold,
+} from '@expo-google-fonts/jetbrains-mono';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
 import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';
@@ -28,28 +43,51 @@ import {
 } from '../lib/accountConversion';
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
+import { syncPushDeviceRegistration } from '../lib/pushRegistration';
+import { syncResendContactRegistration } from '../lib/resendContactSync';
+import { primePlansScreenBootstrap } from '../lib/plansScreenBootstrap';
+import {
+  clearInactivityReminder,
+  clearUnfinishedPlanReminder,
+  refreshInactivityReminder,
+} from '../lib/reminderNotifications';
 import { supabase, supabaseInitError } from '../lib/supabase';
 import { respondToAlert } from '../lib/raceLiveSession';
 import { I18nProvider, useI18n } from '../lib/i18n';
+import { getNotificationsModule } from '../lib/notifications';
 import { getPostAuthRoute, shouldOpenOnboarding } from '../lib/onboardingGate';
 import {
   addPendingOnboardingTransitionListener,
   getPendingOnboardingTransition,
 } from '../lib/onboardingTransition';
+import {
+  buildAnalyticsScreenName,
+  captureAnalyticsEvent,
+  identifyAnalyticsUser,
+  posthog,
+  resetAnalytics,
+  trackAnalyticsScreen,
+} from '../lib/posthog';
 import { ensureTrialStatusForSession } from '../lib/trial';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
 // Show notifications even when the app is in the foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+void getNotificationsModule()
+  .then((Notifications) => {
+    Notifications?.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  })
+  .catch(() => undefined);
 
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {error: string | null}> {
   state = { error: null };
@@ -74,9 +112,11 @@ export { ErrorBoundary };
 
 export default function RootLayout() {
   return (
-    <I18nProvider>
-      <RootLayoutContent />
-    </I18nProvider>
+    <AnalyticsProvider client={posthog}>
+      <I18nProvider>
+        <RootLayoutContent />
+      </I18nProvider>
+    </AnalyticsProvider>
   );
 }
 
@@ -89,12 +129,40 @@ type StartupUpdateState =
   | { status: 'error'; detail: string | null }
   | { status: 'done'; detail: string | null };
 
+type LaunchScreenModel = {
+  title: string;
+  subtitle: string;
+  progress: number;
+  showSpinner: boolean;
+  detail: string | null;
+};
+
+type LaunchOverlayPhase = 'active' | 'completing' | 'exiting' | 'hidden';
+
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isInvalidRefreshTokenError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes('invalid refresh token');
+}
+
 function RootLayoutContent() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const [fontsLoaded, fontLoadError] = useFonts({
+    'Bricolage Grotesque': BricolageGrotesque_400Regular,
+    BricolageGrotesque_300Light,
+    BricolageGrotesque_400Regular,
+    BricolageGrotesque_500Medium,
+    BricolageGrotesque_600SemiBold,
+    BricolageGrotesque_700Bold,
+    'JetBrains Mono': JetBrainsMono_400Regular,
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
+  });
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [bootstrappingSession, setBootstrappingSession] = useState(false);
@@ -107,17 +175,43 @@ function RootLayoutContent() {
   const segments = useSegments();
   const router = useRouter();
   const startupUpdateRunRef = useRef(false);
+  const foregroundUpdateCheckInFlightRef = useRef(false);
+  const hasShownForegroundUpdateNotificationRef = useRef(false);
+  const pushRegistrationInFlightRef = useRef(false);
+  const resendContactSyncInFlightRef = useRef(false);
+  const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
+  const identifiedAnalyticsUserIdRef = useRef<string | null>(null);
+  const lastTrackedScreenKeyRef = useRef<string | null>(null);
+  const initialRedirectInFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
   const shouldHoldForPremium = Boolean(session) && premiumLoading;
+  const authenticatedPushUserId =
+    session && !isAnonymousSession(session) ? session.user.id : null;
+  const [displayedOnboardingTransition, setDisplayedOnboardingTransition] = useState(
+    () => getPendingOnboardingTransition(),
+  );
+  const [onboardingTransitionExiting, setOnboardingTransitionExiting] = useState(false);
+  const [launchOverlayPhase, setLaunchOverlayPhase] = useState<LaunchOverlayPhase>('active');
+  const shouldHoldForInitialRoute = !segments[0];
+  const analyticsScreenName = useMemo(
+    () => buildAnalyticsScreenName(segments.map((segment) => String(segment))),
+    [segments],
+  );
 
-  if (supabaseInitError) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
-        <Text style={{ color: '#ef4444' }}>Supabase Error: {supabaseInitError}</Text>
-      </View>
-    );
-  }
+  useEffect(() => {
+    if (!fontsLoaded && !fontLoadError) return;
+
+    if (fontsLoaded) {
+      console.log('[design-system] Fonts loaded: Bricolage Grotesque, JetBrains Mono');
+    }
+
+    if (fontLoadError) {
+      console.warn('Design system fonts failed to load:', fontLoadError);
+    }
+
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, [fontLoadError, fontsLoaded]);
 
   const runStartupUpdateCheck = useCallback(async () => {
     if (startupUpdateRunRef.current) return;
@@ -198,8 +292,81 @@ function RootLayoutContent() {
     void runStartupUpdateCheck();
   }, [runStartupUpdateCheck]);
 
+  const syncBackendPushRegistration = useCallback(async (requestIfNeeded = false) => {
+    if (pushRegistrationInFlightRef.current) return;
+    if (!session?.access_token) return;
+
+    pushRegistrationInFlightRef.current = true;
+
+    try {
+      await syncPushDeviceRegistration({
+        accessToken: session.access_token,
+        locale,
+        requestIfNeeded,
+      });
+    } finally {
+      pushRegistrationInFlightRef.current = false;
+    }
+  }, [locale, session?.access_token]);
+
   useEffect(() => {
     if (updateState.status !== 'done') return undefined;
+
+    const checkForForegroundUpdate = async () => {
+      if (__DEV__ || !Updates.isEnabled) return;
+      if (foregroundUpdateCheckInFlightRef.current) return;
+      if (hasShownForegroundUpdateNotificationRef.current) return;
+
+      foregroundUpdateCheckInFlightRef.current = true;
+
+      try {
+        const updateCheck = await Updates.checkForUpdateAsync();
+        if (!updateCheck.isAvailable) {
+          return;
+        }
+
+        const fetchResult = await Updates.fetchUpdateAsync();
+        if (!fetchResult.isNew) {
+          return;
+        }
+
+        hasShownForegroundUpdateNotificationRef.current = true;
+        const Notifications = await getNotificationsModule();
+        if (!Notifications) return;
+
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: t.appUpdate.readyNotificationTitle,
+            body: t.appUpdate.readyNotificationBody,
+            sound: true,
+            data: {
+              updateAction: 'reload',
+            },
+          },
+          trigger: null,
+        });
+      } catch (error) {
+        console.error('Foreground OTA update check failed:', error);
+      } finally {
+        foregroundUpdateCheckInFlightRef.current = false;
+      }
+    };
+
+    const syncInactivityReminder = async () => {
+      if (authenticatedPushUserId) {
+        await Promise.all([
+          clearInactivityReminder(),
+          clearUnfinishedPlanReminder(),
+        ]);
+        return;
+      }
+
+      await refreshInactivityReminder({
+        title: t.reminders.inactivityTitle,
+        body: t.reminders.inactivityBody,
+        href: '/(app)/plans',
+      });
+    };
 
     const flushActiveUsage = async () => {
       const startedAt = activeUsageStartedAtRef.current;
@@ -208,9 +375,25 @@ function RootLayoutContent() {
       await noteReviewActiveDuration(Date.now() - startedAt);
     };
 
+    const syncBackendPushRegistrationForCurrentSession = () => {
+      if (!session?.access_token) return;
+      if (!authenticatedPushUserId) return;
+
+      const shouldAutoRequestPermission =
+        pushPermissionAutoRequestUserIdRef.current !== authenticatedPushUserId;
+
+      if (shouldAutoRequestPermission) {
+        pushPermissionAutoRequestUserIdRef.current = authenticatedPushUserId;
+      }
+
+      void syncBackendPushRegistration(shouldAutoRequestPermission);
+    };
+
     if (AppState.currentState === 'active') {
       activeUsageStartedAtRef.current = Date.now();
       void noteReviewSessionStart();
+      void syncInactivityReminder();
+      syncBackendPushRegistrationForCurrentSession();
     }
 
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -224,6 +407,9 @@ function RootLayoutContent() {
       if (previousState !== 'active' && nextState === 'active') {
         activeUsageStartedAtRef.current = Date.now();
         void noteReviewSessionStart();
+        void syncInactivityReminder();
+        void checkForForegroundUpdate();
+        syncBackendPushRegistrationForCurrentSession();
       }
     });
 
@@ -231,7 +417,36 @@ function RootLayoutContent() {
       void flushActiveUsage();
       subscription.remove();
     };
-  }, [updateState.status]);
+  }, [
+    authenticatedPushUserId,
+    t.appUpdate.readyNotificationBody,
+    t.appUpdate.readyNotificationTitle,
+    t.reminders.inactivityBody,
+    t.reminders.inactivityTitle,
+    syncBackendPushRegistration,
+    updateState.status,
+  ]);
+
+  useEffect(() => {
+    if (updateState.status !== 'done') return;
+    if (AppState.currentState !== 'active') return;
+    if (!session?.access_token) return;
+    if (!authenticatedPushUserId) return;
+
+    const shouldAutoRequestPermission =
+      pushPermissionAutoRequestUserIdRef.current !== authenticatedPushUserId;
+
+    if (shouldAutoRequestPermission) {
+      pushPermissionAutoRequestUserIdRef.current = authenticatedPushUserId;
+    }
+
+    void syncBackendPushRegistration(shouldAutoRequestPermission);
+  }, [
+    authenticatedPushUserId,
+    session?.access_token,
+    syncBackendPushRegistration,
+    updateState.status,
+  ]);
 
   useEffect(() => {
     return addPendingOnboardingTransitionListener((transition) => {
@@ -239,21 +454,123 @@ function RootLayoutContent() {
     });
   }, []);
 
+  useEffect(() => {
+    if (pendingOnboardingTransition) {
+      setDisplayedOnboardingTransition(pendingOnboardingTransition);
+      setOnboardingTransitionExiting(false);
+      return;
+    }
+
+    const hasTransitionToDismiss = Boolean(displayedOnboardingTransition);
+    if (!hasTransitionToDismiss) {
+      setOnboardingTransitionExiting(false);
+      return;
+    }
+
+    setDisplayedOnboardingTransition((current) =>
+      current
+        ? {
+            ...current,
+            progress: 1,
+          }
+        : current,
+    );
+    setOnboardingTransitionExiting(true);
+
+    const timeout = setTimeout(() => {
+      setDisplayedOnboardingTransition(null);
+      setOnboardingTransitionExiting(false);
+    }, 280);
+
+    return () => clearTimeout(timeout);
+  }, [pendingOnboardingTransition]);
+
+  useEffect(() => {
+    if (!segments[0]) {
+      return;
+    }
+
+    const nextScreenKey = `${analyticsScreenName}:${locale}`;
+    if (lastTrackedScreenKeyRef.current === nextScreenKey) {
+      return;
+    }
+
+    lastTrackedScreenKeyRef.current = nextScreenKey;
+    trackAnalyticsScreen(analyticsScreenName, {
+      locale,
+      route_group:
+        typeof segments[0] === 'string' &&
+        segments[0].startsWith('(') &&
+        segments[0].endsWith(')')
+          ? segments[0].slice(1, -1)
+          : undefined,
+    });
+  }, [analyticsScreenName, locale, segments]);
+
+  useEffect(() => {
+    if (!ready) {
+      return;
+    }
+
+    if (session && !isAnonymousSession(session)) {
+      const authProvider =
+        typeof session.user.app_metadata?.provider === 'string'
+          ? session.user.app_metadata.provider
+          : undefined;
+
+      identifyAnalyticsUser(session.user.id, {
+        email: session.user.email,
+        locale,
+        provider: authProvider,
+      });
+      identifiedAnalyticsUserIdRef.current = session.user.id;
+      return;
+    }
+
+    if (identifiedAnalyticsUserIdRef.current !== null) {
+      resetAnalytics();
+      identifiedAnalyticsUserIdRef.current = null;
+    }
+  }, [locale, ready, session]);
+
   // Auth listener
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;
 
     try {
-      supabase.auth.getSession().then(({ data: { session: s } }: { data: { session: Session | null } }) => {
-        setSession(s);
-        setReady(true);
-      }).catch((err: Error) => {
-        console.error('Failed to get session:', err);
-        setReady(true);
-      });
+      supabase.auth
+        .getSession()
+        .then(({ data: { session: s } }: { data: { session: Session | null } }) => {
+          setSession(s);
+          setReady(true);
+        })
+        .catch(async (err: Error) => {
+          if (isInvalidRefreshTokenError(err)) {
+            await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+            setSession(null);
+          } else {
+            console.error('Failed to get session:', err);
+          }
+          setReady(true);
+        });
 
       const { data } = supabase.auth.onAuthStateChange(
-        (_event: any, s: Session | null) => setSession(s),
+        (event: AuthChangeEvent, s: Session | null) => {
+          if (event === 'SIGNED_IN' && s && !isAnonymousSession(s)) {
+            captureAnalyticsEvent('auth signed in', {
+              provider:
+                typeof s.user.app_metadata?.provider === 'string'
+                  ? s.user.app_metadata.provider
+                  : undefined,
+            });
+          }
+
+          if (event === 'SIGNED_OUT') {
+            captureAnalyticsEvent('auth signed out');
+          }
+
+          setSession(s);
+        },
       );
       subscription = data.subscription;
     } catch (err) {
@@ -274,6 +591,20 @@ function RootLayoutContent() {
     if (!session) return;
 
     void ensureTrialStatusForSession(session);
+  }, [session]);
+
+  useEffect(() => {
+    if (!session || isAnonymousSession(session) || !session.access_token) return;
+    if (resendContactSyncInFlightRef.current) return;
+
+    resendContactSyncInFlightRef.current = true;
+    void syncResendContactRegistration(session)
+      .catch((error) => {
+        console.error('Unable to sync Resend contact:', error);
+      })
+      .finally(() => {
+        resendContactSyncInFlightRef.current = false;
+      });
   }, [session]);
 
   useEffect(() => {
@@ -319,6 +650,7 @@ function RootLayoutContent() {
     if (!ready || updateState.status !== 'done' || shouldHoldForPremium || mergingGuestData) return;
 
     const currentPath = segments.join('/');
+    const atRootIndex = !segments[0];
     const inAuthGroup = segments[0] === '(auth)';
     const hasPendingOnboardingTransition = Boolean(getPendingOnboardingTransition());
     const inOnboarding =
@@ -342,6 +674,28 @@ function RootLayoutContent() {
       return;
     }
 
+    if (session && atRootIndex && !hasPendingOnboardingTransition) {
+      if (initialRedirectInFlightRef.current) return;
+      initialRedirectInFlightRef.current = true;
+
+      void (async () => {
+        try {
+          const nextRoute = await getPostAuthRoute(session);
+          if (nextRoute === '/(app)/plans') {
+            try {
+              await primePlansScreenBootstrap(session);
+            } catch (error) {
+              console.error('Failed to preload plans screen during startup:', error);
+            }
+          }
+          router.replace(nextRoute);
+        } finally {
+          initialRedirectInFlightRef.current = false;
+        }
+      })();
+      return;
+    }
+
     if (session && !inAuthGroup && !hasPendingOnboardingTransition) {
       void shouldOpenOnboarding(session).then((needsOnboarding) => {
         if (needsOnboarding && !inOnboarding) {
@@ -352,45 +706,74 @@ function RootLayoutContent() {
 
     if (session && inAuthGroup && !isAnonymousSession(session)) {
       (async () => {
-        router.replace(await getPostAuthRoute(session));
+        const nextRoute = await getPostAuthRoute(session);
+        if (nextRoute === '/(app)/plans') {
+          try {
+            await primePlansScreenBootstrap(session);
+          } catch (error) {
+            console.error('Failed to preload plans screen after auth:', error);
+          }
+        }
+        router.replace(nextRoute);
       })();
     }
   }, [bootstrappingSession, mergingGuestData, session, ready, segments, shouldHoldForPremium, updateState.status, router]);
 
   // Notification response listener
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(
-      async (response) => {
-        const alertId =
-          response.notification.request.content.data?.alertId as
-            | string
-            | undefined;
-        if (!alertId) return;
+    let subscription: { remove: () => void } | null = null;
+    let cancelled = false;
 
-        const action = response.actionIdentifier;
+    void getNotificationsModule().then((Notifications) => {
+      if (!Notifications || cancelled) return;
 
-        if (action === 'confirm') {
-          await respondToAlert(alertId, 'confirmed');
-        } else if (action === 'skip') {
-          await respondToAlert(alertId, 'skipped');
-        } else if (action.startsWith('snooze_')) {
-          const minutes = parseInt(action.replace('snooze_', ''), 10);
-          if (SNOOZE_OPTIONS_MINUTES.includes(minutes as 5 | 10 | 15)) {
-            await respondToAlert(alertId, 'snoozed', minutes);
+      subscription = Notifications.addNotificationResponseReceivedListener(
+        async (response) => {
+          const alertId =
+            response.notification.request.content.data?.alertId as
+              | string
+              | undefined;
+          const href = response.notification.request.content.data?.href as string | undefined;
+          const updateAction = response.notification.request.content.data?.updateAction as string | undefined;
+          if (alertId) {
+            const action = response.actionIdentifier;
+
+            if (action === 'confirm') {
+              await respondToAlert(alertId, 'confirmed');
+            } else if (action === 'skip') {
+              await respondToAlert(alertId, 'skipped');
+            } else if (action.startsWith('snooze_')) {
+              const minutes = parseInt(action.replace('snooze_', ''), 10);
+              if (SNOOZE_OPTIONS_MINUTES.includes(minutes as 5 | 10 | 15)) {
+                await respondToAlert(alertId, 'snoozed', minutes);
+              }
+            }
           }
-        }
-      },
-    );
 
-    return () => sub.remove();
-  }, []);
+          if (updateAction === 'reload') {
+            await Updates.reloadAsync();
+            return;
+          }
 
-  const launchScreen = useMemo(() => {
+          if (href) {
+            router.push(href as any);
+          }
+        },
+      );
+    });
+
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
+  }, [router]);
+
+  const launchScreen = useMemo<LaunchScreenModel>(() => {
     if (updateState.status === 'error') {
       return {
         title: t.appUpdate.errorTitle,
         subtitle: t.appUpdate.errorSubtitle,
-        progress: 0.82,
+        progress: 0.88,
         showSpinner: false,
         detail: updateState.detail,
       };
@@ -410,7 +793,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.rollbackInstallingTitle,
         subtitle: t.appUpdate.rollbackInstallingSubtitle,
-        progress: 0.96,
+        progress: 0.94,
         showSpinner: true,
         detail: updateState.detail,
       };
@@ -420,7 +803,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.rollbackTitle,
         subtitle: t.appUpdate.rollbackSubtitle,
-        progress: 0.82,
+        progress: 0.86,
         showSpinner: false,
         detail: updateState.detail,
       };
@@ -430,7 +813,7 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.downloadingTitle,
         subtitle: t.appUpdate.downloadingSubtitle,
-        progress: 0.72,
+        progress: 0.28,
         showSpinner: true,
         detail: null,
       };
@@ -440,7 +823,17 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.checkingTitle,
         subtitle: t.appUpdate.checkingSubtitle,
-        progress: 0.36,
+        progress: 0.12,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (mergingGuestData) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.8,
         showSpinner: true,
         detail: null,
       };
@@ -450,7 +843,37 @@ function RootLayoutContent() {
       return {
         title: t.appUpdate.startupTitle,
         subtitle: t.appUpdate.startupSubtitle,
-        progress: 0.9,
+        progress: 0.88,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (bootstrappingSession) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.56,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (!ready) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.36,
+        showSpinner: true,
+        detail: null,
+      };
+    }
+
+    if (shouldHoldForInitialRoute) {
+      return {
+        title: t.appUpdate.startupTitle,
+        subtitle: t.appUpdate.startupSubtitle,
+        progress: 0.72,
         showSpinner: true,
         detail: null,
       };
@@ -459,55 +882,60 @@ function RootLayoutContent() {
     return {
       title: t.appUpdate.startupTitle,
       subtitle: t.appUpdate.startupSubtitle,
-      progress: 0.18,
+      progress: 0.96,
       showSpinner: true,
       detail: null,
     };
-  }, [shouldHoldForPremium, t, updateState]);
+  }, [bootstrappingSession, mergingGuestData, ready, shouldHoldForInitialRoute, shouldHoldForPremium, t, updateState]);
 
-  if (!ready || updateState.status !== 'done' || shouldHoldForPremium || bootstrappingSession || mergingGuestData) {
-    return (
-      <AppLaunchScreen
-        title={launchScreen.title}
-        subtitle={launchScreen.subtitle}
-        progress={launchScreen.progress}
-        showSpinner={launchScreen.showSpinner}
-        detail={
-          shouldHoldForPremium || bootstrappingSession || mergingGuestData
-            ? t.common.loading
-            : launchScreen.detail
-        }
-        primaryAction={
-          !shouldHoldForPremium && !bootstrappingSession && !mergingGuestData && updateState.status === 'error'
-            ? {
-                label: t.common.retry,
-                onPress: () => {
-                  startupUpdateRunRef.current = false;
-                  void runStartupUpdateCheck();
-                },
-              }
-            : !shouldHoldForPremium && updateState.status === 'rollback'
-              ? {
-                  label: t.appUpdate.continueCta,
-                  onPress: () => setUpdateState({ status: 'done', detail: null }),
-                }
-            : undefined
-        }
-        secondaryAction={
-          !shouldHoldForPremium && !bootstrappingSession && !mergingGuestData && updateState.status === 'error'
-            ? {
-                label: t.appUpdate.continueCta,
-                onPress: () => setUpdateState({ status: 'done', detail: null }),
-                variant: 'secondary',
-              }
-            : undefined
-        }
-      />
-    );
-  }
+  const isLaunchBlocking =
+    !ready ||
+    updateState.status !== 'done' ||
+    shouldHoldForPremium ||
+    shouldHoldForInitialRoute ||
+    bootstrappingSession ||
+    mergingGuestData;
 
-  return (
-    <ErrorBoundary>
+  const launchCompletionScreen = useMemo<LaunchScreenModel>(() => ({
+    title: locale === 'fr' ? 'Bienvenue' : 'Welcome',
+    subtitle:
+      locale === 'fr'
+        ? 'Tout est prêt, on arrive sur ton espace.'
+        : 'Everything is ready, opening your space.',
+    progress: 1,
+    showSpinner: false,
+    detail: null,
+  }), [locale]);
+
+  useEffect(() => {
+    if (isLaunchBlocking) {
+      setLaunchOverlayPhase('active');
+      return;
+    }
+
+    setLaunchOverlayPhase('completing');
+
+    const exitTimeout = setTimeout(() => {
+      setLaunchOverlayPhase('exiting');
+    }, 220);
+
+    const hideTimeout = setTimeout(() => {
+      setLaunchOverlayPhase('hidden');
+    }, 520);
+
+    return () => {
+      clearTimeout(exitTimeout);
+      clearTimeout(hideTimeout);
+    };
+  }, [isLaunchBlocking]);
+
+  const showLaunchOverlay = isLaunchBlocking || launchOverlayPhase !== 'hidden';
+  const launchOverlayScreen = isLaunchBlocking ? launchScreen : launchCompletionScreen;
+  const isLaunchOverlayCompleting = !isLaunchBlocking && launchOverlayPhase === 'completing';
+  const isLaunchOverlayFinishing = !isLaunchBlocking && launchOverlayPhase === 'exiting';
+
+  const appContent = (
+    <>
       <StatusBar style="light" />
       <View style={{ flex: 1 }}>
         <Stack
@@ -520,9 +948,9 @@ function RootLayoutContent() {
           <Stack.Screen name="(app)" options={{ title: 'Pace Yourself', headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack>
-        {pendingOnboardingTransition ? (
+        {displayedOnboardingTransition ? (
           <View
-            pointerEvents="auto"
+            pointerEvents={onboardingTransitionExiting ? 'none' : 'auto'}
             style={{
               position: 'absolute',
               top: 0,
@@ -532,21 +960,102 @@ function RootLayoutContent() {
             }}
           >
             <PlanLoadingScreen
-              planName={pendingOnboardingTransition.planName}
-              progress={pendingOnboardingTransition.progress}
+              planName={displayedOnboardingTransition.planName}
+              progress={displayedOnboardingTransition.progress}
               stage={t.plans.planLoadingStage}
               title={
-                pendingOnboardingTransition.planName
+                displayedOnboardingTransition.planName
                   ? t.plans.planLoadingNamed.replace(
                       '{name}',
-                      pendingOnboardingTransition.planName,
+                      displayedOnboardingTransition.planName,
                     )
                   : t.plans.planLoadingGeneric
+              }
+              isFinishing={onboardingTransitionExiting}
+            />
+          </View>
+        ) : null}
+        {showLaunchOverlay ? (
+          <View
+            pointerEvents={isLaunchBlocking ? 'auto' : 'none'}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              bottom: 0,
+              left: 0,
+            }}
+          >
+            <AppLaunchScreen
+              title={launchOverlayScreen.title}
+              subtitle={launchOverlayScreen.subtitle}
+              progress={launchOverlayScreen.progress}
+              showSpinner={launchOverlayScreen.showSpinner}
+              detail={
+                isLaunchBlocking &&
+                (shouldHoldForPremium || bootstrappingSession || mergingGuestData)
+                  ? t.common.loading
+                  : launchOverlayScreen.detail
+              }
+              isCompleting={isLaunchOverlayCompleting}
+              isFinishing={isLaunchOverlayFinishing}
+              primaryAction={
+                isLaunchBlocking &&
+                !shouldHoldForPremium &&
+                !bootstrappingSession &&
+                !mergingGuestData &&
+                updateState.status === 'error'
+                  ? {
+                      label: t.common.retry,
+                      onPress: () => {
+                        startupUpdateRunRef.current = false;
+                        void runStartupUpdateCheck();
+                      },
+                    }
+                  : isLaunchBlocking &&
+                      !shouldHoldForPremium &&
+                      updateState.status === 'rollback'
+                    ? {
+                        label: t.appUpdate.continueCta,
+                        onPress: () => setUpdateState({ status: 'done', detail: null }),
+                      }
+                    : undefined
+              }
+              secondaryAction={
+                isLaunchBlocking &&
+                !shouldHoldForPremium &&
+                !bootstrappingSession &&
+                !mergingGuestData &&
+                updateState.status === 'error'
+                  ? {
+                      label: t.appUpdate.continueCta,
+                      onPress: () => setUpdateState({ status: 'done', detail: null }),
+                      variant: 'secondary',
+                    }
+                  : undefined
               }
             />
           </View>
         ) : null}
       </View>
+    </>
+  );
+
+  if (!fontsLoaded && !fontLoadError) {
+    return null;
+  }
+
+  if (supabaseInitError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0f172a', padding: 20, paddingTop: 60 }}>
+        <Text style={{ color: '#ef4444' }}>Supabase Error: {supabaseInitError}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+      {appContent}
     </ErrorBoundary>
   );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
@@ -7,20 +7,25 @@ import type { PlanRow, RaceSection } from '../components/plans/types';
 import { usePremium } from '../hooks/usePremium';
 import { maybePromptForAppReview } from '../lib/appReview';
 import { useI18n } from '../lib/i18n';
-import { isAnonymousSession } from '../lib/appSession';
 import { FREE_PLAN_LIMIT, getAccessiblePlanIds } from '../lib/planAccess';
+import { fetchPlansScreenBootstrap, readPlansScreenBootstrap } from '../lib/plansScreenBootstrap';
+import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import { getSession } from '../lib/raceLiveSession';
+import { clearUnfinishedPlanReminder, syncLatestUnfinishedPlanReminder } from '../lib/reminderNotifications';
 import { supabase } from '../lib/supabase';
 
 export function usePlansScreen() {
   const { locale, t } = useI18n();
   const router = useRouter();
   const { isPremium, isLoading: premiumLoading } = usePremium();
-  const [plans, setPlans] = useState<PlanRow[]>([]);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isAnonymous, setIsAnonymous] = useState(false);
-  const [raceOwnership, setRaceOwnership] = useState<Record<string, string | null>>({});
-  const [loading, setLoading] = useState(true);
+  const initialBootstrapRef = useRef(readPlansScreenBootstrap());
+  const [plans, setPlans] = useState<PlanRow[]>(() => initialBootstrapRef.current?.plans ?? []);
+  const [userId, setUserId] = useState<string | null>(() => initialBootstrapRef.current?.userId ?? null);
+  const [isAnonymous, setIsAnonymous] = useState(() => initialBootstrapRef.current?.isAnonymous ?? false);
+  const [raceOwnership, setRaceOwnership] = useState<Record<string, string | null>>(
+    () => initialBootstrapRef.current?.raceOwnership ?? {},
+  );
+  const [loading, setLoading] = useState(() => initialBootstrapRef.current == null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -29,51 +34,43 @@ export function usePlansScreen() {
     title: string;
     message: string;
   } | null>(null);
+  const pushRegistrationPromptedUserIdRef = useRef<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (options?: { showLoading?: boolean }) => {
+    if (options?.showLoading) {
+      setLoading(true);
+    }
+
     setError(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData?.session?.user?.id ?? null;
-    setUserId(uid);
-    setIsAnonymous(isAnonymousSession(sessionData?.session));
+    try {
+      const bootstrap = await fetchPlansScreenBootstrap();
+      setUserId(bootstrap.userId);
+      setIsAnonymous(bootstrap.isAnonymous);
+      setPlans(bootstrap.plans);
+      setRaceOwnership(bootstrap.raceOwnership);
 
-    const { data, error: plansError } = await supabase
-      .from('race_plans')
-      .select('id, created_at, name, updated_at, race_id, planner_values, races(name)')
-      .order('updated_at', { ascending: false });
+      if (bootstrap.isAnonymous) {
+        void syncLatestUnfinishedPlanReminder(bootstrap.plans, {
+          title: t.reminders.unfinishedPlanTitle,
+          buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
+          hrefForPlan: (planId) => `/(app)/plan/${planId}/edit`,
+        });
+      } else {
+        void clearUnfinishedPlanReminder();
+      }
 
-    if (plansError) {
-      setError(plansError.message);
+      return bootstrap;
+    } catch (fetchError) {
+      const message =
+        fetchError instanceof Error ? fetchError.message : t.common.error;
+      setError(message);
+      return null;
+    } finally {
       setLoading(false);
       setRefreshing(false);
-      return;
     }
-
-    const nextPlans = (data as PlanRow[] | null) ?? [];
-    setPlans(nextPlans);
-
-    const raceIds = [...new Set(nextPlans.filter((plan) => plan.race_id).map((plan) => plan.race_id!))];
-    if (raceIds.length > 0 && uid) {
-      const { data: racesData } = await supabase
-        .from('races')
-        .select('id, created_by')
-        .in('id', raceIds);
-
-      if (racesData) {
-        const ownershipMap: Record<string, string | null> = {};
-        for (const race of racesData) {
-          ownershipMap[race.id] = race.created_by ?? null;
-        }
-        setRaceOwnership(ownershipMap);
-      }
-    } else {
-      setRaceOwnership({});
-    }
-
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
+  }, [t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle]);
 
   const syncActivePlan = useCallback(() => {
     setActivePlanId(getSession()?.plan.id ?? null);
@@ -81,16 +78,36 @@ export function usePlansScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      void fetchData();
+      let cancelled = false;
+
+      void (async () => {
+        const bootstrap = await fetchData({ showLoading: initialBootstrapRef.current == null });
+        if (cancelled || !bootstrap || bootstrap.isAnonymous || !bootstrap.userId) {
+          return;
+        }
+
+        const shouldRequestPermission = pushRegistrationPromptedUserIdRef.current !== bootstrap.userId;
+        if (shouldRequestPermission) {
+          pushRegistrationPromptedUserIdRef.current = bootstrap.userId;
+        }
+
+        await syncPushDeviceRegistration({
+          locale,
+          requestIfNeeded: shouldRequestPermission,
+        });
+      })();
+
+      initialBootstrapRef.current = null;
       syncActivePlan();
       const reviewTimer = setTimeout(() => {
         void maybePromptForAppReview();
       }, 650);
 
       return () => {
+        cancelled = true;
         clearTimeout(reviewTimer);
       };
-    }, [fetchData, syncActivePlan]),
+    }, [fetchData, locale, syncActivePlan]),
   );
 
   const openPremiumModal = useCallback((title: string, message: string) => {
@@ -115,12 +132,34 @@ export function usePlansScreen() {
               return;
             }
 
-            setPlans((current) => current.filter((plan) => plan.id !== planId));
+            await clearUnfinishedPlanReminder(planId);
+            setPlans((current) => {
+              const nextPlans = current.filter((plan) => plan.id !== planId);
+              if (isAnonymous) {
+                void syncLatestUnfinishedPlanReminder(nextPlans, {
+                  title: t.reminders.unfinishedPlanTitle,
+                  buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
+                  hrefForPlan: (nextPlanId) => `/(app)/plan/${nextPlanId}/edit`,
+                });
+              } else {
+                void clearUnfinishedPlanReminder();
+              }
+              return nextPlans;
+            });
           },
         },
       ]);
     },
-    [t.common.cancel, t.common.delete, t.common.error, t.plans.deleteMessage, t.plans.deleteTitle],
+    [
+      t.common.cancel,
+      t.common.delete,
+      t.common.error,
+      isAnonymous,
+      t.plans.deleteMessage,
+      t.plans.deleteTitle,
+      t.reminders.unfinishedPlanBody,
+      t.reminders.unfinishedPlanTitle,
+    ],
   );
 
   const toggleSection = useCallback((key: string) => {
@@ -183,17 +222,20 @@ export function usePlansScreen() {
 
   const handleRetry = useCallback(() => {
     setError(null);
-    setLoading(true);
-    void fetchData();
+    void fetchData({ showLoading: true });
   }, [fetchData]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    void fetchData();
+    void fetchData({ showLoading: false });
   }, [fetchData]);
 
   const handleCreateFirstPlan = useCallback(() => {
     router.push('/(app)/plan/new');
+  }, [router]);
+
+  const handleStartFreeTraining = useCallback(() => {
+    router.push('/(app)/training-live' as any);
   }, [router]);
 
   const handleOpenGuestAccountUpgrade = useCallback(() => {
@@ -206,10 +248,6 @@ export function usePlansScreen() {
     },
     [router],
   );
-
-  const handleOpenCatalog = useCallback(() => {
-    router.push('/(app)/catalog');
-  }, [router]);
 
   const handleOpenEditPlan = useCallback(
     (planId: string) => {
@@ -251,9 +289,9 @@ export function usePlansScreen() {
     handleDelete,
     toggleSection,
     handleCreateFirstPlan,
+    handleStartFreeTraining,
     handleOpenGuestAccountUpgrade,
     handleEditRace,
-    handleOpenCatalog,
     handleOpenEditPlan,
     handleOpenRacePlan,
     handleOpenLockedPlan,

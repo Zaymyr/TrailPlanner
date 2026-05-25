@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import type { FormValues } from "../../app/(coach)/race-planner/types";
+import { estimateEffortDurationMinutes } from "../../app/(coach)/race-planner/utils/pacing";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -12,8 +13,11 @@ import { Label } from "../ui/label";
 type CommandCenterProps = {
   copy: RacePlannerTranslations;
   sectionIds: { pacing: string; intake: string };
+  sections?: Array<"pacing" | "intake">;
+  headingLevel?: "h2" | "h3";
   pacing: {
     durationMinutes: number | null;
+    paceType: "pace" | "speed";
     paceMinutes: number;
     paceSeconds: number;
     speedKph: number;
@@ -31,9 +35,21 @@ const clampSeconds = (value: number) => {
   return Math.min(Math.max(Math.round(value), 0), 59);
 };
 
+const formatPace = (minutesPerKm: number) => {
+  const safeMinutes = Number.isFinite(minutesPerKm) ? Math.max(0, minutesPerKm) : 0;
+  const wholeMinutes = Math.floor(safeMinutes);
+  let seconds = Math.round((safeMinutes - wholeMinutes) * 60);
+  const adjustedMinutes = seconds === 60 ? wholeMinutes + 1 : wholeMinutes;
+  seconds = seconds === 60 ? 0 : seconds;
+
+  return `${adjustedMinutes}:${String(seconds).padStart(2, "0")}/km`;
+};
+
 export function CommandCenter({
   copy,
   sectionIds,
+  sections = ["pacing", "intake"],
+  headingLevel = "h2",
   pacing,
   coachManaged = false,
   register,
@@ -41,58 +57,102 @@ export function CommandCenter({
   onSpeedChange,
   formatDuration,
 }: CommandCenterProps) {
-  const [pacingMode, setPacingMode] = useState<"pace" | "speed">("pace");
+  const [pacingMode, setPacingMode] = useState<"pace" | "speed">(pacing.paceType);
+  const showPacing = sections.includes("pacing");
+  const showIntake = sections.includes("intake");
+  const showBothSections = showPacing && showIntake;
+  const HeadingTag = headingLevel;
+  const basePaceMinutesPerKm = useMemo(() => {
+    if (pacingMode === "speed") {
+      return pacing.speedKph > 0 ? 60 / pacing.speedKph : null;
+    }
+
+    const pace = pacing.paceMinutes + pacing.paceSeconds / 60;
+    return pace > 0 ? pace : null;
+  }, [pacing.paceMinutes, pacing.paceSeconds, pacing.speedKph, pacingMode]);
+  const fatigueImpact = useMemo(() => {
+    if (!basePaceMinutesPerKm || !pacing.durationMinutes) return null;
+
+    const finalPaceMinutesPerKm = estimateEffortDurationMinutes(basePaceMinutesPerKm, {
+      distKm: 1,
+      dPlus: 0,
+      dMinus: 0,
+      elapsedBeforeSeconds: pacing.durationMinutes * 60,
+      fatigueLevel: pacing.fatigueLevel,
+    });
+
+    return copy.sections.raceInputs.fields.fatigueImpact
+      .replace("{basePace}", formatPace(basePaceMinutesPerKm))
+      .replace("{finalPace}", formatPace(finalPaceMinutesPerKm))
+      .replace("{duration}", formatDuration(pacing.durationMinutes));
+  }, [
+    basePaceMinutesPerKm,
+    copy.sections.raceInputs.fields.fatigueImpact,
+    formatDuration,
+    pacing.durationMinutes,
+    pacing.fatigueLevel,
+  ]);
+
+  useEffect(() => {
+    setPacingMode(pacing.paceType);
+  }, [pacing.paceType]);
 
   return (
     <div className="space-y-4">
-      <div id="pacing-nutrition-section" className="grid gap-3 md:grid-cols-5">
-        <Card
-          id={sectionIds.pacing}
-          className="border-border bg-card shadow-md md:col-span-2 dark:border-slate-800/70 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
-        >
-          <CardHeader className="space-y-3 pb-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground dark:text-slate-100">
-                {copy.sections.raceInputs.pacingTitle}
-              </p>
-              {pacing.durationMinutes ? (
-                <span className="rounded-md border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                  {formatDuration(pacing.durationMinutes)}
-                </span>
-              ) : null}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-400">
-                {copy.sections.raceInputs.fields.paceType}
-              </p>
-              <div className="flex items-center gap-2 rounded-md border border-border bg-background p-1 dark:border-slate-800/80 dark:bg-slate-900/80">
-                {(
-                  [
-                    { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
-                    { key: "speed", label: copy.sections.raceInputs.paceOptions.speed as string },
-                  ] satisfies { key: "pace" | "speed"; label: string }[]
-                ).map((option) => {
-                  const isActive = pacingMode === option.key;
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      className={`rounded px-3 py-1 text-xs font-semibold transition ${
-                        isActive
-                          ? "bg-emerald-100 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.2)] dark:bg-emerald-500/20 dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
-                          : "text-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-emerald-100"
-                      }`}
-                      onClick={() => setPacingMode(option.key)}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
+      <div
+        id={showPacing ? "pacing-nutrition-section" : undefined}
+        className={showBothSections ? "grid gap-3 md:grid-cols-5" : "grid gap-3"}
+      >
+        {showPacing ? (
+          <Card
+            id={sectionIds.pacing}
+            className={`border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none ${
+              showBothSections ? "md:col-span-2" : ""
+            }`}
+          >
+            <CardHeader className="space-y-3 pb-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <HeadingTag className="text-sm font-semibold text-foreground dark:text-slate-100">
+                  {copy.sections.raceInputs.pacingTitle}
+                </HeadingTag>
+                {pacing.durationMinutes ? (
+                  <span className="rounded-md border border-emerald-200 bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+                    {formatDuration(pacing.durationMinutes)}
+                  </span>
+                ) : null}
               </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground dark:text-slate-400">
+                  {copy.sections.raceInputs.fields.paceType}
+                </p>
+                <div className="flex items-center gap-2 rounded-md border border-border bg-background p-1 dark:border-slate-800/80 dark:bg-slate-900/80">
+                  {(
+                    [
+                      { key: "pace", label: copy.sections.raceInputs.paceOptions.pace as string },
+                      { key: "speed", label: copy.sections.raceInputs.paceOptions.speed as string },
+                    ] satisfies { key: "pace" | "speed"; label: string }[]
+                  ).map((option) => {
+                    const isActive = pacingMode === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        className={`rounded px-3 py-1 text-xs font-semibold transition ${
+                          isActive
+                            ? "bg-emerald-100 text-emerald-900 shadow-[0_0_0_1px_rgba(16,185,129,0.2)] dark:bg-emerald-500/20 dark:text-emerald-100 dark:shadow-[0_0_0_1px_rgba(16,185,129,0.4)]"
+                            : "text-foreground hover:text-foreground dark:text-slate-300 dark:hover:text-emerald-100"
+                        }`}
+                        onClick={() => setPacingMode(option.key)}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
               {pacingMode === "pace" ? (
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <div className="w-full space-y-1 sm:w-[120px]">
@@ -204,27 +264,36 @@ export function CommandCenter({
               <p className="text-xs text-muted-foreground dark:text-slate-400">
                 {copy.sections.raceInputs.fields.fatigueHelper}
               </p>
-            </div>
-            <input type="hidden" {...register("paceType")} />
-          </CardContent>
-        </Card>
+              {fatigueImpact ? (
+                <p className="rounded-md border border-emerald-200/80 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100">
+                  {fatigueImpact}
+                </p>
+              ) : null}
+              </div>
+              <input type="hidden" {...register("paceType")} />
+            </CardContent>
+          </Card>
+        ) : null}
 
-        <Card
-          id={sectionIds.intake}
-          className="border-border-strong bg-card shadow-md md:col-span-3 dark:bg-slate-950/80 dark:shadow-inner dark:shadow-emerald-500/5"
-        >
-          <CardHeader className="pb-3">
-            <p className="text-sm font-semibold text-foreground dark:text-slate-100">
-              {copy.sections.raceInputs.nutritionTitle}
-            </p>
-            <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
-            {coachManaged ? (
-              <p className="text-xs text-amber-700 dark:text-amber-200">
-                {copy.sections.raceInputs.coachManagedNote}
-              </p>
-            ) : null}
-          </CardHeader>
-          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {showIntake ? (
+          <Card
+            id={sectionIds.intake}
+            className={`border-border/50 bg-muted/30 shadow-sm dark:border-slate-800/50 dark:bg-slate-950/50 dark:shadow-none ${
+              showBothSections ? "md:col-span-3" : ""
+            }`}
+          >
+            <CardHeader className="pb-3">
+              <HeadingTag className="text-sm font-semibold text-foreground dark:text-slate-100">
+                {copy.sections.raceInputs.nutritionTitle}
+              </HeadingTag>
+              <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
+              {coachManaged ? (
+                <p className="text-xs text-amber-700 dark:text-amber-200">
+                  {copy.sections.raceInputs.coachManagedNote}
+                </p>
+              ) : null}
+            </CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
               <Label
                 htmlFor="targetIntakePerHour"
@@ -294,8 +363,9 @@ export function CommandCenter({
                 {...register("waterBagLiters", { valueAsNumber: true })}
               />
             </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     </div>
   );

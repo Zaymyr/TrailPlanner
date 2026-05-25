@@ -18,6 +18,9 @@ type Props = {
 
 const SANS = "\"DM Sans\", \"Avenir Next\", \"Segoe UI Variable\", \"Segoe UI\", sans-serif";
 const MONO = "\"DM Mono\", \"IBM Plex Mono\", \"SFMono-Regular\", Consolas, monospace";
+const BRAND_LOGO_MARK_GREEN = "/branding/pace-yourself-logo-mark-green-transparent.png";
+const BRAND_LOGO_MARK_WHITE = "/branding/pace-yourself-logo-mark-white-transparent.png";
+const BRAND_GREEN = "#2a5b1f";
 const COLORS = {
   cream: "#ece6db",
   white: "#fbfaf6",
@@ -75,9 +78,73 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function buildRaceKicker(draft: SocialInstagramTemplateDraft) {
-  const shortName = draft.raceName.split(" ").slice(0, 2).join(" ").toUpperCase();
-  return [shortName, draft.raceYear].filter(Boolean).join(" | ");
+const RACE_LABEL_STOPWORDS = new Set(["DE", "DU", "DES", "LA", "LE", "LES", "L", "D", "ET", "THE", "OF", "AND"]);
+
+function buildRaceKickerLabel(draft: SocialInstagramTemplateDraft, includeLocation = false) {
+  return [draft.raceName.trim(), draft.raceYear.trim(), includeLocation ? draft.raceLocation.trim() : ""].filter(Boolean).join(" | ");
+}
+
+function getAdaptiveTitleFontSize(value: string) {
+  const length = value.trim().length;
+  if (length > 64) return "34px";
+  if (length > 48) return "40px";
+  if (length > 34) return "46px";
+  if (length > 24) return "54px";
+  return "64px";
+}
+
+function getCompactMetaFontSize(value: string) {
+  const length = value.trim().length;
+  if (length > 72) return "12px";
+  if (length > 52) return "14px";
+  return "16px";
+}
+
+function adaptiveCourseTitleStyle(value: string, color: string): CSSProperties {
+  return {
+    maxWidth: "820px",
+    fontSize: getAdaptiveTitleFontSize(value),
+    lineHeight: 1.02,
+    fontWeight: 800,
+    letterSpacing: "-0.045em",
+    overflowWrap: "anywhere",
+    textTransform: "uppercase",
+    color,
+  };
+}
+
+function RaceKicker({
+  draft,
+  color,
+  maxWidth = "660px",
+  align = "left",
+  includeLocation = false,
+  fontSize,
+}: {
+  draft: SocialInstagramTemplateDraft;
+  color: string;
+  maxWidth?: string;
+  align?: "left" | "center";
+  includeLocation?: boolean;
+  fontSize?: string;
+}) {
+  const label = buildRaceKickerLabel(draft, includeLocation) || "COURSE | ANNEE";
+
+  return (
+    <div
+      style={{
+        ...monoLabelStyle,
+        color,
+        maxWidth,
+        fontSize: fontSize ?? getCompactMetaFontSize(label),
+        lineHeight: 1.35,
+        overflowWrap: "anywhere",
+        textAlign: align,
+      }}
+    >
+      {label}
+    </div>
+  );
 }
 
 function getHookHeroLabel(draft: SocialInstagramTemplateDraft) {
@@ -87,16 +154,26 @@ function getHookHeroLabel(draft: SocialInstagramTemplateDraft) {
     .split(/[\s-]+/)
     .map((token) => token.trim())
     .filter(Boolean);
-  const uppercaseToken = tokens.find((token) => /^[A-Z0-9]{3,8}$/.test(token));
+  const meaningfulTokens = tokens.filter((token) => !RACE_LABEL_STOPWORDS.has(token.toUpperCase()));
+  const compactTokens = meaningfulTokens.length > 0 ? meaningfulTokens : tokens;
+  const uppercaseToken = compactTokens.find((token) => /^[A-Z0-9]{3,8}$/.test(token));
 
   if (uppercaseToken) return uppercaseToken;
-  if (tokens[0] && tokens[0].length <= 8) return tokens[0].toUpperCase();
+  if (compactTokens.length >= 2 && compactTokens.join(" ").length > 14) {
+    return compactTokens.slice(0, 5).map((token) => token[0]).join("").toUpperCase();
+  }
+  if (compactTokens[0] && compactTokens[0].length <= 8) return compactTokens[0].toUpperCase();
 
-  const initials = tokens.slice(0, 5).map((token) => token[0]).join("");
+  const initials = compactTokens.slice(0, 5).map((token) => token[0]).join("");
   return (initials || "RACE").toUpperCase();
 }
 
-function getHookHeroFontSize(label: string) {
+function getHookHeroFontSize(label: string, hasCourseTitle = false) {
+  if (hasCourseTitle) {
+    if (label.length >= 8) return "132px";
+    if (label.length >= 6) return "150px";
+    return "172px";
+  }
   if (label.length >= 8) return "188px";
   if (label.length >= 6) return "212px";
   return "244px";
@@ -104,7 +181,7 @@ function getHookHeroFontSize(label: string) {
 
 function normalizeQuoteText(value: string) {
   const trimmed = value.trim();
-  if (!trimmed) return "Bien manger le jour J, ca se prepare avant le depart.";
+  if (!trimmed) return "Bien manger le jour J, ça se prépare avant le départ.";
   if (trimmed.startsWith("«") || trimmed.startsWith("\"")) return trimmed;
   return `« ${trimmed} »`;
 }
@@ -127,7 +204,7 @@ function buildAidStationLegLabel(draft: SocialInstagramTemplateDraft, index: num
   const current = draft.aidStations[index];
   if (!current) return "";
 
-  const previousName = index === 0 ? "Depart" : (draft.aidStations[index - 1]?.name || "Ravito precedent");
+  const previousName = index === 0 ? "Départ" : (draft.aidStations[index - 1]?.name || "Ravito précédent");
   const currentName = current.name || `Ravito ${index + 1}`;
   return `${previousName} - ${currentName}`;
 }
@@ -140,63 +217,48 @@ function buildAidStationBullets(take: string) {
     .slice(0, 3);
 }
 
-function PYLogo({ accent, onDark = false, size = 34 }: { accent: AccentPalette; onDark?: boolean; size?: number }) {
-  const color = onDark ? COLORS.white : accent.main;
+function PYLogo({ onDark = false, size = 34 }: { onDark?: boolean; size?: number }) {
+  const height = Math.round(size * 1.45);
+  const markSize = Math.round(size * 1.35);
+  const logoColor = onDark ? COLORS.white : BRAND_GREEN;
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: size * 0.28 }}>
-      <div
+    <div
+      style={{
+        height: `${height}px`,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "flex-start",
+        gap: `${Math.max(8, size * 0.2)}px`,
+        flexShrink: 0,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        aria-hidden="true"
+        alt=""
+        src={onDark ? BRAND_LOGO_MARK_WHITE : BRAND_LOGO_MARK_GREEN}
         style={{
-          width: `${size}px`,
-          height: `${size}px`,
-          border: `${Math.max(1, size * 0.08)}px solid ${color}`,
-          borderRadius: `${size * 0.22}px`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: MONO,
-          fontWeight: 700,
-          fontSize: `${size * 0.42}px`,
-          color,
-          letterSpacing: "-0.04em",
+          display: "block",
+          width: `${markSize}px`,
+          height: `${markSize}px`,
           flexShrink: 0,
+          objectFit: "contain",
         }}
-      >
-        PY
-      </div>
+      />
       <span
         style={{
           fontFamily: SANS,
           fontWeight: 800,
-          fontSize: `${size * 0.44}px`,
-          letterSpacing: ".05em",
-          textTransform: "uppercase",
-          color,
+          fontSize: `${size * 0.42}px`,
+          lineHeight: 1,
+          letterSpacing: "-0.04em",
+          color: logoColor,
+          whiteSpace: "nowrap",
         }}
       >
         Pace Yourself
       </span>
-    </div>
-  );
-}
-
-function TopBar({ accent, eyebrow, onDark = false }: { accent: AccentPalette; eyebrow: string; onDark?: boolean }) {
-  return (
-    <div
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        height: "96px",
-        padding: "0 56px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        zIndex: 10,
-      }}
-    >
-      <div style={{ ...monoLabelStyle, color: onDark ? COLORS.darkMuted : COLORS.muted }}>{eyebrow}</div>
-      <PYLogo accent={accent} size={36} onDark={onDark} />
     </div>
   );
 }
@@ -228,19 +290,19 @@ function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acc
           zIndex: 10,
         }}
       >
-        <PYLogo accent={accent} size={42} onDark={isDark} />
+        <PYLogo size={58} onDark={isDark} />
         <div style={{ fontFamily: MONO, fontSize: "18px", color: topMetaColor }}>{draft.startDate || "Plan de course"}</div>
       </div>
 
       <div style={{ position: "absolute", top: "192px", left: "52px", right: "52px", zIndex: 10 }}>
         {fullRaceLabel ? (
-          <div style={{ ...monoLabelStyle, color: topMetaColor, maxWidth: "640px", overflowWrap: "anywhere" }}>{fullRaceLabel}</div>
+          <div style={adaptiveCourseTitleStyle(fullRaceLabel, foreground)}>{fullRaceLabel}</div>
         ) : null}
         <div
           style={{
-            marginTop: fullRaceLabel ? "10px" : 0,
+            marginTop: fullRaceLabel ? "18px" : 0,
             maxWidth: "820px",
-            fontSize: getHookHeroFontSize(heroLabel),
+            fontSize: getHookHeroFontSize(heroLabel, Boolean(fullRaceLabel)),
             lineHeight: 0.88,
             fontWeight: 800,
             letterSpacing: "-0.07em",
@@ -288,23 +350,28 @@ function HookSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acc
           {normalizeQuoteText(draft.tagline)}
         </div>
 
-        <div style={{ display: "inline-flex", alignItems: "center", gap: "14px", fontSize: "30px", fontWeight: 800 }}>
+        <div style={{ display: "flex", alignItems: "center", maxWidth: "760px", fontSize: "30px", fontWeight: 800 }}>
           <div
             style={{
-              display: "inline-flex",
+              display: "flex",
               alignItems: "center",
+              width: "100%",
+              minHeight: "94px",
               gap: "14px",
               marginTop: "30px",
-              padding: "18px 26px",
-              borderRadius: "999px",
+              padding: "18px 30px",
+              borderRadius: "28px",
               background: isDark ? "rgba(255,255,255,0.1)" : accent.light,
               border: isDark ? "1px solid rgba(255,255,255,0.16)" : `1px solid ${COLORS.line}`,
               color: isDark ? COLORS.cream : accent.main,
               boxShadow: isDark ? "none" : "0 8px 20px rgba(44, 62, 41, 0.08)",
+              lineHeight: 1.08,
             }}
           >
-            <span style={{ fontSize: "30px" }}>-&gt;</span>
-            <span>{draft.ctaS1 || "Alors ca se planifie !"}</span>
+            <span style={{ fontSize: "34px", flexShrink: 0 }}>-&gt;</span>
+            <span style={{ display: "block", minWidth: 0, overflowWrap: "anywhere" }}>
+              {draft.ctaS1 || "Alors ca se planifie !"}
+            </span>
           </div>
         </div>
       </div>
@@ -355,12 +422,12 @@ function MacroSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; ac
       <div style={{ position: "absolute", top: "26px", left: "56px", right: "56px", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "24px" }}>
           <div>
-            <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{buildRaceKicker(draft) || "COURSE | ANNEE"}</div>
+            <RaceKicker draft={draft} color={COLORS.muted} />
             <div style={{ marginTop: "14px", fontSize: "52px", lineHeight: 1, fontWeight: 800, letterSpacing: "-0.04em" }}>
               Quels sont mes besoins ?
             </div>
           </div>
-          <PYLogo accent={accent} size={36} />
+          <PYLogo size={36} />
         </div>
       </div>
 
@@ -556,12 +623,12 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
       <div style={{ position: "absolute", top: "26px", left: "56px", right: "56px", zIndex: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "24px" }}>
           <div>
-            <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{buildRaceKicker(draft) || "COURSE | ANNEE"}</div>
+            <RaceKicker draft={draft} color={COLORS.muted} />
             <div style={{ marginTop: "14px", fontSize: "44px", lineHeight: 1.02, fontWeight: 800, letterSpacing: "-0.04em" }}>
-              Plan de nutrition detaille
+              Plan de nutrition détaillé
             </div>
           </div>
-          <PYLogo accent={accent} size={36} />
+          <PYLogo size={36} />
         </div>
       </div>
 
@@ -609,7 +676,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
           zIndex: 10,
         }}
       >
-        <div style={{ ...monoLabelStyle, color: COLORS.muted }}>Ce que je vise pour tenir jusqu'au bout</div>
+        <div style={{ ...monoLabelStyle, color: COLORS.muted }}>{"Ce que je vise pour tenir jusqu'au bout"}</div>
         <div style={{ marginTop: "10px", fontSize: "24px", lineHeight: 1.25, color: COLORS.muted }}>
           Objectifs moyens puis reprises aux ravitos les plus utiles.
         </div>
@@ -679,7 +746,7 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
                       ))
                     ) : (
                       <div style={{ fontSize: "17px", lineHeight: 1.32, color: COLORS.muted }}>
-                        Aucun detail de reprise n'est renseigne pour ce ravito.
+                        {"Aucun détail de reprise n'est renseigné pour ce ravito."}
                       </div>
                     )}
                   </div>
@@ -688,9 +755,9 @@ function NutritionSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft
             })
           ) : (
             <div style={{ ...cardStyle, padding: "22px 24px", borderRadius: "18px" }}>
-              <div style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text }}>Aucun ravito detaille pour l'instant.</div>
+              <div style={{ fontSize: "20px", fontWeight: 700, color: COLORS.text }}>{"Aucun ravito détaillé pour l'instant."}</div>
               <div style={{ marginTop: "8px", fontSize: "18px", lineHeight: 1.35, color: COLORS.muted }}>
-                Tu peux completer cette slide depuis l'editeur Admin si tu veux ajouter les reprises clefs.
+                {"Tu peux completer cette slide depuis l'editeur Admin si tu veux ajouter les reprises clefs."}
               </div>
             </div>
           )}
@@ -706,14 +773,12 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
   return (
     <article style={{ ...baseSlideStyle, background: accent.main, color: COLORS.white }}>
       <div style={stripeStyle(true)} />
-      <TopBar accent={accent} eyebrow="A toi de jouer" onDark />
-
       <div
         style={{
           position: "absolute",
-          right: "-18px",
-          top: "62px",
-          fontSize: "520px",
+          right: "-34px",
+          top: "98px",
+          fontSize: "560px",
           fontWeight: 800,
           color: "rgba(255,255,255,0.06)",
           lineHeight: 1,
@@ -728,41 +793,68 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
       <div
         style={{
           position: "absolute",
-          inset: 0,
+          top: "42px",
+          left: "56px",
+          right: "56px",
+          height: "88px",
           display: "flex",
-          flexDirection: "column",
           alignItems: "center",
-          justifyContent: "center",
-          padding: "0 80px",
-          textAlign: "center",
+          justifyContent: "space-between",
           zIndex: 10,
         }}
       >
-        <PYLogo accent={accent} size={72} onDark />
-        <div style={{ width: "64px", height: "2px", background: "rgba(255,255,255,0.25)", margin: "44px auto 40px" }} />
-        <div style={{ fontSize: "64px", fontWeight: 800, lineHeight: 1.15, color: COLORS.white, letterSpacing: "-0.02em", maxWidth: "800px" }}>
+        <div
+          style={{
+            ...monoLabelStyle,
+            color: COLORS.darkMuted,
+            fontSize: "22px",
+            lineHeight: 1,
+            letterSpacing: ".14em",
+          }}
+        >
+          A toi de jouer
+        </div>
+        <PYLogo size={58} onDark />
+      </div>
+
+      <div
+        style={{
+          position: "absolute",
+          left: "72px",
+          right: "72px",
+          top: "202px",
+          zIndex: 10,
+        }}
+      >
+        <div style={{ width: "76px", height: "3px", background: "rgba(255,255,255,0.28)", marginBottom: "42px" }} />
+        <div style={{ fontSize: "92px", fontWeight: 800, lineHeight: 1.03, color: COLORS.white, letterSpacing: "-0.025em", maxWidth: "760px" }}>
           Et toi, tu as
           <br />
           un <span style={{ color: accent.warm }}>plan</span> ?
         </div>
-        <div style={{ fontSize: "28px", color: COLORS.darkMuted, marginTop: "20px", maxWidth: "640px", lineHeight: 1.4 }}>
-          Distance, denivele, allure, ravitos... tout se calcule. Tout se prepare.
+        <div style={{ fontSize: "38px", color: COLORS.darkMuted, marginTop: "30px", maxWidth: "820px", lineHeight: 1.26 }}>
+          Distance, dénivelé, allure, ravitos... tout se calcule. Tout se prépare.
         </div>
         <div
           style={{
-            marginTop: "52px",
+            marginTop: "62px",
             background: COLORS.white,
-            borderRadius: "24px",
-            padding: "28px 72px",
-            display: "inline-flex",
+            borderRadius: "28px",
+            minHeight: "112px",
+            width: "820px",
+            maxWidth: "100%",
+            padding: "24px 46px",
+            display: "flex",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "flex-start",
             boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
           }}
         >
-          <span style={{ fontSize: "34px", fontWeight: 800, color: accent.main, letterSpacing: ".01em" }}>-&gt; {draft.ctaS4}</span>
+          <span style={{ fontSize: "38px", fontWeight: 800, lineHeight: 1.1, color: accent.main, letterSpacing: ".01em", overflowWrap: "anywhere" }}>
+            -&gt; {draft.ctaS4}
+          </span>
         </div>
-        <div style={{ marginTop: "28px", fontFamily: MONO, fontSize: "22px", color: COLORS.darkMuted, letterSpacing: ".04em" }}>{draft.appHandle}</div>
+        <div style={{ marginTop: "30px", fontFamily: MONO, fontSize: "28px", color: COLORS.darkMuted, letterSpacing: ".04em" }}>{draft.appHandle}</div>
       </div>
 
       <div
@@ -779,9 +871,7 @@ function CtaSlide({ draft, accent }: { draft: SocialInstagramTemplateDraft; acce
           zIndex: 10,
         }}
       >
-        <div style={{ fontFamily: MONO, fontSize: "15px", color: COLORS.darkMuted, letterSpacing: ".08em", textTransform: "uppercase" }}>
-          {[draft.raceName, draft.raceYear, draft.raceLocation].filter(Boolean).join(" | ")}
-        </div>
+        <RaceKicker draft={draft} color={COLORS.darkMuted} maxWidth="940px" align="center" includeLocation fontSize="18px" />
       </div>
     </article>
   );

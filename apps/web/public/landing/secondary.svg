@@ -1,28 +1,64 @@
-<svg width="1803" height="283" viewBox="0 0 1803 283" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1803" height="283" rx="20" fill="#0C1429"/>
-  <rect x="20" y="20" width="1763" height="243" rx="16" fill="#0F1B33" stroke="#124B41" stroke-width="2"/>
-  <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#1b6156" stop-opacity="0.8" />
-    <stop offset="100%" stop-color="#0f1b33" stop-opacity="0.2" />
-  </linearGradient>
-  <g transform="translate(48,56)">
-    <rect width="1707" height="170" rx="12" fill="url(#grad)" stroke="#1B3A38" stroke-width="1.5"/>
-    <polyline points="0,120 140,110 260,124 360,140 520,110 720,146 900,126 1080,150 1240,134 1440,168 1600,152 1707,170" fill="none" stroke="#d28a37" stroke-width="3"/>
-    <polyline points="0,130 140,136 260,144 360,160 520,150 720,166 900,150 1080,170 1240,160 1440,182 1600,168 1707,183" fill="none" stroke="#2f8f83" stroke-width="3" opacity="0.6"/>
-    <g fill="#9AE6C7" stroke="#0C1429" stroke-width="2">
-      <circle cx="220" cy="128" r="8"/>
-      <circle cx="620" cy="140" r="8"/>
-      <circle cx="1020" cy="150" r="8"/>
-      <circle cx="1400" cy="165" r="8"/>
-    </g>
-    <g font-family="Inter, system-ui" fill="#E6F7F3" font-weight="600" font-size="12">
-      <text x="206" y="148">Ravito 1</text>
-      <text x="606" y="160">Ravito 2</text>
-      <text x="1006" y="170">Ravito 3</text>
-      <text x="1386" y="186">Arrivée</text>
-    </g>
+<svg width="770" height="381" viewBox="0 0 770 381" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="770" height="381" fill="#fff"/>
+  <text x="20" y="25" fill="#202124" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Profil de course</text>
+  <circle cx="202" cy="16" r="12" fill="#fff" stroke="#d7d7d7"/>
+  <text x="198" y="21" fill="#202124" font-family="Segoe UI, Arial, sans-serif" font-size="14">?</text>
+  <rect x="20" y="55" width="727" height="310" rx="14" fill="#f2f1ec" stroke="#dfddd5"/>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#526d86">
+    <text x="59" y="103">1400 m</text>
+    <text x="59" y="150">1200 m</text>
+    <text x="59" y="197">1000 m</text>
+    <text x="66" y="243">800 m</text>
   </g>
-  <rect x="60" y="236" width="1683" height="18" rx="9" fill="#12384D"/>
-  <rect x="60" y="236" width="980" height="18" rx="9" fill="#2f8f83"/>
-  <rect x="60" y="236" width="640" height="18" rx="9" fill="#a94a66" opacity="0.65"/>
+  <g stroke="#526d86" stroke-width="1.2" stroke-dasharray="5 5">
+    <path d="M107 99h589"/>
+    <path d="M107 146h589"/>
+    <path d="M107 193h589"/>
+    <path d="M107 239h589"/>
+  </g>
+  <rect x="558" y="80" width="138" height="20" rx="4" fill="#6d7782" opacity=".9"/>
+  <circle cx="569" cy="90" r="4" fill="#5f7de4"/>
+  <circle cx="632" cy="90" r="4" fill="#ef5b72"/>
+  <text x="576" y="94" fill="#d7dee6" font-family="Segoe UI, Arial, sans-serif" font-size="10">Descente</text>
+  <text x="639" y="94" fill="#d7dee6" font-family="Segoe UI, Arial, sans-serif" font-size="10">Montee</text>
+  <polyline points="107,284 135,210 155,170 183,220 203,276 226,202 246,158 257,205 266,172 281,194 292,179 308,274 328,244 343,226 360,240 377,210 391,155 419,126 434,151 453,120 466,129 480,115 494,169 514,132 536,100 558,143 571,181 592,220 613,214 632,236 647,224 662,239 676,225 690,247 696,284" fill="none" stroke="#6376d7" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="107,284 135,210 155,170 183,220 203,276 226,202 246,158 257,205 266,172 281,194 292,179 308,274 328,244 343,226 360,240 377,210 391,155 419,126 434,151 453,120 466,129 480,115 494,169 514,132 536,100 558,143 571,181 592,220 613,214 632,236 647,224 662,239 676,225 690,247" fill="none" stroke="#d65272" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="28 28"/>
+  <g stroke="#ffb300" stroke-width="1.3" stroke-dasharray="1 4">
+    <path d="M135 217v67"/>
+    <path d="M183 227v57"/>
+    <path d="M246 165v119"/>
+    <path d="M328 251v33"/>
+    <path d="M360 247v37"/>
+    <path d="M434 158v126"/>
+    <path d="M466 136v148"/>
+    <path d="M536 107v177"/>
+    <path d="M571 188v96"/>
+    <path d="M613 221v63"/>
+    <path d="M632 243v41"/>
+    <path d="M662 246v38"/>
+  </g>
+  <g fill="#ffb300">
+    <circle cx="135" cy="210" r="5"/>
+    <circle cx="183" cy="220" r="5"/>
+    <circle cx="246" cy="158" r="5"/>
+    <circle cx="328" cy="244" r="5"/>
+    <circle cx="360" cy="240" r="5"/>
+    <circle cx="434" cy="151" r="5"/>
+    <circle cx="466" cy="129" r="5"/>
+    <circle cx="536" cy="100" r="5"/>
+    <circle cx="571" cy="181" r="5"/>
+    <circle cx="613" cy="214" r="5"/>
+    <circle cx="632" cy="236" r="5"/>
+    <circle cx="662" cy="239" r="5"/>
+  </g>
+  <text x="89" y="267" fill="#ffb300" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700">Depart</text>
+  <text x="211" y="326" fill="#ffb300" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700">Saint Jean...</text>
+  <text x="395" y="70" fill="#ffb300" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700">Lac du Bou...</text>
+  <text x="678" y="276" fill="#26c267" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700">Arrivee</text>
+  <circle cx="107" cy="284" r="6" fill="#fff" stroke="#1e88ff" stroke-width="2"/>
+  <circle cx="696" cy="284" r="7" fill="#26c267"/>
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="10" fill="#526d86">
+    <text x="139" y="300">5</text><text x="171" y="300">10</text><text x="208" y="300">15</text><text x="240" y="300">20</text><text x="275" y="300">25</text><text x="309" y="300">30</text><text x="344" y="300">35</text><text x="379" y="300">40</text><text x="414" y="300">45</text><text x="448" y="300">50</text><text x="483" y="300">55</text><text x="518" y="300">60</text><text x="553" y="300">65</text><text x="588" y="300">70</text><text x="623" y="300">75</text><text x="658" y="300">80</text><text x="690" y="300">85</text>
+  </g>
+  <text x="346" y="339" fill="#526d86" font-family="Segoe UI, Arial, sans-serif" font-size="11">Distance (km)</text>
 </svg>

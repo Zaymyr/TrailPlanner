@@ -7,13 +7,15 @@ import {
   View,
   type LayoutRectangle,
   type NativeScrollEvent,
-  type NativeSyntheticEvent,
+  type NativeSyntheticEvent
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { TutorialTarget, type TutorialMeasurableTarget } from './help/SpotlightTutorial';
 import { useI18n } from '../lib/i18n';
-import { AidStationsSectionV3 as AidStationsSection } from './plan-form/AidStationsSectionV3';
+import {
+  AidStationsSectionV3 as AidStationsSection
+} from './plan-form/AidStationsSectionV3';
 import {
   ARRIVEE_ID,
   DEPART_ID,
@@ -24,7 +26,8 @@ import {
   type FavProduct,
   type PlanFormValues,
   type PlanTarget,
-  type Supply,
+  type SectionTarget,
+  type Supply
 } from './plan-form/contracts';
 import { EditStationModal, type EditingStation } from './plan-form/EditStationModal';
 import { buildInitialPlanValues, getEffectiveSodiumTarget } from './plan-form/helpers';
@@ -33,24 +36,26 @@ import {
   buildPlanHighlights,
   buildSectionIntakeTimelineV2,
   formatGaugeValue,
-  getGaugeColor,
+  getGaugeColor
 } from './plan-form/metrics';
 import { NumberInput } from './plan-form/NumberInput';
 import { PlanBasicsSection } from './plan-form/PlanBasicsSection';
 import { PlanHighlightsSection } from './plan-form/PlanHighlightsSection';
 import { ProductPickerModal, type PickerProduct } from './plan-form/ProductPickerModal';
 import { PremiumUpsellModal } from './premium/PremiumUpsellModal';
+import { buildCarryoverCoverages } from './plan-form/carryover';
 import { styles } from './plan-form/styles';
 import { type PlanProductsBootstrap, usePlanProducts } from './plan-form/usePlanProducts';
 import { usePlanSections } from './plan-form/usePlanSections';
 import { usePlanSupplies } from './plan-form/usePlanSupplies';
 import type { GaugeMetric } from './plan-form/GaugeArc';
-import type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset } from './plan-form/profile-utils';
-import {
-  buildContinuousIntakeTimeline,
-  buildContinuousSections,
-  buildSectionTimelineFromContinuous,
-} from '../lib/continuousNutrition';
+import type {
+  ElevationPoint,
+  SectionSegment,
+  SectionSubSegmentStats,
+  SegmentPreset
+} from './plan-form/profile-utils';
+import { buildContinuousIntakeTimeline, buildContinuousSections, buildSectionTimelineFromContinuous } from '../lib/continuousNutrition';
 import type { PlanEditTutorialTargetKey } from '../hooks/usePlanEditTutorial';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };
@@ -117,11 +122,12 @@ export default function PlanForm({
   const debouncedValues = useDebounced(values, 300);
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Record<AccordionSection, boolean>>({
-    course: !compactBasicsByDefault,
-    pace: !compactBasicsByDefault,
-    nutrition: !compactBasicsByDefault,
-    summary: !compactBasicsByDefault,
+    course: false,
+    pace: false,
+    nutrition: false,
+    summary: false,
   });
+  const [settingsSheetVisible, setSettingsSheetVisible] = useState(false);
   const [editingStation, setEditingStation] = useState<EditingStation>(null);
   const [gaugeAnimateSignals, setGaugeAnimateSignals] = useState<Record<string, number>>({});
   const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
@@ -139,11 +145,12 @@ export default function PlanForm({
     setValues(buildInitialPlanValues(initialValues));
     setExpandedStations(new Set());
     setExpandedSections({
-      course: !compactBasicsByDefault,
-      pace: !compactBasicsByDefault,
-      nutrition: !compactBasicsByDefault,
-      summary: !compactBasicsByDefault,
+      course: false,
+      pace: false,
+      nutrition: false,
+      summary: false,
     });
+    setSettingsSheetVisible(false);
     setEditingStation(null);
     setGaugeAnimateSignals({});
     setShowPremiumUpsell(false);
@@ -234,7 +241,6 @@ export default function PlanForm({
     allProducts,
     favoriteProductIds,
     setFavoriteProductIds,
-    buildSectionSummary,
     isPremium,
     elevationProfile,
     onRequirePremium: openPremiumUpsell,
@@ -245,7 +251,10 @@ export default function PlanForm({
   const aidStationsSummaryKey = useMemo(
     () =>
       values.aidStations
-        .map((station) => `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}`)
+        .map(
+          (station) =>
+            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}`,
+        )
         .join(';'),
     [values.aidStations],
   );
@@ -285,6 +294,82 @@ export default function PlanForm({
     () => buildContinuousIntakeTimeline({ values: debouncedValues, productMap, elevationProfile }),
     [elevationProfile, productMap, debouncedValues],
   );
+  const carryoverCoverageMap = useMemo(() => {
+    const sections = liveSectionSummaries.map((summary) => {
+      const target: PlanTarget = summary.sectionIndex === 0 ? 'start' : summary.sectionIndex;
+      const allowsSolid = target === 'start' || values.aidStations[summary.sectionIndex]?.solidRefill !== false;
+      return {
+        sectionIndex: summary.sectionIndex,
+        targetCarbsG: summary.targetCarbsG,
+        targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
+        supplies: allowsSolid ? getSupplies(target) : [],
+      };
+    });
+
+    return buildCarryoverCoverages(sections, productMap);
+  }, [getSupplies, liveSectionSummaries, productMap, values.aidStations]);
+  const resupplyWindowTargetMap = useMemo(() => {
+    const map = new Map<number, SectionTarget>();
+    const summariesByIndex = new Map(liveSectionSummaries.map((summary) => [summary.sectionIndex, summary] as const));
+
+    const shouldStopAtArrival = (sectionIndex: number, service: 'solid' | 'water') => {
+      const arrivalStation = values.aidStations[sectionIndex + 1];
+      if (!arrivalStation || arrivalStation.id === ARRIVEE_ID) return true;
+      return service === 'solid'
+        ? arrivalStation.solidRefill !== false
+        : arrivalStation.waterRefill !== false;
+    };
+
+    liveSectionSummaries.forEach((summary) => {
+      let targetCarbsG = 0;
+      let targetSodiumMg = 0;
+      let targetWaterMl = 0;
+
+      for (let sectionIndex = summary.sectionIndex; sectionIndex < values.aidStations.length - 1; sectionIndex += 1) {
+        const sectionSummary = summariesByIndex.get(sectionIndex);
+        if (!sectionSummary) break;
+
+        targetCarbsG += sectionSummary.targetCarbsG;
+        targetSodiumMg += getEffectiveSodiumTarget(sectionSummary.targetSodiumMg);
+
+        if (shouldStopAtArrival(sectionIndex, 'solid')) break;
+      }
+
+      for (let sectionIndex = summary.sectionIndex; sectionIndex < values.aidStations.length - 1; sectionIndex += 1) {
+        const sectionSummary = summariesByIndex.get(sectionIndex);
+        if (!sectionSummary) break;
+
+        targetWaterMl += sectionSummary.targetWaterMl;
+
+        if (shouldStopAtArrival(sectionIndex, 'water')) break;
+      }
+
+      map.set(summary.sectionIndex, {
+        targetCarbsG,
+        targetSodiumMg,
+        targetWaterMl,
+      });
+    });
+
+    return map;
+  }, [liveSectionSummaries, values.aidStations]);
+  const waterAvailabilityBySection = useMemo(() => {
+    const map = new Map<number, number>();
+    const waterCapacityMl = Math.max(0, values.waterBagLiters * 1000);
+    let availableWaterMl = waterCapacityMl;
+
+    liveSectionSummaries.forEach((summary) => {
+      map.set(summary.sectionIndex, Math.max(0, availableWaterMl));
+      availableWaterMl = Math.max(0, availableWaterMl - summary.targetWaterMl);
+
+      const arrivalStation = values.aidStations[summary.sectionIndex + 1];
+      if (arrivalStation?.id !== ARRIVEE_ID && arrivalStation?.waterRefill !== false) {
+        availableWaterMl = waterCapacityMl;
+      }
+    });
+
+    return map;
+  }, [liveSectionSummaries, values.aidStations, values.waterBagLiters]);
   const paceLabel = useMemo(() => {
     const safeMinutesPerKm = highlights.totalDurationMin / Math.max(values.raceDistanceKm, 0.01);
     const totalSeconds = Math.max(1, Math.round(safeMinutesPerKm * 60));
@@ -298,25 +383,37 @@ export default function PlanForm({
 
     liveSectionSummaries.forEach((summary) => {
       const target: PlanTarget = summary.sectionIndex === 0 ? 'start' : summary.sectionIndex;
+      const resupplyWindowTarget = resupplyWindowTargetMap.get(summary.sectionIndex) ?? {
+        targetCarbsG: summary.targetCarbsG,
+        targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
+        targetWaterMl: summary.targetWaterMl,
+      };
       map.set(
         getTargetCacheKey(target),
         buildGaugeMetrics({
           target,
-          sectionTarget: {
-            targetCarbsG: summary.targetCarbsG,
-            targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
-            targetWaterMl: summary.targetWaterMl,
-          },
+          sectionTarget: resupplyWindowTarget,
+          carryoverCoverage: carryoverCoverageMap.get(summary.sectionIndex) ?? null,
           getSupplies,
           productMap,
           aidStations: values.aidStations,
           waterBagLiters: values.waterBagLiters,
+          availableWaterMl: waterAvailabilityBySection.get(summary.sectionIndex),
         }),
       );
     });
 
     return map;
-  }, [getSupplies, liveSectionSummaries, productMap, values.aidStations, values.waterBagLiters]);
+  }, [
+    carryoverCoverageMap,
+    getSupplies,
+    liveSectionSummaries,
+    productMap,
+    resupplyWindowTargetMap,
+    values.aidStations,
+    values.waterBagLiters,
+    waterAvailabilityBySection,
+  ]);
 
   const getGaugeMetricsForTarget = useCallback(
     (
@@ -326,23 +423,28 @@ export default function PlanForm({
       const cached = gaugeMetricsMap.get(getTargetCacheKey(target));
       if (cached) return cached;
 
-      const effectiveSectionTarget = sectionTarget
-        ? {
-            ...sectionTarget,
-            targetSodiumMg: getEffectiveSodiumTarget(sectionTarget.targetSodiumMg),
-          }
-        : undefined;
+      const targetIndex = target === 'start' ? 0 : target;
+      const resupplyWindowTarget = resupplyWindowTargetMap.get(targetIndex);
+      const effectiveSectionTarget = resupplyWindowTarget ??
+        (sectionTarget
+          ? {
+              ...sectionTarget,
+              targetSodiumMg: getEffectiveSodiumTarget(sectionTarget.targetSodiumMg),
+            }
+          : undefined);
 
       return buildGaugeMetrics({
         target,
         sectionTarget: effectiveSectionTarget,
+        carryoverCoverage: carryoverCoverageMap.get(targetIndex) ?? null,
         getSupplies,
         productMap,
         aidStations: values.aidStations,
         waterBagLiters: values.waterBagLiters,
+        availableWaterMl: waterAvailabilityBySection.get(targetIndex),
       });
     },
-    [gaugeMetricsMap, getSupplies, productMap, values.aidStations, values.waterBagLiters],
+    [carryoverCoverageMap, gaugeMetricsMap, getSupplies, productMap, resupplyWindowTargetMap, values.aidStations, values.waterBagLiters, waterAvailabilityBySection],
   );
 
   const sectionTimelineMap = useMemo(() => {
@@ -373,12 +475,27 @@ export default function PlanForm({
       productMap,
       aidStations: values.aidStations,
       waterBagLiters: values.waterBagLiters,
+      availableWaterMl: waterAvailabilityBySection.get(target === 'start' ? 0 : target),
     });
-  }, [getSupplies, productMap, sectionTimelineMap, values.aidStations, values.waterBagLiters]);
+  }, [getSupplies, productMap, sectionTimelineMap, values.aidStations, values.waterBagLiters, waterAvailabilityBySection]);
 
   const toggleSection = (section: AccordionSection) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
   };
+
+  const openSettingsSheet = useCallback(() => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      course: true,
+      pace: true,
+      nutrition: true,
+    }));
+    setSettingsSheetVisible(true);
+  }, []);
+
+  const closeSettingsSheet = useCallback(() => {
+    setSettingsSheetVisible(false);
+  }, []);
 
   const toggleStation = useCallback((stationKey: string) => {
     setExpandedStations((prev) => {
@@ -444,7 +561,8 @@ export default function PlanForm({
       createAidStation({
         name: nextName,
         distanceKm: nextDistanceKm,
-        waterRefill: true,
+        waterRefill: editingStation.waterRefill,
+        solidRefill: editingStation.solidRefill,
         pauseMinutes: nextPauseMinutes,
         supplies: [],
       });
@@ -455,7 +573,10 @@ export default function PlanForm({
     updateAidStation(editingStation.index, {
       name: nextName,
       distanceKm: nextDistanceKm,
+      waterRefill: editingStation.waterRefill,
+      solidRefill: editingStation.solidRefill,
       pauseMinutes: nextPauseMinutes,
+      ...(editingStation.solidRefill ? {} : { supplies: [] }),
     });
     setEditingStation(null);
   };
@@ -476,6 +597,8 @@ export default function PlanForm({
       name: `Ravito ${intermediates.length + 1}`,
       km: suggestedKm > 0 ? String(suggestedKm) : '10',
       pauseMinutes: '0',
+      waterRefill: true,
+      solidRefill: true,
     });
   }, [values.aidStations, values.raceDistanceKm]);
 
@@ -572,18 +695,13 @@ export default function PlanForm({
         <TutorialTarget
           onMeasure={handleTutorialTargetMeasure}
           onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="basics"
+          targetKey="summary"
         >
           <View>
-            <PlanBasicsSection
-              values={values}
-              expandedSections={expandedSections}
-              toggleSection={toggleSection}
-              update={update}
-              hasSectionTimingOverrides={hasSectionTimingOverrides}
-              onResetSectionTimingOverrides={resetSectionTimingOverrides}
-              NumberInput={NumberInput}
-              waterBagOptions={WATER_BAG_OPTIONS}
+            <PlanHighlightsSection
+              totalDurationLabel={highlights.totalDurationLabel}
+              paceLabel={paceLabel}
+              intermediateCount={highlights.intermediateCount}
             />
           </View>
         </TutorialTarget>
@@ -591,18 +709,21 @@ export default function PlanForm({
         <TutorialTarget
           onMeasure={handleTutorialTargetMeasure}
           onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="summary"
+          targetKey="basics"
         >
           <View>
-            <PlanHighlightsSection
-              expanded={expandedSections.summary}
-              onToggle={() => toggleSection('summary')}
-              totalDurationLabel={highlights.totalDurationLabel}
-              paceLabel={paceLabel}
-              intermediateCount={highlights.intermediateCount}
-              plannedCarbsG={highlights.plannedCarbsG}
-              plannedSodiumMg={highlights.plannedSodiumMg}
-              productBreakdown={highlights.productBreakdown}
+            <PlanBasicsSection
+              values={values}
+              expandedSections={expandedSections}
+              toggleSection={toggleSection}
+              settingsVisible={settingsSheetVisible}
+              onOpenSettings={openSettingsSheet}
+              onCloseSettings={closeSettingsSheet}
+              update={update}
+              hasSectionTimingOverrides={hasSectionTimingOverrides}
+              onResetSectionTimingOverrides={resetSectionTimingOverrides}
+              NumberInput={NumberInput}
+              waterBagOptions={WATER_BAG_OPTIONS}
             />
           </View>
         </TutorialTarget>

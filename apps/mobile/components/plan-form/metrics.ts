@@ -16,6 +16,7 @@ import {
   DEFAULT_FLUID_PRODUCT_VOLUME_ML,
   DEPART_ID,
 } from './contracts';
+import type { CarryoverCoverage } from './carryover';
 import { formatDurationLabel } from './helpers';
 
 type SuppliesGetter = (target: PlanTarget) => Supply[];
@@ -23,10 +24,12 @@ type SuppliesGetter = (target: PlanTarget) => Supply[];
 type BuildGaugeMetricsArgs = {
   target: PlanTarget;
   sectionTarget?: SectionTarget;
+  carryoverCoverage?: CarryoverCoverage | null;
   getSupplies: SuppliesGetter;
   productMap: Record<string, PlanProduct>;
   aidStations: AidStationFormItem[];
   waterBagLiters: number;
+  availableWaterMl?: number;
 };
 
 type BuildTimelineArgs = BuildGaugeMetricsArgs & {
@@ -180,14 +183,26 @@ export function formatGaugeValue(metric: GaugeMetric, value: number): string {
 export function buildGaugeMetrics({
   target,
   sectionTarget,
+  carryoverCoverage,
   getSupplies,
   productMap,
   aidStations,
   waterBagLiters,
+  availableWaterMl: availableWaterMlOverride,
 }: BuildGaugeMetricsArgs): GaugeMetric[] {
   const supplies = getSupplies(target);
-  const availableWaterMl = getAvailableWaterMl(target, aidStations, waterBagLiters);
+  const availableWaterMl = availableWaterMlOverride ?? getAvailableWaterMl(target, aidStations, waterBagLiters);
   const summarized = summarizeSuppliesWithFluidConstraint(supplies, productMap, availableWaterMl);
+  const currentCarbs = Math.max(
+    summarized.totalCarbs,
+    carryoverCoverage?.currentCarbsG ?? 0,
+    carryoverCoverage?.availableCarbsG ?? 0,
+  );
+  const currentSodium = Math.max(
+    summarized.totalSodium,
+    carryoverCoverage?.currentSodiumMg ?? 0,
+    carryoverCoverage?.availableSodiumMg ?? 0,
+  );
 
   return [
     {
@@ -195,12 +210,12 @@ export function buildGaugeMetrics({
       label: 'Glucides',
       unit: 'g',
       color: '#2D5016',
-      current: summarized.totalCarbs,
+      current: currentCarbs,
       target: sectionTarget?.targetCarbsG ?? 0,
-      ratio: sectionTarget && sectionTarget.targetCarbsG > 0 ? summarized.totalCarbs / sectionTarget.targetCarbsG : 0,
+      ratio: sectionTarget && sectionTarget.targetCarbsG > 0 ? currentCarbs / sectionTarget.targetCarbsG : 0,
       statusRatio:
         sectionTarget && sectionTarget.targetCarbsG > 0
-          ? getTolerantGaugeRatio('carbs', summarized.totalCarbs, sectionTarget.targetCarbsG)
+          ? getTolerantGaugeRatio('carbs', currentCarbs, sectionTarget.targetCarbsG)
           : 0,
     },
     {
@@ -208,12 +223,12 @@ export function buildGaugeMetrics({
       label: 'Sodium',
       unit: 'mg',
       color: '#3B82F6',
-      current: summarized.totalSodium,
+      current: currentSodium,
       target: sectionTarget?.targetSodiumMg ?? 0,
-      ratio: sectionTarget && sectionTarget.targetSodiumMg > 0 ? summarized.totalSodium / sectionTarget.targetSodiumMg : 0,
+      ratio: sectionTarget && sectionTarget.targetSodiumMg > 0 ? currentSodium / sectionTarget.targetSodiumMg : 0,
       statusRatio:
         sectionTarget && sectionTarget.targetSodiumMg > 0
-          ? getTolerantGaugeRatio('sodium', summarized.totalSodium, sectionTarget.targetSodiumMg)
+          ? getTolerantGaugeRatio('sodium', currentSodium, sectionTarget.targetSodiumMg)
           : 0,
     },
     {
@@ -240,12 +255,13 @@ export function buildSectionIntakeTimelineV2({
   productMap,
   aidStations,
   waterBagLiters,
+  availableWaterMl: availableWaterMlOverride,
 }: BuildTimelineArgs): IntakeTimelineItem[] {
   const supplies = getSupplies(target);
   const safeDuration = Math.max(0, Math.round(sectionDurationMin));
   const totalTargetCarbs = Math.max(sectionTarget?.targetCarbsG ?? 0, 0);
   const totalTargetSodium = Math.max(sectionTarget?.targetSodiumMg ?? 0, 0);
-  const availableWaterMl = getAvailableWaterMl(target, aidStations, waterBagLiters);
+  const availableWaterMl = availableWaterMlOverride ?? getAvailableWaterMl(target, aidStations, waterBagLiters);
   const totalTargetWater = Math.max(Math.min(sectionTarget?.targetWaterMl ?? 0, availableWaterMl), 0);
   const summarized = summarizeSuppliesWithFluidConstraint(supplies, productMap, availableWaterMl);
 
@@ -433,7 +449,7 @@ export function buildPlanHighlights({
   );
   const allSupplies = [
     ...(values.startSupplies ?? []),
-    ...values.aidStations.flatMap((station) => station.supplies ?? []),
+    ...values.aidStations.flatMap((station) => (station.solidRefill === false ? [] : station.supplies ?? [])),
   ];
   const suppliesByProductId = allSupplies.reduce<Record<string, number>>((acc, supply) => {
     acc[supply.productId] = (acc[supply.productId] ?? 0) + supply.quantity;

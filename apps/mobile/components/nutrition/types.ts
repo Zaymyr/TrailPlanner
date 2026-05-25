@@ -26,6 +26,16 @@ export type ProductImageDraft = {
   size?: number | null;
 };
 
+export type ProductEditDraft = {
+  name: string;
+  brand: string;
+  fuelType: FuelType;
+  carbsG: string;
+  sodiumMg: string;
+  caloriesKcal: string;
+  imageDraft: ProductImageDraft | null;
+};
+
 export type FavoriteRow = {
   product_id: string;
   products: Product;
@@ -46,3 +56,5 @@ export type CreateProductResponse = {
   message?: string;
   error?: string;
 };
+
+export type UpdateProductResponse = CreateProductResponse;

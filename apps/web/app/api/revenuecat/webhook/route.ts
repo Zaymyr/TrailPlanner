@@ -2,9 +2,8 @@ import { NextResponse } from "next/server";
 
 import { withSecurityHeaders } from "../../../../lib/http";
 import {
-  extractRevenueCatWebhookUserIds,
   getRevenueCatWebhookAuthorization,
-  syncRevenueCatSubscriptionForUser,
+  syncRevenueCatWebhookPayload,
 } from "../../../../lib/revenuecat";
 import { extractBearerToken } from "../../../../lib/supabase";
 
@@ -36,13 +35,8 @@ export async function POST(request: Request) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid payload." }, { status: 400 }));
   }
 
-  const { providerHint, userIds } = extractRevenueCatWebhookUserIds(payload);
-
-  const results = await Promise.allSettled(
-    userIds.map((userId) => syncRevenueCatSubscriptionForUser(userId, { providerHint }))
-  );
-
-  const syncedUsers = results.filter((result) => result.status === "fulfilled" && result.value.synced).length;
+  const { userIds, results } = await syncRevenueCatWebhookPayload(payload);
+  const syncedUsers = results.filter((result) => result.synced).length;
 
   return withSecurityHeaders(
     NextResponse.json({

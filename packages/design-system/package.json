@@ -1,0 +1,30 @@
+{
+  "name": "@pace-yourself/design-system",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./tokens": {
+      "types": "./src/tokens/index.ts",
+      "import": "./src/tokens/index.ts",
+      "default": "./src/tokens/index.ts"
+    },
+    "./fonts": {
+      "types": "./src/fonts/index.ts",
+      "import": "./src/fonts/index.ts",
+      "default": "./src/fonts/index.ts"
+    },
+    "./icons": {
+      "types": "./src/icons/index.d.ts",
+      "import": "./src/icons/index.ts",
+      "default": "./src/icons/index.ts"
+    }
+  }
+}

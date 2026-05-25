@@ -3,6 +3,7 @@ import { Alert, Linking, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 
 import {
   estimateHourlyTargets,
@@ -32,6 +33,11 @@ import type {
 import { Colors } from '../constants/colors';
 import { isAnonymousSession } from '../lib/appSession';
 import { useI18n } from '../lib/i18n';
+import { captureAnalyticsEvent } from '../lib/posthog';
+import {
+  getLastPushRegistrationStatus,
+  type PushRegistrationStatus,
+} from '../lib/pushRegistration';
 import { supabase } from '../lib/supabase';
 import { WEB_API_BASE_URL } from '../lib/webApi';
 import { usePremium } from './usePremium';
@@ -43,6 +49,80 @@ const IOS_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
 
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
+}
+
+function normalizeRoles(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function resolveIsAdminFromAuthUser(
+  user:
+    | {
+        app_metadata?: Record<string, unknown> | null;
+        user_metadata?: Record<string, unknown> | null;
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!user) {
+    return false;
+  }
+
+  const appMetadata = user.app_metadata ?? null;
+  const userMetadata = user.user_metadata ?? null;
+  const roles = normalizeRoles(appMetadata?.roles);
+  const role =
+    (typeof appMetadata?.role === 'string' ? appMetadata.role : null) ??
+    (typeof userMetadata?.role === 'string' ? userMetadata.role : null) ??
+    roles[0] ??
+    null;
+
+  return role === 'admin' || roles.includes('admin');
+}
+
+function formatDebugTimestamp(value: string, locale: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatPushRegistrationDetails(details?: Record<string, unknown>): string | null {
+  if (!details) {
+    return null;
+  }
+
+  const formattedEntries = Object.entries(details)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        return `${key}=${value.join(', ')}`;
+      }
+
+      if (typeof value === 'object') {
+        try {
+          return `${key}=${JSON.stringify(value)}`;
+        } catch {
+          return `${key}=[object]`;
+        }
+      }
+
+      return `${key}=${String(value)}`;
+    });
+
+  return formattedEntries.length > 0 ? formattedEntries.join(' | ') : null;
 }
 
 export function useProfileScreen() {
@@ -92,6 +172,9 @@ export function useProfileScreen() {
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [isAdminFromAuth, setIsAdminFromAuth] = useState(false);
+  const [pushRegistrationStatus, setPushRegistrationStatus] =
+    useState<PushRegistrationStatus | null>(null);
   const savedResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -101,6 +184,7 @@ export function useProfileScreen() {
       const { data: sessionData } = await supabase.auth.getSession();
       const uid = sessionData?.session?.user?.id;
       setIsAnonymousAccount(isAnonymousSession(sessionData?.session));
+      setIsAdminFromAuth(resolveIsAdminFromAuthUser(sessionData?.session?.user));
 
       if (!uid || cancelled) {
         if (!cancelled) {
@@ -180,6 +264,23 @@ export function useProfileScreen() {
       }
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      (async () => {
+        const nextStatus = await getLastPushRegistrationStatus();
+        if (active) {
+          setPushRegistrationStatus(nextStatus);
+        }
+      })();
+
+      return () => {
+        active = false;
+      };
+    }, []),
+  );
 
   const parsedBirthDate = useMemo(() => {
     const trimmedValue = birthDateInput.trim();
@@ -425,6 +526,17 @@ export function useProfileScreen() {
     }));
     setBirthDateInput(birthDateIso ? formatBirthDateInput(birthDateIso) : '');
     setSaved(true);
+    captureAnalyticsEvent('profile saved', {
+      has_birth_date: Boolean(birthDateIso),
+      has_default_targets:
+        parsedDefaultCarbsPerHour !== null ||
+        parsedDefaultWaterPerHour !== null ||
+        parsedDefaultSodiumPerHour !== null,
+      has_height: parsedHeightCm !== null,
+      has_utmb_index: parsedUtmbIndex !== null,
+      has_weight: parsedWeightKg !== null,
+      water_bag_liters: waterBagLiters,
+    });
 
     if (savedResetTimeoutRef.current) {
       clearTimeout(savedResetTimeoutRef.current);
@@ -502,10 +614,17 @@ export function useProfileScreen() {
 
   const handleUpgrade = useCallback(async () => {
     if (inAppBillingEnabled) {
+      captureAnalyticsEvent('premium checkout started', {
+        source: paidPremiumSource ?? 'mobile',
+      });
+
       try {
         const result = await billing.purchase();
 
         if (result === 'purchased') {
+          captureAnalyticsEvent('premium purchased', {
+            source: paidPremiumSource ?? 'mobile',
+          });
           Alert.alert(t.common.ok, t.profile.purchaseSuccess);
           return;
         }
@@ -522,11 +641,15 @@ export function useProfileScreen() {
       }
     }
 
+    captureAnalyticsEvent('premium checkout started', {
+      source: 'web_fallback',
+    });
     await openExternalUrl(`${WEB_API_BASE_URL}/premium`, t.profile.premiumFallback);
   }, [
     billing,
     inAppBillingEnabled,
     openExternalUrl,
+    paidPremiumSource,
     t.common.error,
     t.common.ok,
     t.profile.premiumFallback,
@@ -542,10 +665,16 @@ export function useProfileScreen() {
       const storeUrl = billing.managementUrl ?? fallbackStoreUrl;
       const openedStore = await openExternalUrl(storeUrl, t.profile.subscriptionFallback);
       if (openedStore) {
+        captureAnalyticsEvent('subscription management opened', {
+          source: paidPremiumSource ?? 'mobile',
+        });
         return;
       }
     }
 
+    captureAnalyticsEvent('subscription management opened', {
+      source: 'web_fallback',
+    });
     await openExternalUrl(`${WEB_API_BASE_URL}/profile`, t.profile.subscriptionFallback);
   }, [
     billing.managementUrl,
@@ -565,6 +694,7 @@ export function useProfileScreen() {
       const result = await billing.restore();
 
       if (result === 'restored') {
+        captureAnalyticsEvent('premium restored');
         Alert.alert(t.common.ok, t.profile.restoreSuccess);
         return;
       }
@@ -658,6 +788,7 @@ export function useProfileScreen() {
         throw new Error(payload?.message || t.profile.deleteAccountFailed);
       }
 
+      captureAnalyticsEvent('account deleted');
       Alert.alert(t.common.ok, t.profile.deleteAccountSuccess, [
         {
           text: t.common.ok,
@@ -766,7 +897,7 @@ export function useProfileScreen() {
   const updateSource = Updates.isEmbeddedLaunch
     ? t.profile.updateSourceEmbedded
     : t.profile.updateSourceDownloaded;
-  const isAdmin = profile?.role === 'admin';
+  const isAdmin = profile?.role === 'admin' || isAdminFromAuth;
   const showAdminGrant = !hasPaidPremium && premiumGrant !== null;
   const showTrialActive = Boolean(!hasPaidPremium && !showAdminGrant && isTrialActive && trialEndsAt);
   const showTrialExpired = Boolean(!isPremium && !isTrialActive && trialEndsAt);
@@ -962,11 +1093,40 @@ export function useProfileScreen() {
             { label: t.profile.runtimeLabel, value: runtimeVersion },
             { label: t.profile.channelLabel, value: channel },
             { label: t.profile.updateIdLabel, value: updateId },
+            {
+              label: t.profile.pushRegistrationStatusLabel,
+              value: pushRegistrationStatus?.reason ?? t.profile.pushRegistrationEmpty,
+            },
+            ...(pushRegistrationStatus?.recordedAt
+              ? [
+                  {
+                    label: t.profile.pushRegistrationDateLabel,
+                    value: formatDebugTimestamp(pushRegistrationStatus.recordedAt, locale),
+                  },
+                ]
+              : []),
+            ...(pushRegistrationStatus?.details
+              ? [
+                  {
+                    label: t.profile.pushRegistrationDetailsLabel,
+                    value:
+                      formatPushRegistrationDetails(pushRegistrationStatus.details) ??
+                      t.profile.pushRegistrationEmpty,
+                  },
+                ]
+              : []),
           ]
         : [],
     [
       channel,
       isAdmin,
+      isAdminFromAuth,
+      locale,
+      pushRegistrationStatus,
+      t.profile.pushRegistrationDateLabel,
+      t.profile.pushRegistrationDetailsLabel,
+      t.profile.pushRegistrationEmpty,
+      t.profile.pushRegistrationStatusLabel,
       runtimeVersion,
       t.profile.channelLabel,
       t.profile.runtimeLabel,

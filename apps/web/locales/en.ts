@@ -147,7 +147,7 @@ export const en: Translations = {
       title: "How your products appear in the app",
       subtitle: "A clean integration that matches your brand standards.",
       imageProductLabel: "Product detail in the app",
-      imageAidStationLabel: "Aid station with assigned products",
+      imageAidStationLabel: "Aid station example in the app",
     },
     process: {
       title: "A simple, no-strings-attached process",
@@ -206,6 +206,44 @@ export const en: Translations = {
       title: "Ready to join Pace Yourself?",
       subtitle: "Free listing, no commitment.",
       button: "List my products",
+    },
+  },
+  links: {
+    meta: {
+      title: "Pace Yourself — All links",
+      description: "All links to discover Pace Yourself, the trail race planning application.",
+    },
+    tagline: "Trail race planning made simple",
+    waitlist: {
+      title: "🏔️ Join the private beta",
+      subtitle: "Early access + 3 months Premium for the first members",
+      cta: "Join the waitlist →",
+    },
+    cards: {
+      blog: {
+        title: "Blog",
+        subtitle: "Trail articles & guides",
+      },
+      app: {
+        title: "See the app",
+        subtitle: "Discover Pace Yourself",
+      },
+      partners: {
+        title: "For brands",
+        subtitle: "Product listing program",
+      },
+      instagram: {
+        title: "Instagram",
+        subtitle: "Race plans & content",
+      },
+      contact: {
+        title: "Contact",
+        subtitle: "Contact me directly",
+      },
+    },
+    footer: {
+      copyright: "© 2026 Pace Yourself",
+      madeBy: "Made by Faustin Bertrand",
     },
   },
   navigation: {
@@ -282,6 +320,15 @@ export const en: Translations = {
     },
   },
   racePlanner: {
+    page: {
+      breadcrumbLabel: "Breadcrumb",
+      breadcrumbHome: "Home",
+      breadcrumbPlanner: "Planner",
+      newPlanTitle: "New plan",
+      draftRestored: "Unsaved draft restored.",
+      undo: "Undo",
+      savedAt: "Plan saved at {time}",
+    },
     defaults: {
       aidStationName: "Aid {index}",
       finalBottles: "Final Bottles",
@@ -310,8 +357,12 @@ export const en: Translations = {
     },
     gpx: {
       errors: {
-        noTrackPoints: "No track points found in the GPX file.",
-        invalidCoordinates: "Invalid coordinates in track points.",
+        emptyFile: "The GPX file is empty.",
+        invalidFile: "This file does not look like a valid GPX file.",
+        unsupportedFormat: "This file is not in GPX format. Export it as a .gpx file and try again.",
+        invalidEncoding: "The GPX file could not be read correctly. Re-export it as UTF-8 if possible.",
+        noTrackPoints: "No usable coordinates were found in this GPX file.",
+        invalidCoordinates: "The GPX contains points, but their coordinates are invalid.",
         unableToImport: "Unable to import GPX file.",
         invalidPlannerState: "We couldn't read the saved plan data from this GPX.",
       },
@@ -368,6 +419,8 @@ export const en: Translations = {
           speedKph: "Speed (km/h)",
           fatigueLevel: "Fatigue factor",
           fatigueHelper: "Gradually slows the pace as the race gets longer.",
+          fatigueImpact:
+            "With this setting, your pace goes from {basePace} to {finalPace} after {duration}.",
           fatigueLow: "Very durable",
           fatigueMedium: "Standard",
           fatigueHigh: "Conservative",
@@ -440,6 +493,10 @@ export const en: Translations = {
       layout: {
         collapsePanel: "Hide side panel",
         expandPanel: "Show side panel",
+        setupStepsLabel: "Setup progress",
+        courseStepSummary: "Distance {distance}, D+ {elevation} m",
+        pacingStepSummary: "{pace}, fatigue {fatigue}, estimated duration {duration}",
+        nutritionStepSummary: "{carbs} g/hr, {water} ml/hr, {sodium} mg sodium/hr, bladder {waterBag} L",
       },
       aidStations: {
         title: "Aid stations",
@@ -449,6 +506,7 @@ export const en: Translations = {
           name: "Name",
           distance: "Distance (km)",
           waterRefill: "Water refill available",
+          solidRefill: "Solid fuel available",
         },
         remove: "Remove",
       },
@@ -591,7 +649,8 @@ export const en: Translations = {
       chooseRace: "Browse races",
       printPlan: "Print plan",
       autoFill: "Automatic fill",
-      autoFillHint: "Automatically fills each aid station with your favorite fuel choices.",
+      autoFillHint:
+        "Automatically calculates what to carry at each aid station from your carbs/water/sodium targets.",
     },
     raceCatalog: {
       title: "Race catalog",
@@ -974,10 +1033,10 @@ export const en: Translations = {
     },
     socialTemplates: {
       title: "Social templates",
-      description: "Pick an existing plan, generate its HTML poster, then export it as PNG.",
+      description: "Pick an existing plan, generate its HTML carousel, then export the 4 slides as PNG.",
       loadPlansError: "Unable to load plans.",
       loadTemplateError: "Unable to load the social template.",
-      exportError: "Unable to export the visual as PNG.",
+      exportError: "Unable to export the slides as PNG.",
       emptyPlans: "No saved plans are available for this admin.",
       planLabel: "Source plan",
       planPlaceholder: "Choose a plan",
@@ -985,8 +1044,8 @@ export const en: Translations = {
       refreshingPlans: "Refreshing...",
       refreshPreview: "Refresh preview",
       refreshingPreview: "Loading...",
-      exportPng: "Export PNG",
-      exporting: "Exporting PNG...",
+      exportPng: "Export 4 PNGs",
+      exporting: "Exporting PNGs...",
       selectionTitle: "Selected plan",
       updatedAt: "Updated {date}",
       previewTitle: "HTML preview",

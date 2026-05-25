@@ -5,11 +5,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
-
+import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { ChangelogEntry } from './types';
 

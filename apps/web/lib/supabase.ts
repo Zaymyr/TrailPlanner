@@ -65,6 +65,9 @@ export type SupabaseUser = {
   userMetadata?: Record<string, unknown>;
 };
 
+export const isAnonymousUser = (user: SupabaseUser | null | undefined): boolean =>
+  user?.isAnonymous === true || user?.appMetadata?.provider === "anonymous";
+
 export type SupabaseServiceConfig = {
   supabaseUrl: string;
   supabaseServiceRoleKey: string;
@@ -144,10 +147,7 @@ export const fetchSupabaseUser = async (
     }
 
     const roles = normalizeRoles(parsed.data.app_metadata?.roles);
-    const role =
-      parsed.data.app_metadata?.role ??
-      roles?.[0] ??
-      (typeof parsed.data.user_metadata?.role === "string" ? parsed.data.user_metadata.role : undefined);
+    const role = parsed.data.app_metadata?.role ?? roles?.[0];
 
     return {
       id: parsed.data.id,

@@ -348,7 +348,7 @@ async function loginTraceDeTrail(credentials: TraceDeTrailCredentials) {
   if (!response?.ok) {
     throw new TraceDeTrailImportError(
       "AUTH_FAILED",
-      "Impossible de se connecter a Trace de Trail avec ces identifiants."
+      "Impossible de se connecter à Trace de Trail avec ces identifiants."
     );
   }
 
@@ -356,7 +356,7 @@ async function loginTraceDeTrail(credentials: TraceDeTrailCredentials) {
   if (payload?.success !== 1) {
     throw new TraceDeTrailImportError(
       "AUTH_FAILED",
-      toNonEmptyString(payload?.msg) ?? "Impossible de se connecter a Trace de Trail avec ces identifiants."
+      toNonEmptyString(payload?.msg) ?? "Impossible de se connecter à Trace de Trail avec ces identifiants."
     );
   }
 
@@ -364,7 +364,7 @@ async function loginTraceDeTrail(credentials: TraceDeTrailCredentials) {
   if (!cookieHeader) {
     throw new TraceDeTrailImportError(
       "AUTH_FAILED",
-      "Connexion Trace de Trail reussie, mais la session GPX n'a pas pu etre ouverte."
+      "Connexion Trace de Trail réussie, mais la session GPX n'a pas pu être ouverte."
     );
   }
 
@@ -397,7 +397,7 @@ async function downloadTraceDeTrailGpxWithCookie(traceId: number, cookieHeader: 
   if (!response?.ok) {
     throw new TraceDeTrailImportError(
       "FETCH_FAILED",
-      "Impossible de recuperer les donnees Trace de Trail pour cette course."
+      "Impossible de récupérer les données Trace de Trail pour cette course."
     );
   }
 
@@ -415,7 +415,7 @@ async function downloadTraceDeTrailGpxWithCookie(traceId: number, cookieHeader: 
 
     throw new TraceDeTrailImportError(
       "INVALID_DATA",
-      "Impossible de recuperer les donnees Trace de Trail pour cette course."
+      "Impossible de récupérer les données Trace de Trail pour cette course."
     );
   }
 
@@ -653,7 +653,7 @@ export async function getTraceDeTrailRaceData(
   if (!response?.ok) {
     throw new TraceDeTrailImportError(
       "FETCH_FAILED",
-      "Impossible de recuperer les donnees Trace de Trail pour cette course."
+      "Impossible de récupérer les données Trace de Trail pour cette course."
     );
   }
 
@@ -674,7 +674,7 @@ export async function getTraceDeTrailRaceData(
   if (!courseName) {
     throw new TraceDeTrailImportError(
       "INVALID_DATA",
-      "Impossible de recuperer les donnees Trace de Trail pour cette course."
+      "Impossible de récupérer les données Trace de Trail pour cette course."
     );
   }
 
@@ -723,7 +723,7 @@ export async function getTraceDeTrailRaceData(
     } catch {
       throw new TraceDeTrailImportError(
         "INVALID_DATA",
-        "Impossible de recuperer les donnees Trace de Trail pour cette course."
+        "Impossible de récupérer les données Trace de Trail pour cette course."
       );
     }
   }
@@ -731,7 +731,7 @@ export async function getTraceDeTrailRaceData(
   if (!gpxContent || elevationProfile.length === 0) {
     throw new TraceDeTrailImportError(
       "INVALID_DATA",
-      "Impossible de recuperer les donnees Trace de Trail pour cette course."
+      "Impossible de récupérer les données Trace de Trail pour cette course."
     );
   }
 

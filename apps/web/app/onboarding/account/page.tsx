@@ -294,7 +294,7 @@ export default function AccountPage() {
 
   if (confirmed) {
     return (
-      <div className="flex flex-col items-center gap-6 px-6 pt-16 pb-8 text-center">
+      <div className="flex w-full min-w-0 flex-col items-center gap-6 overflow-x-hidden px-5 pt-16 pb-8 text-center sm:px-6">
         <span className="text-6xl">📬</span>
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
@@ -313,7 +313,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 px-6 pt-10 pb-8">
+    <div className="flex w-full min-w-0 flex-col gap-6 overflow-x-hidden px-5 pt-10 pb-8 sm:px-6">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold" style={{ color: "#1a2e0a" }}>
           Sauvegarde ton plan
@@ -330,8 +330,8 @@ export default function AccountPage() {
           boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
         }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-3 min-[390px]:flex-row min-[390px]:items-center min-[390px]:justify-between">
+          <div className="flex min-w-0 flex-col gap-0.5">
             <span className="text-sm font-semibold" style={{ color: "#1a2e0a" }}>
               Ton plan
             </span>
@@ -339,7 +339,7 @@ export default function AccountPage() {
               {distance} km · {elevation} m D+
             </span>
           </div>
-          <div className="flex gap-3 text-sm font-medium" style={{ color: "#2D5016" }}>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm font-medium" style={{ color: "#2D5016" }}>
             <span>🍬 {plan.carbsPerHour}g/h</span>
             <span>💧 {plan.waterPerHour}ml/h</span>
           </div>

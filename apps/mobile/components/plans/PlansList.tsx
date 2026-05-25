@@ -3,13 +3,24 @@ import {
   RefreshControl,
   SectionList,
   StyleSheet,
-  Text,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-import { Colors } from '../../constants/colors';
+import {
+  AidStationIcon,
+  EmptyPlanIcon,
+  SummitIcon,
+  TrailIcon,
+  colors,
+  radius,
+  spacing
+} from '@pace-yourself/design-system';
+import { Button } from '../themed/Button';
+import { Card } from '../themed/Card';
+import { DataText } from '../themed/DataText';
+import { Heading } from '../themed/Heading';
+import { Text } from '../themed/Text';
 import { estimateDuration, formatPlanDate } from './plansHelpers';
 import type { PlanRow, RaceSection } from './types';
 
@@ -37,7 +48,6 @@ type PlansListProps = {
   onOpenRacePlan: (planId: string) => void;
   onOpenLockedPlan: () => void;
   onCreateFirstPlan: () => void;
-  onOpenCatalog: () => void;
 };
 
 export const PlansList = memo(function PlansList({
@@ -64,8 +74,10 @@ export const PlansList = memo(function PlansList({
   onOpenRacePlan,
   onOpenLockedPlan,
   onCreateFirstPlan,
-  onOpenCatalog,
 }: PlansListProps) {
+  const localizedEmptyTitle =
+    locale === 'fr' ? "Aucun plan à l'horizon" : 'The trail starts here';
+
   return (
     <View style={styles.screen}>
       <SectionList
@@ -75,7 +87,7 @@ export const PlansList = memo(function PlansList({
           <RefreshControl
             onRefresh={onRefresh}
             refreshing={refreshing}
-            tintColor={Colors.brandPrimary}
+            tintColor={colors.brand.forest}
           />
         }
         renderItem={({ item, section }) => {
@@ -111,7 +123,11 @@ export const PlansList = memo(function PlansList({
           const isCollapsed = collapsedSections.has(key);
           if (isCollapsed || section.data.length === 0) return null;
           if (section.raceId === null) {
-            return <Text style={styles.orphanWarning}>{noRaceWarningLabel}</Text>;
+            return (
+              <Text tone="secondary" size="xs" style={styles.orphanWarning}>
+                {noRaceWarningLabel}
+              </Text>
+            );
           }
           return null;
         }}
@@ -121,22 +137,35 @@ export const PlansList = memo(function PlansList({
 
           return (
             <TouchableOpacity
-              activeOpacity={0.7}
+              activeOpacity={0.72}
               onPress={() => onToggleSection(key)}
               style={styles.sectionHeader}
             >
-              <Text style={styles.sectionCollapseIcon}>{isCollapsed ? '▶' : '▼'}</Text>
+              <Text tone="brand" size="sm" weight="bold" style={styles.sectionCollapseIcon}>
+                {isCollapsed ? '+' : '-'}
+              </Text>
               <View style={styles.sectionTitleWrap}>
-                <Text numberOfLines={1} style={styles.sectionTitle}>
-                  📍 {section.raceName}
-                </Text>
+                <View style={styles.sectionTitleRow}>
+                  <TrailIcon color={colors.brand.forest} size={20} strokeWidth={2.2} />
+                  <Heading numberOfLines={1} variant="h3" style={styles.sectionTitle}>
+                    {section.raceName}
+                  </Heading>
+                </View>
+              </View>
+              <View style={styles.sectionCountBadge}>
+                <AidStationIcon color={colors.brand.forest} size={15} strokeWidth={2.1} />
+                <DataText tone="brand" size="xs" weight="semibold">
+                  {section.data.length}
+                </DataText>
               </View>
               {section.isOwned && section.raceId ? (
                 <TouchableOpacity
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   onPress={() => onEditRace(section.raceId!)}
                 >
-                  <Text style={styles.editRaceText}>{editRaceLabel}</Text>
+                  <Text tone="secondary" size="xs" weight="semibold" style={styles.editRaceText}>
+                    {editRaceLabel}
+                  </Text>
                 </TouchableOpacity>
               ) : null}
             </TouchableOpacity>
@@ -146,19 +175,22 @@ export const PlansList = memo(function PlansList({
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>🏔️</Text>
-            <Text style={styles.emptyTitle}>{emptyTitle}</Text>
-            <Text style={styles.emptySubtitle}>{emptySubtitle}</Text>
-            <TouchableOpacity onPress={onCreateFirstPlan} style={styles.emptyButton}>
-              <Text style={styles.emptyButtonText}>{createFirstLabel}</Text>
-            </TouchableOpacity>
+            <EmptyPlanIcon
+              color={colors.brand.forest}
+              size={96}
+              strokeWidth={1.8}
+              style={styles.emptyIcon}
+            />
+            <Heading accessibilityLabel={emptyTitle} variant="h2" style={styles.emptyTitle}>
+              {localizedEmptyTitle}
+            </Heading>
+            <Text tone="secondary" size="base" lineHeight="normal" style={styles.emptySubtitle}>
+              {emptySubtitle}
+            </Text>
+            <Button onPress={onCreateFirstPlan}>{createFirstLabel}</Button>
           </View>
         }
       />
-
-      <TouchableOpacity activeOpacity={0.85} onPress={onOpenCatalog} style={styles.fab}>
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
     </View>
   );
 });
@@ -196,26 +228,30 @@ function PlanCard({
   onStart,
   onLockedPress,
 }: PlanCardProps) {
+  const aidStationCount = item.planner_values?.aidStations?.length ?? 0;
+
   return (
-    <View style={styles.card}>
+    <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]}>
       {isActivePlan ? (
         <View style={[styles.cardActionsLeft, styles.cardActionsActive]}>
-          <Ionicons color={Colors.warning} name="radio" size={18} />
-          <Text style={styles.cardActionsActiveText}>{liveLabel}</Text>
+          <TrailIcon color={colors.accent.amber} size={20} strokeWidth={2.2} />
+          <Text tone="brand" size="xs" weight="bold" style={styles.cardActionsActiveText}>
+            {liveLabel}
+          </Text>
         </View>
       ) : (
         <View style={styles.cardActionsLeft}>
           {editButtonVisible ? (
             <TouchableOpacity activeOpacity={0.8} onPress={onEdit} style={styles.iconBtn}>
-              <Ionicons color="#6B7280" name="create-outline" size={16} />
+              <Ionicons color={colors.text.secondary} name="create-outline" size={16} />
             </TouchableOpacity>
           ) : (
             <View style={[styles.iconBtn, styles.iconBtnLocked]}>
-              <Ionicons color={Colors.warning} name="lock-closed-outline" size={16} />
+              <Ionicons color={colors.accent.amber} name="lock-closed-outline" size={16} />
             </View>
           )}
           <TouchableOpacity activeOpacity={0.8} onPress={onDelete} style={styles.iconBtn}>
-            <Ionicons color="#EF4444" name="trash-outline" size={16} />
+            <Ionicons color={colors.accent.terracotta} name="trash-outline" size={16} />
           </TouchableOpacity>
         </View>
       )}
@@ -226,16 +262,42 @@ function PlanCard({
         style={styles.cardMainButton}
       >
         <View style={styles.cardContent}>
-          <Text style={styles.planName}>{item.name}</Text>
+          <View style={styles.planTitleRow}>
+            <TrailIcon color={colors.brand.forest} size={18} strokeWidth={2} />
+            <Heading variant="h2" numberOfLines={2} style={styles.planName}>
+              {item.name}
+            </Heading>
+          </View>
           <View style={styles.meta}>
             {item.planner_values?.raceDistanceKm != null ? (
-              <Text style={styles.metaText}>{item.planner_values.raceDistanceKm} km</Text>
+              <DataText tone="secondary" size="xs" weight="medium">
+                {item.planner_values.raceDistanceKm} km
+              </DataText>
             ) : null}
             {item.planner_values?.elevationGain != null ? (
-              <Text style={styles.metaText}> · D+ {item.planner_values.elevationGain}m</Text>
+              <View style={styles.metaInline}>
+                <SummitIcon color={colors.brand.forest} size={14} strokeWidth={2.1} />
+                <DataText tone="secondary" size="xs" weight="medium">
+                  D+ {item.planner_values.elevationGain}m
+                </DataText>
+              </View>
             ) : null}
-            {duration ? <Text style={styles.metaText}> · {duration}</Text> : null}
-            <Text style={styles.metaDate}> · {formatPlanDate(item.updated_at, locale)}</Text>
+            {duration ? (
+              <DataText tone="secondary" size="xs" weight="medium">
+                {duration}
+              </DataText>
+            ) : null}
+            {aidStationCount > 0 ? (
+              <View style={styles.metaInline}>
+                <AidStationIcon color={colors.brand.forest} size={14} strokeWidth={2.1} />
+                <DataText tone="brand" size="xs" weight="semibold">
+                  {aidStationCount}
+                </DataText>
+              </View>
+            ) : null}
+            <DataText tone="tertiary" size="xs">
+              {formatPlanDate(item.updated_at, locale)}
+            </DataText>
           </View>
         </View>
       </TouchableOpacity>
@@ -250,26 +312,42 @@ function PlanCard({
         ]}
       >
         {!isAccessible ? (
-          <Ionicons color={Colors.warning} name="lock-closed" size={18} />
+          <Ionicons color={colors.accent.amber} name="lock-closed" size={18} />
         ) : (
-          <Text style={styles.startButtonText}>
-            {isActivePlan ? inProgressLabel : startButtonLabel}
-          </Text>
+          <>
+            <Ionicons
+              color={colors.text.inverse}
+              name={isActivePlan ? 'radio-button-on' : 'play'}
+              size={15}
+            />
+            <Text
+              adjustsFontSizeToFit
+              lineHeight="tight"
+              minimumFontScale={0.82}
+              numberOfLines={1}
+              tone="inverse"
+              size="xs"
+              weight="bold"
+              style={styles.startButtonText}
+            >
+              {isActivePlan ? inProgressLabel : startButtonLabel}
+            </Text>
+          </>
         )}
       </TouchableOpacity>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: Colors.background,
+    backgroundColor: colors.surface.sand,
   },
   list: {
-    padding: 16,
-    gap: 4,
-    paddingBottom: 100,
+    padding: spacing[4],
+    gap: spacing[2],
+    paddingBottom: 120,
   },
   listEmpty: {
     flex: 1,
@@ -277,70 +355,72 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 10,
-    marginTop: 8,
-    backgroundColor: Colors.background,
+    gap: spacing[2],
+    paddingHorizontal: spacing[1],
+    paddingVertical: spacing[3],
+    marginTop: spacing[2],
+    backgroundColor: colors.surface.sand,
   },
   sectionCollapseIcon: {
-    color: Colors.brandPrimary,
-    fontSize: 11,
-    width: 14,
+    width: 18,
+    textAlign: 'center',
   },
   sectionTitleWrap: {
     flex: 1,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
+  },
   sectionTitle: {
-    color: Colors.brandPrimary,
-    fontSize: 15,
-    fontWeight: '600',
     flex: 1,
+    color: colors.brand.forest,
+  },
+  sectionCountBadge: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[1],
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    backgroundColor: colors.surface.cream,
+    paddingHorizontal: spacing[2],
   },
   editRaceText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
+    textDecorationLine: 'underline',
   },
   orphanWarning: {
-    color: Colors.warning,
-    fontSize: 12,
-    paddingHorizontal: 4,
-    paddingBottom: 8,
+    paddingHorizontal: spacing[1],
+    paddingBottom: spacing[2],
   },
   card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'stretch',
-    marginBottom: 8,
-    marginLeft: 22,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: spacing[3],
+    marginLeft: spacing[6],
     overflow: 'hidden',
+  },
+  cardActive: {
+    borderColor: colors.border.brand,
   },
   cardActionsLeft: {
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 12,
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[3],
     borderRightWidth: 1,
-    borderRightColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
+    borderRightColor: colors.border.subtle,
+    backgroundColor: colors.surface.cream,
   },
   cardActionsActive: {
-    minWidth: 54,
-    gap: 6,
+    minWidth: 58,
+    gap: spacing[1.5],
+    backgroundColor: colors.surface.sandLight,
   },
   cardActionsActiveText: {
-    color: Colors.warning,
-    fontSize: 11,
-    fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
@@ -350,122 +430,86 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 16,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[4],
+  },
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing[2],
+    marginBottom: spacing[2],
   },
   planName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 4,
+    flex: 1,
+    fontSize: 19,
+    lineHeight: 23,
   },
   meta: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing[2],
   },
-  metaText: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  metaDate: {
-    fontSize: 13,
-    color: Colors.textMuted,
+  metaInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[0.5],
   },
   iconBtn: {
     width: 34,
     height: 34,
-    borderRadius: 10,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surface,
+    backgroundColor: colors.surface.white,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: colors.border.subtle,
   },
   iconBtnLocked: {
-    backgroundColor: Colors.warningSurface,
-    borderColor: Colors.warning,
+    backgroundColor: colors.surface.cream,
+    borderColor: colors.accent.amber,
   },
   startButton: {
-    width: 76,
+    width: 88,
     minHeight: 76,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    backgroundColor: Colors.brandPrimary,
+    gap: spacing[1],
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[2],
+    backgroundColor: colors.brand.forest,
     borderLeftWidth: 1,
-    borderLeftColor: Colors.brandLight,
+    borderLeftColor: colors.brand.forestLight,
   },
   startButtonActive: {
-    backgroundColor: Colors.warning,
-    borderLeftColor: '#F6C08A',
+    backgroundColor: colors.brand.forestLight,
+    borderLeftColor: colors.brand.forestDark,
   },
   startButtonLocked: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderLeftColor: Colors.warning,
+    backgroundColor: colors.surface.cream,
+    borderLeftColor: colors.accent.amber,
   },
   startButtonText: {
-    color: Colors.textOnBrand,
-    fontWeight: '700',
-    fontSize: 12,
     textAlign: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.brandPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: Colors.brandPrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  fabText: {
-    color: Colors.textOnBrand,
-    fontSize: 28,
-    fontWeight: '700',
-    lineHeight: 32,
+    maxWidth: 72,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 64,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[16],
   },
   emptyIcon: {
-    fontSize: 56,
-    marginBottom: 16,
+    opacity: 0.42,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
     textAlign: 'center',
-    marginBottom: 8,
+    marginTop: spacing[5],
+    marginBottom: spacing[2],
   },
   emptySubtitle: {
-    fontSize: 15,
-    color: Colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-  },
-  emptyButton: {
-    backgroundColor: Colors.brandPrimary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 14,
-  },
-  emptyButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '700',
+    marginBottom: spacing[8],
   },
 });
