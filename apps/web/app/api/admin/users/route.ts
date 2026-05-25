@@ -169,6 +169,9 @@ const productNameRowSchema = z.object({
 
 const userProfileInsightRowSchema = z.object({
   user_id: z.string().uuid(),
+  sign_in_count: z.number().int().nonnegative().nullable().optional(),
+  first_sign_in_at: z.string().nullable().optional(),
+  last_sign_in_at: z.string().nullable().optional(),
   age: z.number().nullable().optional(),
   water_bag_liters: z.number().nullable().optional(),
   utmb_index: z.number().nullable().optional(),
@@ -347,7 +350,7 @@ export async function GET(request: NextRequest) {
         fetch(
           `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
             ","
-          )})&select=user_id,age,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km`,
+          )})&select=user_id,sign_in_count,first_sign_in_at,last_sign_in_at,age,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km`,
           {
             headers: {
               apikey: auth.supabaseService.supabaseServiceRoleKey,
@@ -497,8 +500,12 @@ export async function GET(request: NextRequest) {
             profile.utmb_index !== null ||
             profile.comfortable_flat_pace_min_per_km !== null)
       );
-      const createdAt = new Date(user.createdAt);
-      const lastSignInAt = user.lastSignInAt ? new Date(user.lastSignInAt) : null;
+      const createdAt = profile?.first_sign_in_at ? new Date(profile.first_sign_in_at) : new Date(user.createdAt);
+      const lastSignInAt = profile?.last_sign_in_at
+        ? new Date(profile.last_sign_in_at)
+        : user.lastSignInAt
+          ? new Date(user.lastSignInAt)
+          : null;
       const activityWindowDays =
         lastSignInAt && Number.isFinite(lastSignInAt.getTime()) && Number.isFinite(createdAt.getTime())
           ? Math.max(0, Math.ceil((lastSignInAt.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000)))
@@ -510,7 +517,7 @@ export async function GET(request: NextRequest) {
         trial: trialsByUserId.get(user.id) ?? null,
         subscription: subscriptionsByUserId.get(user.id) ?? null,
         insights: {
-          signInCount: null,
+          signInCount: profile?.sign_in_count ?? null,
           activityWindowDays,
           planCount: userPlans.length,
           latestPlanName: userPlans[0]?.name ?? null,
