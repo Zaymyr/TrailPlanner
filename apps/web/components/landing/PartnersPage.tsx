@@ -14,6 +14,7 @@ type PartnersPageProps = {
 type IconProps = SVGProps<SVGSVGElement>;
 
 const MULEBAR_LOGO_SRC = "/landing/mulebar-logo.jpg";
+const MULEBAR_APRICOT_PECAN_IMAGE_SRC = "/landing/mulebar-apricot-pecan-detail.jpg";
 
 const mailtoByLocale: Record<Locale, string> = {
   fr: "mailto:faustin@pace-yourself.com?subject=Referencement%20produits%20-%20%5BNom%20de%20votre%20marque%5D",
@@ -134,6 +135,61 @@ const integratedBrandByLocale = {
   }
 >;
 
+const productDetailShowcaseByLocale = {
+  fr: {
+    eyebrow: "DÉTAIL DU PRODUIT",
+    title: "Barre énergétique bio et vegan Mulebar 40g / Abricot Pécan",
+    subtitle: "Valeurs par unité / portion",
+    fields: [
+      { label: "Marque", value: "Mulebar" },
+      { label: "Type", value: "Barre" },
+    ],
+    metrics: [
+      { label: "Glucides", value: "22.8 g" },
+      { label: "Sodium", value: "12 mg" },
+      { label: "Calories", value: "129 kcal" },
+      { label: "Protéines", value: "2 g" },
+      { label: "Lipides", value: "2.3 g" },
+      { label: "Eau", value: "0 ml" },
+    ],
+    cta: "Acheter ce produit",
+    imageAlt: "Visuel de la barre Mulebar Abricot Pécan",
+    imageFallback: "Mulebar",
+  },
+  en: {
+    eyebrow: "PRODUCT DETAIL",
+    title: "Organic vegan Mulebar energy bar 40g / Apricot Pecan",
+    subtitle: "Values per unit / serving",
+    fields: [
+      { label: "Brand", value: "Mulebar" },
+      { label: "Type", value: "Bar" },
+    ],
+    metrics: [
+      { label: "Carbs", value: "22.8 g" },
+      { label: "Sodium", value: "12 mg" },
+      { label: "Calories", value: "129 kcal" },
+      { label: "Protein", value: "2 g" },
+      { label: "Fat", value: "2.3 g" },
+      { label: "Water", value: "0 ml" },
+    ],
+    cta: "Buy this product",
+    imageAlt: "Apricot Pecan Mulebar energy bar visual",
+    imageFallback: "Mulebar",
+  },
+} satisfies Record<
+  Locale,
+  {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    fields: { label: string; value: string }[];
+    metrics: { label: string; value: string }[];
+    cta: string;
+    imageAlt: string;
+    imageFallback: string;
+  }
+>;
+
 type ImagePlaceholderProps = {
   src: string;
   label: string;
@@ -179,6 +235,105 @@ function ImagePlaceholder({
           onError={() => setHasError(true)}
         />
       )}
+    </div>
+  );
+}
+
+type ProductDetailShowcaseProps = {
+  locale: Locale;
+  className?: string;
+};
+
+function ProductDetailShowcase({ locale, className = "" }: ProductDetailShowcaseProps) {
+  const copy = productDetailShowcaseByLocale[locale];
+  const [hasImageError, setHasImageError] = useState(false);
+
+  return (
+    <div
+      className={`overflow-hidden rounded-2xl border border-border/80 bg-[#f6f4ef] shadow-2xl shadow-[rgba(45,80,22,0.10)] ${className}`}
+    >
+      <div className="flex h-full flex-col">
+        <div className="border-b border-[#d8d7cf] px-4 py-4 sm:px-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[#3f6f1d]">{copy.eyebrow}</p>
+              <h3 className="mt-3 text-lg font-semibold leading-tight text-slate-800 sm:text-[1.65rem]">
+                {copy.title}
+              </h3>
+              <p className="mt-1 text-sm text-slate-500">{copy.subtitle}</p>
+            </div>
+            <span className="text-xl leading-none text-[#3f6f1d]" aria-hidden>
+              ×
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-4 px-4 py-4 sm:px-5 sm:py-5">
+          <div className="flex gap-4">
+            <div className="relative flex aspect-[4/5] w-[31%] min-w-[128px] max-w-[190px] shrink-0 items-center justify-center overflow-hidden rounded-[28px] border border-[#e4decb] bg-[#f1ede1] p-3">
+              <div className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#3f6f1d] text-white shadow-md">
+                <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+                  <path
+                    d="M6.5 12.5 10.2 16l7.3-8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.5"
+                  />
+                </svg>
+              </div>
+              {hasImageError ? (
+                <span className="text-center text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  {copy.imageFallback}
+                </span>
+              ) : (
+                <Image
+                  src={MULEBAR_APRICOT_PECAN_IMAGE_SRC}
+                  alt={copy.imageAlt}
+                  width={1080}
+                  height={1080}
+                  sizes="190px"
+                  className="h-full w-full object-cover object-left"
+                  onError={() => setHasImageError(true)}
+                />
+              )}
+            </div>
+
+            <div className="grid min-w-0 flex-1 gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                {copy.fields.map((field) => (
+                  <div
+                    key={field.label}
+                    className="rounded-[22px] border border-[#deddd4] bg-[#f7f5ef] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)]"
+                  >
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">{field.label}</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-800">{field.value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                {copy.metrics.map((metric) => (
+                  <div
+                    key={metric.label}
+                    className="rounded-[22px] border border-[#bfd8aa] bg-[#eef4e7] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]"
+                  >
+                    <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">{metric.label}</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-800">{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <span className="inline-flex rounded-[18px] bg-[#2f641f] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(47,100,31,0.18)]">
+              {copy.cta}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -292,14 +447,9 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
           <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">{copy.appearance.subtitle}</p>
         </div>
         <div className="grid gap-5 lg:grid-cols-2">
-          <ImagePlaceholder
-            src="/landing/partners-product-detail.png"
-            alt={copy.appearance.imageProductLabel}
-            label={copy.appearance.imageProductLabel}
-            width={800}
-            height={600}
+          <ProductDetailShowcase
+            locale={locale}
             className="aspect-[667/431] bg-muted p-3"
-            imageClassName="object-contain"
           />
           <ImagePlaceholder
             src="/landing/partners-aid-station.jpeg"
