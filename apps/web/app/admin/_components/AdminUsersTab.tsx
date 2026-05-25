@@ -35,6 +35,47 @@ import {
   UserRoleOption,
 } from "./admin-types";
 
+const readResponsePayload = async (response: Response): Promise<unknown> => {
+  const text = await response.text().catch(() => "");
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+};
+
+const summarizeZodError = (error: z.ZodError): string =>
+  error.issues
+    .slice(0, 5)
+    .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "response"}: ${issue.message}`)
+    .join("; ");
+
+const buildApiErrorMessage = (response: Response, payload: unknown, fallback: string): string => {
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    const parts = [
+      typeof record.message === "string" ? record.message : null,
+      typeof record.details === "string" ? record.details : null,
+      typeof record.source === "string" ? `Source: ${record.source}` : null,
+    ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+  }
+
+  if (typeof payload === "string" && payload.trim().length > 0) {
+    return payload.trim();
+  }
+
+  return `${fallback} (HTTP ${response.status})`;
+};
+
 export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -105,17 +146,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         cache: "no-store",
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.loadError;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.loadError));
       }
 
       const parsed = adminUsersSchema.safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.loadError);
+        throw new Error(`Invalid /api/admin/users response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.users;
@@ -135,17 +175,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.messages.error;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.messages.error));
       }
 
       const parsed = z.object({ user: adminUserSchema }).safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.messages.error);
+        throw new Error(`Invalid PATCH /api/admin/users response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.user;
@@ -177,17 +216,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.premium.messages.error;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.premium.messages.error));
       }
 
       const parsed = premiumGrantResponseSchema.safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.premium.messages.error);
+        throw new Error(`Invalid POST /api/admin/premium response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.premiumGrant;
@@ -220,17 +258,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.premium.messages.error;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.premium.messages.error));
       }
 
       const parsed = premiumGrantResponseSchema.safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.premium.messages.error);
+        throw new Error(`Invalid DELETE /api/admin/premium response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.premiumGrant;

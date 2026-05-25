@@ -77,6 +77,33 @@ describe("GET /api/admin/users", () => {
     expect(payload.users[0]).not.toHaveProperty("email");
     expect(mockFetch).toHaveBeenCalledTimes(9);
   });
+
+  it("returns explicit Supabase Auth error details when the user list request fails", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch.mockResolvedValueOnce(
+      buildJsonResponse(
+        {
+          message: 'column "sign_in_count" does not exist',
+          details: "Failed while reading admin users",
+          code: "42703",
+        },
+        { status: 500 }
+      )
+    );
+
+    const response = await GET(usersRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload).toMatchObject({
+      message: "Failed to load admin users from Supabase Auth.",
+      source: "supabase-auth-admin-users",
+    });
+    expect(payload.details).toContain('column "sign_in_count" does not exist');
+    expect(payload.details).toContain("Failed while reading admin users");
+    expect(payload.details).toContain("Code: 42703");
+  });
 });
 
 vi.mock("next/headers", () => ({

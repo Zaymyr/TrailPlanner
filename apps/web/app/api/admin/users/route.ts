@@ -207,6 +207,73 @@ type RefreshTokenPayload = {
   refresh_token?: string;
 };
 
+const readResponsePayload = async (response: Response): Promise<unknown> => {
+  const text = await response.text().catch(() => "");
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+};
+
+const summarizePayload = (payload: unknown): string | null => {
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (payload && typeof payload === "object") {
+    const entries = payload as Record<string, unknown>;
+    const parts = [
+      typeof entries.message === "string" ? entries.message : null,
+      typeof entries.error === "string" ? entries.error : null,
+      typeof entries.error_description === "string" ? entries.error_description : null,
+      typeof entries.details === "string" ? entries.details : null,
+      typeof entries.hint === "string" ? `Hint: ${entries.hint}` : null,
+      typeof entries.code === "string" ? `Code: ${entries.code}` : null,
+    ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return null;
+    }
+  }
+
+  if (payload === null || payload === undefined) {
+    return null;
+  }
+
+  return String(payload);
+};
+
+const summarizeZodError = (error: z.ZodError): string =>
+  error.issues
+    .slice(0, 5)
+    .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "response"}: ${issue.message}`)
+    .join("; ");
+
+const buildErrorResponse = (status: number, message: string, options?: { details?: string; source?: string }) =>
+  withSecurityHeaders(
+    NextResponse.json(
+      {
+        message,
+        details: options?.details,
+        source: options?.source,
+      },
+      { status }
+    )
+  );
+
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -271,11 +338,14 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    const payload = (await response.json().catch(() => null)) as unknown;
+    const payload = await readResponsePayload(response);
 
     if (!response.ok) {
       console.error("Unable to load users", payload);
-      return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 502 }));
+      return buildErrorResponse(502, "Failed to load admin users from Supabase Auth.", {
+        source: "supabase-auth-admin-users",
+        details: summarizePayload(payload) ?? `HTTP ${response.status}`,
+      });
     }
 
     const parsedEnvelope = usersEnvelopeSchema.safeParse(payload);
@@ -284,7 +354,10 @@ export async function GET(request: NextRequest) {
     const rawUsers = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
 
     if (!rawUsers) {
-      return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
+      return buildErrorResponse(500, "Unexpected Supabase Auth response while loading admin users.", {
+        source: "supabase-auth-admin-users",
+        details: "Expected an array or an object with a users array.",
+      });
     }
 
     const mapped = rawUsers
@@ -564,10 +637,22 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return withSecurityHeaders(NextResponse.json(mappedUsersSchema.parse({ users: mappedWithGrants })));
+    const parsedMappedUsers = mappedUsersSchema.safeParse({ users: mappedWithGrants });
+
+    if (!parsedMappedUsers.success) {
+      return buildErrorResponse(500, "Admin users response validation failed.", {
+        source: "admin-users-response-parse",
+        details: summarizeZodError(parsedMappedUsers.error),
+      });
+    }
+
+    return withSecurityHeaders(NextResponse.json(parsedMappedUsers.data));
   } catch (error) {
     console.error("Unexpected error while loading admin users", error);
-    return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
+    return buildErrorResponse(500, "Unexpected error while loading admin users.", {
+      source: "admin-users-route",
+      details: error instanceof Error ? error.message : undefined,
+    });
   }
 }
 
