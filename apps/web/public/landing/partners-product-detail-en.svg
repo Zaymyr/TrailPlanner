@@ -1,0 +1,41 @@
+<svg width="800" height="517" viewBox="0 0 800 517" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="517" rx="28" fill="#F8F5EE"/>
+  <rect x="1" y="1" width="798" height="515" rx="27" stroke="#E9E2D2"/>
+  <path d="M52 204.5H748" stroke="#E4DED0"/>
+  <text x="54" y="64" fill="#3E6D1F" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="500" letter-spacing="5.6">PRODUCT DETAIL</text>
+  <text x="54" y="118" fill="#173764" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="500">Organic vegan Mulebar energy bar</text>
+  <text x="54" y="160" fill="#173764" font-family="Segoe UI, Arial, sans-serif" font-size="32" font-weight="500">40g / Apricot Pecan</text>
+  <text x="54" y="198" fill="#75809A" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="400">Values per unit / serving</text>
+  <text x="695" y="72" fill="#3E6D1F" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="400">&#215;</text>
+
+  <defs>
+    <clipPath id="en-product-clip">
+      <rect x="54" y="230" width="180" height="192" rx="26"/>
+    </clipPath>
+  </defs>
+
+  <rect x="54" y="230" width="180" height="192" rx="26" fill="#EFE9D8" stroke="#E6DECB"/>
+  <image href="mulebar-apricot-pecan-detail.jpg" x="54" y="230" width="180" height="192" preserveAspectRatio="xMidYMin slice" clip-path="url(#en-product-clip)"/>
+  <circle cx="214" cy="250" r="22" fill="#4B811F" stroke="#FFFFFF" stroke-width="3"/>
+  <path d="M205 250.5L211 256.5L223 242.5" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="254" y="230" width="208" height="94" rx="24" fill="#F8F5EE" stroke="#E1DCCF"/>
+  <text x="278" y="263" fill="#70809A" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="500" letter-spacing="3.2">BRAND</text>
+  <text x="278" y="299" fill="#173764" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="500">Mulebar</text>
+
+  <rect x="478" y="230" width="208" height="94" rx="24" fill="#F8F5EE" stroke="#E1DCCF"/>
+  <text x="502" y="263" fill="#70809A" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="500" letter-spacing="3.2">TYPE</text>
+  <text x="502" y="299" fill="#173764" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="500">Bar</text>
+
+  <rect x="254" y="342" width="156" height="94" rx="24" fill="#EEF4E7" stroke="#B8D6A3"/>
+  <text x="278" y="375" fill="#70809A" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="500" letter-spacing="3.2">CARBS</text>
+  <text x="278" y="411" fill="#173764" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="500">22.8 g</text>
+
+  <rect x="426" y="342" width="156" height="94" rx="24" fill="#EEF4E7" stroke="#B8D6A3"/>
+  <text x="450" y="375" fill="#70809A" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="500" letter-spacing="3.2">SODIUM</text>
+  <text x="450" y="411" fill="#173764" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="500">12 mg</text>
+
+  <rect x="598" y="342" width="148" height="94" rx="24" fill="#EEF4E7" stroke="#B8D6A3"/>
+  <text x="622" y="375" fill="#70809A" font-family="Segoe UI, Arial, sans-serif" font-size="13" font-weight="500" letter-spacing="3.2">CALORIES</text>
+  <text x="622" y="411" fill="#173764" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="500">129</text>
+</svg>

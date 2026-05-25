@@ -92,7 +92,7 @@ const userIdUuidSchema = z.string().uuid();
 
 const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
   id: user.id,
-  email: user.email,
+  email: user.email ?? undefined,
   createdAt: user.created_at ?? new Date(0).toISOString(),
   lastSignInAt: user.last_sign_in_at ?? undefined,
   role: user.app_metadata?.role,
