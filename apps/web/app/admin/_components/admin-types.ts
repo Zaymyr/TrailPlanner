@@ -97,6 +97,16 @@ export const adminUsersSchema = z.object({
         })
         .nullable()
         .optional(),
+      insights: z
+        .object({
+          signInCount: z.number().nullable(),
+          activityWindowDays: z.number().nullable(),
+          planCount: z.number(),
+          latestPlanName: z.string().nullable(),
+          favoriteProducts: z.array(z.string()),
+          onboardingCompleted: z.boolean(),
+        })
+        .optional(),
     })
   ),
 });

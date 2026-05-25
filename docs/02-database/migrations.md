@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-25
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -108,6 +108,12 @@ Important files:
 - `supabase/migrations/20260408100000_initialize_trial_profile_on_user_created.sql`
 
 The auth trigger creates or repairs `user_profiles` with a 15-day trial.
+
+Recent auth metrics migration:
+
+- `supabase/migrations/20260525094919_add_sign_in_metrics_to_user_profiles.sql`
+  - adds `user_profiles.sign_in_count`, `first_sign_in_at`, `last_sign_in_at`
+  - adds `public.increment_user_sign_in(uuid, timestamptz)` SECURITY DEFINER function (service-role execution)
 
 ### Race Events and Catalog Enrichment
 

@@ -1,7 +1,7 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-25
 ai_priority: high
 related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260408100000_initialize_trial_profile_on_user_created.sql
   - supabase/migrations/20260414160000_add_plan_defaults_to_user_profiles.sql
   - supabase/migrations/20260414173000_add_body_metrics_to_user_profiles.sql
+  - supabase/migrations/20260525094919_add_sign_in_metrics_to_user_profiles.sql
   - apps/web/lib/trial-server.ts
   - apps/web/lib/entitlements.ts
 related_tables:
@@ -57,6 +58,9 @@ related_tables:
 | `default_sodium_mg_per_hour` | `numeric` | nullable | Default sodium target. |
 | `weight_kg` | `numeric` | nullable | Athlete body weight. |
 | `height_cm` | `numeric` | nullable | Athlete height. |
+| `sign_in_count` | `integer` | not null, default `0` | Number of successful app sign-ins recorded by server routes. |
+| `first_sign_in_at` | `timestamptz` | nullable | Timestamp of first recorded sign-in. |
+| `last_sign_in_at` | `timestamptz` | nullable | Timestamp of latest recorded sign-in. |
 
 ## Foreign Keys
 
@@ -82,6 +86,7 @@ Summary:
 - `handle_new_user_profile` runs after auth user creation and uses SECURITY DEFINER to insert or repair trial fields.
 - `ensureTrialStatus` repairs missing profile/trial fields on session verification.
 - `is_coach`, `coach_plan_name`, and `coach_tier_id` influence entitlements.
+- Sign-in metrics are updated by `public.increment_user_sign_in(...)`, called from server auth sign-in flow.
 
 <!-- CONFLICT: archived docs/app-rules-and-logic.md says trial duration is 14 days; current code and migration use 15 days. -->
 
@@ -103,12 +108,21 @@ from public.user_profiles
 where user_id = '<user-id>';
 ```
 
+Fetch sign-in metrics:
+
+```sql
+select user_id, sign_in_count, first_sign_in_at, last_sign_in_at
+from public.user_profiles
+where user_id = '<user-id>';
+```
+
 ## Gotchas
 
 - Do not read `auth.users` from client code to get profile fields.
 - Use `birth_date` for new age-related work unless maintaining legacy `age`.
 - Trial fields can be missing for older users; server code repairs them.
 - Profile `role` exists, but new auth decisions should prefer trusted `app_metadata` or server-side checks.
+- Sign-in metrics are best-effort and currently incremented on credential sign-in route; include this caveat in admin analytics interpretation.
 
 ## Related Docs
 
