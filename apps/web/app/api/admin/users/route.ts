@@ -86,6 +86,8 @@ const singleUserSchema = z.object({
   user: mappedUsersSchema.shape.users.element,
 });
 
+const userIdUuidSchema = z.string().uuid();
+
 const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
   id: user.id,
   email: user.email,
@@ -259,6 +261,7 @@ export async function GET(request: NextRequest) {
       .filter((entry): entry is { success: true; data: z.infer<typeof supabaseAdminUserSchema> } => entry.success)
       .map((entry) => mapUser(entry.data));
     const userIds = mapped.map((user) => user.id);
+    const relationalUserIds = userIds.filter((userId) => userIdUuidSchema.safeParse(userId).success);
     let grantsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.premiumGrant>>();
     let trialsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.trial>>();
     let subscriptionsByUserId = new Map<
@@ -269,10 +272,10 @@ export async function GET(request: NextRequest) {
     let favoritesByUserId = new Map<string, string[]>();
     let profilesByUserId = new Map<string, z.infer<typeof userProfileInsightRowSchema>>();
 
-    if (userIds.length > 0) {
+    if (relationalUserIds.length > 0) {
       const [grantsResponse, trialsResponse, subscriptionsResponse, coachProfilesResponse, plansResponse, favoritesResponse, productsResponse, profilesResponse] = await Promise.all([
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=id,user_id,starts_at,initial_duration_days,reason,ends_at&order=starts_at.desc`,
           {
@@ -284,7 +287,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,trial_ends_at`,
           {
@@ -296,7 +299,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,status,current_period_end`,
           {
@@ -308,7 +311,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/coach_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/coach_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,subscription_status`,
           {
@@ -320,7 +323,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/race_plans?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/race_plans?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,name,created_at&order=created_at.desc`,
           {
@@ -332,7 +335,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/user_favorite_products?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_favorite_products?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,product_id`,
           {
@@ -351,7 +354,7 @@ export async function GET(request: NextRequest) {
           cache: "no-store",
         }),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,sign_in_count,first_sign_in_at,last_sign_in_at,age,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km`,
           {
