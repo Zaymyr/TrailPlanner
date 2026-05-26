@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-05-25
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -81,6 +81,7 @@ Use:
 - Coach policies must require an active coach relationship.
 - Archived schema docs may show stale policy names.
 - Avoid overloading owner columns for presentation metadata. For example, `products.is_official` is the official/shared catalog flag; `products.created_by` remains ownership only.
+- Data-only official product imports that only upsert `products` rows can reuse existing product RLS policies; changing grants, views, functions, or ownership semantics requires the full checklist.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-05-25
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -126,6 +126,7 @@ erDiagram
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
+- Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 
 ## Related Docs
 

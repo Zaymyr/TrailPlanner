@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-05-25
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260417103000_add_product_images.sql
   - supabase/migrations/20260417190000_add_product_brand_cleanup.sql
   - supabase/migrations/20260525191426_add_official_product_metadata.sql
+  - supabase/migrations/20260526120000_add_meltonic_products.sql
   - apps/web/app/api/admin/products/route.ts
   - apps/web/app/api/products/route.ts
   - apps/web/app/api/products/[productId]/route.ts
@@ -137,6 +138,7 @@ where fuel_type = 'electrolyte'
 - Do not infer "official/shared" from `created_by is null`. Use `is_official`. `created_by` is owner metadata and can be null for reasons unrelated to official catalog curation.
 - User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
 - Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.
+- Official brand import migrations should set both `is_official = true` and `official_name`; otherwise clients may show the rows as unverified user/catalog data even when `is_live = true`.
 
 ## Related Docs
 

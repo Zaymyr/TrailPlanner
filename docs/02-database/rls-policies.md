@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-05-25
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -111,6 +111,8 @@ Declared in `20241215030000_create_products_and_affiliate_offers.sql`, `20250902
 
 `products.is_official` is catalog metadata only. It does not change who can read or mutate a row; ownership and mutation checks still flow through `created_by`, admin checks, or service role.
 
+`20260526120000_add_meltonic_products.sql` only upserts live official catalog product rows. It relies on the existing live-product read policies and adds no product RLS policy.
+
 ### `user_profiles`
 
 Declared in `20250624103000_add_user_profiles.sql`.
@@ -209,6 +211,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Service role bypasses RLS. Only server code and Supabase functions may use it.
 - Coach access is relationship-based. Do not grant coaches broad access by role alone.
 - For product catalog UX, do not derive "official/shared" from `created_by is null`. Ownership and catalog curation are separate concerns.
+- Data-only official product imports do not require new policies when they only set catalog metadata and live visibility on the existing `products` table.
 
 ## Related Docs
 
