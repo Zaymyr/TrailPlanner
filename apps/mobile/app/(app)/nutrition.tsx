@@ -27,6 +27,7 @@ export default function NutritionScreen() {
     catalogSearch,
     showCreateModal,
     selectedProduct,
+    selectedProductFavoriteUsage,
     savingProduct,
     deletingProduct,
     creating,
@@ -154,6 +155,7 @@ export default function NutritionScreen() {
         products={products}
         savingProduct={savingProduct}
         selectedProduct={selectedProduct}
+        selectedProductFavoriteUsage={selectedProductFavoriteUsage}
         showCreateModal={showCreateModal}
         showFavoriteLimitModal={showFavoriteLimitModal}
         userId={userId}

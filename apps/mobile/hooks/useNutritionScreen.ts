@@ -11,6 +11,7 @@ import type {
   FavoriteRow,
   FuelType,
   ProductEditDraft,
+  ProductFavoriteUsage,
   ProductImageDraft,
   Product,
   UpdateProductResponse,
@@ -62,6 +63,22 @@ function productFromApiProduct(product: NonNullable<CreateProductResponse['produ
   };
 }
 
+const EMPTY_PRODUCT_FAVORITE_USAGE: ProductFavoriteUsage = {
+  productId: null,
+  count: null,
+  error: null,
+  loading: false,
+};
+
+type ProductFavoriteUsageResponse = {
+  favoriteUsage?: {
+    productId?: string;
+    favoriteCount?: number;
+  };
+  message?: string;
+  error?: string;
+};
+
 export function useNutritionScreen() {
   const { t } = useI18n();
   const { isPremium } = usePremium();
@@ -86,6 +103,8 @@ export function useNutritionScreen() {
   const [newImageDraft, setNewImageDraft] = useState<ProductImageDraft | null>(null);
   const [showFavoriteLimitModal, setShowFavoriteLimitModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProductFavoriteUsage, setSelectedProductFavoriteUsage] =
+    useState<ProductFavoriteUsage>(EMPTY_PRODUCT_FAVORITE_USAGE);
   const [savingProduct, setSavingProduct] = useState(false);
   const [deletingProduct, setDeletingProduct] = useState(false);
 
@@ -137,6 +156,85 @@ export function useNutritionScreen() {
     void fetchData();
   }, [fetchData]);
 
+  const loadProductFavoriteUsage = useCallback(
+    async (productId: string) => {
+      if (!isAdmin) {
+        setSelectedProductFavoriteUsage(EMPTY_PRODUCT_FAVORITE_USAGE);
+        return;
+      }
+
+      if (!WEB_API_BASE_URL || !accessToken) {
+        setSelectedProductFavoriteUsage({
+          productId,
+          count: null,
+          error: 'Configuration ou session indisponible.',
+          loading: false,
+        });
+        return;
+      }
+
+      setSelectedProductFavoriteUsage({
+        productId,
+        count: null,
+        error: null,
+        loading: true,
+      });
+
+      try {
+        const response = await fetch(`${WEB_API_BASE_URL}/api/products/${productId}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        });
+        const body = (await response.json().catch(() => null)) as ProductFavoriteUsageResponse | null;
+
+        if (!response.ok) {
+          throw new Error(body?.message ?? body?.error ?? 'Impossible de charger les favoris.');
+        }
+
+        const favoriteCount =
+          typeof body?.favoriteUsage?.favoriteCount === 'number'
+            ? body.favoriteUsage.favoriteCount
+            : 0;
+        setSelectedProductFavoriteUsage((current) =>
+          current.productId === productId
+            ? {
+                productId,
+                count: favoriteCount,
+                error: null,
+                loading: false,
+              }
+            : current,
+        );
+      } catch (usageError) {
+        const message =
+          usageError instanceof Error && usageError.message
+            ? usageError.message
+            : 'Impossible de charger les favoris.';
+        setSelectedProductFavoriteUsage((current) =>
+          current.productId === productId
+            ? {
+                productId,
+                count: null,
+                error: message,
+                loading: false,
+              }
+            : current,
+        );
+      }
+    },
+    [accessToken, isAdmin],
+  );
+
+  useEffect(() => {
+    if (!selectedProduct || !isAdmin) {
+      setSelectedProductFavoriteUsage(EMPTY_PRODUCT_FAVORITE_USAGE);
+      return;
+    }
+
+    void loadProductFavoriteUsage(selectedProduct.id);
+  }, [isAdmin, loadProductFavoriteUsage, selectedProduct?.id]);
+
   const toggleFavorite = useCallback(
     async (productId: string, productOverride?: Product) => {
       if (!userId) return;
@@ -155,6 +253,11 @@ export function useNutritionScreen() {
             return next;
           });
           setFavorites((current) => current.filter((favorite) => favorite.product_id !== productId));
+          setSelectedProductFavoriteUsage((current) =>
+            current.productId === productId && current.count != null
+              ? { ...current, count: Math.max(0, current.count - 1) }
+              : current,
+          );
         }
         return;
       }
@@ -173,6 +276,11 @@ export function useNutritionScreen() {
         if (product) {
           setFavoriteIds((current) => new Set([...current, productId]));
           setFavorites((current) => [...current, { product_id: productId, products: product }]);
+          setSelectedProductFavoriteUsage((current) =>
+            current.productId === productId && current.count != null
+              ? { ...current, count: current.count + 1 }
+              : current,
+          );
         }
       }
     },
@@ -383,13 +491,27 @@ export function useNutritionScreen() {
     setShowCreateModal(false);
   }, [resetCreateForm]);
 
-  const openProductDetail = useCallback((product: Product) => {
-    setSelectedProduct(product);
-  }, []);
+  const openProductDetail = useCallback(
+    (product: Product) => {
+      setSelectedProduct(product);
+      setSelectedProductFavoriteUsage(
+        isAdmin
+          ? {
+              productId: product.id,
+              count: null,
+              error: null,
+              loading: true,
+            }
+          : EMPTY_PRODUCT_FAVORITE_USAGE,
+      );
+    },
+    [isAdmin],
+  );
 
   const closeProductDetail = useCallback(() => {
     if (savingProduct || deletingProduct) return;
     setSelectedProduct(null);
+    setSelectedProductFavoriteUsage(EMPTY_PRODUCT_FAVORITE_USAGE);
   }, [deletingProduct, savingProduct]);
 
   const handleUpdateSelectedProduct = useCallback(
@@ -617,6 +739,7 @@ export function useNutritionScreen() {
     newImageDraft,
     showFavoriteLimitModal,
     selectedProduct,
+    selectedProductFavoriteUsage,
     savingProduct,
     deletingProduct,
     filteredProducts,

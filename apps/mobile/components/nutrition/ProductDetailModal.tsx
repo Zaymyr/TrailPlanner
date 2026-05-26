@@ -17,15 +17,17 @@ import { Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
 
 import { Colors } from '../../constants/colors';
+import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 import { FUEL_TYPE_LABELS, FUEL_TYPE_OPTIONS } from './nutritionConstants';
-import type { FuelType, Product, ProductEditDraft, ProductImageDraft } from './types';
+import type { FuelType, Product, ProductEditDraft, ProductFavoriteUsage, ProductImageDraft } from './types';
 
 const verifiedProductIcon = require('../../assets/verified-product.png');
 
 type ProductDetailModalProps = {
   canManage: boolean;
   deleting: boolean;
+  favoriteUsage?: ProductFavoriteUsage | null;
   isFavorite: boolean;
   product: Product | null;
   saving: boolean;
@@ -43,6 +45,7 @@ function formatNumberInput(value: number | null | undefined) {
 export const ProductDetailModal = memo(function ProductDetailModal({
   canManage,
   deleting,
+  favoriteUsage,
   isFavorite,
   product,
   saving,
@@ -328,6 +331,35 @@ export const ProductDetailModal = memo(function ProductDetailModal({
                 />
               </View>
             </View>
+
+            {favoriteUsage ? (
+              <View style={styles.adminUsageBox}>
+                <View style={styles.adminUsageIcon}>
+                  <Ionicons color={Colors.brandPrimary} name="people-outline" size={18} />
+                </View>
+                <View style={styles.adminUsageBody}>
+                  <Text style={styles.adminUsageTitle}>Favoris utilisateurs</Text>
+                  {favoriteUsage.loading ? (
+                    <Text style={styles.adminUsageText}>Chargement...</Text>
+                  ) : favoriteUsage.error ? (
+                    <Text style={[styles.adminUsageText, styles.adminUsageError]}>
+                      Usage indisponible pour le moment.
+                    </Text>
+                  ) : (favoriteUsage.count ?? 0) === 0 ? (
+                    <Text style={styles.adminUsageText}>Aucun utilisateur ne l'a en favori.</Text>
+                  ) : (
+                    <View style={styles.adminUsageCountRow}>
+                      <DataText style={styles.adminUsageCount}>{favoriteUsage.count ?? 0}</DataText>
+                      <Text style={styles.adminUsageText}>
+                        {(favoriteUsage.count ?? 0) > 1
+                          ? 'utilisateurs ont ce produit en favori'
+                          : 'utilisateur a ce produit en favori'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            ) : null}
 
             <TouchableOpacity
               disabled={busy}
@@ -624,6 +656,54 @@ const styles = StyleSheet.create({
   },
   metricInput: {
     textAlign: 'center',
+  },
+  adminUsageBox: {
+    minHeight: 64,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  adminUsageIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminUsageBody: {
+    flex: 1,
+    gap: 4,
+  },
+  adminUsageTitle: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  adminUsageCountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  adminUsageCount: {
+    color: Colors.brandPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  adminUsageText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+  },
+  adminUsageError: {
+    color: Colors.danger,
   },
   favoriteAction: {
     minHeight: 46,
