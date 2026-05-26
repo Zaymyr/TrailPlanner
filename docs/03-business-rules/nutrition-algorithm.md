@@ -28,6 +28,7 @@ related_files:
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/components/PlanForm.tsx
   - apps/mobile/assets/verified-product.png
+  - apps/mobile/components/nutrition/types.ts
   - apps/mobile/components/nutrition/NutritionContent.tsx
   - apps/mobile/components/nutrition/ProductDetailModal.tsx
   - apps/mobile/components/plan-form/AidStationsSectionV3.tsx
@@ -241,6 +242,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, can summarize validated products on collapsed mobile brand headers, and must not change allocation order or nutrition math.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
 - Collapsed mobile brand headers depend on the same catalog row builder as virtualization; keep verified-header metadata in that single builder when resolving merges.
+- Admin-only favorite usage shown in the mobile product detail modal is operational metadata. It must not influence allocation order, product eligibility, or per-unit nutrition values.
 - Harmonized official product display names must not change the underlying nutrition math. Allocation still depends on `fuel_type`, carbs, sodium, and quantity, not on the display label shown to runners.
 - Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; duplicate aliases can break `next build` before planner or catalog pages compile.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.

@@ -17,7 +17,7 @@ import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
 import { FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import { NutritionCreateProductModal } from './NutritionCreateProductModal';
 import { ProductDetailModal } from './ProductDetailModal';
-import type { FavoriteRow, FuelType, Product, ProductEditDraft } from './types';
+import type { FavoriteRow, FuelType, Product, ProductEditDraft, ProductFavoriteUsage } from './types';
 
 const verifiedProductIcon = require('../../assets/verified-product.png');
 
@@ -193,6 +193,7 @@ type NutritionContentProps = {
   newCaloriesKcal: string;
   newImageDraft: { uri: string; name: string } | null;
   selectedProduct: Product | null;
+  selectedProductFavoriteUsage: ProductFavoriteUsage;
   savingProduct: boolean;
   deletingProduct: boolean;
   favoriteLimitBannerLabel: string;
@@ -240,6 +241,7 @@ export const NutritionContent = memo(function NutritionContent({
   newCaloriesKcal,
   newImageDraft,
   selectedProduct,
+  selectedProductFavoriteUsage,
   savingProduct,
   deletingProduct,
   favoriteLimitBannerLabel,
@@ -524,6 +526,11 @@ export const NutritionContent = memo(function NutritionContent({
         canManage={canManageSelectedProduct}
         deleting={deletingProduct}
         isFavorite={selectedProduct ? favoriteIds.has(selectedProduct.id) : false}
+        favoriteUsage={
+          isAdmin && selectedProductFavoriteUsage.productId === selectedProduct?.id
+            ? selectedProductFavoriteUsage
+            : null
+        }
         onClose={onCloseProductDetail}
         onDelete={onDeleteSelectedProduct}
         onSave={onUpdateProduct}

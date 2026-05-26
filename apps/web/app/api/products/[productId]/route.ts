@@ -54,6 +54,13 @@ const productResponseSchema = z.object({
   }),
 });
 
+const favoriteUsageResponseSchema = z.object({
+  favoriteUsage: z.object({
+    productId: z.string().uuid(),
+    favoriteCount: z.number().int().nonnegative(),
+  }),
+});
+
 const updateProductSchema = z.object({
   name: z.string().trim().min(1).optional(),
   brand: z.string().trim().optional().nullable(),
@@ -92,6 +99,13 @@ const toProduct = (row: z.infer<typeof supabaseProductSchema>) => ({
   createdBy: row.created_by ?? null,
   isOfficial: row.is_official ?? false,
 });
+
+function parseRestCount(contentRange: string | null) {
+  const total = contentRange?.split("/").pop();
+  const parsed = Number(total);
+
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
 
 const authorizeProductMutation = async (request: NextRequest, productId: string) => {
   const supabaseAnon = getSupabaseAnonConfig();
@@ -143,8 +157,56 @@ const authorizeProductMutation = async (request: NextRequest, productId: string)
     return { error: withSecurityHeaders(NextResponse.json({ message: "Not authorized." }, { status: 403 })) };
   }
 
-  return { product, supabaseService };
+  return { product, supabaseService, supabaseUser };
 };
+
+export async function GET(request: NextRequest, context: { params: { productId?: string } }) {
+  const parsedParams = paramsSchema.safeParse(context.params);
+  if (!parsedParams.success) {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid product id." }, { status: 400 }));
+  }
+
+  const auth = await authorizeProductMutation(request, parsedParams.data.productId);
+  if ("error" in auth) return auth.error;
+
+  if (!isAdminUser(auth.supabaseUser)) {
+    return withSecurityHeaders(NextResponse.json({ message: "Admin access required." }, { status: 403 }));
+  }
+
+  try {
+    const usageResponse = await fetch(
+      `${auth.supabaseService.supabaseUrl}/rest/v1/user_favorite_products?product_id=eq.${parsedParams.data.productId}&select=user_id`,
+      {
+        headers: {
+          apikey: auth.supabaseService.supabaseServiceRoleKey,
+          Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+          Prefer: "count=exact",
+          Range: "0-0",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!usageResponse.ok) {
+      console.error("Unable to load product favorite usage", await usageResponse.text());
+      return withSecurityHeaders(NextResponse.json({ message: "Unable to load product favorite usage." }, { status: 502 }));
+    }
+
+    return withSecurityHeaders(
+      NextResponse.json(
+        favoriteUsageResponseSchema.parse({
+          favoriteUsage: {
+            productId: parsedParams.data.productId,
+            favoriteCount: parseRestCount(usageResponse.headers.get("content-range")),
+          },
+        })
+      )
+    );
+  } catch (error) {
+    console.error("Unexpected error while loading product favorite usage", error);
+    return withSecurityHeaders(NextResponse.json({ message: "Unable to load product favorite usage." }, { status: 500 }));
+  }
+}
 
 export async function PATCH(request: NextRequest, context: { params: { productId?: string } }) {
   const parsedParams = paramsSchema.safeParse(context.params);

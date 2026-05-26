@@ -27,6 +27,13 @@ export type ProductImageDraft = {
   size?: number | null;
 };
 
+export type ProductFavoriteUsage = {
+  productId: string | null;
+  count: number | null;
+  error: string | null;
+  loading: boolean;
+};
+
 export type ProductEditDraft = {
   name: string;
   brand: string;

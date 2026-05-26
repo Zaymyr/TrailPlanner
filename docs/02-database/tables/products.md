@@ -95,6 +95,8 @@ Summary:
 
 Mobile product edits and deletes go through `apps/web/app/api/products/[productId]/route.ts`, which verifies the Supabase bearer token, authorizes either the product owner (`created_by`) or an admin from `app_metadata`, then performs the mutation with the server-side service role.
 
+The same route exposes an admin-only `GET` response for product favorite usage. It validates the bearer token against trusted `app_metadata`, uses the server-side service role to count `user_favorite_products`, and returns only the aggregate favorite count for the product.
+
 The public product API returns `isOfficial: true` for official/shared catalog rows so clients can show a verified/validated badge. `createdBy` remains ownership metadata only. User-created products return their owner id in `createdBy` and `isOfficial: false`.
 
 ## Business Invariants
@@ -142,6 +144,7 @@ where fuel_type = 'electrolyte'
 - Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.
 - Official brand import migrations should set both `is_official = true` and `official_name`; otherwise clients may show the rows as unverified user/catalog data even when `is_live = true`.
 - Official product image migrations should keep `created_by` untouched and target only curated catalog rows, so user-owned products with similar naming are not overwritten.
+- Admin product usage UI should expose aggregate favorite counts only, not the list of users behind `user_favorite_products`.
 
 ## Related Docs
 
