@@ -1,17 +1,20 @@
-import { memo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import {
+  FlatList,
   Image,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  type ListRenderItemInfo,
 } from 'react-native';
 import { Text } from '../themed/Text';
+import { DataText } from '../themed/DataText';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
-import { FREE_FAVORITE_LIMIT, FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
+import { FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import { NutritionCreateProductModal } from './NutritionCreateProductModal';
 import { ProductDetailModal } from './ProductDetailModal';
 import type { FavoriteRow, FuelType, Product, ProductEditDraft } from './types';
@@ -22,6 +25,21 @@ type ProductBrandGroup<T> = {
   brandLabel: string;
   items: T[];
 };
+
+type CatalogListRow =
+  | {
+      type: 'brand';
+      key: string;
+      brandLabel: string;
+      count: number;
+      expanded: boolean;
+      hasVerifiedProduct: boolean;
+    }
+  | {
+      type: 'product';
+      key: string;
+      product: Product;
+    };
 
 const KNOWN_BRAND_PREFIXES: Array<{ match: string; label: string }> = [
   { match: 'precision fuel & hydration', label: 'Precision Fuel & Hydration' },
@@ -122,6 +140,38 @@ function isVerifiedProduct(product: Product) {
   return product.is_official === true;
 }
 
+function buildCatalogRows(
+  groups: ProductBrandGroup<Product>[],
+  expandedBrands: Set<string>,
+  forceExpanded: boolean,
+): CatalogListRow[] {
+  const rows: CatalogListRow[] = [];
+
+  groups.forEach((group) => {
+    const expanded = forceExpanded || expandedBrands.has(group.brandLabel);
+    rows.push({
+      type: 'brand',
+      key: `brand-${group.brandLabel}`,
+      brandLabel: group.brandLabel,
+      count: group.items.length,
+      expanded,
+      hasVerifiedProduct: group.items.some(isVerifiedProduct),
+    });
+
+    if (expanded) {
+      group.items.forEach((product) => {
+        rows.push({
+          type: 'product',
+          key: `product-${product.id}`,
+          product,
+        });
+      });
+    }
+  });
+
+  return rows;
+}
+
 type NutritionContentProps = {
   isPremium: boolean;
   isAdmin: boolean;
@@ -215,123 +265,232 @@ export const NutritionContent = memo(function NutritionContent({
   onUpdateProduct,
   onDeleteSelectedProduct,
 }: NutritionContentProps) {
-  const favoriteGroups = groupItemsByBrand(favorites, (favorite) => favorite.products, otherBrandsLabel);
-  const catalogGroups = groupItemsByBrand(filteredProducts, (product) => product, otherBrandsLabel);
+  const [expandedCatalogBrands, setExpandedCatalogBrands] = useState<Set<string>>(() => new Set());
+  const catalogSearchActive = catalogSearch.trim().length > 0;
+  const favoriteGroups = useMemo(
+    () => groupItemsByBrand(favorites, (favorite) => favorite.products, otherBrandsLabel),
+    [favorites, otherBrandsLabel],
+  );
+  const catalogGroups = useMemo(
+    () => groupItemsByBrand(filteredProducts, (product) => product, otherBrandsLabel),
+    [filteredProducts, otherBrandsLabel],
+  );
+  const catalogRows = useMemo(
+    () => buildCatalogRows(catalogGroups, expandedCatalogBrands, catalogSearchActive),
+    [catalogGroups, catalogSearchActive, expandedCatalogBrands],
+  );
   const canManageSelectedProduct = Boolean(
     selectedProduct && (isAdmin || selectedProduct.created_by === userId),
   );
 
-  return (
-    <ScrollView contentContainerStyle={styles.content} style={styles.container}>
-      <TouchableOpacity activeOpacity={0.7} onPress={onToggleFavorites} style={styles.favoritesToggleRow}>
-        <Text style={[styles.sectionTitle, styles.sectionTitleCompact]}>Mes favoris</Text>
-        <Text style={styles.favoritesChevron}>{favoritesExpanded ? '▼' : '▶'}</Text>
-      </TouchableOpacity>
+  const toggleCatalogBrand = useCallback((brandLabel: string) => {
+    setExpandedCatalogBrands((current) => {
+      const next = new Set(current);
+      if (next.has(brandLabel)) {
+        next.delete(brandLabel);
+      } else {
+        next.add(brandLabel);
+      }
+      return next;
+    });
+  }, []);
 
-      {favoritesExpanded ? (
-        <>
-          {!isPremium ? (
-            <View style={styles.limitBanner}>
-              <Text style={styles.limitBannerText}>{favoriteLimitBannerLabel}</Text>
-            </View>
-          ) : null}
+  const listHeader = useMemo(
+    () => (
+      <>
+        <TouchableOpacity activeOpacity={0.7} onPress={onToggleFavorites} style={styles.favoritesToggleRow}>
+          <Text style={[styles.sectionTitle, styles.sectionTitleCompact]}>Mes favoris</Text>
+          <Ionicons
+            color={Colors.brandPrimary}
+            name={favoritesExpanded ? 'chevron-down' : 'chevron-forward'}
+            size={18}
+          />
+        </TouchableOpacity>
 
-          {favorites.length === 0 ? (
-            <View style={styles.emptyFavorites}>
-              <Text style={styles.emptyFavText}>
-                Aucun favori. Ajoute des produits depuis le catalogue ci-dessous.
-              </Text>
-            </View>
-          ) : (
-            favoriteGroups.map((group) => (
-              <View key={group.brandLabel} style={styles.brandGroup}>
-                <View style={styles.brandHeader}>
-                  <Text style={styles.brandTitle}>{group.brandLabel}</Text>
-                  <View style={styles.brandCountPill}>
-                    <Text style={styles.brandCountText}>{group.items.length}</Text>
+        {favoritesExpanded ? (
+          <>
+            {!isPremium ? (
+              <View style={styles.limitBanner}>
+                <Text style={styles.limitBannerText}>{favoriteLimitBannerLabel}</Text>
+              </View>
+            ) : null}
+
+            {favorites.length === 0 ? (
+              <View style={styles.emptyFavorites}>
+                <Text style={styles.emptyFavText}>
+                  Aucun favori. Ajoute des produits depuis le catalogue ci-dessous.
+                </Text>
+              </View>
+            ) : (
+              favoriteGroups.map((group) => (
+                <View key={group.brandLabel} style={styles.brandGroup}>
+                  <View style={styles.brandHeader}>
+                    <Text style={styles.brandTitle}>{group.brandLabel}</Text>
+                    <View style={styles.brandHeaderActions}>
+                      <View style={styles.brandCountPill}>
+                        <DataText style={styles.brandCountText}>{group.items.length}</DataText>
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.brandItems}>
+                    {group.items.map((favorite) => (
+                      <ProductCard
+                        key={favorite.product_id}
+                        isFavorite
+                        isOwnedByUser={favorite.products.created_by === userId}
+                        onPress={() => onOpenProductDetail(favorite.products)}
+                        onToggleFavorite={() => onToggleFavorite(favorite.product_id)}
+                        product={favorite.products}
+                      />
+                    ))}
                   </View>
                 </View>
+              ))
+            )}
+          </>
+        ) : null}
 
-                <View style={styles.brandItems}>
-                  {group.items.map((favorite) => (
-                    <ProductCard
-                      key={favorite.product_id}
-                      isFavorite
-                      isOwnedByUser={favorite.products.created_by === userId}
-                      onPress={() => onOpenProductDetail(favorite.products)}
-                      onToggleFavorite={() => onToggleFavorite(favorite.product_id)}
-                      product={favorite.products}
-                    />
-                  ))}
-                </View>
-              </View>
-            ))
-          )}
-        </>
-      ) : null}
-
-      <View style={styles.catalogHeader}>
-        <Text style={styles.sectionTitle}>Catalogue produits</Text>
-      </View>
-
-      <TextInput
-        onChangeText={onChangeCatalogSearch}
-        placeholder="🔍 Rechercher un produit..."
-        placeholderTextColor={Colors.textMuted}
-        style={styles.catalogSearchInput}
-        value={catalogSearch}
-      />
-
-      <View style={styles.filterBar}>
-        <ScrollView
-          contentContainerStyle={styles.filterContent}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-        >
-          {FUEL_FILTERS.map((type) => (
-            <TouchableOpacity
-              key={type}
-              onPress={() => onChangeFuelFilter(type)}
-              style={[styles.filterChip, fuelFilter === type && styles.filterChipActive]}
-            >
-              <Text style={[styles.filterChipText, fuelFilter === type && styles.filterChipTextActive]}>
-                {FUEL_TYPE_LABELS[type]}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {filteredProducts.length === 0 ? (
-        <View style={styles.emptyCategory}>
-          <Text style={styles.emptyFavText}>Aucun produit dans cette catégorie.</Text>
+        <View style={styles.catalogHeader}>
+          <Text style={styles.sectionTitle}>Catalogue produits</Text>
         </View>
-      ) : (
-        catalogGroups.map((group) => (
-          <View key={group.brandLabel} style={styles.brandGroup}>
-            <View style={styles.brandHeader}>
-              <Text style={styles.brandTitle}>{group.brandLabel}</Text>
-              <View style={styles.brandCountPill}>
-                <Text style={styles.brandCountText}>{group.items.length}</Text>
-              </View>
-            </View>
 
-            <View style={styles.brandItems}>
-              {group.items.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  isFavorite={favoriteIds.has(product.id)}
-                  isOwnedByUser={product.created_by === userId}
-                  onPress={() => onOpenProductDetail(product)}
-                  onToggleFavorite={() => onToggleFavorite(product.id)}
-                  product={product}
+        <TextInput
+          onChangeText={onChangeCatalogSearch}
+          placeholder="Rechercher un produit..."
+          placeholderTextColor={Colors.textMuted}
+          style={styles.catalogSearchInput}
+          value={catalogSearch}
+        />
+
+        <View style={styles.filterBar}>
+          <ScrollView
+            contentContainerStyle={styles.filterContent}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterScroll}
+          >
+            {FUEL_FILTERS.map((type) => (
+              <TouchableOpacity
+                key={type}
+                activeOpacity={0.8}
+                onPress={() => onChangeFuelFilter(type)}
+                style={[styles.filterChip, fuelFilter === type && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, fuelFilter === type && styles.filterChipTextActive]}>
+                  {FUEL_TYPE_LABELS[type]}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </>
+    ),
+    [
+      catalogSearch,
+      favoriteGroups,
+      favoriteLimitBannerLabel,
+      favorites.length,
+      favoritesExpanded,
+      fuelFilter,
+      isPremium,
+      onChangeCatalogSearch,
+      onChangeFuelFilter,
+      onOpenProductDetail,
+      onToggleFavorite,
+      onToggleFavorites,
+      userId,
+    ],
+  );
+
+  const renderCatalogRow = useCallback(
+    ({ item }: ListRenderItemInfo<CatalogListRow>) => {
+      if (item.type === 'brand') {
+        return (
+          <TouchableOpacity
+            accessibilityHint={
+              catalogSearchActive
+                ? undefined
+                : item.expanded
+                  ? 'Replier cette marque'
+                  : 'Afficher les produits de cette marque'
+            }
+            accessibilityLabel={`${item.brandLabel}, ${item.count} produits`}
+            accessibilityRole="button"
+            activeOpacity={catalogSearchActive ? 1 : 0.75}
+            disabled={catalogSearchActive}
+            onPress={() => toggleCatalogBrand(item.brandLabel)}
+            style={[styles.brandHeaderButton, item.expanded && styles.brandHeaderButtonExpanded]}
+          >
+            <Text numberOfLines={1} style={styles.brandTitle}>
+              {item.brandLabel}
+            </Text>
+            <View style={styles.brandHeaderActions}>
+              {item.hasVerifiedProduct && !item.expanded ? (
+                <Image
+                  accessibilityIgnoresInvertColors
+                  accessibilityLabel="Marque validee"
+                  source={verifiedProductIcon}
+                  style={styles.brandVerifiedIcon}
                 />
-              ))}
+              ) : null}
+              <View style={styles.brandCountPill}>
+                <DataText style={styles.brandCountText}>{item.count}</DataText>
+              </View>
+              <Ionicons
+                color={Colors.brandPrimary}
+                name={item.expanded ? 'chevron-up' : 'chevron-down'}
+                size={18}
+              />
             </View>
+          </TouchableOpacity>
+        );
+      }
+
+      return (
+        <ProductCard
+          isFavorite={favoriteIds.has(item.product.id)}
+          isOwnedByUser={item.product.created_by === userId}
+          onPress={() => onOpenProductDetail(item.product)}
+          onToggleFavorite={() => onToggleFavorite(item.product.id)}
+          product={item.product}
+        />
+      );
+    },
+    [
+      catalogSearchActive,
+      favoriteIds,
+      onOpenProductDetail,
+      onToggleFavorite,
+      toggleCatalogBrand,
+      userId,
+    ],
+  );
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        data={catalogRows}
+        extraData={favoriteIds}
+        initialNumToRender={18}
+        keyboardShouldPersistTaps="handled"
+        keyExtractor={(item) => item.key}
+        ListEmptyComponent={
+          <View style={styles.emptyCategory}>
+            <Text style={styles.emptyFavText}>Aucun produit dans cette catégorie.</Text>
           </View>
-        ))
-      )}
+        }
+        ListHeaderComponent={listHeader}
+        maxToRenderPerBatch={14}
+        removeClippedSubviews
+        renderItem={renderCatalogRow}
+        showsVerticalScrollIndicator={false}
+        style={styles.list}
+        updateCellsBatchingPeriod={32}
+        windowSize={7}
+      />
 
       <PremiumUpsellModal
         message={favoriteLimitMessage}
@@ -377,7 +536,7 @@ export const NutritionContent = memo(function NutritionContent({
         saving={savingProduct}
         visible={selectedProduct !== null}
       />
-    </ScrollView>
+    </View>
   );
 });
 
@@ -423,10 +582,10 @@ function ProductCard({
           {isOwnedByUser ? <Text style={styles.myProductTag}> · Mon produit</Text> : null}
         </Text>
         <View style={styles.productStats}>
-          {product.carbs_g != null ? <Text style={styles.statText}>{product.carbs_g}g glucides</Text> : null}
-          {product.sodium_mg != null ? <Text style={styles.statText}> · {product.sodium_mg}mg sodium</Text> : null}
+          {product.carbs_g != null ? <DataText style={styles.statText}>{product.carbs_g}g glucides</DataText> : null}
+          {product.sodium_mg != null ? <DataText style={styles.statText}> · {product.sodium_mg}mg sodium</DataText> : null}
           {!isFavorite && product.calories_kcal != null ? (
-            <Text style={styles.statText}> · {product.calories_kcal} kcal</Text>
+            <DataText style={styles.statText}> · {product.calories_kcal} kcal</DataText>
           ) : null}
         </View>
       </View>
@@ -454,6 +613,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
+  list: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   content: {
     padding: 16,
     paddingBottom: 120,
@@ -474,11 +637,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     marginBottom: 4,
-  },
-  favoritesChevron: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '700',
   },
   limitBanner: {
     backgroundColor: Colors.surfaceSecondary,
@@ -572,10 +730,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     marginBottom: 8,
   },
+  brandHeaderButton: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  brandHeaderButtonExpanded: {
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandBorder,
+  },
+  brandHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   brandTitle: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '700',
     color: Colors.textPrimary,
+  },
+  brandVerifiedIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
   },
   brandItems: {
     gap: 0,
