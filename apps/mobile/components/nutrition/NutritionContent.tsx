@@ -33,6 +33,7 @@ type CatalogListRow =
       brandLabel: string;
       count: number;
       expanded: boolean;
+      hasVerifiedProduct: boolean;
     }
   | {
       type: 'product';
@@ -168,6 +169,38 @@ function buildCatalogRows(
 
 function isVerifiedProduct(product: Product) {
   return product.is_official === true;
+}
+
+function buildCatalogRows(
+  groups: ProductBrandGroup<Product>[],
+  expandedBrands: Set<string>,
+  forceExpanded: boolean,
+): CatalogListRow[] {
+  const rows: CatalogListRow[] = [];
+
+  groups.forEach((group) => {
+    const expanded = forceExpanded || expandedBrands.has(group.brandLabel);
+    rows.push({
+      type: 'brand',
+      key: `brand-${group.brandLabel}`,
+      brandLabel: group.brandLabel,
+      count: group.items.length,
+      expanded,
+      hasVerifiedProduct: group.items.some(isVerifiedProduct),
+    });
+
+    if (expanded) {
+      group.items.forEach((product) => {
+        rows.push({
+          type: 'product',
+          key: `product-${product.id}`,
+          product,
+        });
+      });
+    }
+  });
+
+  return rows;
 }
 
 type NutritionContentProps = {
@@ -355,7 +388,7 @@ export const NutritionContent = memo(function NutritionContent({
 
         <TextInput
           onChangeText={onChangeCatalogSearch}
-          placeholder="🔍 Rechercher un produit..."
+          placeholder="Rechercher un produit..."
           placeholderTextColor={Colors.textMuted}
           style={styles.catalogSearchInput}
           value={catalogSearch}
@@ -424,6 +457,14 @@ export const NutritionContent = memo(function NutritionContent({
               {item.brandLabel}
             </Text>
             <View style={styles.brandHeaderActions}>
+              {item.hasVerifiedProduct && !item.expanded ? (
+                <Image
+                  accessibilityIgnoresInvertColors
+                  accessibilityLabel="Marque validee"
+                  source={verifiedProductIcon}
+                  style={styles.brandVerifiedIcon}
+                />
+              ) : null}
               <View style={styles.brandCountPill}>
                 <DataText style={styles.brandCountText}>{item.count}</DataText>
               </View>
@@ -748,6 +789,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: Colors.textPrimary,
+  },
+  brandVerifiedIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
   },
   brandItems: {
     gap: 0,
