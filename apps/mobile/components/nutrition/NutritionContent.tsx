@@ -136,6 +136,37 @@ function groupItemsByBrand<T>(
     .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel));
 }
 
+function buildCatalogRows(
+  groups: ProductBrandGroup<Product>[],
+  expandedBrands: Set<string>,
+  forceExpanded: boolean,
+): CatalogListRow[] {
+  const rows: CatalogListRow[] = [];
+
+  groups.forEach((group) => {
+    const expanded = forceExpanded || expandedBrands.has(group.brandLabel);
+    rows.push({
+      type: 'brand',
+      key: `brand-${group.brandLabel}`,
+      brandLabel: group.brandLabel,
+      count: group.items.length,
+      expanded,
+    });
+
+    if (expanded) {
+      group.items.forEach((product) => {
+        rows.push({
+          type: 'product',
+          key: `product-${product.id}`,
+          product,
+        });
+      });
+    }
+  });
+
+  return rows;
+}
+
 function isVerifiedProduct(product: Product) {
   return product.is_official === true;
 }

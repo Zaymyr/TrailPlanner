@@ -113,6 +113,8 @@ Declared in `20241215030000_create_products_and_affiliate_offers.sql`, `20250902
 
 `20260526120000_add_meltonic_products.sql` only upserts live official catalog product rows. It relies on the existing live-product read policies and adds no product RLS policy.
 
+`20260526135521_add_meltonic_product_images.sql` only backfills `image_url` for the official Meltonic catalog rows. It does not change ownership, visibility, grants, or product RLS policies.
+
 ### `user_profiles`
 
 Declared in `20250624103000_add_user_profiles.sql`.
@@ -212,6 +214,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Coach access is relationship-based. Do not grant coaches broad access by role alone.
 - For product catalog UX, do not derive "official/shared" from `created_by is null`. Ownership and catalog curation are separate concerns.
 - Data-only official product imports do not require new policies when they only set catalog metadata and live visibility on the existing `products` table.
+- Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
 
 ## Related Docs
 
