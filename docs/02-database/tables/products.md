@@ -105,6 +105,7 @@ The public product API returns `isOfficial: true` for official/shared catalog ro
 - For official imports, `official_name` keeps the source label while `name` is the harmonized display label used in app UI and search.
 - Web API product mappings set client `waterMl` to `0` because water is not stored on products.
 - The 500 ml electrolyte serving assumption lives in `apps/web/lib/nutrition-planner.ts`, not in the product schema.
+- Shared catalog seed migrations should store the consumable unit used by the runner, not ecommerce bundle sizes. For example, drink mixes use one serving sachet, gels use one gel, and multipacks are represented through the same per-unit nutrition.
 
 ## Common Queries
 
@@ -135,6 +136,7 @@ where fuel_type = 'electrolyte'
 - `brand` is normalized by a database trigger. Do not duplicate brand inference in multiple clients unless needed for preview UX.
 - Do not infer "official/shared" from `created_by is null`. Use `is_official`. `created_by` is owner metadata and can be null for reasons unrelated to official catalog curation.
 - User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
+- Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.
 
 ## Related Docs
 

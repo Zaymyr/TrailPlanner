@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-05-25
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -57,6 +57,9 @@ These migrations add profile and billing support:
 - `supabase/migrations/20250701100000_add_subscriptions_table.sql`
 - `supabase/migrations/20250902121500_allow_anon_read_products.sql`
 - `supabase/migrations/20250214120000_add_product_url_to_products.sql`
+- `supabase/migrations/20260526120000_add_meltonic_products.sql`
+
+`20260526120000_add_meltonic_products.sql` is a data-only shared product catalog migration. It inserts or updates a focused Meltonic trail/ultra effort selection using per-unit nutrition values and does not add tables, columns, grants, or RLS policies.
 - `supabase/migrations/20260525191426_add_official_product_metadata.sql`
 
 `20260525191426_add_official_product_metadata.sql` adds:
