@@ -127,6 +127,7 @@ erDiagram
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
+- Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 
 ## Related Docs
 

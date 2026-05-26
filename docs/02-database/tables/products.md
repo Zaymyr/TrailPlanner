@@ -12,6 +12,7 @@ related_files:
   - supabase/migrations/20260417190000_add_product_brand_cleanup.sql
   - supabase/migrations/20260525191426_add_official_product_metadata.sql
   - supabase/migrations/20260526120000_add_meltonic_products.sql
+  - supabase/migrations/20260526135521_add_meltonic_product_images.sql
   - apps/web/app/api/admin/products/route.ts
   - apps/web/app/api/products/route.ts
   - apps/web/app/api/products/[productId]/route.ts
@@ -104,6 +105,7 @@ The public product API returns `isOfficial: true` for official/shared catalog ro
   - `capsule` last for sodium top-up.
 - Product rows store nutrition per unit only. Water is a plan/carry context handled by planner logic.
 - For official imports, `official_name` keeps the source label while `name` is the harmonized display label used in app UI and search.
+- Official catalog image backfills store the public product visual in `image_url` and must not change product ownership, visibility, or nutrition values.
 - Web API product mappings set client `waterMl` to `0` because water is not stored on products.
 - The 500 ml electrolyte serving assumption lives in `apps/web/lib/nutrition-planner.ts`, not in the product schema.
 - Shared catalog seed migrations should store the consumable unit used by the runner, not ecommerce bundle sizes. For example, drink mixes use one serving sachet, gels use one gel, and multipacks are represented through the same per-unit nutrition.
@@ -139,6 +141,7 @@ where fuel_type = 'electrolyte'
 - User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
 - Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.
 - Official brand import migrations should set both `is_official = true` and `official_name`; otherwise clients may show the rows as unverified user/catalog data even when `is_live = true`.
+- Official product image migrations should keep `created_by` untouched and target only curated catalog rows, so user-owned products with similar naming are not overwritten.
 
 ## Related Docs
 

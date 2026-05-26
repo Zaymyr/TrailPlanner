@@ -363,14 +363,18 @@ export function useNutritionScreen() {
   ]);
 
   const filteredProducts = useMemo(
-    () =>
-      products.filter((product) => {
+    () => {
+      const normalizedSearch = catalogSearch.trim().toLowerCase();
+
+      return products.filter((product) => {
         const matchesCategory = fuelFilter === 'all' || product.fuel_type === fuelFilter;
         const matchesSearch =
-          catalogSearch.trim() === '' ||
-          product.name.toLowerCase().includes(catalogSearch.trim().toLowerCase());
+          normalizedSearch === '' ||
+          product.name.toLowerCase().includes(normalizedSearch) ||
+          (product.brand ?? '').toLowerCase().includes(normalizedSearch);
         return matchesCategory && matchesSearch;
-      }),
+      });
+    },
     [catalogSearch, fuelFilter, products],
   );
 
