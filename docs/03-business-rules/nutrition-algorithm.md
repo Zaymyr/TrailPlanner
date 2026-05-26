@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-05-25
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -239,6 +239,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
 - Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
 - Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, and must not change allocation order or nutrition math.
+- Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
 - Harmonized official product display names must not change the underlying nutrition math. Allocation still depends on `fuel_type`, carbs, sodium, and quantity, not on the display label shown to runners.
 - Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; duplicate aliases can break `next build` before planner or catalog pages compile.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.

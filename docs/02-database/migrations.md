@@ -59,6 +59,7 @@ These migrations add profile and billing support:
 - `supabase/migrations/20250214120000_add_product_url_to_products.sql`
 - `supabase/migrations/20260525191426_add_official_product_metadata.sql`
 - `supabase/migrations/20260526120000_add_meltonic_products.sql`
+- `supabase/migrations/20260526135521_add_meltonic_product_images.sql`
 
 `20260525191426_add_official_product_metadata.sql` adds:
 
@@ -67,6 +68,8 @@ These migrations add profile and billing support:
 - a one-time backfill/harmonization pass for the current official Baouw, Mulebar, Maurten, Aptonia, and Precision Fuel catalog rows.
 
 `20260526120000_add_meltonic_products.sql` is a data-only shared product catalog migration. It inserts or updates a focused Meltonic trail/ultra effort selection using per-unit nutrition values, harmonized display names, `official_name`, and `is_official = true`. It does not add tables, columns, grants, or RLS policies.
+
+`20260526135521_add_meltonic_product_images.sql` is a data-only follow-up for the Meltonic selection. It updates the official Meltonic rows with public `image_url` values from the corresponding brand product pages and does not change schema, grants, ownership, or RLS policies.
 
 ### Trace Era Removed
 
@@ -159,6 +162,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 - Data-only brand imports created after official product metadata should populate `official_name` and `is_official` in the same migration.
+- Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.
 
 ## Related Docs
 
