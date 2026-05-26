@@ -60,6 +60,13 @@ These migrations add profile and billing support:
 - `supabase/migrations/20260526120000_add_meltonic_products.sql`
 
 `20260526120000_add_meltonic_products.sql` is a data-only shared product catalog migration. It inserts or updates a focused Meltonic trail/ultra effort selection using per-unit nutrition values and does not add tables, columns, grants, or RLS policies.
+- `supabase/migrations/20260525191426_add_official_product_metadata.sql`
+
+`20260525191426_add_official_product_metadata.sql` adds:
+
+- `products.is_official` as the explicit official/shared catalog flag;
+- `products.official_name` to preserve the exact source label from brand imports;
+- a one-time backfill/harmonization pass for the current official Baouw, Mulebar, Maurten, Aptonia, and Precision Fuel catalog rows.
 
 ### Trace Era Removed
 
@@ -112,6 +119,12 @@ Important files:
 
 The auth trigger creates or repairs `user_profiles` with a 15-day trial.
 
+Recent auth metrics migration:
+
+- `supabase/migrations/20260525094919_add_sign_in_metrics_to_user_profiles.sql`
+  - adds `user_profiles.sign_in_count`, `first_sign_in_at`, `last_sign_in_at`
+  - adds `public.increment_user_sign_in(uuid, timestamptz)` SECURITY DEFINER function (service-role execution)
+
 ### Race Events and Catalog Enrichment
 
 `supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql` alters `race_events`, but no create-table migration for `race_events` was found.
@@ -144,7 +157,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Do not add `user_metadata` admin checks in new policies.
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
-- Product catalog data migrations should not archive the shared catalog unless the task is explicitly replacing the catalog; additive brand imports should only upsert their own slugs.
+- Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 
 ## Related Docs
 

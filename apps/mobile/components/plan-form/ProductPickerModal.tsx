@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -10,10 +11,13 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
 import { styles } from './styles';
+
+const verifiedProductIcon = require('../../assets/verified-product.png');
 
 export type PickerProduct = PlanProduct;
 
@@ -31,6 +35,45 @@ type Props = {
   onClose: () => void;
   onAddProduct: (product: PickerProduct) => void;
 };
+
+const FALLBACK_BRAND_LABEL = 'Autres marques';
+const GENERIC_BRAND_TOKENS = new Set(['barre', 'barres', 'boisson', 'drink', 'gel', 'gels', 'mix', 'pate', 'pates']);
+
+function inferProductBrand(product: PickerProduct) {
+  const explicitBrand = product.brand?.trim();
+  if (explicitBrand) return explicitBrand;
+
+  const firstToken = product.name
+    .split(/\s+/)
+    .map((part) => part.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, ''))
+    .find(Boolean);
+  const token = firstToken?.toLowerCase();
+
+  return firstToken && firstToken.length > 2 && !GENERIC_BRAND_TOKENS.has(token ?? '')
+    ? firstToken
+    : FALLBACK_BRAND_LABEL;
+}
+
+function groupProductsByBrand(products: PickerProduct[], titlePrefix?: string) {
+  const groups = products.reduce((map, product) => {
+    const brand = inferProductBrand(product);
+    const current = map.get(brand) ?? [];
+    current.push(product);
+    map.set(brand, current);
+    return map;
+  }, new Map<string, PickerProduct[]>());
+
+  return Array.from(groups.entries())
+    .map(([brand, data]) => ({
+      title: titlePrefix ? `${titlePrefix} · ${brand}` : brand,
+      data,
+    }))
+    .sort((left, right) => left.title.localeCompare(right.title, 'fr', { sensitivity: 'base' }));
+}
+
+function isVerifiedProduct(product: PickerProduct) {
+  return product.is_official === true;
+}
 
 export const ProductPickerModal = React.memo(function ProductPickerModal({
   visible,
@@ -56,8 +99,23 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
     const added = currentSupplyIds.has(product.id);
     const carbs = Math.round(product.carbs_g ?? 0);
     const sodium = Math.round(product.sodium_mg ?? 0);
+    const verified = isVerifiedProduct(product);
     return (
       <View style={styles.pickerRow}>
+        <View style={styles.pickerProductImageFrame}>
+          {product.image_url ? (
+            <Image source={{ uri: product.image_url }} style={styles.pickerProductImage} />
+          ) : (
+            <View style={styles.pickerProductImagePlaceholder}>
+              <Ionicons color={Colors.textMuted} name="image-outline" size={18} />
+            </View>
+          )}
+          {verified ? (
+            <View style={styles.pickerVerifiedBadge}>
+              <Image source={verifiedProductIcon} style={styles.pickerVerifiedBadgeImage} />
+            </View>
+          ) : null}
+        </View>
         <View style={styles.pickerRowInfo}>
           <Text style={styles.pickerRowName} numberOfLines={1}>
             {product.name}
@@ -81,24 +139,17 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
   }, [currentSupplyIds, fuelLabels, onAddProduct]);
 
   const sections = useMemo(() => {
-    const result: Array<{ title: string; data: PickerProduct[] }> = [];
-    if (pickerFavorites.length > 0) {
-      result.push({ title: 'Mes favoris', data: pickerFavorites });
-    }
-    result.push({ title: 'Tous les produits', data: filteredAllProducts });
-    return result;
+    const favoriteIds = new Set(pickerFavorites.map((product) => product.id));
+    const catalogProducts = filteredAllProducts.filter((product) => !favoriteIds.has(product.id));
+    return [
+      ...groupProductsByBrand(pickerFavorites, 'Mes favoris'),
+      ...groupProductsByBrand(catalogProducts),
+    ];
   }, [pickerFavorites, filteredAllProducts]);
 
   const renderSectionHeader = useCallback(({ section: { title } }: { section: { title: string } }) => (
     <Text style={styles.pickerSectionTitle}>{title}</Text>
   ), []);
-
-  const renderSectionFooter = useCallback(({ section }: { section: { title: string; data: PickerProduct[] } }) => {
-    if (section.title === 'Tous les produits' && section.data.length === 0) {
-      return <Text style={styles.pickerEmpty}>Aucun produit trouvé.</Text>;
-    }
-    return null;
-  }, []);
 
   const keyExtractor = useCallback((item: PickerProduct) => item.id, []);
 
@@ -118,7 +169,7 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
             style={styles.pickerSearchInput}
             value={pickerSearch}
             onChangeText={setPickerSearch}
-            placeholder="Rechercher..."
+            placeholder="Rechercher un produit ou une marque..."
             placeholderTextColor={Colors.textMuted}
             autoCorrect={false}
           />
@@ -145,7 +196,7 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
               keyExtractor={keyExtractor}
               renderItem={renderPickerRow}
               renderSectionHeader={renderSectionHeader}
-              renderSectionFooter={renderSectionFooter}
+              ListEmptyComponent={<Text style={styles.pickerEmpty}>Aucun produit trouvé.</Text>}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               initialNumToRender={15}

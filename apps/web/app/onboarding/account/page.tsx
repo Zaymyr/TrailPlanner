@@ -6,7 +6,7 @@ import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition, calculateAdjustedPace } from "../../../lib/nutrition";
 import { saveOnboardingToLocalStorage, clearOnboardingFromLocalStorage } from "../../../lib/supabase-onboarding";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
-import { buildSupabaseOAuthUrl } from "../../../lib/oauth";
+import { buildSupabaseOAuthUrl, type OAuthProvider } from "../../../lib/oauth";
 import { trackOnboardingEvent } from "../../../lib/google-analytics";
 
 // Module-level guard survives React StrictMode double-mount within the same session.
@@ -228,27 +228,50 @@ export default function AccountPage() {
     }
   }
 
-  function handleGoogleSignUp() {
+  function handleSocialSignUp(
+    provider: OAuthProvider,
+    clickedAction: string,
+    errorAction: string,
+    errorMessage: string,
+  ) {
     trackOnboardingEvent("action", {
       ...getAccountAnalyticsParams(),
-      action: "signup_google_clicked",
+      action: clickedAction,
     });
     saveOnboardingToLocalStorage(planData);
     try {
       const url = buildSupabaseOAuthUrl({
-        provider: "google",
+        provider,
         redirectPath: "/auth/callback",
       });
       window.location.href = url;
     } catch (err) {
-      setError("Impossible de lancer la connexion Google.");
+      setError(errorMessage);
       trackOnboardingEvent("error", {
         ...getAccountAnalyticsParams(),
-        action: "signup_google_error",
+        action: errorAction,
         error_message: err instanceof Error ? err.message : "unknown",
       });
       console.error(err);
     }
+  }
+
+  function handleGoogleSignUp() {
+    handleSocialSignUp(
+      "google",
+      "signup_google_clicked",
+      "signup_google_error",
+      "Impossible de lancer la connexion Google.",
+    );
+  }
+
+  function handleAppleSignUp() {
+    handleSocialSignUp(
+      "apple",
+      "signup_apple_clicked",
+      "signup_apple_error",
+      "Impossible de lancer la connexion Apple.",
+    );
   }
 
   function handleSkip() {
@@ -410,6 +433,20 @@ export default function AccountPage() {
               />
             </svg>
             Continuer avec Google
+          </button>
+
+          <button
+            onClick={handleAppleSignUp}
+            className="flex h-14 w-full items-center justify-center gap-3 rounded-xl text-base font-semibold text-white transition-opacity active:opacity-80"
+            style={{ backgroundColor: "#111111" }}
+          >
+            <svg width="18" height="22" viewBox="0 0 18 22" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M14.29 11.7c.02 2.4 2.1 3.2 2.12 3.21-.02.06-.33 1.15-1.08 2.28-.65.98-1.33 1.95-2.39 1.97-1.04.02-1.38-.62-2.58-.62-1.2 0-1.57.6-2.56.64-1 .04-1.76-1.02-2.41-1.99-1.32-1.92-2.33-5.42-.98-7.76.67-1.16 1.88-1.9 3.18-1.92 1-.02 1.93.67 2.58.67.65 0 1.87-.83 3.15-.71.53.02 2.01.21 2.96 1.6-.08.05-1.77 1.03-1.75 3.03ZM12.43 2.22c.55-.67.92-1.6.82-2.22-.79.03-1.74.52-2.3 1.19-.51.59-.96 1.54-.84 2.45.88.07 1.77-.45 2.32-1.42Z"
+              />
+            </svg>
+            Continuer avec Apple
           </button>
 
           <div className="flex items-center gap-3">

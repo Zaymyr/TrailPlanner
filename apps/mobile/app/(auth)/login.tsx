@@ -30,6 +30,21 @@ function shouldFallbackToGuestMerge(error: unknown) {
   );
 }
 
+function createAppleNonce() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+  let nonce = '';
+
+  for (let index = 0; index < 32; index += 1) {
+    nonce += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+
+  return nonce;
+}
+
 export default function LoginScreen() {
   const { t } = useI18n();
   const [email, setEmail] = useState('');
@@ -131,7 +146,9 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
+      const nonce = createAppleNonce();
       const credential = await appleModule.signInAsync({
+        nonce,
         requestedScopes: [
           appleModule.AppleAuthenticationScope.FULL_NAME,
           appleModule.AppleAuthenticationScope.EMAIL,
@@ -145,6 +162,8 @@ export default function LoginScreen() {
       const appleCredentials = {
         provider: 'apple' as const,
         token: credential.identityToken,
+        nonce,
+        access_token: credential.authorizationCode ?? undefined,
       };
       let data;
       let appleError;

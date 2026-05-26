@@ -13,6 +13,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
 import { FuelTypeBadge, getFuelTypeLabel } from "../../components/products/FuelTypeBadge";
+import { isVerifiedProduct, VerifiedProductBadge } from "../../components/products/VerifiedProductBadge";
 import { readStoredSession } from "../../lib/auth-storage";
 import { defaultEntitlements, fetchEntitlements } from "../../lib/entitlements-client";
 import { defaultFuelType, fuelTypeSchema, fuelTypeValues } from "../../lib/fuel-types";
@@ -573,18 +574,35 @@ export default function SettingsPage() {
                           </button>
                         </TableCell>
                         <TableCell className="font-semibold text-foreground">
-                          {product.productUrl ? (
-                            <a
-                              href={product.productUrl}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="hover:underline text-[hsl(var(--success))]"
-                            >
-                              {product.name}
-                            </a>
-                          ) : (
-                            <span>{product.name}</span>
-                          )}
+                          <div className="flex min-w-[220px] items-center gap-3">
+                            <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background dark:bg-slate-900">
+                              {isVerifiedProduct(product) ? (
+                                <VerifiedProductBadge
+                                  locale={locale}
+                                  className="absolute right-0.5 top-0.5 h-5 w-5"
+                                />
+                              ) : null}
+                              {product.imageUrl ? (
+                                <img src={product.imageUrl} alt="" loading="lazy" className="h-full w-full object-contain p-1.5" />
+                              ) : (
+                                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                  {product.name.slice(0, 1)}
+                                </span>
+                              )}
+                            </div>
+                            {product.productUrl ? (
+                              <a
+                                href={product.productUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="min-w-0 hover:underline text-[hsl(var(--success))]"
+                              >
+                                {product.name}
+                              </a>
+                            ) : (
+                              <span className="min-w-0">{product.name}</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <FuelTypeBadge fuelType={product.fuelType} locale={locale} />

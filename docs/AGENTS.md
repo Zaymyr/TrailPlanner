@@ -135,6 +135,8 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 ## If You Are Working On Integrations, Read:
 
 - Stripe: `docs/05-integrations/stripe.md`
+- Resend Broadcasts: `docs/05-integrations/resend-broadcasts.md`
+- Mulebar catalog scraping: `docs/05-integrations/mulebar-scraping.md`
 - RevenueCat context: `docs/03-business-rules/premium-entitlement.md`
 - Supabase functions: `docs/05-integrations/supabase-edge-functions.md`
 - Analytics: `docs/05-integrations/analytics.md`
@@ -187,7 +189,7 @@ supabase.auth.onAuthStateChange((_event, session) => savePlan(session));
 - `race_events` is used by code, but its create-table migration is not visible in this repo.
 - Some code references race/import review columns not visible in migrations.
 - Stripe product and active price IDs are env/dashboard facts, not repo constants.
-- Resend currently has admin Contacts sync and authenticated identified-user contact sync; production transactional email ownership is still maintainer-confirmation territory.
+- Resend currently has admin Contacts sync, authenticated identified-user contact sync, and a Broadcast draft playbook; production transactional email ownership is still maintainer-confirmation territory.
 
 ## When Unsure
 

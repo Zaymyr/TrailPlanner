@@ -722,10 +722,10 @@ export function AidStationsSectionV3({
     const severity = hasCritical ? 'danger' : hasWarning ? 'warning' : 'ok';
     const title =
       severity === 'ok'
-        ? 'Couvert pour le prochain segment'
+        ? 'Couvert jusqu au prochain point utile'
         : severity === 'warning'
-          ? 'Un peu juste pour tenir'
-          : 'Risque de manque sur le segment';
+          ? 'Un peu juste pour tenir la suite'
+          : 'Risque de manque avant recharge';
 
     const shortLabel =
       severity === 'ok'
@@ -739,7 +739,7 @@ export function AidStationsSectionV3({
         severity,
         title,
         shortLabel,
-        detail: 'Ce que tu emportes ici suffit pour couvrir le prochain segment avec une marge correcte.',
+        detail: 'Ce que tu emportes ici suffit jusqu au prochain point ou tu peux recharger cette ressource.',
         action: 'Tu peux repartir comme ca.',
         chips,
       };
@@ -771,8 +771,8 @@ export function AidStationsSectionV3({
 
     const detail =
       topDeficit.key === 'water'
-        ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu au prochain point.`
-        : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir correctement.`;
+        ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu au prochain point d eau.`
+        : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir jusqu au prochain point solide.`;
 
     return {
       severity,

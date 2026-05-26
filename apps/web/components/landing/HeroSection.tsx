@@ -91,8 +91,8 @@ export function HeroSection({ hero }: HeroSectionProps) {
             <Image
               src={heroSrc}
               alt={hero.heroImageAlt}
-              width={1321}
-              height={230}
+              width={858}
+              height={172}
               priority
               sizes="(min-width: 1024px) 560px, 100vw"
               className="w-full rounded-xl object-cover"

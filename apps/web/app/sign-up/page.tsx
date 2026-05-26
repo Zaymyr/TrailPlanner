@@ -10,7 +10,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
-import { redirectToGoogleOAuth } from "../../lib/oauth";
+import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
 import { clearOnboardingFromLocalStorage, loadOnboardingFromLocalStorage } from "../../lib/supabase-onboarding";
 
 import { useI18n } from "../i18n-provider";
@@ -149,6 +149,17 @@ export default function SignUpPage() {
     }
   };
 
+  const handleAppleSignUp = () => {
+    setOauthError(null);
+
+    try {
+      redirectToAppleOAuth();
+    } catch (error) {
+      console.error("Unable to start Apple sign up", error);
+      setOauthError(error instanceof Error ? error.message : "Unable to start Apple sign up.");
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-border-strong bg-card p-6 text-foreground shadow-lg dark:bg-slate-950/60">
       <div className="flex flex-col gap-2">
@@ -164,6 +175,13 @@ export default function SignUpPage() {
           onClick={handleGoogleSignUp}
         >
           Continue with Google
+        </Button>
+        <Button
+          type="button"
+          className="justify-center bg-foreground text-background hover:bg-foreground/90 dark:bg-slate-50 dark:text-slate-950 dark:hover:bg-slate-200"
+          onClick={handleAppleSignUp}
+        >
+          Continue with Apple
         </Button>
         {oauthError && <p className="text-sm text-amber-400">{oauthError}</p>}
       </div>

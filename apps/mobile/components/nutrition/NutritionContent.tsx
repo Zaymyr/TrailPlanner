@@ -16,6 +16,8 @@ import { NutritionCreateProductModal } from './NutritionCreateProductModal';
 import { ProductDetailModal } from './ProductDetailModal';
 import type { FavoriteRow, FuelType, Product, ProductEditDraft } from './types';
 
+const verifiedProductIcon = require('../../assets/verified-product.png');
+
 type ProductBrandGroup<T> = {
   brandLabel: string;
   items: T[];
@@ -114,6 +116,10 @@ function groupItemsByBrand<T>(
       items: groupedItems,
     }))
     .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel));
+}
+
+function isVerifiedProduct(product: Product) {
+  return product.is_official === true;
 }
 
 type NutritionContentProps = {
@@ -388,6 +394,8 @@ function ProductCard({
   onPress: () => void;
   onToggleFavorite: () => void;
 }) {
+  const isVerified = isVerifiedProduct(product);
+
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.productCard}>
       <View style={styles.productMedia}>
@@ -398,9 +406,18 @@ function ProductCard({
             <Ionicons color={Colors.textMuted} name="image-outline" size={18} />
           </View>
         )}
+        {isVerified ? (
+          <View style={styles.verifiedIconBadge}>
+            <Image source={verifiedProductIcon} style={styles.verifiedIconImage} />
+          </View>
+        ) : null}
       </View>
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>{product.name}</Text>
+        <View style={styles.productNameRow}>
+          <Text numberOfLines={2} style={styles.productName}>
+            {product.name}
+          </Text>
+        </View>
         <Text style={styles.productType}>
           {FUEL_TYPE_LABELS[product.fuel_type] ?? product.fuel_type}
           {isOwnedByUser ? <Text style={styles.myProductTag}> · Mon produit</Text> : null}
@@ -594,6 +611,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   productMedia: {
+    position: 'relative',
     marginRight: 12,
   },
   productImage: {
@@ -616,11 +634,38 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  productNameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 2,
+  },
   productName: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
     color: Colors.textPrimary,
-    marginBottom: 2,
+  },
+  verifiedIconBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  verifiedIconImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   productType: {
     fontSize: 11,

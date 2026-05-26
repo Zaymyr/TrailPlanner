@@ -2,224 +2,113 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
-import {
-  extractBearerToken,
-  fetchSupabaseUser,
-  getSupabaseAnonConfig,
-  getSupabaseServiceConfig,
-  isAdminUser,
-} from "../../../../lib/supabase";
-import { adminGrowthResponseSchema } from "./schema";
+import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig, isAdminUser } from "../../../../lib/supabase";
+import { adminGrowthResponseSchema, growthRangeSchema } from "./schema";
+
+const rpcUserRowSchema = z.object({ user_id: z.string().uuid(), email: z.string().nullable().optional(), created_at: z.string(), last_sign_in_at: z.string().nullable().optional() });
+const planRowSchema = z.object({ user_id: z.string().uuid(), created_at: z.string() });
+const profileRowSchema = z.object({ user_id: z.string().uuid(), full_name: z.string().nullable().optional(), age: z.number().nullable().optional(), water_bag_liters: z.number().nullable().optional() });
+const favoriteRowSchema = z.object({ user_id: z.string().uuid(), created_at: z.string() });
 
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
-
-  if (!supabaseAnon || !supabaseService) {
-    return {
-      error: withSecurityHeaders(
-        NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 })
-      ),
-    };
-  }
-
+  if (!supabaseAnon || !supabaseService) return { error: withSecurityHeaders(NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 })) };
   const token = extractBearerToken(request.headers.get("authorization"));
-
-  if (!token) {
-    return { error: withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 })) };
-  }
-
-  const supabaseUser = await fetchSupabaseUser(token, supabaseAnon);
-
-  if (!supabaseUser || !isAdminUser(supabaseUser)) {
-    return { error: withSecurityHeaders(NextResponse.json({ message: "Admin access required." }, { status: 403 })) };
-  }
-
+  if (!token) return { error: withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 })) };
+  const user = await fetchSupabaseUser(token, supabaseAnon);
+  if (!user || !isAdminUser(user)) return { error: withSecurityHeaders(NextResponse.json({ message: "Admin access required." }, { status: 403 })) };
   return { supabaseService };
 };
 
-const rpcUserRowSchema = z.object({
-  user_id: z.string().uuid(),
-  email: z.string().nullable().optional(),
-  created_at: z.string(),
-  last_sign_in_at: z.string().nullable().optional(),
-  plan_count: z.union([z.number(), z.string()]).transform((v) => Number(v)),
-  has_profile: z.boolean(),
-  subscription_status: z.string().nullable().optional(),
-  subscription_period_end: z.string().nullable().optional(),
-  grant_reason: z.string().nullable().optional(),
-  app_metadata: z
-    .object({
-      role: z.string().optional(),
-      roles: z.array(z.string()).optional(),
-    })
-    .partial()
-    .nullable()
-    .optional(),
-});
-
-const rpcMonthRowSchema = z.object({
-  month: z.string(),
-  count: z.union([z.number(), z.string()]).transform((v) => Number(v)),
-});
-
-const rpcDayRowSchema = z.object({
-  day: z.string(),
-  count: z.union([z.number(), z.string()]).transform((v) => Number(v)),
-});
-
-const coachProfileRowSchema = z.object({
-  user_id: z.string().uuid(),
-  subscription_status: z.string().nullable().optional(),
-});
-
-const isSubscriptionActive = (status: string | null | undefined, currentPeriodEnd?: string | null): boolean => {
-  const normalizedStatus = status?.toLowerCase() ?? null;
-  if (normalizedStatus !== "active" && normalizedStatus !== "trialing") return false;
-  if (!currentPeriodEnd) return true;
-  const endDate = new Date(currentPeriodEnd);
-  return Number.isFinite(endDate.getTime()) ? endDate.getTime() > Date.now() : false;
+const toIso = (d: Date) => d.toISOString();
+const dayStart = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+const parseRange = (request: NextRequest) => {
+  const u = request.nextUrl;
+  const key = growthRangeSchema.catch("last7").parse(u.searchParams.get("range") ?? "last7");
+  const now = new Date();
+  const today = dayStart(now);
+  let start = today;
+  let end = new Date(today.getTime() + 24 * 3600 * 1000);
+  if (key === "yesterday") { start = new Date(today.getTime() - 24 * 3600 * 1000); end = today; }
+  if (key === "last7") start = new Date(today.getTime() - 6 * 24 * 3600 * 1000);
+  if (key === "last30") start = new Date(today.getTime() - 29 * 24 * 3600 * 1000);
+  if (key === "custom") {
+    const s = u.searchParams.get("start"); const e = u.searchParams.get("end");
+    if (s && e) { start = dayStart(new Date(s)); end = new Date(dayStart(new Date(e)).getTime() + 24 * 3600 * 1000); }
+  }
+  return { key, start: toIso(start), end: toIso(end) };
 };
+const between = (iso: string | null | undefined, start: string, end: string) => !!iso && iso >= start && iso < end;
+const pct = (n: number, d: number) => (d > 0 ? Number(((n / d) * 100).toFixed(1)) : 0);
 
-const callRpc = async (
-  supabaseUrl: string,
-  serviceRoleKey: string,
-  rpcName: string
-): Promise<unknown> => {
-  const response = await fetch(`${supabaseUrl}/rest/v1/rpc/${rpcName}`, {
-    method: "POST",
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({}),
-    cache: "no-store",
-  });
-
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    console.error(`RPC ${rpcName} failed`, payload);
-    throw new Error(`RPC ${rpcName} failed`);
-  }
-
-  return payload;
-};
-
-const fetchCoachSubscriptionStatuses = async (
-  supabaseUrl: string,
-  serviceRoleKey: string
-): Promise<Map<string, string>> => {
-  const response = await fetch(`${supabaseUrl}/rest/v1/coach_profiles?select=user_id,subscription_status`, {
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-    },
-    cache: "no-store",
-  });
-
-  const payload = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    console.error("Unable to load coach subscriptions for growth analytics", payload);
-    return new Map();
-  }
-
-  const parsed = z.array(coachProfileRowSchema).safeParse(payload);
-
-  if (!parsed.success) {
-    console.error("Unable to parse coach subscriptions for growth analytics", parsed.error.flatten().fieldErrors);
-    return new Map();
-  }
-
-  const statuses = new Map<string, string>();
-
-  for (const row of parsed.data) {
-    if (!row.subscription_status) continue;
-    const existing = statuses.get(row.user_id);
-    if (existing && isSubscriptionActive(existing)) continue;
-    statuses.set(row.user_id, row.subscription_status);
-  }
-
-  return statuses;
-};
+async function getRows<T>(url: string, key: string, path: string): Promise<T[]> {
+  const r = await fetch(`${url}/rest/v1/${path}`, { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" });
+  const p = await r.json().catch(() => []);
+  if (!r.ok) throw new Error(`Failed ${path}`);
+  return p as T[];
+}
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeAdmin(request);
-  if ("error" in auth) return auth.error;
-
+  const auth = await authorizeAdmin(request); if ("error" in auth) return auth.error;
   try {
     const { supabaseUrl, supabaseServiceRoleKey } = auth.supabaseService;
-
-    const [userRowsPayload, signupsByMonthPayload, signupsByDayPayload] = await Promise.all([
-      callRpc(supabaseUrl, supabaseServiceRoleKey, "get_admin_user_rows"),
-      callRpc(supabaseUrl, supabaseServiceRoleKey, "get_signups_by_month"),
-      callRpc(supabaseUrl, supabaseServiceRoleKey, "get_signups_by_day"),
+    const range = parseRange(request);
+    const [usersRaw, plansRaw, profilesRaw, favoritesRaw] = await Promise.all([
+      getRows<unknown>(supabaseUrl, supabaseServiceRoleKey, "rpc/get_admin_user_rows"),
+      getRows<unknown>(supabaseUrl, supabaseServiceRoleKey, "race_plans?select=user_id,created_at"),
+      getRows<unknown>(supabaseUrl, supabaseServiceRoleKey, "user_profiles?select=user_id,full_name,age,water_bag_liters"),
+      getRows<unknown>(supabaseUrl, supabaseServiceRoleKey, "user_favorite_products?select=user_id,created_at"),
     ]);
+    const users = z.array(rpcUserRowSchema).parse(usersRaw);
+    const plans = z.array(planRowSchema).parse(plansRaw);
+    const profiles = z.array(profileRowSchema).parse(profilesRaw);
+    const favorites = z.array(favoriteRowSchema).parse(favoritesRaw);
 
-    const parsedUserRows = z.array(rpcUserRowSchema).safeParse(userRowsPayload);
-    const parsedMonths = z.array(rpcMonthRowSchema).safeParse(signupsByMonthPayload);
-    const parsedDays = z.array(rpcDayRowSchema).safeParse(signupsByDayPayload);
+    const newUsers = users.filter((u) => between(u.created_at, range.start, range.end));
+    const anonymous = newUsers.filter((u) => !u.email).length;
+    const accounts = newUsers.filter((u) => !!u.email).length;
+    const newPlans = plans.filter((p) => between(p.created_at, range.start, range.end));
+    const newPlanUsers = new Set(newPlans.map((p) => p.user_id));
+    const returningUsersJ1 = users.filter((u) => u.last_sign_in_at && new Date(u.last_sign_in_at).getTime() - new Date(u.created_at).getTime() >= 24 * 3600 * 1000).length;
+    const returningUsersJ7 = users.filter((u) => u.last_sign_in_at && new Date(u.last_sign_in_at).getTime() - new Date(u.created_at).getTime() >= 7 * 24 * 3600 * 1000).length;
 
-    if (!parsedUserRows.success) {
-      console.error("Unable to parse user rows", parsedUserRows.error.flatten().fieldErrors);
-      return withSecurityHeaders(NextResponse.json({ message: "Unable to load growth data." }, { status: 500 }));
-    }
+    const profileByUser = new Map(profiles.map((p) => [p.user_id, p]));
+    const profilesWithDetails = newUsers.filter((u) => {
+      const p = profileByUser.get(u.user_id);
+      return Boolean(p && (p.full_name || p.age !== null || p.water_bag_liters !== null));
+    }).length;
+    const usersWithFavoriteProduct = new Set(favorites.map((f) => f.user_id)).size;
 
-    if (!parsedMonths.success) {
-      console.error("Unable to parse signups by month", parsedMonths.error.flatten().fieldErrors);
-      return withSecurityHeaders(NextResponse.json({ message: "Unable to load growth data." }, { status: 500 }));
-    }
-
-    if (!parsedDays.success) {
-      console.error("Unable to parse signups by day", parsedDays.error.flatten().fieldErrors);
-      return withSecurityHeaders(NextResponse.json({ message: "Unable to load growth data." }, { status: 500 }));
-    }
-
-    const coachSubscriptionStatuses = await fetchCoachSubscriptionStatuses(supabaseUrl, supabaseServiceRoleKey);
-
-    const userRows = parsedUserRows.data.map((row) => {
-      const subscriptionStatus = row.subscription_status ?? null;
-      const subscriptionPeriodEnd = row.subscription_period_end ?? null;
-      const coachSubscriptionStatus = coachSubscriptionStatuses.get(row.user_id) ?? null;
-      const shouldUseCoachSubscription =
-        coachSubscriptionStatus !== null &&
-        (!isSubscriptionActive(subscriptionStatus, subscriptionPeriodEnd) ||
-          isSubscriptionActive(coachSubscriptionStatus));
-
-      return {
-        userId: row.user_id,
-        email: row.email ?? null,
-        createdAt: row.created_at,
-        lastSignInAt: row.last_sign_in_at ?? null,
-        planCount: row.plan_count,
-        hasProfile: row.has_profile,
-        subscriptionStatus: shouldUseCoachSubscription ? coachSubscriptionStatus : subscriptionStatus,
-        subscriptionPeriodEnd: shouldUseCoachSubscription ? null : subscriptionPeriodEnd,
-        grantReason: row.grant_reason ?? null,
-        isAdmin:
-          row.app_metadata?.role === "admin" ||
-          (Array.isArray(row.app_metadata?.roles) && (row.app_metadata.roles as string[]).includes("admin")),
-      };
-    });
-
-    const signupsByMonth = parsedMonths.data.map((r) => ({ month: r.month, count: r.count }));
-    const signupsByDay = parsedDays.data.map((r) => ({ day: r.day, count: r.count }));
-
-    const totals = {
-      users: userRows.length,
-      usersWithPlan: userRows.filter((r) => r.planCount > 0).length,
-      usersWithProfile: userRows.filter((r) => r.hasProfile).length,
-      activeSubscriptions: userRows.filter((r) =>
-        isSubscriptionActive(r.subscriptionStatus, r.subscriptionPeriodEnd)
-      ).length,
-      premiumGrants: userRows.filter((r) => r.grantReason !== null).length,
+    const response = {
+      range,
+      kpis: {
+        newAnonymousUsers: anonymous,
+        newRegisteredAccounts: accounts,
+        newPlansCreated: newPlans.length,
+        newPlansCompletedOrSaved: newPlans.length,
+        conversionAnonymousToAccount: pct(accounts, anonymous),
+        conversionAccountToPlanCreated: pct(newPlanUsers.size, accounts),
+        conversionPlanCreatedToSavedOrCompleted: 100,
+        returningUsersJ1,
+        returningUsersJ7,
+        profilesWithDetails,
+        usersWithFavoriteProduct,
+      },
+      funnel: [
+        { step: "Anonymous users", count: anonymous, conversionFromPrevious: null },
+        { step: "Registered accounts", count: accounts, conversionFromPrevious: pct(accounts, anonymous) },
+        { step: "Plans created", count: newPlanUsers.size, conversionFromPrevious: pct(newPlanUsers.size, accounts) },
+        { step: "Plans saved/completed", count: newPlans.length, conversionFromPrevious: pct(newPlans.length, newPlanUsers.size) },
+      ],
+      bySource: [{ source: "unknown", campaign: "unknown", users: newUsers.length, accounts, plansCreated: newPlans.length }],
+      todos: [
+        "UTM/source attribution not available yet (utm_source, utm_campaign, landing page event missing).",
+        "No explicit plan status for saved/completed; currently approximated with race_plans rows.",
+      ],
     };
 
-    return withSecurityHeaders(
-      NextResponse.json(adminGrowthResponseSchema.parse({ userRows, signupsByMonth, signupsByDay, totals }))
-    );
+    return withSecurityHeaders(NextResponse.json(adminGrowthResponseSchema.parse(response)));
   } catch (error) {
     console.error("Unexpected error while loading growth analytics", error);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to load growth data." }, { status: 500 }));

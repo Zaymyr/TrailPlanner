@@ -58,6 +58,7 @@ function productFromApiProduct(product: NonNullable<CreateProductResponse['produ
     sodium_mg: product.sodiumMg,
     calories_kcal: product.caloriesKcal,
     created_by: product.createdBy ?? null,
+    is_official: product.isOfficial ?? false,
   };
 }
 
@@ -103,11 +104,11 @@ export function useNutritionScreen() {
     const [favoritesResult, productsResult] = await Promise.all([
       supabase
         .from('user_favorite_products')
-        .select('product_id, products(id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by)')
+        .select('product_id, products(id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official)')
         .eq('user_id', uid),
       supabase
         .from('products')
-        .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official')
         .or(`is_live.eq.true,created_by.eq.${uid}`)
         .eq('is_archived', false)
         .order('name'),
@@ -330,6 +331,7 @@ export function useNutritionScreen() {
         ...productFromApiProduct(body.product),
         image_url: uploadedImageUrl ?? body.product.imageUrl ?? null,
         created_by: body.product.createdBy ?? userId,
+        is_official: body.product.isOfficial ?? false,
       };
 
       setProducts((current) =>

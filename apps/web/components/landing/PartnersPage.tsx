@@ -13,8 +13,14 @@ type PartnersPageProps = {
 
 type IconProps = SVGProps<SVGSVGElement>;
 
+const MULEBAR_LOGO_SRC = "/landing/mulebar-logo.jpg";
+const PRODUCT_DETAIL_IMAGE_BY_LOCALE: Record<Locale, string> = {
+  fr: "/landing/partners-product-detail-fr.svg",
+  en: "/landing/partners-product-detail-en.svg",
+};
+
 const mailtoByLocale: Record<Locale, string> = {
-  fr: "mailto:faustin@pace-yourself.com?subject=Référencement%20produits%20-%20%5BNom%20de%20votre%20marque%5D",
+  fr: "mailto:faustin@pace-yourself.com?subject=Referencement%20produits%20-%20%5BNom%20de%20votre%20marque%5D",
   en: "mailto:faustin@pace-yourself.com?subject=Product%20listing%20-%20%5BYour%20brand%20name%5D",
 };
 
@@ -101,6 +107,92 @@ const IconCheck = (props: IconProps) => (
   </svg>
 );
 
+const integratedBrandByLocale = {
+  fr: {
+    name: "Mulebar",
+    status: "Catalogue intégré",
+    description:
+      "27 produits de nutrition trail référencés dans Pace Yourself : gels, barres, boissons d'effort, électrolytes et vrais aliments avec données validées.",
+    href: "https://mulebar.com",
+    cta: "Découvrir Mulebar",
+    tags: ["27 produits", "Données validées", "Lien produit officiel"],
+  },
+  en: {
+    name: "Mulebar",
+    status: "Integrated catalog",
+    description:
+      "27 trail nutrition products listed in Pace Yourself: gels, bars, drink mixes, electrolytes, and real food with validated data.",
+    href: "https://mulebar.com",
+    cta: "Visit Mulebar",
+    tags: ["27 products", "Validated data", "Official product links"],
+  },
+} satisfies Record<
+  Locale,
+  {
+    name: string;
+    status: string;
+    description: string;
+    href: string;
+    cta: string;
+    tags: string[];
+  }
+>;
+
+const productDetailShowcaseByLocale = {
+  fr: {
+    eyebrow: "DÉTAIL DU PRODUIT",
+    title: "Barre énergétique bio et vegan Mulebar 40g / Abricot Pécan",
+    subtitle: "Valeurs par unité / portion",
+    fields: [
+      { label: "Marque", value: "Mulebar" },
+      { label: "Type", value: "Barre" },
+    ],
+    metrics: [
+      { label: "Glucides", value: "22.8 g" },
+      { label: "Sodium", value: "12 mg" },
+      { label: "Calories", value: "129 kcal" },
+      { label: "Protéines", value: "2 g" },
+      { label: "Lipides", value: "2.3 g" },
+      { label: "Eau", value: "0 ml" },
+    ],
+    cta: "Acheter ce produit",
+    imageAlt: "Visuel de la barre Mulebar Abricot Pécan",
+    imageFallback: "Mulebar",
+  },
+  en: {
+    eyebrow: "PRODUCT DETAIL",
+    title: "Organic vegan Mulebar energy bar 40g / Apricot Pecan",
+    subtitle: "Values per unit / serving",
+    fields: [
+      { label: "Brand", value: "Mulebar" },
+      { label: "Type", value: "Bar" },
+    ],
+    metrics: [
+      { label: "Carbs", value: "22.8 g" },
+      { label: "Sodium", value: "12 mg" },
+      { label: "Calories", value: "129 kcal" },
+      { label: "Protein", value: "2 g" },
+      { label: "Fat", value: "2.3 g" },
+      { label: "Water", value: "0 ml" },
+    ],
+    cta: "Buy this product",
+    imageAlt: "Apricot Pecan Mulebar energy bar visual",
+    imageFallback: "Mulebar",
+  },
+} satisfies Record<
+  Locale,
+  {
+    eyebrow: string;
+    title: string;
+    subtitle: string;
+    fields: { label: string; value: string }[];
+    metrics: { label: string; value: string }[];
+    cta: string;
+    imageAlt: string;
+    imageFallback: string;
+  }
+>;
+
 type ImagePlaceholderProps = {
   src: string;
   label: string;
@@ -150,8 +242,30 @@ function ImagePlaceholder({
   );
 }
 
+type ProductDetailShowcaseProps = {
+  locale: Locale;
+  className?: string;
+};
+
+function ProductDetailShowcase({ locale, className = "" }: ProductDetailShowcaseProps) {
+  const copy = productDetailShowcaseByLocale[locale];
+
+  return (
+    <ImagePlaceholder
+      src={PRODUCT_DETAIL_IMAGE_BY_LOCALE[locale]}
+      alt={copy.imageAlt}
+      label={copy.imageFallback}
+      width={800}
+      height={517}
+      className={className}
+      imageClassName="object-contain"
+    />
+  );
+}
+
 export function PartnersPage({ copy, locale }: PartnersPageProps) {
   const mailtoHref = mailtoByLocale[locale];
+  const integratedBrand = integratedBrandByLocale[locale];
   const pillars = [
     {
       Icon: IconEye,
@@ -258,14 +372,9 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
           <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">{copy.appearance.subtitle}</p>
         </div>
         <div className="grid gap-5 lg:grid-cols-2">
-          <ImagePlaceholder
-            src="/landing/partners-product-detail.png"
-            alt={copy.appearance.imageProductLabel}
-            label={copy.appearance.imageProductLabel}
-            width={800}
-            height={600}
-          className="aspect-[667/431] bg-muted p-3"
-            imageClassName="object-contain"
+          <ProductDetailShowcase
+            locale={locale}
+            className="aspect-[667/431] bg-muted p-3"
           />
           <ImagePlaceholder
             src="/landing/partners-aid-station.jpeg"
@@ -338,19 +447,64 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
 
       <section className="space-y-6 rounded-3xl border border-border bg-card/70 p-6 sm:p-10">
         <h2 className="text-2xl font-semibold text-foreground sm:text-3xl">{copy.brands.title}</h2>
-        <div className="rounded-2xl border border-brand-border bg-brand-surface p-5 text-sm font-medium text-muted-foreground dark:border-emerald-400/30 dark:bg-emerald-400/5">
-          {copy.brands.emptyState}
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {Array.from({ length: 6 }, (_, index) => (
-            <div
-              key={index}
-              className="flex aspect-[4/3] items-center justify-center rounded-2xl border border-dashed border-border bg-card/40"
-              aria-hidden
-            >
-              <span className="h-8 w-20 rounded-full bg-muted/50" />
+        <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+          <article className="overflow-hidden rounded-2xl border border-brand-border bg-brand-surface shadow-sm dark:border-emerald-400/30 dark:bg-emerald-400/5">
+            <div className="grid min-h-52 gap-0 md:grid-cols-[0.8fr_1.2fr]">
+              <div className="flex items-center justify-center bg-card/70 p-6 dark:bg-slate-950/50">
+                <div className="w-full max-w-[180px] overflow-hidden rounded-2xl border border-brand-border bg-[#d9222a] shadow-xl shadow-[rgba(217,34,42,0.18)]">
+                  <Image
+                    src={MULEBAR_LOGO_SRC}
+                    alt={`${integratedBrand.name} logo`}
+                    width={300}
+                    height={500}
+                    sizes="180px"
+                    className="h-auto w-full object-cover"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col justify-between gap-5 p-6">
+                <div className="space-y-3">
+                  <p className="inline-flex rounded-full border border-brand-border bg-background px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand dark:border-emerald-400/30 dark:bg-slate-950 dark:text-emerald-200">
+                    {integratedBrand.status}
+                  </p>
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-semibold text-foreground">{integratedBrand.name}</h3>
+                    <p className="text-sm leading-relaxed text-muted-foreground">{integratedBrand.description}</p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {integratedBrand.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full border border-border bg-card/80 px-3 py-1 text-xs font-semibold text-muted-foreground"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+                <a
+                  href={integratedBrand.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-fit items-center justify-center gap-2 rounded-lg border border-brand-border bg-card px-4 py-2 text-sm font-semibold text-brand transition hover:bg-background focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:border-emerald-400/30 dark:bg-slate-950 dark:text-emerald-200"
+                >
+                  {integratedBrand.cta}
+                  <IconArrowRight className="h-4 w-4" />
+                </a>
+              </div>
             </div>
-          ))}
+          </article>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-1">
+            {Array.from({ length: 3 }, (_, index) => (
+              <div
+                key={index}
+                className="flex min-h-24 items-center justify-center rounded-2xl border border-dashed border-border bg-card/40"
+                aria-hidden
+              >
+                <span className="h-8 w-20 rounded-full bg-muted/50" />
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

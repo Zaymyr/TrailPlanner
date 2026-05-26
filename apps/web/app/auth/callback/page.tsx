@@ -22,7 +22,7 @@ type Status = {
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>({
-    message: "Signing you in with Google...",
+    message: "Signing you in...",
   });
 
   const searchParams = useMemo(() => {
@@ -43,7 +43,7 @@ export default function AuthCallbackPage() {
 
     if (error) {
       setStatus({
-        message: errorDescription ?? "Unable to sign in with Google.",
+        message: errorDescription ?? "Unable to complete social sign-in.",
         isError: true,
       });
       return;
@@ -54,7 +54,7 @@ export default function AuthCallbackPage() {
 
     if (!accessToken) {
       setStatus({
-        message: "Missing access token from Google sign-in.",
+        message: "Missing access token from social sign-in.",
         isError: true,
       });
       return;
@@ -99,7 +99,7 @@ export default function AuthCallbackPage() {
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 rounded-lg border border-slate-800 bg-slate-950/60 p-6 shadow-lg">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-slate-50">Google sign-in</h1>
+        <h1 className="text-2xl font-semibold text-slate-50">Social sign-in</h1>
         <p className="text-slate-300">{status.message}</p>
       </div>
 

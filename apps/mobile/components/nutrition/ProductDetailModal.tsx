@@ -21,6 +21,8 @@ import { Text } from '../themed/Text';
 import { FUEL_TYPE_LABELS, FUEL_TYPE_OPTIONS } from './nutritionConstants';
 import type { FuelType, Product, ProductEditDraft, ProductImageDraft } from './types';
 
+const verifiedProductIcon = require('../../assets/verified-product.png');
+
 type ProductDetailModalProps = {
   canManage: boolean;
   deleting: boolean;
@@ -108,6 +110,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
   const busy = saving || deleting;
   const editable = canManage && isEditing && !busy;
   const accessLabel = canManage ? 'Modifiable' : 'Lecture seule';
+  const isVerified = currentProduct.is_official === true;
   const imagePreviewUri = imageDraft?.uri ?? currentProduct.image_url ?? null;
 
   async function handleSave() {
@@ -209,6 +212,11 @@ export const ProductDetailModal = memo(function ProductDetailModal({
                   <Ionicons color={Colors.textMuted} name="image-outline" size={26} />
                 </View>
               )}
+              {isVerified ? (
+                <View style={styles.verifiedImageBadge}>
+                  <Image source={verifiedProductIcon} style={styles.verifiedImageBadgeIcon} />
+                </View>
+              ) : null}
             </View>
 
             {editable ? (
@@ -419,6 +427,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 10,
   },
   modalTitle: {
@@ -464,6 +473,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   imageFrame: {
+    position: 'relative',
     height: 164,
     borderRadius: 18,
     overflow: 'hidden',
@@ -480,6 +490,26 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  verifiedImageBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  verifiedImageBadgeIcon: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
   },
   imageActions: {
     flexDirection: 'row',

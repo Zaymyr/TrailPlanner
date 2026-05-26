@@ -1,6 +1,8 @@
+import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
 import { withSecurityHeaders } from "../../../../lib/http";
 import {
   extractBearerToken,
@@ -11,9 +13,9 @@ import {
 } from "../../../../lib/supabase";
 
 const supabaseAdminUserSchema = z.object({
-  id: z.string().uuid(),
-  email: z.string().email().optional(),
-  created_at: z.string(),
+  id: z.string().min(1),
+  email: z.string().nullable().optional(),
+  created_at: z.string().nullable().optional(),
   last_sign_in_at: z.string().nullable().optional(),
   app_metadata: z
     .object({
@@ -25,7 +27,7 @@ const supabaseAdminUserSchema = z.object({
 });
 
 const usersEnvelopeSchema = z.object({
-  users: z.array(supabaseAdminUserSchema),
+  users: z.array(z.unknown()),
 });
 
 const mappedUsersSchema = z.object({
@@ -61,6 +63,16 @@ const mappedUsersSchema = z.object({
         })
         .nullable()
         .optional(),
+      insights: z
+        .object({
+          signInCount: z.number().int().nonnegative().nullable(),
+          activityWindowDays: z.number().int().nonnegative().nullable(),
+          planCount: z.number().int().nonnegative(),
+          latestPlanName: z.string().nullable(),
+          favoriteProducts: z.array(z.string()),
+          onboardingCompleted: z.boolean(),
+        })
+        .optional(),
     })
   ),
 });
@@ -76,10 +88,12 @@ const singleUserSchema = z.object({
   user: mappedUsersSchema.shape.users.element,
 });
 
+const userIdUuidSchema = z.string().uuid();
+
 const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
   id: user.id,
-  email: user.email,
-  createdAt: user.created_at,
+  email: user.email ?? undefined,
+  createdAt: user.created_at ?? new Date(0).toISOString(),
   lastSignInAt: user.last_sign_in_at ?? undefined,
   role: user.app_metadata?.role,
   roles:
@@ -141,6 +155,33 @@ const coachProfileRowSchema = z.object({
   subscription_status: z.string().nullable().optional(),
 });
 
+const racePlanRowSchema = z.object({
+  user_id: z.string().uuid(),
+  name: z.string(),
+  created_at: z.string(),
+});
+
+const userFavoriteProductRowSchema = z.object({
+  user_id: z.string().uuid(),
+  product_id: z.string().uuid(),
+});
+
+const productNameRowSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+});
+
+const userProfileInsightRowSchema = z.object({
+  user_id: z.string().uuid(),
+  sign_in_count: z.number().int().nonnegative().nullable().optional(),
+  first_sign_in_at: z.string().nullable().optional(),
+  last_sign_in_at: z.string().nullable().optional(),
+  age: z.number().nullable().optional(),
+  water_bag_liters: z.number().nullable().optional(),
+  utmb_index: z.number().nullable().optional(),
+  comfortable_flat_pace_min_per_km: z.number().nullable().optional(),
+});
+
 const buildTrial = (trial: z.infer<typeof trialRowSchema>, now: Date) => {
   if (!trial.trial_ends_at) return null;
   const endsAt = new Date(trial.trial_ends_at);
@@ -161,6 +202,78 @@ const isSubscriptionActive = (subscription: z.infer<typeof subscriptionRowSchema
   return isSubscriptionStatusActive(subscription?.status, subscription?.current_period_end);
 };
 
+type RefreshTokenPayload = {
+  access_token: string;
+  refresh_token?: string;
+};
+
+const readResponsePayload = async (response: Response): Promise<unknown> => {
+  const text = await response.text().catch(() => "");
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+};
+
+const summarizePayload = (payload: unknown): string | null => {
+  if (typeof payload === "string") {
+    const trimmed = payload.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  if (payload && typeof payload === "object") {
+    const entries = payload as Record<string, unknown>;
+    const parts = [
+      typeof entries.message === "string" ? entries.message : null,
+      typeof entries.error === "string" ? entries.error : null,
+      typeof entries.error_description === "string" ? entries.error_description : null,
+      typeof entries.details === "string" ? entries.details : null,
+      typeof entries.hint === "string" ? `Hint: ${entries.hint}` : null,
+      typeof entries.code === "string" ? `Code: ${entries.code}` : null,
+    ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+
+    try {
+      return JSON.stringify(payload);
+    } catch {
+      return null;
+    }
+  }
+
+  if (payload === null || payload === undefined) {
+    return null;
+  }
+
+  return String(payload);
+};
+
+const summarizeZodError = (error: z.ZodError): string =>
+  error.issues
+    .slice(0, 5)
+    .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "response"}: ${issue.message}`)
+    .join("; ");
+
+const buildErrorResponse = (status: number, message: string, options?: { details?: string; source?: string }) =>
+  withSecurityHeaders(
+    NextResponse.json(
+      {
+        message,
+        details: options?.details,
+        source: options?.source,
+      },
+      { status }
+    )
+  );
+
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
@@ -173,13 +286,37 @@ const authorizeAdmin = async (request: NextRequest) => {
     };
   }
 
-  const token = extractBearerToken(request.headers.get("authorization"));
+  const cookieStore = cookies();
+  let accessToken =
+    extractBearerToken(request.headers.get("authorization")) ?? cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
+  let refreshToken =
+    extractBearerToken(request.headers.get("x-refresh-token")) ?? cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
 
-  if (!token) {
+  if (!accessToken) {
     return { error: withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 })) };
   }
 
-  const supabaseUser = await fetchSupabaseUser(token, supabaseAnon);
+  let supabaseUser = await fetchSupabaseUser(accessToken, supabaseAnon);
+
+  if (!supabaseUser && refreshToken) {
+    const refreshResponse = await fetch(`${supabaseAnon.supabaseUrl}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseAnon.supabaseAnonKey,
+      },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+      cache: "no-store",
+    });
+
+    const refreshData = (await refreshResponse.json().catch(() => null)) as RefreshTokenPayload | null;
+
+    if (refreshResponse.ok && refreshData?.access_token) {
+      accessToken = refreshData.access_token;
+      refreshToken = refreshData.refresh_token ?? refreshToken;
+      supabaseUser = await fetchSupabaseUser(accessToken, supabaseAnon);
+    }
+  }
 
   if (!supabaseUser || !isAdminUser(supabaseUser)) {
     return { error: withSecurityHeaders(NextResponse.json({ message: "Admin access required." }, { status: 403 })) };
@@ -201,35 +338,48 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
     });
 
-    const payload = (await response.json().catch(() => null)) as unknown;
+    const payload = await readResponsePayload(response);
 
     if (!response.ok) {
       console.error("Unable to load users", payload);
-      return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 502 }));
+      return buildErrorResponse(502, "Failed to load admin users from Supabase Auth.", {
+        source: "supabase-auth-admin-users",
+        details: summarizePayload(payload) ?? `HTTP ${response.status}`,
+      });
     }
 
     const parsedEnvelope = usersEnvelopeSchema.safeParse(payload);
-    const parsedList = z.array(supabaseAdminUserSchema).safeParse(payload);
+    const parsedList = z.array(z.unknown()).safeParse(payload);
 
-    const users = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
+    const rawUsers = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
 
-    if (!users) {
-      return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
+    if (!rawUsers) {
+      return buildErrorResponse(500, "Unexpected Supabase Auth response while loading admin users.", {
+        source: "supabase-auth-admin-users",
+        details: "Expected an array or an object with a users array.",
+      });
     }
 
-    const mapped = users.map(mapUser);
+    const mapped = rawUsers
+      .map((entry) => supabaseAdminUserSchema.safeParse(entry))
+      .filter((entry): entry is { success: true; data: z.infer<typeof supabaseAdminUserSchema> } => entry.success)
+      .map((entry) => mapUser(entry.data));
     const userIds = mapped.map((user) => user.id);
+    const relationalUserIds = userIds.filter((userId) => userIdUuidSchema.safeParse(userId).success);
     let grantsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.premiumGrant>>();
     let trialsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.trial>>();
     let subscriptionsByUserId = new Map<
       string,
       z.infer<typeof mappedUsersSchema.shape.users.element.shape.subscription>
     >();
+    let planRows: z.infer<typeof racePlanRowSchema>[] = [];
+    let favoritesByUserId = new Map<string, string[]>();
+    let profilesByUserId = new Map<string, z.infer<typeof userProfileInsightRowSchema>>();
 
-    if (userIds.length > 0) {
-      const [grantsResponse, trialsResponse, subscriptionsResponse, coachProfilesResponse] = await Promise.all([
+    if (relationalUserIds.length > 0) {
+      const [grantsResponse, trialsResponse, subscriptionsResponse, coachProfilesResponse, plansResponse, favoritesResponse, productsResponse, profilesResponse] = await Promise.all([
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=id,user_id,starts_at,initial_duration_days,reason,ends_at&order=starts_at.desc`,
           {
@@ -241,7 +391,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,trial_ends_at`,
           {
@@ -253,7 +403,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,status,current_period_end`,
           {
@@ -265,7 +415,7 @@ export async function GET(request: NextRequest) {
           }
         ),
         fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/coach_profiles?user_id=in.(${userIds.join(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/coach_profiles?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,subscription_status`,
           {
@@ -276,13 +426,60 @@ export async function GET(request: NextRequest) {
             cache: "no-store",
           }
         ),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/race_plans?user_id=in.(${relationalUserIds.join(
+            ","
+          )})&select=user_id,name,created_at&order=created_at.desc`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_favorite_products?user_id=in.(${relationalUserIds.join(
+            ","
+          )})&select=user_id,product_id`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
+        fetch(`${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,name`, {
+          headers: {
+            apikey: auth.supabaseService.supabaseServiceRoleKey,
+            Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+          },
+          cache: "no-store",
+        }),
+        fetch(
+          `${auth.supabaseService.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${relationalUserIds.join(
+            ","
+          )})&select=user_id,sign_in_count,first_sign_in_at,last_sign_in_at,age,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km`,
+          {
+            headers: {
+              apikey: auth.supabaseService.supabaseServiceRoleKey,
+              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        ),
       ]);
 
-      const [grantsPayload, trialsPayload, subscriptionsPayload, coachProfilesPayload] = await Promise.all([
+      const [grantsPayload, trialsPayload, subscriptionsPayload, coachProfilesPayload, plansPayload, favoritesPayload, productsPayload, profilesPayload] = await Promise.all([
         grantsResponse.json().catch(() => null),
         trialsResponse.json().catch(() => null),
         subscriptionsResponse.json().catch(() => null),
         coachProfilesResponse.json().catch(() => null),
+        plansResponse.json().catch(() => null),
+        favoritesResponse.json().catch(() => null),
+        productsResponse.json().catch(() => null),
+        profilesResponse.json().catch(() => null),
       ]);
 
       if (grantsResponse.ok) {
@@ -367,19 +564,95 @@ export async function GET(request: NextRequest) {
       } else {
         console.error("Unable to load coach profile payload", coachProfilesPayload);
       }
+
+      if (plansResponse.ok) {
+        const parsedPlans = z.array(racePlanRowSchema).safeParse(plansPayload);
+        if (parsedPlans.success) planRows = parsedPlans.data;
+      }
+
+      if (favoritesResponse.ok && productsResponse.ok) {
+        const parsedFavorites = z.array(userFavoriteProductRowSchema).safeParse(favoritesPayload);
+        const parsedProducts = z.array(productNameRowSchema).safeParse(productsPayload);
+        if (parsedFavorites.success && parsedProducts.success) {
+          const productNames = new Map(parsedProducts.data.map((product) => [product.id, product.name]));
+          for (const favorite of parsedFavorites.data) {
+            const label = productNames.get(favorite.product_id);
+            if (!label) continue;
+            const current = favoritesByUserId.get(favorite.user_id) ?? [];
+            if (current.length < 5) current.push(label);
+            favoritesByUserId.set(favorite.user_id, current);
+          }
+        }
+      }
+
+      if (profilesResponse.ok) {
+        const parsedProfiles = z.array(userProfileInsightRowSchema).safeParse(profilesPayload);
+        if (parsedProfiles.success) {
+          profilesByUserId = new Map(parsedProfiles.data.map((profile) => [profile.user_id, profile]));
+        }
+      }
     }
 
-    const mappedWithGrants = mapped.map((user) => ({
-      ...user,
-      premiumGrant: grantsByUserId.get(user.id) ?? null,
-      trial: trialsByUserId.get(user.id) ?? null,
-      subscription: subscriptionsByUserId.get(user.id) ?? null,
-    }));
+    const plansByUserId = new Map<string, z.infer<typeof racePlanRowSchema>[]>();
+    for (const plan of planRows) {
+      const current = plansByUserId.get(plan.user_id) ?? [];
+      current.push(plan);
+      plansByUserId.set(plan.user_id, current);
+    }
 
-    return withSecurityHeaders(NextResponse.json(mappedUsersSchema.parse({ users: mappedWithGrants })));
+    const mappedWithGrants = mapped.map((user) => {
+      const userPlans = plansByUserId.get(user.id) ?? [];
+      const profile = profilesByUserId.get(user.id);
+      const onboardingCompleted = Boolean(
+        profile &&
+          (profile.age !== null ||
+            profile.water_bag_liters !== null ||
+            profile.utmb_index !== null ||
+            profile.comfortable_flat_pace_min_per_km !== null)
+      );
+      const createdAt = profile?.first_sign_in_at ? new Date(profile.first_sign_in_at) : new Date(user.createdAt);
+      const lastSignInAt = profile?.last_sign_in_at
+        ? new Date(profile.last_sign_in_at)
+        : user.lastSignInAt
+          ? new Date(user.lastSignInAt)
+          : null;
+      const activityWindowDays =
+        lastSignInAt && Number.isFinite(lastSignInAt.getTime()) && Number.isFinite(createdAt.getTime())
+          ? Math.max(0, Math.ceil((lastSignInAt.getTime() - createdAt.getTime()) / (24 * 60 * 60 * 1000)))
+          : null;
+
+      return {
+        ...user,
+        premiumGrant: grantsByUserId.get(user.id) ?? null,
+        trial: trialsByUserId.get(user.id) ?? null,
+        subscription: subscriptionsByUserId.get(user.id) ?? null,
+        insights: {
+          signInCount: profile?.sign_in_count ?? null,
+          activityWindowDays,
+          planCount: userPlans.length,
+          latestPlanName: userPlans[0]?.name ?? null,
+          favoriteProducts: favoritesByUserId.get(user.id) ?? [],
+          onboardingCompleted,
+        },
+      };
+    });
+
+    const parsedMappedUsers = mappedUsersSchema.safeParse({ users: mappedWithGrants });
+
+    if (!parsedMappedUsers.success) {
+      return buildErrorResponse(500, "Admin users response validation failed.", {
+        source: "admin-users-response-parse",
+        details: summarizeZodError(parsedMappedUsers.error),
+      });
+    }
+
+    return withSecurityHeaders(NextResponse.json(parsedMappedUsers.data));
   } catch (error) {
     console.error("Unexpected error while loading admin users", error);
-    return withSecurityHeaders(NextResponse.json({ message: "Unable to load users." }, { status: 500 }));
+    return buildErrorResponse(500, "Unexpected error while loading admin users.", {
+      source: "admin-users-route",
+      details: error instanceof Error ? error.message : undefined,
+    });
   }
 }
 

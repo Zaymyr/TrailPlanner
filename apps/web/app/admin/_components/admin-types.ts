@@ -8,6 +8,8 @@ export const adminProductSchema = z.object({
   sku: z.string().optional(),
   name: z.string(),
   brand: z.string().optional(),
+  officialName: z.string().optional(),
+  isOfficial: z.boolean().optional(),
   productUrl: z.string().optional(),
   isLive: z.boolean(),
   isArchived: z.boolean(),
@@ -25,6 +27,8 @@ export const adminProductImportItemSchema = z.object({
   brand: z.string().trim().min(1).optional().nullable(),
   slug: z.string().trim().min(1).optional(),
   sku: z.string().trim().min(1).optional(),
+  officialName: z.string().trim().min(1).optional().nullable(),
+  isOfficial: z.boolean().optional(),
   imageUrl: z.string().url().optional().nullable(),
   productUrl: z.string().url().optional().nullable(),
   fuelType: z.enum(fuelTypeValues).optional(),
@@ -68,7 +72,7 @@ export const adminUsersSchema = z.object({
   users: z.array(
     z.object({
       id: z.string(),
-      email: z.string().email().optional(),
+      email: z.string().optional(),
       createdAt: z.string(),
       lastSignInAt: z.string().optional(),
       role: z.string().optional(),
@@ -96,6 +100,16 @@ export const adminUsersSchema = z.object({
           currentPeriodEnd: z.string().nullable().optional(),
         })
         .nullable()
+        .optional(),
+      insights: z
+        .object({
+          signInCount: z.number().nullable(),
+          activityWindowDays: z.number().nullable(),
+          planCount: z.number(),
+          latestPlanName: z.string().nullable(),
+          favoriteProducts: z.array(z.string()),
+          onboardingCompleted: z.boolean(),
+        })
         .optional(),
     })
   ),

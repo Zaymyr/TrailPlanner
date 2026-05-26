@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
 import { defaultFuelType, fuelTypeSchema } from "../../../../lib/fuel-types";
+import { harmonizeOfficialProductName } from "../../../../lib/official-product-names";
 import {
   extractBearerToken,
   fetchSupabaseUser,
@@ -19,6 +20,8 @@ const supabaseProductSchema = z.object({
   brand: z.string().nullable().optional(),
   image_url: z.string().url().nullable().optional(),
   created_by: z.string().uuid().nullable().optional(),
+  official_name: z.string().nullable().optional(),
+  is_official: z.boolean().optional().default(false),
   product_url: z.string().url().nullable().optional(),
   is_live: z.boolean(),
   is_archived: z.boolean(),
@@ -41,6 +44,8 @@ const productResponseSchema = z.object({
       brand: z.string().optional(),
       imageUrl: z.string().url().optional(),
       productUrl: z.string().optional(),
+      officialName: z.string().optional(),
+      isOfficial: z.boolean().optional(),
       isLive: z.boolean(),
       isArchived: z.boolean(),
       updatedAt: z.string(),
@@ -60,6 +65,8 @@ const importProductItemSchema = z.object({
   brand: z.string().trim().min(1).optional().nullable(),
   slug: z.string().trim().min(1).optional(),
   sku: z.string().trim().min(1).optional(),
+  officialName: z.string().trim().min(1).optional().nullable(),
+  isOfficial: z.boolean().optional().default(true),
   imageUrl: z.string().url().optional().nullable(),
   productUrl: z.string().url().optional().nullable(),
   fuelType: fuelTypeSchema.default(defaultFuelType),
@@ -92,6 +99,8 @@ const updatePayloadSchema = z.object({
   isArchived: z.boolean().optional(),
   name: z.string().trim().min(1).optional(),
   brand: z.string().trim().min(1).optional().nullable(),
+  officialName: z.string().trim().min(1).optional().nullable(),
+  isOfficial: z.boolean().optional(),
   slug: z.string().trim().min(1).optional(),
   sku: z.string().trim().optional().nullable(),
   productUrl: z.string().url().optional().nullable(),
@@ -110,6 +119,8 @@ const mapProduct = (row: z.infer<typeof supabaseProductSchema>): z.infer<typeof 
   name: row.name,
   brand: row.brand ?? undefined,
   imageUrl: row.image_url ?? undefined,
+  officialName: row.official_name ?? undefined,
+  isOfficial: row.is_official ?? false,
   productUrl: row.product_url ?? undefined,
   isLive: row.is_live,
   isArchived: row.is_archived,
@@ -148,6 +159,16 @@ function normalizeImportProducts(products: z.infer<typeof importPayloadSchema>["
   return products.map((product, index) => {
     const slug = buildSlugBase(product.slug ?? product.name);
     const sku = buildSkuBase(product.sku ?? slug);
+    const isOfficial = product.isOfficial ?? true;
+    const officialName = isOfficial ? product.officialName?.trim() || product.name.trim() : null;
+    const displayName =
+      isOfficial && officialName
+        ? harmonizeOfficialProductName({
+            brand: product.brand,
+            fuelType: product.fuelType,
+            officialName,
+          })
+        : product.name.trim();
 
     if (!slug) {
       throw new Error(`Produit ${index + 1}: slug invalide.`);
@@ -171,9 +192,11 @@ function normalizeImportProducts(products: z.infer<typeof importPayloadSchema>["
     return {
       slug,
       sku,
-      name: product.name,
+      name: displayName,
       brand: product.brand ?? null,
       image_url: product.imageUrl ?? null,
+      official_name: officialName,
+      is_official: isOfficial,
       product_url: product.productUrl ?? null,
       fuel_type: product.fuelType,
       calories_kcal: product.caloriesKcal,
@@ -221,7 +244,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,name,brand,product_url,is_live,is_archived,updated_at,fuel_type,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
+      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,name,brand,official_name,is_official,product_url,is_live,is_archived,updated_at,fuel_type,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g&order=updated_at.desc`,
       {
         headers: {
           apikey: auth.supabaseService.supabaseServiceRoleKey,
@@ -266,7 +289,7 @@ export async function POST(request: NextRequest) {
     const normalizedProducts = normalizeImportProducts(parsedBody.data.products);
 
     const existingResponse = await fetch(
-      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,created_by`,
+      `${auth.supabaseService.supabaseUrl}/rest/v1/products?select=id,slug,sku,created_by,is_official`,
       {
         headers: {
           apikey: auth.supabaseService.supabaseServiceRoleKey,
@@ -288,6 +311,7 @@ export async function POST(request: NextRequest) {
           slug: z.string(),
           sku: z.string().nullable().optional(),
           created_by: z.string().uuid().nullable().optional(),
+          is_official: z.boolean().optional().default(false),
         })
       )
       .parse(await existingResponse.json());
@@ -301,11 +325,11 @@ export async function POST(request: NextRequest) {
 
     for (const product of normalizedProducts) {
       const existingSlug = existingBySlug.get(product.slug);
-      if (existingSlug?.created_by) {
+      if (existingSlug && !existingSlug.is_official) {
         return withSecurityHeaders(
           NextResponse.json(
             {
-              message: `Impossible d'importer ${product.name}: le slug ${product.slug} appartient deja a un produit utilisateur.`,
+              message: `Impossible d'importer ${product.name}: le slug ${product.slug} appartient deja a un produit non officiel.`,
             },
             { status: 409 }
           )
@@ -327,7 +351,7 @@ export async function POST(request: NextRequest) {
 
     if (parsedBody.data.archiveSharedCatalog) {
       const archiveResponse = await fetch(
-        `${auth.supabaseService.supabaseUrl}/rest/v1/products?created_by=is.null`,
+        `${auth.supabaseService.supabaseUrl}/rest/v1/products?is_official=eq.true`,
         {
           method: "PATCH",
           headers: {
@@ -402,12 +426,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   const { id, isLive, isArchived, name, brand, slug, sku, productUrl, fuelType, caloriesKcal, carbsGrams, sodiumMg, proteinGrams, fatGrams } = parsedBody.data;
+  const { officialName, isOfficial } = parsedBody.data;
 
   const fieldsToUpdate: Record<string, unknown> = {};
   if (isLive !== undefined) fieldsToUpdate.is_live = isLive;
   if (isArchived !== undefined) fieldsToUpdate.is_archived = isArchived;
   if (name !== undefined) fieldsToUpdate.name = name;
   if (brand !== undefined) fieldsToUpdate.brand = brand;
+  if (officialName !== undefined) fieldsToUpdate.official_name = officialName;
+  if (isOfficial !== undefined) fieldsToUpdate.is_official = isOfficial;
   if (slug !== undefined) fieldsToUpdate.slug = slug;
   if (sku !== undefined) fieldsToUpdate.sku = sku;
   if (productUrl !== undefined) fieldsToUpdate.product_url = productUrl;

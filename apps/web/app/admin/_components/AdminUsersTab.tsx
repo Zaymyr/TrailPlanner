@@ -35,6 +35,47 @@ import {
   UserRoleOption,
 } from "./admin-types";
 
+const readResponsePayload = async (response: Response): Promise<unknown> => {
+  const text = await response.text().catch(() => "");
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+};
+
+const summarizeZodError = (error: z.ZodError): string =>
+  error.issues
+    .slice(0, 5)
+    .map((issue) => `${issue.path.length > 0 ? issue.path.join(".") : "response"}: ${issue.message}`)
+    .join("; ");
+
+const buildApiErrorMessage = (response: Response, payload: unknown, fallback: string): string => {
+  if (payload && typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    const parts = [
+      typeof record.message === "string" ? record.message : null,
+      typeof record.details === "string" ? record.details : null,
+      typeof record.source === "string" ? `Source: ${record.source}` : null,
+    ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+    if (parts.length > 0) {
+      return parts.join(" ");
+    }
+  }
+
+  if (typeof payload === "string" && payload.trim().length > 0) {
+    return payload.trim();
+  }
+
+  return `${fallback} (HTTP ${response.status})`;
+};
+
 export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const { t } = useI18n();
   const queryClient = useQueryClient();
@@ -44,6 +85,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const [revokingGrantId, setRevokingGrantId] = useState<string | null>(null);
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [premiumDialogUser, setPremiumDialogUser] = useState<AdminUser | null>(null);
+  const [detailsDialogUser, setDetailsDialogUser] = useState<AdminUser | null>(null);
 
   const premiumReasonOptions = useMemo(
     () => [
@@ -104,17 +146,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         cache: "no-store",
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.loadError;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.loadError));
       }
 
       const parsed = adminUsersSchema.safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.loadError);
+        throw new Error(`Invalid /api/admin/users response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.users;
@@ -134,17 +175,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.messages.error;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.messages.error));
       }
 
       const parsed = z.object({ user: adminUserSchema }).safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.messages.error);
+        throw new Error(`Invalid PATCH /api/admin/users response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.user;
@@ -176,17 +216,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.premium.messages.error;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.premium.messages.error));
       }
 
       const parsed = premiumGrantResponseSchema.safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.premium.messages.error);
+        throw new Error(`Invalid POST /api/admin/premium response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.premiumGrant;
@@ -219,17 +258,16 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         body: JSON.stringify(payload),
       });
 
-      const data = (await response.json().catch(() => null)) as unknown;
+      const data = await readResponsePayload(response);
 
       if (!response.ok) {
-        const message = (data as { message?: string } | null)?.message ?? t.admin.users.premium.messages.error;
-        throw new Error(message);
+        throw new Error(buildApiErrorMessage(response, data, t.admin.users.premium.messages.error));
       }
 
       const parsed = premiumGrantResponseSchema.safeParse(data);
 
       if (!parsed.success) {
-        throw new Error(t.admin.users.premium.messages.error);
+        throw new Error(`Invalid DELETE /api/admin/premium response. ${summarizeZodError(parsed.error)}`);
       }
 
       return parsed.data.premiumGrant;
@@ -312,6 +350,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
                   <TableHead className="text-slate-600 dark:text-slate-300">
                     {t.admin.users.table.premium}
                   </TableHead>
+                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.details}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -447,6 +486,11 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
                         </Button>
                       </div>
                     </TableCell>
+                    <TableCell>
+                      <Button type="button" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setDetailsDialogUser(user)}>
+                        {t.admin.users.details.open}
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -539,6 +583,27 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(detailsDialogUser)} onOpenChange={(open) => !open && setDetailsDialogUser(null)}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t.admin.users.details.title}</DialogTitle>
+            <DialogDescription>{detailsDialogUser?.email ?? "—"}</DialogDescription>
+          </DialogHeader>
+          {detailsDialogUser ? (
+            <div className="space-y-2 text-sm text-slate-700 dark:text-slate-200">
+              <p><span className="font-semibold">{t.admin.users.details.createdAt}</span> {formatDate(detailsDialogUser.createdAt)}</p>
+              <p><span className="font-semibold">{t.admin.users.details.lastSignInAt}</span> {formatDate(detailsDialogUser.lastSignInAt)}</p>
+              <p><span className="font-semibold">{t.admin.users.details.signInCount}</span> {detailsDialogUser.insights?.signInCount ?? t.admin.users.details.unavailable}</p>
+              <p><span className="font-semibold">{t.admin.users.details.activityWindow}</span> {detailsDialogUser.insights?.activityWindowDays !== null && detailsDialogUser.insights?.activityWindowDays !== undefined ? `${detailsDialogUser.insights.activityWindowDays}j` : t.admin.users.details.unavailable}</p>
+              <p><span className="font-semibold">{t.admin.users.details.planCount}</span> {detailsDialogUser.insights?.planCount ?? 0}</p>
+              <p><span className="font-semibold">{t.admin.users.details.latestPlan}</span> {detailsDialogUser.insights?.latestPlanName ?? "—"}</p>
+              <p><span className="font-semibold">{t.admin.users.details.favoriteProducts}</span> {(detailsDialogUser.insights?.favoriteProducts ?? []).join(", ") || "—"}</p>
+              <p><span className="font-semibold">{t.admin.users.details.onboarding}</span> {detailsDialogUser.insights?.onboardingCompleted ? t.admin.users.details.completed : t.admin.users.details.notCompleted}</p>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </>

@@ -4,6 +4,7 @@ dist
 coverage
 .next
 tsconfig.tsbuildinfo
+tmp/
 # Expo
 .expo/
 apps/mobile/.expo/
