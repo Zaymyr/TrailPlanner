@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -109,6 +109,8 @@ Declared in `20241215030000_create_products_and_affiliate_offers.sql`, `20250902
 - Anon can read live, non-archived products.
 - Users can read their own products through `created_by`.
 
+`20260526120000_add_meltonic_products.sql` only inserts or updates shared live `products` rows with `created_by = null`; it does not change product policies or grants.
+
 ### `user_profiles`
 
 Declared in `20250624103000_add_user_profiles.sql`.
@@ -206,6 +208,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Grants to `anon` do not bypass RLS; they allow anonymous Supabase users to reach the policy checks.
 - Service role bypasses RLS. Only server code and Supabase functions may use it.
 - Coach access is relationship-based. Do not grant coaches broad access by role alone.
+- Additive shared product seed migrations do not need new RLS policies when they only upsert rows covered by the existing live-product read policies.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -57,6 +57,9 @@ These migrations add profile and billing support:
 - `supabase/migrations/20250701100000_add_subscriptions_table.sql`
 - `supabase/migrations/20250902121500_allow_anon_read_products.sql`
 - `supabase/migrations/20250214120000_add_product_url_to_products.sql`
+- `supabase/migrations/20260526120000_add_meltonic_products.sql`
+
+`20260526120000_add_meltonic_products.sql` is a data-only shared product catalog migration. It inserts or updates a focused Meltonic trail/ultra effort selection using per-unit nutrition values and does not add tables, columns, grants, or RLS policies.
 
 ### Trace Era Removed
 
@@ -141,6 +144,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Do not add `user_metadata` admin checks in new policies.
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
+- Product catalog data migrations should not archive the shared catalog unless the task is explicitly replacing the catalog; additive brand imports should only upsert their own slugs.
 
 ## Related Docs
 

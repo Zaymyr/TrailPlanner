@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-05-17
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -80,6 +80,7 @@ Use:
 - `anon` grants are intentional for anonymous Supabase users only when policies still bind to `auth.uid()`.
 - Coach policies must require an active coach relationship.
 - Archived schema docs may show stale policy names.
+- Data-only catalog migrations that only upsert existing-table rows do not require new RLS policies, but they must not add grants, exposed views, or new tables without running this checklist end to end.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-05-18
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -125,6 +125,7 @@ erDiagram
 - Some admin policies in older migrations still reference `user_metadata`; new policies must use `app_metadata`, profile role, or service role patterns.
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
+- Data-only shared product catalog migrations under `supabase/migrations` can add or correct `products` rows without changing the schema overview, but they still need to preserve the per-unit nutrition invariant documented in the `products` table doc.
 
 ## Related Docs
 

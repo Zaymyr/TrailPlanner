@@ -1,0 +1,697 @@
+{
+  "products": [
+    {
+      "name": "Gâteau énergie au chocolat 465g",
+      "brand": "Mulebar",
+      "slug": "mulebar-gateau-energie-au-chocolat-465g",
+      "sku": "MULEBAR-AR0770",
+      "fuelType": "real_food",
+      "caloriesKcal": 572,
+      "carbsGrams": 100.1,
+      "sodiumMg": 358,
+      "proteinGrams": 12.7,
+      "fatGrams": 13.5,
+      "productUrl": "https://mulebar.com/products/gateau-energie-au-chocolat-465g",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/Gateau-energie-chocolat-mulebar.jpg?v=1772230050",
+      "isLive": true
+    },
+    {
+      "name": "Boisson de l'effort Mulebar fruits rouges",
+      "brand": "Mulebar",
+      "slug": "mulebar-boisson-de-leffort-mulebar-fruits-rouges-40g-dose-unitaire",
+      "sku": "MULEBAR-AR0765",
+      "fuelType": "drink_mix",
+      "caloriesKcal": 140,
+      "carbsGrams": 33.9,
+      "sodiumMg": 295,
+      "proteinGrams": 1,
+      "fatGrams": 0,
+      "productUrl": "https://mulebar.com/products/boisson-de-leffort-mulebar-fruits-rouges-40g-dose-unitaire",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/mulebar-boisson-effort-avec-fruits-rouges_1ba09430-7710-4153-8331-d807df047d73.jpg?v=1723469101",
+      "isLive": true
+    },
+    {
+      "name": "Boisson d’hydratation en poudre Mulebar fruits rouges",
+      "brand": "Mulebar",
+      "slug": "mulebar-boisson-d-hydratation-en-poudre-mulebar-fruits-rouges-10g-dose-unitaire",
+      "sku": "MULEBAR-AR0767",
+      "fuelType": "electrolyte",
+      "caloriesKcal": 11,
+      "carbsGrams": 2.8,
+      "sodiumMg": 346,
+      "proteinGrams": 0,
+      "fatGrams": 0,
+      "productUrl": "https://mulebar.com/products/boisson-d-hydratation-en-poudre-mulebar-fruits-rouges-10g-dose-unitaire",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/mulebar-boisson-hydratation-avec-fruits-rouges_6d95ccff-f700-420f-85bb-59a3e83bf41d.jpg?v=1723381944",
+      "isLive": true
+    },
+    {
+      "name": "Boisson de l'effort Mulebar agrumes",
+      "brand": "Mulebar",
+      "slug": "mulebar-boisson-de-leffort-mulebar-agrumes-40g-dose-unitaire",
+      "sku": "MULEBAR-AR0766",
+      "fuelType": "drink_mix",
+      "caloriesKcal": 140,
+      "carbsGrams": 33.9,
+      "sodiumMg": 295,
+      "proteinGrams": 1,
+      "fatGrams": 0,
+      "productUrl": "https://mulebar.com/products/boisson-de-leffort-mulebar-agrumes-40g-dose-unitaire",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/mulebar-boisson-effort-avec-fruits-agrumes_10154ef3-db07-4f92-9afc-de9ff8f63169.jpg?v=1723381836",
+      "isLive": true
+    },
+    {
+      "name": "Boisson d’hydratation en poudre Mulebar agrumes",
+      "brand": "Mulebar",
+      "slug": "mulebar-boisson-d-hydratation-en-poudre-mulebar-agrumes-10g-dose-dessai",
+      "sku": "MULEBAR-AR0768",
+      "fuelType": "electrolyte",
+      "caloriesKcal": 10,
+      "carbsGrams": 2.5,
+      "sodiumMg": 346,
+      "proteinGrams": 0,
+      "fatGrams": 0,
+      "productUrl": "https://mulebar.com/products/boisson-d-hydratation-en-poudre-mulebar-agrumes-10g-dose-dessai",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/mulebar-boisson-hydratation-avec-fruits-agrumes_306d1731-25ac-4c60-8e08-9bcb9d181232.jpg?v=1723381917",
+      "isLive": true
+    },
+    {
+      "name": "Compote énergétique vegan 65g / Châtaigne",
+      "brand": "Mulebar",
+      "slug": "mulebar-compote-energetique-vegan-65g-chataigne",
+      "sku": "MULEBAR-AR0759",
+      "fuelType": "real_food",
+      "caloriesKcal": 127,
+      "carbsGrams": 31.9,
+      "sodiumMg": 4,
+      "proteinGrams": 0.7,
+      "fatGrams": 0.3,
+      "productUrl": "https://mulebar.com/products/compote-energetique-vegan-65g-chataigne",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/compote-energetique-mulebar-chataigne.jpg?v=1715897518",
+      "isLive": true
+    },
+    {
+      "name": "Compote énergétique vegan 65g / Patate douce Orange Carotte",
+      "brand": "Mulebar",
+      "slug": "mulebar-puree-de-fruits-vegan-65g-patate-douce-orange-carotte",
+      "sku": "MULEBAR-AR0756",
+      "fuelType": "real_food",
+      "caloriesKcal": 132,
+      "carbsGrams": 31.9,
+      "sodiumMg": 12,
+      "proteinGrams": 0.7,
+      "fatGrams": 0.3,
+      "productUrl": "https://mulebar.com/products/puree-de-fruits-vegan-65g-patate-douce-orange-carotte",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/compote-energetique-mulebar-patate-douce-carotte-orange.jpg?v=1715897440",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique bio et vegan Mulebar 40g / Mangue Noix de cajou",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-bio-vegan-40g-mangue-noix-de-cajou",
+      "sku": "MULEBAR-AR0390",
+      "fuelType": "bar",
+      "caloriesKcal": 150,
+      "carbsGrams": 24,
+      "sodiumMg": 28,
+      "proteinGrams": 4.4,
+      "fatGrams": 3.6,
+      "productUrl": "https://mulebar.com/products/barre-energetique-bio-vegan-40g-mangue-noix-de-cajou",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-energetique-mulebar-mangue-cajou.jpg?v=1729691382",
+      "isLive": true
+    },
+    {
+      "name": "Compote énergétique vegan 65g / Orange Carotte Citron",
+      "brand": "Mulebar",
+      "slug": "mulebar-puree-de-fruits-vegan-65g-orange-carotte-citron",
+      "sku": "MULEBAR-AR0757",
+      "fuelType": "real_food",
+      "caloriesKcal": 144,
+      "carbsGrams": 35.1,
+      "sodiumMg": 4,
+      "proteinGrams": 0.5,
+      "fatGrams": 0.5,
+      "productUrl": "https://mulebar.com/products/puree-de-fruits-vegan-65g-orange-carotte-citron",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/compote-energetique-mulebar-orange-carotte-citron.jpg?v=1715897412",
+      "isLive": true
+    },
+    {
+      "name": "Compote énergétique vegan 65g / Fraise Groseille Betterave",
+      "brand": "Mulebar",
+      "slug": "mulebar-compote-energetique-vegan-65g-fraise-groseille-betterave",
+      "sku": "MULEBAR-AR0758",
+      "fuelType": "real_food",
+      "caloriesKcal": 143,
+      "carbsGrams": 35.2,
+      "sodiumMg": 4,
+      "proteinGrams": 0.3,
+      "fatGrams": 0.5,
+      "productUrl": "https://mulebar.com/products/compote-energetique-vegan-65g-fraise-groseille-betterave",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/compote-energetique-mulebar-fraise-groseille-betterave.jpg?v=1715897387",
+      "isLive": true
+    },
+    {
+      "name": "Compote énergétique Mulebar vegan et sans gluten 65g / Ananas Coco",
+      "brand": "Mulebar",
+      "slug": "mulebar-compote-energetique-vegan-65g-ananas-coco",
+      "sku": "MULEBAR-AR0755",
+      "fuelType": "real_food",
+      "caloriesKcal": 153,
+      "carbsGrams": 32.5,
+      "sodiumMg": 8,
+      "proteinGrams": 0.7,
+      "fatGrams": 2.2,
+      "productUrl": "https://mulebar.com/products/compote-energetique-vegan-65g-ananas-coco",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/compote-energetique-mulebar-ananas-coco.jpg?v=1715897326",
+      "isLive": true
+    },
+    {
+      "name": "Compote énergétique vegan, bio et sans gluten 65g / Banane",
+      "brand": "Mulebar",
+      "slug": "mulebar-compote-energetique-bio-vegan-65g-banane",
+      "sku": "MULEBAR-AR0754",
+      "fuelType": "real_food",
+      "caloriesKcal": 140,
+      "carbsGrams": 33.8,
+      "sodiumMg": 4,
+      "proteinGrams": 0.7,
+      "fatGrams": 0.5,
+      "productUrl": "https://mulebar.com/products/compote-energetique-bio-vegan-65g-banane",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/compote-energetique-mulebar-banane-bio.jpg?v=1715897364",
+      "isLive": true
+    },
+    {
+      "name": "Compote énergétique Mulebar vegan, bio et sans gluten 65g / Abricot",
+      "brand": "Mulebar",
+      "slug": "mulebar-compote-energetique-bio-vegan-65g-abricot",
+      "sku": "MULEBAR-AR0753",
+      "fuelType": "real_food",
+      "caloriesKcal": 143,
+      "carbsGrams": 35.1,
+      "sodiumMg": 4,
+      "proteinGrams": 0.3,
+      "fatGrams": 0.5,
+      "productUrl": "https://mulebar.com/products/compote-energetique-bio-vegan-65g-abricot",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/compote-energetique-mulebar-abricot-bio.jpg?v=1715897263",
+      "isLive": true
+    },
+    {
+      "name": "Gel énergétique vegan et sans gluten Mulebar 37g / Pomme",
+      "brand": "Mulebar",
+      "slug": "mulebar-gel-energetique-vegan-et-sans-gluten-37g-pomme",
+      "sku": "MULEBAR-AR0021",
+      "fuelType": "gel",
+      "caloriesKcal": 108,
+      "carbsGrams": 26.6,
+      "sodiumMg": 87,
+      "proteinGrams": 0.4,
+      "fatGrams": 0,
+      "productUrl": "https://mulebar.com/products/gel-energetique-vegan-et-sans-gluten-37g-pomme",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/gel-pomme-ingredients.jpg?v=1757719940",
+      "isLive": true
+    },
+    {
+      "name": "Gel énergétique vegan et sans gluten Mulebar 37g / Citron gingembre guarana",
+      "brand": "Mulebar",
+      "slug": "mulebar-gel-energetique-vegan-et-sans-gluten-37g-citron",
+      "sku": "MULEBAR-AR0019",
+      "fuelType": "gel",
+      "caloriesKcal": 112,
+      "carbsGrams": 27.8,
+      "sodiumMg": 87,
+      "proteinGrams": 0.4,
+      "fatGrams": 0.1,
+      "productUrl": "https://mulebar.com/products/gel-energetique-vegan-et-sans-gluten-37g-citron",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/gel-citron-ingredients.jpg?v=1757720077",
+      "isLive": true
+    },
+    {
+      "name": "Gel énergétique vegan et sans gluten Mulebar 37g / Cerise",
+      "brand": "Mulebar",
+      "slug": "mulebar-gel-energetique-vegan-et-sans-gluten-37g-cerise",
+      "sku": "MULEBAR-AR0017",
+      "fuelType": "gel",
+      "caloriesKcal": 114,
+      "carbsGrams": 27.4,
+      "sodiumMg": 87,
+      "proteinGrams": 0.4,
+      "fatGrams": 0.2,
+      "productUrl": "https://mulebar.com/products/gel-energetique-vegan-et-sans-gluten-37g-cerise",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/gel-cerise-ingredients.jpg?v=1757701061",
+      "isLive": true
+    },
+    {
+      "name": "Gel énergétique vegan Mulebar 37g / Café",
+      "brand": "Mulebar",
+      "slug": "mulebar-gel-energetique-vegan-37g-cafe",
+      "sku": "MULEBAR-AR0104",
+      "fuelType": "gel",
+      "caloriesKcal": 112,
+      "carbsGrams": 27.4,
+      "sodiumMg": 87,
+      "proteinGrams": 0,
+      "fatGrams": 0.1,
+      "productUrl": "https://mulebar.com/products/gel-energetique-vegan-37g-cafe",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/gel-cafe-ingredients.jpg?v=1757719615",
+      "isLive": true
+    },
+    {
+      "name": "Gel énergétique sans gluten Mulebar 37g / Caramel salé",
+      "brand": "Mulebar",
+      "slug": "mulebar-gel-energetique-37g-sans-gluten-caramel-sale",
+      "sku": "MULEBAR-AR0235",
+      "fuelType": "gel",
+      "caloriesKcal": 107,
+      "carbsGrams": 25.2,
+      "sodiumMg": 146,
+      "proteinGrams": 0.5,
+      "fatGrams": 0.2,
+      "productUrl": "https://mulebar.com/products/gel-energetique-37g-sans-gluten-caramel-sale",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/gel-caramel-ingredients.jpg?v=1757719814",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique vegan Mulebar 40g / Framboise Cassis Canneberge",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-vegan-40g-framboise-cassis-cranberry",
+      "sku": "MULEBAR-AR0401",
+      "fuelType": "bar",
+      "caloriesKcal": 138,
+      "carbsGrams": 24,
+      "sodiumMg": 59,
+      "proteinGrams": 4,
+      "fatGrams": 2.2,
+      "productUrl": "https://mulebar.com/products/barre-energetique-vegan-40g-framboise-cassis-cranberry",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-fruits-rouges_1e1c07a1-5e5d-4ce0-90d6-a7bff96407e7.jpg?v=1732204176",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique vegan Mulebar 40g / Cacahuète Framboise",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-vegan-40g-cacahuete-framboise",
+      "sku": "MULEBAR-AR0399",
+      "fuelType": "bar",
+      "caloriesKcal": 158,
+      "carbsGrams": 19.6,
+      "sodiumMg": 71,
+      "proteinGrams": 4.8,
+      "fatGrams": 5.6,
+      "productUrl": "https://mulebar.com/products/barre-energetique-vegan-40g-cacahuete-framboise",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-cacahuete-framboise.jpg?v=1756577384",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique bio et vegan Mulebar 40g / Citron Gingembre",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-bio-vegan-40g-citron-gingembre",
+      "sku": "MULEBAR-AR0470",
+      "fuelType": "bar",
+      "caloriesKcal": 146,
+      "carbsGrams": 22.8,
+      "sodiumMg": 28,
+      "proteinGrams": 4,
+      "fatGrams": 3.6,
+      "productUrl": "https://mulebar.com/products/barre-energetique-bio-vegan-40g-citron-gingembre",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-citron-gingembre.jpg?v=1734439608",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique bio et vegan Mulebar 40g / Chocolat Orange",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-bio-vegan-40g-chocolat-orange",
+      "sku": "MULEBAR-AR0392",
+      "fuelType": "bar",
+      "caloriesKcal": 147,
+      "carbsGrams": 22,
+      "sodiumMg": 35,
+      "proteinGrams": 4,
+      "fatGrams": 4,
+      "productUrl": "https://mulebar.com/products/barre-energetique-bio-vegan-40g-chocolat-orange",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-energetique-mulebar-chocolat-orange.jpg?v=1729691477",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique bio et vegan Mulebar 40g / Ananas Coco baies de Goji",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-vegan-40g-ananas-coco",
+      "sku": "MULEBAR-AR0397",
+      "fuelType": "bar",
+      "caloriesKcal": 3,
+      "carbsGrams": 24,
+      "sodiumMg": 24,
+      "proteinGrams": 3.2,
+      "fatGrams": 2.6,
+      "productUrl": "https://mulebar.com/products/barre-energetique-vegan-40g-ananas-coco",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-ananas-coco-goji.jpg?v=1744896968",
+      "isLive": true
+    },
+    {
+      "name": "Barre protéinée vegan Mulebar 40g / Amande Fraise",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-proteinee-vegan-40g-amande-fraise",
+      "sku": "MULEBAR-AR0460",
+      "fuelType": "bar",
+      "caloriesKcal": 149,
+      "carbsGrams": 17.6,
+      "sodiumMg": 106,
+      "proteinGrams": 10,
+      "fatGrams": 3.9,
+      "productUrl": "https://mulebar.com/products/barre-proteinee-vegan-40g-amande-fraise",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-proteinee-amande-fraise.jpg?v=1728485432",
+      "isLive": true
+    },
+    {
+      "name": "Barre protéinée vegan Mulebar 40g / Chocolat",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-proteinee-vegan-40g-chocolat",
+      "sku": "MULEBAR-AR0459",
+      "fuelType": "bar",
+      "caloriesKcal": 122,
+      "carbsGrams": 8.8,
+      "sodiumMg": 142,
+      "proteinGrams": 10,
+      "fatGrams": 2.8,
+      "productUrl": "https://mulebar.com/products/barre-proteinee-vegan-40g-chocolat",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-proteinee-chocolat_6b718bf0-b3dc-4917-9740-ef34ef06589e.jpg?v=1728488423",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique bio et vegan Mulebar 40g / Pomme Raisin Cannelle",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-bio-vegan-40g-pomme-cannelle",
+      "sku": "MULEBAR-AR0395",
+      "fuelType": "bar",
+      "caloriesKcal": 136,
+      "carbsGrams": 24.4,
+      "sodiumMg": 24,
+      "proteinGrams": 3.4,
+      "fatGrams": 2.1,
+      "productUrl": "https://mulebar.com/products/barre-energetique-bio-vegan-40g-pomme-cannelle",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-pomme-raisin_7768d961-698f-4a9c-9091-c7e3cc33d560.jpg?v=1750505331",
+      "isLive": true
+    },
+    {
+      "name": "Barre énergétique bio et vegan Mulebar 40g / Abricot Pécan",
+      "brand": "Mulebar",
+      "slug": "mulebar-barre-energetique-bio-vegan-40g-abricot-noix",
+      "sku": "MULEBAR-AR0387",
+      "fuelType": "bar",
+      "caloriesKcal": 129,
+      "carbsGrams": 22.8,
+      "sodiumMg": 12,
+      "proteinGrams": 2,
+      "fatGrams": 2.3,
+      "productUrl": "https://mulebar.com/products/barre-energetique-bio-vegan-40g-abricot-noix",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0598/9620/1299/files/barre-mulebar-abricot-pecan.jpg?v=1730813024",
+      "isLive": true
+    }
+  ],
+  "archiveSharedCatalog": false,
+  "_meta": {
+    "source": "https://mulebar.com",
+    "sourceEndpoint": "https://mulebar.com/products.json",
+    "generatedAt": "2026-05-20T11:35:01.859Z",
+    "productCount": 27,
+    "skippedCount": 28,
+    "note": "Review values before import. Sodium is stored as sodium mg per unit; salt rows are converted with sodium = salt / 2.54."
+  },
+  "_review": [
+    {
+      "source": "nutrition_table",
+      "handle": "gateau-energie-au-chocolat-465g",
+      "variant": "Default Title"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "boisson-de-leffort-mulebar-fruits-rouges-40g-dose-unitaire",
+      "variant": "1 dose 40g"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "boisson-d-hydratation-en-poudre-mulebar-fruits-rouges-10g-dose-unitaire",
+      "variant": "1 dose 10G"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "boisson-de-leffort-mulebar-agrumes-40g-dose-unitaire",
+      "variant": "1 dose 40g"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "boisson-d-hydratation-en-poudre-mulebar-agrumes-10g-dose-dessai",
+      "variant": "1 dose 10G"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "compote-energetique-vegan-65g-chataigne",
+      "variant": "1 compote"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "puree-de-fruits-vegan-65g-patate-douce-orange-carotte",
+      "variant": "1 compote"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-bio-vegan-40g-mangue-noix-de-cajou",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "puree-de-fruits-vegan-65g-orange-carotte-citron",
+      "variant": "1 compote"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "compote-energetique-vegan-65g-fraise-groseille-betterave",
+      "variant": "1 compote"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "compote-energetique-vegan-65g-ananas-coco",
+      "variant": "1 compote"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "compote-energetique-bio-vegan-65g-banane",
+      "variant": "1 compote"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "compote-energetique-bio-vegan-65g-abricot",
+      "variant": "1 compote"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "gel-energetique-vegan-et-sans-gluten-37g-pomme",
+      "variant": "1 gel"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "gel-energetique-vegan-et-sans-gluten-37g-citron",
+      "variant": "1 gel"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "gel-energetique-vegan-et-sans-gluten-37g-cerise",
+      "variant": "1 gel"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "gel-energetique-vegan-37g-cafe",
+      "variant": "1 gel"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "gel-energetique-37g-sans-gluten-caramel-sale",
+      "variant": "1 gel"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-vegan-40g-framboise-cassis-cranberry",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-vegan-40g-cacahuete-framboise",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-bio-vegan-40g-citron-gingembre",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-bio-vegan-40g-chocolat-orange",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-vegan-40g-ananas-coco",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-proteinee-vegan-40g-amande-fraise",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-proteinee-vegan-40g-chocolat",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-bio-vegan-40g-pomme-cannelle",
+      "variant": "1 barre"
+    },
+    {
+      "source": "nutrition_table",
+      "handle": "barre-energetique-bio-vegan-40g-abricot-noix",
+      "variant": "1 barre"
+    }
+  ],
+  "_skipped": [
+    {
+      "title": "Gourde 250ml en silicone pour Trail running marathon",
+      "handle": "gourde-250ml-en-silicone-pour-trail-running-marathon-copie",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Pack découverte 10 barres énergétiques Mulebar 40g",
+      "handle": "barres-energetiques-vegan-40g-pack-decouverte-barres-x10",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Pack découverte 7 compotes énergétiques Mulebar 65g",
+      "handle": "pack-decouverte-7-compotes-energetiques-vegan",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Boisson protéinée whey vanille 480g",
+      "handle": "boisson-whey-proteinee-vanille-480g",
+      "reason": "supplement_or_recovery"
+    },
+    {
+      "title": "Ceinture de running étanche avec fenêtre tactile pour smartphone",
+      "handle": "ceinture-de-running-avec-fenetre-tactile-pour-smartphone",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Collagène marin type I et III Naticol®",
+      "handle": "collagene-marin-type-1-et-3-naticol",
+      "reason": "supplement_or_recovery"
+    },
+    {
+      "title": "Magnésium bisglycinate",
+      "handle": "magnesium-bisglycinate",
+      "reason": "supplement_or_recovery"
+    },
+    {
+      "title": "Oméga-3 huile de poisson Omegavie®",
+      "handle": "omega-3-huile-de-poisson-omegavie-pure-et-concentree",
+      "reason": "not_a_race_fuel_type"
+    },
+    {
+      "title": "Acérola bio vitamine C",
+      "handle": "acerola-bio-1000mg",
+      "reason": "supplement_or_recovery"
+    },
+    {
+      "title": "Gourde 500ml en silicone pour Trail running marathon",
+      "handle": "gourde-souple-pliable-500ml-silicone-pour-trail-running-marathon",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Eco-tasse pliable 20cl en silicone pour Trail running marathon",
+      "handle": "eco-tasse-pliable-20cl-trail-running-marathon",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Offre promo écorecharge de gel pomme Mulebar 444g avec fiole 60 ml",
+      "handle": "recharge-de-gel-pomme-boisson-energetique-recharge-de-gel-fiole-60-ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Boîte 30 barres énergétiques Mulebar 40g mixées (6 parfums x 5 barres)",
+      "handle": "boite-30-barres-mulebar-mixees-6-parfums-x-5-barres",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Boîte multi-parfums 24 gels énergétiques Mulebar 37g",
+      "handle": "boite-multi-parfums-24-gels-energetiques-37g",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Offre promo écorecharge de gel cerise Mulebar 444g avec fiole 60 ml",
+      "handle": "recharge-de-gel-energetique-cerise-avec-fiole-60-ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Offre promo écorecharge de gel café Mulebar 444g avec fiole 60 ml",
+      "handle": "recharge-de-gel-cafe-boisson-energetique-recharge-de-gel-fiole-60-ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Offre promo écorecharge de gel citron Mulebar 444g avec fiole 60 ml",
+      "handle": "recharge-de-gel-citron-boisson-energetique-recharge-de-gel-fiole-60-ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Offre promo écorecharge de gel caramel salé Mulebar 444g avec fiole 60 ml",
+      "handle": "recharge-de-gel-caramel-sale-boisson-energetique-recharge-de-gel-fiole-60-ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Flask souple en Silicone 150ml Mulebar",
+      "handle": "mulebar-flask-souple-en-silicone-150ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Tote bag Mulebar 100% Coton Tissé",
+      "handle": "100-coton-tisse-tote-bag",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Casquette lifestyle en coton Mulebar",
+      "handle": "mulebar-casquette-en-coton",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Bidon vélo 650 ml Mulebar",
+      "handle": "mulebar-bidon-velo-650-ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Ecorecharge de gel énergétique Mulebar 444g / Cerise",
+      "handle": "recharge-de-gel-ou-boisson-energetique-cerise-444g",
+      "reason": "bulk_refill"
+    },
+    {
+      "title": "Ecorecharge de gel énergétique Mulebar 444g / Caramel salé",
+      "handle": "recharge-de-gel-ou-boisson-energetique-caramel-sale-444g",
+      "reason": "bulk_refill"
+    },
+    {
+      "title": "Fiole en Silicone réutilisable 60ml",
+      "handle": "mulebar-fiole-en-silicone-reutilisable-60ml",
+      "reason": "bundle_or_accessory"
+    },
+    {
+      "title": "Ecorecharge de gel énergétique Mulebar 444g / Pomme",
+      "handle": "recharge-de-gel-boisson-energetique-pomme-444g",
+      "reason": "bulk_refill"
+    },
+    {
+      "title": "Ecorecharge de gel énergétique Mulebar 444g / Citron",
+      "handle": "recharge-de-gel-boisson-energetique-citron-444g",
+      "reason": "bulk_refill"
+    },
+    {
+      "title": "Ecorecharge de gel énergétique Mulebar 444g / Café",
+      "handle": "recharge-de-gel-boisson-energetique-cafe-444g",
+      "reason": "bulk_refill"
+    }
+  ]
+}

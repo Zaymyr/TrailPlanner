@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-05-18
+last_verified: 2026-05-26
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260322100000_add_created_by_to_products.sql
   - supabase/migrations/20260417103000_add_product_images.sql
   - supabase/migrations/20260417190000_add_product_brand_cleanup.sql
+  - supabase/migrations/20260526120000_add_meltonic_products.sql
   - apps/web/app/api/products/route.ts
   - apps/web/app/api/products/[productId]/route.ts
   - apps/web/lib/nutrition-planner.ts
@@ -94,6 +95,7 @@ Mobile product edits and deletes go through `apps/web/app/api/products/[productI
 - Product rows store nutrition per unit only. Water is a plan/carry context handled by planner logic.
 - Web API product mappings set client `waterMl` to `0` because water is not stored on products.
 - The 500 ml electrolyte serving assumption lives in `apps/web/lib/nutrition-planner.ts`, not in the product schema.
+- Shared catalog seed migrations should store the consumable unit used by the runner, not ecommerce bundle sizes. For example, drink mixes use one serving sachet, gels use one gel, and multipacks are represented through the same per-unit nutrition.
 
 ## Common Queries
 
@@ -123,6 +125,7 @@ where fuel_type = 'electrolyte'
 - `fuel_type` is a Postgres enum. Adding a type requires a migration and app type update.
 - `brand` is normalized by a database trigger. Do not duplicate brand inference in multiple clients unless needed for preview UX.
 - User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
+- Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.
 
 ## Related Docs
 
