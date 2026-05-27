@@ -13,6 +13,7 @@ import { Link } from 'expo-router';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { beginAnonymousEmailUpgrade } from '../../lib/accountConversion';
 import { isAnonymousSession } from '../../lib/appSession';
+import { useAppleAuth } from '../../hooks/useAppleAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
@@ -32,10 +33,17 @@ export default function SignupScreen() {
   const [success, setSuccess] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const isGuestSession = isAnonymousSession(session);
-  const { googleModule, nativeGoogleEnabled, handleGoogleLogin } = useGoogleAuth({
+  const {
+    appleModule,
+    appleAvailable,
+    handleAppleLogin,
+    isAppleAuthCanceled,
+  } = useAppleAuth({ session });
+  const { googleModule, nativeGoogleEnabled, googleAvailable, handleGoogleLogin } = useGoogleAuth({
     noOauthUrlMessage: t.auth.noOauthUrl,
     session,
   });
+  const hasSocialAuth = Boolean((appleModule && appleAvailable) || googleAvailable);
 
   useEffect(() => {
     let mounted = true;
@@ -127,6 +135,27 @@ export default function SignupScreen() {
     }
   }
 
+  async function handleAppleSignup() {
+    if (!appleModule || !appleAvailable) return;
+
+    setError(null);
+    setLoading(true);
+
+    try {
+      await handleAppleLogin();
+    } catch (e) {
+      if (isAppleAuthCanceled(e)) {
+        setLoading(false);
+        return;
+      }
+
+      console.error('Apple signup error:', e);
+      setError(t.auth.appleError);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   if (success) {
     return (
       <View style={styles.container}>
@@ -208,31 +237,55 @@ export default function SignupScreen() {
           <Text style={styles.buttonText}>{loading ? t.auth.signingUp : t.auth.signUpCta}</Text>
         </TouchableOpacity>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
+        {hasSocialAuth ? (
+          <>
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
-        {nativeGoogleEnabled && googleModule ? (
-          <View style={[styles.googleNativeButtonWrap, loading && styles.buttonDisabled]}>
-            <googleModule.GoogleSigninButton
-              color={googleModule.GoogleSigninButton.Color.Light}
-              disabled={loading}
-              onPress={handleGoogleSignup}
-              size={googleModule.GoogleSigninButton.Size.Wide}
-              style={styles.googleNativeButton}
-            />
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.googleButton, loading && styles.buttonDisabled]}
-            onPress={handleGoogleSignup}
-            disabled={loading}
-          >
-            <Text style={styles.googleButtonText}>{t.auth.googleSignUpCta}</Text>
-          </TouchableOpacity>
-        )}
+            {appleModule && appleAvailable ? (
+              <>
+                <View
+                  pointerEvents={loading ? 'none' : 'auto'}
+                  style={[styles.appleButtonWrap, loading && styles.buttonDisabled]}
+                >
+                  <appleModule.AppleAuthenticationButton
+                    buttonStyle={appleModule.AppleAuthenticationButtonStyle.BLACK}
+                    buttonType={appleModule.AppleAuthenticationButtonType.SIGN_UP}
+                    cornerRadius={12}
+                    onPress={() => void handleAppleSignup()}
+                    style={styles.appleButton}
+                  />
+                </View>
+                {googleAvailable ? <View style={styles.altSpacing} /> : null}
+              </>
+            ) : null}
+
+            {googleAvailable ? (
+              nativeGoogleEnabled && googleModule ? (
+                <View style={[styles.googleNativeButtonWrap, loading && styles.buttonDisabled]}>
+                  <googleModule.GoogleSigninButton
+                    color={googleModule.GoogleSigninButton.Color.Light}
+                    disabled={loading}
+                    onPress={handleGoogleSignup}
+                    size={googleModule.GoogleSigninButton.Size.Wide}
+                    style={styles.googleNativeButton}
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.googleButton, loading && styles.buttonDisabled]}
+                  onPress={handleGoogleSignup}
+                  disabled={loading}
+                >
+                  <Text style={styles.googleButtonText}>{t.auth.googleSignUpCta}</Text>
+                </TouchableOpacity>
+              )
+            ) : null}
+          </>
+        ) : null}
 
         <View style={styles.loginRow}>
           <Text style={styles.loginText}>{t.auth.alreadyAccount} </Text>
@@ -338,6 +391,16 @@ const styles = StyleSheet.create({
   dividerText: {
     color: Colors.textMuted,
     fontSize: 13,
+  },
+  appleButton: {
+    width: '100%',
+    height: 52,
+  },
+  appleButtonWrap: {
+    alignSelf: 'stretch',
+  },
+  altSpacing: {
+    height: 8,
   },
   googleButton: {
     backgroundColor: Colors.surface,
