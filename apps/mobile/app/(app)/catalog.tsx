@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
+import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { supabase } from '../../lib/supabase';
@@ -225,77 +226,6 @@ function RaceRow({
       </View>
       <TouchableOpacity style={styles.formatActionButton} onPress={onPress}>
         <Text style={styles.formatActionButtonText}>{actionLabel}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function EventSummaryCard({
-  event,
-  locale,
-  viewFormatsLabel,
-  singleFormatLabel,
-  multipleFormatsLabel,
-  chooseFormatHint,
-  onOpenFormats,
-}: {
-  event: EventGroup;
-  locale: 'fr' | 'en';
-  viewFormatsLabel: string;
-  singleFormatLabel: string;
-  multipleFormatsLabel: string;
-  chooseFormatHint: string;
-  onOpenFormats: () => void;
-}) {
-  const eventImageUrl = getEventImageUrl(event);
-  const dateStr = formatEventDate(event.race_date, locale);
-  const headerMeta = [event.location, dateStr].filter(Boolean).join(' • ');
-  const distanceRange = getEventDistanceRange(event.races);
-  const primaryRace = event.races[0] ?? null;
-  const formatsLabel =
-    event.races.length === 1
-      ? singleFormatLabel
-      : multipleFormatsLabel.replace('{count}', String(event.races.length));
-
-  return (
-    <View style={styles.eventCard}>
-      <View style={styles.eventHeader}>
-        <View style={styles.eventBadge}>
-          <Ionicons name="flag-outline" size={18} color={Colors.brandPrimary} />
-        </View>
-        <View style={styles.eventHeaderText}>
-          <Text style={styles.eventName}>{event.name}</Text>
-          {headerMeta ? <Text style={styles.eventMeta}>{headerMeta}</Text> : null}
-        </View>
-        {eventImageUrl ? (
-          <Image source={{ uri: eventImageUrl }} style={styles.eventThumbnail} resizeMode="cover" />
-        ) : null}
-      </View>
-
-      <View style={styles.eventSummaryRow}>
-        <View style={styles.summaryPill}>
-          <Text style={styles.summaryPillText}>{formatsLabel}</Text>
-        </View>
-        {distanceRange ? (
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryPillText}>{distanceRange}</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {primaryRace ? (
-        <Text style={styles.eventSupportText} numberOfLines={2}>
-          {event.races.length === 1
-            ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
-            : chooseFormatHint}
-        </Text>
-      ) : null}
-
-      <TouchableOpacity
-        style={styles.eventPrimaryButton}
-        onPress={onOpenFormats}
-      >
-        <Text style={styles.eventPrimaryButtonText}>{viewFormatsLabel}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -663,7 +593,7 @@ export default function CatalogScreen() {
           ) : null
         }
         renderItem={({ item: event }) => (
-          <EventSummaryCard
+          <RaceEventSummaryCard
             event={event}
             locale={locale}
             viewFormatsLabel={t.catalog.viewFormats}

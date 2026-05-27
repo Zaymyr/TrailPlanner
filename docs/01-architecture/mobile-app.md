@@ -1,13 +1,14 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-05-19
+last_verified: 2026-05-27
 ai_priority: high
 related_files:
   - apps/mobile/package.json
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/resendContactSync.ts
@@ -84,6 +85,8 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 - Resend contact sync once an identified, non-anonymous session is active.
 
 The layout also tracks auth analytics for signed-in and signed-out events.
+Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion.
+Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx`, with the onboarding variant keeping the same event identity while showing a denser choice row.
 
 ## Premium and Purchases
 
@@ -117,6 +120,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
+- Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.

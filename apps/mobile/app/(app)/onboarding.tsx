@@ -21,6 +21,7 @@ import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
 import { GpxImportPreviewModal } from '../../components/race/GpxImportPreviewModal';
+import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import { estimateHourlyTargets, isValidHeightCm, isValidWeightKg } from '../../components/profile/profileEstimator';
 import { useAppleAuth } from '../../hooks/useAppleAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
@@ -794,7 +795,7 @@ export default function OnboardingScreen() {
 
       let query = supabase
         .from('products')
-        .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by')
+        .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official')
         .eq('is_archived', false)
         .order('name');
 
@@ -1953,60 +1954,21 @@ export default function OnboardingScreen() {
                 </View>
               ) : null}
 
-              {filteredRaceEventGroups.map((event) => {
-                const eventImageUrl = getEventImageUrl(event);
-                const dateStr = formatEventDate(event.race_date, locale);
-                const headerMeta = [event.location, dateStr].filter(Boolean).join(' • ');
-                const distanceRange = getEventDistanceRange(event.races);
-                const selectedEventRace = event.races.find((race) => race.id === selectedRaceId) ?? null;
-                const primaryRace = event.races[0] ?? null;
-                const formatsLabel =
-                  event.races.length === 1
-                    ? t.catalog.singleFormatLabel
-                    : t.catalog.multipleFormatsLabel.replace('{count}', String(event.races.length));
-                const eventSummary = [formatsLabel, distanceRange].filter(Boolean).join(' • ');
-
-                return (
-                  <TouchableOpacity
-                    key={event.id}
-                    style={[styles.eventRow, selectedEventRace && styles.eventRowSelected]}
-                    onPress={() => setSelectedRaceEvent(event)}
-                    activeOpacity={0.82}
-                  >
-                    <View style={styles.eventHeader}>
-                      <View style={styles.eventBadge}>
-                        <Ionicons name="flag-outline" size={18} color={Colors.brandPrimary} />
-                      </View>
-                      <View style={styles.eventHeaderText}>
-                        <Text style={styles.eventName}>{event.name}</Text>
-                        {headerMeta ? <Text style={styles.eventMeta}>{headerMeta}</Text> : null}
-                      </View>
-                      {eventImageUrl ? (
-                        <Image source={{ uri: eventImageUrl }} style={styles.eventThumbnail} resizeMode="cover" />
-                      ) : null}
-                    </View>
-
-                    {eventSummary ? <Text style={styles.eventSummaryText}>{eventSummary}</Text> : null}
-
-                    {selectedEventRace ? (
-                      <Text style={styles.eventSupportText}>
-                        {`${getRaceShortLabel(selectedEventRace.name, event.name)} • ${formatDistance(selectedEventRace.distance_km)} km • D+ ${formatElevation(selectedEventRace.elevation_gain_m)} m`}
-                      </Text>
-                    ) : primaryRace ? (
-                      <Text style={styles.eventSupportText}>
-                        {event.races.length === 1
-                          ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
-                          : t.catalog.chooseFormatHint}
-                      </Text>
-                    ) : null}
-
-                    <View style={styles.eventRowFooter}>
-                      <Text style={styles.eventRowActionText}>{t.catalog.viewFormats}</Text>
-                      <Ionicons name="chevron-forward" size={16} color={Colors.brandPrimary} />
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+              {filteredRaceEventGroups.map((event) => (
+                <RaceEventSummaryCard
+                  key={event.id}
+                  event={event}
+                  locale={locale}
+                  viewFormatsLabel={t.catalog.viewFormats}
+                  singleFormatLabel={t.catalog.singleFormatLabel}
+                  multipleFormatsLabel={t.catalog.multipleFormatsLabel}
+                  chooseFormatHint={t.catalog.chooseFormatHint}
+                  onOpenFormats={() => setSelectedRaceEvent(event)}
+                  selectedRaceId={selectedRaceId}
+                  showSupportText={false}
+                  variant="row"
+                />
+              ))}
 
               {publicRaceOptions.length > 0 ? (
                 <View style={styles.raceGroup}>
@@ -3143,59 +3105,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  eventRow: {
-    gap: 10,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  eventRowSelected: {
-    marginHorizontal: -10,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    borderBottomColor: 'transparent',
-    backgroundColor: Colors.brandSurface,
-  },
-  eventHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  eventBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-  },
-  eventHeaderText: {
-    flex: 1,
-    gap: 3,
-  },
-  eventName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  eventMeta: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  eventThumbnail: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  eventSummaryText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
-  },
   eventSummaryRow: {
     flexDirection: 'row',
     gap: 8,
@@ -3213,23 +3122,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
-  },
-  eventSupportText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  eventRowFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingVertical: 2,
-  },
-  eventRowActionText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '800',
   },
   selectionCountPill: {
     paddingHorizontal: 12,

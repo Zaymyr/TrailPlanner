@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-05-19
+last_verified: 2026-05-27
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -84,6 +84,7 @@ The mobile PostHog client:
 - supports identify, reset, event capture, and screen tracking helpers.
 
 `apps/mobile/app/_layout.tsx` is also the home for other session side effects such as push registration and Resend contact sync. Those side effects should stay separate from PostHog identify/reset calls.
+Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
 
 ## Gotchas
 
@@ -92,6 +93,7 @@ The mobile PostHog client:
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
 - Use environment variable names, not values.
 - Do not use analytics identity as proof that a user should be synced to marketing contacts; Resend sync must validate the Supabase session separately.
+- Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
 
 ## Related Docs
 

@@ -5,6 +5,7 @@ last_verified: 2026-05-27
 ai_priority: medium
 related_files:
   - apps/mobile/app
+  - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/app/(app)/training-live.tsx
   - apps/mobile/app/_layout.tsx
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
@@ -35,7 +36,8 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
 - When a setup/onboarding step already sits inside a shell card, render long choice lists as flat rows with separators before adding nested card surfaces.
 - Required onboarding screens must hide the bottom tab bar until completion; register them with `href: null` and `tabBarStyle: { display: 'none' }` in the tab layout.
-- Onboarding product-picking should mirror the Nutrition catalog affordances: collapsed brand rows keep count/verified/selected signals, and product rows keep verified badges plus explicit selection checks.
+- Onboarding product-picking should mirror the Nutrition catalog affordances: collapsed brand rows keep count/verified/selected signals, and product rows keep verified badges plus explicit selection checks. Ensure onboarding product queries include `is_official` when rendering those badges.
+- Reuse `RaceEventSummaryCard` for catalog/onboarding race event rows; use the row variant in onboarding when the full catalog support copy would be too dense inside the onboarding shell.
 
 ## Steps
 

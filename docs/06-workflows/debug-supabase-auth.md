@@ -1,7 +1,7 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-05-19
+last_verified: 2026-05-27
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -41,6 +41,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 7. If service routes work but client queries fail, inspect policies and grants.
 8. If mobile differs, inspect `apps/mobile/app/_layout.tsx` and mobile session helpers.
 9. If the issue is Resend contact sync, confirm the session is not anonymous and then inspect `POST /api/resend/contact`.
+10. If the symptom is only bottom-tab availability during onboarding, inspect route options in `apps/mobile/app/(app)/_layout.tsx`; that is navigation-shell configuration, not an auth/session failure.
 
 ## Useful Searches
 
@@ -58,6 +59,7 @@ rg -n "resend/contact|syncResendContact|resendContactSynced" apps
 - Do not use service-role success as proof that RLS is correct.
 - Do not add `user_metadata` admin checks.
 - Do not debug Resend contact sync from the mobile secret layer; mobile should only send the Supabase access token to the web bridge.
+- Do not treat hidden onboarding tabs as proof that auth or RLS is working; verify the actual session and policy path.
 
 ## Related Docs
 

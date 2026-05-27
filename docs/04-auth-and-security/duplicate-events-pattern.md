@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-05-19
+last_verified: 2026-05-27
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -66,6 +66,7 @@ This is the last line of defense if the browser guard fails.
 Mobile listens to `supabase.auth.onAuthStateChange` in `apps/mobile/app/_layout.tsx` and other auth screens. The audited code tracks `SIGNED_IN` and sign-out analytics; no direct `USER_UPDATED` handling was found in the same onboarding-save pattern.
 
 The layout also runs session side effects such as push registration and Resend contact sync behind in-flight refs and persistent client markers. These are not onboarding plan saves, but they follow the same idempotency principle because Supabase sessions can refresh or be observed more than once.
+Presentation-only route configuration in the layout, such as hiding the bottom tab bar for required onboarding, is not part of this duplicate-event guard pattern.
 
 ## Gotchas
 
@@ -74,6 +75,7 @@ The layout also runs session side effects such as push registration and Resend c
 - Server idempotency is still needed because clients can retry or double-submit.
 - Keep `trailplanner.pendingPlanId` cleanup near plan hydration.
 - New session side effects in `_layout.tsx` should use the same guard mindset: skip anonymous users when required and make retries safe.
+- Do not use route presentation changes, such as onboarding tab-bar visibility, as a substitute for idempotency guards.
 
 ## Related Docs
 
