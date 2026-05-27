@@ -12,38 +12,12 @@ import { Link } from 'expo-router';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { clearPendingGuestMerge, preparePendingGuestMerge } from '../../lib/accountConversion';
 import { isAnonymousSession } from '../../lib/appSession';
+import { useAppleAuth } from '../../hooks/useAppleAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { supabase } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { ensureTrialStatusForSession } from '../../lib/trial';
-
-type AppleAuthenticationModule = typeof import('expo-apple-authentication');
-
-function shouldFallbackToGuestMerge(error: unknown) {
-  if (!(error instanceof Error)) return false;
-
-  const message = error.message.toLowerCase();
-  return (
-    message.includes('identity') &&
-    (message.includes('already') || message.includes('linked'))
-  );
-}
-
-function createAppleNonce() {
-  if (typeof globalThis.crypto?.randomUUID === 'function') {
-    return globalThis.crypto.randomUUID();
-  }
-
-  const alphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  let nonce = '';
-
-  for (let index = 0; index < 32; index += 1) {
-    nonce += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-
-  return nonce;
-}
 
 export default function LoginScreen() {
   const { t } = useI18n();
@@ -52,13 +26,18 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
-  const [appleModule, setAppleModule] = useState<AppleAuthenticationModule | null>(null);
-  const [appleAvailable, setAppleAvailable] = useState(false);
   const isGuestSession = isAnonymousSession(session);
-  const { googleModule, nativeGoogleEnabled, handleGoogleLogin: signInWithGoogle } = useGoogleAuth({
+  const {
+    appleModule,
+    appleAvailable,
+    handleAppleLogin: signInWithApple,
+    isAppleAuthCanceled,
+  } = useAppleAuth({ session });
+  const { googleModule, nativeGoogleEnabled, googleAvailable, handleGoogleLogin: signInWithGoogle } = useGoogleAuth({
     noOauthUrlMessage: t.auth.noOauthUrl,
     session,
   });
+  const hasSocialAuth = Boolean((appleModule && appleAvailable) || googleAvailable);
 
   useEffect(() => {
     let mounted = true;
@@ -80,40 +59,6 @@ export default function LoginScreen() {
     return () => {
       mounted = false;
       subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    if (Platform.OS !== 'ios') {
-      setAppleModule(null);
-      setAppleAvailable(false);
-      return () => {
-        mounted = false;
-      };
-    }
-
-    (async () => {
-      try {
-        const nextAppleModule = await import('expo-apple-authentication');
-        const nextAppleAvailable = await nextAppleModule.isAvailableAsync();
-
-        if (!mounted) return;
-
-        setAppleModule(nextAppleModule);
-        setAppleAvailable(nextAppleAvailable);
-      } catch (appleImportError) {
-        console.warn('Apple Sign-In unavailable in this build.', appleImportError);
-        if (mounted) {
-          setAppleModule(null);
-          setAppleAvailable(false);
-        }
-      }
-    })();
-
-    return () => {
-      mounted = false;
     };
   }, []);
 
@@ -140,77 +85,15 @@ export default function LoginScreen() {
   }
 
   async function handleAppleLogin() {
-    if (!appleModule || Platform.OS !== 'ios') return;
+    if (!appleModule || !appleAvailable) return;
 
     setError(null);
     setLoading(true);
 
     try {
-      const nonce = createAppleNonce();
-      const credential = await appleModule.signInAsync({
-        nonce,
-        requestedScopes: [
-          appleModule.AppleAuthenticationScope.FULL_NAME,
-          appleModule.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-
-      if (!credential.identityToken) {
-        throw new Error('Apple did not return an identity token.');
-      }
-
-      const appleCredentials = {
-        provider: 'apple' as const,
-        token: credential.identityToken,
-        nonce,
-        access_token: credential.authorizationCode ?? undefined,
-      };
-      let data;
-      let appleError;
-
-      if (isGuestSession) {
-        const linkResult = await supabase.auth.linkIdentity(appleCredentials);
-
-        if (!linkResult.error) {
-          await clearPendingGuestMerge();
-          data = linkResult.data;
-          appleError = null;
-        } else if (shouldFallbackToGuestMerge(linkResult.error)) {
-          await preparePendingGuestMerge(session);
-          const signInResult = await supabase.auth.signInWithIdToken(appleCredentials);
-          data = signInResult.data;
-          appleError = signInResult.error;
-          if (appleError) {
-            await clearPendingGuestMerge();
-          }
-        } else {
-          throw linkResult.error;
-        }
-      } else {
-        const signInResult = await supabase.auth.signInWithIdToken(appleCredentials);
-        data = signInResult.data;
-        appleError = signInResult.error;
-      }
-
-      if (appleError) throw appleError;
-
-      const firstName = credential.fullName?.givenName?.trim() ?? '';
-      const lastName = credential.fullName?.familyName?.trim() ?? '';
-      const nextFullName = [firstName, lastName].filter(Boolean).join(' ').trim();
-
-      if (data.user?.id && nextFullName) {
-        await supabase.from('user_profiles').upsert(
-          {
-            user_id: data.user.id,
-            full_name: nextFullName,
-          },
-          { onConflict: 'user_id' }
-        );
-      }
-
-      await ensureTrialStatusForSession(data.session);
+      await signInWithApple();
     } catch (e) {
-      if (typeof e === 'object' && e !== null && 'code' in e && (e as { code?: string }).code === 'ERR_REQUEST_CANCELED') {
+      if (isAppleAuthCanceled(e)) {
         setLoading(false);
         return;
       }
@@ -296,44 +179,55 @@ export default function LoginScreen() {
           <Text style={styles.buttonText}>{loading ? t.auth.loggingIn : t.auth.loginCta}</Text>
         </TouchableOpacity>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {appleModule && appleAvailable ? (
+        {hasSocialAuth ? (
           <>
-            <appleModule.AppleAuthenticationButton
-              buttonStyle={appleModule.AppleAuthenticationButtonStyle.BLACK}
-              buttonType={appleModule.AppleAuthenticationButtonType.SIGN_IN}
-              cornerRadius={12}
-              onPress={() => void handleAppleLogin()}
-              style={styles.appleButton}
-            />
-            <View style={styles.altSpacing} />
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {appleModule && appleAvailable ? (
+              <>
+                <View
+                  pointerEvents={loading ? 'none' : 'auto'}
+                  style={[styles.appleButtonWrap, loading && styles.buttonDisabled]}
+                >
+                  <appleModule.AppleAuthenticationButton
+                    buttonStyle={appleModule.AppleAuthenticationButtonStyle.BLACK}
+                    buttonType={appleModule.AppleAuthenticationButtonType.SIGN_IN}
+                    cornerRadius={12}
+                    onPress={() => void handleAppleLogin()}
+                    style={styles.appleButton}
+                  />
+                </View>
+                {googleAvailable ? <View style={styles.altSpacing} /> : null}
+              </>
+            ) : null}
+
+            {googleAvailable ? (
+              nativeGoogleEnabled && googleModule ? (
+                <View style={[styles.googleNativeButtonWrap, loading && styles.buttonDisabled]}>
+                  <googleModule.GoogleSigninButton
+                    color={googleModule.GoogleSigninButton.Color.Light}
+                    disabled={loading}
+                    onPress={handleGoogleLogin}
+                    size={googleModule.GoogleSigninButton.Size.Wide}
+                    style={styles.googleNativeButton}
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.googleButton, loading && styles.buttonDisabled]}
+                  onPress={handleGoogleLogin}
+                  disabled={loading}
+                >
+                  <Text style={styles.googleButtonText}>{t.auth.googleCta}</Text>
+                </TouchableOpacity>
+              )
+            ) : null}
           </>
         ) : null}
-
-        {nativeGoogleEnabled && googleModule ? (
-          <View style={[styles.googleNativeButtonWrap, loading && styles.buttonDisabled]}>
-            <googleModule.GoogleSigninButton
-              color={googleModule.GoogleSigninButton.Color.Light}
-              disabled={loading}
-              onPress={handleGoogleLogin}
-              size={googleModule.GoogleSigninButton.Size.Wide}
-              style={styles.googleNativeButton}
-            />
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.googleButton, loading && styles.buttonDisabled]}
-            onPress={handleGoogleLogin}
-            disabled={loading}
-          >
-            <Text style={styles.googleButtonText}>{t.auth.googleCta}</Text>
-          </TouchableOpacity>
-        )}
 
         <View style={styles.signupRow}>
           <Text style={styles.signupText}>{t.auth.noAccount} </Text>
@@ -441,6 +335,9 @@ const styles = StyleSheet.create({
   appleButton: {
     width: '100%',
     height: 52,
+  },
+  appleButtonWrap: {
+    alignSelf: 'stretch',
   },
   altSpacing: {
     height: 8,
