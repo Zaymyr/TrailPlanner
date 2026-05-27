@@ -424,10 +424,7 @@ export const NutritionContent = memo(function NutritionContent({
             onPress={() => toggleCatalogBrand(item.brandLabel)}
             style={[styles.brandHeaderButton, item.expanded && styles.brandHeaderButtonExpanded]}
           >
-            <Text numberOfLines={1} style={styles.brandTitle}>
-              {item.brandLabel}
-            </Text>
-            <View style={styles.brandHeaderActions}>
+            <View style={styles.brandTitleRow}>
               {item.hasVerifiedProduct && !item.expanded ? (
                 <Image
                   accessibilityIgnoresInvertColors
@@ -436,6 +433,11 @@ export const NutritionContent = memo(function NutritionContent({
                   style={styles.brandVerifiedIcon}
                 />
               ) : null}
+              <Text numberOfLines={1} style={styles.brandTitle}>
+                {item.brandLabel}
+              </Text>
+            </View>
+            <View style={styles.brandHeaderActions}>
               <View style={styles.brandCountPill}>
                 <DataText style={styles.brandCountText}>{item.count}</DataText>
               </View>
@@ -760,6 +762,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  brandTitleRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   brandTitle: {
     flex: 1,
     fontSize: 15,
@@ -886,9 +895,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.brandSurface,
+    backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: Colors.brandBorder,
+    borderColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
