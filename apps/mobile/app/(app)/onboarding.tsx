@@ -54,6 +54,8 @@ import {
   setPlanEditProductsBootstrap
 } from '../../lib/planEditSession';
 
+const verifiedProductIcon = require('../../assets/verified-product.png');
+
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
 }
@@ -262,6 +264,10 @@ function formatProductMeta(product: Product, locale: 'fr' | 'en') {
   }
 
   return parts.join(' • ');
+}
+
+function isVerifiedProduct(product: Product) {
+  return product.is_official === true;
 }
 
 function isMissingUserForeignKeyError(error: unknown) {
@@ -1837,7 +1843,7 @@ export default function OnboardingScreen() {
         <Text style={styles.subtitle}>{t.onboarding.raceSubtitle}</Text>
         <Text style={styles.predictionHint}>{t.onboarding.raceHint}</Text>
 
-        <View style={styles.sectionCard}>
+        <View style={styles.racePickerPanel}>
           <View style={[styles.noticeBox, styles.raceImportNoticeBox]}>
             <Text style={styles.noticeTitle}>{t.onboarding.raceImportTitle}</Text>
             <Text style={styles.noticeText}>{t.onboarding.raceImportSubtitle}</Text>
@@ -1958,9 +1964,15 @@ export default function OnboardingScreen() {
                   event.races.length === 1
                     ? t.catalog.singleFormatLabel
                     : t.catalog.multipleFormatsLabel.replace('{count}', String(event.races.length));
+                const eventSummary = [formatsLabel, distanceRange].filter(Boolean).join(' • ');
 
                 return (
-                  <View key={event.id} style={styles.eventCard}>
+                  <TouchableOpacity
+                    key={event.id}
+                    style={[styles.eventRow, selectedEventRace && styles.eventRowSelected]}
+                    onPress={() => setSelectedRaceEvent(event)}
+                    activeOpacity={0.82}
+                  >
                     <View style={styles.eventHeader}>
                       <View style={styles.eventBadge}>
                         <Ionicons name="flag-outline" size={18} color={Colors.brandPrimary} />
@@ -1974,16 +1986,7 @@ export default function OnboardingScreen() {
                       ) : null}
                     </View>
 
-                    <View style={styles.eventSummaryRow}>
-                      <View style={styles.summaryPill}>
-                        <Text style={styles.summaryPillText}>{formatsLabel}</Text>
-                      </View>
-                      {distanceRange ? (
-                        <View style={styles.summaryPill}>
-                          <Text style={styles.summaryPillText}>{distanceRange}</Text>
-                        </View>
-                      ) : null}
-                    </View>
+                    {eventSummary ? <Text style={styles.eventSummaryText}>{eventSummary}</Text> : null}
 
                     {selectedEventRace ? (
                       <Text style={styles.eventSupportText}>
@@ -1997,10 +2000,11 @@ export default function OnboardingScreen() {
                       </Text>
                     ) : null}
 
-                    <TouchableOpacity style={styles.eventPrimaryButton} onPress={() => setSelectedRaceEvent(event)}>
-                      <Text style={styles.eventPrimaryButtonText}>{t.catalog.viewFormats}</Text>
-                    </TouchableOpacity>
-                  </View>
+                    <View style={styles.eventRowFooter}>
+                      <Text style={styles.eventRowActionText}>{t.catalog.viewFormats}</Text>
+                      <Ionicons name="chevron-forward" size={16} color={Colors.brandPrimary} />
+                    </View>
+                  </TouchableOpacity>
                 );
               })}
 
@@ -2219,21 +2223,49 @@ export default function OnboardingScreen() {
               {groupedNutritionProducts.map((group) => {
                 const brandExpanded =
                   nutritionSearch.trim().length > 0 || expandedNutritionBrands.includes(group.brandLabel);
+                const selectedProductsInBrand = group.products.filter((product) =>
+                  selectedProductIds.includes(product.id),
+                ).length;
+                const hasVerifiedProduct = group.products.some(isVerifiedProduct);
 
                 return (
                   <View key={group.brandLabel} style={styles.productBrandGroup}>
                     <TouchableOpacity
-                      style={styles.productBrandHeader}
+                      style={[
+                        styles.productBrandHeader,
+                        brandExpanded && styles.productBrandHeaderExpanded,
+                      ]}
                       onPress={() => toggleNutritionBrand(group.brandLabel)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.productBrandTitle}>{group.brandLabel}</Text>
+                      <View style={styles.productBrandTitleRow}>
+                        {hasVerifiedProduct && !brandExpanded ? (
+                          <Image
+                            accessibilityIgnoresInvertColors
+                            accessibilityLabel="Marque validee"
+                            source={verifiedProductIcon}
+                            style={styles.productBrandVerifiedIcon}
+                          />
+                        ) : null}
+                        <Text numberOfLines={1} style={styles.productBrandTitle}>
+                          {group.brandLabel}
+                        </Text>
+                      </View>
 
                       <View style={styles.productBrandHeaderActions}>
+                        {selectedProductsInBrand > 0 ? (
+                          <View style={styles.productBrandSelectedPill}>
+                            <Ionicons name="checkmark" size={12} color={Colors.textOnBrand} />
+                            <Text style={styles.productBrandSelectedText}>{selectedProductsInBrand}</Text>
+                          </View>
+                        ) : null}
+                        <View style={styles.productBrandCountPill}>
+                          <Text style={styles.productBrandCountText}>{group.products.length}</Text>
+                        </View>
                         <Ionicons
                           name={brandExpanded ? 'chevron-up' : 'chevron-down'}
                           size={18}
-                          color={Colors.textSecondary}
+                          color={Colors.brandPrimary}
                         />
                       </View>
                     </TouchableOpacity>
@@ -2265,20 +2297,28 @@ export default function OnboardingScreen() {
                                       <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
                                     </View>
                                   )}
+                                  {isVerifiedProduct(product) ? (
+                                    <View style={styles.productVerifiedBadge}>
+                                      <Image
+                                        accessibilityIgnoresInvertColors
+                                        source={verifiedProductIcon}
+                                        style={styles.productVerifiedIcon}
+                                      />
+                                    </View>
+                                  ) : null}
                                 </View>
 
                                 <View style={styles.productChoiceBody}>
                                   <View style={styles.raceChoiceHeader}>
-                                    <Text style={styles.productChoiceTitle}>{product.name}</Text>
-                                    {selected ? (
-                                      <View style={styles.raceSelectedBadge}>
-                                        <Text style={styles.raceSelectedBadgeText}>
-                                          {t.onboarding.nutritionSelectedBadge}
-                                        </Text>
-                                      </View>
-                                    ) : null}
+                                    <Text numberOfLines={2} style={styles.productChoiceTitle}>{product.name}</Text>
                                   </View>
                                   <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
+                                </View>
+
+                                <View style={[styles.productSelectControl, selected && styles.productSelectControlSelected]}>
+                                  {selected ? (
+                                    <Ionicons name="checkmark" size={16} color={Colors.textOnBrand} />
+                                  ) : null}
                                 </View>
                               </View>
                             </TouchableOpacity>
@@ -2315,20 +2355,28 @@ export default function OnboardingScreen() {
                             <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
                           </View>
                         )}
+                        {isVerifiedProduct(product) ? (
+                          <View style={styles.productVerifiedBadge}>
+                            <Image
+                              accessibilityIgnoresInvertColors
+                              source={verifiedProductIcon}
+                              style={styles.productVerifiedIcon}
+                            />
+                          </View>
+                        ) : null}
                       </View>
 
                       <View style={styles.productChoiceBody}>
                         <View style={styles.raceChoiceHeader}>
-                          <Text style={styles.productChoiceTitle}>{product.name}</Text>
-                          {selected ? (
-                            <View style={styles.raceSelectedBadge}>
-                              <Text style={styles.raceSelectedBadgeText}>
-                                {t.onboarding.nutritionSelectedBadge}
-                              </Text>
-                            </View>
-                          ) : null}
+                          <Text numberOfLines={2} style={styles.productChoiceTitle}>{product.name}</Text>
                         </View>
                         <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
+                      </View>
+
+                      <View style={[styles.productSelectControl, selected && styles.productSelectControlSelected]}>
+                        {selected ? (
+                          <Ionicons name="checkmark" size={16} color={Colors.textOnBrand} />
+                        ) : null}
                       </View>
                     </View>
                   </TouchableOpacity>
@@ -2589,6 +2637,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     padding: 16,
+    marginBottom: 16,
+  },
+  racePickerPanel: {
+    gap: 14,
     marginBottom: 16,
   },
   sectionTitle: {
@@ -3041,10 +3093,10 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   raceEventList: {
-    gap: 18,
+    gap: 16,
   },
   raceGroup: {
-    gap: 10,
+    gap: 0,
   },
   raceGroupLabel: {
     color: Colors.brandPrimary,
@@ -3052,17 +3104,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+    marginBottom: 8,
   },
   raceChoiceCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    padding: 14,
-    gap: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 13,
+    gap: 5,
   },
   raceChoiceCardSelected: {
-    borderColor: Colors.brandPrimary,
+    borderLeftColor: Colors.brandPrimary,
+    borderBottomColor: 'transparent',
     backgroundColor: Colors.brandSurface,
   },
   raceChoiceHeader: {
@@ -3087,35 +3143,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  eventCard: {
-    gap: 14,
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+  eventRow: {
+    gap: 10,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  eventRowSelected: {
+    marginHorizontal: -10,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderBottomColor: 'transparent',
+    backgroundColor: Colors.brandSurface,
   },
   eventHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   eventBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
   },
   eventHeaderText: {
     flex: 1,
     gap: 3,
   },
   eventName: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
@@ -3124,12 +3183,18 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   eventThumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceSecondary,
+  },
+  eventSummaryText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
   },
   eventSummaryRow: {
     flexDirection: 'row',
@@ -3154,18 +3219,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 19,
   },
-  eventPrimaryButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
+  eventRowFooter: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingVertical: 2,
   },
-  eventPrimaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '700',
+  eventRowActionText: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '800',
   },
   selectionCountPill: {
     paddingHorizontal: 12,
@@ -3309,19 +3373,37 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   productList: {
-    gap: 10,
+    gap: 8,
   },
   productBrandGroup: {
-    gap: 10,
+    gap: 0,
   },
   productBrandHeader: {
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    paddingVertical: 6,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  productBrandHeaderExpanded: {
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandBorder,
   },
   productBrandHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  productBrandTitleRow: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -3332,29 +3414,52 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  productBrandCountPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  productBrandVerifiedIcon: {
+    width: 22,
+    height: 22,
+    resizeMode: 'contain',
+  },
+  productBrandSelectedPill: {
+    minWidth: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: Colors.brandSurface,
+    backgroundColor: Colors.brandPrimary,
+  },
+  productBrandSelectedText: {
+    color: Colors.textOnBrand,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  productBrandCountPill: {
+    minWidth: 30,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
-    borderColor: Colors.brandBorder,
+    borderColor: Colors.border,
+    alignItems: 'center',
   },
   productBrandCountText: {
-    color: Colors.brandPrimary,
+    color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },
   productBrandItems: {
-    gap: 10,
+    gap: 0,
   },
   productChoiceCard: {
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
-    gap: 6,
+    marginBottom: 10,
   },
   productChoiceCardSelected: {
     borderColor: Colors.brandPrimary,
@@ -3366,6 +3471,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   productChoiceMedia: {
+    position: 'relative',
     flexShrink: 0,
   },
   productChoiceImage: {
@@ -3386,6 +3492,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  productVerifiedBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productVerifiedIcon: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
   productChoiceBody: {
     flex: 1,
     minWidth: 0,
@@ -3396,12 +3517,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     flex: 1,
-    paddingRight: 8,
   },
   productChoiceMeta: {
     color: Colors.textSecondary,
     fontSize: 13,
     lineHeight: 18,
+  },
+  productSelectControl: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productSelectControlSelected: {
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
   },
   notificationIconWrap: {
     width: 72,
@@ -3430,7 +3563,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   raceImportNoticeBox: {
-    marginBottom: 16,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    padding: 0,
+    marginBottom: 2,
   },
   importGpxButton: {
     minHeight: 48,
@@ -3438,7 +3574,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: Colors.brandBorder,
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.surfaceSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
