@@ -67,7 +67,7 @@ After a web session is verified, `useVerifiedSession` also calls `POST /api/rese
 Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mobile/app/(auth)/signup.tsx`, and the guest onboarding account choice in `apps/mobile/app/(app)/onboarding.tsx`.
 
 Non-auth onboarding steps, such as race/catalog selection UI, must not add separate session side effects; keep session, analytics identity, push registration, and Resend sync behavior in `_layout.tsx` or the existing dedicated helpers.
-The onboarding route is registered as a non-tab screen so users do not get bottom-tab access while completing the required flow.
+The onboarding route is registered as a non-tab screen with the bottom tab bar hidden, so users do not get tab navigation access while completing the required flow.
 
 Social sign-in is split into hooks:
 

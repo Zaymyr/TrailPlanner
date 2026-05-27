@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-05-20
+last_verified: 2026-05-27
 ai_priority: medium
 related_files:
   - package.json
@@ -60,6 +60,8 @@ The per-user contact route:
 - always sends `unsubscribed: false` for identified users, per the current product decision;
 - is called by `apps/web/app/hooks/useVerifiedSession.tsx` after web session verification;
 - is called by `apps/mobile/lib/resendContactSync.ts` from `apps/mobile/app/_layout.tsx` after a mobile non-anonymous session is active.
+
+`apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding. Keep those route presentation changes independent from the Resend sync trigger.
 
 The admin bulk sync route:
 
@@ -124,6 +126,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - For French or other non-ASCII Broadcast copy, upload with UTF-8-safe tooling such as Node `JSON.stringify`; avoid Windows PowerShell `ConvertTo-Json` for long email bodies.
 - Email images should be public HTTPS PNG/JPG assets or Resend CID attachments for API sends. Avoid local file paths, SVGs, and large base64 data URIs in Broadcast HTML.
 - Web and mobile keep a local "already synced" marker, but Resend upsert behavior must remain idempotent because sessions can refresh or clients can retry.
+- Do not tie Resend contact sync to onboarding tab-bar visibility; sync still depends on an identified, non-anonymous session.
 - Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.
 - Resend can return `429` during large syncs. Keep the default request delay or run batches with `startPage`/`maxPages`.
 - Do not add a Resend dependency unless SDK-specific behavior is needed; current code uses REST through `fetch`.

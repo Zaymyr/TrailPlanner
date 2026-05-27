@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-05-18
+last_verified: 2026-05-27
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -9,6 +9,7 @@ related_files:
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/components/race/RaceEventSummaryCard.tsx
 related_tables:
   - race_events
   - races
@@ -61,6 +62,7 @@ Because API routes use service role for event writes, client/mobile read access 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
 - Race rows can refer to an existing or newly created event.
 - Mobile catalog groups event races and also displays standalone races with no event.
+- Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
@@ -86,6 +88,7 @@ from public.races;
 - Treat this table as live-schema-dependent until its create migration is found.
 - Do not add docs that claim exact constraints for `race_events` without verification.
 - Code paths are real even though migration provenance is incomplete.
+- Keep shared mobile event-row UI changes separate from race event query or schema changes.
 
 ## Related Docs
 
