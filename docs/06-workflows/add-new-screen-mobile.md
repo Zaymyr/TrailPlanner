@@ -33,6 +33,9 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
 - Hidden utility screens, such as free training live, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
+- When a setup/onboarding step already sits inside a shell card, render long choice lists as flat rows with separators before adding nested card surfaces.
+- Required onboarding screens must hide the bottom tab bar until completion; register them with `href: null` and `tabBarStyle: { display: 'none' }` in the tab layout.
+- Onboarding product-picking should mirror the Nutrition catalog affordances: collapsed brand rows keep count/verified/selected signals, and product rows keep verified badges plus explicit selection checks.
 
 ## Steps
 

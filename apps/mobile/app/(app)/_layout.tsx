@@ -183,7 +183,7 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="onboarding"
-        options={{ href: null, headerShown: false }}
+        options={{ href: null, headerShown: false, tabBarStyle: { display: 'none' } }}
       />
     </Tabs>
   );
