@@ -7,6 +7,7 @@ import { translations } from "../locales";
 import type { Locale } from "../locales/types";
 import { useI18n } from "./i18n-provider";
 import { CANONICAL_URL, localeToOgLocale, SITE_URL } from "./seo";
+import { supportCopy } from "./support/copy";
 
 const upsertMeta = (
   type: "name" | "property",
@@ -75,6 +76,16 @@ const getRouteMeta = (pathname: string): RouteMeta | undefined => {
         description: translations.en.links.meta.description,
         canonicalPath: "/en/links",
       };
+    case "/support": {
+      const copy = supportCopy.en;
+
+      return {
+        locale: "en",
+        title: copy.meta.title,
+        description: copy.meta.description,
+        canonicalPath: "/support",
+      };
+    }
     default:
       return undefined;
   }
@@ -86,18 +97,19 @@ export function LocalizedMetadata() {
 
   React.useEffect(() => {
     const routeMeta = getRouteMeta(pathname);
-    const title = routeMeta?.title ?? t.homeHero.heading;
-    const description = routeMeta?.description ?? t.homeHero.description;
-    const ogLocale = localeToOgLocale(routeMeta?.locale ?? locale);
+    const supportMeta = pathname === "/support" ? supportCopy[locale].meta : undefined;
+    const localizedTitle = supportMeta?.title ?? routeMeta?.title ?? t.homeHero.heading;
+    const description = supportMeta?.description ?? routeMeta?.description ?? t.homeHero.description;
+    const ogLocale = localeToOgLocale(supportMeta ? locale : routeMeta?.locale ?? locale);
     const canonicalUrl = routeMeta ? new URL(routeMeta.canonicalPath, SITE_URL).toString() : CANONICAL_URL;
 
-    document.title = title;
+    document.title = localizedTitle;
     upsertMeta("name", "description", description);
-    upsertMeta("property", "og:title", title);
+    upsertMeta("property", "og:title", localizedTitle);
     upsertMeta("property", "og:description", description);
     upsertMeta("property", "og:locale", ogLocale);
     upsertMeta("property", "og:url", canonicalUrl);
-    upsertMeta("name", "twitter:title", title);
+    upsertMeta("name", "twitter:title", localizedTitle);
     upsertMeta("name", "twitter:description", description);
     upsertLink("canonical", canonicalUrl);
   }, [locale, pathname, t]);

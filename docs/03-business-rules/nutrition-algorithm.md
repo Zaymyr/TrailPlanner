@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-05-26
+last_verified: 2026-05-27
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -239,8 +239,9 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Free training gives active water, carb, and sodium targets a default one-hour buffer even when no matching supply is carried.
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
 - Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
-- Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, can summarize validated products on collapsed mobile brand headers, and must not change allocation order or nutrition math.
+- Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, can summarize validated products before the brand label on collapsed mobile brand headers, and must not change allocation order or nutrition math.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
+- Mobile favorite toggles are presentation only. Inactive product rows show an unfilled star without a filled brand circle; only active favorites use the filled brand circle.
 - Collapsed mobile brand headers depend on the same catalog row builder as virtualization; keep verified-header metadata in that single builder when resolving merges.
 - Admin-only favorite usage shown in the mobile product detail modal is operational metadata. It must not influence allocation order, product eligibility, or per-unit nutrition values.
 - Harmonized official product display names must not change the underlying nutrition math. Allocation still depends on `fuel_type`, carbs, sodium, and quantity, not on the display label shown to runners.
