@@ -404,7 +404,7 @@ export const en: MobileTranslations = {
     welcomeSubtitle: 'Profile, race, products, then a ready-to-edit plan.',
     welcomeAccountTitle: 'Best to start with your account',
     welcomeAccountBody:
-      'Connect with Google now to keep your GPX imports, races, and plans attached to the right account from the start.',
+      'Connect now to keep your GPX imports, races, and plans attached to the right account from the start.',
     welcomeAccountGoogleCta: 'Start with Google',
     welcomeAccountGuestCta: 'Continue without an account',
     welcomeAccountHint: 'You can still create an account later from the profile screen.',

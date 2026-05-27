@@ -404,7 +404,7 @@ export const fr: MobileTranslations = {
     welcomeSubtitle: 'Profil, course, produits, puis plan prêt à éditer.',
     welcomeAccountTitle: 'Le plus simple : commencer avec ton compte',
     welcomeAccountBody:
-      'Connecte-toi maintenant avec Google pour garder tes GPX, tes courses et tes plans sur le bon compte dès le départ.',
+      'Connecte-toi maintenant pour garder tes GPX, tes courses et tes plans sur le bon compte dès le départ.',
     welcomeAccountGoogleCta: 'Commencer avec Google',
     welcomeAccountGuestCta: 'Continuer sans compte',
     welcomeAccountHint: 'Tu pourras toujours créer ton compte plus tard depuis le profil.',

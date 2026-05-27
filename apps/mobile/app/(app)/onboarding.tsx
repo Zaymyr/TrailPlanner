@@ -22,6 +22,7 @@ import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
 import { GpxImportPreviewModal } from '../../components/race/GpxImportPreviewModal';
 import { estimateHourlyTargets, isValidHeightCm, isValidWeightKg } from '../../components/profile/profileEstimator';
+import { useAppleAuth } from '../../hooks/useAppleAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { parseComfortableFlatPace, parseOptionalNonNegativeInteger, WATER_BAG_OPTIONS } from '../../components/profile/profileHelpers';
 import type { CarbEstimatorLevel, HydrationEstimatorLevel, SodiumEstimatorLevel } from '../../components/profile/types';
@@ -373,7 +374,13 @@ export default function OnboardingScreen() {
   const completedHasSelectedProductsParam = false;
   const totalSteps = 6;
   const isGuestOnboardingSession = isAnonymousSession(session);
-  const { googleModule, handleGoogleLogin } = useGoogleAuth({
+  const {
+    appleModule,
+    appleAvailable,
+    handleAppleLogin,
+    isAppleAuthCanceled,
+  } = useAppleAuth({ session });
+  const { googleModule, googleAvailable, handleGoogleLogin } = useGoogleAuth({
     noOauthUrlMessage: t.auth.noOauthUrl,
     session,
   });
@@ -841,6 +848,28 @@ export default function OnboardingScreen() {
 
       console.error('Google onboarding sign-in error:', error);
       setAuthChoiceError(t.auth.googleError);
+    } finally {
+      setAuthChoiceLoading(false);
+    }
+  }
+
+  async function handleStartWithApple() {
+    if (!appleModule || !appleAvailable) return;
+
+    setAuthChoiceError(null);
+    setAuthChoiceLoading(true);
+    captureAnalyticsEvent('onboarding auth choice selected', { choice: 'apple' });
+
+    try {
+      await handleAppleLogin();
+      setStep(2);
+    } catch (error) {
+      if (isAppleAuthCanceled(error)) {
+        return;
+      }
+
+      console.error('Apple onboarding sign-in error:', error);
+      setAuthChoiceError(t.auth.appleError);
     } finally {
       setAuthChoiceLoading(false);
     }
@@ -1460,16 +1489,33 @@ export default function OnboardingScreen() {
             <Text style={styles.authChoiceTitle}>{t.onboarding.welcomeAccountTitle}</Text>
             <Text style={styles.authChoiceBody}>{t.onboarding.welcomeAccountBody}</Text>
 
-            <TouchableOpacity
-              style={[styles.googleStartButton, authChoiceLoading && styles.buttonDisabled]}
-              onPress={() => void handleStartWithGoogle()}
-              disabled={authChoiceLoading}
-            >
-              <Ionicons name="logo-google" size={18} color={Colors.brandPrimary} />
-              <Text style={styles.googleStartButtonText}>
-                {authChoiceLoading ? t.auth.loggingIn : t.onboarding.welcomeAccountGoogleCta}
-              </Text>
-            </TouchableOpacity>
+            {appleModule && appleAvailable ? (
+              <View
+                pointerEvents={authChoiceLoading ? 'none' : 'auto'}
+                style={[styles.appleStartButtonWrap, authChoiceLoading && styles.buttonDisabled]}
+              >
+                <appleModule.AppleAuthenticationButton
+                  buttonStyle={appleModule.AppleAuthenticationButtonStyle.BLACK}
+                  buttonType={appleModule.AppleAuthenticationButtonType.CONTINUE}
+                  cornerRadius={16}
+                  onPress={() => void handleStartWithApple()}
+                  style={styles.appleStartButton}
+                />
+              </View>
+            ) : null}
+
+            {googleAvailable ? (
+              <TouchableOpacity
+                style={[styles.googleStartButton, authChoiceLoading && styles.buttonDisabled]}
+                onPress={() => void handleStartWithGoogle()}
+                disabled={authChoiceLoading}
+              >
+                <Ionicons name="logo-google" size={18} color={Colors.brandPrimary} />
+                <Text style={styles.googleStartButtonText}>
+                  {authChoiceLoading ? t.auth.loggingIn : t.onboarding.welcomeAccountGoogleCta}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             <TouchableOpacity
               style={[styles.secondaryButton, authChoiceLoading && styles.buttonDisabled]}
@@ -2857,6 +2903,13 @@ const styles = StyleSheet.create({
     color: Colors.brandPrimary,
     fontSize: 16,
     fontWeight: '700',
+  },
+  appleStartButton: {
+    width: '100%',
+    height: 54,
+  },
+  appleStartButtonWrap: {
+    alignSelf: 'stretch',
   },
   secondaryButton: {
     marginTop: 10,

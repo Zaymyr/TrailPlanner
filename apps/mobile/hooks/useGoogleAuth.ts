@@ -16,13 +16,11 @@ import { ensureTrialStatusForSession } from '../lib/trial';
 WebBrowser.maybeCompleteAuthSession();
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ?? '';
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID?.trim() ?? '';
 
 function canUseNativeGoogleSignIn() {
-  if (Platform.OS === 'web') return false;
+  if (Platform.OS !== 'android') return false;
   if (Constants.executionEnvironment === 'storeClient') return false;
   if (!GOOGLE_WEB_CLIENT_ID) return false;
-  if (Platform.OS === 'ios' && !GOOGLE_IOS_CLIENT_ID) return false;
   return true;
 }
 
@@ -44,6 +42,7 @@ export function useGoogleAuth({ noOauthUrlMessage, session }: UseGoogleAuthParam
   const nativeGoogleEnabled = canUseNativeGoogleSignIn();
   const [googleModule, setGoogleModule] = useState<GoogleSignInModule | null>(null);
   const isGuestSession = isAnonymousSession(session);
+  const googleAvailable = Platform.OS === 'android';
 
   useEffect(() => {
     let mounted = true;
@@ -60,7 +59,6 @@ export function useGoogleAuth({ noOauthUrlMessage, session }: UseGoogleAuthParam
         const nextGoogleModule = await import('@react-native-google-signin/google-signin');
         nextGoogleModule.GoogleSignin.configure({
           webClientId: GOOGLE_WEB_CLIENT_ID,
-          iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
           scopes: ['email', 'profile'],
         });
 
@@ -204,17 +202,34 @@ export function useGoogleAuth({ noOauthUrlMessage, session }: UseGoogleAuthParam
   }, [isGuestSession, noOauthUrlMessage, session]);
 
   const handleGoogleLogin = useCallback(async () => {
+    if (!googleAvailable) {
+      throw new Error('Google Sign-In is not available on this platform.');
+    }
+
     if (nativeGoogleEnabled && googleModule) {
-      await handleNativeGoogleLogin();
-      return;
+      try {
+        await handleNativeGoogleLogin();
+        return;
+      } catch (error) {
+        if (
+          googleModule.isErrorWithCode(error) &&
+          (error.code === googleModule.statusCodes.SIGN_IN_CANCELLED ||
+            error.code === googleModule.statusCodes.IN_PROGRESS)
+        ) {
+          throw error;
+        }
+
+        console.warn('Native Google Sign-In failed, falling back to browser auth.', error);
+      }
     }
 
     await handleBrowserGoogleLogin();
-  }, [googleModule, handleBrowserGoogleLogin, handleNativeGoogleLogin, nativeGoogleEnabled]);
+  }, [googleAvailable, googleModule, handleBrowserGoogleLogin, handleNativeGoogleLogin, nativeGoogleEnabled]);
 
   return {
     googleModule,
     nativeGoogleEnabled,
+    googleAvailable,
     handleGoogleLogin,
   };
 }

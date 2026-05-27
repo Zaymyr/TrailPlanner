@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-05-19
+last_verified: 2026-05-27
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -41,12 +41,13 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 3. Create the screen file with Expo Router conventions.
 4. Use existing mobile components/styles before introducing new primitives.
 5. If the screen needs auth, use existing session helpers and route patterns.
-6. If the screen needs premium access, read `apps/mobile/hooks/usePremium.ts`.
-7. If the screen calls server functionality, prefer existing web API bridge patterns.
-8. Add localized strings through the existing locale files when the UI needs text.
-9. Import mobile text from `components/themed/Text` / `Heading`, not from `react-native`; use `DataText` for metric-like values.
-10. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens.
-11. For a new root tab, add the help/feedback entry point through `RootScreenActionMenu`; add screen-specific actions there instead of occupying native header space.
+6. If the screen offers social sign-in, keep the provider platform-specific: Apple on iOS, Google on Android.
+7. If the screen needs premium access, read `apps/mobile/hooks/usePremium.ts`.
+8. If the screen calls server functionality, prefer existing web API bridge patterns.
+9. Add localized strings through the existing locale files when the UI needs text.
+10. Import mobile text from `components/themed/Text` / `Heading`, not from `react-native`; use `DataText` for metric-like values.
+11. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens.
+12. For a new root tab, add the help/feedback entry point through `RootScreenActionMenu`; add screen-specific actions there instead of occupying native header space.
 
 ## Validation
 
@@ -66,6 +67,7 @@ For native behavior, build/run with the development client profile from `apps/mo
 - Do not bypass RevenueCat/subscription sync for premium screens.
 - Do not call service-role-only web routes from the mobile client.
 - Do not add one-off global session effects inside a screen; keep them in `_layout.tsx` or a dedicated helper with idempotency guards.
+- Do not render Google sign-in on iOS builds. Use the shared auth hooks so provider availability stays platform-specific.
 - Do not use React Native's raw `Text` for normal app UI; it bypasses the shared Bricolage Grotesque and JetBrains Mono typography.
 - Do not reintroduce duplicate header titles on root tab screens unless the tab bar no longer identifies the current section.
 - Do not put root-tab help, feedback, or create actions back into the native header; use the floating root action menu so the screen keeps the reclaimed vertical space.
