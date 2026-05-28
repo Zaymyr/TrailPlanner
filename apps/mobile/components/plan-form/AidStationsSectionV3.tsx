@@ -106,11 +106,6 @@ type Props = {
 };
 
 const VIEW_MODES: Array<'stations' | 'sections' | 'profile'> = ['stations', 'sections', 'profile'];
-const VIEW_MODE_LABELS: Record<(typeof VIEW_MODES)[number], string> = {
-  stations: 'Ravitos',
-  sections: 'Sections',
-  profile: 'Profil',
-};
 const PAGER_MODES: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stations'> = [
   'profile',
   'stations',
@@ -120,7 +115,6 @@ const PAGER_MODES: Array<'profile' | 'stations' | 'sections' | 'profile' | 'stat
 ];
 const PAGER_EDGE_SWIPE_MIN_WIDTH = 104;
 const PAGER_EDGE_SWIPE_MAX_WIDTH = 128;
-const PAGER_SIDE_BUTTON_HIT_SLOP = { top: 18, bottom: 18, left: 18, right: 18 };
 
 export function AidStationsSectionV3({
   values,
@@ -526,15 +520,6 @@ export function AidStationsSectionV3({
     setSelectedViewMode(nextMode);
     queueModeSync(nextMode, capturedFocus.stationId, capturedFocus.viewportOffset, true);
     pagerRef.current?.scrollTo({ x: nextPageIndex * pageWidth, animated: true });
-  }
-
-  function getAdjacentViewMode(
-    mode: 'stations' | 'sections' | 'profile',
-    direction: 'previous' | 'next',
-  ) {
-    const currentIndex = VIEW_MODES.indexOf(mode);
-    const offset = direction === 'previous' ? -1 : 1;
-    return VIEW_MODES[(currentIndex + offset + VIEW_MODES.length) % VIEW_MODES.length];
   }
 
   function resolvePagerMode(pageIndex: number) {
@@ -1518,8 +1503,6 @@ export function AidStationsSectionV3({
   // don't accidentally "re-snap" the pager at the end of a swipe.
   const initialPagerOffset = useMemo(() => ({ x: pageWidth, y: 0 }), [pageWidth]);
   const bottomSpacerHeight = useMemo(() => getBottomSpacerHeight(), [viewportHeight, windowHeight]);
-  const previousViewMode = getAdjacentViewMode(displayedViewMode, 'previous');
-  const nextViewMode = getAdjacentViewMode(displayedViewMode, 'next');
 
   return (
     <>
@@ -1663,26 +1646,6 @@ export function AidStationsSectionV3({
               </View>
             ))}
           </ScrollView>
-          <TouchableOpacity
-            accessibilityLabel={`Aller à ${VIEW_MODE_LABELS[previousViewMode]}`}
-            accessibilityRole="button"
-            activeOpacity={0.72}
-            hitSlop={PAGER_SIDE_BUTTON_HIT_SLOP}
-            onPress={() => switchViewMode(previousViewMode)}
-            style={[planDetailStyles.pagerSideButton, planDetailStyles.pagerSideButtonLeft]}
-          >
-            <Ionicons name="chevron-back" size={20} color="rgba(45, 80, 22, 0.78)" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel={`Aller à ${VIEW_MODE_LABELS[nextViewMode]}`}
-            accessibilityRole="button"
-            activeOpacity={0.72}
-            hitSlop={PAGER_SIDE_BUTTON_HIT_SLOP}
-            onPress={() => switchViewMode(nextViewMode)}
-            style={[planDetailStyles.pagerSideButton, planDetailStyles.pagerSideButtonRight]}
-          >
-            <Ionicons name="chevron-forward" size={20} color="rgba(45, 80, 22, 0.78)" />
-          </TouchableOpacity>
         </View>
       </TutorialTarget>
     </>
@@ -1800,24 +1763,5 @@ const planDetailStyles = StyleSheet.create({
     color: colors.text.primary,
     fontSize: 15,
     lineHeight: 19,
-  },
-  pagerSideButton: {
-    position: 'absolute',
-    top: '42%',
-    width: 44,
-    height: 74,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 0,
-    backgroundColor: 'transparent',
-    opacity: 0.64,
-    zIndex: 8,
-  } as ViewStyle,
-  pagerSideButtonLeft: {
-    left: -16,
-  },
-  pagerSideButtonRight: {
-    right: -16,
   },
 });
