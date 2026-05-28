@@ -28,9 +28,6 @@ type RaceEventSummaryCardProps<T extends RaceEventSummaryRace> = {
   multipleFormatsLabel: string;
   chooseFormatHint: string;
   onOpenFormats: () => void;
-  selectedRaceId?: string | null;
-  showSupportText?: boolean;
-  variant?: 'card' | 'row';
 };
 
 function formatEventDate(isoDate: string | null, locale: 'fr' | 'en'): string | null {
@@ -82,31 +79,22 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   multipleFormatsLabel,
   chooseFormatHint,
   onOpenFormats,
-  selectedRaceId = null,
-  showSupportText = true,
-  variant = 'card',
 }: RaceEventSummaryCardProps<T>) {
   const eventImageUrl = getEventImageUrl(event);
   const dateStr = formatEventDate(event.race_date, locale);
   const headerMeta = [event.location, dateStr].filter(Boolean).join(' • ');
   const distanceRange = getEventDistanceRange(event.races);
-  const selectedEventRace = event.races.find((race) => race.id === selectedRaceId) ?? null;
   const primaryRace = event.races[0] ?? null;
   const formatsLabel =
     event.races.length === 1
       ? singleFormatLabel
       : multipleFormatsLabel.replace('{count}', String(event.races.length));
-  const summaryText = [formatsLabel, distanceRange].filter(Boolean).join(' • ');
-  const isRow = variant === 'row';
 
   return (
     <TouchableOpacity
       activeOpacity={0.84}
       onPress={onOpenFormats}
-      style={[
-        isRow ? styles.row : styles.card,
-        isRow && selectedEventRace && styles.rowSelected,
-      ]}
+      style={styles.card}
     >
       <View style={styles.header}>
         <View style={styles.badge}>
@@ -123,41 +111,28 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
         ) : null}
       </View>
 
-      {isRow ? (
-        summaryText ? <Text style={styles.rowSummary}>{summaryText}</Text> : null
-      ) : (
-        <View style={styles.summaryRow}>
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryPillText}>{formatsLabel}</Text>
-          </View>
-          {distanceRange ? (
-            <View style={styles.summaryPill}>
-              <Text style={styles.summaryPillText}>{distanceRange}</Text>
-            </View>
-          ) : null}
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryPill}>
+          <Text style={styles.summaryPillText}>{formatsLabel}</Text>
         </View>
-      )}
+        {distanceRange ? (
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryPillText}>{distanceRange}</Text>
+          </View>
+        ) : null}
+      </View>
 
-      {showSupportText && primaryRace ? (
+      {primaryRace ? (
         <Text style={styles.supportText} numberOfLines={2}>
-          {selectedEventRace
-            ? `${getRaceShortLabel(selectedEventRace.name, event.name)} • ${formatDistance(selectedEventRace.distance_km)} km • D+ ${formatElevation(selectedEventRace.elevation_gain_m)} m`
-            : event.races.length === 1
-              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
-              : chooseFormatHint}
+          {event.races.length === 1
+            ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
+            : chooseFormatHint}
         </Text>
       ) : null}
 
-      {isRow ? (
-        <View style={styles.rowAction}>
-          <Text style={styles.rowActionText}>{viewFormatsLabel}</Text>
-          <Ionicons name="chevron-forward" size={16} color={Colors.brandPrimary} />
-        </View>
-      ) : (
-        <View style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>{viewFormatsLabel}</Text>
-        </View>
-      )}
+      <View style={styles.primaryButton}>
+        <Text style={styles.primaryButtonText}>{viewFormatsLabel}</Text>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -170,19 +145,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
-  },
-  row: {
-    gap: 8,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  rowSelected: {
-    marginHorizontal: -10,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    borderBottomColor: 'transparent',
-    backgroundColor: Colors.brandSurface,
   },
   header: {
     flexDirection: 'row',
@@ -236,12 +198,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  rowSummary: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
-  },
   supportText: {
     color: Colors.textSecondary,
     fontSize: 14,
@@ -259,17 +215,5 @@ const styles = StyleSheet.create({
     color: Colors.textOnBrand,
     fontSize: 15,
     fontWeight: '700',
-  },
-  rowAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingVertical: 2,
-  },
-  rowActionText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '800',
   },
 });

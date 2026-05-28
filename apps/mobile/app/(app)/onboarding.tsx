@@ -1964,9 +1964,6 @@ export default function OnboardingScreen() {
                   multipleFormatsLabel={t.catalog.multipleFormatsLabel}
                   chooseFormatHint={t.catalog.chooseFormatHint}
                   onOpenFormats={() => setSelectedRaceEvent(event)}
-                  selectedRaceId={selectedRaceId}
-                  showSupportText={false}
-                  variant="row"
                 />
               ))}
 

@@ -86,7 +86,7 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 
 The layout also tracks auth analytics for signed-in and signed-out events.
 Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion.
-Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx`, with the onboarding variant keeping the same event identity while showing a denser choice row.
+Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx` so the onboarding race choice uses the same event-card UX as the Courses tab.
 
 ## Premium and Purchases
 
