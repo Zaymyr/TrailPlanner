@@ -14,7 +14,7 @@ import { useCoachIntakeTargets } from "../../hooks/useCoachIntakeTargets";
 import { useEffectiveIntakeTargets } from "../../hooks/useEffectiveIntakeTargets";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
-import type { ElevationPoint, FormValues, StationSupply } from "./types";
+import type { ElevationPoint, FormValues, OrganizerAidStationProductSuggestion, StationSupply } from "./types";
 import { RACE_PLANNER_URL } from "../../seo";
 import { defaultFuelType } from "../../../lib/fuel-types";
 import type { FuelProduct } from "../../../lib/product-types";
@@ -211,6 +211,9 @@ const createFormSchema = (copy: RacePlannerTranslations) =>
       finishPlan: createSegmentPlanSchema(copy.validation).optional(),
       segments: z.record(z.array(createSectionSegmentSchema(copy.validation))).optional(),
       sectionSegments: z.record(z.array(createSectionSegmentSchema(copy.validation))).optional(),
+      organizerAidStationProducts: z
+        .record(z.array(z.custom<OrganizerAidStationProductSuggestion>()))
+        .optional(),
     })
     .superRefine((values, ctx) => {
       if (values.paceType === "pace" && values.paceMinutes === 0 && values.paceSeconds === 0) {
@@ -277,6 +280,9 @@ const buildPlannerValuesFromStorage = (defaultValues: FormValues, storedValues: 
   };
 };
 
+const buildAidStationProductKey = (name: string, distanceKm: number) =>
+  `${name.trim().toLowerCase()}|${Number(distanceKm.toFixed(2))}`;
+
 export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
   const router = useRouter();
   const { t, locale } = useI18n();
@@ -335,6 +341,30 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { fields, append, replace } = useFieldArray({ control: form.control, name: "aidStations" });
   const watchedValues = useWatch({ control: form.control, defaultValue: defaultValues });
   const startSupplies = form.watch("startSupplies") ?? [];
+  const organizerAidStationProducts = useMemo<Record<string, OrganizerAidStationProductSuggestion[]>>(() => {
+    const rawSuggestions = watchedValues.organizerAidStationProducts;
+    if (!rawSuggestions) return {};
+
+    return Object.entries(rawSuggestions).reduce<Record<string, OrganizerAidStationProductSuggestion[]>>(
+      (acc, [key, suggestions]) => {
+        if (!Array.isArray(suggestions)) return acc;
+        const validSuggestions = suggestions.filter(
+          (suggestion): suggestion is OrganizerAidStationProductSuggestion =>
+            Boolean(
+              suggestion?.aidStationKey &&
+                suggestion.aidStationName &&
+                typeof suggestion.distanceKm === "number" &&
+                typeof suggestion.orderIndex === "number" &&
+                suggestion.product?.id &&
+                suggestion.product.slug
+            )
+        );
+        if (validSuggestions.length > 0) acc[key] = validSuggestions;
+        return acc;
+      },
+      {}
+    );
+  }, [watchedValues.organizerAidStationProducts]);
   const paceTypeValue = form.watch("paceType") ?? defaultValues.paceType;
   const paceMinutesValue = form.watch("paceMinutes") ?? defaultValues.paceMinutes;
   const paceSecondsValue = form.watch("paceSeconds") ?? defaultValues.paceSeconds;
@@ -1004,6 +1034,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     const productsById = new Map<string, FuelProduct>();
     fuelProducts.forEach((product) => productsById.set(product.id, product));
 
+    Object.values(organizerAidStationProducts)
+      .flat()
+      .forEach((suggestion) => {
+        if (suggestion.product && !productsById.has(suggestion.product.id)) {
+          productsById.set(suggestion.product.id, suggestion.product);
+        }
+      });
+
     selectedProducts.forEach((product) => {
       if (!productsById.has(product.id)) {
         productsById.set(product.id, {
@@ -1024,7 +1062,17 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     });
 
     return Array.from(productsById.values());
-  }, [fuelProducts, selectedProducts]);
+  }, [fuelProducts, organizerAidStationProducts, selectedProducts]);
+
+  const organizerProductIds = useMemo(() => {
+    const ids = new Set<string>();
+    Object.values(organizerAidStationProducts)
+      .flat()
+      .forEach((suggestion) => {
+        if (suggestion.product?.id) ids.add(suggestion.product.id);
+      });
+    return ids;
+  }, [organizerAidStationProducts]);
 
   const fuelProductEstimates = useMemo<FuelProductEstimate[]>(
     () => buildFuelProductEstimates(mergedFuelProducts, raceTotals),
@@ -1409,7 +1457,20 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         return favoriteMatches;
       }
 
-      return mergedFuelProducts.filter((product) => product.carbsGrams > 0 || product.sodiumMg > 0);
+      const favoriteIds = new Set(selectedProducts.map((product) => product.id));
+      const favoriteSlugs = new Set(selectedProducts.map((product) => product.slug));
+      const currentValues = form.getValues();
+      const explicitlySelectedIds = new Set<string>();
+      currentValues.startSupplies?.forEach((supply) => explicitlySelectedIds.add(supply.productId));
+      currentValues.aidStations?.forEach((station) => {
+        station.supplies?.forEach((supply) => explicitlySelectedIds.add(supply.productId));
+      });
+
+      return mergedFuelProducts.filter((product) => {
+        if (product.carbsGrams <= 0 && product.sodiumMg <= 0) return false;
+        if (!organizerProductIds.has(product.id)) return true;
+        return favoriteIds.has(product.id) || favoriteSlugs.has(product.slug) || explicitlySelectedIds.has(product.id);
+      });
     })();
 
     if (productOptions.length === 0) return;
@@ -1555,7 +1616,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         shouldValidate: true,
       });
     });
-  }, [form, mergedFuelProducts, segments, selectedProducts]);
+  }, [form, mergedFuelProducts, organizerProductIds, segments, selectedProducts]);
 
   const totalDistanceKm =
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??
@@ -1714,6 +1775,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       onFavoriteToggle={toggleProduct}
       favoriteLimit={entitlements.favoriteLimit}
       localProductIds={localProductIds}
+      organizerAidStationProducts={organizerAidStationProducts}
       startSupplies={startSupplies}
       onStartSupplyDrop={handleStartSupplyDrop}
       onStartSupplyRemove={handleStartSupplyRemove}

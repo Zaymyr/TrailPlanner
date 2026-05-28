@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-05-19
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -10,6 +10,7 @@ related_files:
   - apps/web/app/(coach)/race-planner/utils/plan-sanitizers.ts
   - apps/web/app/(coach)/race-planner/utils/__tests__/plan-sanitizers.test.ts
   - apps/web/app/api/plans/route.ts
+  - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/lib/race-planner-storage.ts
   - apps/web/lib/auth-storage.ts
   - apps/mobile/app/(app)/plan/[id]/edit.tsx
@@ -18,6 +19,7 @@ related_files:
 related_tables:
   - race_plans
   - plan_aid_stations
+  - race_aid_station_products
 ---
 
 # Plan Storage
@@ -34,6 +36,7 @@ This document explains where planner state lives before signup, during onboardin
 - Hydration: mapping saved JSON back into form state.
 - Idempotency guard: client and server duplicate-save protection.
 - Aid station service flags: `waterRefill` and `solidRefill` are stored per station. Missing flags hydrate as enabled for backward compatibility.
+- Organizer station products: optional imported source suggestions stored in planner JSON, separate from station supplies.
 
 ## Onboarding Stage
 
@@ -76,11 +79,14 @@ After signup, `race_plans` is the source of truth:
 - `elevation_profile` stores elevation points separately.
 - `race_id` links to source race when applicable.
 - `plan_gpx_path` and `plan_course_stats` store catalog GPX import metadata.
+- `organizerAidStationProducts` can store organizer-provided product suggestions by source ravito key.
 
 Aid station entries in `planner_values.aidStations` persist both service flags:
 
 - `waterRefill: false` means the station cannot refill water.
 - `solidRefill: false` means the station cannot provide carb/sodium products, and persisted `supplies` for that station should hydrate as empty.
+
+Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions and should not be converted into supplies unless the runner explicitly selects them.
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans.
 
@@ -103,6 +109,7 @@ It:
 - `elevation_profile` is stored outside `planner_values`.
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
+- Source organizer edits after import do not mutate existing saved plans.
 
 ## Gotchas
 
@@ -111,10 +118,12 @@ It:
 - Treat missing `solidRefill` and `waterRefill` values as enabled on intermediate aid stations.
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
+- Missing `organizerAidStationProducts` should be treated as no organizer suggestions; older plans will not have this field.
 
 ## Related Docs
 
 - [race_plans](../02-database/tables/race-plans.md)
 - [Duplicate Events Pattern](../04-auth-and-security/duplicate-events-pattern.md)
 - [GPX Import](gpx-import.md)
+- [Organizer Race Management](organizer-race-management.md)
 - [Premium Entitlement](premium-entitlement.md)

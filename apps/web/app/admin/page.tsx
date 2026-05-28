@@ -11,6 +11,7 @@ import AdminGrowthSection from "./components/AdminGrowthSection";
 import AdminRaceCatalogSection from "./components/AdminRaceCatalogSection";
 import AdminSocialTemplatesSection from "./components/AdminSocialTemplatesSection";
 import { AdminAnalyticsTab } from "./_components/AdminAnalyticsTab";
+import { AdminOrganizerClaimsTab } from "./_components/AdminOrganizerClaimsTab";
 import { AdminProductsTab } from "./_components/AdminProductsTab";
 import { AdminUsersTab } from "./_components/AdminUsersTab";
 
@@ -82,6 +83,7 @@ export default function AdminPage() {
           { id: "users", label: t.admin.users.title },
           { id: "social-templates", label: t.admin.socialTemplates.title },
           { id: "races", label: t.admin.raceCatalog.title },
+          { id: "organizers", label: "Organisateurs" },
           { id: "growth", label: t.admin.growth.title },
           { id: "analytics", label: t.admin.analytics.title },
         ]}
@@ -95,6 +97,7 @@ export default function AdminPage() {
         <AdminSocialTemplatesSection accessToken={accessToken} t={t.admin.socialTemplates} />
       )}
       {activeTab === "races" && <AdminRaceCatalogSection accessToken={accessToken ?? undefined} t={t.admin.raceCatalog} />}
+      {activeTab === "organizers" && <AdminOrganizerClaimsTab accessToken={accessToken} />}
       {activeTab === "growth" && <AdminGrowthSection accessToken={accessToken ?? undefined} t={t.admin.growth} />}
       {activeTab === "analytics" && <AdminAnalyticsTab accessToken={accessToken} />}
     </div>

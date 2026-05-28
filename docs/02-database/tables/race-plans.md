@@ -1,7 +1,7 @@
 ---
 title: race_plans Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -15,6 +15,7 @@ related_tables:
   - race_plans
   - plan_aid_stations
   - races
+  - race_aid_station_products
   - coach_comments
 ---
 
@@ -27,6 +28,7 @@ related_tables:
 ## Key Concepts
 
 - `planner_values`: flexible JSONB state used to hydrate the planner.
+- `organizerAidStationProducts`: optional planner JSON field for organizer ravito suggestions imported from catalog source stations.
 - `elevation_profile`: separate JSONB array of distance/elevation points.
 - `race_id`: optional link to the source `races` row.
 - `coach_id`: optional coach owner for coachee plans.
@@ -78,6 +80,8 @@ Summary:
 - `race_id` can be null. Deleting a race must detach plans, not delete them.
 - `catalog_race_updated_at_at_import` is a source snapshot, not a live sync guarantee.
 - `plan_gpx_path` belongs to the copied plan GPX, not the source race GPX.
+- Organizer ravito products are suggestion metadata in `planner_values`, not automatic supplies.
+- Organizer source edits after import do not rewrite existing saved plans.
 
 ## Common Queries
 
@@ -102,11 +106,13 @@ where race_id = '<race-id>';
 
 - `catalog_race_id` is the old column name. Current migrations rename it to `race_id`.
 - `planner_values` can contain older shape variants. Hydration code must tolerate missing fields.
+- `organizerAidStationProducts` may reference products that are not live global catalog rows. Keep it separate from product auto-fill defaults unless the runner explicitly selected/favorited the product.
 - `apps/web/app/api/plans/route.ts` can update an existing plan by name when creating a plan.
 
 ## Related Docs
 
 - [Plan Storage](../../03-business-rules/plan-storage.md)
 - [GPX Import](../../03-business-rules/gpx-import.md)
+- [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [Relationships](../relationships.md)
 - [RLS Policies](../rls-policies.md)

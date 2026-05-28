@@ -1,14 +1,19 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-05-26
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/tests/coach_rls_checks.sql
+  - supabase/tests/organizer_rls_checks.sql
 related_tables:
   - race_plans
   - races
+  - race_events
+  - race_event_claims
+  - race_event_organizers
+  - race_aid_station_products
   - products
   - user_profiles
   - subscriptions
@@ -134,6 +139,18 @@ Recent auth metrics migration:
 
 <!-- TODO: verify with maintainer: identify the migration or dashboard history that creates race_events and columns used by current code. -->
 
+### Organizer Portal
+
+`supabase/migrations/20260528120000_add_organizer_portal.sql` adds the web organizer portal schema:
+
+- `race_event_claims` for user-submitted event claims;
+- `race_event_organizers` for approved event-scoped organizer memberships;
+- `race_aid_station_products` for products offered at source race aid stations.
+
+The migration deliberately does not use `races.created_by` for claimed public races. Organizer authorization is event-scoped through `race_event_organizers`, and admin RLS checks use `app_metadata`.
+
+Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.sql`.
+
 ### Push Notifications and Cron
 
 Push support comes from:
@@ -160,6 +177,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Do not add `user_metadata` admin checks in new policies.
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
+- The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 - Data-only brand imports created after official product metadata should populate `official_name` and `is_official` in the same migration.
 - Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.
@@ -170,3 +188,4 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - [RLS Policies](rls-policies.md)
 - [Add New Table](../06-workflows/add-new-table.md)
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
+- [Organizer Race Management](../03-business-rules/organizer-race-management.md)

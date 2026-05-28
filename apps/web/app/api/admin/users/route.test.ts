@@ -52,7 +52,7 @@ describe("GET /api/admin/users", () => {
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([]));
 
-    const response = await GET(usersRequest());
+    const response = (await GET(usersRequest())) as Response;
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -92,7 +92,7 @@ describe("GET /api/admin/users", () => {
       )
     );
 
-    const response = await GET(usersRequest());
+    const response = (await GET(usersRequest())) as Response;
     const payload = await response.json();
 
     expect(response.status).toBe(502);

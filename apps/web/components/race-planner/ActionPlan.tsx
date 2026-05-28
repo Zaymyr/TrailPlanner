@@ -10,6 +10,7 @@ import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../l
 import type {
   ElevationPoint,
   FormValues,
+  OrganizerAidStationProductSuggestion,
   SectionSegment,
   Segment,
   SegmentPlan,
@@ -161,6 +162,7 @@ type ActionPlanProps = {
   onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
   favoriteLimit: number;
   localProductIds?: string[];
+  organizerAidStationProducts?: Record<string, OrganizerAidStationProductSuggestion[]>;
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
@@ -1153,6 +1155,7 @@ export function ActionPlan({
   onFavoriteToggle,
   favoriteLimit,
   localProductIds,
+  organizerAidStationProducts,
   startSupplies,
   onStartSupplyDrop,
   onStartSupplyRemove,
@@ -1347,6 +1350,10 @@ export function ActionPlan({
     setEditorError(null);
   }, []);
   const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
+  const buildAidStationProductKey = useCallback(
+    (name: string, distanceKm: number) => `${name.trim().toLowerCase()}|${Number(distanceKm.toFixed(2))}`,
+    []
+  );
   const pickerFavoriteSet = useMemo(() => new Set(pickerFavorites), [pickerFavorites]);
   const sectionSegmentsMap = useMemo(() => sectionSegments ?? {}, [sectionSegments]);
   const buildSectionSamples = useCallback(
@@ -2082,6 +2089,70 @@ export function ActionPlan({
                 ) : item.isFinish ? (
                   <AidStationBadge step={pointNumber} variant="finish" />
                 ) : null;
+                const organizerSuggestions =
+                  isAidStation && typeof item.aidStationIndex === "number"
+                    ? organizerAidStationProducts?.[buildAidStationProductKey(item.title, item.distanceKm)] ?? []
+                    : [];
+                const selectedAidProductIds =
+                  typeof item.aidStationIndex === "number"
+                    ? new Set(getAidSupplies(item.aidStationIndex).map((supply) => supply.productId))
+                    : new Set<string>();
+                const organizerSuggestionsBlock =
+                  organizerSuggestions.length > 0 && typeof item.aidStationIndex === "number" ? (
+                    <div className="mt-3 rounded-xl border border-emerald-300/40 bg-emerald-500/10 p-3 text-sm text-foreground dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-slate-50">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-200">
+                            {locale === "fr" ? "Produits organisation" : "Organizer products"}
+                          </p>
+                          <p className="text-xs text-muted-foreground dark:text-slate-300">
+                            {locale === "fr"
+                              ? "Proposes pour ce ravito. Ils restent hors auto-fill tant qu'ils ne sont pas favoris ou selectionnes."
+                              : "Suggested for this aid station. They stay out of auto-fill until favorited or selected."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {organizerSuggestions.map((suggestion) => {
+                          const isSelected = selectedAidProductIds.has(suggestion.product.id);
+                          return (
+                            <button
+                              key={`${suggestion.product.id}-${suggestion.orderIndex}`}
+                              type="button"
+                              className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                                isSelected
+                                  ? "border-emerald-400 bg-emerald-500/20 text-emerald-800 dark:text-emerald-100"
+                                  : "border-border bg-card text-foreground hover:border-emerald-400 dark:bg-slate-950/70 dark:text-slate-100"
+                              }`}
+                              onClick={() => {
+                                if (typeof item.aidStationIndex !== "number") return;
+                                if (isSelected) {
+                                  onSupplyRemove(item.aidStationIndex, suggestion.product.id);
+                                } else {
+                                  onSupplyDrop(item.aidStationIndex, suggestion.product.id, 1);
+                                }
+                              }}
+                            >
+                              <span className="block font-semibold">{suggestion.product.name}</span>
+                              <span className="block text-muted-foreground dark:text-slate-300">
+                                {getFuelTypeLabel(suggestion.product.fuelType, locale)} · {suggestion.product.carbsGrams} g · {suggestion.product.sodiumMg} mg
+                              </span>
+                              {suggestion.notes ? (
+                                <span className="mt-1 block text-muted-foreground dark:text-slate-400">
+                                  {suggestion.notes}
+                                </span>
+                              ) : null}
+                              <span className="mt-1 block font-semibold">
+                                {isSelected
+                                  ? locale === "fr" ? "Selectionne" : "Selected"
+                                  : locale === "fr" ? "Ajouter au ravito" : "Add to aid station"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null;
                 const metaContent = (
                   <div className="space-y-1">
                     <div>{metaText}</div>
@@ -2874,6 +2945,7 @@ export function ActionPlan({
                             : undefined
                         }
                       />
+                      {organizerSuggestionsBlock}
                       {contextComments.length > 0 ? (
                         <div className="mt-3">
                           <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />

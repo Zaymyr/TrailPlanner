@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-05-26
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -16,12 +16,14 @@ related_files:
   - apps/web/app/api/admin/products/route.ts
   - apps/web/app/api/products/route.ts
   - apps/web/app/api/products/[productId]/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/lib/official-product-names.ts
   - apps/web/lib/nutrition-planner.ts
 related_tables:
   - products
   - affiliate_offers
   - user_favorite_products
+  - race_aid_station_products
 ---
 
 # `products`
@@ -36,6 +38,7 @@ related_tables:
 - Live product: product visible to users.
 - Archived product: hidden from normal reads.
 - User product: product with `created_by` set.
+- Organizer-scoped product: non-live user product created for one event/ravito context and linked through `race_aid_station_products`.
 - Official/shared catalog product: product with `is_official = true`, shown as validated official catalog data in clients.
 - Official source name: exact label from the brand site/import stored in `official_name`.
 - Intrinsic nutrition: carbs, sodium, calories, protein, fat per product unit.
@@ -92,6 +95,7 @@ Summary:
 - Authenticated users can read live, non-archived products.
 - Anon can read live, non-archived products.
 - Users can read their own products.
+- Organizer-created products are readable by their creator through the own-product policy, but remain out of global catalog reads while `is_live = false`.
 
 Mobile product edits and deletes go through `apps/web/app/api/products/[productId]/route.ts`, which verifies the Supabase bearer token, authorizes either the product owner (`created_by`) or an admin from `app_metadata`, then performs the mutation with the server-side service role.
 
@@ -111,6 +115,7 @@ The public product API returns `isOfficial: true` for official/shared catalog ro
 - Web API product mappings set client `waterMl` to `0` because water is not stored on products.
 - The 500 ml electrolyte serving assumption lives in `apps/web/lib/nutrition-planner.ts`, not in the product schema.
 - Shared catalog seed migrations should store the consumable unit used by the runner, not ecommerce bundle sizes. For example, drink mixes use one serving sachet, gels use one gel, and multipacks are represented through the same per-unit nutrition.
+- Organizer-created ravito products should remain non-official and non-live unless they are intentionally promoted through a separate catalog curation flow.
 
 ## Common Queries
 
@@ -145,6 +150,7 @@ where fuel_type = 'electrolyte'
 - Official brand import migrations should set both `is_official = true` and `official_name`; otherwise clients may show the rows as unverified user/catalog data even when `is_live = true`.
 - Official product image migrations should keep `created_by` untouched and target only curated catalog rows, so user-owned products with similar naming are not overwritten.
 - Admin product usage UI should expose aggregate favorite counts only, not the list of users behind `user_favorite_products`.
+- Do not make organizer ravito products live just so imported runners can see them. `/api/plans/from-catalog` carries those suggestions separately from `/api/products`.
 
 ## Related Docs
 
@@ -152,3 +158,4 @@ where fuel_type = 'electrolyte'
 - [Premium Entitlement](../../03-business-rules/premium-entitlement.md)
 - [RLS Policies](../rls-policies.md)
 - [Schema Overview](../schema-overview.md)
+- [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

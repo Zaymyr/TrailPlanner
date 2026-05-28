@@ -87,6 +87,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Database changes | `docs/02-database/` + `docs/04-auth-and-security/rls-checklist.md` |
 | Auth / session work | `docs/04-auth-and-security/` + `docs/03-business-rules/trial-lifecycle.md` |
 | Business logic changes | `docs/03-business-rules/` |
+| Organizer portal / race organizer claims | `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/` + `docs/01-architecture/web-app.md` |
 | Integration work (Stripe, Resend, Edge Functions) | `docs/05-integrations/` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |
 | Design system changes | `docs/07-design-system/` |
@@ -117,6 +118,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 - GPX: `docs/03-business-rules/gpx-import.md`
 - Premium: `docs/03-business-rules/premium-entitlement.md`
 - Trial: `docs/03-business-rules/trial-lifecycle.md`
+- Organizer race management: `docs/03-business-rules/organizer-race-management.md`
 - Plan persistence: `docs/03-business-rules/plan-storage.md`
 
 ## If You Are Working On Web, Read:
