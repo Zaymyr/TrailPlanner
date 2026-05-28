@@ -327,7 +327,14 @@ export const NutritionContent = memo(function NutritionContent({
               favoriteGroups.map((group) => (
                 <View key={group.brandLabel} style={styles.brandGroup}>
                   <View style={styles.brandHeader}>
-                    <Text style={styles.brandTitle}>{group.brandLabel}</Text>
+                    <Text
+                      style={[
+                        styles.brandTitle,
+                        group.items.some((favorite) => isVerifiedProduct(favorite.products)) && styles.brandTitleOfficial,
+                      ]}
+                    >
+                      {group.brandLabel}
+                    </Text>
                     <View style={styles.brandHeaderActions}>
                       <View style={styles.brandCountPill}>
                         <DataText style={styles.brandCountText}>{group.items.length}</DataText>
@@ -425,15 +432,10 @@ export const NutritionContent = memo(function NutritionContent({
             style={[styles.brandHeaderButton, item.expanded && styles.brandHeaderButtonExpanded]}
           >
             <View style={styles.brandTitleRow}>
-              {item.hasVerifiedProduct && !item.expanded ? (
-                <Image
-                  accessibilityIgnoresInvertColors
-                  accessibilityLabel="Marque validee"
-                  source={verifiedProductIcon}
-                  style={styles.brandVerifiedIcon}
-                />
-              ) : null}
-              <Text numberOfLines={1} style={styles.brandTitle}>
+              <Text
+                numberOfLines={1}
+                style={[styles.brandTitle, item.hasVerifiedProduct && styles.brandTitleOfficial]}
+              >
                 {item.brandLabel}
               </Text>
             </View>
@@ -775,10 +777,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  brandVerifiedIcon: {
-    width: 22,
-    height: 22,
-    resizeMode: 'contain',
+  brandTitleOfficial: {
+    color: Colors.brandLight,
   },
   brandItems: {
     gap: 0,

@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-05-27
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
