@@ -9,6 +9,7 @@ related_files:
   - apps/web/lib/fuel-types.ts
   - apps/web/lib/default-products.ts
   - apps/web/app/api/plans/route.ts
+  - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/(coach)/race-planner/RacePlannerPageContent.tsx
   - apps/web/app/(coach)/race-planner/types.ts
   - apps/web/app/(coach)/race-planner/components/PlanPrimaryContent.tsx
@@ -67,6 +68,7 @@ This document describes how Pace Yourself allocates products to segment nutritio
 - Carryover inventory: whole product units physically available after previous sections.
 - Nutrition balance: surplus carbs or sodium from consumed whole units that can cover later section demand.
 - Aid station services: `waterRefill` controls water refill availability, while `solidRefill` controls product pickup for carbs and sodium.
+- Organizer station product: product proposed by the race organization for one source ravito.
 
 ## Inputs
 
@@ -86,6 +88,16 @@ Planner segment code in `apps/web/app/(coach)/race-planner/utils/segments.ts` co
 - elevation profile;
 - water carrying capacity;
 - per-hour carb/water/sodium targets.
+
+## Organizer Products at Aid Stations
+
+When a runner imports a catalog race, `/api/plans/from-catalog` loads organizer-provided `race_aid_station_products` for source aid stations and stores them in `planner_values.organizerAidStationProducts`.
+
+Those products are displayed in the web planner at the matching ravito as organization suggestions. They are merged into the local product map so explicitly selected suggestions can render and participate in coverage math.
+
+They are not part of the auto-fill candidate pool by default. Auto-fill can use an organizer product only if the runner has favorited that product or has explicitly selected it in start supplies or aid-station supplies.
+
+Mobile has no organizer-specific UI in v1.
 
 ## Planner Carryover Rule
 
@@ -240,6 +252,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
 - Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
 - Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, tint official mobile brand header names with the light brand green, and must not change allocation order or nutrition math.
+- Organizer ravito suggestions are presentation and explicit-selection data. Do not let non-live organizer products enter auto-fill unless the runner favorites or selects them.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
 - Mobile favorite toggles are presentation only. Inactive product rows show an unfilled star without a filled brand circle; only active favorites use the filled brand circle.
 - Collapsed mobile brand headers depend on the same catalog row builder as virtualization; keep verified-header metadata in that single builder when resolving merges.
@@ -257,4 +270,5 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - [Products Table](../02-database/tables/products.md)
 - [Pacing Algorithm](pacing-algorithm.md)
 - [Plan Storage](plan-storage.md)
+- [Organizer Race Management](organizer-race-management.md)
 - [Add New Table](../06-workflows/add-new-table.md)

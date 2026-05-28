@@ -5,13 +5,19 @@ last_verified: 2026-05-27
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
+  - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
+  - apps/web/app/api/organizer/events/[id]/route.ts
+  - apps/web/app/api/organizer/claims/route.ts
+  - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
 related_tables:
   - race_events
+  - race_event_claims
+  - race_event_organizers
   - races
 ---
 
@@ -27,6 +33,7 @@ related_tables:
 - Event image: `thumbnail_url` can be used as a shared event thumbnail.
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Missing provenance: table creation must be verified outside the visible migrations.
+- Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
 ## Columns Observed From Code
 
@@ -57,10 +64,13 @@ No `race_events` RLS policy migration was found in this repo.
 
 Because API routes use service role for event writes, client/mobile read access must be verified against the live policies before changing catalog access.
 
+Organizer portal writes also go through web service routes after checking `race_event_organizers`. The organizer portal migration adds RLS for claims and memberships, but it does not add a `race_events` table policy.
+
 ## Business Invariants
 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
 - Race rows can refer to an existing or newly created event.
+- Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
@@ -89,6 +99,7 @@ from public.races;
 - Do not add docs that claim exact constraints for `race_events` without verification.
 - Code paths are real even though migration provenance is incomplete.
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
+- Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-05-27
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -15,7 +15,10 @@ related_tables:
   - plan_aid_stations
   - races
   - race_aid_stations
+  - race_aid_station_products
   - race_events
+  - race_event_claims
+  - race_event_organizers
   - products
   - user_profiles
   - subscriptions
@@ -35,6 +38,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Saved plan: a row in `race_plans` with flexible planner JSON.
 - Plan aid station: per-plan aid station snapshot.
 - Race aid station: catalog/private race aid station source.
+- Organizer membership: event-scoped access through `race_event_organizers`.
 - Entitlement source: subscription, trial, coach profile, or premium grant.
 
 ## Tables
@@ -58,7 +62,10 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `products` | Fuel product catalog and user-created products, with explicit `is_official` metadata for curated/shared catalog rows. |
 | `push_devices` | Expo push tokens and device metadata per user. |
 | `push_notification_events` | Push reminder send log and dedupe records. |
+| `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
 | `race_aid_stations` | Aid stations attached to `races`. |
+| `race_event_claims` | User requests to claim management of a `race_events` row. |
+| `race_event_organizers` | Approved event-scoped organizer memberships. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
@@ -86,8 +93,10 @@ erDiagram
   USER_PROFILES ||--o{ USER_FAVORITE_PRODUCTS : favorites
   PRODUCTS ||--o{ USER_FAVORITE_PRODUCTS : favorited
   PRODUCTS ||--o{ AFFILIATE_OFFERS : has
+  PRODUCTS ||--o{ RACE_AID_STATION_PRODUCTS : offered_at
   RACES ||--o{ RACE_AID_STATIONS : has
   RACES ||--o{ RACE_PLANS : imported_into
+  RACE_AID_STATIONS ||--o{ RACE_AID_STATION_PRODUCTS : offers
   RACE_PLANS ||--o{ PLAN_AID_STATIONS : has
   USER_PROFILES ||--o{ COACH_COACHEES : coach
   USER_PROFILES ||--o{ COACH_COACHEES : coachee
@@ -100,6 +109,8 @@ erDiagram
   USER_PROFILES ||--o{ PUSH_DEVICES : registers
   PUSH_DEVICES ||--o{ PUSH_NOTIFICATION_EVENTS : logs
   RACE_EVENTS ||--o{ RACES : groups
+  RACE_EVENTS ||--o{ RACE_EVENT_CLAIMS : claimed_by
+  RACE_EVENTS ||--o{ RACE_EVENT_ORGANIZERS : managed_by
 ```
 
 ## Current Table Detail Docs
@@ -107,7 +118,10 @@ erDiagram
 - [race_plans](tables/race-plans.md)
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [race_aid_stations](tables/race-aid-stations.md)
+- [race_aid_station_products](tables/race-aid-station-products.md)
 - [race_events](tables/race-events.md)
+- [race_event_claims](tables/race-event-claims.md)
+- [race_event_organizers](tables/race-event-organizers.md)
 - [products](tables/products.md)
 - [user_profiles](tables/user-profiles.md)
 - [subscriptions](tables/subscriptions.md)
@@ -128,6 +142,8 @@ erDiagram
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
+- Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
+- Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 
@@ -137,3 +153,4 @@ erDiagram
 - [RLS Policies](rls-policies.md)
 - [Migrations](migrations.md)
 - [Plan Storage](../03-business-rules/plan-storage.md)
+- [Organizer Race Management](../03-business-rules/organizer-race-management.md)

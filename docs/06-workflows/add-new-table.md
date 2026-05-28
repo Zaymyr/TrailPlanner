@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-05-17
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -38,6 +38,7 @@ rg -n "create table|alter table|create policy" supabase/migrations
 7. Grant role privileges only when the RLS policy should be reachable.
 8. Add a table doc under `docs/02-database/tables/` if it is a primary domain table.
 9. Update [../02-database/schema-overview.md](../02-database/schema-overview.md) and [../02-database/relationships.md](../02-database/relationships.md).
+10. If the table introduces a new business rule, add or update the matching doc under `docs/03-business-rules/`.
 
 ## Validation
 
@@ -49,6 +50,7 @@ npm run test
 ```
 
 If the policy is complex, add a manual SQL check under `supabase/tests/`.
+Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example and `supabase/tests/coach_rls_checks.sql` as the user-relationship example.
 
 ## Do Not
 
@@ -56,6 +58,7 @@ If the policy is complex, add a manual SQL check under `supabase/tests/`.
 - Do not use `user_metadata` for admin authorization.
 - Do not update `docs/_archive/db/schema.sql` as current documentation.
 - Do not assume columns used in code exist without checking migrations or live schema.
+- Do not rely on a service-role route as the only validation for a newly exposed table.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: plan_aid_stations Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -11,6 +11,7 @@ related_tables:
   - plan_aid_stations
   - race_plans
   - race_aid_stations
+  - race_aid_station_products
 ---
 
 # `plan_aid_stations`
@@ -63,6 +64,7 @@ Summary:
 - `race_aid_station_id` should be treated as uncertain until the schema conflict is resolved.
 - Plan stations can diverge from `race_aid_stations`; they are plan-specific.
 - Catalog imports write plan stations after creating the parent plan and roll back best-effort on failure.
+- Organizer station-product suggestions are not stored in `plan_aid_stations`; imported plans keep them in `race_plans.planner_values.organizerAidStationProducts`.
 
 ## Common Queries
 
@@ -86,6 +88,7 @@ where plan_id = '<plan-id>';
 
 - Do not assume these rows stay in sync with `race_aid_stations`.
 - If adding `race_aid_station_id`, update RLS, importer docs, and migration docs together.
+- Do not add product availability or stock columns here for organizer ravito products. Use `race_aid_station_products` on the source race and planner JSON suggestions on import.
 - The UI uses `distanceKm`; the database column is `km`.
 
 ## Related Docs
@@ -93,4 +96,5 @@ where plan_id = '<plan-id>';
 - [race_plans](race-plans.md)
 - [race_aid_stations](race-aid-stations.md)
 - [GPX Import](../../03-business-rules/gpx-import.md)
+- [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [Relationships](../relationships.md)

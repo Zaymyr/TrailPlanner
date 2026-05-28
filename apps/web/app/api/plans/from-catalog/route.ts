@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getUserEntitlements } from "../../../../lib/entitlements";
+import { defaultFuelType, fuelTypeSchema } from "../../../../lib/fuel-types";
 import { parseGpx } from "../../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
@@ -29,6 +30,7 @@ const catalogRaceSchema = z.object({
   race_aid_stations: z
     .array(
       z.object({
+        id: z.string().uuid().optional(),
         name: z.string(),
         km: z.number(),
         water_available: z.boolean().nullable().optional(),
@@ -54,9 +56,44 @@ const planRowSchema = z.object({
   elevation_profile: z.array(z.unknown()).optional().default([]),
 });
 
+const organizerProductRowSchema = z.object({
+  race_aid_station_id: z.string().uuid(),
+  notes: z.string().nullable().optional(),
+  order_index: z.number().nullable().optional(),
+  products: z
+    .object({
+      id: z.string().uuid(),
+      slug: z.string(),
+      sku: z.string().optional().nullable(),
+      name: z.string(),
+      brand: z.string().optional().nullable(),
+      image_url: z.string().url().optional().nullable(),
+      fuel_type: fuelTypeSchema.optional().default(defaultFuelType),
+      product_url: z.string().url().optional().nullable(),
+      calories_kcal: z.union([z.number(), z.string()]).transform((value) => Number(value)),
+      carbs_g: z.union([z.number(), z.string()]).transform((value) => Number(value)),
+      sodium_mg: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
+      protein_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
+      fat_g: z.union([z.number(), z.string(), z.null()]).transform((value) => Number(value ?? 0)),
+      created_by: z.string().uuid().optional().nullable(),
+      is_official: z.boolean().optional().default(false),
+    })
+    .nullable()
+    .optional(),
+});
+
 const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType = "application/json") => ({
   apikey: supabaseKey,
   Authorization: `Bearer ${accessToken}`,
+  ...(contentType ? { "Content-Type": contentType } : {}),
+});
+
+const buildAidStationProductKey = (name: string, distanceKm: number) =>
+  `${name.trim().toLowerCase()}|${Number(distanceKm.toFixed(2))}`;
+
+const serviceHeaders = (supabaseServiceRoleKey: string, contentType = "application/json") => ({
+  apikey: supabaseServiceRoleKey,
+  Authorization: `Bearer ${supabaseServiceRoleKey}`,
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
@@ -159,7 +196,7 @@ export async function POST(request: NextRequest) {
   }
 
   const catalogRaceResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at,race_aid_stations(name,km,water_available,order_index)&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at,race_aid_stations(id,name,km,water_available,order_index)&limit=1`,
     {
       headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -267,10 +304,70 @@ export async function POST(request: NextRequest) {
         ? mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints)
         : [];
 
+  const organizerAidStationProducts: Record<string, unknown[]> = {};
+  const catalogStationById = new Map<
+    string,
+    (typeof catalogRace.race_aid_stations)[number] & { id: string }
+  >();
+  catalogRace.race_aid_stations.forEach((station) => {
+    if (typeof station.id === "string") {
+      catalogStationById.set(station.id, { ...station, id: station.id });
+    }
+  });
+  const catalogStationIds = Array.from(catalogStationById.keys());
+
+  if (catalogStationIds.length > 0) {
+    const stationProductsResponse = await fetch(
+      `${supabaseService.supabaseUrl}/rest/v1/race_aid_station_products?race_aid_station_id=in.(${catalogStationIds.join(",")})&select=race_aid_station_id,notes,order_index,products(id,slug,sku,name,brand,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by,is_official)&order=order_index.asc`,
+      {
+        headers: serviceHeaders(supabaseService.supabaseServiceRoleKey, ""),
+        cache: "no-store",
+      }
+    );
+
+    if (stationProductsResponse.ok) {
+      const rows = z.array(organizerProductRowSchema).parse(await stationProductsResponse.json());
+      rows.forEach((row) => {
+        const station = catalogStationById.get(row.race_aid_station_id);
+        if (!station || !row.products) return;
+        const key = buildAidStationProductKey(station.name, station.km);
+        organizerAidStationProducts[key] ??= [];
+        organizerAidStationProducts[key].push({
+          aidStationKey: key,
+          aidStationName: station.name,
+          distanceKm: station.km,
+          notes: row.notes ?? null,
+          orderIndex: row.order_index ?? 0,
+          product: {
+            id: row.products.id,
+            slug: row.products.slug,
+            sku: row.products.sku ?? undefined,
+            name: row.products.name,
+            brand: row.products.brand ?? undefined,
+            imageUrl: row.products.image_url ?? undefined,
+            fuelType: row.products.fuel_type ?? defaultFuelType,
+            productUrl: row.products.product_url ?? undefined,
+            caloriesKcal: Number(row.products.calories_kcal) || 0,
+            carbsGrams: Number(row.products.carbs_g) || 0,
+            sodiumMg: Number(row.products.sodium_mg) || 0,
+            proteinGrams: Number(row.products.protein_g) || 0,
+            fatGrams: Number(row.products.fat_g) || 0,
+            waterMl: 0,
+            createdBy: row.products.created_by ?? null,
+            isOfficial: row.products.is_official ?? false,
+          },
+        });
+      });
+    } else {
+      console.warn("Unable to load organizer aid station products", await stationProductsResponse.text());
+    }
+  }
+
   const plannerValues = {
     raceDistanceKm: parsedGpx.stats.distanceKm || Number(catalogRace.distance_km),
     elevationGain: parsedGpx.stats.gainM || Number(catalogRace.elevation_gain_m),
     aidStations: plannerAidStations,
+    organizerAidStationProducts,
   };
 
   const gpxHash = catalogRace.gpx_sha256 ?? createHash("sha256").update(gpxContent).digest("hex");

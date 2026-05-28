@@ -1,16 +1,20 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
+  - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/races/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/components/GpxAidStationImporter.tsx
 related_tables:
   - race_aid_stations
+  - race_aid_station_products
   - races
   - plan_aid_stations
 ---
@@ -27,6 +31,7 @@ related_tables:
 - Catalog import: copying race stations into a saved plan.
 - Water availability: station refill availability.
 - GPX waypoint import: route/admin logic can derive stations from GPX waypoints.
+- Organizer products: optional station-product links live in `race_aid_station_products`.
 
 ## Columns
 
@@ -45,6 +50,7 @@ related_tables:
 ## Foreign Keys
 
 - `race_id -> public.races(id)` after the `race_catalog` to `races` rename.
+- Referenced by `race_aid_station_products.race_aid_station_id` with cascade delete.
 
 ## Indexes
 
@@ -59,6 +65,7 @@ Summary:
 - Public/live race aid stations are readable through parent race visibility.
 - Private race aid stations are readable/manageable by the race owner.
 - Admins can manage catalog aid stations.
+- Approved event organizers can manage source aid stations through service routes after an active event-membership check.
 
 ## Business Invariants
 
@@ -66,6 +73,7 @@ Summary:
 - When a plan is created from catalog, these rows are copied into `plan_aid_stations`.
 - If a race has no aid stations, import code may derive stations from GPX waypoints.
 - Existing code attempts to avoid destructive deletion when linked plan stations exist, but the link column is not visible in migrations.
+- Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
 
 ## Common Queries
 
@@ -90,10 +98,12 @@ values ('<race-id>', 'Aid station 1', 12.5, true, 0);
 - Old docs and migrations call the parent table `race_catalog`; current code uses `races`.
 - Code uses `distanceKm`; the database column is `km`.
 - Review-related columns need live-schema verification before new importer work.
+- Deleting and recreating a station changes its id and removes `race_aid_station_products` links through cascade; update existing rows when preserving product suggestions matters.
 
 ## Related Docs
 
 - [race_events](race-events.md)
 - [plan_aid_stations](plan-aid-stations.md)
+- [race_aid_station_products](race-aid-station-products.md)
 - [GPX Import](../../03-business-rules/gpx-import.md)
 - [Relationships](../relationships.md)

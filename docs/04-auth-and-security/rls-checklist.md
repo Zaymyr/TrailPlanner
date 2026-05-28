@@ -1,11 +1,12 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-05-26
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/tests/coach_rls_checks.sql
+  - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
 related_tables:
@@ -13,6 +14,9 @@ related_tables:
   - user_profiles
   - subscriptions
   - premium_grants
+  - race_event_claims
+  - race_event_organizers
+  - race_aid_station_products
 ---
 
 # RLS Checklist
@@ -71,6 +75,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 Use:
 
 - `supabase/tests/coach_rls_checks.sql` as a pattern for manual RLS context checks;
+- `supabase/tests/organizer_rls_checks.sql` for event-membership and organizer station-product checks;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 
@@ -83,6 +88,7 @@ Use:
 - Avoid overloading owner columns for presentation metadata. For example, `products.is_official` is the official/shared catalog flag; `products.created_by` remains ownership only.
 - Data-only official product imports that only upsert `products` rows can reuse existing product RLS policies; changing grants, views, functions, or ownership semantics requires the full checklist.
 - Data-only official product image backfills can reuse existing product RLS policies when they only update `products.image_url` and keep ownership, grants, and visibility unchanged.
+- Event-scoped organizer policies need both claim/member RLS and route-level service-role authorization checks. Service-role route success alone does not prove direct RLS behavior.
 
 ## Related Docs
 
@@ -90,3 +96,4 @@ Use:
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
 - [Auth Flows](auth-flows.md)
 - [Schema Overview](../02-database/schema-overview.md)
+- [Organizer Race Management](../03-business-rules/organizer-race-management.md)

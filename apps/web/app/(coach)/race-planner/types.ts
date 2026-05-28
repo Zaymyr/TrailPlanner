@@ -1,3 +1,5 @@
+import type { FuelProduct } from "../../../lib/product-types";
+
 export type StationSupply = {
   productId: string;
   quantity: number;
@@ -33,6 +35,15 @@ export type AidStation = {
   nutrition?: AidStationNutritionItem[];
 } & SegmentPlan;
 
+export type OrganizerAidStationProductSuggestion = {
+  aidStationKey: string;
+  aidStationName: string;
+  distanceKm: number;
+  notes?: string | null;
+  orderIndex: number;
+  product: FuelProduct;
+};
+
 export type FormValues = {
   raceDistanceKm: number;
   elevationGain: number;
@@ -51,6 +62,7 @@ export type FormValues = {
   finishPlan?: SegmentPlan;
   segments?: Record<string, SectionSegment[]>;
   sectionSegments?: Record<string, SectionSegment[]>;
+  organizerAidStationProducts?: Record<string, OrganizerAidStationProductSuggestion[]>;
 };
 
 export type Segment = {

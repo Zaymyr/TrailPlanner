@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-05-19
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -10,12 +10,28 @@ related_files:
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/plans/route.ts
+  - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/race-catalog/route.ts
+  - apps/web/lib/organizer.ts
+  - apps/web/app/organizers/page.tsx
+  - apps/web/app/organizer/page.tsx
+  - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
+  - apps/web/app/api/organizer/claims/route.ts
+  - apps/web/app/api/admin/organizer-claims/route.ts
+  - apps/web/app/api/organizer/events/[id]/route.ts
+  - apps/web/app/api/organizer/races/route.ts
+  - apps/web/app/api/organizer/races/[id]/route.ts
+  - apps/web/app/api/organizer/races/[id]/gpx/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/app/api/stripe/checkout/route.ts
 related_tables:
   - race_plans
   - races
   - race_aid_stations
+  - race_event_claims
+  - race_event_organizers
+  - race_aid_station_products
   - user_profiles
   - subscriptions
 ---
@@ -81,11 +97,25 @@ Saved plans are handled by `apps/web/app/api/plans/route.ts`. The route:
 
 Catalog race plan creation is handled by `apps/web/app/api/plans/from-catalog/route.ts`. It copies GPX from `race-gpx` into `plan-gpx`, parses elevation, and creates `plan_aid_stations`.
 
+When the source race has organizer station products, the route loads them server-side and stores `planner_values.organizerAidStationProducts`. Those suggestions are displayed in the planner but are kept out of auto-fill unless the runner favorites or explicitly selects the product.
+
 ### Race Catalog and GPX
 
 Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`.
 
 User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false` and `created_by` set to the authenticated user.
+
+### Organizer Portal
+
+The v1 organizer portal is web-only:
+
+- `/organizers` lets authenticated users search live events and create event claims.
+- `/organizer` lets approved organizers manage their claimed events and formats.
+- `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
+- `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.
+- `/api/admin/organizer-claims` and the admin "Organisateurs" tab handle claim approval, rejection, and membership revocation.
+
+Organizer edits are live source edits for `race_events`, `races`, `race_aid_stations`, and `race_aid_station_products`. Existing saved plans remain snapshots.
 
 ### Billing and Entitlements
 
@@ -117,7 +147,9 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Do not expose `RESEND_API_KEY` to browser or mobile code; both clients must call server routes.
 - `planner_values` is intentionally flexible JSON. Validate route inputs, but do not assume every old plan has every current field.
 - `/api/race-catalog` and `/api/races` both write `races`, but the admin route creates public catalog rows and the user route creates private rows.
+- Organizer routes can also write public `races`, but only after an active `race_event_organizers` membership check. Claimed public races should not rely on `races.created_by`.
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
+- Organizer-created products are non-live rows attached to source ravitos; do not expose them through public client env or the global catalog API.
 
 ## Related Docs
 
@@ -125,4 +157,5 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - [Auth Flows](../04-auth-and-security/auth-flows.md)
 - [Plan Storage](../03-business-rules/plan-storage.md)
 - [GPX Import](../03-business-rules/gpx-import.md)
+- [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Stripe](../05-integrations/stripe.md)

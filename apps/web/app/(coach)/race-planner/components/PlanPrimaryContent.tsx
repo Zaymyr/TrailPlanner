@@ -7,7 +7,14 @@ import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../.
 import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
-import type { ElevationPoint, FormValues, SectionSegment, Segment, StationSupply } from "../types";
+import type {
+  ElevationPoint,
+  FormValues,
+  OrganizerAidStationProductSuggestion,
+  SectionSegment,
+  Segment,
+  StationSupply,
+} from "../types";
 import type { RaceTotals } from "../utils/nutrition";
 
 type PlanPrimaryContentProps = {
@@ -45,6 +52,7 @@ type PlanPrimaryContentProps = {
   onFavoriteToggle: (product: FuelProduct) => { updated: boolean; reason?: "limit" };
   favoriteLimit: number;
   localProductIds?: string[];
+  organizerAidStationProducts?: Record<string, OrganizerAidStationProductSuggestion[]>;
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
@@ -92,6 +100,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   onFavoriteToggle,
   favoriteLimit,
   localProductIds,
+  organizerAidStationProducts,
   startSupplies,
   onStartSupplyDrop,
   onStartSupplyRemove,
@@ -135,6 +144,7 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         onFavoriteToggle={onFavoriteToggle}
         favoriteLimit={favoriteLimit}
         localProductIds={localProductIds}
+        organizerAidStationProducts={organizerAidStationProducts}
         startSupplies={startSupplies}
         onStartSupplyDrop={onStartSupplyDrop}
         onStartSupplyRemove={onStartSupplyRemove}

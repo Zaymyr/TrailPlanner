@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dedupeAidStations,
   sanitizeAidStations,
+  sanitizePlannerValues,
   sanitizeSegmentPlan,
 } from "../plan-sanitizers";
 
@@ -128,5 +129,52 @@ describe("dedupeAidStations", () => {
 
   it("returns empty array for empty input", () => {
     expect(dedupeAidStations([])).toEqual([]);
+  });
+});
+
+describe("sanitizePlannerValues", () => {
+  it("preserves organizer aid station product suggestions outside station supplies", () => {
+    const organizerAidStationProducts = {
+      "ravito|12.5": [
+        {
+          aidStationKey: "ravito|12.5",
+          aidStationName: "Ravito",
+          distanceKm: 12.5,
+          notes: "Served by the organization",
+          orderIndex: 0,
+          product: {
+            id: "organizer-product",
+            slug: "organizer-gel",
+            name: "Organizer Gel",
+            fuelType: "gel" as const,
+            caloriesKcal: 100,
+            carbsGrams: 25,
+            sodiumMg: 40,
+            proteinGrams: 0,
+            fatGrams: 0,
+            waterMl: 0,
+            createdBy: "10000000-0000-0000-0000-000000000001",
+            isOfficial: false,
+          },
+        },
+      ],
+    };
+
+    const result = sanitizePlannerValues({
+      raceDistanceKm: 50,
+      aidStations: [
+        {
+          name: "Ravito",
+          distanceKm: 12.5,
+          waterRefill: true,
+          solidRefill: true,
+          supplies: [{ productId: "catalog-gel", quantity: 1 }],
+        },
+      ],
+      organizerAidStationProducts,
+    });
+
+    expect(result?.organizerAidStationProducts).toEqual(organizerAidStationProducts);
+    expect(result?.aidStations?.[0].supplies).toEqual([{ productId: "catalog-gel", quantity: 1 }]);
   });
 });

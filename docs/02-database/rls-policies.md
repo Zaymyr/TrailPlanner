@@ -1,11 +1,12 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-05-26
+last_verified: 2026-05-28
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/tests/coach_rls_checks.sql
+  - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
 related_tables:
@@ -13,6 +14,10 @@ related_tables:
   - plan_aid_stations
   - races
   - race_aid_stations
+  - race_aid_station_products
+  - race_event_claims
+  - race_event_organizers
+  - race_events
   - products
   - user_profiles
   - subscriptions
@@ -90,6 +95,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Private races are readable by their creator.
 - Admins can manage catalog races.
 - Owners can manage private races through `created_by`.
+- Approved organizers manage public claimed races through service routes and `race_event_organizers`, not through `races.created_by`.
 
 Some policy branches include legacy admin metadata checks. Do not copy them into new migrations.
 
@@ -99,6 +105,32 @@ Declared through old `race_catalog_aid_stations` policies and renamed in `202603
 
 - Aid stations are readable when their race is public/live or the requesting user owns the race.
 - Insert/update/delete are allowed for admins and race owners according to parent race access.
+- Organizer service routes can manage source aid stations after checking active `race_event_organizers` membership for the parent event.
+
+### Organizer Portal Tables
+
+Declared in `20260528120000_add_organizer_portal.sql`.
+
+`race_event_claims`:
+
+- Authenticated users can insert pending claims for their own `user_id`.
+- Users can select their own claims.
+- Admins can select and update claims through trusted `app_metadata`.
+
+`race_event_organizers`:
+
+- Users can select their own memberships.
+- Admins can select, insert, update, and delete memberships through trusted `app_metadata`.
+- Active organizer access checks require `revoked_at is null`.
+
+`race_aid_station_products`:
+
+- Public/live race station product links are selectable.
+- Race owners, active event organizers, and admins can select links for races they can manage.
+- Active event organizers and admins can insert, update, and delete station-product links.
+- Insert/update checks require the product to be live and non-archived, created by the acting user, or admin-visible.
+
+Manual checks live in `supabase/tests/organizer_rls_checks.sql`.
 
 ### `products`
 
@@ -110,6 +142,8 @@ Declared in `20241215030000_create_products_and_affiliate_offers.sql`, `20250902
 - Users can read their own products through `created_by`.
 
 `products.is_official` is catalog metadata only. It does not change who can read or mutate a row; ownership and mutation checks still flow through `created_by`, admin checks, or service role.
+
+Organizer-created station products are stored as non-live, non-official `products` rows with `created_by` set. They remain readable to the creator through the existing owner policy and are surfaced to runners through the server-side catalog import path, not the global `/api/products` catalog.
 
 `20260526120000_add_meltonic_products.sql` only upserts live official catalog product rows. It relies on the existing live-product read policies and adds no product RLS policy.
 
@@ -152,7 +186,7 @@ Declared in `20260301090000_add_premium_grants.sql`.
 - `coach_intake_targets`: coach and coachee read; coach writes for active relationship.
 - `coach_comments`: coaches manage comments for coachee plans; coachees read comments on their plans.
 
-Manual checks live in `supabase/tests/coach_rls_checks.sql`.
+Manual coach checks live in `supabase/tests/coach_rls_checks.sql`.
 
 ### Push Tables
 
@@ -215,6 +249,8 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - For product catalog UX, do not derive "official/shared" from `created_by is null`. Ownership and catalog curation are separate concerns.
 - Data-only official product imports do not require new policies when they only set catalog metadata and live visibility on the existing `products` table.
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
+- Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
+- Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 
 ## Related Docs
 
@@ -222,3 +258,4 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
 - [Schema Overview](schema-overview.md)
 - [Premium Grants](tables/premium-grants.md)
+- [Organizer Race Management](../03-business-rules/organizer-race-management.md)
