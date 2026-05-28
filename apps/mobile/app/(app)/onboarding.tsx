@@ -2198,15 +2198,13 @@ export default function OnboardingScreen() {
                       activeOpacity={0.8}
                     >
                       <View style={styles.productBrandTitleRow}>
-                        {hasVerifiedProduct && !brandExpanded ? (
-                          <Image
-                            accessibilityIgnoresInvertColors
-                            accessibilityLabel="Marque validee"
-                            source={verifiedProductIcon}
-                            style={styles.productBrandVerifiedIcon}
-                          />
-                        ) : null}
-                        <Text numberOfLines={1} style={styles.productBrandTitle}>
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.productBrandTitle,
+                            hasVerifiedProduct && styles.productBrandTitleOfficial,
+                          ]}
+                        >
                           {group.brandLabel}
                         </Text>
                       </View>
@@ -3303,10 +3301,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  productBrandVerifiedIcon: {
-    width: 22,
-    height: 22,
-    resizeMode: 'contain',
+  productBrandTitleOfficial: {
+    color: Colors.brandLight,
   },
   productBrandSelectedPill: {
     minWidth: 30,
