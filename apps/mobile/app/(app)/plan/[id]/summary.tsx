@@ -104,21 +104,49 @@ function CheckpointCard({
 }) {
   const { t } = useI18n();
   const waterInstruction = getWaterInstruction(checkpoint, summary, t.planSummary);
+  const isNoAssistance = checkpoint.assistanceState === 'unavailable';
+  const isAssistancePoint =
+    checkpoint.assistanceState === 'available' && !checkpoint.isStart && !checkpoint.isFinish;
+  const shouldShowGiveBlock = !isNoAssistance;
 
   return (
-    <View style={styles.checkpointCard}>
+    <View
+      style={[
+        styles.checkpointCard,
+        isAssistancePoint ? styles.checkpointCardAssistance : null,
+        isNoAssistance ? styles.checkpointCardNoAssistance : null,
+      ]}
+    >
       <View style={styles.checkpointHeader}>
         <View style={styles.checkpointTitleBlock}>
-          <Text selectable weight="bold" style={styles.checkpointTitle}>
+          <Text
+            selectable
+            weight="bold"
+            style={[styles.checkpointTitle, isNoAssistance ? styles.checkpointTitleMuted : null]}
+          >
             {checkpoint.name}
           </Text>
           <DataText selectable tone="secondary" size="xs" weight="medium">
             {formatKm(checkpoint.distanceKm)} - {formatCheckpointTime(checkpoint, departureTime)}
           </DataText>
         </View>
-        <View style={styles.checkpointBadge}>
+        <View
+          style={[
+            styles.checkpointBadge,
+            isAssistancePoint ? styles.checkpointBadgeAssistance : null,
+            isNoAssistance ? styles.checkpointBadgeMuted : null,
+          ]}
+        >
           <Ionicons
-            color={checkpoint.isFinish ? Colors.textSecondary : Colors.brandPrimary}
+            color={
+              isNoAssistance
+                ? Colors.textMuted
+                : isAssistancePoint
+                  ? Colors.textOnBrand
+                  : checkpoint.isFinish
+                    ? Colors.textSecondary
+                    : Colors.brandPrimary
+            }
             name={checkpoint.isFinish ? 'flag-outline' : checkpoint.isStart ? 'play-outline' : 'trail-sign'}
             size={18}
           />
@@ -131,9 +159,11 @@ function CheckpointCard({
           <Text style={[styles.chip, styles.warningChip]}>{t.planSummary.solidUnavailable}</Text>
         ) : null}
         {checkpoint.assistanceState === 'available' || checkpoint.assistanceState === 'start' ? (
-          <Text style={styles.chip}>{t.planSummary.assistanceAvailable}</Text>
+          <Text style={[styles.chip, isAssistancePoint ? styles.assistanceChip : null]}>
+            {t.planSummary.assistanceAvailable}
+          </Text>
         ) : checkpoint.assistanceState === 'unavailable' ? (
-          <Text style={[styles.chip, styles.warningChip]}>{t.planSummary.noAssistance}</Text>
+          <Text style={[styles.chip, styles.mutedChip]}>{t.planSummary.noAssistance}</Text>
         ) : null}
         {checkpoint.pauseMinutes > 0 ? (
           <Text style={styles.chip}>
@@ -142,26 +172,26 @@ function CheckpointCard({
         ) : null}
       </View>
 
-      {checkpoint.supplies.length === 0 ? (
-        <Text selectable tone="secondary" style={styles.emptyText}>
-          {checkpoint.assistanceState === 'unavailable'
-            ? t.planSummary.carryFromPrevious
-            : t.planSummary.nothingToGive}
-        </Text>
-      ) : (
-        <View style={styles.compactProducts}>
-          {checkpoint.supplies.map((product) => (
-            <View key={product.productId} style={styles.compactProductPill}>
-              <Text numberOfLines={1} style={styles.compactProductText}>
-                {product.name}
-              </Text>
-              <DataText tone="brand" weight="bold" size="xs">
-                x{product.quantity}
-              </DataText>
-            </View>
-          ))}
-        </View>
-      )}
+      {shouldShowGiveBlock ? (
+        checkpoint.supplies.length === 0 ? (
+          <Text selectable tone="secondary" style={styles.emptyText}>
+            {t.planSummary.nothingToGive}
+          </Text>
+        ) : (
+          <View style={styles.compactProducts}>
+            {checkpoint.supplies.map((product) => (
+              <View key={product.productId} style={styles.compactProductPill}>
+                <Text numberOfLines={1} style={styles.compactProductText}>
+                  {product.name}
+                </Text>
+                <DataText tone="brand" weight="bold" size="xs">
+                  x{product.quantity}
+                </DataText>
+              </View>
+            ))}
+          </View>
+        )
+      ) : null}
     </View>
   );
 }
@@ -670,6 +700,15 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     padding: 14,
   },
+  checkpointCardAssistance: {
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+  },
+  checkpointCardNoAssistance: {
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceMuted,
+    opacity: 0.78,
+  },
   checkpointHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -683,12 +722,21 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 22,
   },
+  checkpointTitleMuted: {
+    color: Colors.textSecondary,
+  },
   checkpointBadge: {
     width: 34,
     height: 34,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 17,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  checkpointBadgeAssistance: {
+    backgroundColor: Colors.brandPrimary,
+  },
+  checkpointBadgeMuted: {
     backgroundColor: Colors.surfaceSecondary,
   },
   chipRow: {
@@ -712,6 +760,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.warning,
     backgroundColor: Colors.warningSurface,
     color: Colors.warning,
+  },
+  assistanceChip: {
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandPrimary,
+    color: Colors.textOnBrand,
+  },
+  mutedChip: {
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    color: Colors.textMuted,
   },
   emptyText: {
     lineHeight: 20,
