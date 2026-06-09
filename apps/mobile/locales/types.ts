@@ -94,6 +94,35 @@ export type MobileTranslations = {
     sectionTimingLockedHint: string;
     sectionTimingReset: string;
   };
+  planSummary: {
+    title: string;
+    openActions: string;
+    closeActions: string;
+    openRecap: string;
+    share: string;
+    saveAndLeave: string;
+    departureTime: string;
+    changeDepartureTime: string;
+    overview: string;
+    packList: string;
+    crewPlan: string;
+    estimatedDuration: string;
+    distance: string;
+    elevation: string;
+    products: string;
+    carbs: string;
+    sodium: string;
+    hourlyTargets: string;
+    noProducts: string;
+    nothingToGive: string;
+    waterFull: string;
+    waterRefill: string;
+    waterUnavailable: string;
+    waterFinish: string;
+    solidUnavailable: string;
+    pause: string;
+    shareFailed: string;
+  };
   trainingLive: {
     title: string;
     menuLabel: string;

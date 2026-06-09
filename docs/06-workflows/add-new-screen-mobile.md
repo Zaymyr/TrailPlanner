@@ -1,12 +1,13 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-05-27
+last_verified: 2026-06-09
 ai_priority: medium
 related_files:
   - apps/mobile/app
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/app/(app)/training-live.tsx
+  - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/app/_layout.tsx
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
@@ -32,7 +33,9 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
+- Non-root plan actions can reuse `FloatingActionMenu` directly. The component keeps its default add icon for root menus but also accepts optional closed/open icons when a screen needs an actions affordance instead of a create affordance.
 - Hidden utility screens, such as free training live, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`.
+- Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and use native sharing for MVP external team handoffs.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
 - When a setup/onboarding step already sits inside a shell card, prefer flat rows for one-off lists; when the same choice exists as a primary app surface, reuse the primary component for consistency.
 - Required onboarding screens must hide the bottom tab bar until completion; register them with `href: null` and `tabBarStyle: { display: 'none' }` in the tab layout.

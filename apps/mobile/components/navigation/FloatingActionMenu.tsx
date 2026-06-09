@@ -22,14 +22,18 @@ export type FloatingActionMenuItem = {
 type FloatingActionMenuProps = {
   accessibilityLabel: string;
   actions: FloatingActionMenuItem[];
+  closedIcon?: keyof typeof Ionicons.glyphMap;
   dismissAccessibilityLabel: string;
+  openIcon?: keyof typeof Ionicons.glyphMap;
   style?: StyleProp<ViewStyle>;
 };
 
 export function FloatingActionMenu({
   accessibilityLabel,
   actions,
+  closedIcon = 'add',
   dismissAccessibilityLabel,
+  openIcon = 'close',
   style,
 }: FloatingActionMenuProps) {
   const [open, setOpen] = useState(false);
@@ -79,7 +83,7 @@ export function FloatingActionMenu({
           onPress={() => setOpen((current) => !current)}
           style={styles.fab}
         >
-          <Ionicons color={Colors.textOnBrand} name={open ? 'close' : 'add'} size={28} />
+          <Ionicons color={Colors.textOnBrand} name={open ? openIcon : closedIcon} size={28} />
         </TouchableOpacity>
       </View>
     </View>
