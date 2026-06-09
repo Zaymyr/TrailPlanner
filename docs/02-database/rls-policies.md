@@ -10,6 +10,7 @@ related_files:
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
+  - apps/web/app/api/plan-shares/crew-state/route.ts
 related_tables:
   - race_plans
   - plan_share_links
@@ -98,6 +99,7 @@ Declared in `20260609091933_add_plan_share_links.sql`.
 - Authenticated users can update share links only under the same owner and parent-plan ownership checks.
 - Authenticated users can delete their own share links.
 - `anon` is not granted direct table access. Public crew pages resolve the token through a Next.js server page using service role after hashing the raw URL token.
+- Crew-side public updates also avoid direct `anon` table access. `apps/web/app/api/plan-shares/crew-state/route.ts` validates the raw secret token, hashes it, rate-limits by token hash, and patches only `departure_time` plus `crew_state` with service role.
 
 Re-sharing uses the same owner policy shape: the route verifies bearer-token identity and parent-plan ownership before updating an existing stable snapshot.
 
@@ -267,6 +269,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.
 - Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
+- Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
 
 ## Related Docs
 

@@ -8,6 +8,7 @@ related_files:
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plan-shares/route.ts
+  - apps/web/app/api/plan-shares/crew-state/route.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
@@ -38,7 +39,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Owner table: a table whose rows are tied to `auth.uid()`.
 - Catalog race: a public or private row in `races`.
 - Saved plan: a row in `race_plans` with flexible planner JSON.
-- Plan share link: a public crew recap snapshot tied to a saved plan through a hashed token.
+- Plan share link: a public crew recap snapshot tied to a saved plan through a hashed token, with narrow crew-side tracking state.
 - Plan aid station: per-plan aid station snapshot.
 - Race aid station: catalog/private race aid station source.
 - Organizer membership: event-scoped access through `race_event_organizers`.
@@ -61,7 +62,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `coach_tiers` | Coach plan limits and entitlement capabilities. |
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |
-| `plan_share_links` | Public crew recap snapshots for saved plans, looked up by hashed share token. |
+| `plan_share_links` | Public crew recap snapshots and limited crew tracking state for saved plans, looked up by hashed share token. |
 | `premium_grants` | Manual premium overrides with optional end dates. |
 | `products` | Fuel product catalog and user-created products, with explicit `is_official` metadata for curated/shared catalog rows. |
 | `push_devices` | Expo push tokens and device metadata per user. |
@@ -152,7 +153,7 @@ erDiagram
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
-- Public plan recap links store a bounded JSON snapshot in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
+- Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
 
 ## Related Docs
 

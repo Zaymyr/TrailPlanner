@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from "react";
 
-import type { PlanShareSnapshot } from "../../../../lib/plan-share";
+import type { PlanShareCrewState, PlanShareSnapshot } from "../../../../lib/plan-share";
 
 type PlanShareCheckpoint = PlanShareSnapshot["checkpoints"][number];
+type PlanSharePassage = PlanShareCrewState["passages"][number];
 
 type PlanShareCrewTimelineProps = {
+  token: string;
   summary: PlanShareSnapshot;
   departureTime: string | null;
+  crewState: PlanShareCrewState;
   locale: "fr" | "en";
 };
 
@@ -16,20 +19,26 @@ const COPY = {
   fr: {
     title: "Équipe ravitos",
     liveTitle: "Suivi course",
-    departure: "Départ",
-    lastPassage: "Dernier passage",
-    actualTime: "Heure réelle",
-    noPassage: "Aucun",
-    nextPoint: "Prochain point",
-    passed: "Passé",
+    departure: "Départ exact",
+    saveStart: "Enregistrer",
+    saved: "Enregistré",
+    saving: "Sauvegarde...",
+    startRequired: "Renseigne l'heure de départ avant de valider un passage.",
+    saveError: "Impossible d'enregistrer pour le moment.",
+    nextPoint: "Prochain point équipe",
+    estimatedFrom: "Calculé depuis {name}",
+    done: "Ravito fait",
+    validatePassage: "Ravito fait",
+    revalidatePassage: "Revalider",
+    validateFinish: "Arrivée faite",
+    planned: "Prévu",
     next: "Prochain",
-    finishPassed: "Arrivée passée",
+    noMorePoints: "Tous les points équipe sont validés.",
     delta: "Écart",
     give: "À donner",
     nothingToGive: "Rien à donner",
     assistanceAvailable: "Assistance",
     noAssistance: "Sans assistance",
-    carryFromPrevious: "Produits à porter depuis le point assistance précédent.",
     water: "Eau",
     pause: "Pause",
     waterFull: "poche pleine {liters} L",
@@ -39,24 +48,31 @@ const COPY = {
     solidUnavailable: "pas de solide",
     dayOffset: "J+{days}",
     remaining: "dans {duration}",
+    confirmedAt: "Validé à {time}",
   },
   en: {
     title: "Crew aid stations",
     liveTitle: "Race tracking",
-    departure: "Start",
-    lastPassage: "Last passage",
-    actualTime: "Actual time",
-    noPassage: "None",
-    nextPoint: "Next point",
-    passed: "Passed",
+    departure: "Exact start",
+    saveStart: "Save",
+    saved: "Saved",
+    saving: "Saving...",
+    startRequired: "Enter the start time before confirming a passage.",
+    saveError: "Unable to save right now.",
+    nextPoint: "Next crew point",
+    estimatedFrom: "Computed from {name}",
+    done: "Done",
+    validatePassage: "Aid station done",
+    revalidatePassage: "Revalidate",
+    validateFinish: "Finish done",
+    planned: "Planned",
     next: "Next",
-    finishPassed: "Finish passed",
+    noMorePoints: "All crew points are confirmed.",
     delta: "Offset",
     give: "Give",
     nothingToGive: "Nothing to give",
     assistanceAvailable: "Crew access",
     noAssistance: "No crew access",
-    carryFromPrevious: "Products must be carried from the previous crew point.",
     water: "Water",
     pause: "Pause",
     waterFull: "full bladder {liters} L",
@@ -66,6 +82,7 @@ const COPY = {
     solidUnavailable: "no solids",
     dayOffset: "D+{days}",
     remaining: "in {duration}",
+    confirmedAt: "Confirmed at {time}",
   },
 } as const;
 
@@ -130,137 +147,249 @@ function getWaterInstruction(checkpoint: PlanShareCheckpoint, summary: PlanShare
   return copy.waterUnavailable;
 }
 
-export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanShareCrewTimelineProps) {
+function isCrewCheckpoint(checkpoint: PlanShareCheckpoint) {
+  return checkpoint.assistanceState === "available" && !checkpoint.isStart && !checkpoint.isFinish;
+}
+
+function isTrackableCheckpoint(checkpoint: PlanShareCheckpoint) {
+  return isCrewCheckpoint(checkpoint) || checkpoint.isFinish;
+}
+
+function getCurrentClockMinutes() {
+  const now = new Date();
+  return {
+    clockMinutes: now.getHours() * 60 + now.getMinutes(),
+    iso: now.toISOString(),
+  };
+}
+
+function normalizePassages(passages: PlanSharePassage[], checkpoints: PlanShareCheckpoint[]) {
+  const checkpointOrder = new Map(checkpoints.map((checkpoint, order) => [checkpoint.index, order]));
+  const byCheckpoint = new Map<number, PlanSharePassage>();
+
+  for (const passage of passages) {
+    if (!checkpointOrder.has(passage.checkpointIndex)) continue;
+    byCheckpoint.set(passage.checkpointIndex, {
+      checkpointIndex: passage.checkpointIndex,
+      actualMinute: Math.max(0, Math.round(passage.actualMinute)),
+      confirmedAt: passage.confirmedAt,
+    });
+  }
+
+  return Array.from(byCheckpoint.values()).sort(
+    (a, b) => (checkpointOrder.get(a.checkpointIndex) ?? 0) - (checkpointOrder.get(b.checkpointIndex) ?? 0)
+  );
+}
+
+export function PlanShareCrewTimeline({
+  token,
+  summary,
+  departureTime,
+  crewState,
+  locale,
+}: PlanShareCrewTimelineProps) {
   const copy = COPY[locale];
+  const initialPassages = useMemo(
+    () => normalizePassages(crewState.passages, summary.checkpoints),
+    [crewState.passages, summary.checkpoints]
+  );
   const [startTime, setStartTime] = useState(departureTime ?? "");
-  const [selectedCheckpointIndex, setSelectedCheckpointIndex] = useState("");
-  const [actualPassTime, setActualPassTime] = useState("");
+  const [savedStartTime, setSavedStartTime] = useState(departureTime ?? "");
+  const [passages, setPassages] = useState<PlanSharePassage[]>(initialPassages);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<"saved" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const passagesByIndex = useMemo(() => {
+    return new Map(passages.map((passage) => [passage.checkpointIndex, passage]));
+  }, [passages]);
 
   const timeline = useMemo(() => {
     const startMinutes = parseClock(startTime);
-    const selectedIndex = selectedCheckpointIndex === "" ? null : Number(selectedCheckpointIndex);
-    const selectedCheckpoint =
-      selectedIndex === null
-        ? null
-        : summary.checkpoints.find((checkpoint) => checkpoint.index === selectedIndex) ?? null;
-    const actualClock = parseClock(actualPassTime);
-    const actualAbsolute =
-      selectedCheckpoint && actualClock !== null
-        ? startMinutes !== null
-          ? resolveClockNearPlanned(actualClock, startMinutes + selectedCheckpoint.arrivalMinute)
-          : actualClock
-        : null;
+    const startCheckpoint = summary.checkpoints.find((checkpoint) => checkpoint.isStart) ?? summary.checkpoints[0];
+    const trackableCheckpoints = summary.checkpoints.filter(isTrackableCheckpoint);
+    const confirmedTrackable = trackableCheckpoints.filter((checkpoint) => passagesByIndex.has(checkpoint.index));
+    const anchorCheckpoint = confirmedTrackable[confirmedTrackable.length - 1] ?? startCheckpoint;
+    const anchorPassage = passagesByIndex.get(anchorCheckpoint.index) ?? null;
+    const anchorActualMinute = anchorPassage?.actualMinute ?? 0;
+    const anchorAbsolute = startMinutes !== null ? startMinutes + anchorActualMinute : null;
+    const nextCheckpoint =
+      trackableCheckpoints.find(
+        (checkpoint) => checkpoint.index > anchorCheckpoint.index && !passagesByIndex.has(checkpoint.index)
+      ) ?? null;
 
     const getCheckpointAbsolute = (checkpoint: PlanShareCheckpoint) => {
-      if (selectedCheckpoint && actualAbsolute !== null) {
-        if (checkpoint.index >= selectedCheckpoint.index) {
-          return actualAbsolute + checkpoint.arrivalMinute - selectedCheckpoint.arrivalMinute;
-        }
+      const confirmed = passagesByIndex.get(checkpoint.index);
+      if (startMinutes === null) return null;
+      if (confirmed) return startMinutes + confirmed.actualMinute;
+      if (checkpoint.index >= anchorCheckpoint.index) {
+        return startMinutes + anchorActualMinute + checkpoint.arrivalMinute - anchorCheckpoint.arrivalMinute;
       }
-
-      if (startMinutes !== null) return startMinutes + checkpoint.arrivalMinute;
-      return null;
+      return startMinutes + checkpoint.arrivalMinute;
     };
 
-    const nextCheckpoint =
-      selectedCheckpoint && actualAbsolute !== null
-        ? summary.checkpoints.find((checkpoint) => checkpoint.index > selectedCheckpoint.index) ?? null
-        : summary.checkpoints.find((checkpoint) => !checkpoint.isStart) ?? null;
     const nextAbsolute = nextCheckpoint ? getCheckpointAbsolute(nextCheckpoint) : null;
     const delta =
-      selectedCheckpoint && actualAbsolute !== null && startMinutes !== null
-        ? actualAbsolute - (startMinutes + selectedCheckpoint.arrivalMinute)
+      anchorPassage && startMinutes !== null
+        ? anchorPassage.actualMinute - anchorCheckpoint.arrivalMinute
         : null;
 
     return {
-      selectedCheckpoint,
-      actualAbsolute,
+      startMinutes,
+      anchorCheckpoint,
+      anchorPassage,
+      anchorAbsolute,
       nextCheckpoint,
       nextAbsolute,
       delta,
       getCheckpointAbsolute,
     };
-  }, [actualPassTime, selectedCheckpointIndex, startTime, summary.checkpoints]);
+  }, [passagesByIndex, startTime, summary.checkpoints]);
+
+  async function persistCrewState(nextPassages: PlanSharePassage[], nextStartTime: string, key: string) {
+    setSavingKey(key);
+    setError(null);
+    setFeedback(null);
+
+    const normalizedStartTime = nextStartTime.trim() || null;
+    const normalizedPassages = normalizePassages(nextPassages, summary.checkpoints);
+
+    try {
+      const response = await fetch("/api/plan-shares/crew-state", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          departureTime: normalizedStartTime,
+          crewState: { passages: normalizedPassages },
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as
+        | {
+            departureTime?: string | null;
+            crewState?: PlanShareCrewState;
+          }
+        | null;
+
+      if (!response.ok || !data?.crewState) {
+        throw new Error("Unable to persist crew state");
+      }
+
+      const nextSavedStartTime = data.departureTime ?? "";
+      setSavedStartTime(nextSavedStartTime);
+      setStartTime(nextSavedStartTime);
+      setPassages(normalizePassages(data.crewState.passages, summary.checkpoints));
+      setFeedback("saved");
+    } catch {
+      setError(copy.saveError);
+    } finally {
+      setSavingKey(null);
+    }
+  }
+
+  async function handleSaveStartTime() {
+    if (startTime && parseClock(startTime) === null) {
+      setError(copy.startRequired);
+      return;
+    }
+
+    await persistCrewState(passages, startTime, "start");
+  }
+
+  async function handleConfirmPassage(checkpoint: PlanShareCheckpoint) {
+    const startMinutes = parseClock(startTime);
+    if (startMinutes === null) {
+      setError(copy.startRequired);
+      return;
+    }
+
+    const now = getCurrentClockMinutes();
+    const plannedAbsolute = startMinutes + checkpoint.arrivalMinute;
+    const actualAbsolute = resolveClockNearPlanned(now.clockMinutes, plannedAbsolute);
+    const nextPassage: PlanSharePassage = {
+      checkpointIndex: checkpoint.index,
+      actualMinute: Math.max(0, Math.round(actualAbsolute - startMinutes)),
+      confirmedAt: now.iso,
+    };
+    const nextPassages = [...passages.filter((passage) => passage.checkpointIndex !== checkpoint.index), nextPassage];
+
+    await persistCrewState(nextPassages, startTime, `checkpoint-${checkpoint.index}`);
+  }
+
+  const startCanSave = startTime !== savedStartTime && (!startTime || parseClock(startTime) !== null);
 
   return (
     <section className="flex flex-col gap-3">
       <div className="rounded-lg border border-border bg-card p-4">
         <h2 className="text-xl font-bold text-foreground">{copy.liveTitle}</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-muted-foreground">
-            {copy.departure}
-            <input
-              type="time"
-              step="60"
-              value={startTime}
-              onChange={(event) => setStartTime(event.target.value)}
-              className="min-h-12 rounded-lg border border-border bg-background px-3 font-mono text-base font-bold text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-muted-foreground">
-            {copy.lastPassage}
-            <select
-              value={selectedCheckpointIndex}
-              onChange={(event) => {
-                setSelectedCheckpointIndex(event.target.value);
-                if (!event.target.value) setActualPassTime("");
-              }}
-              className="min-h-12 rounded-lg border border-border bg-background px-3 text-base font-semibold text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+        <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+          <div className="flex flex-col gap-2">
+            <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-muted-foreground">
+              {copy.departure}
+              <input
+                type="time"
+                step="60"
+                value={startTime}
+                onChange={(event) => {
+                  setStartTime(event.target.value);
+                  setFeedback(null);
+                  setError(null);
+                }}
+                className="min-h-12 rounded-lg border border-border bg-background px-3 font-mono text-base font-bold text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!startCanSave || savingKey !== null}
+              onClick={handleSaveStartTime}
+              className="min-h-11 rounded-lg bg-brand px-4 text-sm font-bold text-brand-foreground disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <option value="">{copy.noPassage}</option>
-              {summary.checkpoints.map((checkpoint) => (
-                <option key={checkpoint.index} value={checkpoint.index}>
-                  {checkpoint.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-muted-foreground">
-            {copy.actualTime}
-            <input
-              type="time"
-              step="60"
-              value={actualPassTime}
-              disabled={!selectedCheckpointIndex}
-              onChange={(event) => setActualPassTime(event.target.value)}
-              className="min-h-12 rounded-lg border border-border bg-background px-3 font-mono text-base font-bold text-foreground outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
-            />
-          </label>
-        </div>
+              {savingKey === "start" ? copy.saving : copy.saveStart}
+            </button>
+            {feedback === "saved" && !error ? <p className="text-xs font-semibold text-brand">{copy.saved}</p> : null}
+            {error ? <p className="text-sm font-semibold text-red-700">{error}</p> : null}
+          </div>
 
-        <div className="mt-4 rounded-lg bg-brand-surface p-4">
-          <p className="text-xs font-semibold uppercase text-brand">{copy.nextPoint}</p>
-          {timeline.nextCheckpoint ? (
-            <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <p className="text-lg font-bold text-foreground">{timeline.nextCheckpoint.name}</p>
-              <div className="text-left sm:text-right">
-                {timeline.nextAbsolute !== null ? (
-                  <p className="font-mono text-2xl font-bold text-brand">
-                    {formatAbsoluteClock(timeline.nextAbsolute, locale)}
-                  </p>
-                ) : (
-                  <p className="font-mono text-2xl font-bold text-brand">
-                    T+{formatDuration(timeline.nextCheckpoint.arrivalMinute)}
-                  </p>
-                )}
-                {timeline.actualAbsolute !== null && timeline.nextAbsolute !== null ? (
+          <div className="rounded-lg bg-brand-surface p-4">
+            <p className="text-xs font-semibold uppercase text-brand">{copy.nextPoint}</p>
+            {timeline.nextCheckpoint ? (
+              <div className="mt-1 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <p className="break-words text-lg font-bold text-foreground">{timeline.nextCheckpoint.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {copy.remaining.replace(
-                      "{duration}",
-                      formatDuration(timeline.nextAbsolute - timeline.actualAbsolute)
-                    )}
+                    {copy.estimatedFrom.replace("{name}", timeline.anchorCheckpoint.name)}
                   </p>
-                ) : null}
-                {timeline.delta !== null ? (
-                  <p className="text-sm text-muted-foreground">
-                    {copy.delta} {formatSignedDuration(timeline.delta)}
-                  </p>
-                ) : null}
+                </div>
+                <div className="text-left sm:text-right">
+                  {timeline.nextAbsolute !== null ? (
+                    <p className="font-mono text-2xl font-bold text-brand">
+                      {formatAbsoluteClock(timeline.nextAbsolute, locale)}
+                    </p>
+                  ) : (
+                    <p className="font-mono text-2xl font-bold text-brand">
+                      T+{formatDuration(timeline.nextCheckpoint.arrivalMinute)}
+                    </p>
+                  )}
+                  {timeline.anchorAbsolute !== null && timeline.nextAbsolute !== null ? (
+                    <p className="text-sm text-muted-foreground">
+                      {copy.remaining.replace(
+                        "{duration}",
+                        formatDuration(timeline.nextAbsolute - timeline.anchorAbsolute)
+                      )}
+                    </p>
+                  ) : null}
+                  {timeline.delta !== null ? (
+                    <p className="text-sm text-muted-foreground">
+                      {copy.delta} {formatSignedDuration(timeline.delta)}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-            </div>
-          ) : (
-            <p className="mt-1 text-lg font-bold text-foreground">{copy.finishPassed}</p>
-          )}
+            ) : (
+              <p className="mt-1 text-lg font-bold text-foreground">{copy.noMorePoints}</p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -269,41 +398,43 @@ export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanSh
         {summary.checkpoints.map((checkpoint) => {
           const waterInstruction = getWaterInstruction(checkpoint, summary, locale);
           const checkpointAbsolute = timeline.getCheckpointAbsolute(checkpoint);
-          const isPassed =
-            timeline.selectedCheckpoint !== null &&
-            timeline.actualAbsolute !== null &&
-            checkpoint.index === timeline.selectedCheckpoint.index;
-          const isNext = timeline.nextCheckpoint !== null && checkpoint.index === timeline.nextCheckpoint.index;
+          const confirmedPassage = passagesByIndex.get(checkpoint.index) ?? null;
           const isNoAssistance = checkpoint.assistanceState === "unavailable";
-          const isAssistancePoint =
-            checkpoint.assistanceState === "available" && !checkpoint.isStart && !checkpoint.isFinish;
+          const isAssistancePoint = isCrewCheckpoint(checkpoint);
+          const isTrackable = isTrackableCheckpoint(checkpoint);
+          const isNext = timeline.nextCheckpoint !== null && checkpoint.index === timeline.nextCheckpoint.index;
           const shouldShowGiveBlock = !isNoAssistance;
+          const canValidate = isTrackable && !checkpoint.isStart;
+          const cardIsSaving = savingKey === `checkpoint-${checkpoint.index}`;
+          const cardClasses = isAssistancePoint
+            ? "border-brand-border bg-brand-surface shadow-sm"
+            : isNoAssistance
+              ? "border-border bg-muted/60 opacity-80"
+              : "border-border bg-card";
 
           return (
-            <article
-              key={`${checkpoint.index}-${checkpoint.name}`}
-              className={`rounded-lg border p-4 ${
-                isAssistancePoint
-                  ? "border-brand-border bg-brand-surface"
-                  : isNoAssistance
-                    ? "border-border bg-muted/60"
-                    : "border-border bg-card"
-              }`}
-            >
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <article key={`${checkpoint.index}-${checkpoint.name}`} className={`rounded-lg border p-4 ${cardClasses}`}>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className={`break-words text-lg font-bold ${isNoAssistance ? "text-muted-foreground" : "text-foreground"}`}>
+                    <h3
+                      className={`break-words text-lg font-bold ${
+                        isNoAssistance ? "text-muted-foreground" : "text-foreground"
+                      }`}
+                    >
                       {checkpoint.name}
                     </h3>
-                    {isPassed ? (
-                      <span className="rounded-full border border-brand-border bg-brand-surface px-2 py-0.5 text-xs font-bold text-brand">
-                        {copy.passed}
+                    {confirmedPassage ? (
+                      <span className="rounded-full border border-brand bg-brand px-2 py-0.5 text-xs font-bold text-brand-foreground">
+                        {copy.done}
                       </span>
-                    ) : null}
-                    {isNext ? (
+                    ) : isNext ? (
                       <span className="rounded-full border border-brand-border bg-brand-surface px-2 py-0.5 text-xs font-bold text-brand">
                         {copy.next}
+                      </span>
+                    ) : isNoAssistance ? (
+                      <span className="rounded-full border border-border bg-background/70 px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                        {copy.planned}
                       </span>
                     ) : null}
                   </div>
@@ -311,35 +442,62 @@ export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanSh
                     {formatKm(checkpoint.distanceKm)} - T+{formatDuration(checkpoint.arrivalMinute)}
                     {checkpointAbsolute !== null ? ` / ${formatAbsoluteClock(checkpointAbsolute, locale)}` : ""}
                   </p>
+                  {confirmedPassage && checkpointAbsolute !== null ? (
+                    <p className="mt-1 text-sm font-semibold text-brand">
+                      {copy.confirmedAt.replace("{time}", formatAbsoluteClock(checkpointAbsolute, locale))}
+                    </p>
+                  ) : null}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
-                    {copy.water}: {waterInstruction}
-                  </span>
-                  {checkpoint.solidState === "unavailable" ? (
-                    <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
-                      {copy.solidUnavailable}
-                    </span>
-                  ) : null}
-                  {checkpoint.assistanceState === "available" || checkpoint.assistanceState === "start" ? (
-                    <span
-                      className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                        isAssistancePoint
-                          ? "border-brand bg-brand text-brand-foreground"
-                          : "border-brand-border bg-brand-surface text-brand"
-                      }`}
-                    >
-                      {copy.assistanceAvailable}
-                    </span>
-                  ) : checkpoint.assistanceState === "unavailable" ? (
-                    <span className="rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-bold text-muted-foreground">
-                      {copy.noAssistance}
-                    </span>
-                  ) : null}
-                  {checkpoint.pauseMinutes > 0 ? (
+
+                <div className="flex flex-col gap-2 sm:items-end">
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
                     <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
-                      {copy.pause} +{Math.round(checkpoint.pauseMinutes)} min
+                      {copy.water}: {waterInstruction}
                     </span>
+                    {checkpoint.solidState === "unavailable" ? (
+                      <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                        {copy.solidUnavailable}
+                      </span>
+                    ) : null}
+                    {checkpoint.assistanceState === "available" || checkpoint.assistanceState === "start" ? (
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                          isAssistancePoint
+                            ? "border-brand bg-brand text-brand-foreground"
+                            : "border-brand-border bg-brand-surface text-brand"
+                        }`}
+                      >
+                        {copy.assistanceAvailable}
+                      </span>
+                    ) : checkpoint.assistanceState === "unavailable" ? (
+                      <span className="rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-bold text-muted-foreground">
+                        {copy.noAssistance}
+                      </span>
+                    ) : null}
+                    {checkpoint.pauseMinutes > 0 ? (
+                      <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
+                        {copy.pause} +{Math.round(checkpoint.pauseMinutes)} min
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {canValidate ? (
+                    <button
+                      type="button"
+                      disabled={savingKey !== null}
+                      onClick={() => handleConfirmPassage(checkpoint)}
+                      className="min-h-11 rounded-lg bg-brand px-4 text-sm font-bold text-brand-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {cardIsSaving
+                        ? copy.saving
+                        : confirmedPassage
+                          ? checkpoint.isFinish
+                            ? copy.validateFinish
+                            : copy.revalidatePassage
+                          : checkpoint.isFinish
+                            ? copy.validateFinish
+                            : copy.validatePassage}
+                    </button>
                   ) : null}
                 </div>
               </div>

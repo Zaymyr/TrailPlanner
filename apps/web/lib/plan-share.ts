@@ -54,6 +54,22 @@ export const planShareSnapshotSchema = z
 
 export type PlanShareSnapshot = z.infer<typeof planShareSnapshotSchema>;
 
+export const planShareCrewPassageSchema = z
+  .object({
+    checkpointIndex: z.number().int().nonnegative().max(1000),
+    actualMinute: z.number().int().nonnegative().max(100000),
+    confirmedAt: z.string().datetime(),
+  })
+  .passthrough();
+
+export const planShareCrewStateSchema = z
+  .object({
+    passages: z.array(planShareCrewPassageSchema).max(500).default([]),
+  })
+  .passthrough();
+
+export type PlanShareCrewState = z.infer<typeof planShareCrewStateSchema>;
+
 export const departureTimeSchema = z
   .string()
   .regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
