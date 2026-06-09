@@ -183,7 +183,7 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="plan/[id]/summary"
-        options={{ href: null, headerRight: () => null, tabBarStyle: { display: 'none' } }}
+        options={{ href: null, headerRight: () => null }}
       />
       <Tabs.Screen
         name="training-live"
