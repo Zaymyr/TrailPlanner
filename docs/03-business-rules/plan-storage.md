@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -14,7 +14,9 @@ related_files:
   - apps/web/lib/race-planner-storage.ts
   - apps/web/lib/auth-storage.ts
   - apps/mobile/app/(app)/plan/[id]/edit.tsx
+  - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/app/(app)/plan/new.tsx
+  - apps/mobile/lib/planSummary.ts
   - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
   - race_plans
@@ -90,6 +92,8 @@ Organizer ravito suggestions imported from catalog source data live outside `pla
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans.
 
+Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan, but those actions still derive from `race_plans.planner_values` plus `elevation_profile`; they do not create a second persisted plan-summary record.
+
 ## Hydration on Read
 
 `apps/web/app/(coach)/race-planner/hooks/useRacePlan.ts` maps saved rows into planner state.
@@ -119,6 +123,7 @@ It:
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions; older plans will not have this field.
+- Mobile recap/share should save or read the current draft before deriving the checklist. Do not persist a separate team checklist unless the storage model is deliberately extended.
 
 ## Related Docs
 

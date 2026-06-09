@@ -10,7 +10,8 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
-  AppState
+  AppState,
+  Share
 } from 'react-native';
 import { Text } from '../../../../components/themed/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -18,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../../../lib/supabase';
 import { AppHeaderTitle } from '../../../../components/navigation/AppHeaderTitle';
 import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';
+import type { PlanProduct } from '../../../../components/plan-form/contracts';
 import { FeedbackHeaderButton } from '../../../../components/feedback/FeedbackHeaderButton';
 import { HelpHeaderButton } from '../../../../components/help/HelpHeaderButton';
 import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
@@ -46,6 +48,13 @@ import {
   setPlanEditDraft
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
+import {
+  buildPlanShareMessage,
+  buildPlanSummary,
+  buildProductMap as buildSummaryProductMap,
+  buildStoredRacePlanFromValues,
+  collectPlanProductIdsFromValues,
+} from '../../../../lib/planSummary';
 
 type RacePlanRow = {
   id: string;
@@ -118,10 +127,24 @@ function serializePlanValues(values: PlanFormValues): string {
 
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
 
+async function loadProductMapForPlanValues(values: PlanFormValues) {
+  const productIds = collectPlanProductIdsFromValues(values);
+  if (productIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('id, name, brand, fuel_type, carbs_g, sodium_mg, calories_kcal')
+    .in('id', productIds);
+
+  if (error) throw error;
+
+  return buildSummaryProductMap((data ?? []) as PlanProduct[]);
+}
+
 export default function EditPlanScreen() {
   const { id, showHelp } = useLocalSearchParams<{ id: string; showHelp?: string }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const initialWarmStartDraft = id ? getPlanEditDraft(id) : null;
   const initialWarmStartProductData = id ? getPlanEditProductsBootstrap(id) : null;
   const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
@@ -665,6 +688,77 @@ export default function EditPlanScreen() {
     await saveAndLeaveToPlans();
   }
 
+  const stageDraftForAction = useCallback(
+    (values: PlanFormValues) => {
+      latestDraftRef.current = values;
+      const nextSnapshot = serializePlanValues(values);
+      setDraftSnapshot(nextSnapshot);
+
+      if (id) {
+        setPlanEditDraft(id, {
+          elevationProfile: elevationProfileRef.current,
+          lastSavedSnapshot: lastSavedSnapshotRef.current,
+          planName: values.name || planName,
+          values,
+        });
+      }
+    },
+    [id, planName],
+  );
+
+  const handleOpenSummary = useCallback(
+    async (values: PlanFormValues) => {
+      if (!id) return;
+
+      stageDraftForAction(values);
+      const saved = await saveLatestDraft(true);
+
+      if (!saved) {
+        Alert.alert(t.common.error, t.profile.saveFailed);
+        return;
+      }
+
+      captureAnalyticsEvent('plan recap opened', {
+        aid_station_count: values.aidStations.length,
+      });
+      router.push(`/(app)/plan/${id}/summary` as any);
+    },
+    [id, router, saveLatestDraft, stageDraftForAction, t.common.error, t.profile.saveFailed],
+  );
+
+  const handleSharePlan = useCallback(
+    async (values: PlanFormValues) => {
+      if (!id) return;
+
+      try {
+        stageDraftForAction(values);
+        const saved = await saveLatestDraft(true);
+        if (!saved) {
+          Alert.alert(t.common.error, t.profile.saveFailed);
+          return;
+        }
+
+        const productMap = await loadProductMapForPlanValues(values);
+        const plan = buildStoredRacePlanFromValues({
+          id,
+          values,
+          elevationProfile: elevationProfileRef.current,
+        });
+        const summary = buildPlanSummary(plan, productMap);
+        const message = buildPlanShareMessage(summary, { locale });
+
+        await Share.share({ message });
+        captureAnalyticsEvent('plan recap shared', {
+          aid_station_count: values.aidStations.length,
+          product_count: summary.totalProductUnits,
+        });
+      } catch {
+        Alert.alert(t.common.error, t.planSummary.shareFailed);
+      }
+    },
+    [id, locale, saveLatestDraft, stageDraftForAction, t.common.error, t.planSummary.shareFailed, t.profile.saveFailed],
+  );
+
   const handleMissingFavoriteProducts = useCallback(() => {
     Alert.alert(
       'Favoris nutrition requis',
@@ -744,6 +838,8 @@ export default function EditPlanScreen() {
         initialValues={initialValues}
         elevationProfile={elevationProfile}
         onSave={handleSave}
+        onOpenSummary={handleOpenSummary}
+        onShare={handleSharePlan}
         isPremium={isPremium}
         onValuesChange={(values) => {
           latestDraftRef.current = values;
@@ -759,7 +855,7 @@ export default function EditPlanScreen() {
           }
         }}
         loading={saving}
-        saveLabel="Enregistrer les modifications"
+        saveLabel={t.planSummary.saveAndLeave}
         productData={planProductData}
         compactBasicsByDefault
         onMissingFavoriteProducts={handleMissingFavoriteProducts}

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   ScrollView,
   TouchableOpacity,
@@ -9,8 +8,11 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import {
+  FloatingActionMenu,
+  type FloatingActionMenuItem,
+} from './navigation/FloatingActionMenu';
 import { TutorialTarget, type TutorialMeasurableTarget } from './help/SpotlightTutorial';
 import { useI18n } from '../lib/i18n';
 import {
@@ -65,6 +67,8 @@ export { DEFAULT_PLAN_VALUES };
 type Props = {
   initialValues: PlanFormValues;
   onSave: (values: PlanFormValues) => void;
+  onOpenSummary?: (values: PlanFormValues) => void;
+  onShare?: (values: PlanFormValues) => void;
   onValuesChange?: (values: PlanFormValues) => void;
   loading?: boolean;
   isPremium: boolean;
@@ -107,6 +111,8 @@ function useDebounced<T>(value: T, delay: number): T {
 export default function PlanForm({
   initialValues,
   onSave,
+  onOpenSummary,
+  onShare,
   onValuesChange,
   loading,
   isPremium,
@@ -138,8 +144,6 @@ export default function PlanForm({
   const aidStationsSectionYRef = useRef(0);
   const lastAidStationsAlignAtRef = useRef(0);
   const autoFillMessageIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  void saveLabel;
 
   useEffect(() => {
     setValues(buildInitialPlanValues(initialValues));
@@ -632,21 +636,75 @@ export default function PlanForm({
     }
   }, [clearAutoFillLoadingInterval, fillSuppliesAuto, isAutoFilling, isPremium]);
 
-  const handleSave = () => {
+  const buildSubmittableValues = useCallback(() => {
     if (!values.name.trim()) {
       Alert.alert('Champ requis', 'Le nom du plan est obligatoire.');
-      return;
+      return null;
     }
     if (!values.raceDistanceKm || values.raceDistanceKm <= 0) {
       Alert.alert('Champ requis', 'La distance doit etre superieure a 0.');
-      return;
+      return null;
     }
 
-    onSave({
+    return {
       ...values,
       aidStations: values.aidStations.filter((station) => station.id !== ARRIVEE_ID),
+    };
+  }, [values]);
+
+  const handlePlanAction = useCallback(
+    (action: (nextValues: PlanFormValues) => void) => {
+      if (loading) return;
+
+      const nextValues = buildSubmittableValues();
+      if (!nextValues) return;
+
+      action(nextValues);
+    },
+    [buildSubmittableValues, loading],
+  );
+
+  const planActions = useMemo<FloatingActionMenuItem[]>(() => {
+    const actions: FloatingActionMenuItem[] = [];
+
+    if (onOpenSummary) {
+      actions.push({
+        key: 'summary',
+        label: t.planSummary.openRecap,
+        icon: 'reader-outline',
+        onPress: () => handlePlanAction(onOpenSummary),
+      });
+    }
+
+    if (onShare) {
+      actions.push({
+        key: 'share',
+        label: t.planSummary.share,
+        icon: 'share-social-outline',
+        onPress: () => handlePlanAction(onShare),
+      });
+    }
+
+    actions.push({
+      key: 'save',
+      label: loading ? t.common.saving : saveLabel ?? t.planSummary.saveAndLeave,
+      icon: 'checkmark-circle-outline',
+      onPress: () => handlePlanAction(onSave),
     });
-  };
+
+    return actions;
+  }, [
+    handlePlanAction,
+    loading,
+    onOpenSummary,
+    onSave,
+    onShare,
+    saveLabel,
+    t.common.saving,
+    t.planSummary.openRecap,
+    t.planSummary.saveAndLeave,
+    t.planSummary.share,
+  ]);
 
   const handleTutorialTargetMeasure = useCallback(
     (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => {
@@ -780,20 +838,12 @@ export default function PlanForm({
         <View style={styles.saveSpacer} />
       </ScrollView>
 
-      <View pointerEvents="box-none" style={styles.floatingSaveButtonAnchor}>
-        <TouchableOpacity
-          style={[styles.floatingSaveButton, loading && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={loading}
-          activeOpacity={0.9}
-        >
-          {loading ? (
-            <ActivityIndicator color={Colors.textOnBrand} />
-          ) : (
-            <Ionicons name="save-outline" size={20} color={Colors.textOnBrand} />
-          )}
-        </TouchableOpacity>
-      </View>
+      <FloatingActionMenu
+        accessibilityLabel={t.planSummary.openActions}
+        actions={planActions}
+        closedIcon="ellipsis-horizontal"
+        dismissAccessibilityLabel={t.planSummary.closeActions}
+      />
 
       <ProductPickerModal
         visible={pickerTarget !== null}
