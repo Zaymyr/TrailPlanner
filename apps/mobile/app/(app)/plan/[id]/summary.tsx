@@ -5,6 +5,7 @@ import {
   ScrollView,
   Share,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -170,8 +171,8 @@ export default function PlanSummaryScreen() {
   const [error, setError] = useState<string | null>(null);
   const [departureTime, setDepartureTime] = useState(() => new Date());
   const [timePickerVisible, setTimePickerVisible] = useState(false);
-  const [pickerHour, setPickerHour] = useState(() => new Date().getHours());
-  const [pickerMinute, setPickerMinute] = useState(() => new Date().getMinutes());
+  const [pickerHour, setPickerHour] = useState(() => String(new Date().getHours()).padStart(2, '0'));
+  const [pickerMinute, setPickerMinute] = useState(() => String(new Date().getMinutes()).padStart(2, '0'));
 
   const targetSummary = useMemo(() => {
     if (!summary) return '';
@@ -267,6 +268,26 @@ export default function PlanSummaryScreen() {
     }
   }, [departureTime, locale, summary, t.common.error, t.planSummary.shareFailed]);
 
+  const openTimePicker = useCallback(() => {
+    setPickerHour(String(departureTime.getHours()).padStart(2, '0'));
+    setPickerMinute(String(departureTime.getMinutes()).padStart(2, '0'));
+    setTimePickerVisible(true);
+  }, [departureTime]);
+
+  const handleConfirmDepartureTime = useCallback(() => {
+    const parsedHour = Number.parseInt(pickerHour, 10);
+    const parsedMinute = Number.parseInt(pickerMinute, 10);
+    const safeHour = Number.isFinite(parsedHour) ? Math.min(23, Math.max(0, parsedHour)) : 0;
+    const safeMinute = Number.isFinite(parsedMinute) ? Math.min(59, Math.max(0, parsedMinute)) : 0;
+    const nextDate = new Date(departureTime);
+    nextDate.setHours(safeHour, safeMinute, 0, 0);
+
+    setDepartureTime(nextDate);
+    setPickerHour(String(safeHour).padStart(2, '0'));
+    setPickerMinute(String(safeMinute).padStart(2, '0'));
+    setTimePickerVisible(false);
+  }, [departureTime, pickerHour, pickerMinute]);
+
   if (loading || premiumLoading) {
     return (
       <PlanLoadingScreen
@@ -297,11 +318,7 @@ export default function PlanSummaryScreen() {
       <Stack.Screen
         options={{
           title: t.planSummary.title,
-          headerRight: () => (
-            <TouchableOpacity accessibilityLabel={t.planSummary.share} onPress={handleShare} style={styles.headerButton}>
-              <Ionicons color={Colors.brandPrimary} name="share-social-outline" size={22} />
-            </TouchableOpacity>
-          ),
+          headerRight: () => null,
         }}
       />
 
@@ -336,7 +353,7 @@ export default function PlanSummaryScreen() {
           </View>
         </View>
 
-        <View style={styles.departureCard}>
+        <TouchableOpacity activeOpacity={0.9} style={styles.departureCard} onPress={openTimePicker}>
           <View>
             <Text tone="secondary" size="xs" weight="semibold" style={styles.kicker}>
               {t.planSummary.departureTime}
@@ -347,17 +364,13 @@ export default function PlanSummaryScreen() {
           </View>
           <TouchableOpacity
             style={styles.inlineButton}
-            onPress={() => {
-              setPickerHour(departureTime.getHours());
-              setPickerMinute(departureTime.getMinutes());
-              setTimePickerVisible(true);
-            }}
+            onPress={openTimePicker}
           >
             <Text weight="bold" style={styles.inlineButtonText}>
               {t.planSummary.changeDepartureTime}
             </Text>
           </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.section}>
           <Text weight="bold" style={styles.sectionTitle}>
@@ -412,40 +425,43 @@ export default function PlanSummaryScreen() {
               {t.planSummary.departureTime}
             </Text>
             <View style={styles.timePickerRow}>
-              <View style={styles.timeUnit}>
-                <TouchableOpacity onPress={() => setPickerHour((hour) => (hour + 1) % 24)}>
-                  <Text style={styles.timeArrow}>+</Text>
-                </TouchableOpacity>
-                <DataText size="2xl" weight="bold" style={styles.timeValue}>
-                  {String(pickerHour).padStart(2, '0')}
-                </DataText>
-                <TouchableOpacity onPress={() => setPickerHour((hour) => (hour - 1 + 24) % 24)}>
-                  <Text style={styles.timeArrow}>-</Text>
-                </TouchableOpacity>
+              <View style={styles.timeField}>
+                <Text tone="secondary" size="xs" weight="semibold" style={styles.timeFieldLabel}>
+                  HH
+                </Text>
+                <TextInput
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  onChangeText={(text) => setPickerHour(text.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="07"
+                  placeholderTextColor={Colors.textMuted}
+                  selectTextOnFocus
+                  style={styles.timeInput}
+                  value={pickerHour}
+                />
               </View>
               <DataText size="2xl" weight="bold">
                 :
               </DataText>
-              <View style={styles.timeUnit}>
-                <TouchableOpacity onPress={() => setPickerMinute((minute) => (minute + 5) % 60)}>
-                  <Text style={styles.timeArrow}>+</Text>
-                </TouchableOpacity>
-                <DataText size="2xl" weight="bold" style={styles.timeValue}>
-                  {String(pickerMinute).padStart(2, '0')}
-                </DataText>
-                <TouchableOpacity onPress={() => setPickerMinute((minute) => (minute - 5 + 60) % 60)}>
-                  <Text style={styles.timeArrow}>-</Text>
-                </TouchableOpacity>
+              <View style={styles.timeField}>
+                <Text tone="secondary" size="xs" weight="semibold" style={styles.timeFieldLabel}>
+                  MM
+                </Text>
+                <TextInput
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  onChangeText={(text) => setPickerMinute(text.replace(/\D/g, '').slice(0, 2))}
+                  placeholder="52"
+                  placeholderTextColor={Colors.textMuted}
+                  selectTextOnFocus
+                  style={styles.timeInput}
+                  value={pickerMinute}
+                />
               </View>
             </View>
             <TouchableOpacity
               style={styles.primaryButton}
-              onPress={() => {
-                const nextDate = new Date(departureTime);
-                nextDate.setHours(pickerHour, pickerMinute, 0, 0);
-                setDepartureTime(nextDate);
-                setTimePickerVisible(false);
-              }}
+              onPress={handleConfirmDepartureTime}
             >
               <Text weight="bold" style={styles.primaryButtonText}>
                 {t.common.confirm}
@@ -481,10 +497,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: Colors.danger,
     textAlign: 'center',
-  },
-  headerButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
   },
   hero: {
     gap: 16,
@@ -546,7 +558,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   departureCard: {
-    minHeight: 82,
+    minHeight: 92,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -561,11 +573,11 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   inlineButton: {
-    minHeight: 40,
+    minHeight: 52,
     justifyContent: 'center',
     borderRadius: 999,
     backgroundColor: Colors.surfaceSecondary,
-    paddingHorizontal: 14,
+    paddingHorizontal: 22,
   },
   inlineButtonText: {
     color: Colors.textPrimary,
@@ -721,19 +733,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 14,
+    gap: 12,
   },
-  timeUnit: {
-    alignItems: 'center',
+  timeField: {
+    flex: 1,
     gap: 8,
   },
-  timeArrow: {
-    color: Colors.brandPrimary,
-    fontSize: 24,
-    fontWeight: '800',
+  timeFieldLabel: {
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
-  timeValue: {
-    minWidth: 52,
+  timeInput: {
+    minHeight: 66,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    color: Colors.textPrimary,
+    fontFamily: 'JetBrainsMono_700Bold',
+    fontSize: 28,
+    fontWeight: '700',
     textAlign: 'center',
   },
   primaryButton: {

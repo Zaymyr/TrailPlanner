@@ -32,6 +32,8 @@ export default function AppLayout() {
         return t.plans.newPlan;
       case 'plan/[id]/edit':
         return locale === 'fr' ? 'Modifier le plan' : 'Edit plan';
+      case 'plan/[id]/summary':
+        return t.planSummary.title;
       case 'training-live':
         return t.trainingLive.title;
       default:
@@ -53,6 +55,8 @@ export default function AppLayout() {
         return t.plans.newPlan;
       case 'plan/[id]/edit':
         return locale === 'fr' ? 'Edition du plan' : 'Edit plan';
+      case 'plan/[id]/summary':
+        return t.planSummary.title;
       case 'training-live':
         return t.trainingLive.title;
       default:
@@ -176,6 +180,10 @@ export default function AppLayout() {
       <Tabs.Screen
         name="plan/[id]/edit"
         options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="plan/[id]/summary"
+        options={{ href: null, headerRight: () => null, tabBarStyle: { display: 'none' } }}
       />
       <Tabs.Screen
         name="training-live"
