@@ -3,6 +3,7 @@ import { z } from "zod";
 
 export const PLAN_SHARE_SCHEMA_VERSION = 1;
 export const PLAN_SHARE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{24,160}$/;
+const DEFAULT_PLAN_SHARE_BASE_URL = "https://pace-yourself.com";
 
 const shareProductSchema = z
   .object({
@@ -69,18 +70,16 @@ export function isValidPlanShareToken(token: string) {
   return PLAN_SHARE_TOKEN_PATTERN.test(token);
 }
 
-export function getPlanShareBaseUrl(request?: Request) {
+export function getPlanShareBaseUrl() {
   const configured =
+    process.env.PLAN_SHARE_BASE_URL?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_WEB_URL?.trim() ||
-    process.env.APP_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.trim()}` : "");
+    process.env.APP_URL?.trim();
 
   if (configured) return configured.replace(/\/+$/, "");
-  if (request) return new URL(request.url).origin;
-  return "https://pace-yourself.com";
+  return DEFAULT_PLAN_SHARE_BASE_URL;
 }
 
-export function buildPlanShareUrl(token: string, request?: Request) {
-  return new URL(`/share/plan/${token}`, getPlanShareBaseUrl(request)).toString();
+export function buildPlanShareUrl(token: string) {
+  return new URL(`/share/plan/${token}`, getPlanShareBaseUrl()).toString();
 }

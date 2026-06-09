@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import type { CSSProperties, ReactNode } from "react";
 import { z } from "zod";
 
 import {
@@ -22,6 +24,32 @@ type PageProps = {
 
 type PlanShareProduct = PlanShareSnapshot["productTotals"][number];
 type PlanShareCheckpoint = PlanShareSnapshot["checkpoints"][number];
+
+const LIGHT_SHARE_THEME_STYLE = {
+  colorScheme: "light",
+  "--background": "47 19% 91%",
+  "--foreground": "0 0% 10%",
+  "--card": "0 0% 100%",
+  "--card-foreground": "0 0% 10%",
+  "--muted": "43 26% 95%",
+  "--muted-foreground": "0 0% 42%",
+  "--surface-muted": "47 18% 90%",
+  "--border": "44 13% 83%",
+  "--border-strong": "44 7% 67%",
+  "--input": "44 13% 83%",
+  "--ring": "96 57% 20%",
+  "--primary": "96 57% 20%",
+  "--primary-foreground": "0 0% 100%",
+  "--icon": "0 0% 10%",
+  "--icon-muted": "0 0% 42%",
+  "--brand": "96 57% 20%",
+  "--brand-light": "96 51% 32%",
+  "--brand-surface": "90 35% 91%",
+  "--brand-border": "88 33% 70%",
+  "--brand-foreground": "0 0% 100%",
+  "--success": "96 57% 20%",
+  "--success-foreground": "0 0% 100%",
+} as CSSProperties;
 
 const planShareRowSchema = z.object({
   id: z.string().uuid(),
@@ -221,6 +249,32 @@ function ProductRow({ product }: { product: PlanShareProduct }) {
   );
 }
 
+function LightShareShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={LIGHT_SHARE_THEME_STYLE}
+      className="min-h-screen bg-background text-foreground"
+    >
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-8">
+        <header className="flex items-center justify-between">
+          <a href="/" aria-label="Pace Yourself" className="inline-flex">
+            <Image
+              src="/branding/logo-horizontal-v2.png"
+              alt="Pace Yourself"
+              width={213}
+              height={50}
+              priority
+              unoptimized
+              className="h-10 w-auto"
+            />
+          </a>
+        </header>
+        {children}
+      </main>
+    </div>
+  );
+}
+
 function UnavailablePage() {
   return (
     <div className="mx-auto flex min-h-[55vh] max-w-2xl flex-col items-center justify-center gap-4 text-center">
@@ -235,7 +289,13 @@ function UnavailablePage() {
 export default async function SharedPlanPage({ params }: PageProps) {
   const share = await loadPlanShare(params.token);
 
-  if (!share) return <UnavailablePage />;
+  if (!share) {
+    return (
+      <LightShareShell>
+        <UnavailablePage />
+      </LightShareShell>
+    );
+  }
 
   const summary = share.snapshot;
   const locale = share.locale;
@@ -245,7 +305,8 @@ export default async function SharedPlanPage({ params }: PageProps) {
   )} ml/h - ${Math.round(summary.targetSodiumPerHour)} mg/h`;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <LightShareShell>
+      <div className="flex w-full flex-col gap-6">
       <section className="rounded-lg border border-brand-border bg-brand-surface p-5 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -359,6 +420,7 @@ export default async function SharedPlanPage({ params }: PageProps) {
       <p className="text-center text-xs text-muted-foreground">
         {copy.sharedAt} : {formatDate(share.created_at, locale)}
       </p>
-    </div>
+      </div>
+    </LightShareShell>
   );
 }

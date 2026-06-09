@@ -85,6 +85,8 @@ Summary:
 - Public crew viewers do not authenticate. Do not add direct `anon` table grants unless the public access model is redesigned.
 - Because only the token hash is stored, an existing link cannot be re-shown after creation; generate a new link when the runner shares again.
 - The snapshot can contain product names and pass times. Treat the public URL as a secret link.
+- Public URLs should use the canonical website domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; Vercel deployment hostnames should not be used for crew links.
+- The public page forces the light theme for readability, independent of the visitor's saved web theme preference.
 
 ## Related Docs
 

@@ -152,7 +152,7 @@ export async function POST(request: Request) {
   return withSecurityHeaders(
     NextResponse.json({
       share: inserted[0],
-      shareUrl: buildPlanShareUrl(publicToken, request),
+      shareUrl: buildPlanShareUrl(publicToken),
     })
   );
 }

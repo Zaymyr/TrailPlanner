@@ -133,6 +133,7 @@ It:
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions; older plans will not have this field.
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
+- Public crew recap URLs should use the canonical site domain. Configure `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; do not fall back to Vercel deployment hostnames.
 
 ## Related Docs
 
