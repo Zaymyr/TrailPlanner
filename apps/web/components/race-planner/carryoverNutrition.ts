@@ -144,8 +144,11 @@ export const buildCarryoverCoverageByItemId = (
     const upcomingSegment = item.upcomingSegment;
     if (!upcomingSegment) return;
 
-    const checkpointAllowsSolid = item.isStart || item.checkpointSegment?.solidRefill !== false;
-    addSuppliesToInventory(inventory, checkpointAllowsSolid ? (item.isStart ? startSupplies : item.checkpointSegment?.supplies) : []);
+    const checkpointAllowsAssistance = item.isStart || item.checkpointSegment?.assistanceAllowed !== false;
+    addSuppliesToInventory(
+      inventory,
+      checkpointAllowsAssistance ? (item.isStart ? startSupplies : item.checkpointSegment?.supplies) : []
+    );
 
     coverageByItemId.set(
       item.id,

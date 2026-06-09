@@ -257,7 +257,7 @@ export default function PlanForm({
       values.aidStations
         .map(
           (station) =>
-            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}`,
+            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}|${station.assistanceAllowed !== false}`,
         )
         .join(';'),
     [values.aidStations],
@@ -301,12 +301,12 @@ export default function PlanForm({
   const carryoverCoverageMap = useMemo(() => {
     const sections = liveSectionSummaries.map((summary) => {
       const target: PlanTarget = summary.sectionIndex === 0 ? 'start' : summary.sectionIndex;
-      const allowsSolid = target === 'start' || values.aidStations[summary.sectionIndex]?.solidRefill !== false;
+      const allowsAssistance = target === 'start' || values.aidStations[summary.sectionIndex]?.assistanceAllowed !== false;
       return {
         sectionIndex: summary.sectionIndex,
         targetCarbsG: summary.targetCarbsG,
         targetSodiumMg: getEffectiveSodiumTarget(summary.targetSodiumMg),
-        supplies: allowsSolid ? getSupplies(target) : [],
+        supplies: allowsAssistance ? getSupplies(target) : [],
       };
     });
 
@@ -320,7 +320,7 @@ export default function PlanForm({
       const arrivalStation = values.aidStations[sectionIndex + 1];
       if (!arrivalStation || arrivalStation.id === ARRIVEE_ID) return true;
       return service === 'solid'
-        ? arrivalStation.solidRefill !== false
+        ? arrivalStation.assistanceAllowed !== false
         : arrivalStation.waterRefill !== false;
     };
 
@@ -567,6 +567,7 @@ export default function PlanForm({
         distanceKm: nextDistanceKm,
         waterRefill: editingStation.waterRefill,
         solidRefill: editingStation.solidRefill,
+        assistanceAllowed: editingStation.assistanceAllowed,
         pauseMinutes: nextPauseMinutes,
         supplies: [],
       });
@@ -579,8 +580,9 @@ export default function PlanForm({
       distanceKm: nextDistanceKm,
       waterRefill: editingStation.waterRefill,
       solidRefill: editingStation.solidRefill,
+      assistanceAllowed: editingStation.assistanceAllowed,
       pauseMinutes: nextPauseMinutes,
-      ...(editingStation.solidRefill ? {} : { supplies: [] }),
+      ...(editingStation.assistanceAllowed ? {} : { supplies: [] }),
     });
     setEditingStation(null);
   };
@@ -603,6 +605,7 @@ export default function PlanForm({
       pauseMinutes: '0',
       waterRefill: true,
       solidRefill: true,
+      assistanceAllowed: true,
     });
   }, [values.aidStations, values.raceDistanceKm]);
 

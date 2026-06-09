@@ -143,7 +143,7 @@ export function useActionPlanDerivedData({
     const totalElevationLoss = segments.reduce((total, segment) => total + (segment.elevationLossM ?? 0), 0);
     const allSupplies = [
       ...startSupplies,
-      ...segments.flatMap((segment) => (segment.solidRefill === false ? [] : segment.supplies ?? [])),
+      ...segments.flatMap((segment) => (segment.assistanceAllowed === false ? [] : segment.supplies ?? [])),
     ];
     const totalCalories = allSupplies.reduce((total, supply) => {
       const product = productById[supply.productId];
@@ -226,7 +226,9 @@ export function useActionPlanDerivedData({
     const map = new Map<string, ReturnType<typeof summarizeSuppliesForProducts>>();
     renderItems.forEach((item) => {
       const supplies =
-        item.isStart || item.checkpointSegment?.solidRefill !== false ? (item.isStart ? startSupplies : item.checkpointSegment?.supplies) : [];
+        item.isStart || item.checkpointSegment?.assistanceAllowed !== false
+          ? (item.isStart ? startSupplies : item.checkpointSegment?.supplies)
+          : [];
       map.set(item.id, summarizeSuppliesForProducts(supplies, productById));
     });
     return map;
@@ -241,7 +243,7 @@ export function useActionPlanDerivedData({
     const map = new Map<number, StationSupply[]>();
     segments.forEach((segment) => {
       if (typeof segment.aidStationIndex !== "number") return;
-      map.set(segment.aidStationIndex, segment.solidRefill === false ? [] : segment.supplies ?? []);
+      map.set(segment.aidStationIndex, segment.assistanceAllowed === false ? [] : segment.supplies ?? []);
     });
     return map;
   }, [segments]);

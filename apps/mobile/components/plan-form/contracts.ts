@@ -15,6 +15,7 @@ export type AidStationFormItem = {
   distanceKm: number;
   waterRefill: boolean;
   solidRefill?: boolean;
+  assistanceAllowed?: boolean;
   pauseMinutes?: number;
   supplies?: Supply[];
 };

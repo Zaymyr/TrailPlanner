@@ -32,6 +32,7 @@ export type AidStation = {
   distanceKm: number;
   waterRefill?: boolean;
   solidRefill?: boolean;
+  assistanceAllowed?: boolean;
   nutrition?: AidStationNutritionItem[];
 } & SegmentPlan;
 
@@ -96,6 +97,7 @@ export type Segment = {
   waterShortfallMl?: number;
   waterRefill?: boolean;
   solidRefill?: boolean;
+  assistanceAllowed?: boolean;
   aidStationIndex?: number;
   isFinish?: boolean;
 };

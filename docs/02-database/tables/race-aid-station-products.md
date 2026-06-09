@@ -1,7 +1,7 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -69,6 +69,7 @@ Summary:
 - Organizer-created products stay `is_live = false`, `is_archived = false`, `is_official = false`, and `created_by = organizer user`.
 - Organizer-created products are not global catalog products and should not appear in `/api/products`.
 - Imported runner plans store organizer suggestions in `planner_values.organizerAidStationProducts`; auto-fill can use them only after the runner favorites or explicitly selects them.
+- Organizer suggestions are not the same thing as planner `assistanceAllowed`. A station can offer official ravito products while still being unavailable to the runner's crew.
 
 ## Common Queries
 
@@ -93,6 +94,7 @@ order by order_index asc;
 ## Gotchas
 
 - Do not treat these rows as plan supplies. They are organization suggestions attached to source station rows.
+- Do not infer crew access from these rows; crew access is stored per runner plan station as `assistanceAllowed`.
 - Deleting a source `race_aid_stations` row deletes its product links.
 - Product deletion cascades to these links, so organizer-scoped product cleanup removes station presence rows.
 

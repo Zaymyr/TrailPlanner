@@ -32,6 +32,7 @@ export type ContinuousSection = {
   supplies: Supply[];
   waterRefill: boolean;
   solidRefill: boolean;
+  assistanceAllowed: boolean;
   availableWaterMl: number;
 };
 
@@ -441,6 +442,7 @@ export function buildContinuousSections({
     const toStation = values.aidStations[summary.sectionIndex + 1];
     const roundedStartMinute = roundToStep(startMinute);
     const roundedEndMinute = roundToStep(startMinute + summary.durationMin);
+    const currentStationAllowsAssistance = target === 'start' || fromStation?.assistanceAllowed !== false;
     const currentStationAllowsSolid = target === 'start' || fromStation?.solidRefill !== false;
 
     sections.push({
@@ -457,9 +459,10 @@ export function buildContinuousSections({
       targetCarbsG: summary.targetCarbsG,
       targetSodiumMg: summary.targetSodiumMg,
       targetWaterMl: summary.targetWaterMl,
-      supplies: currentStationAllowsSolid ? getSuppliesForTarget(values, target) : [],
+      supplies: currentStationAllowsAssistance ? getSuppliesForTarget(values, target) : [],
       waterRefill: target === 'start' || fromStation?.waterRefill !== false,
       solidRefill: currentStationAllowsSolid,
+      assistanceAllowed: currentStationAllowsAssistance,
       availableWaterMl: Math.max(0, availableWaterMl),
     });
 

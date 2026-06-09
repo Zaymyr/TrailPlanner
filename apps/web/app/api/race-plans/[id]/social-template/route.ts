@@ -123,6 +123,7 @@ function collectProductIds(plannerValues: Record<string, unknown> | null | undef
   });
 
   aidStations.forEach((station) => {
+    if (station.assistanceAllowed === false) return;
     const supplies = Array.isArray(station.supplies) ? (station.supplies as Array<Record<string, unknown>>) : [];
 
     supplies.forEach((supply) => {

@@ -130,11 +130,11 @@ const buildDefaultValues = (copy: RacePlannerTranslations): FormValues => ({
   sodiumIntakePerHour: 600,
   startSupplies: [],
   aidStations: [
-    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true, solidRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true, solidRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true, solidRefill: true },
-    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true, solidRefill: true },
-    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true, solidRefill: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 1), distanceKm: 10, waterRefill: true, solidRefill: true, assistanceAllowed: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 2), distanceKm: 20, waterRefill: true, solidRefill: true, assistanceAllowed: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 3), distanceKm: 30, waterRefill: true, solidRefill: true, assistanceAllowed: true },
+    { name: formatAidStationName(copy.defaults.aidStationName, 4), distanceKm: 40, waterRefill: true, solidRefill: true, assistanceAllowed: true },
+    { name: copy.defaults.finalBottles, distanceKm: 45, waterRefill: true, solidRefill: true, assistanceAllowed: true },
   ],
   finishPlan: {},
 });
@@ -187,6 +187,7 @@ const createAidStationSchema = (validation: RacePlannerTranslations["validation"
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
     waterRefill: z.coerce.boolean().optional().default(true),
     solidRefill: z.coerce.boolean().optional().default(true),
+    assistanceAllowed: z.coerce.boolean().optional().default(true),
   });
 
 const createFormSchema = (copy: RacePlannerTranslations) =>
@@ -1364,12 +1365,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const pagePaddingClass = enableMobileNav ? "pb-28 xl:pb-6" : "pb-6 xl:pb-6";
   const feedbackButtonOffsetClass = enableMobileNav ? "bottom-20" : "bottom-6";
   const handleAddAidStation = useCallback(
-    (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean }) => {
+    (station?: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean; assistanceAllowed?: boolean }) => {
       append({
         name: station?.name ?? formatAidStationName(racePlannerCopy.defaults.aidStationName, fields.length + 1),
         distanceKm: station?.distanceKm ?? 0,
         waterRefill: station?.waterRefill !== false,
         solidRefill: station?.solidRefill !== false,
+        assistanceAllowed: station?.assistanceAllowed !== false,
       });
     },
     [append, fields.length, racePlannerCopy.defaults.aidStationName]
@@ -1391,6 +1393,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const handleSupplyDrop = useCallback(
     (aidStationIndex: number, productId: string, quantity = 1) => {
+      if (form.getValues(`aidStations.${aidStationIndex}.assistanceAllowed`) === false) return;
       const current = form.getValues(`aidStations.${aidStationIndex}.supplies`) ?? [];
       const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
       const existing = sanitized.find((supply) => supply.productId === productId);
@@ -1463,6 +1466,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       const explicitlySelectedIds = new Set<string>();
       currentValues.startSupplies?.forEach((supply) => explicitlySelectedIds.add(supply.productId));
       currentValues.aidStations?.forEach((station) => {
+        if (station.assistanceAllowed === false) return;
         station.supplies?.forEach((supply) => explicitlySelectedIds.add(supply.productId));
       });
 
@@ -1558,7 +1562,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     type SupplyTarget = "start" | number;
     const plannedSuppliesByTarget = new Map<SupplyTarget, StationSupply[]>();
     const aidStations = form.getValues("aidStations") ?? [];
-    let lastSolidTarget: SupplyTarget = "start";
+    let lastAssistanceTarget: SupplyTarget = "start";
     const mergeSupplies = (base: StationSupply[], extra: StationSupply[]) => {
       const quantities = new Map<string, number>();
 
@@ -1571,12 +1575,12 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     segments.forEach((segment, index) => {
       const pickupTarget: SupplyTarget | undefined = index === 0 ? "start" : segments[index - 1]?.aidStationIndex;
-      const pickupAllowsSolid =
+      const pickupAllowsAssistance =
         pickupTarget === "start" ||
-        (typeof pickupTarget === "number" && aidStations[pickupTarget]?.solidRefill !== false);
+        (typeof pickupTarget === "number" && aidStations[pickupTarget]?.assistanceAllowed !== false);
 
-      if (pickupAllowsSolid && pickupTarget !== undefined) {
-        lastSolidTarget = pickupTarget;
+      if (pickupAllowsAssistance && pickupTarget !== undefined) {
+        lastAssistanceTarget = pickupTarget;
       }
 
       consumeInventoryForTargets({
@@ -1593,8 +1597,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       const supplies = buildPlanForTarget(remainingFuelGrams, remainingSodiumMg);
       plannedSuppliesByTarget.set(
-        lastSolidTarget,
-        mergeSupplies(plannedSuppliesByTarget.get(lastSolidTarget) ?? [], supplies)
+        lastAssistanceTarget,
+        mergeSupplies(plannedSuppliesByTarget.get(lastAssistanceTarget) ?? [], supplies)
       );
       addSuppliesToInventory(inventory, supplies);
       consumeInventoryForTargets({
@@ -1611,7 +1615,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       shouldValidate: true,
     });
     aidStations.forEach((station, index) => {
-      form.setValue(`aidStations.${index}.supplies`, station.solidRefill === false ? [] : plannedSuppliesByTarget.get(index) ?? [], {
+      form.setValue(`aidStations.${index}.supplies`, station.assistanceAllowed === false ? [] : plannedSuppliesByTarget.get(index) ?? [], {
         shouldDirty: true,
         shouldValidate: true,
       });

@@ -449,7 +449,7 @@ export function buildPlanHighlights({
   );
   const allSupplies = [
     ...(values.startSupplies ?? []),
-    ...values.aidStations.flatMap((station) => (station.solidRefill === false ? [] : station.supplies ?? [])),
+    ...values.aidStations.flatMap((station) => (station.assistanceAllowed === false ? [] : station.supplies ?? [])),
   ];
   const suppliesByProductId = allSupplies.reduce<Record<string, number>>((acc, supply) => {
     acc[supply.productId] = (acc[supply.productId] ?? 0) + supply.quantity;

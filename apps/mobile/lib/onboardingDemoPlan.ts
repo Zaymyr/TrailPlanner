@@ -200,9 +200,10 @@ function buildPlannerValues(values: PlanFormValues) {
       distanceKm: station.distanceKm,
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
+      assistanceAllowed: station.assistanceAllowed !== false,
       pauseMinutes: station.pauseMinutes ?? 0,
       supplies:
-        station.solidRefill === false
+        station.assistanceAllowed === false
           ? []
           : (station.supplies ?? []).map((supply) => ({
               productId: supply.productId,
@@ -225,6 +226,7 @@ function buildFallbackAidStations(distanceKm: number): AidStationFormItem[] {
     distanceKm: Math.round((index + 1) * interval * 10) / 10,
     waterRefill: true,
     solidRefill: true,
+    assistanceAllowed: true,
     pauseMinutes: 0,
     supplies: [],
   }));
@@ -280,11 +282,11 @@ function buildAutoFilledPlanValues({
   });
 
   const sectionSupplyMap = new Map<number, Supply[]>();
-  let lastSolidSectionIndex = 0;
+  let lastAssistanceSectionIndex = 0;
 
   sections.forEach((section) => {
-    if (section.solidRefill) {
-      lastSolidSectionIndex = section.sectionIndex;
+    if (section.assistanceAllowed) {
+      lastAssistanceSectionIndex = section.sectionIndex;
     }
 
     let nextSupplies = [...(assignedBySection.get(section.sectionIndex) ?? [])];
@@ -330,7 +332,10 @@ function buildAutoFilledPlanValues({
       );
     }
 
-    sectionSupplyMap.set(lastSolidSectionIndex, mergeSupplyLists(sectionSupplyMap.get(lastSolidSectionIndex) ?? [], nextSupplies));
+    sectionSupplyMap.set(
+      lastAssistanceSectionIndex,
+      mergeSupplyLists(sectionSupplyMap.get(lastAssistanceSectionIndex) ?? [], nextSupplies),
+    );
   });
 
   const newStartSupplies = sectionSupplyMap.get(0) ?? [];
@@ -339,7 +344,8 @@ function buildAutoFilledPlanValues({
     .map((station, index) => ({
       ...station,
       solidRefill: station.solidRefill !== false,
-      supplies: station.solidRefill === false ? [] : sectionSupplyMap.get(index + 1) ?? [],
+      assistanceAllowed: station.assistanceAllowed !== false,
+      supplies: station.assistanceAllowed === false ? [] : sectionSupplyMap.get(index + 1) ?? [],
     }));
 
   return {
