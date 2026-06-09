@@ -274,16 +274,28 @@ export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanSh
             timeline.actualAbsolute !== null &&
             checkpoint.index === timeline.selectedCheckpoint.index;
           const isNext = timeline.nextCheckpoint !== null && checkpoint.index === timeline.nextCheckpoint.index;
+          const isNoAssistance = checkpoint.assistanceState === "unavailable";
+          const isAssistancePoint =
+            checkpoint.assistanceState === "available" && !checkpoint.isStart && !checkpoint.isFinish;
+          const shouldShowGiveBlock = !isNoAssistance;
 
           return (
             <article
               key={`${checkpoint.index}-${checkpoint.name}`}
-              className="rounded-lg border border-border bg-card p-4"
+              className={`rounded-lg border p-4 ${
+                isAssistancePoint
+                  ? "border-brand-border bg-brand-surface"
+                  : isNoAssistance
+                    ? "border-border bg-muted/60"
+                    : "border-border bg-card"
+              }`}
             >
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="break-words text-lg font-bold text-foreground">{checkpoint.name}</h3>
+                    <h3 className={`break-words text-lg font-bold ${isNoAssistance ? "text-muted-foreground" : "text-foreground"}`}>
+                      {checkpoint.name}
+                    </h3>
                     {isPassed ? (
                       <span className="rounded-full border border-brand-border bg-brand-surface px-2 py-0.5 text-xs font-bold text-brand">
                         {copy.passed}
@@ -310,11 +322,17 @@ export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanSh
                     </span>
                   ) : null}
                   {checkpoint.assistanceState === "available" || checkpoint.assistanceState === "start" ? (
-                    <span className="rounded-full border border-brand-border bg-brand-surface px-3 py-1 text-xs font-bold text-brand">
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                        isAssistancePoint
+                          ? "border-brand bg-brand text-brand-foreground"
+                          : "border-brand-border bg-brand-surface text-brand"
+                      }`}
+                    >
                       {copy.assistanceAvailable}
                     </span>
                   ) : checkpoint.assistanceState === "unavailable" ? (
-                    <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                    <span className="rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-bold text-muted-foreground">
                       {copy.noAssistance}
                     </span>
                   ) : null}
@@ -326,26 +344,26 @@ export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanSh
                 </div>
               </div>
 
-              <div className="mt-4">
-                <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
-                {checkpoint.supplies.length === 0 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    {checkpoint.assistanceState === "unavailable" ? copy.carryFromPrevious : copy.nothingToGive}
-                  </p>
-                ) : (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {checkpoint.supplies.map((product) => (
-                      <span
-                        key={product.productId}
-                        className="inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground"
-                      >
-                        <span className="truncate">{product.name}</span>
-                        <span className="font-mono font-bold text-brand">x{product.quantity}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
+              {shouldShowGiveBlock ? (
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
+                  {checkpoint.supplies.length === 0 ? (
+                    <p className="mt-2 text-sm text-muted-foreground">{copy.nothingToGive}</p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {checkpoint.supplies.map((product) => (
+                        <span
+                          key={product.productId}
+                          className="inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground"
+                        >
+                          <span className="truncate">{product.name}</span>
+                          <span className="font-mono font-bold text-brand">x{product.quantity}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </article>
           );
         })}
