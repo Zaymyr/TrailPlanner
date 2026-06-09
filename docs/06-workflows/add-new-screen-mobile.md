@@ -11,6 +11,8 @@ related_files:
   - apps/mobile/app/_layout.tsx
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
+  - apps/mobile/lib/planShareLinks.ts
+  - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/app.config.ts
@@ -34,8 +36,8 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
 - Non-root plan actions can reuse `FloatingActionMenu` directly. The component keeps its default add icon for root menus but also accepts optional closed/open icons when a screen needs an actions affordance instead of a create affordance.
-- Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item.
-- Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and use native sharing for MVP external team handoffs.
+- Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item. Use `href: null` alone when the screen should keep the bottom navigation visible; add `tabBarStyle: { display: 'none' }` only for flows that should hide the bar.
+- Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
 - When a setup/onboarding step already sits inside a shell card, prefer flat rows for one-off lists; when the same choice exists as a primary app surface, reuse the primary component for consistency.
 - Required onboarding screens must hide the bottom tab bar until completion; register them with `href: null` and `tabBarStyle: { display: 'none' }` in the tab layout.
@@ -81,7 +83,7 @@ For native behavior, build/run with the development client profile from `apps/mo
 - Do not put root-tab help, feedback, or create actions back into the native header; use the floating root action menu so the screen keeps the reclaimed vertical space.
 - Do not remove the opened menu backdrop or high-contrast action styling unless replacing it with an equally readable treatment across busy root screens.
 - Do not expose temporary flows like free training as new bottom tabs unless they become primary navigation destinations.
-- Do not rely on a hidden parent route to hide every nested Expo Router screen. Register important dynamic children explicitly when adding plan/race utility screens.
+- Do not rely on a hidden parent route to hide every nested Expo Router screen. Register important dynamic children explicitly when adding plan/race utility screens, and choose separately whether the tab bar itself remains visible.
 
 ## Related Docs
 

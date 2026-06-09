@@ -1,7 +1,7 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -23,6 +23,7 @@ Use this workflow when adding or changing row-level security policies.
 - Parent check: `exists` query through a parent table.
 - Admin check: trusted app metadata or server-side role check.
 - Service role: server-only bypass for trusted operations.
+- Secret-link access: public viewers resolve unguessable tokens through server code; table rows still use owner RLS.
 
 ## Steps
 
@@ -62,6 +63,7 @@ Use `supabase/tests/coach_rls_checks.sql` as the user relationship-policy exampl
 - Do not grant broad coach access without checking `coach_coachees.status = 'active'`.
 - Do not leave a table with RLS enabled but no reachable select policy unless it is intentionally write-only/service-only.
 - Do not forget SQL grants; a policy does not grant `select`, `insert`, `update`, or `delete` privileges by itself.
+- Do not grant `anon` to secret-link tables unless public direct table access is explicitly intended and documented.
 
 ## Related Docs
 

@@ -47,11 +47,13 @@ related_files:
   - apps/mobile/lib/freeTrainingLive.ts
   - apps/mobile/lib/raceLiveSession.ts
   - apps/mobile/lib/planSummary.ts
+  - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/app/(app)/training-live.tsx
   - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
   - products
   - race_plans
+  - plan_share_links
 ---
 
 # Nutrition Algorithm
@@ -257,7 +259,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, tint official mobile brand header names with the light brand green, and must not change allocation order or nutrition math.
 - Organizer ravito suggestions are presentation and explicit-selection data. Do not let non-live organizer products enter auto-fill unless the runner favorites or selects them.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
-- Mobile plan recap/share is presentation only. It should derive from the same saved supplies and live-section timing used by the planner/live screen, not persist a separate ravito checklist snapshot.
+- Mobile plan recap/share should derive from the same saved supplies and live-section timing used by the planner/live screen. Public crew links may persist that derived recap as a bounded `plan_share_links.snapshot`, but the snapshot must not feed back into nutrition allocation.
 - Mobile favorite toggles are presentation only. Inactive product rows show an unfilled star without a filled brand circle; only active favorites use the filled brand circle.
 - Collapsed mobile brand headers depend on the same catalog row builder as virtualization; keep verified-header metadata in that single builder when resolving merges.
 - Admin-only favorite usage shown in the mobile product detail modal is operational metadata. It must not influence allocation order, product eligibility, or per-unit nutrition values.

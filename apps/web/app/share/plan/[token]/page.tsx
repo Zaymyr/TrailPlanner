@@ -1,0 +1,364 @@
+import type { Metadata } from "next";
+import { z } from "zod";
+
+import {
+  departureTimeSchema,
+  hashPlanShareToken,
+  isValidPlanShareToken,
+  localeSchema,
+  planShareSnapshotSchema,
+  type PlanShareSnapshot,
+} from "../../../../lib/plan-share";
+import { getSupabaseServiceConfig, type SupabaseServiceConfig } from "../../../../lib/supabase";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+type PageProps = {
+  params: {
+    token: string;
+  };
+};
+
+type PlanShareProduct = PlanShareSnapshot["productTotals"][number];
+type PlanShareCheckpoint = PlanShareSnapshot["checkpoints"][number];
+
+const planShareRowSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  snapshot: planShareSnapshotSchema,
+  departure_time: departureTimeSchema.nullable(),
+  locale: localeSchema,
+  plan_updated_at: z.string().nullable(),
+  expires_at: z.string().nullable(),
+});
+
+type PlanShareRow = z.infer<typeof planShareRowSchema>;
+
+const COPY = {
+  fr: {
+    title: "Récap équipe",
+    unavailableTitle: "Lien indisponible",
+    unavailableBody: "Ce récap n'existe plus, a expiré, ou le lien est incomplet.",
+    hourlyTargets: "Cibles horaires",
+    distance: "Distance",
+    elevation: "D+",
+    duration: "Durée estimée",
+    products: "Produits",
+    departure: "Départ",
+    packList: "À préparer",
+    crewPlan: "Équipe ravitos",
+    carbs: "Glucides",
+    sodium: "Sodium",
+    noProducts: "Aucun produit planifié.",
+    nothingToGive: "Rien à donner",
+    give: "À donner",
+    water: "Eau",
+    pause: "Pause",
+    sharedAt: "Lien généré",
+    waterFull: "poche pleine {liters} L",
+    waterRefill: "remplir la poche",
+    waterUnavailable: "pas de recharge eau",
+    waterFinish: "arrivée",
+    solidUnavailable: "pas de solide",
+    dayOffset: "J+{days}",
+  },
+  en: {
+    title: "Crew recap",
+    unavailableTitle: "Link unavailable",
+    unavailableBody: "This recap no longer exists, has expired, or the link is incomplete.",
+    hourlyTargets: "Hourly targets",
+    distance: "Distance",
+    elevation: "Gain",
+    duration: "Estimated duration",
+    products: "Products",
+    departure: "Start",
+    packList: "Pack list",
+    crewPlan: "Crew aid stations",
+    carbs: "Carbs",
+    sodium: "Sodium",
+    noProducts: "No planned products.",
+    nothingToGive: "Nothing to give",
+    give: "Give",
+    water: "Water",
+    pause: "Pause",
+    sharedAt: "Generated",
+    waterFull: "full bladder {liters} L",
+    waterRefill: "refill the bladder",
+    waterUnavailable: "no water refill",
+    waterFinish: "finish",
+    solidUnavailable: "no solids",
+    dayOffset: "D+{days}",
+  },
+} as const;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    title: "Récap plan partagé | Pace Yourself",
+    robots: {
+      index: false,
+      follow: false,
+    },
+  };
+}
+
+const serviceHeaders = (serviceConfig: SupabaseServiceConfig) => ({
+  apikey: serviceConfig.supabaseServiceRoleKey,
+  Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+});
+
+async function loadPlanShare(token: string): Promise<PlanShareRow | null> {
+  if (!isValidPlanShareToken(token)) return null;
+
+  const serviceConfig = getSupabaseServiceConfig();
+  if (!serviceConfig) return null;
+
+  const params = new URLSearchParams();
+  params.set("token_hash", `eq.${hashPlanShareToken(token)}`);
+  params.set("revoked_at", "is.null");
+  params.set("or", `(expires_at.is.null,expires_at.gt.${new Date().toISOString()})`);
+  params.set(
+    "select",
+    "id,created_at,updated_at,snapshot,departure_time,locale,plan_updated_at,expires_at"
+  );
+  params.set("limit", "1");
+
+  const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/plan_share_links?${params.toString()}`, {
+    headers: serviceHeaders(serviceConfig),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    console.error("Unable to load plan share link", await response.text().catch(() => ""));
+    return null;
+  }
+
+  const rows = (await response.json().catch(() => [])) as unknown[];
+  const parsed = planShareRowSchema.safeParse(rows[0]);
+
+  if (!parsed.success) {
+    if (rows[0]) console.error("Invalid plan share row", parsed.error.flatten().fieldErrors);
+    return null;
+  }
+
+  return parsed.data;
+}
+
+function formatDuration(totalMinutes: number) {
+  const safeMinutes = Math.max(0, Math.round(totalMinutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+  if (hours <= 0) return `${safeMinutes} min`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h${String(minutes).padStart(2, "0")}`;
+}
+
+function formatKm(distanceKm: number) {
+  const rounded = Number(distanceKm.toFixed(1));
+  const formatted = Number.isInteger(rounded) ? rounded.toFixed(0) : rounded.toFixed(1);
+  return `${formatted} km`;
+}
+
+function formatLiters(value: number) {
+  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+}
+
+function formatDate(value: string, locale: "fr" | "en") {
+  return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+function formatClockFromDeparture(departureTime: string, elapsedMinutes: number, locale: "fr" | "en") {
+  const [hours, minutes] = departureTime.split(":").map(Number);
+  const totalMinutes = hours * 60 + minutes + Math.round(elapsedMinutes);
+  const dayOffset = Math.floor(totalMinutes / 1440);
+  const clockMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+  const clock = `${String(Math.floor(clockMinutes / 60)).padStart(2, "0")}:${String(
+    clockMinutes % 60
+  ).padStart(2, "0")}`;
+
+  if (dayOffset <= 0) return clock;
+  return `${clock} ${COPY[locale].dayOffset.replace("{days}", String(dayOffset))}`;
+}
+
+function formatCheckpointTime(
+  checkpoint: PlanShareCheckpoint,
+  departureTime: string | null,
+  locale: "fr" | "en"
+) {
+  const elapsed = `T+${formatDuration(checkpoint.arrivalMinute)}`;
+  if (!departureTime) return elapsed;
+  return `${elapsed} / ${formatClockFromDeparture(departureTime, checkpoint.arrivalMinute, locale)}`;
+}
+
+function getWaterInstruction(checkpoint: PlanShareCheckpoint, summary: PlanShareSnapshot, locale: "fr" | "en") {
+  const copy = COPY[locale];
+  if (checkpoint.waterState === "full") {
+    return copy.waterFull.replace("{liters}", formatLiters(summary.waterBagLiters));
+  }
+  if (checkpoint.waterState === "refill") return copy.waterRefill;
+  if (checkpoint.waterState === "finish") return copy.waterFinish;
+  return copy.waterUnavailable;
+}
+
+function ProductRow({ product }: { product: PlanShareProduct }) {
+  return (
+    <li className="flex min-h-14 items-center justify-between gap-4 border-b border-border px-4 py-3 last:border-b-0">
+      <div className="min-w-0">
+        <p className="break-words text-sm font-semibold text-foreground sm:text-base">{product.name}</p>
+        {product.brand ? <p className="text-xs text-muted-foreground">{product.brand}</p> : null}
+      </div>
+      <div className="flex-shrink-0 text-right">
+        <p className="font-mono text-sm font-bold text-brand">x{product.quantity}</p>
+        <p className="font-mono text-xs text-muted-foreground">
+          {Math.round(product.carbsG)}g / {Math.round(product.sodiumMg)}mg
+        </p>
+      </div>
+    </li>
+  );
+}
+
+function UnavailablePage() {
+  return (
+    <div className="mx-auto flex min-h-[55vh] max-w-2xl flex-col items-center justify-center gap-4 text-center">
+      <div className="rounded-lg border border-border bg-card p-6 shadow-sm">
+        <h1 className="text-2xl font-bold text-foreground">{COPY.fr.unavailableTitle}</h1>
+        <p className="mt-3 text-muted-foreground">{COPY.fr.unavailableBody}</p>
+      </div>
+    </div>
+  );
+}
+
+export default async function SharedPlanPage({ params }: PageProps) {
+  const share = await loadPlanShare(params.token);
+
+  if (!share) return <UnavailablePage />;
+
+  const summary = share.snapshot;
+  const locale = share.locale;
+  const copy = COPY[locale];
+  const targetSummary = `${Math.round(summary.targetCarbsPerHour)} g/h - ${Math.round(
+    summary.targetWaterPerHour
+  )} ml/h - ${Math.round(summary.targetSodiumPerHour)} mg/h`;
+
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+      <section className="rounded-lg border border-brand-border bg-brand-surface p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold uppercase text-brand">{copy.title}</p>
+            <h1 className="mt-2 break-words text-3xl font-bold leading-tight text-foreground sm:text-4xl">
+              {summary.name}
+            </h1>
+            <p className="mt-3 text-muted-foreground">
+              {copy.hourlyTargets} : {targetSummary}
+            </p>
+          </div>
+          <div className="rounded-lg bg-card px-4 py-3">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.departure}</p>
+            <p className="font-mono text-2xl font-bold text-brand">{share.departure_time ?? "--:--"}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[
+            [copy.distance, formatKm(summary.distanceKm)],
+            [copy.elevation, `${Math.round(summary.elevationGainM)} m`],
+            [copy.duration, formatDuration(summary.totalDurationMin)],
+            [copy.products, String(summary.totalProductUnits)],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-lg border border-brand-border bg-card p-4">
+              <p className="font-mono text-xl font-bold text-brand">{value}</p>
+              <p className="mt-2 text-xs font-semibold uppercase text-muted-foreground">{label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">{copy.packList}</h2>
+          <p className="mt-1 font-mono text-sm font-bold text-brand">
+            {Math.round(summary.totalCarbsG)} g {copy.carbs} · {Math.round(summary.totalSodiumMg)} mg {copy.sodium}
+          </p>
+        </div>
+        {summary.productTotals.length === 0 ? (
+          <div className="rounded-lg border border-border bg-card p-4 text-muted-foreground">{copy.noProducts}</div>
+        ) : (
+          <ul className="overflow-hidden rounded-lg border border-border bg-card">
+            {summary.productTotals.map((product) => (
+              <ProductRow key={product.productId} product={product} />
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-2xl font-bold text-foreground">{copy.crewPlan}</h2>
+        <div className="grid gap-3">
+          {summary.checkpoints.map((checkpoint) => {
+            const waterInstruction = getWaterInstruction(checkpoint, summary, locale);
+
+            return (
+              <article
+                key={`${checkpoint.index}-${checkpoint.name}`}
+                className="rounded-lg border border-border bg-card p-4"
+              >
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <h3 className="break-words text-lg font-bold text-foreground">{checkpoint.name}</h3>
+                    <p className="font-mono text-sm text-muted-foreground">
+                      {formatKm(checkpoint.distanceKm)} -{" "}
+                      {formatCheckpointTime(checkpoint, share.departure_time, locale)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
+                      {copy.water}: {waterInstruction}
+                    </span>
+                    {checkpoint.solidState === "unavailable" ? (
+                      <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                        {copy.solidUnavailable}
+                      </span>
+                    ) : null}
+                    {checkpoint.pauseMinutes > 0 ? (
+                      <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
+                        {copy.pause} +{Math.round(checkpoint.pauseMinutes)} min
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
+                  {checkpoint.supplies.length === 0 ? (
+                    <p className="mt-2 text-sm text-muted-foreground">{copy.nothingToGive}</p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {checkpoint.supplies.map((product) => (
+                        <span
+                          key={product.productId}
+                          className="inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground"
+                        >
+                          <span className="truncate">{product.name}</span>
+                          <span className="font-mono font-bold text-brand">x{product.quantity}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
+      <p className="text-center text-xs text-muted-foreground">
+        {copy.sharedAt} : {formatDate(share.created_at, locale)}
+      </p>
+    </div>
+  );
+}
