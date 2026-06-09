@@ -8,6 +8,7 @@ import {
   hashPlanShareToken,
   isValidPlanShareToken,
   localeSchema,
+  planShareCrewStateSchema,
   planShareSnapshotSchema,
   type PlanShareSnapshot,
 } from "../../../../lib/plan-share";
@@ -56,6 +57,7 @@ const planShareRowSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
   snapshot: planShareSnapshotSchema,
+  crew_state: planShareCrewStateSchema.catch({ passages: [] }),
   departure_time: departureTimeSchema.nullable(),
   locale: localeSchema,
   plan_updated_at: z.string().nullable(),
@@ -148,7 +150,7 @@ async function loadPlanShare(token: string): Promise<PlanShareRow | null> {
   params.set("or", `(expires_at.is.null,expires_at.gt.${new Date().toISOString()})`);
   params.set(
     "select",
-    "id,created_at,updated_at,snapshot,departure_time,locale,plan_updated_at,expires_at"
+    "id,created_at,updated_at,snapshot,crew_state,departure_time,locale,plan_updated_at,expires_at"
   );
   params.set("limit", "1");
 
@@ -271,7 +273,7 @@ export default async function SharedPlanPage({ params }: PageProps) {
     <LightShareShell>
       <div className="flex w-full flex-col gap-6">
       <section className="rounded-lg border border-brand-border bg-brand-surface p-5 sm:p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-5">
           <div className="min-w-0">
             <p className="text-sm font-semibold uppercase text-brand">{copy.title}</p>
             <h1 className="mt-2 break-words text-3xl font-bold leading-tight text-foreground sm:text-4xl">
@@ -280,10 +282,6 @@ export default async function SharedPlanPage({ params }: PageProps) {
             <p className="mt-3 text-muted-foreground">
               {copy.hourlyTargets} : {targetSummary}
             </p>
-          </div>
-          <div className="rounded-lg bg-card px-4 py-3">
-            <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.departure}</p>
-            <p className="font-mono text-2xl font-bold text-brand">{share.departure_time ?? "--:--"}</p>
           </div>
         </div>
 
@@ -320,7 +318,13 @@ export default async function SharedPlanPage({ params }: PageProps) {
         )}
       </section>
 
-      <PlanShareCrewTimeline summary={summary} departureTime={share.departure_time} locale={locale} />
+      <PlanShareCrewTimeline
+        token={params.token}
+        summary={summary}
+        departureTime={share.departure_time}
+        crewState={share.crew_state}
+        locale={locale}
+      />
 
       <p className="text-center text-xs text-muted-foreground">
         {copy.sharedAt} : {formatDate(share.created_at, locale)}

@@ -12,6 +12,7 @@ related_files:
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plan-shares/route.ts
+  - apps/web/app/api/plan-shares/crew-state/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
   - apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx
   - apps/web/lib/plan-share.ts
@@ -104,6 +105,8 @@ Mobile plan editing keeps a local draft and autosaves after edits. The plan acti
 
 When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
 
+The public shared page can persist limited crew-side tracking data through `apps/web/app/api/plan-shares/crew-state/route.ts`. That route validates the secret URL token, hashes it server-side, and updates only `plan_share_links.departure_time` plus `plan_share_links.crew_state`. The crew marks assistance points as done; the page records the current clock time, recalculates the next crew point from that confirmed passage, and treats no-assistance checkpoints as planned-time passages by default.
+
 ## Hydration on Read
 
 `apps/web/app/(coach)/race-planner/hooks/useRacePlan.ts` maps saved rows into planner state.
@@ -125,6 +128,7 @@ It:
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
 - Source organizer edits after import do not mutate existing saved plans.
 - Public crew recap links are snapshots. Re-share the plan after meaningful changes so the reusable crew URL receives the latest snapshot.
+- Public crew tracking state is intentionally separate from the plan snapshot. It may persist confirmed assistance passages and corrected departure time, but it must not feed back into `race_plans.planner_values`.
 
 ## Gotchas
 
@@ -137,7 +141,7 @@ It:
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
 - Public crew recap URLs should use the canonical site domain. Configure `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored and the helper falls back to `https://pace-yourself.com`.
 - Legacy random-token share links remain readable, but the next re-share creates a new stable reusable URL because the old raw token cannot be reconstructed from `token_hash`.
-- Crew start-time and last-passage corrections are browser-local calculations on the public page; they do not mutate the stored snapshot.
+- Crew start-time and passage confirmations persist on the share row as `departure_time` and `crew_state`. They should stay narrow public-link mutations and never become a general plan editing API.
 
 ## Related Docs
 

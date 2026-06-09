@@ -5,7 +5,9 @@ last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
+  - supabase/migrations/20260609143056_add_plan_share_crew_state.sql
   - apps/web/app/api/plan-shares/route.ts
+  - apps/web/app/api/plan-shares/crew-state/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
   - apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx
   - apps/web/lib/plan-share.ts
@@ -27,6 +29,7 @@ related_tables:
 - Public token: the URL token sent to the crew. Legacy links used random tokens; reusable links use a stable server-derived token. Raw tokens are never stored in the database.
 - `token_hash`: SHA-256 hex hash of the public token, used for lookup by the server page.
 - Snapshot: JSONB recap payload generated from the mobile plan summary at share time, including each checkpoint's assistance availability.
+- Crew state: bounded JSONB state entered from the public link, currently start/passages confirmation data that should survive page reloads.
 - Owner access: authenticated users can manage only links tied to their own plan.
 - Public access: anonymous viewers resolve a link through the Next.js server page, which uses service role after hashing the token.
 
@@ -42,6 +45,7 @@ related_tables:
 | `token_hash` | `text` | not null, unique, 64 lowercase hex chars | SHA-256 hash of the public URL token. |
 | `snapshot` | `jsonb` | not null, max 120 KB by check constraint | Public recap payload for runner pack list and crew ravitos. |
 | `snapshot_schema_version` | `integer` | not null, default `1`, constrained to `1` | Snapshot contract version. |
+| `crew_state` | `jsonb` | not null, default `{}`, max 20 KB by check constraint | Mutable public crew tracking state for confirmed passages. |
 | `departure_time` | `text` | nullable, `HH:mm` check | Start time used for crew pass times. |
 | `locale` | `text` | not null, default `fr`, constrained to `fr`/`en` | Display locale for the public page. |
 | `plan_updated_at` | `timestamptz` | nullable | Source plan update timestamp when the snapshot was created. |
@@ -71,6 +75,7 @@ Summary:
 - Authenticated users can insert/update share links only when `user_id = auth.uid()` and the parent plan is owned by the same user.
 - Authenticated users can delete their own share links.
 - The table is not granted to `anon`; public link reads go through the server-rendered web page with service role.
+- Public crew-state updates go through `apps/web/app/api/plan-shares/crew-state/route.ts`, which hashes the raw URL token and writes only `departure_time` and `crew_state` with service role.
 
 ## Business Invariants
 
@@ -79,6 +84,7 @@ Summary:
 - Checkpoint snapshots expose `assistanceState` so crew viewers can distinguish points where they can hand over products from points where the runner must carry inventory from the previous crew point.
 - Public recap rendering uses `assistanceState` as a visual hierarchy: crew-access checkpoints are highlighted, no-crew checkpoints are muted, and no-crew checkpoints omit the product handoff block.
 - Re-sharing a plan updates the stable link snapshot. Later plan edits do not mutate the shared snapshot until the runner shares again.
+- Crew-confirmed passages are stored separately in `crew_state`; no-assistance checkpoints are treated by the public page as planned-time passages and do not need stored confirmations.
 - `snapshot_schema_version` must be bumped before storing a breaking public snapshot shape.
 - `expires_at` and `revoked_at` are optional controls; the public page must ignore revoked or expired links.
 
@@ -90,7 +96,7 @@ Summary:
 - The snapshot can contain product names, assistance availability, and pass times. Treat the public URL as a secret link.
 - Public URLs should use the canonical website domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored so Vercel deployment hostnames are not used for crew links.
 - The public page forces the light theme for readability, independent of the visitor's saved web theme preference.
-- Crew-entered start and passage times are local page state only; they are not stored in `plan_share_links`.
+- The public crew-state route is unauthenticated by design because the URL token is the secret. Keep the payload narrow and rate-limited, and do not add broad public mutation fields to `plan_share_links`.
 
 ## Related Docs
 

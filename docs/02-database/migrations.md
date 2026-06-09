@@ -164,6 +164,8 @@ The migration:
 - enables RLS with owner policies and parent `race_plans.user_id = auth.uid()` checks;
 - grants direct table privileges to `authenticated`, not `anon`, because public reads go through the Next.js server page.
 
+`supabase/migrations/20260609143056_add_plan_share_crew_state.sql` adds `plan_share_links.crew_state` as a bounded JSONB payload for public crew-side tracking. It does not add anon grants or new policies because reads and writes still resolve the secret token through Next.js service-role routes.
+
 ### Push Notifications and Cron
 
 Push support comes from:
@@ -195,6 +197,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Data-only brand imports created after official product metadata should populate `official_name` and `is_official` in the same migration.
 - Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.
 - Public link migrations should not store raw share tokens. Hash tokens server-side and keep public reads behind a service-role route/page that validates expiry and revocation.
+- Public crew tracking state belongs beside the share snapshot, not in the private plan JSON. Keep it bounded and route-mediated.
 
 ## Related Docs
 
