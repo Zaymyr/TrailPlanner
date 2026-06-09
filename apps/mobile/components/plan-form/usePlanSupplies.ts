@@ -188,7 +188,7 @@ export function usePlanSupplies({
   const getSupplies = useCallback(
     (target: PlanTarget): Supply[] => {
       if (target === 'start') return values.startSupplies ?? [];
-      if (values.aidStations[target]?.solidRefill === false) return [];
+      if (values.aidStations[target]?.assistanceAllowed === false) return [];
       return values.aidStations[target]?.supplies ?? [];
     },
     [values.aidStations, values.startSupplies],
@@ -201,7 +201,7 @@ export function usePlanSupplies({
         return;
       }
 
-      if (values.aidStations[target]?.solidRefill === false) return;
+      if (values.aidStations[target]?.assistanceAllowed === false) return;
       updateAidStation(target, { supplies });
     },
     [setValues, updateAidStation, values.aidStations],
@@ -259,6 +259,7 @@ export function usePlanSupplies({
       distanceKm: newKm > 0 ? newKm : 10,
       waterRefill: true,
       solidRefill: true,
+      assistanceAllowed: true,
       pauseMinutes: 0,
       supplies: [],
     };
@@ -280,8 +281,9 @@ export function usePlanSupplies({
         ...station,
         waterRefill: station.waterRefill ?? true,
         solidRefill: station.solidRefill !== false,
+        assistanceAllowed: station.assistanceAllowed !== false,
         pauseMinutes: station.pauseMinutes ?? 0,
-        supplies: station.solidRefill === false ? [] : station.supplies ?? [],
+        supplies: station.assistanceAllowed === false ? [] : station.supplies ?? [],
       };
 
       const insertIndex = intermediateStations.findIndex(
@@ -320,6 +322,7 @@ export function usePlanSupplies({
       distanceKm: Math.round((index + 1) * interval * 10) / 10,
       waterRefill: true,
       solidRefill: true,
+      assistanceAllowed: true,
       pauseMinutes: 0,
       supplies: [],
     }));
@@ -398,11 +401,11 @@ export function usePlanSupplies({
     );
     const inventory = new Map<string, number>();
     const balance = { carbs: 0, sodium: 0 };
-    let lastSolidSectionIndex = 0;
+    let lastAssistanceSectionIndex = 0;
 
     sections.forEach((section) => {
-      if (section.solidRefill) {
-        lastSolidSectionIndex = section.sectionIndex;
+      if (section.assistanceAllowed) {
+        lastAssistanceSectionIndex = section.sectionIndex;
       }
 
       const effectiveSectionSodiumTarget = getEffectiveSodiumTarget(section.targetSodiumMg);
@@ -449,8 +452,8 @@ export function usePlanSupplies({
         nextSupplies = mergeSupplyLists(nextSupplies, buildSodiumTopUpSupplies(sodiumStillMissing, sodiumSpecialists));
       }
 
-      const targetSectionSupplies = sectionSupplyMap.get(lastSolidSectionIndex) ?? [];
-      sectionSupplyMap.set(lastSolidSectionIndex, mergeSupplyLists(targetSectionSupplies, nextSupplies));
+      const targetSectionSupplies = sectionSupplyMap.get(lastAssistanceSectionIndex) ?? [];
+      sectionSupplyMap.set(lastAssistanceSectionIndex, mergeSupplyLists(targetSectionSupplies, nextSupplies));
       addSuppliesToInventory(inventory, nextSupplies);
       consumeInventoryForTargets({
         inventory,
@@ -468,7 +471,8 @@ export function usePlanSupplies({
       .map((station, index) => ({
         ...station,
         solidRefill: station.solidRefill !== false,
-        supplies: station.solidRefill === false ? [] : sectionSupplyMap.get(index + 1) ?? [],
+        assistanceAllowed: station.assistanceAllowed !== false,
+        supplies: station.assistanceAllowed === false ? [] : sectionSupplyMap.get(index + 1) ?? [],
       }));
 
     setValues((prev) => ({

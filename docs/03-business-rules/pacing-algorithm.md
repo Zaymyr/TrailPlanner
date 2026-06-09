@@ -1,7 +1,7 @@
 ---
 title: Pacing Algorithm
 scope: business-rule
-last_verified: 2026-05-17
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - apps/web/app/(coach)/race-planner/utils/segments.ts
@@ -46,7 +46,7 @@ For each segment it computes:
 - target sodium;
 - carried water shortfall when capacity is insufficient.
 
-Water capacity is based on `waterBagLiters * 1000`. Available water is reduced by segment demand and refilled at stations unless water refill is disabled.
+Water capacity is based on `waterBagLiters * 1000`. Available water is reduced by segment demand and refilled at stations unless water refill is disabled. Segment objects also carry station service metadata such as `solidRefill` and `assistanceAllowed`, but those flags affect nutrition inventory/recap behavior rather than ETA computation.
 
 ## Fuel Planner Module
 

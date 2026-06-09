@@ -123,6 +123,9 @@ export type MobileTranslations = {
     waterUnavailable: string;
     waterFinish: string;
     solidUnavailable: string;
+    assistanceAvailable: string;
+    noAssistance: string;
+    carryFromPrevious: string;
     pause: string;
     shareFailed: string;
   };

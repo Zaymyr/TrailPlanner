@@ -105,6 +105,7 @@ export function sanitizeAidStations(
     distanceKm?: number;
     waterRefill?: boolean;
     solidRefill?: boolean;
+    assistanceAllowed?: boolean;
     pauseMinutes?: number;
     supplies?: Array<{ productId?: string; quantity?: number }>;
   }[]
@@ -123,8 +124,9 @@ export function sanitizeAidStations(
       distanceKm: station.distanceKm,
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
+      assistanceAllowed: station.assistanceAllowed !== false,
       ...plan,
-      ...(station.solidRefill === false ? { supplies: [] } : {}),
+      ...(station.assistanceAllowed === false ? { supplies: [] } : {}),
     });
   });
 

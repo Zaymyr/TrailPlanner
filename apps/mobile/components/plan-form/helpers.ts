@@ -34,15 +34,33 @@ export function injectSystemStations(stations: AidStationFormItem[], distanceKm:
   );
 
   return [
-    { id: DEPART_ID, name: 'Départ', distanceKm: 0, waterRefill: true, solidRefill: true, pauseMinutes: 0, supplies: [] },
+    {
+      id: DEPART_ID,
+      name: 'Départ',
+      distanceKm: 0,
+      waterRefill: true,
+      solidRefill: true,
+      assistanceAllowed: true,
+      pauseMinutes: 0,
+      supplies: [],
+    },
     ...intermediates.map((station) => ({
       ...station,
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
+      assistanceAllowed: station.assistanceAllowed !== false,
       pauseMinutes: Math.max(0, station.pauseMinutes ?? 0),
-      supplies: station.solidRefill === false ? [] : station.supplies,
+      supplies: station.assistanceAllowed === false ? [] : station.supplies,
     })),
-    { id: ARRIVEE_ID, name: 'Arrivée', distanceKm, waterRefill: false, solidRefill: false, pauseMinutes: 0 },
+    {
+      id: ARRIVEE_ID,
+      name: 'Arrivée',
+      distanceKm,
+      waterRefill: false,
+      solidRefill: false,
+      assistanceAllowed: false,
+      pauseMinutes: 0,
+    },
   ];
 }
 
@@ -60,8 +78,9 @@ export function buildInitialPlanValues(initialValues: PlanFormValues): PlanFormV
         ...station,
         waterRefill: station.waterRefill !== false,
         solidRefill: station.solidRefill !== false,
+        assistanceAllowed: station.assistanceAllowed !== false,
         pauseMinutes: Math.max(0, station.pauseMinutes ?? 0),
-        supplies: station.solidRefill === false ? [] : normalizeSupplies(station.supplies),
+        supplies: station.assistanceAllowed === false ? [] : normalizeSupplies(station.supplies),
       })),
       initialValues.raceDistanceKm,
     ),

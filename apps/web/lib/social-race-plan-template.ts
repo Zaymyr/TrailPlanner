@@ -471,11 +471,17 @@ function buildAidStationSummary(
   missingData: Set<string>
 ) {
   return context.values.aidStations.map((station, index) => {
-    const explicitItems = buildProductItems(station.supplies, productsById, missingData);
+    const assistanceAllowed = station.assistanceAllowed !== false;
+    const explicitItems = assistanceAllowed ? buildProductItems(station.supplies, productsById, missingData) : [];
     const upcomingSection = sections[index + 1];
 
     const take =
-      explicitItems.length > 0
+      !assistanceAllowed
+        ? {
+            items: [],
+            fallbackUsed: false,
+          }
+        : explicitItems.length > 0
         ? {
             items: explicitItems,
             fallbackUsed: false,

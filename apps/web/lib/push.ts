@@ -36,6 +36,7 @@ type PlannerSupply = {
 };
 
 type PlannerAidStation = {
+  assistanceAllowed?: boolean | null;
   supplies?: PlannerSupply[] | null;
 };
 
@@ -113,6 +114,7 @@ function getPlannerSupplyCount(plannerValues?: PlannerValuesLike | null) {
   const aidStations = Array.isArray(plannerValues?.aidStations) ? plannerValues.aidStations : [];
 
   return startSupplies.length + aidStations.reduce((sum, station) => {
+    if (station?.assistanceAllowed === false) return sum;
     const supplies = Array.isArray(station?.supplies) ? station.supplies : [];
     return sum + supplies.length;
   }, 0);

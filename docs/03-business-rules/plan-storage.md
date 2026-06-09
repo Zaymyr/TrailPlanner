@@ -44,7 +44,7 @@ This document explains where planner state lives before signup, during onboardin
 - `planner_values`: JSONB planner state in `race_plans`.
 - Hydration: mapping saved JSON back into form state.
 - Idempotency guard: client and server duplicate-save protection.
-- Aid station service flags: `waterRefill` and `solidRefill` are stored per station. Missing flags hydrate as enabled for backward compatibility.
+- Aid station service flags: `waterRefill`, `solidRefill`, and `assistanceAllowed` are stored per station. Missing flags hydrate as enabled for backward compatibility on intermediate stations.
 - Organizer station products: optional imported source suggestions stored in planner JSON, separate from station supplies.
 
 ## Onboarding Stage
@@ -90,10 +90,11 @@ After signup, `race_plans` is the source of truth:
 - `plan_gpx_path` and `plan_course_stats` store catalog GPX import metadata.
 - `organizerAidStationProducts` can store organizer-provided product suggestions by source ravito key.
 
-Aid station entries in `planner_values.aidStations` persist both service flags:
+Aid station entries in `planner_values.aidStations` persist service flags:
 
 - `waterRefill: false` means the station cannot refill water.
-- `solidRefill: false` means the station cannot provide carb/sodium products, and persisted `supplies` for that station should hydrate as empty.
+- `solidRefill: false` means the official ravito does not provide solid carb/sodium products.
+- `assistanceAllowed: false` means the runner's crew cannot hand over personal/favorite products there, and persisted `supplies` for that station should hydrate as empty.
 
 Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions and should not be converted into supplies unless the runner explicitly selects them.
 
@@ -101,7 +102,7 @@ Organizer ravito suggestions imported from catalog source data live outside `pla
 
 Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`.
 
-When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
+When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
 
 ## Hydration on Read
 
@@ -129,7 +130,7 @@ It:
 
 - Do not save twice on Supabase email confirmation or duplicate session events.
 - Do not assume every saved plan has current planner JSON shape.
-- Treat missing `solidRefill` and `waterRefill` values as enabled on intermediate aid stations.
+- Treat missing `solidRefill`, `waterRefill`, and `assistanceAllowed` values as enabled on intermediate aid stations.
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions; older plans will not have this field.

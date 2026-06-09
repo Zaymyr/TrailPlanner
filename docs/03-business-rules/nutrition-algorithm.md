@@ -71,7 +71,7 @@ This document describes how Pace Yourself allocates products to segment nutritio
 - Salt capsule: capsule product used last for sodium top-up.
 - Carryover inventory: whole product units physically available after previous sections.
 - Nutrition balance: surplus carbs or sodium from consumed whole units that can cover later section demand.
-- Aid station services: `waterRefill` controls water refill availability, while `solidRefill` controls product pickup for carbs and sodium.
+- Aid station services: `waterRefill` controls water refill availability, `solidRefill` records official solid ravito availability, and `assistanceAllowed` controls whether the runner's crew can hand over personal/favorite products.
 - Organizer station product: product proposed by the race organization for one source ravito.
 
 ## Inputs
@@ -109,7 +109,7 @@ The current planner rule is cumulative across the race, not reset per aid statio
 
 For each outgoing section, the simulator uses the checkpoint at the start of that section:
 
-1. Add products picked up at that checkpoint to the runner's physical inventory only when `solidRefill !== false`.
+1. Add personal products picked up at that checkpoint to the runner's physical inventory only when `assistanceAllowed !== false`.
 2. Subtract the next section's carb and sodium needs from the nutrition balance.
 3. Consume whole product units from inventory until the cumulative carb/sodium deficit is covered, or until inventory cannot cover it.
 4. Carry forward both remaining product units and any nutrient surplus created by whole-unit consumption.
@@ -120,9 +120,11 @@ When a remaining deficit is smaller than one product unit, the simulator still c
 
 Mobile ravito gauges display available carbs and sodium at the start of the outgoing segment, not only the units the simulator expects to consume on that segment. Extra products added manually stay in physical inventory for later sections, but the gauge value still increases because the runner is carrying them when leaving that checkpoint.
 
-Gauge targets are resource-specific refill windows. At a checkpoint, carbs and sodium targets sum every outgoing section until the next checkpoint where `solidRefill !== false`. Water targets sum every outgoing section until the next checkpoint where `waterRefill !== false`. These windows can differ: a station with water but no solid resets only the water window, while carbs and sodium continue to accumulate until the next solid pickup point.
+Gauge targets are resource-specific refill windows. At a checkpoint, carbs and sodium targets sum every outgoing section until the next checkpoint where `assistanceAllowed !== false`. Water targets sum every outgoing section until the next checkpoint where `waterRefill !== false`. These windows can differ: a station with water but no assistance resets only the water window, while carbs and sodium continue to accumulate until the next crew pickup point.
 
-If an aid station has `solidRefill === false`, the runner cannot pick up carb/sodium products there. Auto-fill assigns any top-up needed for the outgoing section to the most recent previous checkpoint where solid pickup is enabled, so the runner carries that inventory through the skipped aid station.
+If an aid station has `assistanceAllowed === false`, the runner's crew cannot hand over personal carb/sodium products there. Auto-fill assigns any top-up needed for the outgoing section to the most recent previous checkpoint where assistance is enabled, so the runner carries that inventory through the skipped aid station.
+
+`solidRefill` remains useful for official ravito service and shared recap context. In v1, mobile personal supplies are separate from official organizer products; a station can have official solid products while still being unavailable to the runner's crew.
 
 Web implementation:
 

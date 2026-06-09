@@ -209,7 +209,7 @@ export function AidStationsSectionV3({
       values.aidStations
         .map(
           (station) =>
-            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}`,
+            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}|${station.assistanceAllowed !== false}`,
         )
         .join(';'),
     [values.aidStations],
@@ -276,6 +276,7 @@ export function AidStationsSectionV3({
 
     const waterRefill = isDepart || station.waterRefill !== false;
     const solidRefill = isDepart || station.solidRefill !== false;
+    const assistanceAllowed = isDepart || station.assistanceAllowed !== false;
     const serviceLabel = isDepart ? 'Stock initial' : getServiceLabel(waterRefill, solidRefill);
     const active = waterRefill || solidRefill;
 
@@ -291,6 +292,18 @@ export function AidStationsSectionV3({
             {serviceLabel}
           </Text>
         </View>
+        {!isDepart ? (
+          <View style={[styles.stationServiceChip, assistanceAllowed && styles.stationServiceChipActive]}>
+            <Ionicons
+              name={assistanceAllowed ? 'people-outline' : 'walk-outline'}
+              size={13}
+              color={assistanceAllowed ? colors.brand.forest : colors.text.tertiary}
+            />
+            <Text style={[styles.stationServiceChipText, assistanceAllowed && styles.stationServiceChipTextActive]}>
+              {assistanceAllowed ? 'Assistance' : 'Sans assistance'}
+            </Text>
+          </View>
+        ) : null}
       </View>
     );
   }
@@ -985,6 +998,7 @@ export function AidStationsSectionV3({
                     pauseMinutes: String(station.pauseMinutes ?? 0),
                     waterRefill: station.waterRefill !== false,
                     solidRefill: station.solidRefill !== false,
+                    assistanceAllowed: station.assistanceAllowed !== false,
                   })
                 }
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
@@ -1014,10 +1028,10 @@ export function AidStationsSectionV3({
                   getGaugeColor={getGaugeColor}
                   animateSignal={animateSignal}
                 />
-                {station.solidRefill === false ? (
+                {station.assistanceAllowed === false ? (
                   <View style={styles.suppliesDisabledBox}>
                     <Text style={styles.suppliesDisabledText}>
-                      Solide desactive : gels, boisson et sodium seront a prendre au ravito precedent.
+                      Pas d'assistance : tes produits favoris doivent etre pris au point assistance precedent.
                     </Text>
                   </View>
                 ) : (

@@ -27,6 +27,9 @@ const COPY = {
     delta: "Écart",
     give: "À donner",
     nothingToGive: "Rien à donner",
+    assistanceAvailable: "Assistance",
+    noAssistance: "Sans assistance",
+    carryFromPrevious: "Produits à porter depuis le point assistance précédent.",
     water: "Eau",
     pause: "Pause",
     waterFull: "poche pleine {liters} L",
@@ -51,6 +54,9 @@ const COPY = {
     delta: "Offset",
     give: "Give",
     nothingToGive: "Nothing to give",
+    assistanceAvailable: "Crew access",
+    noAssistance: "No crew access",
+    carryFromPrevious: "Products must be carried from the previous crew point.",
     water: "Water",
     pause: "Pause",
     waterFull: "full bladder {liters} L",
@@ -303,6 +309,15 @@ export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanSh
                       {copy.solidUnavailable}
                     </span>
                   ) : null}
+                  {checkpoint.assistanceState === "available" || checkpoint.assistanceState === "start" ? (
+                    <span className="rounded-full border border-brand-border bg-brand-surface px-3 py-1 text-xs font-bold text-brand">
+                      {copy.assistanceAvailable}
+                    </span>
+                  ) : checkpoint.assistanceState === "unavailable" ? (
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
+                      {copy.noAssistance}
+                    </span>
+                  ) : null}
                   {checkpoint.pauseMinutes > 0 ? (
                     <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
                       {copy.pause} +{Math.round(checkpoint.pauseMinutes)} min
@@ -314,7 +329,9 @@ export function PlanShareCrewTimeline({ summary, departureTime, locale }: PlanSh
               <div className="mt-4">
                 <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
                 {checkpoint.supplies.length === 0 ? (
-                  <p className="mt-2 text-sm text-muted-foreground">{copy.nothingToGive}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {checkpoint.assistanceState === "unavailable" ? copy.carryFromPrevious : copy.nothingToGive}
+                  </p>
                 ) : (
                   <div className="mt-2 flex flex-wrap gap-2">
                     {checkpoint.supplies.map((product) => (

@@ -82,6 +82,7 @@ function collectUsedProductIds(plan: StoredRacePlan) {
 
   values.startSupplies.forEach((supply) => ids.add(supply.productId));
   values.aidStations.forEach((station) => {
+    if (station.assistanceAllowed === false) return;
     (station.supplies ?? []).forEach((supply) => ids.add(supply.productId));
   });
 

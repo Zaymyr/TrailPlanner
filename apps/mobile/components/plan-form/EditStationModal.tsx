@@ -18,6 +18,7 @@ export type EditingStation = {
   pauseMinutes: string;
   waterRefill: boolean;
   solidRefill: boolean;
+  assistanceAllowed: boolean;
 } | null;
 
 type Props = {
@@ -28,11 +29,11 @@ type Props = {
 
 export function EditStationModal({ editingStation, setEditingStation, onSave }: Props) {
   const isCreateMode = editingStation?.mode === 'create';
-  const updateService = (field: 'waterRefill' | 'solidRefill') => {
+  const updateService = (field: 'waterRefill' | 'solidRefill' | 'assistanceAllowed') => {
     setEditingStation((prev) => (prev ? { ...prev, [field]: !prev[field] } : prev));
   };
   const renderServiceOption = (
-    field: 'waterRefill' | 'solidRefill',
+    field: 'waterRefill' | 'solidRefill' | 'assistanceAllowed',
     label: string,
     description: string,
     icon: keyof typeof Ionicons.glyphMap,
@@ -107,7 +108,8 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
           <Text style={styles.label}>Services disponibles</Text>
           <View style={styles.stationServiceOptions}>
             {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou poche.', 'water-outline')}
-            {renderServiceOption('solidRefill', 'Solide', 'Gels, barres, boisson et sodium.', 'nutrition-outline')}
+            {renderServiceOption('solidRefill', 'Ravito solide', "Produits fournis par l'organisation.", 'nutrition-outline')}
+            {renderServiceOption('assistanceAllowed', 'Assistance', "Ton equipe peut donner tes produits favoris.", 'people-outline')}
           </View>
           <TouchableOpacity style={styles.saveButton} onPress={onSave}>
             <Text style={styles.saveButtonText}>

@@ -130,6 +130,11 @@ function CheckpointCard({
         {checkpoint.solidState === 'unavailable' ? (
           <Text style={[styles.chip, styles.warningChip]}>{t.planSummary.solidUnavailable}</Text>
         ) : null}
+        {checkpoint.assistanceState === 'available' || checkpoint.assistanceState === 'start' ? (
+          <Text style={styles.chip}>{t.planSummary.assistanceAvailable}</Text>
+        ) : checkpoint.assistanceState === 'unavailable' ? (
+          <Text style={[styles.chip, styles.warningChip]}>{t.planSummary.noAssistance}</Text>
+        ) : null}
         {checkpoint.pauseMinutes > 0 ? (
           <Text style={styles.chip}>
             {t.planSummary.pause} +{Math.round(checkpoint.pauseMinutes)} min
@@ -139,7 +144,9 @@ function CheckpointCard({
 
       {checkpoint.supplies.length === 0 ? (
         <Text selectable tone="secondary" style={styles.emptyText}>
-          {t.planSummary.nothingToGive}
+          {checkpoint.assistanceState === 'unavailable'
+            ? t.planSummary.carryFromPrevious
+            : t.planSummary.nothingToGive}
         </Text>
       ) : (
         <View style={styles.compactProducts}>

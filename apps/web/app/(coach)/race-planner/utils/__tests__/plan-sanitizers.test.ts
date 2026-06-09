@@ -83,16 +83,36 @@ describe("sanitizeAidStations", () => {
     expect(result[0].waterRefill).toBe(false);
   });
 
-  it("defaults solidRefill to true and clears supplies when disabled", () => {
+  it("defaults solidRefill and assistanceAllowed to true", () => {
+    const result = sanitizeAidStations([{ name: "A", distanceKm: 5 }]);
+    expect(result[0].solidRefill).toBe(true);
+    expect(result[0].assistanceAllowed).toBe(true);
+  });
+
+  it("keeps personal supplies when official solid refill is disabled but crew assistance is available", () => {
     const result = sanitizeAidStations([
       {
         name: "A",
         distanceKm: 5,
         solidRefill: false,
+        assistanceAllowed: true,
         supplies: [{ productId: "gel", quantity: 2 }],
       },
     ]);
     expect(result[0].solidRefill).toBe(false);
+    expect(result[0].supplies).toEqual([{ productId: "gel", quantity: 2 }]);
+  });
+
+  it("clears personal supplies when crew assistance is disabled", () => {
+    const result = sanitizeAidStations([
+      {
+        name: "A",
+        distanceKm: 5,
+        assistanceAllowed: false,
+        supplies: [{ productId: "gel", quantity: 2 }],
+      },
+    ]);
+    expect(result[0].assistanceAllowed).toBe(false);
     expect(result[0].supplies).toEqual([]);
   });
 });

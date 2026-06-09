@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -96,6 +96,8 @@ They are linked to stations through `race_aid_station_products`. They are not gl
 When a runner imports a catalog plan, `/api/plans/from-catalog` loads these station-product links with the service role and stores them in `planner_values.organizerAidStationProducts`. The planner UI displays them as priority suggestions on the matching ravito.
 
 Auto-fill must keep organizer products out of its default product pool. It may use them only after the runner favorites the product or explicitly adds it to start/aid-station supplies.
+
+Planner `assistanceAllowed` is separate from organizer product presence: it says whether the runner's crew can hand over personal products. Organizer suggestions remain official ravito context and should not be treated as crew availability.
 
 ## Mobile Scope
 

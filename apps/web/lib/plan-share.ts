@@ -27,6 +27,7 @@ const shareCheckpointSchema = z
     arrivalMinute: z.number().finite().nonnegative().max(100000),
     pauseMinutes: z.number().finite().nonnegative().max(10000),
     supplies: z.array(shareProductSchema).max(250),
+    assistanceState: z.enum(["available", "unavailable", "start", "finish"]).default("available"),
     waterState: z.enum(["full", "refill", "unavailable", "finish"]),
     solidState: z.enum(["available", "unavailable", "finish"]),
   })

@@ -31,6 +31,7 @@ export type PlanSummaryCheckpoint = {
   arrivalMinute: number;
   pauseMinutes: number;
   supplies: PlanSummaryProduct[];
+  assistanceState: 'available' | 'unavailable' | 'start' | 'finish';
   waterState: 'full' | 'refill' | 'unavailable' | 'finish';
   solidState: 'available' | 'unavailable' | 'finish';
 };
@@ -77,6 +78,9 @@ const SHARE_COPY = {
     waterUnavailable: 'pas de recharge eau',
     noProducts: 'Aucun produit planifie',
     nothingToGive: 'Rien a donner',
+    assistanceAvailable: 'Assistance equipe',
+    noAssistance: "Pas d'assistance",
+    carryFromPrevious: 'porter depuis le point assistance precedent',
     pause: 'Pause',
   },
   en: {
@@ -95,6 +99,9 @@ const SHARE_COPY = {
     waterUnavailable: 'no water refill',
     noProducts: 'No planned products',
     nothingToGive: 'Nothing to give',
+    assistanceAvailable: 'Crew access',
+    noAssistance: 'No crew access',
+    carryFromPrevious: 'carry from the previous crew point',
     pause: 'Pause',
   },
 } as const;
@@ -188,7 +195,7 @@ export function collectPlanProductIdsFromValues(values: PlanFormValues) {
   const ids = new Set<string>();
   addProductIdsFromSupplies(ids, values.startSupplies);
   values.aidStations.forEach((station) => {
-    if (station.solidRefill === false) return;
+    if (station.assistanceAllowed === false) return;
     addProductIdsFromSupplies(ids, station.supplies);
   });
   return [...ids];
@@ -250,8 +257,14 @@ function mergeProductTotals(items: PlanSummaryProduct[]) {
 
 function getStationSupplies(values: PlanFormValues, station: AidStationFormItem, index: number) {
   if (index === 0) return values.startSupplies;
-  if (station.id === ARRIVEE_ID || station.solidRefill === false) return [];
+  if (station.id === ARRIVEE_ID || station.assistanceAllowed === false) return [];
   return station.supplies ?? [];
+}
+
+function getAssistanceState(station: AidStationFormItem, index: number) {
+  if (station.id === ARRIVEE_ID) return 'finish' as const;
+  if (index === 0) return 'start' as const;
+  return station.assistanceAllowed === false ? 'unavailable' as const : 'available' as const;
 }
 
 function getWaterState(station: AidStationFormItem, index: number) {
@@ -287,6 +300,7 @@ export function buildPlanSummary(
       arrivalMinute,
       pauseMinutes: Math.max(0, station.pauseMinutes ?? 0),
       supplies,
+      assistanceState: getAssistanceState(station, index),
       waterState: getWaterState(station, index),
       solidState: getSolidState(station, index),
     };
@@ -363,6 +377,15 @@ function formatProductList(products: PlanSummaryProduct[], locale: Locale) {
   return products.map((product) => `${product.name} x${product.quantity}`).join(', ');
 }
 
+function getAssistanceLabel(checkpoint: PlanSummaryCheckpoint, locale: Locale) {
+  const copy = SHARE_COPY[locale];
+  if (checkpoint.assistanceState === 'available' || checkpoint.assistanceState === 'start') {
+    return copy.assistanceAvailable;
+  }
+  if (checkpoint.assistanceState === 'finish') return copy.waterFinish;
+  return `${copy.noAssistance}: ${copy.carryFromPrevious}`;
+}
+
 export function buildPlanShareMessage(
   summary: PlanSummary,
   options: { locale: Locale; departureTime?: Date | null },
@@ -390,6 +413,7 @@ export function buildPlanShareMessage(
   lines.push('', `${copy.team}:`);
   summary.checkpoints.forEach((checkpoint) => {
     lines.push(`${checkpoint.name} - ${formatKm(checkpoint.distanceKm)} - ${formatCheckpointTime(checkpoint, options.departureTime)}`);
+    lines.push(getAssistanceLabel(checkpoint, options.locale));
     lines.push(`${copy.give}: ${formatProductList(checkpoint.supplies, options.locale)}`);
     lines.push(`${copy.water}: ${getWaterLabel(checkpoint, summary.waterBagLiters, options.locale)}`);
     if (checkpoint.pauseMinutes > 0) {

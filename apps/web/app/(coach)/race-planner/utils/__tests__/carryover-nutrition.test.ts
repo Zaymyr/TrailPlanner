@@ -57,9 +57,29 @@ describe("buildCarryoverCoverageByItemId", () => {
     expect(coverage.get("aid-1")?.currentCarbs).toBe(60);
   });
 
-  it("does not add checkpoint supplies when solid refills are disabled", () => {
+  it("still adds personal supplies when official solid refill is disabled but crew assistance is available", () => {
     const firstSegment = buildSegment("Aid 1", 25);
     const secondSegment = { ...buildSegment("Aid 2", 25), solidRefill: false, supplies: [{ productId: "gel", quantity: 2 }] };
+    const coverage = buildCarryoverCoverageByItemId(
+      [
+        { id: "start", isStart: true, upcomingSegment: firstSegment },
+        { id: "aid-1", checkpointSegment: secondSegment, upcomingSegment: buildSegment("Aid 3", 25) },
+      ],
+      [{ productId: "gel", quantity: 1 }],
+      { gel }
+    );
+
+    expect(coverage.get("start")?.currentCarbs).toBe(25);
+    expect(coverage.get("aid-1")?.currentCarbs).toBe(25);
+  });
+
+  it("does not add checkpoint supplies when crew assistance is disabled", () => {
+    const firstSegment = buildSegment("Aid 1", 25);
+    const secondSegment = {
+      ...buildSegment("Aid 2", 25),
+      assistanceAllowed: false,
+      supplies: [{ productId: "gel", quantity: 2 }],
+    };
     const coverage = buildCarryoverCoverageByItemId(
       [
         { id: "start", isStart: true, upcomingSegment: firstSegment },

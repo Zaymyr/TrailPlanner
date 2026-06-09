@@ -99,6 +99,7 @@ function buildPlannerValues(values: PlanFormValues) {
       distanceKm: station.distanceKm,
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
+      assistanceAllowed: station.assistanceAllowed !== false,
       pauseMinutes: station.pauseMinutes ?? 0,
       supplies: [],
     })),
