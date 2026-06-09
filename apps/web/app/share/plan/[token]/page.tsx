@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import type { CSSProperties, ReactNode } from "react";
 import { z } from "zod";
 
 import {
@@ -10,6 +12,7 @@ import {
   type PlanShareSnapshot,
 } from "../../../../lib/plan-share";
 import { getSupabaseServiceConfig, type SupabaseServiceConfig } from "../../../../lib/supabase";
+import { PlanShareCrewTimeline } from "./PlanShareCrewTimeline";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,7 +24,32 @@ type PageProps = {
 };
 
 type PlanShareProduct = PlanShareSnapshot["productTotals"][number];
-type PlanShareCheckpoint = PlanShareSnapshot["checkpoints"][number];
+
+const LIGHT_SHARE_THEME_STYLE = {
+  colorScheme: "light",
+  "--background": "47 19% 91%",
+  "--foreground": "0 0% 10%",
+  "--card": "0 0% 100%",
+  "--card-foreground": "0 0% 10%",
+  "--muted": "43 26% 95%",
+  "--muted-foreground": "0 0% 42%",
+  "--surface-muted": "47 18% 90%",
+  "--border": "44 13% 83%",
+  "--border-strong": "44 7% 67%",
+  "--input": "44 13% 83%",
+  "--ring": "96 57% 20%",
+  "--primary": "96 57% 20%",
+  "--primary-foreground": "0 0% 100%",
+  "--icon": "0 0% 10%",
+  "--icon-muted": "0 0% 42%",
+  "--brand": "96 57% 20%",
+  "--brand-light": "96 51% 32%",
+  "--brand-surface": "90 35% 91%",
+  "--brand-border": "88 33% 70%",
+  "--brand-foreground": "0 0% 100%",
+  "--success": "96 57% 20%",
+  "--success-foreground": "0 0% 100%",
+} as CSSProperties;
 
 const planShareRowSchema = z.object({
   id: z.string().uuid(),
@@ -160,48 +188,11 @@ function formatKm(distanceKm: number) {
   return `${formatted} km`;
 }
 
-function formatLiters(value: number) {
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
-}
-
 function formatDate(value: string, locale: "fr" | "en") {
   return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-function formatClockFromDeparture(departureTime: string, elapsedMinutes: number, locale: "fr" | "en") {
-  const [hours, minutes] = departureTime.split(":").map(Number);
-  const totalMinutes = hours * 60 + minutes + Math.round(elapsedMinutes);
-  const dayOffset = Math.floor(totalMinutes / 1440);
-  const clockMinutes = ((totalMinutes % 1440) + 1440) % 1440;
-  const clock = `${String(Math.floor(clockMinutes / 60)).padStart(2, "0")}:${String(
-    clockMinutes % 60
-  ).padStart(2, "0")}`;
-
-  if (dayOffset <= 0) return clock;
-  return `${clock} ${COPY[locale].dayOffset.replace("{days}", String(dayOffset))}`;
-}
-
-function formatCheckpointTime(
-  checkpoint: PlanShareCheckpoint,
-  departureTime: string | null,
-  locale: "fr" | "en"
-) {
-  const elapsed = `T+${formatDuration(checkpoint.arrivalMinute)}`;
-  if (!departureTime) return elapsed;
-  return `${elapsed} / ${formatClockFromDeparture(departureTime, checkpoint.arrivalMinute, locale)}`;
-}
-
-function getWaterInstruction(checkpoint: PlanShareCheckpoint, summary: PlanShareSnapshot, locale: "fr" | "en") {
-  const copy = COPY[locale];
-  if (checkpoint.waterState === "full") {
-    return copy.waterFull.replace("{liters}", formatLiters(summary.waterBagLiters));
-  }
-  if (checkpoint.waterState === "refill") return copy.waterRefill;
-  if (checkpoint.waterState === "finish") return copy.waterFinish;
-  return copy.waterUnavailable;
 }
 
 function ProductRow({ product }: { product: PlanShareProduct }) {
@@ -221,6 +212,32 @@ function ProductRow({ product }: { product: PlanShareProduct }) {
   );
 }
 
+function LightShareShell({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={LIGHT_SHARE_THEME_STYLE}
+      className="min-h-screen bg-background text-foreground"
+    >
+      <main className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-5 sm:px-6 sm:py-8">
+        <header className="flex items-center justify-between">
+          <a href="/" aria-label="Pace Yourself" className="inline-flex">
+            <Image
+              src="/branding/logo-horizontal-v2.png"
+              alt="Pace Yourself"
+              width={213}
+              height={50}
+              priority
+              unoptimized
+              className="h-10 w-auto"
+            />
+          </a>
+        </header>
+        {children}
+      </main>
+    </div>
+  );
+}
+
 function UnavailablePage() {
   return (
     <div className="mx-auto flex min-h-[55vh] max-w-2xl flex-col items-center justify-center gap-4 text-center">
@@ -235,7 +252,13 @@ function UnavailablePage() {
 export default async function SharedPlanPage({ params }: PageProps) {
   const share = await loadPlanShare(params.token);
 
-  if (!share) return <UnavailablePage />;
+  if (!share) {
+    return (
+      <LightShareShell>
+        <UnavailablePage />
+      </LightShareShell>
+    );
+  }
 
   const summary = share.snapshot;
   const locale = share.locale;
@@ -245,7 +268,8 @@ export default async function SharedPlanPage({ params }: PageProps) {
   )} ml/h - ${Math.round(summary.targetSodiumPerHour)} mg/h`;
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+    <LightShareShell>
+      <div className="flex w-full flex-col gap-6">
       <section className="rounded-lg border border-brand-border bg-brand-surface p-5 sm:p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
@@ -296,69 +320,12 @@ export default async function SharedPlanPage({ params }: PageProps) {
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-2xl font-bold text-foreground">{copy.crewPlan}</h2>
-        <div className="grid gap-3">
-          {summary.checkpoints.map((checkpoint) => {
-            const waterInstruction = getWaterInstruction(checkpoint, summary, locale);
-
-            return (
-              <article
-                key={`${checkpoint.index}-${checkpoint.name}`}
-                className="rounded-lg border border-border bg-card p-4"
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="break-words text-lg font-bold text-foreground">{checkpoint.name}</h3>
-                    <p className="font-mono text-sm text-muted-foreground">
-                      {formatKm(checkpoint.distanceKm)} -{" "}
-                      {formatCheckpointTime(checkpoint, share.departure_time, locale)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
-                      {copy.water}: {waterInstruction}
-                    </span>
-                    {checkpoint.solidState === "unavailable" ? (
-                      <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
-                        {copy.solidUnavailable}
-                      </span>
-                    ) : null}
-                    {checkpoint.pauseMinutes > 0 ? (
-                      <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
-                        {copy.pause} +{Math.round(checkpoint.pauseMinutes)} min
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
-                  {checkpoint.supplies.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{copy.nothingToGive}</p>
-                  ) : (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {checkpoint.supplies.map((product) => (
-                        <span
-                          key={product.productId}
-                          className="inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground"
-                        >
-                          <span className="truncate">{product.name}</span>
-                          <span className="font-mono font-bold text-brand">x{product.quantity}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
+      <PlanShareCrewTimeline summary={summary} departureTime={share.departure_time} locale={locale} />
 
       <p className="text-center text-xs text-muted-foreground">
         {copy.sharedAt} : {formatDate(share.created_at, locale)}
       </p>
-    </div>
+      </div>
+    </LightShareShell>
   );
 }

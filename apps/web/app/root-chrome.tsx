@@ -13,6 +13,7 @@ import { HeaderTabs } from "./header-tabs";
 import { LanguageToggle } from "./language-toggle";
 
 const STANDALONE_PATHS = new Set(["/links", "/en/links"]);
+const STANDALONE_PREFIXES = ["/share/plan/"];
 
 type RootChromeProps = {
   children: ReactNode;
@@ -21,7 +22,7 @@ type RootChromeProps = {
 export function RootChrome({ children }: RootChromeProps) {
   const pathname = usePathname();
 
-  if (STANDALONE_PATHS.has(pathname)) {
+  if (STANDALONE_PATHS.has(pathname) || STANDALONE_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return <>{children}</>;
   }
 

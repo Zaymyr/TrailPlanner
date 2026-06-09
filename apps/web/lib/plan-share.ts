@@ -3,6 +3,8 @@ import { z } from "zod";
 
 export const PLAN_SHARE_SCHEMA_VERSION = 1;
 export const PLAN_SHARE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{24,160}$/;
+const DEFAULT_PLAN_SHARE_BASE_URL = "https://pace-yourself.com";
+const STABLE_PLAN_SHARE_TOKEN_SCOPE = "plan-share-link-v1";
 
 const shareProductSchema = z
   .object({
@@ -57,8 +59,15 @@ export const departureTimeSchema = z
 
 export const localeSchema = z.enum(["fr", "en"]);
 
-export function generatePlanShareToken() {
-  return crypto.randomBytes(32).toString("base64url");
+export function generatePlanShareId() {
+  return crypto.randomUUID();
+}
+
+export function generateStablePlanShareToken(shareId: string, secret: string) {
+  return crypto
+    .createHmac("sha256", secret)
+    .update(`${STABLE_PLAN_SHARE_TOKEN_SCOPE}:${shareId.toLowerCase()}`, "utf8")
+    .digest("base64url");
 }
 
 export function hashPlanShareToken(token: string) {
@@ -69,18 +78,34 @@ export function isValidPlanShareToken(token: string) {
   return PLAN_SHARE_TOKEN_PATTERN.test(token);
 }
 
-export function getPlanShareBaseUrl(request?: Request) {
-  const configured =
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_WEB_URL?.trim() ||
-    process.env.APP_URL?.trim() ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL.trim()}` : "");
+function normalizePlanShareBaseUrl(value: string | undefined) {
+  const trimmed = value?.trim().replace(/\/+$/, "") ?? "";
+  if (!trimmed) return null;
 
-  if (configured) return configured.replace(/\/+$/, "");
-  if (request) return new URL(request.url).origin;
-  return "https://pace-yourself.com";
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const url = new URL(candidate);
+    const hostname = url.hostname.toLowerCase();
+    if (hostname === "vercel.app" || hostname.endsWith(".vercel.app")) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
 }
 
-export function buildPlanShareUrl(token: string, request?: Request) {
-  return new URL(`/share/plan/${token}`, getPlanShareBaseUrl(request)).toString();
+export function getPlanShareBaseUrl() {
+  const configured = [
+    process.env.PLAN_SHARE_BASE_URL,
+    process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.APP_URL,
+  ]
+    .map(normalizePlanShareBaseUrl)
+    .find((value): value is string => Boolean(value));
+
+  return configured ?? DEFAULT_PLAN_SHARE_BASE_URL;
+}
+
+export function buildPlanShareUrl(token: string) {
+  return new URL(`/share/plan/${token}`, getPlanShareBaseUrl()).toString();
 }

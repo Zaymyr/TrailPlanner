@@ -13,6 +13,7 @@ related_files:
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
+  - apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx
   - apps/web/lib/plan-share.ts
   - apps/web/lib/race-planner-storage.ts
   - apps/web/lib/auth-storage.ts
@@ -100,7 +101,7 @@ Organizer ravito suggestions imported from catalog source data live outside `pla
 
 Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`.
 
-When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. This public snapshot is separate from the editable plan state and is not automatically updated by later plan edits.
+When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
 
 ## Hydration on Read
 
@@ -122,7 +123,7 @@ It:
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
 - Source organizer edits after import do not mutate existing saved plans.
-- Public crew recap links are snapshots. Generate a new share link after meaningful plan changes if the team needs the latest version.
+- Public crew recap links are snapshots. Re-share the plan after meaningful changes so the reusable crew URL receives the latest snapshot.
 
 ## Gotchas
 
@@ -133,6 +134,9 @@ It:
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions; older plans will not have this field.
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
+- Public crew recap URLs should use the canonical site domain. Configure `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored and the helper falls back to `https://pace-yourself.com`.
+- Legacy random-token share links remain readable, but the next re-share creates a new stable reusable URL because the old raw token cannot be reconstructed from `token_hash`.
+- Crew start-time and last-passage corrections are browser-local calculations on the public page; they do not mutate the stored snapshot.
 
 ## Related Docs
 
