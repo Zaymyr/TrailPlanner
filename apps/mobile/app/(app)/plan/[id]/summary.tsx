@@ -19,7 +19,6 @@ import type { PlanProduct } from '../../../../components/plan-form/contracts';
 import { Colors } from '../../../../constants/colors';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
 import {
-  buildPlanShareMessage,
   buildPlanSummary,
   buildProductMap,
   buildStoredRacePlanFromRow,
@@ -33,6 +32,7 @@ import {
   type PlanSummaryProduct,
   type PlanSummaryRow,
 } from '../../../../lib/planSummary';
+import { createPlanShareLink } from '../../../../lib/planShareLinks';
 import { useI18n } from '../../../../lib/i18n';
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
 import { supabase } from '../../../../lib/supabase';
@@ -173,6 +173,7 @@ export default function PlanSummaryScreen() {
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [pickerHour, setPickerHour] = useState(() => String(new Date().getHours()).padStart(2, '0'));
   const [pickerMinute, setPickerMinute] = useState(() => String(new Date().getMinutes()).padStart(2, '0'));
+  const [sharing, setSharing] = useState(false);
 
   const targetSummary = useMemo(() => {
     if (!summary) return '';
@@ -253,20 +254,33 @@ export default function PlanSummaryScreen() {
   }, [loadSummary]);
 
   const handleShare = useCallback(async () => {
-    if (!summary) return;
+    if (!summary || sharing) return;
 
+    setSharing(true);
     try {
+      const shareUrl = await createPlanShareLink({ summary, departureTime, locale });
       await Share.share({
-        message: buildPlanShareMessage(summary, { locale, departureTime }),
+        message: `${t.planSummary.shareLinkIntro.replace('{name}', summary.name)}\n${shareUrl}`,
+        url: shareUrl,
       });
-      captureAnalyticsEvent('plan recap shared', {
+      captureAnalyticsEvent('plan recap link shared', {
         aid_station_count: summary.checkpoints.length,
         product_count: summary.totalProductUnits,
       });
     } catch {
       Alert.alert(t.common.error, t.planSummary.shareFailed);
+    } finally {
+      setSharing(false);
     }
-  }, [departureTime, locale, summary, t.common.error, t.planSummary.shareFailed]);
+  }, [
+    departureTime,
+    locale,
+    sharing,
+    summary,
+    t.common.error,
+    t.planSummary.shareFailed,
+    t.planSummary.shareLinkIntro,
+  ]);
 
   const openTimePicker = useCallback(() => {
     setPickerHour(String(departureTime.getHours()).padStart(2, '0'));
@@ -337,10 +351,15 @@ export default function PlanSummaryScreen() {
                 {t.planSummary.hourlyTargets} : {targetSummary}
               </Text>
             </View>
-            <TouchableOpacity activeOpacity={0.86} style={styles.shareButton} onPress={handleShare}>
-              <Ionicons color={Colors.textOnBrand} name="share-social-outline" size={18} />
+            <TouchableOpacity
+              activeOpacity={0.86}
+              disabled={sharing}
+              style={[styles.shareButton, sharing ? styles.shareButtonDisabled : null]}
+              onPress={handleShare}
+            >
+              <Ionicons color={Colors.textOnBrand} name={sharing ? 'hourglass-outline' : 'link-outline'} size={18} />
               <Text weight="bold" style={styles.shareButtonText}>
-                {t.planSummary.share}
+                {sharing ? t.planSummary.shareLinkCreating : t.planSummary.shareLink}
               </Text>
             </TouchableOpacity>
           </View>
@@ -531,6 +550,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: Colors.brandPrimary,
     paddingHorizontal: 12,
+  },
+  shareButtonDisabled: {
+    opacity: 0.72,
   },
   shareButtonText: {
     color: Colors.textOnBrand,

@@ -1,18 +1,20 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql
+  - supabase/migrations/20260609091933_add_plan_share_links.sql
   - supabase/migrations/20250624103000_add_user_profiles.sql
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
 related_tables:
   - race_plans
+  - plan_share_links
   - plan_aid_stations
   - races
   - race_aid_stations
@@ -57,6 +59,7 @@ User-owned tables include:
 - `user_favorite_products.user_id`
 - `race_event_claims.user_id`
 - `race_event_organizers.user_id`
+- `plan_share_links.user_id`
 
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
 
@@ -69,12 +72,15 @@ Important relationships:
 - `race_aid_stations.race_id` references `races(id)` with cascade delete from the original catalog aid station table.
 - `race_plans.race_id` references `races(id)` with `on delete set null` after `supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql`.
 - `plan_aid_stations.plan_id` references `race_plans(id)` with cascade delete.
+- `plan_share_links.plan_id` references `race_plans(id)` with cascade delete.
 
 The design is:
 
 1. A catalog/private race owns source aid stations.
 2. A saved plan stores a race link plus plan-specific aid station snapshots.
-3. Deleting a race detaches plans by setting `race_plans.race_id = null`, rather than deleting user plans.
+3. Plan share links store public crew recap snapshots for a saved plan.
+4. Deleting a race detaches plans by setting `race_plans.race_id = null`, rather than deleting user plans.
+5. Deleting a saved plan deletes attached plan aid stations, coach comments, push reminder rows, and share links.
 
 ## Product Relationships
 
@@ -149,6 +155,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - `plan_aid_stations.race_aid_station_id` is referenced by `GpxAidStationImporter`, but no visible migration creates it.
 - Do not cascade-delete public races when revoking organizer access; set `race_event_organizers.revoked_at`.
 - Organizer station products are source-race suggestions and are not copied into `plan_aid_stations`.
+- Public crew share links are plan children; deleting the plan must invalidate the public recap by cascading `plan_share_links`.
 
 ## Related Docs
 
@@ -156,6 +163,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - [RLS Policies](rls-policies.md)
 - [race_plans](tables/race-plans.md)
 - [plan_aid_stations](tables/plan-aid-stations.md)
+- [plan_share_links](tables/plan-share-links.md)
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)

@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -9,6 +9,7 @@ related_files:
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
   - race_plans
+  - plan_share_links
   - races
   - race_events
   - race_event_claims
@@ -151,6 +152,18 @@ The migration deliberately does not use `races.created_by` for claimed public ra
 
 Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.sql`.
 
+### Plan Recap Sharing
+
+`supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
+
+The migration:
+
+- stores only a SHA-256 `token_hash`, never the raw public URL token;
+- stores a bounded `snapshot` JSONB payload with `snapshot_schema_version = 1`;
+- references `race_plans(id)` with cascade delete and `auth.users(id)` for ownership;
+- enables RLS with owner policies and parent `race_plans.user_id = auth.uid()` checks;
+- grants direct table privileges to `authenticated`, not `anon`, because public reads go through the Next.js server page.
+
 ### Push Notifications and Cron
 
 Push support comes from:
@@ -181,6 +194,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 - Data-only brand imports created after official product metadata should populate `official_name` and `is_official` in the same migration.
 - Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.
+- Public link migrations should not store raw share tokens. Hash tokens server-side and keep public reads behind a service-role route/page that validates expiry and revocation.
 
 ## Related Docs
 

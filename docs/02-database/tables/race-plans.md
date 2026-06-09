@@ -1,19 +1,21 @@
 ---
 title: race_plans Table
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql
+  - supabase/migrations/20260609091933_add_plan_share_links.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/onboarding/save-plan/route.ts
 related_tables:
   - race_plans
   - plan_aid_stations
+  - plan_share_links
   - races
   - race_aid_station_products
   - coach_comments
@@ -58,6 +60,13 @@ related_tables:
 
 `user_id` defaults to `auth.uid()` and is treated as an auth user id in code and policies.
 
+Inbound references:
+
+- `plan_aid_stations.plan_id -> public.race_plans(id) on delete cascade`
+- `coach_comments.plan_id -> public.race_plans(id) on delete cascade`
+- `push_notification_events.plan_id -> public.race_plans(id) on delete cascade`
+- `plan_share_links.plan_id -> public.race_plans(id) on delete cascade`
+
 ## Indexes
 
 - `race_plans_user_id_idx` on `user_id`
@@ -82,6 +91,7 @@ Summary:
 - `plan_gpx_path` belongs to the copied plan GPX, not the source race GPX.
 - Organizer ravito products are suggestion metadata in `planner_values`, not automatic supplies.
 - Organizer source edits after import do not rewrite existing saved plans.
+- Public crew recap links are snapshots stored in `plan_share_links`; they are not live views over editable planner JSON.
 
 ## Common Queries
 
@@ -108,10 +118,12 @@ where race_id = '<race-id>';
 - `planner_values` can contain older shape variants. Hydration code must tolerate missing fields.
 - `organizerAidStationProducts` may reference products that are not live global catalog rows. Keep it separate from product auto-fill defaults unless the runner explicitly selected/favorited the product.
 - `apps/web/app/api/plans/route.ts` can update an existing plan by name when creating a plan.
+- Deleting a plan cascades public recap links, so old crew URLs become unavailable.
 
 ## Related Docs
 
 - [Plan Storage](../../03-business-rules/plan-storage.md)
+- [plan_share_links](plan-share-links.md)
 - [GPX Import](../../03-business-rules/gpx-import.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [Relationships](../relationships.md)

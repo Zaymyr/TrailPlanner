@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -11,6 +11,9 @@ related_files:
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/app/api/plan-shares/route.ts
+  - apps/web/app/share/plan/[token]/page.tsx
+  - apps/web/lib/plan-share.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/lib/organizer.ts
   - apps/web/app/organizers/page.tsx
@@ -27,6 +30,7 @@ related_files:
   - apps/web/app/api/stripe/checkout/route.ts
 related_tables:
   - race_plans
+  - plan_share_links
   - races
   - race_aid_stations
   - race_event_claims
@@ -99,6 +103,8 @@ Catalog race plan creation is handled by `apps/web/app/api/plans/from-catalog/ro
 
 When the source race has organizer station products, the route loads them server-side and stores `planner_values.organizerAidStationProducts`. Those suggestions are displayed in the planner but are kept out of auto-fill unless the runner favorites or explicitly selects the product.
 
+Plan crew recap links are handled by `apps/web/app/api/plan-shares/route.ts` and `apps/web/app/share/plan/[token]/page.tsx`. The mobile app sends an authenticated snapshot generated from the saved plan recap. The API verifies the bearer token, checks `race_plans.user_id`, generates a random public token, stores only its SHA-256 hash in `plan_share_links`, and returns the public URL. The public page hashes the URL token server-side and renders only the stored snapshot.
+
 ### Race Catalog and GPX
 
 Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`.
@@ -138,6 +144,7 @@ Server routes generally use:
 - `withSecurityHeaders` from `apps/web/lib/http.ts`;
 - service-role requests only in server code;
 - route-level rate limiting through `checkRateLimit` or `checkRateLimitAsync`.
+- hashed secret-link lookups for public plan recaps; raw share tokens must not be stored in Supabase.
 
 See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-checklist.md) before changing a route that bypasses client RLS.
 
@@ -150,6 +157,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer routes can also write public `races`, but only after an active `race_event_organizers` membership check. Claimed public races should not rely on `races.created_by`.
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
 - Organizer-created products are non-live rows attached to source ravitos; do not expose them through public client env or the global catalog API.
+- Public plan share pages are unauthenticated by design, but they must display only the bounded snapshot in `plan_share_links`, not live editable plan data.
 
 ## Related Docs
 

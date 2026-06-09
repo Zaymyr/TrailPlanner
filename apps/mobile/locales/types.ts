@@ -100,6 +100,9 @@ export type MobileTranslations = {
     closeActions: string;
     openRecap: string;
     share: string;
+    shareLink: string;
+    shareLinkCreating: string;
+    shareLinkIntro: string;
     saveAndLeave: string;
     departureTime: string;
     changeDepartureTime: string;

@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-05-27
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -12,10 +12,13 @@ related_files:
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/resendContactSync.ts
+  - apps/mobile/lib/planShareLinks.ts
+  - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
 related_tables:
   - races
   - race_events
+  - plan_share_links
   - subscriptions
   - user_profiles
   - push_devices
@@ -35,6 +38,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - RevenueCat: native in-app purchase source that syncs into Supabase subscriptions.
 - Web API bridge: mobile calls selected Next.js API routes for operations that need server keys.
 - Resend contact sync: mobile calls the web API bridge after identified, non-anonymous sessions; the Resend key remains server-side.
+- Plan share links: mobile sends an authenticated recap snapshot to the web API, which creates the public crew URL server-side.
 
 ## Framework Setup
 
@@ -110,6 +114,10 @@ When RevenueCat has an active entitlement and the server is not synced, mobile c
 - calls the web `/api/races` route with the bearer token;
 - updates the created race to private/non-live via Supabase client.
 
+## Plan Share Links
+
+`apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. The mobile app never generates database rows directly for public links and never handles service-role keys.
+
 ## Analytics
 
 `apps/mobile/lib/posthog.ts` enables PostHog only when `EXPO_PUBLIC_POSTHOG_KEY` or `EXPO_PUBLIC_POSTHOG_TOKEN` is present. The host defaults to `https://us.i.posthog.com` unless `EXPO_PUBLIC_POSTHOG_HOST` is configured.
@@ -124,6 +132,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
+- Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
 
 ## Related Docs
 

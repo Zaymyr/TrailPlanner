@@ -49,12 +49,12 @@ import {
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 import {
-  buildPlanShareMessage,
   buildPlanSummary,
   buildProductMap as buildSummaryProductMap,
   buildStoredRacePlanFromValues,
   collectPlanProductIdsFromValues,
 } from '../../../../lib/planSummary';
+import { createPlanShareLink } from '../../../../lib/planShareLinks';
 
 type RacePlanRow = {
   id: string;
@@ -745,10 +745,17 @@ export default function EditPlanScreen() {
           elevationProfile: elevationProfileRef.current,
         });
         const summary = buildPlanSummary(plan, productMap);
-        const message = buildPlanShareMessage(summary, { locale });
+        const shareUrl = await createPlanShareLink({
+          summary,
+          departureTime: new Date(),
+          locale,
+        });
 
-        await Share.share({ message });
-        captureAnalyticsEvent('plan recap shared', {
+        await Share.share({
+          message: `${t.planSummary.shareLinkIntro.replace('{name}', summary.name)}\n${shareUrl}`,
+          url: shareUrl,
+        });
+        captureAnalyticsEvent('plan recap link shared', {
           aid_station_count: values.aidStations.length,
           product_count: summary.totalProductUnits,
         });
@@ -756,7 +763,16 @@ export default function EditPlanScreen() {
         Alert.alert(t.common.error, t.planSummary.shareFailed);
       }
     },
-    [id, locale, saveLatestDraft, stageDraftForAction, t.common.error, t.planSummary.shareFailed, t.profile.saveFailed],
+    [
+      id,
+      locale,
+      saveLatestDraft,
+      stageDraftForAction,
+      t.common.error,
+      t.planSummary.shareFailed,
+      t.planSummary.shareLinkIntro,
+      t.profile.saveFailed,
+    ],
   );
 
   const handleMissingFavoriteProducts = useCallback(() => {

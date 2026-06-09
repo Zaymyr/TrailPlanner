@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -9,8 +9,10 @@ related_files:
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
+  - apps/web/app/api/plan-shares/route.ts
 related_tables:
   - race_plans
+  - plan_share_links
   - user_profiles
   - subscriptions
   - premium_grants
@@ -89,6 +91,7 @@ Use:
 - Data-only official product imports that only upsert `products` rows can reuse existing product RLS policies; changing grants, views, functions, or ownership semantics requires the full checklist.
 - Data-only official product image backfills can reuse existing product RLS policies when they only update `products.image_url` and keep ownership, grants, and visibility unchanged.
 - Event-scoped organizer policies need both claim/member RLS and route-level service-role authorization checks. Service-role route success alone does not prove direct RLS behavior.
+- Secret-link tables such as `plan_share_links` still need owner RLS. Public viewers should resolve unguessable tokens through server/service-role code, not direct `anon` table grants.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-09
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -9,8 +9,10 @@ related_files:
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
+  - apps/web/app/api/plan-shares/route.ts
 related_tables:
   - race_plans
+  - plan_share_links
   - plan_aid_stations
   - races
   - race_aid_stations
@@ -86,6 +88,16 @@ Declared in `20251220120000_add_race_catalog.sql`.
 - Users can insert rows for own parent plans.
 - Users can update rows for own parent plans.
 - Users can delete rows for own parent plans.
+
+### `plan_share_links`
+
+Declared in `20260609091933_add_plan_share_links.sql`.
+
+- Authenticated users can select their own share links where `auth.uid() = user_id`.
+- Authenticated users can insert share links only when `auth.uid() = user_id` and the parent `race_plans.user_id = auth.uid()`.
+- Authenticated users can update share links only under the same owner and parent-plan ownership checks.
+- Authenticated users can delete their own share links.
+- `anon` is not granted direct table access. Public crew pages resolve the token through a Next.js server page using service role after hashing the raw URL token.
 
 ### `races`
 
@@ -251,6 +263,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
+- Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.
 
 ## Related Docs
 
@@ -258,4 +271,5 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
 - [Schema Overview](schema-overview.md)
 - [Premium Grants](tables/premium-grants.md)
+- [Plan Share Links](tables/plan-share-links.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)

@@ -11,15 +11,21 @@ related_files:
   - apps/web/app/(coach)/race-planner/utils/__tests__/plan-sanitizers.test.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/app/api/plan-shares/route.ts
+  - apps/web/app/share/plan/[token]/page.tsx
+  - apps/web/lib/plan-share.ts
   - apps/web/lib/race-planner-storage.ts
   - apps/web/lib/auth-storage.ts
   - apps/mobile/app/(app)/plan/[id]/edit.tsx
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
+  - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/lib/planSummary.ts
+  - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
   - race_plans
+  - plan_share_links
   - plan_aid_stations
   - race_aid_station_products
 ---
@@ -92,7 +98,9 @@ Organizer ravito suggestions imported from catalog source data live outside `pla
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans.
 
-Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan, but those actions still derive from `race_plans.planner_values` plus `elevation_profile`; they do not create a second persisted plan-summary record.
+Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`.
+
+When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. This public snapshot is separate from the editable plan state and is not automatically updated by later plan edits.
 
 ## Hydration on Read
 
@@ -114,6 +122,7 @@ It:
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
 - Source organizer edits after import do not mutate existing saved plans.
+- Public crew recap links are snapshots. Generate a new share link after meaningful plan changes if the team needs the latest version.
 
 ## Gotchas
 
@@ -123,7 +132,7 @@ It:
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions; older plans will not have this field.
-- Mobile recap/share should save or read the current draft before deriving the checklist. Do not persist a separate team checklist unless the storage model is deliberately extended.
+- Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
 
 ## Related Docs
 
