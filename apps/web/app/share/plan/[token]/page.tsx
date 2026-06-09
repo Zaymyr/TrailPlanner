@@ -12,6 +12,7 @@ import {
   type PlanShareSnapshot,
 } from "../../../../lib/plan-share";
 import { getSupabaseServiceConfig, type SupabaseServiceConfig } from "../../../../lib/supabase";
+import { PlanShareCrewTimeline } from "./PlanShareCrewTimeline";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -23,7 +24,6 @@ type PageProps = {
 };
 
 type PlanShareProduct = PlanShareSnapshot["productTotals"][number];
-type PlanShareCheckpoint = PlanShareSnapshot["checkpoints"][number];
 
 const LIGHT_SHARE_THEME_STYLE = {
   colorScheme: "light",
@@ -188,48 +188,11 @@ function formatKm(distanceKm: number) {
   return `${formatted} km`;
 }
 
-function formatLiters(value: number) {
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
-}
-
 function formatDate(value: string, locale: "fr" | "en") {
   return new Intl.DateTimeFormat(locale === "fr" ? "fr-FR" : "en-US", {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-}
-
-function formatClockFromDeparture(departureTime: string, elapsedMinutes: number, locale: "fr" | "en") {
-  const [hours, minutes] = departureTime.split(":").map(Number);
-  const totalMinutes = hours * 60 + minutes + Math.round(elapsedMinutes);
-  const dayOffset = Math.floor(totalMinutes / 1440);
-  const clockMinutes = ((totalMinutes % 1440) + 1440) % 1440;
-  const clock = `${String(Math.floor(clockMinutes / 60)).padStart(2, "0")}:${String(
-    clockMinutes % 60
-  ).padStart(2, "0")}`;
-
-  if (dayOffset <= 0) return clock;
-  return `${clock} ${COPY[locale].dayOffset.replace("{days}", String(dayOffset))}`;
-}
-
-function formatCheckpointTime(
-  checkpoint: PlanShareCheckpoint,
-  departureTime: string | null,
-  locale: "fr" | "en"
-) {
-  const elapsed = `T+${formatDuration(checkpoint.arrivalMinute)}`;
-  if (!departureTime) return elapsed;
-  return `${elapsed} / ${formatClockFromDeparture(departureTime, checkpoint.arrivalMinute, locale)}`;
-}
-
-function getWaterInstruction(checkpoint: PlanShareCheckpoint, summary: PlanShareSnapshot, locale: "fr" | "en") {
-  const copy = COPY[locale];
-  if (checkpoint.waterState === "full") {
-    return copy.waterFull.replace("{liters}", formatLiters(summary.waterBagLiters));
-  }
-  if (checkpoint.waterState === "refill") return copy.waterRefill;
-  if (checkpoint.waterState === "finish") return copy.waterFinish;
-  return copy.waterUnavailable;
 }
 
 function ProductRow({ product }: { product: PlanShareProduct }) {
@@ -357,65 +320,7 @@ export default async function SharedPlanPage({ params }: PageProps) {
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-2xl font-bold text-foreground">{copy.crewPlan}</h2>
-        <div className="grid gap-3">
-          {summary.checkpoints.map((checkpoint) => {
-            const waterInstruction = getWaterInstruction(checkpoint, summary, locale);
-
-            return (
-              <article
-                key={`${checkpoint.index}-${checkpoint.name}`}
-                className="rounded-lg border border-border bg-card p-4"
-              >
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <h3 className="break-words text-lg font-bold text-foreground">{checkpoint.name}</h3>
-                    <p className="font-mono text-sm text-muted-foreground">
-                      {formatKm(checkpoint.distanceKm)} -{" "}
-                      {formatCheckpointTime(checkpoint, share.departure_time, locale)}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
-                      {copy.water}: {waterInstruction}
-                    </span>
-                    {checkpoint.solidState === "unavailable" ? (
-                      <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800">
-                        {copy.solidUnavailable}
-                      </span>
-                    ) : null}
-                    {checkpoint.pauseMinutes > 0 ? (
-                      <span className="rounded-full border border-border bg-muted px-3 py-1 text-xs font-bold text-muted-foreground">
-                        {copy.pause} +{Math.round(checkpoint.pauseMinutes)} min
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <p className="text-xs font-semibold uppercase text-muted-foreground">{copy.give}</p>
-                  {checkpoint.supplies.length === 0 ? (
-                    <p className="mt-2 text-sm text-muted-foreground">{copy.nothingToGive}</p>
-                  ) : (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {checkpoint.supplies.map((product) => (
-                        <span
-                          key={product.productId}
-                          className="inline-flex max-w-full items-center gap-2 rounded-lg bg-surface-muted px-3 py-2 text-sm font-semibold text-foreground"
-                        >
-                          <span className="truncate">{product.name}</span>
-                          <span className="font-mono font-bold text-brand">x{product.quantity}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      </section>
+      <PlanShareCrewTimeline summary={summary} departureTime={share.departure_time} locale={locale} />
 
       <p className="text-center text-xs text-muted-foreground">
         {copy.sharedAt} : {formatDate(share.created_at, locale)}

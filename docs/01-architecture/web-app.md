@@ -13,6 +13,7 @@ related_files:
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
+  - apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx
   - apps/web/app/root-chrome.tsx
   - apps/web/lib/plan-share.ts
   - apps/web/app/api/race-catalog/route.ts
@@ -104,7 +105,7 @@ Catalog race plan creation is handled by `apps/web/app/api/plans/from-catalog/ro
 
 When the source race has organizer station products, the route loads them server-side and stores `planner_values.organizerAidStationProducts`. Those suggestions are displayed in the planner but are kept out of auto-fill unless the runner favorites or explicitly selects the product.
 
-Plan crew recap links are handled by `apps/web/app/api/plan-shares/route.ts` and `apps/web/app/share/plan/[token]/page.tsx`. The mobile app sends an authenticated snapshot generated from the saved plan recap. The API verifies the bearer token, checks `race_plans.user_id`, generates a random public token, stores only its SHA-256 hash in `plan_share_links`, and returns the public URL. Share URLs use the canonical web domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`, falling back to `https://pace-yourself.com`; they do not use Vercel deployment URLs. The public page hashes the URL token server-side and renders only the stored snapshot.
+Plan crew recap links are handled by `apps/web/app/api/plan-shares/route.ts`, `apps/web/app/share/plan/[token]/page.tsx`, and `apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx`. The mobile app sends an authenticated snapshot generated from the saved plan recap. The API verifies the bearer token, checks `race_plans.user_id`, creates a stable server-derived public token for new reusable links, stores only its SHA-256 hash in `plan_share_links`, and returns the public URL. Re-sharing a plan updates the existing stable link snapshot instead of creating another URL; legacy random-token links remain readable but cannot be re-shown because the raw token was never stored. Share URLs use the canonical web domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`, falling back to `https://pace-yourself.com`; `.vercel.app` hostnames are ignored even when they come from those env vars. The public page hashes the URL token server-side and renders only the stored snapshot, with client-side crew controls for a corrected start time and last real passage time.
 
 ### Race Catalog and GPX
 
@@ -160,6 +161,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer-created products are non-live rows attached to source ravitos; do not expose them through public client env or the global catalog API.
 - Public plan share pages are unauthenticated by design, but they must display only the bounded snapshot in `plan_share_links`, not live editable plan data.
 - Public plan share pages are standalone in `RootChrome` and force light theme variables so a visitor's saved dark preference does not affect crew readability.
+- Set `PLAN_SHARE_TOKEN_SECRET` if reusable crew links must survive a service-role key rotation without creating one new stable link on the next re-share.
 
 ## Related Docs
 

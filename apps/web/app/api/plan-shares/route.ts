@@ -5,7 +5,8 @@ import { checkRateLimitAsync, withSecurityHeaders } from "../../../lib/http";
 import {
   buildPlanShareUrl,
   departureTimeSchema,
-  generatePlanShareToken,
+  generatePlanShareId,
+  generateStablePlanShareToken,
   hashPlanShareToken,
   localeSchema,
   PLAN_SHARE_SCHEMA_VERSION,
@@ -45,6 +46,20 @@ type PlanShareInsertRow = {
   expires_at: string | null;
 };
 
+type PlanShareExistingRow = {
+  id: string;
+  token_hash: string;
+  created_at: string;
+  expires_at: string | null;
+};
+
+type PlanShareMutationRow = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  expires_at: string | null;
+};
+
 async function loadOwnedPlan(serviceConfig: SupabaseServiceConfig, planId: string, userId: string) {
   const response = await fetch(
     `${serviceConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(
@@ -63,6 +78,142 @@ async function loadOwnedPlan(serviceConfig: SupabaseServiceConfig, planId: strin
 
   const rows = (await response.json().catch(() => [])) as RacePlanLookupRow[];
   return { ok: true as const, plan: rows[0] ?? null };
+}
+
+function getStableTokenSecret(serviceConfig: SupabaseServiceConfig) {
+  return process.env.PLAN_SHARE_TOKEN_SECRET?.trim() || serviceConfig.supabaseServiceRoleKey;
+}
+
+function buildStableTokenForShare(serviceConfig: SupabaseServiceConfig, shareId: string) {
+  return generateStablePlanShareToken(shareId, getStableTokenSecret(serviceConfig));
+}
+
+async function loadReusableShareLink(
+  serviceConfig: SupabaseServiceConfig,
+  planId: string,
+  userId: string
+) {
+  const params = new URLSearchParams();
+  params.set("plan_id", `eq.${planId}`);
+  params.set("user_id", `eq.${userId}`);
+  params.set("revoked_at", "is.null");
+  params.set("or", `(expires_at.is.null,expires_at.gt.${new Date().toISOString()})`);
+  params.set("select", "id,token_hash,created_at,expires_at");
+  params.set("order", "updated_at.desc");
+  params.set("limit", "25");
+
+  const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/plan_share_links?${params.toString()}`, {
+    headers: serviceHeaders(serviceConfig, ""),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    console.error("Unable to load existing plan share links", await response.text().catch(() => ""));
+    return null;
+  }
+
+  const rows = (await response.json().catch(() => [])) as PlanShareExistingRow[];
+  for (const row of rows) {
+    const publicToken = buildStableTokenForShare(serviceConfig, row.id);
+    if (hashPlanShareToken(publicToken) === row.token_hash) {
+      return { row, publicToken };
+    }
+  }
+
+  return null;
+}
+
+async function updateShareLink(
+  serviceConfig: SupabaseServiceConfig,
+  shareId: string,
+  userId: string,
+  data: z.infer<typeof createPlanShareSchema>,
+  planUpdatedAt: string
+) {
+  const response = await fetch(
+    `${serviceConfig.supabaseUrl}/rest/v1/plan_share_links?id=eq.${encodeURIComponent(
+      shareId
+    )}&user_id=eq.${encodeURIComponent(userId)}&select=id,created_at,updated_at,expires_at`,
+    {
+      method: "PATCH",
+      headers: {
+        ...serviceHeaders(serviceConfig),
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        snapshot: data.snapshot,
+        snapshot_schema_version: PLAN_SHARE_SCHEMA_VERSION,
+        departure_time: data.departureTime ?? null,
+        locale: data.locale,
+        plan_updated_at: planUpdatedAt,
+        revoked_at: null,
+      }),
+    }
+  );
+
+  const responseBody = await response.text().catch(() => "");
+  let updated: PlanShareMutationRow[] | null = null;
+
+  try {
+    updated = responseBody ? (JSON.parse(responseBody) as PlanShareMutationRow[]) : null;
+  } catch {
+    updated = null;
+  }
+
+  if (!response.ok || !updated?.[0]) {
+    console.error("Unable to update plan share link", responseBody);
+    return null;
+  }
+
+  return updated[0];
+}
+
+async function createShareLink(
+  serviceConfig: SupabaseServiceConfig,
+  userId: string,
+  data: z.infer<typeof createPlanShareSchema>,
+  planUpdatedAt: string
+) {
+  const shareId = generatePlanShareId();
+  const publicToken = buildStableTokenForShare(serviceConfig, shareId);
+  const tokenHash = hashPlanShareToken(publicToken);
+  const response = await fetch(
+    `${serviceConfig.supabaseUrl}/rest/v1/plan_share_links?select=id,created_at,expires_at`,
+    {
+      method: "POST",
+      headers: {
+        ...serviceHeaders(serviceConfig),
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        id: shareId,
+        plan_id: data.planId,
+        user_id: userId,
+        token_hash: tokenHash,
+        snapshot: data.snapshot,
+        snapshot_schema_version: PLAN_SHARE_SCHEMA_VERSION,
+        departure_time: data.departureTime ?? null,
+        locale: data.locale,
+        plan_updated_at: planUpdatedAt,
+      }),
+    }
+  );
+
+  const responseBody = await response.text().catch(() => "");
+  let inserted: PlanShareInsertRow[] | null = null;
+
+  try {
+    inserted = responseBody ? (JSON.parse(responseBody) as PlanShareInsertRow[]) : null;
+  } catch {
+    inserted = null;
+  }
+
+  if (!response.ok || !inserted?.[0]) {
+    console.error("Unable to create plan share link", responseBody);
+    return null;
+  }
+
+  return { share: inserted[0], publicToken };
 }
 
 export async function POST(request: Request) {
@@ -112,47 +263,43 @@ export async function POST(request: Request) {
     return withSecurityHeaders(NextResponse.json({ message: "Plan not found." }, { status: 404 }));
   }
 
-  const publicToken = generatePlanShareToken();
-  const tokenHash = hashPlanShareToken(publicToken);
-  const insertResponse = await fetch(
-    `${supabaseService.supabaseUrl}/rest/v1/plan_share_links?select=id,created_at,expires_at`,
-    {
-      method: "POST",
-      headers: {
-        ...serviceHeaders(supabaseService),
-        Prefer: "return=representation",
-      },
-      body: JSON.stringify({
-        plan_id: parsedBody.data.planId,
-        user_id: supabaseUser.id,
-        token_hash: tokenHash,
-        snapshot: parsedBody.data.snapshot,
-        snapshot_schema_version: PLAN_SHARE_SCHEMA_VERSION,
-        departure_time: parsedBody.data.departureTime ?? null,
-        locale: parsedBody.data.locale,
-        plan_updated_at: ownedPlan.plan.updated_at,
-      }),
+  const reusableShare = await loadReusableShareLink(supabaseService, parsedBody.data.planId, supabaseUser.id);
+  if (reusableShare) {
+    const updatedShare = await updateShareLink(
+      supabaseService,
+      reusableShare.row.id,
+      supabaseUser.id,
+      parsedBody.data,
+      ownedPlan.plan.updated_at
+    );
+
+    if (!updatedShare) {
+      return withSecurityHeaders(NextResponse.json({ message: "Unable to update share link." }, { status: 500 }));
     }
-  );
 
-  const insertResponseBody = await insertResponse.text().catch(() => "");
-  let inserted: PlanShareInsertRow[] | null = null;
-
-  try {
-    inserted = insertResponseBody ? (JSON.parse(insertResponseBody) as PlanShareInsertRow[]) : null;
-  } catch {
-    inserted = null;
+    return withSecurityHeaders(
+      NextResponse.json({
+        share: updatedShare,
+        shareUrl: buildPlanShareUrl(reusableShare.publicToken),
+      })
+    );
   }
 
-  if (!insertResponse.ok || !inserted?.[0]) {
-    console.error("Unable to create plan share link", insertResponseBody);
+  const createdShare = await createShareLink(
+    supabaseService,
+    supabaseUser.id,
+    parsedBody.data,
+    ownedPlan.plan.updated_at
+  );
+
+  if (!createdShare) {
     return withSecurityHeaders(NextResponse.json({ message: "Unable to create share link." }, { status: 500 }));
   }
 
   return withSecurityHeaders(
     NextResponse.json({
-      share: inserted[0],
-      shareUrl: buildPlanShareUrl(publicToken),
+      share: createdShare.share,
+      shareUrl: buildPlanShareUrl(createdShare.publicToken),
     })
   );
 }

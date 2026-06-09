@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
+  - apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx
   - apps/web/lib/plan-share.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
@@ -23,7 +24,7 @@ related_tables:
 
 ## Key Concepts
 
-- Public token: the random URL token sent to the crew. It is never stored in the database.
+- Public token: the URL token sent to the crew. Legacy links used random tokens; reusable links use a stable server-derived token. Raw tokens are never stored in the database.
 - `token_hash`: SHA-256 hex hash of the public token, used for lookup by the server page.
 - Snapshot: JSONB recap payload generated from the mobile plan summary at share time.
 - Owner access: authenticated users can manage only links tied to their own plan.
@@ -75,7 +76,7 @@ Summary:
 
 - Store only `token_hash`; never persist the raw public token.
 - The public page displays `snapshot`, not live editable planner state.
-- Creating a new share link creates a new snapshot. Later plan edits do not mutate old shared snapshots unless a new link is generated.
+- Re-sharing a plan updates the stable link snapshot. Later plan edits do not mutate the shared snapshot until the runner shares again.
 - `snapshot_schema_version` must be bumped before storing a breaking public snapshot shape.
 - `expires_at` and `revoked_at` are optional controls; the public page must ignore revoked or expired links.
 
@@ -83,10 +84,11 @@ Summary:
 
 - Service role bypasses RLS, so `/api/plan-shares` must verify the bearer token and parent plan ownership before inserting.
 - Public crew viewers do not authenticate. Do not add direct `anon` table grants unless the public access model is redesigned.
-- Because only the token hash is stored, an existing link cannot be re-shown after creation; generate a new link when the runner shares again.
+- Because only the token hash is stored, legacy random links cannot be re-shown after creation. Stable links created by the reusable share flow can be re-derived server-side and updated on re-share.
 - The snapshot can contain product names and pass times. Treat the public URL as a secret link.
-- Public URLs should use the canonical website domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; Vercel deployment hostnames should not be used for crew links.
+- Public URLs should use the canonical website domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored so Vercel deployment hostnames are not used for crew links.
 - The public page forces the light theme for readability, independent of the visitor's saved web theme preference.
+- Crew-entered start and passage times are local page state only; they are not stored in `plan_share_links`.
 
 ## Related Docs
 

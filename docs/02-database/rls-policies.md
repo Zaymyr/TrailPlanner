@@ -99,6 +99,8 @@ Declared in `20260609091933_add_plan_share_links.sql`.
 - Authenticated users can delete their own share links.
 - `anon` is not granted direct table access. Public crew pages resolve the token through a Next.js server page using service role after hashing the raw URL token.
 
+Re-sharing uses the same owner policy shape: the route verifies bearer-token identity and parent-plan ownership before updating an existing stable snapshot.
+
 ### `races`
 
 Declared through old `race_catalog` policies and renamed/refined in `20260324000000_refactor_race_catalog_to_races.sql`.
@@ -264,6 +266,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.
+- Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
 
 ## Related Docs
 
