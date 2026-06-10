@@ -630,7 +630,11 @@ export function useProfileScreen() {
         }
 
         if (result === 'unavailable') {
-          Alert.alert(t.profile.subscriptionLabel, t.profile.purchaseUnavailable);
+          const fallbackStoreUrl = Platform.OS === 'ios' ? IOS_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
+          await openExternalUrl(
+            billing.managementUrl ?? fallbackStoreUrl,
+            t.profile.purchaseUnavailable,
+          );
         }
 
         return;

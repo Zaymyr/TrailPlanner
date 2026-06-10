@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
+import * as Crypto from 'expo-crypto';
 
 import {
   clearPendingGuestMerge,
@@ -39,6 +40,10 @@ function createAppleNonce() {
   }
 
   return nonce;
+}
+
+async function createAppleNonceChallenge(rawNonce: string) {
+  return Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce);
 }
 
 export function isAppleAuthCanceled(error: unknown) {
@@ -109,8 +114,10 @@ export function useAppleAuth({ session }: UseAppleAuthParams) {
     }
 
     const nonce = createAppleNonce();
+    // Apple receives the SHA-256 challenge; Supabase verifies the ID token with the raw nonce.
+    const nonceChallenge = await createAppleNonceChallenge(nonce);
     const credential = await appleModule.signInAsync({
-      nonce,
+      nonce: nonceChallenge,
       requestedScopes: [
         appleModule.AppleAuthenticationScope.FULL_NAME,
         appleModule.AppleAuthenticationScope.EMAIL,
@@ -125,7 +132,6 @@ export function useAppleAuth({ session }: UseAppleAuthParams) {
       provider: 'apple' as const,
       token: credential.identityToken,
       nonce,
-      access_token: credential.authorizationCode ?? undefined,
     };
     let data;
     let appleError;

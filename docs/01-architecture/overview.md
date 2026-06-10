@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-05-17
+last_verified: 2026-06-10
 ai_priority: high
 related_files:
   - package.json
@@ -57,6 +57,7 @@ The mobile app is an Expo Router app:
 - React Native: `react-native 0.81.5`
 - React: `react 19.1.0`
 - Supabase dependency: `@supabase/supabase-js ^2.45.4`
+- Apple auth nonce helper: `expo-crypto ~15.0.8`
 - Native billing dependency: `react-native-purchases ^9.15.1`
 - Native analytics dependency: `posthog-react-native ^4.45.0`
 

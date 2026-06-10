@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-05-28
+last_verified: 2026-06-10
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -71,7 +71,7 @@ The onboarding route is registered as a non-tab screen with the bottom tab bar h
 
 Social sign-in is split into hooks:
 
-- `apps/mobile/hooks/useAppleAuth.ts` dynamically loads `expo-apple-authentication` on iOS, requests name and email scopes, signs in or links the Apple identity with Supabase ID-token auth, preserves the guest-merge fallback, stores the Apple full name when Apple returns it, and initializes trial status.
+- `apps/mobile/hooks/useAppleAuth.ts` dynamically loads `expo-apple-authentication` on iOS, requests name and email scopes, signs in or links the Apple identity with Supabase ID-token auth, hashes the Apple nonce challenge with `expo-crypto` while passing the raw nonce to Supabase for verification, preserves the guest-merge fallback, stores the Apple full name when Apple returns it, and initializes trial status.
 - `apps/mobile/hooks/useGoogleAuth.ts` exposes Google only on Android. It uses native Google Sign-In when the native client configuration is complete, and non-cancel native failures can fall back to browser OAuth.
 
 Mobile social auth is platform-specific: iOS account surfaces show Sign in with Apple, while Android account surfaces show Google. If Google is ever reintroduced on iOS, Sign in with Apple must remain available as the equivalent privacy-preserving option required by App Store Guideline 4.8.
@@ -99,6 +99,7 @@ The web session route checks `coach_invites` after user verification. When a pen
 - Coach invite acceptance should remain service-side because it links users across tables.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.
 - Do not render Google sign-in on iOS builds; App Review devices should only see the Apple social login path.
+- For Apple ID-token auth, send Apple the hashed nonce challenge and Supabase the raw nonce. The Apple authorization code is not a provider access token for Supabase `signInWithIdToken`.
 
 ## Related Docs
 

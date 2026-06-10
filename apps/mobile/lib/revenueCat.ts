@@ -18,6 +18,20 @@ let purchasesModulePromise: Promise<RevenueCatModule | null> | null = null;
 let purchasesConfigured = false;
 let configuredAppUserId: string | null = null;
 
+const REVENUECAT_UNAVAILABLE_ERROR_CODES = new Set([
+  '2', // STORE_PROBLEM_ERROR
+  '3', // PURCHASE_NOT_ALLOWED_ERROR
+  '4', // PURCHASE_INVALID_ERROR
+  '5', // PRODUCT_NOT_AVAILABLE_FOR_PURCHASE_ERROR
+  '11', // INVALID_CREDENTIALS_ERROR
+  '17', // INVALID_APPLE_SUBSCRIPTION_KEY_ERROR
+  '23', // CONFIGURATION_ERROR
+  '24', // UNSUPPORTED_ERROR
+  '32', // PRODUCT_REQUEST_TIMED_OUT_ERROR
+  '33', // API_ENDPOINT_BLOCKED
+  '35', // OFFLINE_CONNECTION_ERROR
+]);
+
 function getRevenueCatApiKey() {
   if (Platform.OS === 'android') return REVENUECAT_ANDROID_API_KEY;
   if (Platform.OS === 'ios') return REVENUECAT_IOS_API_KEY;
@@ -148,4 +162,9 @@ export async function addRevenueCatCustomerInfoListener(
 export function isRevenueCatPurchaseCancelled(error: unknown) {
   const typedError = error as PurchasesError | null;
   return typedError?.userCancelled === true || typedError?.code === '1';
+}
+
+export function isRevenueCatPurchaseUnavailable(error: unknown) {
+  const typedError = error as PurchasesError | null;
+  return Boolean(typedError?.code && REVENUECAT_UNAVAILABLE_ERROR_CODES.has(String(typedError.code)));
 }
