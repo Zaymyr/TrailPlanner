@@ -23,6 +23,7 @@ const COPY = {
     saveStart: "Enregistrer",
     saved: "Enregistré",
     saving: "Sauvegarde...",
+    resetTracking: "Revenir au prévu",
     startRequired: "Renseigne l'heure de départ avant de valider un passage.",
     saveError: "Impossible d'enregistrer pour le moment.",
     nextPoint: "Prochain point équipe",
@@ -57,6 +58,7 @@ const COPY = {
     saveStart: "Save",
     saved: "Saved",
     saving: "Saving...",
+    resetTracking: "Back to plan",
     startRequired: "Enter the start time before confirming a passage.",
     saveError: "Unable to save right now.",
     nextPoint: "Next crew point",
@@ -317,12 +319,34 @@ export function PlanShareCrewTimeline({
     await persistCrewState(nextPassages, startTime, `checkpoint-${checkpoint.index}`);
   }
 
+  async function handleResetTracking() {
+    if (startTime && parseClock(startTime) === null) {
+      setError(copy.startRequired);
+      return;
+    }
+
+    await persistCrewState([], startTime, "reset");
+  }
+
   const startCanSave = startTime !== savedStartTime && (!startTime || parseClock(startTime) !== null);
+  const canResetTracking = passages.length > 0;
 
   return (
     <section className="flex flex-col gap-3">
       <div className="rounded-lg border border-border bg-card p-4">
-        <h2 className="text-xl font-bold text-foreground">{copy.liveTitle}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-foreground">{copy.liveTitle}</h2>
+          {canResetTracking ? (
+            <button
+              type="button"
+              disabled={savingKey !== null}
+              onClick={handleResetTracking}
+              className="min-h-9 rounded-lg border border-border bg-background px-3 text-xs font-bold text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingKey === "reset" ? copy.saving : copy.resetTracking}
+            </button>
+          ) : null}
+        </div>
         <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
           <div className="flex flex-col gap-2">
             <label className="flex flex-col gap-2 text-xs font-semibold uppercase text-muted-foreground">
