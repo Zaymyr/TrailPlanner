@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-06-09
+last_verified: 2026-06-10
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -50,6 +50,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - `react-native 0.81.5`
 - `@supabase/supabase-js ^2.45.4`
 - `expo-dev-client ~6.0.20`
+- `expo-crypto ~15.0.8`
 - `expo-updates ~29.0.16`
 - `react-native-purchases ^9.15.1`
 - `posthog-react-native ^4.45.0`
@@ -72,7 +73,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - `preview`: internal distribution, Android APK, iOS Release.
 - `production`: Android app bundle, iOS Release, auto-increment enabled.
 
-Because the dependency set includes native modules such as `expo-dev-client`, `react-native-purchases`, notifications, secure store, and Apple auth, use the development client profile for realistic local/device testing. Expo Go can only be assumed for flows that do not require these native modules.
+Because the dependency set includes native modules such as `expo-dev-client`, `react-native-purchases`, notifications, secure store, Apple auth, and `expo-crypto`, use the development client profile for realistic local/device testing. Expo Go can only be assumed for flows that do not require these native modules.
 
 ## App Shell
 
@@ -133,6 +134,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
+- Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
 
 ## Related Docs
 

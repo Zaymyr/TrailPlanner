@@ -8,6 +8,7 @@ import {
   getRevenueCatCustomerInfo,
   hasRevenueCatPremiumEntitlement,
   isRevenueCatPurchaseCancelled,
+  isRevenueCatPurchaseUnavailable,
   pickRevenueCatPrimaryPackage,
   purchaseRevenueCatPackage,
   restoreRevenueCatPurchases,
@@ -234,6 +235,10 @@ export function useRevenueCatBilling() {
         return 'cancelled';
       }
 
+      if (isRevenueCatPurchaseUnavailable(error)) {
+        return 'unavailable';
+      }
+
       throw error;
     }
   }
@@ -267,6 +272,10 @@ export function useRevenueCatBilling() {
 
       if (isRevenueCatPurchaseCancelled(error)) {
         return 'cancelled';
+      }
+
+      if (isRevenueCatPurchaseUnavailable(error)) {
+        return 'unavailable';
       }
 
       throw error;

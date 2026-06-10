@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-05-17
+last_verified: 2026-06-10
 ai_priority: medium
 related_files:
   - package.json
@@ -46,6 +46,7 @@ npm run lint
 7. For web UI changes, run/build the web app.
 8. For mobile native changes, use the EAS/dev-client path.
 9. For Supabase changes, verify RLS and service-role behavior separately.
+10. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
 
 ## Do Not
 
