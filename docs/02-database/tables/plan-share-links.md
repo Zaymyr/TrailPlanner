@@ -1,7 +1,7 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-06-09
+last_verified: 2026-06-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
@@ -85,6 +85,7 @@ Summary:
 - Public recap rendering uses `assistanceState` as a visual hierarchy: crew-access checkpoints are highlighted, no-crew checkpoints are muted, and no-crew checkpoints omit the product handoff block.
 - Re-sharing a plan updates the stable link snapshot. Later plan edits do not mutate the shared snapshot until the runner shares again.
 - Crew-confirmed passages are stored separately in `crew_state`; no-assistance checkpoints are treated by the public page as planned-time passages and do not need stored confirmations.
+- Resetting public tracking clears `crew_state.passages` through the same secret-link route so the page returns to planned snapshot timing without mutating `snapshot`.
 - `snapshot_schema_version` must be bumped before storing a breaking public snapshot shape.
 - `expires_at` and `revoked_at` are optional controls; the public page must ignore revoked or expired links.
 
@@ -97,6 +98,7 @@ Summary:
 - Public URLs should use the canonical website domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored so Vercel deployment hostnames are not used for crew links.
 - The public page forces the light theme for readability, independent of the visitor's saved web theme preference.
 - The public crew-state route is unauthenticated by design because the URL token is the secret. Keep the payload narrow and rate-limited, and do not add broad public mutation fields to `plan_share_links`.
+- Do not implement crew tracking reset by changing `snapshot`; it should only update the mutable crew-state fields.
 
 ## Related Docs
 
