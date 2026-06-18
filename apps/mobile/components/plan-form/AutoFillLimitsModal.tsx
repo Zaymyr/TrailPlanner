@@ -23,13 +23,33 @@ type Props = {
   visible: boolean;
   products: PlanProduct[];
   productsLoading: boolean;
+  initialLimits: AutoFillProductLimit[];
   fuelLabels: Record<string, string>;
   onClose: () => void;
   onApply: (limits: AutoFillProductLimit[]) => void;
 };
 
-function buildInitialDraft(products: PlanProduct[]): LimitDraft {
-  return Object.fromEntries(products.map((product) => [product.id, { limited: false, quantity: '1' }] as const));
+function buildInitialDraft(products: PlanProduct[], initialLimits: AutoFillProductLimit[] = []): LimitDraft {
+  const limitMap = new Map(
+    initialLimits.flatMap((limit) => {
+      if (limit.maxQuantity === null || limit.maxQuantity === undefined) return [];
+
+      const quantity = Math.floor(limit.maxQuantity);
+      if (!Number.isFinite(quantity)) return [];
+
+      return [[limit.productId, Math.max(0, quantity)] as const];
+    }),
+  );
+
+  return Object.fromEntries(
+    products.map((product) => {
+      const quantity = limitMap.get(product.id);
+      return [
+        product.id,
+        quantity === undefined ? { limited: false, quantity: '1' } : { limited: true, quantity: String(quantity) },
+      ] as const;
+    }),
+  );
 }
 
 function sanitizeQuantity(value: string) {
@@ -40,6 +60,7 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
   visible,
   products,
   productsLoading,
+  initialLimits,
   fuelLabels,
   onClose,
   onApply,
@@ -48,13 +69,13 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
     () => products.filter((product) => (product.carbs_g ?? 0) > 0 || (product.sodium_mg ?? 0) > 0),
     [products],
   );
-  const [draft, setDraft] = useState<LimitDraft>(() => buildInitialDraft(usableProducts));
+  const [draft, setDraft] = useState<LimitDraft>(() => buildInitialDraft(usableProducts, initialLimits));
 
   useEffect(() => {
     if (visible) {
-      setDraft(buildInitialDraft(usableProducts));
+      setDraft(buildInitialDraft(usableProducts, initialLimits));
     }
-  }, [usableProducts, visible]);
+  }, [initialLimits, usableProducts, visible]);
 
   const toggleLimited = (productId: string) => {
     setDraft((prev) => {
