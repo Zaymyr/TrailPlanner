@@ -8,6 +8,7 @@ related_files:
   - apps/web/lib/product-types.ts
   - apps/web/lib/fuel-types.ts
   - apps/web/lib/default-products.ts
+  - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/(planner)/race-planner/RacePlannerPageContent.tsx
@@ -54,6 +55,7 @@ related_files:
 related_tables:
   - products
   - race_plans
+  - race_aid_station_products
   - plan_share_links
 ---
 
@@ -97,7 +99,9 @@ Planner segment code in `apps/web/app/(planner)/race-planner/utils/segments.ts` 
 
 ## Organizer Products at Aid Stations
 
-When a runner imports a catalog race, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads organizer-provided `race_aid_station_products` for source aid stations, and stores product suggestions in `planner_values.organizerAidStationProducts`.
+When a runner imports a catalog race, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, preserves the source station id as `sourceAidStationId` when available, loads organizer-provided `race_aid_station_products`, and stores product suggestions in `planner_values.organizerAidStationProducts` as a fallback snapshot.
+
+On saved-plan read, `/api/plans` refreshes `organizerAidStationProducts` for plans with `race_id` by reloading the current source `race_aid_station_products` with the service role. This refresh is injected only into the API response; it does not mutate `race_plans.planner_values`. If the refresh fails, the stored snapshot remains the fallback so plan hydration still works.
 
 Those products are displayed in the web planner at the matching ravito as organization suggestions. They are merged into the local product map so explicitly selected suggestions can render and participate in coverage math. The manual product picker for an aid station shows the normal product pool plus the official products for that same ravito, and excludes organizer products from other ravitos. When selected, they are persisted as station supplies with `source: "organizer"`.
 
@@ -263,7 +267,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
 - Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
 - Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, tint official mobile brand header names with the light brand green, and must not change allocation order or nutrition math.
-- Organizer ravito suggestions are presentation, explicit-selection, and web opt-in auto-fill data. Do not let non-live organizer products enter the default auto-fill pool; only include them when the runner has favorited/selected them or has enabled the ravito-products auto-fill option. Persist selected official ravito products with `source: "organizer"` so no-assistance filtering removes personal supplies without removing products offered by the race.
+- Organizer ravito suggestions are presentation, explicit-selection, and web opt-in auto-fill data. For plans with `race_id`, suggestions are refreshed from the source race on `/api/plans` GET and the stored JSON is only a fallback snapshot. Do not let non-live organizer products enter the default auto-fill pool; only include them when the runner has favorited/selected them or has enabled the ravito-products auto-fill option. Persist selected official ravito products with `source: "organizer"` so no-assistance filtering removes personal supplies without removing products offered by the race.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
 - Mobile plan recap/share should derive from the same saved supplies and live-section timing used by the planner/live screen. Public crew links may persist that derived recap as a bounded `plan_share_links.snapshot`, but the snapshot must not feed back into nutrition allocation. No-assistance checkpoints should stay visually muted in recaps and should not display a product handoff block.
 - Mobile favorite toggles are presentation only. Inactive product rows show an unfilled star without a filled brand circle; only active favorites use the filled brand circle.

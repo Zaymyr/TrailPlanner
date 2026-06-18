@@ -8,6 +8,7 @@ related_files:
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/organizer.ts
+  - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
@@ -22,6 +23,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
+  - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/(planner)/race-planner/RacePlannerPageContent.tsx
@@ -48,7 +50,7 @@ This document records the v1 web-only organizer portal rules: users can request 
 - Event membership: approved organizer access stored in `race_event_organizers`.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
-- Runner snapshot: already-created `race_plans` stay unchanged when source race data changes.
+- Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
 ## Claim and Approval Flow
 
@@ -100,7 +102,7 @@ They are linked to stations through `race_aid_station_products`. They are not gl
 
 The organizer ravito timeline opens a catalog-product picker for existing live products instead of relying on an inline select. The picker groups results by `products.brand`, keeps unbranded items in a "Sans marque" group, and offers quick filters such as gels, bars, liquids, capsules, real food, and other products. Link updates may omit `notes` or send `notes = null`; the organizer API normalizes empty station-product notes to `null` before replacing the station links.
 
-When a runner imports a catalog plan, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads station-product links with the service role, and stores those product suggestions in `planner_values.organizerAidStationProducts`. The planner UI displays them as priority suggestions on the matching ravito, and the manual product picker for that ravito includes those official products alongside the normal product pool. Selected official products are saved as station supplies with `source: "organizer"`.
+When a runner imports a catalog plan, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, stores `sourceAidStationId` when available, loads station-product links with the service role, and stores those product suggestions in `planner_values.organizerAidStationProducts` as a fallback snapshot. On saved-plan read, `/api/plans` reloads current station-product links for plans with `race_id` and injects them into the response without rewriting the plan row. The planner UI displays them as priority suggestions on the matching ravito, and the manual product picker for that ravito includes those official products alongside the normal product pool. Selected official products are saved as station supplies with `source: "organizer"`.
 
 Auto-fill must keep organizer products out of its default product pool. On web, the runner can opt in with the "Produits ravito" toggle; when enabled, auto-fill may use the official products for the target ravito in addition to the runner's favorites/candidates. Without that opt-in, organizer products may be used only after the runner favorites the product or explicitly adds it to start/aid-station supplies. When an official product is used at a no-assistance ravito, it remains available at that ravito while personal top-ups still come from the previous assistance point.
 
@@ -114,7 +116,7 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 
 - Do not use `races.created_by` to authorize claimed public race edits.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
-- Do not auto-sync existing saved plans after organizer source edits.
+- Do not auto-sync existing saved plans after organizer source edits. Official ravito product links are read-time response overlays only; service flags, GPX, station distances, pacing, and runner supplies remain stored plan data.
 - Do not use `user_metadata` for admin claim approval or revocation checks.
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Manual organizer claims create non-live draft events; do not treat those rows as public catalog entries until an admin or organizer publishes the event through the normal event edit flow.

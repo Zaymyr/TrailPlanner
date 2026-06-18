@@ -184,6 +184,7 @@ const createAidStationSchema = (validation: RacePlannerTranslations["validation"
   createSegmentPlanSchema(validation).extend({
     name: z.string().min(1, validation.required),
     distanceKm: z.coerce.number().nonnegative({ message: validation.nonNegative }),
+    sourceAidStationId: z.string().optional(),
     waterRefill: z.coerce.boolean().optional().default(true),
     solidRefill: z.coerce.boolean().optional().default(true),
     assistanceAllowed: z.coerce.boolean().optional().default(true),
@@ -282,6 +283,20 @@ const buildPlannerValuesFromStorage = (defaultValues: FormValues, storedValues: 
 
 const buildAidStationProductKey = (name: string, distanceKm: number) =>
   `${name.trim().toLowerCase()}|${Number(distanceKm.toFixed(2))}`;
+
+const buildSourceAidStationProductKey = (sourceAidStationId: string) => `source:${sourceAidStationId}`;
+
+const getOrganizerSuggestionsForAidStation = (
+  organizerProducts: Record<string, OrganizerAidStationProductSuggestion[]>,
+  station: { name: string; distanceKm: number; sourceAidStationId?: string }
+) => {
+  if (station.sourceAidStationId) {
+    const sourceSuggestions = organizerProducts[buildSourceAidStationProductKey(station.sourceAidStationId)];
+    if (sourceSuggestions?.length) return sourceSuggestions;
+  }
+
+  return organizerProducts[buildAidStationProductKey(station.name, station.distanceKm)] ?? [];
+};
 
 export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobileNav?: boolean }) {
   const router = useRouter();
@@ -1462,8 +1477,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       );
       if (!useOrganizerProducts && selectedOrganizerProductIds.size === 0) return;
 
-      const key = buildAidStationProductKey(station.name, station.distanceKm);
-      const products = (organizerAidStationProducts[key] ?? [])
+      const products = getOrganizerSuggestionsForAidStation(organizerAidStationProducts, station)
         .map((suggestion) => suggestion.product)
         .filter((product): product is FuelProduct => Boolean(product && (product.carbsGrams > 0 || product.sodiumMg > 0)))
         .filter((product) => useOrganizerProducts || selectedOrganizerProductIds.has(product.id));

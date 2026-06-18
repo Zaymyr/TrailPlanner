@@ -31,6 +31,7 @@ export type AidStationNutritionItem = {
 export type AidStation = {
   name: string;
   distanceKm: number;
+  sourceAidStationId?: string;
   waterRefill?: boolean;
   solidRefill?: boolean;
   assistanceAllowed?: boolean;
@@ -39,6 +40,7 @@ export type AidStation = {
 
 export type OrganizerAidStationProductSuggestion = {
   aidStationKey: string;
+  sourceAidStationId?: string;
   aidStationName: string;
   distanceKm: number;
   notes?: string | null;
@@ -99,6 +101,7 @@ export type Segment = {
   waterRefill?: boolean;
   solidRefill?: boolean;
   assistanceAllowed?: boolean;
+  sourceAidStationId?: string;
   aidStationIndex?: number;
   isFinish?: boolean;
 };

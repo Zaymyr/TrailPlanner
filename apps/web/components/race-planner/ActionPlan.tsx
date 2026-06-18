@@ -323,6 +323,23 @@ const getSegmentFieldName = (segment: Segment, field: keyof SegmentPlan) => {
   return null;
 };
 
+const buildAidStationProductKey = (name: string, distanceKm: number) =>
+  `${name.trim().toLowerCase()}|${Number(distanceKm.toFixed(2))}`;
+
+const buildSourceAidStationProductKey = (sourceAidStationId: string) => `source:${sourceAidStationId}`;
+
+const getOrganizerSuggestionsForAidStation = (
+  organizerProducts: Record<string, OrganizerAidStationProductSuggestion[]> | undefined,
+  station: { name: string; distanceKm: number; sourceAidStationId?: string }
+) => {
+  if (station.sourceAidStationId) {
+    const sourceSuggestions = organizerProducts?.[buildSourceAidStationProductKey(station.sourceAidStationId)];
+    if (sourceSuggestions?.length) return sourceSuggestions;
+  }
+
+  return organizerProducts?.[buildAidStationProductKey(station.name, station.distanceKm)] ?? [];
+};
+
 const PremiumSparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <SparklesIcon
     className="h-3.5 w-3.5 text-muted-foreground dark:text-slate-100/60"
@@ -1347,10 +1364,6 @@ export function ActionPlan({
     setEditorError(null);
   }, []);
   const productBySlug = useMemo(() => Object.fromEntries(fuelProducts.map((product) => [product.slug, product])), [fuelProducts]);
-  const buildAidStationProductKey = useCallback(
-    (name: string, distanceKm: number) => `${name.trim().toLowerCase()}|${Number(distanceKm.toFixed(2))}`,
-    []
-  );
   const organizerProductIds = useMemo(() => {
     const ids = new Set<string>();
     Object.values(organizerAidStationProducts ?? {})
@@ -1364,12 +1377,15 @@ export function ActionPlan({
     const map = new Map<number, OrganizerAidStationProductSuggestion[]>();
     segments.forEach((segment) => {
       if (typeof segment.aidStationIndex !== "number" || segment.isFinish) return;
-      const key = buildAidStationProductKey(segment.checkpoint, segment.distanceKm);
-      const suggestions = organizerAidStationProducts?.[key] ?? [];
+      const suggestions = getOrganizerSuggestionsForAidStation(organizerAidStationProducts, {
+        name: segment.checkpoint,
+        distanceKm: segment.distanceKm,
+        sourceAidStationId: segment.sourceAidStationId,
+      });
       if (suggestions.length > 0) map.set(segment.aidStationIndex, suggestions);
     });
     return map;
-  }, [buildAidStationProductKey, organizerAidStationProducts, segments]);
+  }, [organizerAidStationProducts, segments]);
   const hasOrganizerAidStationProducts = organizerProductIds.size > 0;
   const supplyPickerOrganizerSuggestions = useMemo(() => {
     if (!supplyPicker || supplyPicker.type !== "aid" || typeof supplyPicker.index !== "number") return [];
@@ -2058,7 +2074,11 @@ export function ActionPlan({
                 ) : null;
                 const organizerSuggestions =
                   isAidStation && typeof item.aidStationIndex === "number"
-                    ? organizerAidStationProducts?.[buildAidStationProductKey(item.title, item.distanceKm)] ?? []
+                    ? getOrganizerSuggestionsForAidStation(organizerAidStationProducts, {
+                        name: item.title,
+                        distanceKm: item.distanceKm,
+                        sourceAidStationId: item.checkpointSegment?.sourceAidStationId,
+                      })
                     : [];
                 const selectedAidProductIds =
                   typeof item.aidStationIndex === "number"
