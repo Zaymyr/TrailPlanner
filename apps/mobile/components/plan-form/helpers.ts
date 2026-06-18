@@ -90,6 +90,7 @@ export function buildInitialPlanValues(initialValues: PlanFormValues): PlanFormV
 type BuildPlanOptions = {
   targetWaterMl?: number;
   availableWaterMl?: number;
+  maxQuantities?: ReadonlyMap<string, number>;
 };
 
 type ComboOption = {
@@ -97,6 +98,7 @@ type ComboOption = {
   carbs: number;
   sodium: number;
   fluid: boolean;
+  maxQuantity: number;
 };
 
 export function getEffectiveSodiumTarget(targetSodiumMg: number) {
@@ -136,7 +138,8 @@ function findBestCombo(
     const sodiumDiff = targetSodiumMg > 0 ? Math.abs(sodium - targetSodiumMg) / targetSodiumMg : 0;
     const underfillPenalty = carbs < targetFuelGrams ? 0.2 : 0;
     const itemPenalty = units * 0.01;
-    const score = carbDiff * 1.5 + sodiumDiff * 0.6 + underfillPenalty + itemPenalty;
+    const duplicatePenalty = combo.reduce((total, qty) => total + Math.max(0, qty - 1), 0) * 0.025;
+    const score = carbDiff * 1.5 + sodiumDiff * 0.6 + underfillPenalty + itemPenalty + duplicatePenalty;
 
     if (score < best.score && (carbs > 0 || sodium > 0)) {
       best = { score, combo: combo.slice(), carbs, sodium, units, fluidUnits };
@@ -152,7 +155,7 @@ function findBestCombo(
     const option = options[index];
     const remainingSlots = maxUnits - totalUnits;
     const remainingFluidSlots = option.fluid ? fluidUnitLimit - totalFluidUnits : remainingSlots;
-    const maxQty = Math.max(0, Math.min(remainingSlots, remainingFluidSlots));
+    const maxQty = Math.max(0, Math.min(remainingSlots, remainingFluidSlots, option.maxQuantity));
 
     for (let qty = 0; qty <= maxQty; qty += 1) {
       combo[index] = qty;
@@ -180,8 +183,9 @@ export function buildPlanForTarget(
       carbs: Math.max(product.carbsGrams, 0),
       sodium: Math.max(product.sodiumMg ?? 0, 0),
       fluid: isFluidFuelType(product.fuelType),
+      maxQuantity: Math.max(0, Math.floor(options?.maxQuantities?.get(product.id) ?? Number.POSITIVE_INFINITY)),
     }))
-    .filter((product) => product.carbs > 0 || product.sodium > 0);
+    .filter((product) => (product.carbs > 0 || product.sodium > 0) && product.maxQuantity > 0);
 
   if (normalizedOptions.length === 0) return [];
 

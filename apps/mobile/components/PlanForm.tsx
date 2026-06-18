@@ -18,6 +18,7 @@ import { useI18n } from '../lib/i18n';
 import {
   AidStationsSectionV3 as AidStationsSection
 } from './plan-form/AidStationsSectionV3';
+import { AutoFillLimitsModal } from './plan-form/AutoFillLimitsModal';
 import {
   ARRIVEE_ID,
   DEPART_ID,
@@ -49,7 +50,7 @@ import { buildCarryoverCoverages } from './plan-form/carryover';
 import { styles } from './plan-form/styles';
 import { type PlanProductsBootstrap, usePlanProducts } from './plan-form/usePlanProducts';
 import { usePlanSections } from './plan-form/usePlanSections';
-import { usePlanSupplies } from './plan-form/usePlanSupplies';
+import { type AutoFillProductLimit, usePlanSupplies } from './plan-form/usePlanSupplies';
 import type { GaugeMetric } from './plan-form/GaugeArc';
 import type {
   ElevationPoint,
@@ -138,6 +139,7 @@ export default function PlanForm({
   const [gaugeAnimateSignals, setGaugeAnimateSignals] = useState<Record<string, number>>({});
   const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
+  const [autoFillLimitsVisible, setAutoFillLimitsVisible] = useState(false);
   const [autoFillLoadingMessage, setAutoFillLoadingMessage] = useState<string>(AUTO_FILL_LOADING_MESSAGES[0]);
   const mainScrollRef = useRef<ScrollView>(null);
   const mainScrollYRef = useRef(0);
@@ -159,6 +161,7 @@ export default function PlanForm({
     setGaugeAnimateSignals({});
     setShowPremiumUpsell(false);
     setIsAutoFilling(false);
+    setAutoFillLimitsVisible(false);
     setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[0]);
   }, [compactBasicsByDefault, initialValues]);
 
@@ -250,6 +253,10 @@ export default function PlanForm({
     onRequirePremium: openPremiumUpsell,
     onMissingFavoriteProducts,
   });
+  const autoFillLimitProducts = useMemo(
+    () => pickerFavorites.filter((product) => (product.carbs_g ?? 0) > 0 || (product.sodium_mg ?? 0) > 0),
+    [pickerFavorites],
+  );
 
   const basePaceMinutesPerKm = 60 / baseSpeedKph;
   const aidStationsSummaryKey = useMemo(
@@ -609,9 +616,9 @@ export default function PlanForm({
     });
   }, [values.aidStations, values.raceDistanceKm]);
 
-  const handleFillSuppliesAuto = useCallback(async () => {
+  const runFillSuppliesAuto = useCallback(async (productLimits?: AutoFillProductLimit[]) => {
     if (!isPremium) {
-      void Promise.resolve(fillSuppliesAuto());
+      await Promise.resolve(fillSuppliesAuto(productLimits));
       return;
     }
 
@@ -629,7 +636,7 @@ export default function PlanForm({
 
     try {
       await Promise.all([
-        Promise.resolve(fillSuppliesAuto()),
+        Promise.resolve(fillSuppliesAuto(productLimits)),
         new Promise((resolve) => setTimeout(resolve, AUTO_FILL_MIN_LOADING_MS)),
       ]);
     } finally {
@@ -638,6 +645,21 @@ export default function PlanForm({
       setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[0]);
     }
   }, [clearAutoFillLoadingInterval, fillSuppliesAuto, isAutoFilling, isPremium]);
+
+  const handleFillSuppliesAuto = useCallback(() => {
+    if (!isPremium) {
+      void runFillSuppliesAuto();
+      return;
+    }
+
+    if (isAutoFilling) return;
+    setAutoFillLimitsVisible(true);
+  }, [isAutoFilling, isPremium, runFillSuppliesAuto]);
+
+  const handleApplyAutoFillLimits = useCallback((productLimits: AutoFillProductLimit[]) => {
+    setAutoFillLimitsVisible(false);
+    void runFillSuppliesAuto(productLimits);
+  }, [runFillSuppliesAuto]);
 
   const buildSubmittableValues = useCallback(() => {
     if (!values.name.trim()) {
@@ -861,6 +883,15 @@ export default function PlanForm({
         fuelLabels={FUEL_LABELS}
         onClose={() => setPickerTarget(null)}
         onAddProduct={handleAddProductFromPicker}
+      />
+
+      <AutoFillLimitsModal
+        visible={autoFillLimitsVisible}
+        products={autoFillLimitProducts}
+        productsLoading={productsLoading}
+        fuelLabels={FUEL_LABELS}
+        onClose={() => setAutoFillLimitsVisible(false)}
+        onApply={handleApplyAutoFillLimits}
       />
 
       <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} />

@@ -34,6 +34,17 @@ type PoolProduct = FavProduct & {
   fuelType?: string | null;
 };
 
+export type AutoFillProductLimit = {
+  productId: string;
+  maxQuantity: number | null;
+};
+
+type AutoFillShortage = {
+  sectionLabel: string;
+  carbsG: number;
+  sodiumMg: number;
+};
+
 function isFluidFuelType(fuelType: string | null | undefined) {
   return fuelType === 'drink_mix' || fuelType === 'electrolyte';
 }
@@ -89,10 +100,97 @@ function addProductQuantity(base: Supply[], productId: string, quantity: number)
   return next;
 }
 
-function pickSodiumSpecialists(products: PoolProduct[]) {
+function normalizeAutoFillLimitMap(productLimits?: AutoFillProductLimit[]) {
+  const limits = new Map<string, number>();
+
+  productLimits?.forEach(({ productId, maxQuantity }) => {
+    if (!productId || maxQuantity === null || maxQuantity === undefined) return;
+
+    const safeQuantity = Math.floor(maxQuantity);
+    if (!Number.isFinite(safeQuantity)) return;
+
+    limits.set(productId, Math.max(0, safeQuantity));
+  });
+
+  return limits;
+}
+
+function addSupplyCounts(target: Map<string, number>, supplies: Supply[]) {
+  supplies.forEach((supply) => {
+    target.set(supply.productId, (target.get(supply.productId) ?? 0) + Math.max(0, Math.floor(supply.quantity)));
+  });
+}
+
+function getPendingSupplyCount(pendingSupplies: Supply[] | undefined, productId: string) {
+  if (!pendingSupplies || pendingSupplies.length === 0) return 0;
+
+  return pendingSupplies.reduce(
+    (total, supply) => total + (supply.productId === productId ? Math.max(0, Math.floor(supply.quantity)) : 0),
+    0,
+  );
+}
+
+function getRemainingProductQuantity(
+  productId: string,
+  productLimits: ReadonlyMap<string, number>,
+  plannedProductCounts: ReadonlyMap<string, number>,
+  pendingSupplies?: Supply[],
+) {
+  const limit = productLimits.get(productId);
+  if (limit === undefined) return Number.POSITIVE_INFINITY;
+
+  return Math.max(0, limit - (plannedProductCounts.get(productId) ?? 0) - getPendingSupplyCount(pendingSupplies, productId));
+}
+
+function buildRemainingLimitMap(
+  productLimits: ReadonlyMap<string, number>,
+  plannedProductCounts: ReadonlyMap<string, number>,
+  pendingSupplies?: Supply[],
+) {
+  if (productLimits.size === 0) return undefined;
+
+  const remaining = new Map<string, number>();
+  productLimits.forEach((_, productId) => {
+    remaining.set(productId, getRemainingProductQuantity(productId, productLimits, plannedProductCounts, pendingSupplies));
+  });
+
+  return remaining;
+}
+
+function filterAvailableProducts(
+  products: PoolProduct[],
+  productLimits: ReadonlyMap<string, number>,
+  plannedProductCounts: ReadonlyMap<string, number>,
+  pendingSupplies?: Supply[],
+) {
+  return products.filter(
+    (product) => getRemainingProductQuantity(product.id, productLimits, plannedProductCounts, pendingSupplies) > 0,
+  );
+}
+
+function sortByVariety(
+  products: PoolProduct[],
+  plannedProductCounts: ReadonlyMap<string, number>,
+  scoreProduct: (product: PoolProduct) => number,
+) {
+  return [...products].sort((left, right) => {
+    const usageDiff = (plannedProductCounts.get(left.id) ?? 0) - (plannedProductCounts.get(right.id) ?? 0);
+    if (usageDiff !== 0) return usageDiff;
+
+    const scoreDiff = scoreProduct(right) - scoreProduct(left);
+    if (scoreDiff !== 0) return scoreDiff;
+
+    return left.name.localeCompare(right.name, 'fr', { sensitivity: 'base' });
+  });
+}
+
+function pickSodiumSpecialists(products: PoolProduct[], plannedProductCounts: ReadonlyMap<string, number>) {
   return [...products]
     .filter((product) => (product.sodiumMg ?? 0) > 0)
     .sort((left, right) => {
+      const usageDiff = (plannedProductCounts.get(left.id) ?? 0) - (plannedProductCounts.get(right.id) ?? 0);
+      if (usageDiff !== 0) return usageDiff;
+
       const leftDensity = (left.sodiumMg ?? 0) / Math.max((left.carbsGrams ?? 0) + 1, 1);
       const rightDensity = (right.sodiumMg ?? 0) / Math.max((right.carbsGrams ?? 0) + 1, 1);
       if (rightDensity !== leftDensity) return rightDensity - leftDensity;
@@ -104,16 +202,18 @@ function pickSodiumSpecialists(products: PoolProduct[]) {
 function buildSodiumTopUpSupplies(
   sodiumGapMg: number,
   sodiumCandidates: PoolProduct[],
+  remainingQuantities?: ReadonlyMap<string, number>,
 ) {
   let remaining = Math.max(0, sodiumGapMg);
   let supplies: Supply[] = [];
 
   sodiumCandidates.forEach((product) => {
     const sodiumPerUnit = Math.max(product.sodiumMg ?? 0, 0);
-    if (remaining <= 0 || sodiumPerUnit <= 0) return;
+    const maxQuantity = Math.max(0, Math.floor(remainingQuantities?.get(product.id) ?? Number.POSITIVE_INFINITY));
+    if (remaining <= 0 || sodiumPerUnit <= 0 || maxQuantity <= 0) return;
 
     if ((product.carbsGrams ?? 0) <= 5) {
-      const quantity = Math.ceil(remaining / sodiumPerUnit);
+      const quantity = Math.min(maxQuantity, Math.ceil(remaining / sodiumPerUnit));
       supplies = addProductQuantity(supplies, product.id, quantity);
       remaining -= quantity * sodiumPerUnit;
       return;
@@ -128,25 +228,31 @@ function buildSodiumTopUpSupplies(
   return supplies;
 }
 
-function pickCarbBasePool(products: PoolProduct[]) {
+function pickCarbBasePool(products: PoolProduct[], plannedProductCounts: ReadonlyMap<string, number>) {
   const carbProducts = products.filter((product) => (product.carbsGrams ?? 0) >= 8);
-  const gels = carbProducts.filter((product) => product.fuelType === 'gel').sort((a, b) => b.carbsGrams - a.carbsGrams);
-  const bars = carbProducts.filter((product) => product.fuelType === 'bar').sort((a, b) => b.carbsGrams - a.carbsGrams);
-  const foods = carbProducts
+  const sortCarbProducts = (candidates: PoolProduct[]) =>
+    sortByVariety(candidates, plannedProductCounts, (product) => product.carbsGrams);
+  const gels = sortCarbProducts(carbProducts.filter((product) => product.fuelType === 'gel'));
+  const bars = sortCarbProducts(carbProducts.filter((product) => product.fuelType === 'bar'));
+  const foods = sortCarbProducts(carbProducts
     .filter((product) => product.fuelType === 'real_food' || product.fuelType === 'other')
-    .sort((a, b) => b.carbsGrams - a.carbsGrams);
-  const fallback = [...carbProducts].sort((a, b) => b.carbsGrams - a.carbsGrams);
+  );
+  const fallback = sortCarbProducts(carbProducts);
 
   return pickUniqueProducts([gels[0], bars[0], foods[0], fallback[0], fallback[1]].filter(Boolean) as PoolProduct[]).slice(0, 5);
 }
 
-function pickFluidMixPool(products: PoolProduct[]) {
-  const drinkMixes = products
-    .filter((product) => product.fuelType === 'drink_mix')
-    .sort((a, b) => (b.carbsGrams + b.sodiumMg / 100) - (a.carbsGrams + a.sodiumMg / 100));
-  const electrolytes = products
-    .filter((product) => product.fuelType === 'electrolyte')
-    .sort((a, b) => (b.sodiumMg + b.carbsGrams * 5) - (a.sodiumMg + a.carbsGrams * 5));
+function pickFluidMixPool(products: PoolProduct[], plannedProductCounts: ReadonlyMap<string, number>) {
+  const drinkMixes = sortByVariety(
+    products.filter((product) => product.fuelType === 'drink_mix'),
+    plannedProductCounts,
+    (product) => product.carbsGrams + product.sodiumMg / 100,
+  );
+  const electrolytes = sortByVariety(
+    products.filter((product) => product.fuelType === 'electrolyte'),
+    plannedProductCounts,
+    (product) => product.sodiumMg + product.carbsGrams * 5,
+  );
 
   return pickUniqueProducts([drinkMixes[0], drinkMixes[1], electrolytes[0], electrolytes[1]].filter(Boolean) as PoolProduct[]).slice(0, 4);
 }
@@ -340,7 +446,7 @@ export function usePlanSupplies({
     );
   }, [replaceAidStations, values.raceDistanceKm]);
 
-  const fillSuppliesAuto = useCallback(async () => {
+  const fillSuppliesAuto = useCallback(async (productLimits?: AutoFillProductLimit[]) => {
     if (!isPremium) {
       onRequirePremium();
       return;
@@ -388,9 +494,7 @@ export function usePlanSupplies({
     }));
     const productsById = Object.fromEntries(poolAsFavorites.map((product) => [product.id, product] as const));
     const solidCandidates = poolAsFavorites.filter((product) => !isFluidFuelType(product.fuelType));
-    const carbBasePool = pickCarbBasePool(solidCandidates);
-    const sodiumSpecialists = pickSodiumSpecialists(solidCandidates);
-    const fluidMixPool = pickFluidMixPool(poolAsFavorites.filter((product) => isFluidFuelType(product.fuelType)));
+    const fluidCandidates = poolAsFavorites.filter((product) => isFluidFuelType(product.fuelType));
     const sections = buildContinuousSections({ values, elevationProfile });
     const sectionSupplyMap = new Map<number, Supply[]>();
     const carryoverProductsById: Record<string, CarryoverProduct> = Object.fromEntries(
@@ -401,6 +505,9 @@ export function usePlanSupplies({
     );
     const inventory = new Map<string, number>();
     const balance = { carbs: 0, sodium: 0 };
+    const productLimitMap = normalizeAutoFillLimitMap(productLimits);
+    const plannedProductCounts = new Map<string, number>();
+    const unresolvedShortages: AutoFillShortage[] = [];
     let lastAssistanceSectionIndex = 0;
 
     sections.forEach((section) => {
@@ -424,6 +531,11 @@ export function usePlanSupplies({
       const sodiumTolerance = getGaugeTolerance('sodium', effectiveSectionSodiumTarget);
       let remainingCarbs = Math.max(0, -balance.carbs);
       let remainingSodium = Math.max(0, -balance.sodium);
+      let remainingLimitMap = buildRemainingLimitMap(productLimitMap, plannedProductCounts, nextSupplies);
+      const fluidMixPool = pickFluidMixPool(
+        filterAvailableProducts(fluidCandidates, productLimitMap, plannedProductCounts, nextSupplies),
+        plannedProductCounts,
+      );
 
       if ((remainingCarbs > carbTolerance || remainingSodium > sodiumTolerance) && fluidMixPool.length > 0 && availableWaterMl > 0) {
         const fluidCarbGoal = Math.max(0, Math.min(remainingCarbs, section.targetCarbsG * 0.45));
@@ -431,6 +543,7 @@ export function usePlanSupplies({
         const fluidTopUp = buildPlanForTarget(fluidCarbGoal, fluidSodiumGoal, fluidMixPool, {
           targetWaterMl: section.targetWaterMl,
           availableWaterMl,
+          maxQuantities: remainingLimitMap,
         });
         nextSupplies = mergeSupplyLists(nextSupplies, fluidTopUp);
         const afterFluid = sumSuppliesNutrition(nextSupplies, productsById);
@@ -438,22 +551,37 @@ export function usePlanSupplies({
         remainingSodium = Math.max(0, -balance.sodium - afterFluid.sodium);
       }
 
+      remainingLimitMap = buildRemainingLimitMap(productLimitMap, plannedProductCounts, nextSupplies);
+      const carbBasePool = pickCarbBasePool(
+        filterAvailableProducts(solidCandidates, productLimitMap, plannedProductCounts, nextSupplies),
+        plannedProductCounts,
+      );
       if (remainingCarbs > carbTolerance && carbBasePool.length > 0) {
         const fallbackTopUp = buildPlanForTarget(remainingCarbs, 0, carbBasePool, {
           targetWaterMl: section.targetWaterMl,
           availableWaterMl,
+          maxQuantities: remainingLimitMap,
         });
         nextSupplies = mergeSupplyLists(nextSupplies, fallbackTopUp);
       }
 
       const afterCarbTopUp = sumSuppliesNutrition(nextSupplies, productsById);
       const sodiumStillMissing = Math.max(0, -balance.sodium - afterCarbTopUp.sodium);
+      remainingLimitMap = buildRemainingLimitMap(productLimitMap, plannedProductCounts, nextSupplies);
+      const sodiumSpecialists = pickSodiumSpecialists(
+        filterAvailableProducts(solidCandidates, productLimitMap, plannedProductCounts, nextSupplies),
+        plannedProductCounts,
+      );
       if (sodiumStillMissing > sodiumTolerance && sodiumSpecialists.length > 0) {
-        nextSupplies = mergeSupplyLists(nextSupplies, buildSodiumTopUpSupplies(sodiumStillMissing, sodiumSpecialists));
+        nextSupplies = mergeSupplyLists(
+          nextSupplies,
+          buildSodiumTopUpSupplies(sodiumStillMissing, sodiumSpecialists, remainingLimitMap),
+        );
       }
 
       const targetSectionSupplies = sectionSupplyMap.get(lastAssistanceSectionIndex) ?? [];
       sectionSupplyMap.set(lastAssistanceSectionIndex, mergeSupplyLists(targetSectionSupplies, nextSupplies));
+      addSupplyCounts(plannedProductCounts, nextSupplies);
       addSuppliesToInventory(inventory, nextSupplies);
       consumeInventoryForTargets({
         inventory,
@@ -463,6 +591,16 @@ export function usePlanSupplies({
         targetSodiumMg: 0,
         sectionIndex: section.sectionIndex,
       });
+
+      const unresolvedCarbs = Math.max(0, -balance.carbs);
+      const unresolvedSodium = Math.max(0, -balance.sodium);
+      if (unresolvedCarbs > carbTolerance || unresolvedSodium > sodiumTolerance) {
+        unresolvedShortages.push({
+          sectionLabel: `${section.fromName} -> ${section.toName}`,
+          carbsG: Math.ceil(unresolvedCarbs),
+          sodiumMg: Math.ceil(unresolvedSodium),
+        });
+      }
     });
 
     const newStartSupplies = sectionSupplyMap.get(0) ?? [];
@@ -480,6 +618,23 @@ export function usePlanSupplies({
       startSupplies: newStartSupplies,
       aidStations: injectSystemStations(updatedIntermediates, values.raceDistanceKm),
     }));
+
+    if (unresolvedShortages.length > 0) {
+      const worstShortage = unresolvedShortages.reduce((worst, shortage) => {
+        const worstScore = worst.carbsG + worst.sodiumMg / 10;
+        const shortageScore = shortage.carbsG + shortage.sodiumMg / 10;
+        return shortageScore > worstScore ? shortage : worst;
+      });
+      const missingParts = [
+        worstShortage.carbsG > 0 ? `${worstShortage.carbsG} g glucides` : null,
+        worstShortage.sodiumMg > 0 ? `${worstShortage.sodiumMg} mg sodium` : null,
+      ].filter(Boolean);
+
+      Alert.alert(
+        'Stock insuffisant',
+        `Avec les limites indiquees, le plan ne couvre pas completement ${worstShortage.sectionLabel}. Il manque encore environ ${missingParts.join(' et ')}. Ajoute des favoris ou augmente les quantites disponibles.`,
+      );
+    }
   }, [
     allProducts,
     elevationProfile,
