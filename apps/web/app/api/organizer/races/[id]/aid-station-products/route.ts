@@ -48,12 +48,20 @@ const aidStationRaceRowSchema = z.object({
   race_id: z.string().uuid(),
 });
 
+const optionalNullableTextOrNull = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((value) => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  });
+
 const updateProductsSchema = z.object({
   aidStationId: z.string().uuid(),
   products: z.array(
     z.object({
       productId: z.string().uuid(),
-      notes: optionalTextOrNull,
+      notes: optionalNullableTextOrNull,
     })
   ),
 });
@@ -72,7 +80,7 @@ const createScopedProductSchema = z.object({
     proteinGrams: z.coerce.number().nonnegative().default(0),
     fatGrams: z.coerce.number().nonnegative().default(0),
   }),
-  notes: optionalTextOrNull,
+  notes: optionalNullableTextOrNull,
 });
 
 const toProduct = (row: z.infer<typeof supabaseProductSchema>): FuelProduct => ({

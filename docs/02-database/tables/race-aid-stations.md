@@ -78,6 +78,7 @@ Summary:
 - If a race has no aid stations, import code may derive stations from GPX waypoints.
 - Existing code attempts to avoid destructive deletion when linked plan stations exist, but the link column is not visible in migrations.
 - Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
+- The organizer product picker requires a saved source station id; new ravitos must be saved before products can be attached.
 
 ## Common Queries
 

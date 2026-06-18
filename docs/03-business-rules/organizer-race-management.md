@@ -74,7 +74,7 @@ Approved organizers can:
 - add a new format as a new `races` row with `created_by = null`, `is_public = true`, and `is_live = true`;
 - replace a format GPX source in `race-gpx`;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, and `assistanceAllowed` service flags;
-- attach existing catalog products to a station;
+- attach existing catalog products to a station from a picker that shows product brand, type, image, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station.
 
 Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
@@ -97,6 +97,8 @@ Organizer-created products are stored in `products` with:
 - `is_official = false`.
 
 They are linked to stations through `race_aid_station_products`. They are not global catalog products and should not appear in normal product catalog responses.
+
+The organizer ravito timeline opens a catalog-product picker for existing live products instead of relying on an inline select. Link updates may omit `notes` or send `notes = null`; the organizer API normalizes empty station-product notes to `null` before replacing the station links.
 
 When a runner imports a catalog plan, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads station-product links with the service role, and stores those product suggestions in `planner_values.organizerAidStationProducts`. The planner UI displays them as priority suggestions on the matching ravito.
 
