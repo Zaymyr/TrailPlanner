@@ -155,9 +155,34 @@ describe("dedupeAidStations", () => {
 describe("sanitizePlannerValues", () => {
   it("preserves organizer aid station product suggestions outside station supplies", () => {
     const organizerAidStationProducts = {
+      "source:22222222-2222-2222-2222-222222222222": [
+        {
+          aidStationKey: "source:22222222-2222-2222-2222-222222222222",
+          sourceAidStationId: "22222222-2222-2222-2222-222222222222",
+          aidStationName: "Ravito",
+          distanceKm: 12.5,
+          notes: "Served by the organization",
+          orderIndex: 0,
+          product: {
+            id: "organizer-product",
+            slug: "organizer-gel",
+            name: "Organizer Gel",
+            fuelType: "gel" as const,
+            caloriesKcal: 100,
+            carbsGrams: 25,
+            sodiumMg: 40,
+            proteinGrams: 0,
+            fatGrams: 0,
+            waterMl: 0,
+            createdBy: "10000000-0000-0000-0000-000000000001",
+            isOfficial: false,
+          },
+        },
+      ],
       "ravito|12.5": [
         {
           aidStationKey: "ravito|12.5",
+          sourceAidStationId: "22222222-2222-2222-2222-222222222222",
           aidStationName: "Ravito",
           distanceKm: 12.5,
           notes: "Served by the organization",
@@ -186,6 +211,7 @@ describe("sanitizePlannerValues", () => {
         {
           name: "Ravito",
           distanceKm: 12.5,
+          sourceAidStationId: "22222222-2222-2222-2222-222222222222",
           waterRefill: true,
           solidRefill: true,
           supplies: [{ productId: "catalog-gel", quantity: 1 }],
@@ -195,6 +221,7 @@ describe("sanitizePlannerValues", () => {
     });
 
     expect(result?.organizerAidStationProducts).toEqual(organizerAidStationProducts);
+    expect(result?.aidStations?.[0].sourceAidStationId).toBe("22222222-2222-2222-2222-222222222222");
     expect(result?.aidStations?.[0].supplies).toEqual([{ productId: "catalog-gel", quantity: 1 }]);
   });
 });

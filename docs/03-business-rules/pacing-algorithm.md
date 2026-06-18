@@ -46,7 +46,7 @@ For each segment it computes:
 - target sodium;
 - carried water shortfall when capacity is insufficient.
 
-Water capacity is based on `waterBagLiters * 1000`. Available water is reduced by segment demand and refilled at stations unless water refill is disabled. Segment objects also carry station service metadata such as `solidRefill` and `assistanceAllowed`, but those flags affect nutrition inventory/recap behavior rather than ETA computation. When assistance is disabled, `segments.ts` keeps only supplies marked `source: "organizer"` because they represent official ravito products rather than crew handoffs.
+Water capacity is based on `waterBagLiters * 1000`. Available water is reduced by segment demand and refilled at stations unless water refill is disabled. Segment objects also carry station service metadata such as `solidRefill`, `assistanceAllowed`, and optional `sourceAidStationId`; these fields support nutrition inventory, recap, and official ravito product matching rather than ETA computation. When assistance is disabled, `segments.ts` keeps only supplies marked `source: "organizer"` because they represent official ravito products rather than crew handoffs.
 
 ## Fuel Planner Module
 

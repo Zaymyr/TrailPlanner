@@ -104,6 +104,7 @@ export function sanitizeAidStations(
   stations?: {
     name?: string;
     distanceKm?: number;
+    sourceAidStationId?: string;
     waterRefill?: boolean;
     solidRefill?: boolean;
     assistanceAllowed?: boolean;
@@ -127,6 +128,7 @@ export function sanitizeAidStations(
     sanitized.push({
       name: station.name,
       distanceKm: station.distanceKm,
+      ...(typeof station.sourceAidStationId === "string" ? { sourceAidStationId: station.sourceAidStationId } : {}),
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.assistanceAllowed !== false,

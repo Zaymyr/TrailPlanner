@@ -5,6 +5,7 @@ import { withSecurityHeaders } from "../../../lib/http";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../lib/supabase";
 import { getUserEntitlements } from "../../../lib/entitlements";
 import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
+import { loadOrganizerAidStationProductsForRaceIds } from "../../../lib/organizer-aid-station-products";
 import type { FuelProduct } from "../../../lib/product-types";
 
 const plannerValuesSchema = z
@@ -38,6 +39,8 @@ type SupabasePlanRow = {
   updated_at: string;
   planner_values: unknown;
   elevation_profile: unknown;
+  race_id?: string | null;
+  races?: { name?: string | null } | null;
 };
 
 const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType = "application/json") => ({
@@ -73,6 +76,52 @@ const findExistingPlanByName = async (
 
   const plans = (await response.json().catch(() => null)) as SupabasePlanRow[] | null;
   return plans?.[0] ?? null;
+};
+
+const isPlannerValuesRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value && typeof value === "object" && !Array.isArray(value));
+
+const enrichPlansWithLiveOrganizerProducts = async (plans: SupabasePlanRow[]) => {
+  const raceIds = Array.from(
+    new Set(
+      plans
+        .map((plan) => (typeof plan.race_id === "string" ? plan.race_id : null))
+        .filter((raceId): raceId is string => Boolean(raceId))
+    )
+  );
+
+  if (raceIds.length === 0) {
+    return plans;
+  }
+
+  const serviceConfig = getSupabaseServiceConfig();
+
+  if (!serviceConfig) {
+    console.warn("Supabase service role configuration is missing; returning stored organizer product snapshots.");
+    return plans;
+  }
+
+  try {
+    const liveProductsByRaceId = await loadOrganizerAidStationProductsForRaceIds(serviceConfig, raceIds);
+
+    return plans.map((plan) => {
+      const raceId = typeof plan.race_id === "string" ? plan.race_id : null;
+      if (!raceId || !(raceId in liveProductsByRaceId)) return plan;
+
+      const plannerValues = isPlannerValuesRecord(plan.planner_values) ? plan.planner_values : {};
+
+      return {
+        ...plan,
+        planner_values: {
+          ...plannerValues,
+          organizerAidStationProducts: liveProductsByRaceId[raceId],
+        },
+      };
+    });
+  } catch (error) {
+    console.warn("Unable to refresh live organizer aid station products; returning stored snapshots.", error);
+    return plans;
+  }
 };
 
 export async function GET(request: Request) {
@@ -112,7 +161,8 @@ export async function GET(request: Request) {
     }
 
     const plans = (await response.json()) as SupabasePlanRow[];
-    return withSecurityHeaders(NextResponse.json({ plans }));
+    const enrichedPlans = await enrichPlansWithLiveOrganizerProducts(plans);
+    return withSecurityHeaders(NextResponse.json({ plans: enrichedPlans }));
   } catch (error) {
     console.error("Unexpected Supabase error while fetching plans", error);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to fetch plans." }, { status: 500 }));

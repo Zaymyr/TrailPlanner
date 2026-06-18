@@ -99,6 +99,7 @@ describe("/api/plans/from-catalog", () => {
       {
         name: "Refuge",
         distanceKm: 12.5,
+        sourceAidStationId: "22222222-2222-2222-2222-222222222222",
         waterRefill: true,
         solidRefill: false,
         assistanceAllowed: true,
@@ -106,6 +107,7 @@ describe("/api/plans/from-catalog", () => {
       {
         name: "Col",
         distanceKm: 24,
+        sourceAidStationId: "33333333-3333-3333-3333-333333333333",
         waterRefill: false,
         solidRefill: true,
         assistanceAllowed: false,

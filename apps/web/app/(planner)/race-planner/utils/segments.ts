@@ -167,6 +167,7 @@ export function buildSegments(
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.kind === "start" ? true : station.assistanceAllowed !== false,
+      ...(station.sourceAidStationId ? { sourceAidStationId: station.sourceAidStationId } : {}),
       aidStationIndex: station.kind === "aid" ? station.originalIndex : undefined,
       isFinish: station.kind === "finish",
       waterCapacityMl: waterCapacityMl ?? undefined,

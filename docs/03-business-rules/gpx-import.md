@@ -6,6 +6,8 @@ ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
   - apps/web/lib/gpx/normalizeImportedWaypoints.ts
+  - apps/web/lib/organizer-aid-station-products.ts
+  - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
@@ -101,7 +103,8 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 8. Creates `race_plans` with `race_id`, `catalog_race_updated_at_at_import`, `plan_gpx_path`, and `plan_course_stats`.
 9. Inserts plan-specific `plan_aid_stations`.
 10. Copies source station service flags into `planner_values.aidStations` as `waterRefill`, `solidRefill`, and `assistanceAllowed`.
-11. Stores organizer ravito product suggestions in `planner_values.organizerAidStationProducts` when source station-product links exist.
+11. Stores source station ids as `sourceAidStationId` when available so planner product suggestions can match by id before falling back to `name|km`.
+12. Stores organizer ravito product suggestions in `planner_values.organizerAidStationProducts` as a fallback snapshot when source station-product links exist. Saved plans linked to `race_id` later receive current source suggestions through `/api/plans` GET.
 
 ## Organizer GPX Replacement
 
@@ -135,7 +138,7 @@ Existing saved plans are not rewritten after organizer GPX replacement. They kee
 - Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.
 - Catalog GPX and plan GPX live in different buckets.
 - Organizer GPX replacement updates source race data only; saved plans remain snapshots.
-- Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`.
+- Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`. Organizer station-product links are the exception at response time: plans with `race_id` can receive current product suggestions from `/api/plans` without rewriting the saved plan row.
 
 ## Related Docs
 

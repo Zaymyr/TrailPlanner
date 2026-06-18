@@ -5,8 +5,10 @@ last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
+  - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
+  - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/components/GpxAidStationImporter.tsx
 related_tables:
   - plan_aid_stations
@@ -67,7 +69,7 @@ Summary:
 - Plan stations can diverge from `race_aid_stations`; they are plan-specific.
 - Catalog imports write plan stations after creating the parent plan and roll back best-effort on failure.
 - Catalog imports copy only `water_available` into this table; `solidRefill` and `assistanceAllowed` are planner JSON fields.
-- Organizer station-product suggestions are not stored in `plan_aid_stations`; imported plans keep them in `race_plans.planner_values.organizerAidStationProducts`.
+- Organizer station-product suggestions are not stored in `plan_aid_stations`; imported plans keep a fallback snapshot in `race_plans.planner_values.organizerAidStationProducts`, and `/api/plans` can overlay current source suggestions for plans with `race_id`.
 
 ## Common Queries
 
@@ -91,7 +93,7 @@ where plan_id = '<plan-id>';
 
 - Do not assume these rows stay in sync with `race_aid_stations`.
 - If adding `race_aid_station_id`, update RLS, importer docs, and migration docs together.
-- Do not add product availability or stock columns here for organizer ravito products. Use `race_aid_station_products` on the source race and planner JSON suggestions on import.
+- Do not add product availability or stock columns here for organizer ravito products. Use `race_aid_station_products` on the source race plus planner JSON fallback suggestions and the `/api/plans` read-time overlay.
 - Do not add `solid_available` or `assistance_allowed` here unless plan snapshots need SQL-level querying for those flags; current planner persistence keeps them in `planner_values`.
 - The UI uses `distanceKm`; the database column is `km`.
 

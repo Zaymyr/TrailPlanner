@@ -12,6 +12,7 @@ related_files:
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
+  - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
@@ -47,7 +48,7 @@ This document explains where planner state lives before signup, during onboardin
 - Hydration: mapping saved JSON back into form state.
 - Idempotency guard: client and server duplicate-save protection.
 - Aid station service flags: `waterRefill`, `solidRefill`, and `assistanceAllowed` are stored per station. Missing flags hydrate as enabled for backward compatibility on intermediate stations.
-- Organizer station products: optional imported source suggestions stored in planner JSON, separate from station supplies until explicitly selected or auto-filled with the web opt-in.
+- Organizer station products: optional source suggestions stored in planner JSON as a fallback snapshot, refreshed from the source race on read for plans linked to a `race_id`, and separate from station supplies until explicitly selected or auto-filled with the web opt-in.
 
 ## Onboarding Stage
 
@@ -90,7 +91,7 @@ After signup, `race_plans` is the source of truth:
 - `elevation_profile` stores elevation points separately.
 - `race_id` links to source race when applicable.
 - `plan_gpx_path` and `plan_course_stats` store catalog GPX import metadata.
-- `organizerAidStationProducts` can store organizer-provided product suggestions by source ravito key.
+- `organizerAidStationProducts` can store organizer-provided product suggestions by source ravito key as a fallback snapshot.
 
 Aid station entries in `planner_values.aidStations` persist service flags:
 
@@ -98,9 +99,9 @@ Aid station entries in `planner_values.aidStations` persist service flags:
 - `solidRefill: false` means the official ravito does not provide solid carb/sodium products.
 - `assistanceAllowed: false` means the runner's crew cannot hand over personal/favorite products there. Persisted runner supplies hydrate as empty at that station, but supplies with `source: "organizer"` may remain because they represent official ravito products.
 
-Catalog imports copy source `race_aid_stations` service flags into `planner_values.aidStations`. Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions. They become `supplies` with `source: "organizer"` only when the runner explicitly selects them or enables the web ravito-products auto-fill option.
+Catalog imports copy source `race_aid_stations` service flags into `planner_values.aidStations` and preserve source station ids as `sourceAidStationId` when available. Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions and act as a fallback if a live refresh cannot be loaded. They become `supplies` with `source: "organizer"` only when the runner explicitly selects them or enables the web ravito-products auto-fill option.
 
-`apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans.
+`apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans. On GET, plans with `race_id` receive the current `race_aid_station_products` mapped into `planner_values.organizerAidStationProducts` in the response only. This read-time overlay does not update the database row.
 
 Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`.
 
@@ -117,6 +118,8 @@ It:
 - reads `planner_values` and `elevation_profile`;
 - handles `race_id` and old `catalog_race_id` naming;
 - sanitizes aid stations, start supplies, finish plan, segments, and elevation;
+- preserves `sourceAidStationId` so official ravito products can match by station id before falling back to `name|km`;
+- refreshes only `organizerAidStationProducts` in the active form when the saved-plan list is refreshed and the active plan appears in the response;
 - auto-loads `trailplanner.pendingPlanId` after signup;
 - removes pending/duplicate-save flags after loading.
 
@@ -128,7 +131,8 @@ It:
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
 - Source organizer edits after import do not mutate existing saved plans.
-- Source station service-flag edits affect only future catalog imports, not already-saved plan JSON.
+- Source station service-flag, GPX, pacing, and distance edits affect only future catalog imports, not already-saved plan JSON.
+- Source station-product link edits are the exception: `/api/plans` overlays current official ravito product suggestions at read time for plans with `race_id`, with the stored planner JSON as fallback.
 - Public crew recap links are snapshots. Re-share the plan after meaningful changes so the reusable crew URL receives the latest snapshot.
 - Public crew tracking state is intentionally separate from the plan snapshot. It may persist confirmed assistance passages and corrected departure time, but it must not feed back into `race_plans.planner_values`.
 
@@ -139,7 +143,7 @@ It:
 - Treat missing `solidRefill`, `waterRefill`, and `assistanceAllowed` values as enabled on intermediate aid stations.
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
-- Missing `organizerAidStationProducts` should be treated as no organizer suggestions; older plans will not have this field.
+- Missing `organizerAidStationProducts` should be treated as no organizer suggestions. Older plans may not have this field, and plans without `sourceAidStationId` must keep matching official products by the legacy `name|km` key.
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
 - Public crew recap URLs should use the canonical site domain. Configure `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored and the helper falls back to `https://pace-yourself.com`.
 - Legacy random-token share links remain readable, but the next re-share creates a new stable reusable URL because the old raw token cannot be reconstructed from `token_hash`.

@@ -189,12 +189,29 @@ export const useRacePlan = ({
           .map((plan) => mapSavedPlan(plan))
           .filter((plan): plan is SavedPlan => Boolean(plan));
         setSavedPlans(parsedPlans);
+
+        const refreshedActivePlan = activePlanId
+          ? parsedPlans.find((plan) => plan.id === activePlanId)
+          : null;
+        if (
+          refreshedActivePlan &&
+          Object.prototype.hasOwnProperty.call(
+            refreshedActivePlan.plannerValues,
+            "organizerAidStationProducts"
+          )
+        ) {
+          form.setValue(
+            "organizerAidStationProducts",
+            refreshedActivePlan.plannerValues.organizerAidStationProducts ?? {},
+            { shouldDirty: false, shouldValidate: false }
+          );
+        }
       } catch (error) {
         console.error("Unable to fetch saved plans", error);
         setAccountError(racePlannerCopy.account.errors.fetchFailed);
       }
     },
-    [racePlannerCopy.account.errors.fetchFailed]
+    [activePlanId, form, racePlannerCopy.account.errors.fetchFailed]
   );
 
   const refreshRaces = useCallback(async (accessToken: string) => {

@@ -14,6 +14,7 @@ related_files:
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
@@ -106,11 +107,12 @@ Saved plans are handled by `apps/web/app/api/plans/route.ts`. The route:
 - stores planner state in `planner_values`;
 - stores elevation in `elevation_profile`;
 - checks entitlements before creating extra plans;
-- enriches aid stations with nutrition when `fuelTypes` are present.
+- enriches aid stations with nutrition when `fuelTypes` are present;
+- overlays current organizer ravito products from `race_aid_station_products` on GET for plans linked to a `race_id`, without mutating the stored `planner_values`.
 
 Catalog race plan creation is handled by `apps/web/app/api/plans/from-catalog/route.ts`. It copies GPX from `race-gpx` into `plan-gpx`, parses elevation, creates `plan_aid_stations`, and copies source station `waterRefill`, `solidRefill`, and `assistanceAllowed` flags into `planner_values.aidStations`.
 
-When the source race has organizer station products, the route loads them server-side and stores `planner_values.organizerAidStationProducts`. Those suggestions are displayed in the planner, appear in the manual product picker for the matching ravito, and stay out of auto-fill by default unless the runner favorites/selects the product or enables the ravito-products auto-fill option.
+When the source race has organizer station products, the route loads them server-side and stores `planner_values.organizerAidStationProducts` as an import-time fallback snapshot. The same mapping is reused by `/api/plans` GET so saved plans linked to a race receive the current official ravito products at read time. Suggestions are keyed by source station id when available, with a legacy `name|km` fallback, displayed in the planner, shown in the manual product picker for the matching ravito, and kept out of auto-fill by default unless the runner favorites/selects the product or enables the ravito-products auto-fill option.
 
 Plan crew recap links are handled by `apps/web/app/api/plan-shares/route.ts`, `apps/web/app/api/plan-shares/crew-state/route.ts`, `apps/web/app/share/plan/[token]/page.tsx`, and `apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx`. The mobile app sends an authenticated snapshot generated from the saved plan recap. The API verifies the bearer token, checks `race_plans.user_id`, creates a stable server-derived public token for new reusable links, stores only its SHA-256 hash in `plan_share_links`, and returns the public URL. Re-sharing a plan updates the existing stable link snapshot instead of creating another URL; legacy random-token links remain readable but cannot be re-shown because the raw token was never stored. Share URLs use the canonical web domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`, falling back to `https://pace-yourself.com`; `.vercel.app` hostnames are ignored even when they come from those env vars. The public page hashes the URL token server-side and renders the stored snapshot plus limited `crew_state`, with highlighted assistance checkpoints, muted no-assistance checkpoints, and crew controls that persist the corrected start time and confirmed assistance passages. The crew can clear confirmed passages from the tracking card to return calculations to the planned snapshot times without changing the runner's shared snapshot.
 
@@ -131,7 +133,7 @@ The v1 organizer portal is web-only:
 - `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.
 - `/api/admin/organizer-claims` and the admin "Organisateurs" tab handle claim approval, rejection, and membership revocation.
 
-Organizer edits are live source edits for `race_events`, `races`, `race_aid_stations`, and `race_aid_station_products`. Aid station edits include water, solid, and assistance flags. The organizer ravito timeline uses a catalog-product picker modal to attach existing products with brand grouping, quick fuel-type filters, and visible nutrition characteristics, while organizer-created products stay behind the scoped station-product route. Catalog imports expose those official products in the matching planner ravito picker and behind the opt-in auto-fill toggle, but do not use them by default. Existing saved plans remain snapshots.
+Organizer edits are live source edits for `race_events`, `races`, `race_aid_stations`, and `race_aid_station_products`. Aid station edits include water, solid, and assistance flags. The organizer ravito timeline uses a catalog-product picker modal to attach existing products with brand grouping, quick fuel-type filters, and visible nutrition characteristics, while organizer-created products stay behind the scoped station-product route. Catalog imports expose those official products in the matching planner ravito picker and behind the opt-in auto-fill toggle, but do not use them by default. Existing saved plans remain snapshots for GPX, station layout, service flags, pacing, and supplies; official ravito products are refreshed into `/api/plans` responses for plans with `race_id`.
 
 ### Billing and Entitlements
 
@@ -169,6 +171,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
 - Organizer manual claims create non-live `race_events` draft rows through a service route; keep that path server-side and do not expose service-role writes to client code.
 - Organizer-created products are non-live rows attached to source ravitos; do not expose them through public client env or the global catalog API.
+- Organizer ravito product refresh is a read-time overlay on `/api/plans`; if the service-role refresh fails, return the stored `organizerAidStationProducts` snapshot instead of blocking plan load.
 - Public plan share pages are unauthenticated by design, but they must display only the bounded snapshot in `plan_share_links`, not live editable plan data.
 - Public plan share pages are standalone in `RootChrome` and force light theme variables so a visitor's saved dark preference does not affect crew readability.
 - Set `PLAN_SHARE_TOKEN_SECRET` if reusable crew links must survive a service-role key rotation without creating one new stable link on the next re-share.
