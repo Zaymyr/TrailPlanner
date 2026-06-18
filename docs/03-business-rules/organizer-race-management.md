@@ -74,7 +74,7 @@ Approved organizers can:
 - add a new format as a new `races` row with `created_by = null`, `is_public = true`, and `is_live = true`;
 - replace a format GPX source in `race-gpx`;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, and `assistanceAllowed` service flags;
-- attach existing catalog products to a station from a picker that shows product brand, type, image, and nutrition characteristics;
+- attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station.
 
 Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
@@ -98,11 +98,11 @@ Organizer-created products are stored in `products` with:
 
 They are linked to stations through `race_aid_station_products`. They are not global catalog products and should not appear in normal product catalog responses.
 
-The organizer ravito timeline opens a catalog-product picker for existing live products instead of relying on an inline select. Link updates may omit `notes` or send `notes = null`; the organizer API normalizes empty station-product notes to `null` before replacing the station links.
+The organizer ravito timeline opens a catalog-product picker for existing live products instead of relying on an inline select. The picker groups results by `products.brand`, keeps unbranded items in a "Sans marque" group, and offers quick filters such as gels, bars, liquids, capsules, real food, and other products. Link updates may omit `notes` or send `notes = null`; the organizer API normalizes empty station-product notes to `null` before replacing the station links.
 
-When a runner imports a catalog plan, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads station-product links with the service role, and stores those product suggestions in `planner_values.organizerAidStationProducts`. The planner UI displays them as priority suggestions on the matching ravito.
+When a runner imports a catalog plan, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads station-product links with the service role, and stores those product suggestions in `planner_values.organizerAidStationProducts`. The planner UI displays them as priority suggestions on the matching ravito, and the manual product picker for that ravito includes those official products alongside the normal product pool. Selected official products are saved as station supplies with `source: "organizer"`.
 
-Auto-fill must keep organizer products out of its default product pool. It may use them only after the runner favorites the product or explicitly adds it to start/aid-station supplies.
+Auto-fill must keep organizer products out of its default product pool. On web, the runner can opt in with the "Produits ravito" toggle; when enabled, auto-fill may use the official products for the target ravito in addition to the runner's favorites/candidates. Without that opt-in, organizer products may be used only after the runner favorites the product or explicitly adds it to start/aid-station supplies. When an official product is used at a no-assistance ravito, it remains available at that ravito while personal top-ups still come from the previous assistance point.
 
 Planner `assistanceAllowed` is separate from organizer product presence: it says whether the runner's crew can hand over personal products. Organizer suggestions remain official ravito context and should not be treated as crew availability.
 

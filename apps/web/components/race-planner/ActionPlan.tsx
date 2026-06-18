@@ -147,7 +147,7 @@ type ActionPlanProps = {
   raceTotals: RaceTotals | null;
   sectionId: string;
   onPrintAssistance: () => void;
-  onAutomaticFill: () => void;
+  onAutomaticFill: (options?: { useOrganizerProducts?: boolean }) => void;
   onAddAidStation: (station: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean; assistanceAllowed?: boolean }) => void;
   onRemoveAidStation: (index: number) => void;
   register: UseFormRegister<FormValues>;
@@ -166,7 +166,12 @@ type ActionPlanProps = {
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
-  onSupplyDrop: (aidStationIndex: number, productId: string, quantity?: number) => void;
+  onSupplyDrop: (
+    aidStationIndex: number,
+    productId: string,
+    quantity?: number,
+    options?: { source?: StationSupply["source"] }
+  ) => void;
   onSupplyRemove: (aidStationIndex: number, productId: string) => void;
   allowAutoFill: boolean;
   allowExport: boolean;
@@ -1226,6 +1231,7 @@ export function ActionPlan({
   >(null);
   const [editorError, setEditorError] = useState<string | null>(null);
   const [supplyPicker, setSupplyPicker] = useState<{ type: "start" | "aid"; index?: number } | null>(null);
+  const [useOrganizerProductsForAutoFill, setUseOrganizerProductsForAutoFill] = useState(false);
   const [, startUiTransition] = useTransition();
   const [pickerFavorites, setPickerFavorites] = useState<string[]>([]);
   const [pickerFavoriteLimitHit, setPickerFavoriteLimitHit] = useState(false);
@@ -1357,6 +1363,39 @@ export function ActionPlan({
     (name: string, distanceKm: number) => `${name.trim().toLowerCase()}|${Number(distanceKm.toFixed(2))}`,
     []
   );
+  const organizerProductIds = useMemo(() => {
+    const ids = new Set<string>();
+    Object.values(organizerAidStationProducts ?? {})
+      .flat()
+      .forEach((suggestion) => {
+        if (suggestion.product?.id) ids.add(suggestion.product.id);
+      });
+    return ids;
+  }, [organizerAidStationProducts]);
+  const organizerSuggestionsByAidStationIndex = useMemo(() => {
+    const map = new Map<number, OrganizerAidStationProductSuggestion[]>();
+    segments.forEach((segment) => {
+      if (typeof segment.aidStationIndex !== "number" || segment.isFinish) return;
+      const key = buildAidStationProductKey(segment.checkpoint, segment.distanceKm);
+      const suggestions = organizerAidStationProducts?.[key] ?? [];
+      if (suggestions.length > 0) map.set(segment.aidStationIndex, suggestions);
+    });
+    return map;
+  }, [buildAidStationProductKey, organizerAidStationProducts, segments]);
+  const hasOrganizerAidStationProducts = organizerProductIds.size > 0;
+  const supplyPickerOrganizerSuggestions = useMemo(() => {
+    if (!supplyPicker || supplyPicker.type !== "aid" || typeof supplyPicker.index !== "number") return [];
+    return organizerSuggestionsByAidStationIndex.get(supplyPicker.index) ?? [];
+  }, [organizerSuggestionsByAidStationIndex, supplyPicker]);
+  const supplyPickerOrganizerProductIds = useMemo(
+    () => new Set(supplyPickerOrganizerSuggestions.map((suggestion) => suggestion.product.id)),
+    [supplyPickerOrganizerSuggestions]
+  );
+  const supplyPickerAllowsPersonalProducts = useMemo(() => {
+    if (!supplyPicker || supplyPicker.type === "start") return true;
+    if (typeof supplyPicker.index !== "number") return true;
+    return segments.find((segment) => segment.aidStationIndex === supplyPicker.index)?.assistanceAllowed !== false;
+  }, [segments, supplyPicker]);
   const pickerFavoriteSet = useMemo(() => new Set(pickerFavorites), [pickerFavorites]);
   const sectionSegmentsMap = useMemo(() => sectionSegments ?? {}, [sectionSegments]);
   const buildSectionSamples = useCallback(
@@ -1562,10 +1601,30 @@ export function ActionPlan({
   useEffect(() => {
     setPickerFavorites(favoriteProducts.map((product) => product.slug));
   }, [favoriteProducts]);
+  const supplyPickerProducts = useMemo(() => {
+    const products = new Map<string, FuelProduct>();
+    if (supplyPickerAllowsPersonalProducts) {
+      fuelProducts.forEach((product) => {
+        if (!organizerProductIds.has(product.id) || supplyPickerOrganizerProductIds.has(product.id)) {
+          products.set(product.id, product);
+        }
+      });
+    }
+    supplyPickerOrganizerSuggestions.forEach((suggestion) => {
+      products.set(suggestion.product.id, suggestion.product);
+    });
+    return Array.from(products.values());
+  }, [
+    fuelProducts,
+    organizerProductIds,
+    supplyPickerAllowsPersonalProducts,
+    supplyPickerOrganizerProductIds,
+    supplyPickerOrganizerSuggestions,
+  ]);
   const filteredPickerProducts = useMemo(() => {
     const term = pickerSearch.trim().toLowerCase();
     const localIds = new Set(localProductIds ?? []);
-    return fuelProducts.filter((product) => {
+    return supplyPickerProducts.filter((product) => {
       const brand = inferPickerBrand(product, locale).toLowerCase();
       const matchesSearch =
         !term ||
@@ -1576,10 +1635,20 @@ export function ActionPlan({
       const matchesOwnership =
         !pickerShowMyProducts ||
         pickerFavoriteSet.has(product.slug) ||
-        localIds.has(product.id);
+        localIds.has(product.id) ||
+        supplyPickerOrganizerProductIds.has(product.id);
       return matchesSearch && matchesType && matchesOwnership;
     });
-  }, [fuelProducts, localProductIds, locale, pickerFavoriteSet, pickerFuelType, pickerSearch, pickerShowMyProducts]);
+  }, [
+    localProductIds,
+    locale,
+    pickerFavoriteSet,
+    pickerFuelType,
+    pickerSearch,
+    pickerShowMyProducts,
+    supplyPickerOrganizerProductIds,
+    supplyPickerProducts,
+  ]);
   const sortedPickerProducts = useMemo(() => {
     return [...filteredPickerProducts].sort((a, b) => {
       const dir = pickerSort.dir === "asc" ? 1 : -1;
@@ -1850,7 +1919,10 @@ export function ActionPlan({
       setValue(`aidStations.${editorState.index}.solidRefill`, editorState.solidRefill);
       setValue(`aidStations.${editorState.index}.assistanceAllowed`, editorState.assistanceAllowed);
       if (!editorState.assistanceAllowed) {
-        setValue(`aidStations.${editorState.index}.supplies`, []);
+        const organizerSupplies = (aidSuppliesByStationIndex.get(editorState.index) ?? []).filter(
+          (supply) => supply.source === "organizer"
+        );
+        setValue(`aidStations.${editorState.index}.supplies`, organizerSupplies);
       }
     } else {
       onAddAidStation({
@@ -1862,7 +1934,15 @@ export function ActionPlan({
       });
     }
     closeEditor();
-  }, [closeEditor, copy.validation.nonNegative, copy.validation.required, editorState, onAddAidStation, setValue]);
+  }, [
+    aidSuppliesByStationIndex,
+    closeEditor,
+    copy.validation.nonNegative,
+    copy.validation.required,
+    editorState,
+    onAddAidStation,
+    setValue,
+  ]);
 
   const getAidSupplies = useCallback(
     (aidStationIndex: number) => aidSuppliesByStationIndex.get(aidStationIndex) ?? [],
@@ -1903,11 +1983,22 @@ export function ActionPlan({
         if (isSelected) {
           onSupplyRemove(supplyPicker.index, product.id);
         } else {
-          onSupplyDrop(supplyPicker.index, product.id, 1);
+          onSupplyDrop(supplyPicker.index, product.id, 1, {
+            source: supplyPickerOrganizerProductIds.has(product.id) ? "organizer" : undefined,
+          });
         }
       }
     },
-    [onStartSupplyDrop, onStartSupplyRemove, onSupplyDrop, onSupplyRemove, productBySlug, supplyPicker, supplyPickerSelectedSlugs]
+    [
+      onStartSupplyDrop,
+      onStartSupplyRemove,
+      onSupplyDrop,
+      onSupplyRemove,
+      productBySlug,
+      supplyPicker,
+      supplyPickerOrganizerProductIds,
+      supplyPickerSelectedSlugs,
+    ]
   );
   const toggleFavorite = useCallback(
     (slug: string) => {
@@ -1959,13 +2050,28 @@ export function ActionPlan({
                   {aidStationsCopy.add}
                 </Button>
               </span>
+              {segments.length > 0 && hasOrganizerAidStationProducts ? (
+                <label className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-xs font-medium text-foreground dark:bg-slate-900/70 dark:text-slate-100">
+                  <input
+                    type="checkbox"
+                    checked={useOrganizerProductsForAutoFill}
+                    onChange={(event) => setUseOrganizerProductsForAutoFill(event.target.checked)}
+                    className="h-4 w-4 rounded border-border bg-background text-emerald-500 focus:ring-ring dark:bg-slate-900"
+                  />
+                  <span>{locale === "fr" ? "Produits ravito" : "Aid products"}</span>
+                </label>
+              ) : null}
               {segments.length > 0 ? (
                 <span className="group relative inline-flex">
                   <Button
                     type="button"
                     variant="outline"
                     className={autoFillLocked ? "premium-glow" : undefined}
-                    onClick={autoFillLocked ? () => onUpgrade("autoFill") : onAutomaticFill}
+                    onClick={
+                      autoFillLocked
+                        ? () => onUpgrade("autoFill")
+                        : () => onAutomaticFill({ useOrganizerProducts: useOrganizerProductsForAutoFill })
+                    }
                     aria-describedby={autoFillTooltipId}
                     disabled={autoFillLocked && isUpgradeBusy}
                   >
@@ -2120,8 +2226,8 @@ export function ActionPlan({
                           </p>
                           <p className="text-xs text-muted-foreground dark:text-slate-300">
                             {locale === "fr"
-                              ? "Proposes pour ce ravito. Ils restent hors auto-fill tant qu'ils ne sont pas favoris ou selectionnes."
-                              : "Suggested for this aid station. They stay out of auto-fill until favorited or selected."}
+                              ? "Proposes pour ce ravito. L'auto-fill ne les utilise que si l'option Produits ravito est activee."
+                              : "Suggested for this aid station. Auto-fill uses them only when Aid products is enabled."}
                           </p>
                         </div>
                       </div>
@@ -2142,7 +2248,7 @@ export function ActionPlan({
                                 if (isSelected) {
                                   onSupplyRemove(item.aidStationIndex, suggestion.product.id);
                                 } else {
-                                  onSupplyDrop(item.aidStationIndex, suggestion.product.id, 1);
+                                  onSupplyDrop(item.aidStationIndex, suggestion.product.id, 1, { source: "organizer" });
                                 }
                               }}
                             >
@@ -2233,7 +2339,10 @@ export function ActionPlan({
                         {...register(assistanceAllowedFieldName, {
                           onChange: (event) => {
                             if (!event.target.checked && typeof item.aidStationIndex === "number") {
-                              setValue(`aidStations.${item.aidStationIndex}.supplies`, []);
+                              const organizerSupplies = getAidSupplies(item.aidStationIndex).filter(
+                                (supply) => supply.source === "organizer"
+                              );
+                              setValue(`aidStations.${item.aidStationIndex}.supplies`, organizerSupplies);
                             }
                           },
                         })}
@@ -2262,7 +2371,13 @@ export function ActionPlan({
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex flex-1 flex-wrap gap-2">
                           {summarized?.items?.length
-                            ? summarized.items.map(({ product, quantity }) => (
+                            ? summarized.items.map(({ product, quantity }) => {
+                                const supplySource =
+                                  !item.isStart && typeof item.aidStationIndex === "number"
+                                    ? getAidSupplies(item.aidStationIndex).find((supply) => supply.productId === product.id)?.source
+                                    : undefined;
+                                const supplyDropOptions = supplySource ? { source: supplySource } : undefined;
+                                return (
                                 <div
                                   key={product.id}
                                   className="inline-flex items-center gap-2 rounded-full border border-brand-border bg-card px-3 py-1 text-sm text-foreground dark:border-emerald-400/40 dark:bg-slate-950/70 dark:text-slate-50"
@@ -2294,7 +2409,12 @@ export function ActionPlan({
                                           onStartSupplyDrop(product.id, quantity - 1);
                                         } else {
                                           onSupplyRemove(item.aidStationIndex as number, product.id);
-                                          onSupplyDrop(item.aidStationIndex as number, product.id, quantity - 1);
+                                          onSupplyDrop(
+                                            item.aidStationIndex as number,
+                                            product.id,
+                                            quantity - 1,
+                                            supplyDropOptions
+                                          );
                                         }
                                       }}
                                     >
@@ -2308,7 +2428,7 @@ export function ActionPlan({
                                         if (item.isStart) {
                                           onStartSupplyDrop(product.id, 1);
                                         } else {
-                                          onSupplyDrop(item.aidStationIndex as number, product.id, 1);
+                                          onSupplyDrop(item.aidStationIndex as number, product.id, 1, supplyDropOptions);
                                         }
                                       }}
                                     >
@@ -2316,7 +2436,8 @@ export function ActionPlan({
                                     </Button>
                                   </div>
                                 </div>
-                              ))
+                                );
+                              })
                             : null}
                         </div>
                         <div className="flex items-center gap-2">
@@ -2353,6 +2474,23 @@ export function ActionPlan({
                         {waterRefillToggle}
                         {solidRefillToggle}
                         {assistanceAllowedToggle}
+                        {organizerSuggestions.length > 0 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-9 w-9 shrink-0 rounded-full border-brand-border bg-card p-0 text-brand hover:bg-brand-surface dark:border-emerald-400/50 dark:bg-slate-950/60 dark:text-emerald-50"
+                            onClick={() =>
+                              setSupplyPicker({
+                                type: "aid",
+                                index: item.aidStationIndex as number,
+                              })
+                            }
+                            aria-label={timelineCopy.pickupTitle}
+                            title={timelineCopy.pickupTitle}
+                          >
+                            +
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   ) : null;
@@ -3267,6 +3405,7 @@ export function ActionPlan({
                       const product = row.product;
                       const isSelected = supplyPickerSelectedSlugs.includes(product.slug);
                       const isFavorite = pickerFavoriteSet.has(product.slug);
+                      const isOrganizerAidProduct = supplyPickerOrganizerProductIds.has(product.id);
                       return (
                         <tr key={product.slug} className="border-t border-border transition-colors hover:bg-muted/40 dark:hover:bg-slate-900/50">
                           <td className="px-4 py-3">
@@ -3304,6 +3443,11 @@ export function ActionPlan({
                               >
                                 {product.name}
                               </button>
+                              {isOrganizerAidProduct ? (
+                                <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-500/15 dark:text-emerald-100">
+                                  {locale === "fr" ? "Officiel ravito" : "Official aid"}
+                                </span>
+                              ) : null}
                             </div>
                           </td>
                           <td className="px-4 py-3">

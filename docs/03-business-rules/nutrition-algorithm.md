@@ -74,6 +74,7 @@ This document describes how Pace Yourself allocates products to segment nutritio
 - Nutrition balance: surplus carbs or sodium from consumed whole units that can cover later section demand.
 - Aid station services: `waterRefill` controls water refill availability, `solidRefill` records official solid ravito availability, and `assistanceAllowed` controls whether the runner's crew can hand over personal/favorite products.
 - Organizer station product: product proposed by the race organization for one source ravito.
+- Organizer supply source: selected official ravito products are stored in plan supplies with `source: "organizer"` so they remain available at that ravito even when crew assistance is not allowed.
 
 ## Inputs
 
@@ -98,9 +99,9 @@ Planner segment code in `apps/web/app/(coach)/race-planner/utils/segments.ts` co
 
 When a runner imports a catalog race, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads organizer-provided `race_aid_station_products` for source aid stations, and stores product suggestions in `planner_values.organizerAidStationProducts`.
 
-Those products are displayed in the web planner at the matching ravito as organization suggestions. They are merged into the local product map so explicitly selected suggestions can render and participate in coverage math.
+Those products are displayed in the web planner at the matching ravito as organization suggestions. They are merged into the local product map so explicitly selected suggestions can render and participate in coverage math. The manual product picker for an aid station shows the normal product pool plus the official products for that same ravito, and excludes organizer products from other ravitos. When selected, they are persisted as station supplies with `source: "organizer"`.
 
-They are not part of the auto-fill candidate pool by default. Auto-fill can use an organizer product only if the runner has favorited that product or has explicitly selected it in start supplies or aid-station supplies.
+They are not part of the auto-fill candidate pool by default. Web auto-fill exposes an opt-in "Produits ravito" / "Aid products" toggle; when enabled, auto-fill may add the official products for the target ravito alongside the runner's normal favorites/candidates. When disabled, organizer products stay out of auto-fill unless the runner has favorited or explicitly selected them.
 
 Mobile has no organizer-specific UI in v1.
 
@@ -110,7 +111,7 @@ The current planner rule is cumulative across the race, not reset per aid statio
 
 For each outgoing section, the simulator uses the checkpoint at the start of that section:
 
-1. Add personal products picked up at that checkpoint to the runner's physical inventory only when `assistanceAllowed !== false`.
+1. Add products picked up at that checkpoint to the runner's physical inventory. Personal/favorite products require `assistanceAllowed !== false`; organizer-sourced products are available at their own ravito even without crew assistance.
 2. Subtract the next section's carb and sodium needs from the nutrition balance.
 3. Consume whole product units from inventory until the cumulative carb/sodium deficit is covered, or until inventory cannot cover it.
 4. Carry forward both remaining product units and any nutrient surplus created by whole-unit consumption.
@@ -123,7 +124,7 @@ Mobile ravito gauges display available carbs and sodium at the start of the outg
 
 Gauge targets are resource-specific refill windows. At a checkpoint, carbs and sodium targets sum every outgoing section until the next checkpoint where `assistanceAllowed !== false`. Water targets sum every outgoing section until the next checkpoint where `waterRefill !== false`. These windows can differ: a station with water but no assistance resets only the water window, while carbs and sodium continue to accumulate until the next crew pickup point.
 
-If an aid station has `assistanceAllowed === false`, the runner's crew cannot hand over personal carb/sodium products there. Auto-fill assigns any top-up needed for the outgoing section to the most recent previous checkpoint where assistance is enabled, so the runner carries that inventory through the skipped aid station.
+If an aid station has `assistanceAllowed === false`, the runner's crew cannot hand over personal carb/sodium products there. Auto-fill assigns personal top-up needed for the outgoing section to the most recent previous checkpoint where assistance is enabled, so the runner carries that inventory through the skipped aid station. When the web ravito-products option is enabled, auto-fill may first use official products available at that no-assistance ravito and then complete any remaining deficit from the previous assistance checkpoint.
 
 `solidRefill` remains useful for official ravito service and shared recap context. In v1, mobile personal supplies are separate from official organizer products; a station can have official solid products while still being unavailable to the runner's crew.
 
@@ -262,7 +263,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.
 - Free training liquid products consume carried liquid capacity; do not count electrolytes or drink mix as volume in addition to water.
 - Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, tint official mobile brand header names with the light brand green, and must not change allocation order or nutrition math.
-- Organizer ravito suggestions are presentation and explicit-selection data. Do not let non-live organizer products enter auto-fill unless the runner favorites or selects them.
+- Organizer ravito suggestions are presentation, explicit-selection, and web opt-in auto-fill data. Do not let non-live organizer products enter the default auto-fill pool; only include them when the runner has favorited/selected them or has enabled the ravito-products auto-fill option. Persist selected official ravito products with `source: "organizer"` so no-assistance filtering removes personal supplies without removing products offered by the race.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
 - Mobile plan recap/share should derive from the same saved supplies and live-section timing used by the planner/live screen. Public crew links may persist that derived recap as a bounded `plan_share_links.snapshot`, but the snapshot must not feed back into nutrition allocation. No-assistance checkpoints should stay visually muted in recaps and should not display a product handoff block.
 - Mobile favorite toggles are presentation only. Inactive product rows show an unfilled star without a filled brand circle; only active favorites use the filled brand circle.

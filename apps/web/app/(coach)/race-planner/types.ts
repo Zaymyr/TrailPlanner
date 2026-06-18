@@ -3,6 +3,7 @@ import type { FuelProduct } from "../../../lib/product-types";
 export type StationSupply = {
   productId: string;
   quantity: number;
+  source?: "runner" | "organizer";
 };
 
 export type SegmentPlan = {

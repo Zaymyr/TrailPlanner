@@ -47,7 +47,7 @@ This document explains where planner state lives before signup, during onboardin
 - Hydration: mapping saved JSON back into form state.
 - Idempotency guard: client and server duplicate-save protection.
 - Aid station service flags: `waterRefill`, `solidRefill`, and `assistanceAllowed` are stored per station. Missing flags hydrate as enabled for backward compatibility on intermediate stations.
-- Organizer station products: optional imported source suggestions stored in planner JSON, separate from station supplies.
+- Organizer station products: optional imported source suggestions stored in planner JSON, separate from station supplies until explicitly selected or auto-filled with the web opt-in.
 
 ## Onboarding Stage
 
@@ -96,9 +96,9 @@ Aid station entries in `planner_values.aidStations` persist service flags:
 
 - `waterRefill: false` means the station cannot refill water.
 - `solidRefill: false` means the official ravito does not provide solid carb/sodium products.
-- `assistanceAllowed: false` means the runner's crew cannot hand over personal/favorite products there, and persisted `supplies` for that station should hydrate as empty.
+- `assistanceAllowed: false` means the runner's crew cannot hand over personal/favorite products there. Persisted runner supplies hydrate as empty at that station, but supplies with `source: "organizer"` may remain because they represent official ravito products.
 
-Catalog imports copy source `race_aid_stations` service flags into `planner_values.aidStations`. Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions and should not be converted into supplies unless the runner explicitly selects them.
+Catalog imports copy source `race_aid_stations` service flags into `planner_values.aidStations`. Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions. They become `supplies` with `source: "organizer"` only when the runner explicitly selects them or enables the web ravito-products auto-fill option.
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans.
 

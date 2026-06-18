@@ -789,7 +789,49 @@ const fuelTypeLabels: Record<FuelType, string> = {
   other: "Autre",
 };
 
+type ProductPickerQuickFilter = "all" | "gel" | "bar" | "liquid" | "capsule" | "real_food" | "other";
+
+const productPickerQuickFilters: Array<{
+  id: ProductPickerQuickFilter;
+  label: string;
+  fuelTypes?: FuelType[];
+}> = [
+  { id: "all", label: "Tous" },
+  { id: "gel", label: "Gels", fuelTypes: ["gel"] },
+  { id: "bar", label: "Barres", fuelTypes: ["bar"] },
+  { id: "liquid", label: "Liquides", fuelTypes: ["drink_mix", "electrolyte"] },
+  { id: "capsule", label: "Capsules", fuelTypes: ["capsule"] },
+  { id: "real_food", label: "Aliments", fuelTypes: ["real_food"] },
+  { id: "other", label: "Autres", fuelTypes: ["other"] },
+];
+
 const formatProductAmount = (value: number | undefined, unit: string) => `${Number(value ?? 0)} ${unit}`;
+
+const getProductBrandLabel = (product: FuelProduct) => {
+  const brand = product.brand?.trim();
+  return brand && brand.length > 0 ? brand : "Sans marque";
+};
+
+const groupProductsByBrand = (products: FuelProduct[]) => {
+  const groups = products.reduce((map, product) => {
+    const brand = getProductBrandLabel(product);
+    const items = map.get(brand) ?? [];
+    items.push(product);
+    map.set(brand, items);
+    return map;
+  }, new Map<string, FuelProduct[]>());
+
+  return Array.from(groups.entries())
+    .map(([brand, items]) => ({
+      brand,
+      items: items.sort((left, right) => left.name.localeCompare(right.name, "fr", { sensitivity: "base" })),
+    }))
+    .sort((left, right) => {
+      if (left.brand === "Sans marque") return 1;
+      if (right.brand === "Sans marque") return -1;
+      return left.brand.localeCompare(right.brand, "fr", { sensitivity: "base" });
+    });
+};
 
 const getAidStationServiceLabel = (station: AidStationDraft) => {
   if (station.waterRefill && station.solidRefill) return "Eau + solide";
@@ -1119,6 +1161,9 @@ function ProductPickerModal({
   onClose: () => void;
   disabled?: boolean;
 }) {
+  const [activeFilter, setActiveFilter] = useState<ProductPickerQuickFilter>("all");
+  const stationId = station?.id ?? null;
+
   useEffect(() => {
     if (!station) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1128,15 +1173,23 @@ function ProductPickerModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, station]);
 
+  useEffect(() => {
+    if (stationId) setActiveFilter("all");
+  }, [stationId]);
+
   if (!station) return null;
 
   const normalizedSearch = search.trim().toLocaleLowerCase("fr");
+  const selectedFilter = productPickerQuickFilters.find((filter) => filter.id === activeFilter) ?? productPickerQuickFilters[0]!;
   const filteredProducts = products.filter((product) => {
+    const matchesType = selectedFilter.fuelTypes ? selectedFilter.fuelTypes.includes(product.fuelType) : true;
+    if (!matchesType) return false;
     if (!normalizedSearch) return true;
     return [product.name, product.brand, fuelTypeLabels[product.fuelType], product.sku]
       .filter(Boolean)
       .some((value) => String(value).toLocaleLowerCase("fr").includes(normalizedSearch));
   });
+  const groupedProducts = groupProductsByBrand(filteredProducts);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
@@ -1166,6 +1219,25 @@ function ProductPickerModal({
             placeholder="Rechercher un produit, une marque ou un type"
             autoFocus
           />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {productPickerQuickFilters.map((filter) => {
+              const isActive = filter.id === activeFilter;
+              return (
+                <button
+                  key={filter.id}
+                  type="button"
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    isActive
+                      ? "border-brand bg-brand text-brand-foreground shadow-sm"
+                      : "border-border bg-background text-muted-foreground hover:border-brand-border hover:text-foreground"
+                  }`}
+                  onClick={() => setActiveFilter(filter.id)}
+                >
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -1174,57 +1246,67 @@ function ProductPickerModal({
               Aucun produit trouve.
             </p>
           ) : (
-            <div className="grid gap-3">
-              {filteredProducts.map((product) => {
-                const alreadyLinked = linkedProductIds.has(product.id);
-                return (
-                  <div
-                    key={product.id}
-                    className="grid gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[72px_1fr_auto] sm:items-center"
-                  >
-                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border border-border bg-card">
-                      {product.imageUrl ? (
-                        <img src={product.imageUrl} alt="" className="h-full w-full object-contain p-1.5" />
-                      ) : (
-                        <span className="text-[11px] text-muted-foreground">Produit</span>
-                      )}
-                    </div>
-                    <div className="min-w-0 space-y-2">
-                      <div>
-                        <p className="break-words text-sm font-semibold text-foreground">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {[product.brand, fuelTypeLabels[product.fuelType]].filter(Boolean).join(" - ")}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
-                        <span className="rounded-full border border-border bg-card px-2 py-1">
-                          {formatProductAmount(product.carbsGrams, "g glucides")}
-                        </span>
-                        <span className="rounded-full border border-border bg-card px-2 py-1">
-                          {formatProductAmount(product.sodiumMg, "mg sodium")}
-                        </span>
-                        <span className="rounded-full border border-border bg-card px-2 py-1">
-                          {formatProductAmount(product.caloriesKcal, "kcal")}
-                        </span>
-                        <span className="rounded-full border border-border bg-card px-2 py-1">
-                          {formatProductAmount(product.proteinGrams, "g proteines")}
-                        </span>
-                        <span className="rounded-full border border-border bg-card px-2 py-1">
-                          {formatProductAmount(product.fatGrams, "g lipides")}
-                        </span>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant={alreadyLinked ? "outline" : "default"}
-                      disabled={alreadyLinked || disabled}
-                      onClick={() => onAddProduct(product.id)}
-                    >
-                      {alreadyLinked ? "Deja ajoute" : "Ajouter"}
-                    </Button>
+            <div className="grid gap-5">
+              {groupedProducts.map((group) => (
+                <section key={group.brand} className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-foreground">{group.brand}</h3>
+                    <span className="rounded-full border border-border bg-background px-2 py-1 text-[11px] font-semibold text-muted-foreground">
+                      {group.items.length}
+                    </span>
                   </div>
-                );
-              })}
+                  <div className="grid gap-3">
+                    {group.items.map((product) => {
+                      const alreadyLinked = linkedProductIds.has(product.id);
+                      return (
+                        <div
+                          key={product.id}
+                          className="grid gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[72px_1fr_auto] sm:items-center"
+                        >
+                          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border border-border bg-card">
+                            {product.imageUrl ? (
+                              <img src={product.imageUrl} alt="" className="h-full w-full object-contain p-1.5" />
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">Produit</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 space-y-2">
+                            <div>
+                              <p className="break-words text-sm font-semibold text-foreground">{product.name}</p>
+                              <p className="text-xs text-muted-foreground">{fuelTypeLabels[product.fuelType]}</p>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                              <span className="rounded-full border border-border bg-card px-2 py-1">
+                                {formatProductAmount(product.carbsGrams, "g glucides")}
+                              </span>
+                              <span className="rounded-full border border-border bg-card px-2 py-1">
+                                {formatProductAmount(product.sodiumMg, "mg sodium")}
+                              </span>
+                              <span className="rounded-full border border-border bg-card px-2 py-1">
+                                {formatProductAmount(product.caloriesKcal, "kcal")}
+                              </span>
+                              <span className="rounded-full border border-border bg-card px-2 py-1">
+                                {formatProductAmount(product.proteinGrams, "g proteines")}
+                              </span>
+                              <span className="rounded-full border border-border bg-card px-2 py-1">
+                                {formatProductAmount(product.fatGrams, "g lipides")}
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant={alreadyLinked ? "outline" : "default"}
+                            disabled={alreadyLinked || disabled}
+                            onClick={() => onAddProduct(product.id)}
+                          >
+                            {alreadyLinked ? "Deja ajoute" : "Ajouter"}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
         </div>

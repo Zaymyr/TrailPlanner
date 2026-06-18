@@ -30,7 +30,7 @@ related_tables:
 - Organizer-scoped product: a non-live `products` row created by an organizer for this context.
 - Catalog product link: a live catalog product selected by the organizer.
 - Organizer product picker: the dashboard picker lists live catalog products with visible nutrition characteristics before creating these links.
-- Planner suggestion: imported plans copy these links into planner JSON as suggestions, not auto-fill inventory.
+- Planner suggestion: imported plans copy these links into planner JSON as ravito-scoped suggestions, not default auto-fill inventory. If a runner selects one, the plan stores it as a station supply with `source: "organizer"`.
 - Station service flags: water, solid, and assistance availability are stored on `race_aid_stations`, not on product link rows.
 
 ## Columns
@@ -71,7 +71,7 @@ Summary:
 - The row stores product presence, order, and optional notes only. It does not store stock or quantities.
 - Organizer-created products stay `is_live = false`, `is_archived = false`, `is_official = false`, and `created_by = organizer user`.
 - Organizer-created products are not global catalog products and should not appear in `/api/products`.
-- Imported runner plans store organizer suggestions in `planner_values.organizerAidStationProducts`; auto-fill can use them only after the runner favorites or explicitly selects them.
+- Imported runner plans store organizer suggestions in `planner_values.organizerAidStationProducts`; web auto-fill can use ravito-scoped suggestions only when the runner enables the ravito-products option, favorites a product, or explicitly selects it. Selected suggestions become `supplies` with `source: "organizer"` so they remain distinct from personal crew handoffs.
 - Organizer suggestions are not the same thing as planner `assistanceAllowed`. A station can offer official ravito products while still being unavailable to the runner's crew.
 - `race_aid_stations.solid_available` can describe official solid service even when no product links have been entered yet.
 - Organizer station-product replacement payloads may omit `notes` or send `notes = null`; the API normalizes empty notes to `null` and replaces the full ordered set for that station.
@@ -98,7 +98,7 @@ order by order_index asc;
 
 ## Gotchas
 
-- Do not treat these rows as plan supplies. They are organization suggestions attached to source station rows.
+- Do not treat these rows as plan supplies by default. They are organization suggestions attached to source station rows and become plan supplies with `source: "organizer"` only after explicit runner selection or the web ravito-products auto-fill opt-in.
 - Do not infer crew access from these rows; crew access is stored per runner plan station as `assistanceAllowed`.
 - Do not infer official solid availability only from linked products; use `race_aid_stations.solid_available` for the source service flag.
 - Deleting a source `race_aid_stations` row deletes its product links.
