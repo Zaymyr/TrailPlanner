@@ -131,7 +131,7 @@ The v1 organizer portal is web-only:
 - `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.
 - `/api/admin/organizer-claims` and the admin "Organisateurs" tab handle claim approval, rejection, and membership revocation.
 
-Organizer edits are live source edits for `race_events`, `races`, `race_aid_stations`, and `race_aid_station_products`. Aid station edits include water, solid, and assistance flags. Existing saved plans remain snapshots.
+Organizer edits are live source edits for `race_events`, `races`, `race_aid_stations`, and `race_aid_station_products`. Aid station edits include water, solid, and assistance flags. The organizer ravito timeline uses a catalog-product picker modal to attach existing products with their visible nutrition characteristics, while organizer-created products stay behind the scoped station-product route. Existing saved plans remain snapshots.
 
 ### Billing and Entitlements
 

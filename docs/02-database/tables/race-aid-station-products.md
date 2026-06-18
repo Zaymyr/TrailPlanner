@@ -29,6 +29,7 @@ related_tables:
 - Presence link: the row says a product is offered at one station.
 - Organizer-scoped product: a non-live `products` row created by an organizer for this context.
 - Catalog product link: a live catalog product selected by the organizer.
+- Organizer product picker: the dashboard picker lists live catalog products with visible nutrition characteristics before creating these links.
 - Planner suggestion: imported plans copy these links into planner JSON as suggestions, not auto-fill inventory.
 - Station service flags: water, solid, and assistance availability are stored on `race_aid_stations`, not on product link rows.
 
@@ -73,6 +74,7 @@ Summary:
 - Imported runner plans store organizer suggestions in `planner_values.organizerAidStationProducts`; auto-fill can use them only after the runner favorites or explicitly selects them.
 - Organizer suggestions are not the same thing as planner `assistanceAllowed`. A station can offer official ravito products while still being unavailable to the runner's crew.
 - `race_aid_stations.solid_available` can describe official solid service even when no product links have been entered yet.
+- Organizer station-product replacement payloads may omit `notes` or send `notes = null`; the API normalizes empty notes to `null` and replaces the full ordered set for that station.
 
 ## Common Queries
 
@@ -101,6 +103,7 @@ order by order_index asc;
 - Do not infer official solid availability only from linked products; use `race_aid_stations.solid_available` for the source service flag.
 - Deleting a source `race_aid_stations` row deletes its product links.
 - Product deletion cascades to these links, so organizer-scoped product cleanup removes station presence rows.
+- Do not attach products to unsaved organizer ravitos; the link requires a stable `race_aid_station_id`.
 
 ## Related Docs
 

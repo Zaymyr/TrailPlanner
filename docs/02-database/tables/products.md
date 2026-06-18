@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -116,6 +116,7 @@ The public product API returns `isOfficial: true` for official/shared catalog ro
 - The 500 ml electrolyte serving assumption lives in `apps/web/lib/nutrition-planner.ts`, not in the product schema.
 - Shared catalog seed migrations should store the consumable unit used by the runner, not ecommerce bundle sizes. For example, drink mixes use one serving sachet, gels use one gel, and multipacks are represented through the same per-unit nutrition.
 - Organizer-created ravito products should remain non-official and non-live unless they are intentionally promoted through a separate catalog curation flow.
+- The organizer ravito product picker reads the normal live product catalog for existing products and displays nutrition fields from `products`; non-live organizer-created rows are attached only through the scoped organizer station-product route.
 
 ## Common Queries
 
@@ -151,6 +152,7 @@ where fuel_type = 'electrolyte'
 - Official product image migrations should keep `created_by` untouched and target only curated catalog rows, so user-owned products with similar naming are not overwritten.
 - Admin product usage UI should expose aggregate favorite counts only, not the list of users behind `user_favorite_products`.
 - Do not make organizer ravito products live just so imported runners can see them. `/api/plans/from-catalog` carries those suggestions separately from `/api/products`.
+- Do not rely on `/api/products` to list organizer-created non-live products for cross-ravito selection; it intentionally returns only live, non-archived catalog rows unless a route explicitly scopes the read.
 
 ## Related Docs
 

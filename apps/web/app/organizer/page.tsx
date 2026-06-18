@@ -138,7 +138,8 @@ export default function OrganizerDashboardPage() {
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
   const [stationProducts, setStationProducts] = useState<StationProduct[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<FuelProduct[]>([]);
-  const [catalogSelection, setCatalogSelection] = useState<Record<string, string>>({});
+  const [productPickerStationId, setProductPickerStationId] = useState<string | null>(null);
+  const [productSearch, setProductSearch] = useState("");
   const [productStationId, setProductStationId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState(emptyProductForm);
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "uploading">("idle");
@@ -148,6 +149,9 @@ export default function OrganizerDashboardPage() {
   const accessToken = session?.accessToken ?? null;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const activeRace = eventDetail?.races.find((race) => race.id === activeTab) ?? null;
+  const productPickerStation = productPickerStationId
+    ? aidStations.find((station) => station.id === productPickerStationId) ?? null
+    : null;
   const productsById = useMemo(() => {
     const map = new Map<string, FuelProduct>();
     catalogProducts.forEach((product) => map.set(product.id, product));
@@ -449,7 +453,7 @@ export default function OrganizerDashboardPage() {
     aidStationId: string,
     products: Array<{ productId: string; notes?: string | null }>
   ) => {
-    if (!accessToken || !activeRace) return;
+    if (!accessToken || !activeRace) return false;
     const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-station-products`, {
       method: "PUT",
       headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -458,26 +462,34 @@ export default function OrganizerDashboardPage() {
     if (!response.ok) {
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       setError(data?.message ?? "Impossible de mettre a jour les produits.");
-      return;
+      return false;
     }
     await loadRaceSidecar(activeRace.id);
+    return true;
   };
 
-  const attachCatalogProduct = async (aidStationId: string) => {
-    const productId = catalogSelection[aidStationId];
+  const attachCatalogProduct = async (aidStationId: string, productId: string) => {
     if (!productId) return;
+    const selectedProduct = catalogProducts.find((product) => product.id === productId);
+    if (!selectedProduct) {
+      setError("Produit introuvable dans le catalogue.");
+      return;
+    }
     const current = stationProducts
       .filter((link) => link.aidStationId === aidStationId)
-      .map((link) => ({ productId: link.productId, notes: link.notes ?? null }));
+      .map((link) => ({ productId: link.productId, notes: link.notes ?? undefined }));
     if (current.some((link) => link.productId === productId)) return;
-    await replaceStationProducts(aidStationId, [...current, { productId, notes: null }]);
-    setCatalogSelection((selection) => ({ ...selection, [aidStationId]: "" }));
+    const updated = await replaceStationProducts(aidStationId, [...current, { productId }]);
+    if (updated) {
+      setProductPickerStationId(null);
+      setProductSearch("");
+    }
   };
 
   const removeStationProduct = async (aidStationId: string, productId: string) => {
     const next = stationProducts
       .filter((link) => link.aidStationId === aidStationId && link.productId !== productId)
-      .map((link) => ({ productId: link.productId, notes: link.notes ?? null }));
+      .map((link) => ({ productId: link.productId, notes: link.notes ?? undefined }));
     await replaceStationProducts(aidStationId, next);
   };
 
@@ -713,10 +725,10 @@ export default function OrganizerDashboardPage() {
                               station={station}
                               stationProducts={stationProducts}
                               productsById={productsById}
-                              catalogProducts={catalogProducts}
-                              catalogSelection={catalogSelection[station.id] ?? ""}
-                              onSelectCatalogProduct={(productId) => setCatalogSelection((current) => ({ ...current, [station.id as string]: productId }))}
-                              onAttachCatalogProduct={() => attachCatalogProduct(station.id as string)}
+                              onOpenProductPicker={() => {
+                                setProductSearch("");
+                                setProductPickerStationId(station.id as string);
+                              }}
                               onRemoveProduct={(productId) => removeStationProduct(station.id as string, productId)}
                               productFormOpen={productStationId === station.id}
                               onToggleProductForm={() => setProductStationId((current) => current === station.id ? null : station.id ?? null)}
@@ -740,9 +752,44 @@ export default function OrganizerDashboardPage() {
           )}
         </CardContent>
       </Card>
+      <ProductPickerModal
+        station={productPickerStation}
+        products={catalogProducts}
+        linkedProductIds={
+          productPickerStationId
+            ? new Set(
+                stationProducts
+                  .filter((link) => link.aidStationId === productPickerStationId)
+                  .map((link) => link.productId)
+              )
+            : new Set<string>()
+        }
+        search={productSearch}
+        onSearchChange={setProductSearch}
+        onAddProduct={(productId) => {
+          if (productPickerStationId) attachCatalogProduct(productPickerStationId, productId);
+        }}
+        onClose={() => {
+          setProductPickerStationId(null);
+          setProductSearch("");
+        }}
+        disabled={status === "saving"}
+      />
     </div>
   );
 }
+
+const fuelTypeLabels: Record<FuelType, string> = {
+  gel: "Gel",
+  drink_mix: "Boisson",
+  electrolyte: "Electrolytes",
+  capsule: "Capsule",
+  bar: "Barre",
+  real_food: "Aliment",
+  other: "Autre",
+};
+
+const formatProductAmount = (value: number | undefined, unit: string) => `${Number(value ?? 0)} ${unit}`;
 
 const getAidStationServiceLabel = (station: AidStationDraft) => {
   if (station.waterRefill && station.solidRefill) return "Eau + solide";
@@ -936,10 +983,7 @@ function StationProductsBlock({
   station,
   stationProducts,
   productsById,
-  catalogProducts,
-  catalogSelection,
-  onSelectCatalogProduct,
-  onAttachCatalogProduct,
+  onOpenProductPicker,
   onRemoveProduct,
   productFormOpen,
   onToggleProductForm,
@@ -951,10 +995,7 @@ function StationProductsBlock({
   station: AidStationDraft & { id?: string };
   stationProducts: StationProduct[];
   productsById: Map<string, FuelProduct>;
-  catalogProducts: FuelProduct[];
-  catalogSelection: string;
-  onSelectCatalogProduct: (productId: string) => void;
-  onAttachCatalogProduct: () => void;
+  onOpenProductPicker: () => void;
   onRemoveProduct: (productId: string) => void;
   productFormOpen: boolean;
   onToggleProductForm: () => void;
@@ -969,43 +1010,51 @@ function StationProductsBlock({
     <div className="mt-3 border-t border-border pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold text-foreground">Produits proposes</p>
-        <Button type="button" variant="outline" className="h-8" onClick={onToggleProductForm}>
-          {productFormOpen ? "Fermer" : "Creer un produit"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 w-9 rounded-full border-brand-border p-0 text-brand"
+            onClick={onOpenProductPicker}
+            disabled={disabled}
+            aria-label="Ajouter un produit existant"
+            title="Ajouter un produit existant"
+          >
+            +
+          </Button>
+          <Button type="button" variant="outline" className="h-9" onClick={onToggleProductForm}>
+            {productFormOpen ? "Fermer" : "Creer un produit"}
+          </Button>
+        </div>
       </div>
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-3 flex min-h-16 flex-wrap gap-2 rounded-2xl border border-dashed border-brand-border bg-brand-surface/50 p-2 dark:border-emerald-400/50 dark:bg-emerald-500/5">
         {linkedProducts.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Aucun produit attache a ce ravito.</p>
+          <p className="self-center px-2 text-xs text-muted-foreground">Aucun produit attache a ce ravito.</p>
         ) : (
           linkedProducts.map((link) => {
             const product = link.product ?? productsById.get(link.productId);
             return (
-              <span key={link.productId} className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1 text-xs">
-                {product?.name ?? link.productId}
-                <button type="button" className="font-semibold text-red-600" onClick={() => onRemoveProduct(link.productId)}>
-                  retirer
+              <div key={link.productId} className="inline-flex max-w-full items-center gap-2 rounded-full border border-brand-border bg-card px-3 py-1 text-xs text-foreground dark:border-emerald-400/40 dark:bg-slate-950/70">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{product?.name ?? link.productId}</p>
+                  {product ? (
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {fuelTypeLabels[product.fuelType]} - {formatProductAmount(product.carbsGrams, "g glucides")} - {formatProductAmount(product.sodiumMg, "mg sodium")}
+                    </p>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  className="h-6 w-6 shrink-0 rounded-full border border-red-200 bg-red-50 text-sm font-semibold leading-none text-red-700"
+                  onClick={() => onRemoveProduct(link.productId)}
+                  aria-label={`Retirer ${product?.name ?? "ce produit"}`}
+                >
+                  x
                 </button>
-              </span>
+              </div>
             );
           })
         )}
-      </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
-        <select
-          className="h-10 rounded-md border border-border bg-card px-3 text-sm"
-          value={catalogSelection}
-          onChange={(event) => onSelectCatalogProduct(event.target.value)}
-        >
-          <option value="">Produit du catalogue...</option>
-          {catalogProducts.map((product) => (
-            <option key={product.id} value={product.id}>
-              {product.name} · {product.carbsGrams} g · {product.sodiumMg} mg
-            </option>
-          ))}
-        </select>
-        <Button type="button" variant="outline" onClick={onAttachCatalogProduct} disabled={!catalogSelection || disabled}>
-          Ajouter
-        </Button>
       </div>
       {productFormOpen ? (
         <form className="mt-3 grid gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-3" onSubmit={onCreateProduct}>
@@ -1047,6 +1096,139 @@ function StationProductsBlock({
           </div>
         </form>
       ) : null}
+    </div>
+  );
+}
+
+function ProductPickerModal({
+  station,
+  products,
+  linkedProductIds,
+  search,
+  onSearchChange,
+  onAddProduct,
+  onClose,
+  disabled,
+}: {
+  station: (AidStationDraft & { id?: string }) | null;
+  products: FuelProduct[];
+  linkedProductIds: Set<string>;
+  search: string;
+  onSearchChange: (value: string) => void;
+  onAddProduct: (productId: string) => void;
+  onClose: () => void;
+  disabled?: boolean;
+}) {
+  useEffect(() => {
+    if (!station) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, station]);
+
+  if (!station) return null;
+
+  const normalizedSearch = search.trim().toLocaleLowerCase("fr");
+  const filteredProducts = products.filter((product) => {
+    if (!normalizedSearch) return true;
+    return [product.name, product.brand, fuelTypeLabels[product.fuelType], product.sku]
+      .filter(Boolean)
+      .some((value) => String(value).toLocaleLowerCase("fr").includes(normalizedSearch));
+  });
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+      <button type="button" className="absolute inset-0" aria-label="Fermer" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="organizer-product-picker-title"
+        className="relative z-10 flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border-strong bg-card shadow-2xl dark:bg-slate-950"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-300">Catalogue</p>
+            <h2 id="organizer-product-picker-title" className="mt-1 text-xl font-semibold text-foreground">
+              Ajouter un produit a {station.name}
+            </h2>
+          </div>
+          <Button type="button" variant="ghost" className="h-8 px-2" onClick={onClose} aria-label="Fermer">
+            x
+          </Button>
+        </div>
+
+        <div className="border-b border-border p-4">
+          <Input
+            value={search}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="Rechercher un produit, une marque ou un type"
+            autoFocus
+          />
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {filteredProducts.length === 0 ? (
+            <p className="rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">
+              Aucun produit trouve.
+            </p>
+          ) : (
+            <div className="grid gap-3">
+              {filteredProducts.map((product) => {
+                const alreadyLinked = linkedProductIds.has(product.id);
+                return (
+                  <div
+                    key={product.id}
+                    className="grid gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[72px_1fr_auto] sm:items-center"
+                  >
+                    <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border border-border bg-card">
+                      {product.imageUrl ? (
+                        <img src={product.imageUrl} alt="" className="h-full w-full object-contain p-1.5" />
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">Produit</span>
+                      )}
+                    </div>
+                    <div className="min-w-0 space-y-2">
+                      <div>
+                        <p className="break-words text-sm font-semibold text-foreground">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {[product.brand, fuelTypeLabels[product.fuelType]].filter(Boolean).join(" - ")}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+                        <span className="rounded-full border border-border bg-card px-2 py-1">
+                          {formatProductAmount(product.carbsGrams, "g glucides")}
+                        </span>
+                        <span className="rounded-full border border-border bg-card px-2 py-1">
+                          {formatProductAmount(product.sodiumMg, "mg sodium")}
+                        </span>
+                        <span className="rounded-full border border-border bg-card px-2 py-1">
+                          {formatProductAmount(product.caloriesKcal, "kcal")}
+                        </span>
+                        <span className="rounded-full border border-border bg-card px-2 py-1">
+                          {formatProductAmount(product.proteinGrams, "g proteines")}
+                        </span>
+                        <span className="rounded-full border border-border bg-card px-2 py-1">
+                          {formatProductAmount(product.fatGrams, "g lipides")}
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant={alreadyLinked ? "outline" : "default"}
+                      disabled={alreadyLinked || disabled}
+                      onClick={() => onAddProduct(product.id)}
+                    >
+                      {alreadyLinked ? "Deja ajoute" : "Ajouter"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
