@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -39,6 +39,7 @@ related_files:
   - apps/mobile/components/plan-form/EditStationModal.tsx
   - apps/mobile/components/plan-form/helpers.ts
   - apps/mobile/components/plan-form/metrics.ts
+  - apps/mobile/components/plan-form/AutoFillLimitsModal.tsx
   - apps/mobile/components/plan-form/ProductPickerModal.tsx
   - apps/mobile/components/plan-form/styles.ts
   - apps/mobile/components/plan-form/usePlanProducts.ts
@@ -135,6 +136,7 @@ Mobile implementation:
 
 - `apps/mobile/components/plan-form/carryover.ts` simulates whole-unit inventory and nutrition balance for gauges.
 - `apps/mobile/components/plan-form/usePlanSupplies.ts` uses the same carryover rule when auto-filling supplies.
+- Mobile auto-fill can receive optional per-product stock limits from the favorites stock modal. A missing limit means unlimited for that run; a present limit caps total planned units across the whole race, including supplies grouped onto previous assistance checkpoints for no-assistance sections. The optimizer favors less-used products over time and applies a small duplicate-unit penalty inside one section so similar products are varied when coverage remains acceptable. When limits leave an unresolved cumulative carb or sodium deficit beyond gauge tolerance, mobile shows a shortage alert instead of silently overusing a product.
 - `apps/mobile/lib/planSummary.ts` builds the runner pack list, ravito checklist, and native share text from stored plan values. It reuses the live-section timing model rather than introducing a separate nutrition allocation rule.
 
 Water remains separate from product inventory. The planner carries forward remaining water capacity between sections; a station with `waterRefill === false` does not refill the bag, so the outgoing section starts with whatever water remains from the previous section.
@@ -254,6 +256,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Mobile gauge values must use available carried inventory, not only consumed inventory, so manual oversupply remains visible.
 - Mobile gauge targets must follow resource refill windows, not only the immediate next section; water and solid windows are independent.
 - Nutrient surplus from a consumed whole unit carries forward; it is not discarded at aid stations.
+- Mobile auto-fill product stock limits are global for one calculation, not per ravito. Keep the planned-unit counter and optimizer caps in sync so a limited product cannot be allocated by both the fluid/carb pass and the sodium top-up pass.
 - Free training ignores targets set to `0`; do not treat them as zero-minute blockers.
 - Free training gives active water, carb, and sodium targets a default one-hour buffer even when no matching supply is carried.
 - The free training one-hour buffer must not postpone reminders for water or products that are actually carried.

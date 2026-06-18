@@ -21,9 +21,18 @@ function shouldFallbackToGuestMerge(error: unknown) {
   if (!(error instanceof Error)) return false;
 
   const message = error.message.toLowerCase();
+  const mentionsExistingAccount =
+    message.includes('already') &&
+    (message.includes('account') ||
+      message.includes('email') ||
+      message.includes('exists') ||
+      message.includes('registered') ||
+      message.includes('user'));
+
   return (
-    message.includes('identity') &&
-    (message.includes('already') || message.includes('linked'))
+    (message.includes('identity') &&
+      (message.includes('already') || message.includes('linked'))) ||
+    mentionsExistingAccount
   );
 }
 
