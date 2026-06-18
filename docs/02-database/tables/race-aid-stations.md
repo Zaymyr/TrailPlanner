@@ -1,15 +1,17 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
+  - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/components/GpxAidStationImporter.tsx
 related_tables:
@@ -29,7 +31,7 @@ related_tables:
 
 - Source aid station: aid station owned by a race.
 - Catalog import: copying race stations into a saved plan.
-- Water availability: station refill availability.
+- Service availability: water refill, official solid food, and crew assistance availability.
 - GPX waypoint import: route/admin logic can derive stations from GPX waypoints.
 - Organizer products: optional station-product links live in `race_aid_station_products`.
 
@@ -42,6 +44,8 @@ related_tables:
 | `name` | `text` | not null | Station display name. |
 | `km` | `numeric` | not null | Station distance in kilometers. |
 | `water_available` | `boolean` | not null, default `true` | Whether water refill is available. |
+| `solid_available` | `boolean` | not null, default `true` | Whether official solid food is available. |
+| `assistance_allowed` | `boolean` | not null, default `true` | Whether personal crew assistance is allowed. |
 | `notes` | `text` | nullable | Station notes. |
 | `order_index` | `int` | not null, default `0` | Sort order within the race. |
 
@@ -70,7 +74,7 @@ Summary:
 ## Business Invariants
 
 - Race aid stations are source data, not per-plan state.
-- When a plan is created from catalog, these rows are copied into `plan_aid_stations`.
+- When a plan is created from catalog, water availability is copied into `plan_aid_stations`, while water, solid, and assistance flags are copied into `race_plans.planner_values.aidStations`.
 - If a race has no aid stations, import code may derive stations from GPX waypoints.
 - Existing code attempts to avoid destructive deletion when linked plan stations exist, but the link column is not visible in migrations.
 - Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
@@ -80,7 +84,7 @@ Summary:
 Fetch source aid stations for a race:
 
 ```sql
-select id, name, km, water_available, notes, order_index
+select id, name, km, water_available, solid_available, assistance_allowed, notes, order_index
 from public.race_aid_stations
 where race_id = '<race-id>'
 order by order_index asc, km asc;
@@ -89,8 +93,16 @@ order by order_index asc, km asc;
 Insert stations after GPX/manual catalog creation:
 
 ```sql
-insert into public.race_aid_stations (race_id, name, km, water_available, order_index)
-values ('<race-id>', 'Aid station 1', 12.5, true, 0);
+insert into public.race_aid_stations (
+  race_id,
+  name,
+  km,
+  water_available,
+  solid_available,
+  assistance_allowed,
+  order_index
+)
+values ('<race-id>', 'Aid station 1', 12.5, true, true, true, 0);
 ```
 
 ## Gotchas
@@ -99,6 +111,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, 0);
 - Code uses `distanceKm`; the database column is `km`.
 - Review-related columns need live-schema verification before new importer work.
 - Deleting and recreating a station changes its id and removes `race_aid_station_products` links through cascade; update existing rows when preserving product suggestions matters.
+- Missing service flags from legacy reads should be treated as enabled to preserve old catalog behavior.
 
 ## Related Docs
 

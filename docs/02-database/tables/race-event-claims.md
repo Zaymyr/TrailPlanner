@@ -1,11 +1,12 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/claims/route.ts
+  - apps/web/app/api/organizer/claims/route.test.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
@@ -19,11 +20,12 @@ related_tables:
 
 ## Purpose
 
-`race_event_claims` stores organizer requests to manage an existing `race_events` row. A claim does not grant access by itself; access starts only after an admin approves it and creates a `race_event_organizers` membership.
+`race_event_claims` stores organizer requests to manage a `race_events` row. The event can already exist in the live catalog, or it can be a non-live draft row created by the organizer claim route for a missing event. A claim does not grant access by itself; access starts only after an admin approves it and creates a `race_event_organizers` membership.
 
 ## Key Concepts
 
 - Claim: user-submitted request for one event.
+- Manual event claim: a claim route submission that creates `race_events.is_live = false` first, then inserts the claim with that new `event_id`.
 - Reviewer: admin user that approves or rejects the request.
 - Status: `pending`, `approved`, or `rejected`.
 - Membership handoff: approved claims are linked to `race_event_organizers`.
@@ -74,6 +76,7 @@ Summary:
 
 - A pending claim is not authorization.
 - One user cannot keep multiple pending/approved claims for the same event.
+- Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
 - Rejection stores review metadata but does not create membership.
 
@@ -102,6 +105,7 @@ order by created_at asc;
 - Do not treat `status = 'approved'` as the only authorization check. Organizer write access should check an active `race_event_organizers` row.
 - Do not use `user_metadata` for reviewer/admin checks.
 - Deleting an auth user removes their claims, but public race/event data remains owned by catalog tables.
+- Rejected manual claims should keep their claim audit trail; deleting the draft event would cascade-delete the claim.
 
 ## Related Docs
 

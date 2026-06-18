@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-05-27
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -32,6 +32,7 @@ related_tables:
 - Event grouping: multiple `races` can belong to one event.
 - Event image: `thumbnail_url` can be used as a shared event thumbnail.
 - Event liveness: mobile and onboarding filter on event/race live state.
+- Draft organizer event: a non-live event row created when an organizer claims a missing race.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
@@ -69,6 +70,7 @@ Organizer portal writes also go through web service routes after checking `race_
 ## Business Invariants
 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
+- Event rows can also be created by the organizer claim route for missing events; those rows are inserted with `is_live = false`.
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Mobile catalog groups event races and also displays standalone races with no event.
@@ -100,6 +102,7 @@ from public.races;
 - Code paths are real even though migration provenance is incomplete.
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
+- Manual organizer draft events are not public catalog rows until their `is_live` state is explicitly changed.
 
 ## Related Docs
 

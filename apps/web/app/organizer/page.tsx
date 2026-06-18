@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { AidStationBadge } from "../../components/race-planner/AidStationBadge";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { TabsList } from "../../components/ui/tabs";
@@ -69,6 +70,8 @@ type AidStationDraft = {
   name: string;
   distanceKm: number;
   waterRefill: boolean;
+  solidRefill: boolean;
+  assistanceAllowed: boolean;
   notes?: string | null;
 };
 
@@ -260,7 +263,15 @@ export default function OrganizerDashboardPage() {
 
     if (aidResponse.ok) {
       const data = (await aidResponse.json()) as {
-        aidStations?: Array<{ id: string; name: string; km: number; water_available: boolean; notes?: string | null }>;
+        aidStations?: Array<{
+          id: string;
+          name: string;
+          km: number;
+          water_available: boolean;
+          solid_available?: boolean | null;
+          assistance_allowed?: boolean | null;
+          notes?: string | null;
+        }>;
       };
       setAidStations(
         (data.aidStations ?? []).map((station) => ({
@@ -268,6 +279,8 @@ export default function OrganizerDashboardPage() {
           name: station.name,
           distanceKm: station.km,
           waterRefill: station.water_available !== false,
+          solidRefill: station.solid_available !== false,
+          assistanceAllowed: station.assistance_allowed !== false,
           notes: station.notes ?? "",
         }))
       );
@@ -673,7 +686,7 @@ export default function OrganizerDashboardPage() {
                     <p className="text-sm text-muted-foreground">Les produits proposes sont attaches aux ravitos.</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => setAidStations((current) => [...current, { name: "Nouveau ravito", distanceKm: 0, waterRefill: true, notes: "" }])}>
+                    <Button type="button" variant="outline" onClick={() => setAidStations((current) => [...current, { name: "Nouveau ravito", distanceKm: 0, waterRefill: true, solidRefill: true, assistanceAllowed: true, notes: "" }])}>
                       Ajouter un ravito
                     </Button>
                     <Button type="button" onClick={saveAidStations} disabled={status === "saving"}>
@@ -686,38 +699,37 @@ export default function OrganizerDashboardPage() {
                     <p className="text-sm text-muted-foreground">Aucun ravito.</p>
                   ) : (
                     aidStations.map((station, index) => (
-                      <div key={station.id ?? `new-${index}`} className="rounded-md border border-border bg-card p-3">
-                        <div className="grid gap-3 md:grid-cols-[1fr_130px_120px_auto]">
-                          <Input value={station.name} onChange={(event) => setAidStations((current) => current.map((item, i) => i === index ? { ...item, name: event.target.value } : item))} />
-                          <Input type="number" step="0.1" value={station.distanceKm} onChange={(event) => setAidStations((current) => current.map((item, i) => i === index ? { ...item, distanceKm: Number(event.target.value) } : item))} />
-                          <label className="flex items-center gap-2 text-sm">
-                            <input type="checkbox" checked={station.waterRefill} onChange={(event) => setAidStations((current) => current.map((item, i) => i === index ? { ...item, waterRefill: event.target.checked } : item))} />
-                            Eau
-                          </label>
-                          <Button type="button" variant="ghost" onClick={() => setAidStations((current) => current.filter((_, i) => i !== index))}>Retirer</Button>
-                        </div>
-                        <Input className="mt-2" value={station.notes ?? ""} onChange={(event) => setAidStations((current) => current.map((item, i) => i === index ? { ...item, notes: event.target.value } : item))} placeholder="Notes ravito" />
-                        {station.id ? (
-                          <StationProductsBlock
-                            station={station}
-                            stationProducts={stationProducts}
-                            productsById={productsById}
-                            catalogProducts={catalogProducts}
-                            catalogSelection={catalogSelection[station.id] ?? ""}
-                            onSelectCatalogProduct={(productId) => setCatalogSelection((current) => ({ ...current, [station.id as string]: productId }))}
-                            onAttachCatalogProduct={() => attachCatalogProduct(station.id as string)}
-                            onRemoveProduct={(productId) => removeStationProduct(station.id as string, productId)}
-                            productFormOpen={productStationId === station.id}
-                            onToggleProductForm={() => setProductStationId((current) => current === station.id ? null : station.id ?? null)}
-                            productForm={productForm}
-                            onProductFormChange={setProductForm}
-                            onCreateProduct={createStationProduct}
-                            disabled={status === "saving"}
-                          />
-                        ) : (
-                          <p className="mt-2 text-xs text-muted-foreground">Sauvegarde le ravito avant d'y ajouter des produits.</p>
-                        )}
-                      </div>
+                      <AidStationTimelineCard
+                        key={station.id ?? `new-${index}`}
+                        station={station}
+                        index={index}
+                        onChange={(nextStation) =>
+                          setAidStations((current) => current.map((item, i) => (i === index ? nextStation : item)))
+                        }
+                        onRemove={() => setAidStations((current) => current.filter((_, i) => i !== index))}
+                        productsSlot={
+                          station.id ? (
+                            <StationProductsBlock
+                              station={station}
+                              stationProducts={stationProducts}
+                              productsById={productsById}
+                              catalogProducts={catalogProducts}
+                              catalogSelection={catalogSelection[station.id] ?? ""}
+                              onSelectCatalogProduct={(productId) => setCatalogSelection((current) => ({ ...current, [station.id as string]: productId }))}
+                              onAttachCatalogProduct={() => attachCatalogProduct(station.id as string)}
+                              onRemoveProduct={(productId) => removeStationProduct(station.id as string, productId)}
+                              productFormOpen={productStationId === station.id}
+                              onToggleProductForm={() => setProductStationId((current) => current === station.id ? null : station.id ?? null)}
+                              productForm={productForm}
+                              onProductFormChange={setProductForm}
+                              onCreateProduct={createStationProduct}
+                              disabled={status === "saving"}
+                            />
+                          ) : (
+                            <p className="mt-3 text-xs text-muted-foreground">Sauvegarde le ravito avant d'y ajouter des produits.</p>
+                          )
+                        }
+                      />
                     ))
                   )}
                 </div>
@@ -728,6 +740,135 @@ export default function OrganizerDashboardPage() {
           )}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+const getAidStationServiceLabel = (station: AidStationDraft) => {
+  if (station.waterRefill && station.solidRefill) return "Eau + solide";
+  if (station.waterRefill) return "Eau seulement";
+  if (station.solidRefill) return "Solide seulement";
+  return "Aucun service";
+};
+
+function ServicePill({ children, enabled = true }: { children: ReactNode; enabled?: boolean }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${
+        enabled
+          ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-500/15 dark:text-emerald-100"
+          : "border-border bg-muted text-muted-foreground dark:bg-slate-900"
+      }`}
+    >
+      {children}
+    </span>
+  );
+}
+
+function ToggleChip({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4"
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function AidStationTimelineCard({
+  station,
+  index,
+  onChange,
+  onRemove,
+  productsSlot,
+}: {
+  station: AidStationDraft;
+  index: number;
+  onChange: (station: AidStationDraft) => void;
+  onRemove: () => void;
+  productsSlot: ReactNode;
+}) {
+  const serviceLabel = getAidStationServiceLabel(station);
+  const assistanceLabel = station.assistanceAllowed ? "Assistance" : "Sans assistance";
+
+  return (
+    <div className="relative pl-5 sm:pl-8">
+      <div className="absolute left-7 top-16 hidden h-[calc(100%-2rem)] border-l border-dashed border-border sm:block" />
+      <div className="relative z-10 rounded-2xl border-2 border-brand-border bg-card/95 px-4 py-4 shadow-md shadow-[rgba(45,80,22,0.08)] dark:border-emerald-400/60 dark:bg-slate-950/95">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,300px)_1fr_auto] lg:items-center">
+          <div className="flex min-w-0 items-start gap-3">
+            <AidStationBadge step={index + 1} variant="ravito" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Input
+                value={station.name}
+                onChange={(event) => onChange({ ...station, name: event.target.value })}
+                aria-label="Nom du ravito"
+              />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={station.distanceKm}
+                  onChange={(event) => onChange({ ...station, distanceKm: Number(event.target.value) })}
+                  aria-label="Distance du ravito"
+                  className="h-9 max-w-28"
+                />
+                <span>km</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-center">
+            <ServicePill enabled={station.waterRefill || station.solidRefill}>{serviceLabel}</ServicePill>
+            <ServicePill enabled={station.assistanceAllowed}>{assistanceLabel}</ServicePill>
+          </div>
+
+          <div className="flex justify-start lg:justify-end">
+            <Button type="button" variant="ghost" onClick={onRemove}>
+              Retirer
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+          <Input
+            value={station.notes ?? ""}
+            onChange={(event) => onChange({ ...station, notes: event.target.value })}
+            placeholder="Notes ravito"
+          />
+          <div className="flex flex-wrap gap-2">
+            <ToggleChip
+              checked={station.waterRefill}
+              label="Eau"
+              onChange={(checked) => onChange({ ...station, waterRefill: checked })}
+            />
+            <ToggleChip
+              checked={station.solidRefill}
+              label="Solide"
+              onChange={(checked) => onChange({ ...station, solidRefill: checked })}
+            />
+            <ToggleChip
+              checked={station.assistanceAllowed}
+              label="Assistance"
+              onChange={(checked) => onChange({ ...station, assistanceAllowed: checked })}
+            />
+          </div>
+        </div>
+
+        {productsSlot}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-06-10
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -11,6 +11,7 @@ related_files:
   - apps/web/app/(coach)/race-planner/utils/__tests__/plan-sanitizers.test.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
   - apps/web/app/share/plan/[token]/page.tsx
@@ -97,7 +98,7 @@ Aid station entries in `planner_values.aidStations` persist service flags:
 - `solidRefill: false` means the official ravito does not provide solid carb/sodium products.
 - `assistanceAllowed: false` means the runner's crew cannot hand over personal/favorite products there, and persisted `supplies` for that station should hydrate as empty.
 
-Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions and should not be converted into supplies unless the runner explicitly selects them.
+Catalog imports copy source `race_aid_stations` service flags into `planner_values.aidStations`. Organizer ravito suggestions imported from catalog source data live outside `planner_values.aidStations` in `planner_values.organizerAidStationProducts`. They should survive plan hydration as suggestions and should not be converted into supplies unless the runner explicitly selects them.
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans.
 
@@ -127,6 +128,7 @@ It:
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
 - Source organizer edits after import do not mutate existing saved plans.
+- Source station service-flag edits affect only future catalog imports, not already-saved plan JSON.
 - Public crew recap links are snapshots. Re-share the plan after meaningful changes so the reusable crew URL receives the latest snapshot.
 - Public crew tracking state is intentionally separate from the plan snapshot. It may persist confirmed assistance passages and corrected departure time, but it must not feed back into `race_plans.planner_values`.
 

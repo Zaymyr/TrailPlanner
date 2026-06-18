@@ -39,11 +39,19 @@ const initialClaimForm = {
   message: "",
 };
 
+const initialManualEventForm = {
+  name: "",
+  location: "",
+  raceDate: "",
+};
+
 export default function OrganizersPage() {
   const { session, isLoading } = useVerifiedSession();
   const [search, setSearch] = useState("");
   const [events, setEvents] = useState<OrganizerEventSearchResult[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [claimMode, setClaimMode] = useState<"existing" | "manual">("existing");
+  const [manualEventForm, setManualEventForm] = useState(initialManualEventForm);
   const [claimForm, setClaimForm] = useState(initialClaimForm);
   const [claims, setClaims] = useState<ClaimRow[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "submitting">("idle");
@@ -52,6 +60,9 @@ export default function OrganizersPage() {
 
   const accessToken = session?.accessToken ?? null;
   const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
+  const manualEventName = manualEventForm.name.trim();
+  const claimTargetName =
+    claimMode === "manual" ? manualEventName || "Ajoute le nom de la course." : selectedEvent?.name;
 
   useEffect(() => {
     if (session?.email && !claimForm.contactEmail) {
@@ -107,7 +118,12 @@ export default function OrganizersPage() {
 
   const submitClaim = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!accessToken || !selectedEventId) return;
+    if (!accessToken) return;
+    if (claimMode === "existing" && !selectedEventId) return;
+    if (claimMode === "manual" && !manualEventName) {
+      setError("Ajoute le nom de la course.");
+      return;
+    }
 
     setStatus("submitting");
     setError(null);
@@ -121,7 +137,15 @@ export default function OrganizersPage() {
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          eventId: selectedEventId,
+          ...(claimMode === "existing"
+            ? { eventId: selectedEventId }
+            : {
+                manualEvent: {
+                  name: manualEventName,
+                  location: manualEventForm.location,
+                  raceDate: manualEventForm.raceDate,
+                },
+              }),
           organizationName: claimForm.organizationName,
           roleTitle: claimForm.roleTitle,
           contactEmail: claimForm.contactEmail,
@@ -138,6 +162,7 @@ export default function OrganizersPage() {
         ...initialClaimForm,
         contactEmail: current.contactEmail,
       }));
+      setManualEventForm(initialManualEventForm);
       setMessage("Demande envoyee. Tu la retrouveras dans le dashboard organisateur.");
       await loadClaims();
     } catch (caught) {
@@ -216,48 +241,113 @@ export default function OrganizersPage() {
       <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
         <Card className="rounded-lg">
           <CardHeader>
-            <CardTitle>1. Trouver la course</CardTitle>
+            <CardTitle>1. Choisir la course</CardTitle>
             <CardDescription>Le claim porte sur l'evenement, pas sur un format isole.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex gap-2">
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="UTMB, Saintelyon, EcoTrail..."
-              />
-              <Button type="button" variant="outline" onClick={searchEvents} disabled={status === "loading"}>
-                Rechercher
-              </Button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                  claimMode === "existing"
+                    ? "border-brand bg-brand-surface text-brand"
+                    : "border-border bg-background text-muted-foreground hover:border-brand-border"
+                }`}
+                onClick={() => setClaimMode("existing")}
+              >
+                Course existante
+              </button>
+              <button
+                type="button"
+                className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
+                  claimMode === "manual"
+                    ? "border-brand bg-brand-surface text-brand"
+                    : "border-border bg-background text-muted-foreground hover:border-brand-border"
+                }`}
+                onClick={() => setClaimMode("manual")}
+              >
+                Ajout manuel
+              </button>
             </div>
-            <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
-              {events.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucune course trouvee.</p>
-              ) : (
-                events.map((event) => (
-                  <button
-                    key={event.id}
-                    type="button"
-                    className={`w-full rounded-md border p-3 text-left transition ${
-                      selectedEventId === event.id
-                        ? "border-brand bg-brand-surface text-foreground"
-                        : "border-border bg-background hover:border-brand-border"
-                    }`}
-                    onClick={() => setSelectedEventId(event.id)}
-                  >
-                    <span className="block font-semibold">{event.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {[event.location, event.race_date].filter(Boolean).join(" · ") || "Details a completer"}
-                    </span>
-                    {event.races?.length ? (
-                      <span className="mt-2 block text-xs text-muted-foreground">
-                        {event.races.length} format{event.races.length > 1 ? "s" : ""}
-                      </span>
-                    ) : null}
-                  </button>
-                ))
-              )}
-            </div>
+
+            {claimMode === "existing" ? (
+              <>
+                <div className="flex gap-2">
+                  <Input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="UTMB, Saintelyon, EcoTrail..."
+                  />
+                  <Button type="button" variant="outline" onClick={searchEvents} disabled={status === "loading"}>
+                    Rechercher
+                  </Button>
+                </div>
+                <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
+                  {events.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Aucune course trouvee.</p>
+                  ) : (
+                    events.map((event) => (
+                      <button
+                        key={event.id}
+                        type="button"
+                        className={`w-full rounded-md border p-3 text-left transition ${
+                          selectedEventId === event.id
+                            ? "border-brand bg-brand-surface text-foreground"
+                            : "border-border bg-background hover:border-brand-border"
+                        }`}
+                        onClick={() => setSelectedEventId(event.id)}
+                      >
+                        <span className="block font-semibold">{event.name}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {[event.location, event.race_date].filter(Boolean).join(" · ") || "Details a completer"}
+                        </span>
+                        {event.races?.length ? (
+                          <span className="mt-2 block text-xs text-muted-foreground">
+                            {event.races.length} format{event.races.length > 1 ? "s" : ""}
+                          </span>
+                        ) : null}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="manualEventName">Nom de la course</Label>
+                  <Input
+                    id="manualEventName"
+                    value={manualEventForm.name}
+                    onChange={(event) => setManualEventForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="Grand Trail des Cretes"
+                    required
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="manualEventLocation">Lieu</Label>
+                    <Input
+                      id="manualEventLocation"
+                      value={manualEventForm.location}
+                      onChange={(event) => setManualEventForm((current) => ({ ...current, location: event.target.value }))}
+                      placeholder="Annecy, Chamonix..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="manualEventDate">Date</Label>
+                    <Input
+                      id="manualEventDate"
+                      type="date"
+                      value={manualEventForm.raceDate}
+                      onChange={(event) => setManualEventForm((current) => ({ ...current, raceDate: event.target.value }))}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  La course sera creee comme brouillon non public, puis rattachee a ta demande.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -265,7 +355,7 @@ export default function OrganizersPage() {
           <CardHeader>
             <CardTitle>2. Demander le claim</CardTitle>
             <CardDescription>
-              {selectedEvent ? selectedEvent.name : "Selectionne une course pour activer le formulaire."}
+              {claimTargetName ?? "Selectionne une course pour activer le formulaire."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -338,7 +428,14 @@ export default function OrganizersPage() {
                 </div>
                 {error ? <p className="text-sm text-red-500">{error}</p> : null}
                 {message ? <p className="text-sm text-emerald-600 dark:text-emerald-300">{message}</p> : null}
-                <Button type="submit" disabled={!selectedEventId || status === "submitting"}>
+                <Button
+                  type="submit"
+                  disabled={
+                    status === "submitting" ||
+                    (claimMode === "existing" && !selectedEventId) ||
+                    (claimMode === "manual" && !manualEventName)
+                  }
+                >
                   {status === "submitting" ? "Envoi..." : "Envoyer la demande"}
                 </Button>
               </form>

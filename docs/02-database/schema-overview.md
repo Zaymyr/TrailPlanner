@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -41,7 +41,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Saved plan: a row in `race_plans` with flexible planner JSON.
 - Plan share link: a public crew recap snapshot tied to a saved plan through a hashed token, with narrow crew-side tracking state.
 - Plan aid station: per-plan aid station snapshot.
-- Race aid station: catalog/private race aid station source.
+- Race aid station: catalog/private race aid station source, including water, solid, and assistance service flags.
 - Organizer membership: event-scoped access through `race_event_organizers`.
 - Entitlement source: subscription, trial, coach profile, or premium grant.
 
@@ -68,8 +68,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `push_devices` | Expo push tokens and device metadata per user. |
 | `push_notification_events` | Push reminder send log and dedupe records. |
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
-| `race_aid_stations` | Aid stations attached to `races`. |
-| `race_event_claims` | User requests to claim management of a `race_events` row. |
+| `race_aid_stations` | Aid stations attached to `races`, with service availability flags. |
+| `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
@@ -150,6 +150,7 @@ erDiagram
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
+- Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.

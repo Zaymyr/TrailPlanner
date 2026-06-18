@@ -1,12 +1,13 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-05-28
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
   - apps/web/lib/gpx/normalizeImportedWaypoints.ts
   - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/race-catalog/route.ts
@@ -99,7 +100,8 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 7. Copies GPX to `plan-gpx`, falling back to upload when Supabase copy fails.
 8. Creates `race_plans` with `race_id`, `catalog_race_updated_at_at_import`, `plan_gpx_path`, and `plan_course_stats`.
 9. Inserts plan-specific `plan_aid_stations`.
-10. Stores organizer ravito product suggestions in `planner_values.organizerAidStationProducts` when source station-product links exist.
+10. Copies source station service flags into `planner_values.aidStations` as `waterRefill`, `solidRefill`, and `assistanceAllowed`.
+11. Stores organizer ravito product suggestions in `planner_values.organizerAidStationProducts` when source station-product links exist.
 
 ## Organizer GPX Replacement
 
@@ -110,7 +112,7 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 3. Parses and validates GPX with the shared parser.
 4. Uploads/replaces the source object in `race-gpx`.
 5. Updates the source `races` row with GPX path/hash and parsed course stats.
-6. Creates source `race_aid_stations` from normalized waypoints only when the format has no existing stations.
+6. Creates source `race_aid_stations` from normalized waypoints only when the format has no existing stations; service flags default to enabled.
 
 Existing saved plans are not rewritten after organizer GPX replacement. They keep their copied `plan-gpx` object, `elevation_profile`, `planner_values`, and `plan_aid_stations`.
 
@@ -133,6 +135,7 @@ Existing saved plans are not rewritten after organizer GPX replacement. They kee
 - Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.
 - Catalog GPX and plan GPX live in different buckets.
 - Organizer GPX replacement updates source race data only; saved plans remain snapshots.
+- Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`.
 
 ## Related Docs
 

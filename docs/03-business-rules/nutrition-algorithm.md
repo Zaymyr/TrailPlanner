@@ -96,7 +96,7 @@ Planner segment code in `apps/web/app/(coach)/race-planner/utils/segments.ts` co
 
 ## Organizer Products at Aid Stations
 
-When a runner imports a catalog race, `/api/plans/from-catalog` loads organizer-provided `race_aid_station_products` for source aid stations and stores them in `planner_values.organizerAidStationProducts`.
+When a runner imports a catalog race, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads organizer-provided `race_aid_station_products` for source aid stations, and stores product suggestions in `planner_values.organizerAidStationProducts`.
 
 Those products are displayed in the web planner at the matching ravito as organization suggestions. They are merged into the local product map so explicitly selected suggestions can render and participate in coverage math.
 

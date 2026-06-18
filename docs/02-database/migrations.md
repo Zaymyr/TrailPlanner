@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -152,6 +152,8 @@ The migration deliberately does not use `races.created_by` for claimed public ra
 
 Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.sql`.
 
+`supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql` extends `race_aid_stations` with `solid_available` and `assistance_allowed`, both defaulting to `true`. It adds no new table, grants, foreign keys, or RLS policies; existing aid-station policies continue to control the rows.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -193,6 +195,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.
+- Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 - Data-only brand imports created after official product metadata should populate `official_name` and `is_official` in the same migration.
 - Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.

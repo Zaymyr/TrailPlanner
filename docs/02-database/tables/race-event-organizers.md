@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-05-28
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -12,6 +12,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
 related_tables:
   - race_event_organizers
@@ -29,6 +30,7 @@ related_tables:
 ## Key Concepts
 
 - Event membership: organizer access is event-scoped, not race-row ownership.
+- Source edit access: active memberships authorize event, format, GPX, aid station service-flag, and station-product edits through server routes.
 - Revocation: `revoked_at` disables membership without deleting audit history.
 - Claim provenance: `claim_id` links membership back to the approved claim when available.
 - Public catalog preservation: claimed public races are not tied to `races.created_by`.
@@ -76,6 +78,7 @@ Summary:
 
 - Approved organizer writes must check an active membership for the parent event.
 - A membership grants access to all formats under the event.
+- A membership grants access to source ravito service flags (`water_available`, `solid_available`, `assistance_allowed`) for all formats under the event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
 
@@ -106,6 +109,7 @@ order by created_at asc;
 - Do not authorize organizer edits with `races.created_by`; claimed catalog races deliberately avoid user ownership.
 - Do not physically delete public race/event rows when an organizer account is deleted or revoked.
 - JWT admin checks must use `app_metadata`, not `user_metadata`.
+- New organizer-facing fields on child source tables should continue to check active membership for the parent event.
 
 ## Related Docs
 
