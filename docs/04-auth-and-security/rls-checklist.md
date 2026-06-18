@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -48,6 +48,7 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 8. Grant table privileges only when the RLS policy should be reachable by that role.
 9. Keep service-role access in Next.js server routes or Supabase functions only.
 10. Add or update a test/manual SQL check when policy behavior is non-trivial.
+11. When adding columns to an existing RLS-protected table, confirm the existing row policies still match the new data sensitivity.
 
 ## Correct Parent Policy Shape
 
@@ -92,6 +93,7 @@ Use:
 - Data-only official product imports that only upsert `products` rows can reuse existing product RLS policies; changing grants, views, functions, or ownership semantics requires the full checklist.
 - Data-only official product image backfills can reuse existing product RLS policies when they only update `products.image_url` and keep ownership, grants, and visibility unchanged.
 - Event-scoped organizer policies need both claim/member RLS and route-level service-role authorization checks. Service-role route success alone does not prove direct RLS behavior.
+- New service flags on `race_aid_stations` reuse the existing station row policies; do not add separate grants for them.
 - Secret-link tables such as `plan_share_links` still need owner RLS. Public viewers should resolve unguessable tokens through server/service-role code, not direct `anon` table grants.
 - Re-sharing a plan can update an existing `plan_share_links` snapshot, so the service route must verify both bearer-token identity and parent-plan ownership before update as well as insert.
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.

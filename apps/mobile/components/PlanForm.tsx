@@ -140,6 +140,7 @@ export default function PlanForm({
   const [showPremiumUpsell, setShowPremiumUpsell] = useState(false);
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [autoFillLimitsVisible, setAutoFillLimitsVisible] = useState(false);
+  const [autoFillProductLimits, setAutoFillProductLimits] = useState<AutoFillProductLimit[]>([]);
   const [autoFillLoadingMessage, setAutoFillLoadingMessage] = useState<string>(AUTO_FILL_LOADING_MESSAGES[0]);
   const mainScrollRef = useRef<ScrollView>(null);
   const mainScrollYRef = useRef(0);
@@ -162,6 +163,7 @@ export default function PlanForm({
     setShowPremiumUpsell(false);
     setIsAutoFilling(false);
     setAutoFillLimitsVisible(false);
+    setAutoFillProductLimits([]);
     setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[0]);
   }, [compactBasicsByDefault, initialValues]);
 
@@ -657,6 +659,7 @@ export default function PlanForm({
   }, [isAutoFilling, isPremium, runFillSuppliesAuto]);
 
   const handleApplyAutoFillLimits = useCallback((productLimits: AutoFillProductLimit[]) => {
+    setAutoFillProductLimits(productLimits);
     setAutoFillLimitsVisible(false);
     void runFillSuppliesAuto(productLimits);
   }, [runFillSuppliesAuto]);
@@ -889,6 +892,7 @@ export default function PlanForm({
         visible={autoFillLimitsVisible}
         products={autoFillLimitProducts}
         productsLoading={productsLoading}
+        initialLimits={autoFillProductLimits}
         fuelLabels={FUEL_LABELS}
         onClose={() => setAutoFillLimitsVisible(false)}
         onApply={handleApplyAutoFillLimits}

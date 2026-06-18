@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -122,6 +122,7 @@ Declared through old `race_catalog_aid_stations` policies and renamed in `202603
 - Aid stations are readable when their race is public/live or the requesting user owns the race.
 - Insert/update/delete are allowed for admins and race owners according to parent race access.
 - Organizer service routes can manage source aid stations after checking active `race_event_organizers` membership for the parent event.
+- `solid_available` and `assistance_allowed` are columns on the existing table, so they inherit the same row policies as `water_available`.
 
 ### Organizer Portal Tables
 
@@ -267,6 +268,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
+- Adding service-flag columns to `race_aid_stations` does not grant new row access; keep organizer mutations behind the existing service-route membership check.
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.
 - Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.

@@ -96,7 +96,7 @@ Planner segment code in `apps/web/app/(coach)/race-planner/utils/segments.ts` co
 
 ## Organizer Products at Aid Stations
 
-When a runner imports a catalog race, `/api/plans/from-catalog` loads organizer-provided `race_aid_station_products` for source aid stations and stores them in `planner_values.organizerAidStationProducts`.
+When a runner imports a catalog race, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, loads organizer-provided `race_aid_station_products` for source aid stations, and stores product suggestions in `planner_values.organizerAidStationProducts`.
 
 Those products are displayed in the web planner at the matching ravito as organization suggestions. They are merged into the local product map so explicitly selected suggestions can render and participate in coverage math.
 
@@ -136,7 +136,7 @@ Mobile implementation:
 
 - `apps/mobile/components/plan-form/carryover.ts` simulates whole-unit inventory and nutrition balance for gauges.
 - `apps/mobile/components/plan-form/usePlanSupplies.ts` uses the same carryover rule when auto-filling supplies.
-- Mobile auto-fill can receive optional per-product stock limits from the favorites stock modal. A missing limit means unlimited for that run; a present limit caps total planned units across the whole race, including supplies grouped onto previous assistance checkpoints for no-assistance sections. The optimizer favors less-used products over time and applies a small duplicate-unit penalty inside one section so similar products are varied when coverage remains acceptable. When limits leave an unresolved cumulative carb or sodium deficit beyond gauge tolerance, mobile shows a shortage alert instead of silently overusing a product.
+- Mobile auto-fill can receive optional per-product stock limits from the favorites stock modal. A missing limit means unlimited for that run; a present limit caps total planned units across the whole race, including supplies grouped onto previous assistance checkpoints for no-assistance sections. The mobile plan form keeps the latest entered limits in screen memory while the current plan editor stays open, but does not persist them into saved plan data. The optimizer favors less-used products over time and applies a small duplicate-unit penalty inside one section so similar products are varied when coverage remains acceptable. When limits leave an unresolved cumulative carb or sodium deficit beyond gauge tolerance, mobile shows a shortage alert instead of silently overusing a product.
 - `apps/mobile/lib/planSummary.ts` builds the runner pack list, ravito checklist, and native share text from stored plan values. It reuses the live-section timing model rather than introducing a separate nutrition allocation rule.
 
 Water remains separate from product inventory. The planner carries forward remaining water capacity between sections; a station with `waterRefill === false` does not refill the bag, so the outgoing section starts with whatever water remains from the previous section.

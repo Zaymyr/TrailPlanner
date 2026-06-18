@@ -1,7 +1,7 @@
 ---
 title: race_plans Table
 scope: database
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/api/onboarding/save-plan/route.ts
 related_tables:
   - race_plans
@@ -30,6 +31,7 @@ related_tables:
 ## Key Concepts
 
 - `planner_values`: flexible JSONB state used to hydrate the planner.
+- `aidStations`: planner JSON array that stores per-station service flags such as water, solid food, and crew assistance.
 - `organizerAidStationProducts`: optional planner JSON field for organizer ravito suggestions imported from catalog source stations.
 - `elevation_profile`: separate JSONB array of distance/elevation points.
 - `race_id`: optional link to the source `races` row.
@@ -90,6 +92,7 @@ Summary:
 - `catalog_race_updated_at_at_import` is a source snapshot, not a live sync guarantee.
 - `plan_gpx_path` belongs to the copied plan GPX, not the source race GPX.
 - Organizer ravito products are suggestion metadata in `planner_values`, not automatic supplies.
+- Catalog imports copy `race_aid_stations` service flags into `planner_values.aidStations`; existing plans do not resync after source edits.
 - Organizer source edits after import do not rewrite existing saved plans.
 - Public crew recap links are snapshots stored in `plan_share_links`; they are not live views over editable planner JSON.
 
@@ -117,6 +120,7 @@ where race_id = '<race-id>';
 - `catalog_race_id` is the old column name. Current migrations rename it to `race_id`.
 - `planner_values` can contain older shape variants. Hydration code must tolerate missing fields.
 - `organizerAidStationProducts` may reference products that are not live global catalog rows. Keep it separate from product auto-fill defaults unless the runner explicitly selected/favorited the product.
+- Missing `waterRefill`, `solidRefill`, or `assistanceAllowed` in older `planner_values.aidStations` should hydrate as enabled.
 - `apps/web/app/api/plans/route.ts` can update an existing plan by name when creating a plan.
 - Deleting a plan cascades public recap links, so old crew URLs become unavailable.
 

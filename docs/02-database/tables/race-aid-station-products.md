@@ -1,12 +1,13 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
+  - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/(coach)/race-planner/RacePlannerPageContent.tsx
   - apps/web/app/(coach)/race-planner/types.ts
   - apps/web/components/race-planner/ActionPlan.tsx
@@ -29,6 +30,7 @@ related_tables:
 - Organizer-scoped product: a non-live `products` row created by an organizer for this context.
 - Catalog product link: a live catalog product selected by the organizer.
 - Planner suggestion: imported plans copy these links into planner JSON as suggestions, not auto-fill inventory.
+- Station service flags: water, solid, and assistance availability are stored on `race_aid_stations`, not on product link rows.
 
 ## Columns
 
@@ -70,6 +72,7 @@ Summary:
 - Organizer-created products are not global catalog products and should not appear in `/api/products`.
 - Imported runner plans store organizer suggestions in `planner_values.organizerAidStationProducts`; auto-fill can use them only after the runner favorites or explicitly selects them.
 - Organizer suggestions are not the same thing as planner `assistanceAllowed`. A station can offer official ravito products while still being unavailable to the runner's crew.
+- `race_aid_stations.solid_available` can describe official solid service even when no product links have been entered yet.
 
 ## Common Queries
 
@@ -95,6 +98,7 @@ order by order_index asc;
 
 - Do not treat these rows as plan supplies. They are organization suggestions attached to source station rows.
 - Do not infer crew access from these rows; crew access is stored per runner plan station as `assistanceAllowed`.
+- Do not infer official solid availability only from linked products; use `race_aid_stations.solid_available` for the source service flag.
 - Deleting a source `race_aid_stations` row deletes its product links.
 - Product deletion cascades to these links, so organizer-scoped product cleanup removes station presence rows.
 

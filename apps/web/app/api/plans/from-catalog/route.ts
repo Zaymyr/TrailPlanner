@@ -34,6 +34,8 @@ const catalogRaceSchema = z.object({
         name: z.string(),
         km: z.number(),
         water_available: z.boolean().nullable().optional(),
+        solid_available: z.boolean().nullable().optional(),
+        assistance_allowed: z.boolean().nullable().optional(),
         order_index: z.number().nullable().optional(),
       })
     )
@@ -105,6 +107,8 @@ const mapWaypointsToAidStations = (
     name: station.name,
     distanceKm: station.distanceKm,
     waterRefill: true,
+    solidRefill: true,
+    assistanceAllowed: true,
   }));
 
 export async function POST(request: NextRequest) {
@@ -196,7 +200,7 @@ export async function POST(request: NextRequest) {
   }
 
   const catalogRaceResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at,race_aid_stations(id,name,km,water_available,order_index)&limit=1`,
+    `${supabaseAnon.supabaseUrl}/rest/v1/races?id=eq.${parsedBody.data.catalogRaceId}&is_live=eq.true&select=id,name,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,gpx_sha256,updated_at,race_aid_stations(id,name,km,water_available,solid_available,assistance_allowed,order_index)&limit=1`,
     {
       headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
       cache: "no-store",
@@ -299,6 +303,8 @@ export async function POST(request: NextRequest) {
             name: station.name,
             distanceKm: station.km,
             waterRefill: station.water_available !== false,
+            solidRefill: station.solid_available !== false,
+            assistanceAllowed: station.assistance_allowed !== false,
           }))
       : parsedGpx.pointSource !== "waypoint"
         ? mapWaypointsToAidStations(parsedGpx.points, parsedGpx.waypoints)

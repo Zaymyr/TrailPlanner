@@ -15,6 +15,8 @@ const aidStationRowSchema = z.object({
   name: z.string(),
   km: z.number(),
   water_available: z.boolean(),
+  solid_available: z.boolean().optional().default(true),
+  assistance_allowed: z.boolean().optional().default(true),
   notes: z.string().nullable().optional(),
   order_index: z.number(),
 });
@@ -24,6 +26,8 @@ const aidStationInputSchema = z.object({
   name: z.string().trim().min(1),
   distanceKm: z.coerce.number().nonnegative(),
   waterRefill: z.boolean().optional().default(true),
+  solidRefill: z.boolean().optional().default(true),
+  assistanceAllowed: z.boolean().optional().default(true),
   notes: z.string().trim().optional().transform((value) => (value ? value : null)),
 });
 
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if ("error" in race) return race.error;
 
   const response = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,notes,order_index&order=order_index.asc`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index&order=order_index.asc`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",
@@ -110,6 +114,8 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
           name: station.name,
           km: Number(station.distanceKm.toFixed(2)),
           water_available: station.waterRefill,
+          solid_available: station.solidRefill,
+          assistance_allowed: station.assistanceAllowed,
           notes: station.notes,
           order_index: index,
         }),
@@ -135,6 +141,8 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
             name: station.name,
             km: Number(station.distanceKm.toFixed(2)),
             water_available: station.waterRefill,
+            solid_available: station.solidRefill,
+            assistance_allowed: station.assistanceAllowed,
             notes: station.notes,
             order_index: index,
           };
@@ -150,7 +158,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const reloadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,notes,order_index&order=order_index.asc`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index&order=order_index.asc`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",

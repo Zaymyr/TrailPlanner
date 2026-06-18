@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useMemo } from "react";
 import type { Route } from "next";
 
+import { useOrganizerMembershipStatus } from "./hooks/useOrganizerMembershipStatus";
 import { useVerifiedSession } from "./hooks/useVerifiedSession";
 import { useI18n } from "./i18n-provider";
 
@@ -18,12 +19,14 @@ const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
 export function HeaderTabs() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const pathname = usePathname();
   const { session } = useVerifiedSession();
+  const { hasManagedRaces } = useOrganizerMembershipStatus(session?.accessToken);
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isCoach = session?.role === "coach" || session?.roles?.includes("coach");
+  const organizerLabel = locale === "fr" ? "Mes courses" : "My races";
 
   const tabItems: TabItem[] = useMemo(
     () => [
@@ -31,6 +34,11 @@ export function HeaderTabs() {
         label: t.navigation.racePlanner,
         href: "/race-planner",
         active: isActivePath(pathname, "/race-planner"),
+      },
+      {
+        label: organizerLabel,
+        href: "/organizer",
+        active: isActivePath(pathname, "/organizer"),
       },
       {
         label: t.navigation.coach,
@@ -59,6 +67,7 @@ export function HeaderTabs() {
       },
     ],
     [
+      organizerLabel,
       pathname,
       t.navigation.admin,
       t.navigation.blog,
@@ -72,6 +81,7 @@ export function HeaderTabs() {
   const visibleTabs = tabItems.filter((item) => {
     if (item.href === "/admin") return isAdmin;
     if (item.href === "/coach") return isCoach;
+    if (item.href === "/organizer") return hasManagedRaces;
     return true;
   });
 
