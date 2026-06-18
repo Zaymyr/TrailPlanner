@@ -1,12 +1,13 @@
 ---
 title: subscriptions Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
   - supabase/migrations/20260216090000_add_plan_name_to_subscriptions.sql
   - supabase/migrations/20260405130000_add_provider_to_subscriptions.sql
+  - supabase/migrations/20260618145940_remove_coach_features.sql
   - apps/web/app/api/stripe/webhook/route.ts
   - apps/web/lib/revenuecat.ts
   - apps/web/lib/entitlements.ts
@@ -14,7 +15,6 @@ related_files:
 related_tables:
   - subscriptions
   - user_profiles
-  - coach_profiles
 ---
 
 # `subscriptions`
@@ -28,7 +28,7 @@ related_tables:
 - Provider: billing source, one of `web`, `google`, or `apple`.
 - Status: subscription state such as `active`, `trialing`, or `expired`.
 - Price id: Stripe price id or RevenueCat product identifier depending on provider.
-- Plan name: optional coach tier plan name from Stripe metadata.
+- Plan name: optional billing plan metadata from Stripe or provider sync.
 
 ## Columns
 
@@ -39,7 +39,7 @@ related_tables:
 | `stripe_subscription_id` | `text` | nullable, indexed | Stripe subscription id. |
 | `status` | `text` | nullable | Billing status. |
 | `price_id` | `text` | nullable | Stripe price id or RevenueCat product id. |
-| `plan_name` | `text` | nullable | Coach tier mapping name from Stripe metadata. |
+| `plan_name` | `text` | nullable | Optional billing plan metadata. |
 | `provider` | `text` | not null, default `web`, check `web|google|apple` | Billing provider. |
 | `current_period_end` | `timestamptz` | nullable | Period end used for active checks. |
 | `updated_at` | `timestamptz` | not null, trigger-maintained | Last sync time. |
@@ -67,7 +67,6 @@ Summary:
 - Web Stripe writes use provider `web`.
 - RevenueCat writes use provider `google` or `apple`.
 - Entitlement checks treat `active` and `trialing` as active when the period is missing or future, depending on code path.
-- Stripe webhooks can also update `coach_profiles` and `user_profiles` coach status when `plan_name` maps to a coach tier.
 - Mobile RevenueCat sync clears Stripe ids by writing nulls for RevenueCat providers.
 
 ## Common Queries

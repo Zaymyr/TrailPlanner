@@ -309,7 +309,6 @@ export async function POST(request: NextRequest) {
     await moveUserReference(adminClient, "products", "created_by", sourceUser.id, targetUser.id);
     await moveUserReference(adminClient, "race_requests", "user_id", sourceUser.id, targetUser.id);
     await moveUserReference(adminClient, "affiliate_events", "user_id", sourceUser.id, targetUser.id);
-    await moveUserReference(adminClient, "coach_invites", "invitee_user_id", sourceUser.id, targetUser.id);
     await moveUserReference(adminClient, "traces", "owner_id", sourceUser.id, targetUser.id);
 
     const { error: deleteProfileError } = await adminClient

@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql
   - supabase/migrations/20260609091933_add_plan_share_links.sql
+  - supabase/migrations/20260618145940_remove_coach_features.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
@@ -19,14 +20,13 @@ related_tables:
   - plan_share_links
   - races
   - race_aid_station_products
-  - coach_comments
 ---
 
 # `race_plans`
 
 ## Purpose
 
-`race_plans` stores saved planner state for a user or coachee. It is the durable home for `planner_values`, elevation profiles, and imported catalog GPX metadata.
+`race_plans` stores saved planner state for a user. It is the durable home for `planner_values`, elevation profiles, and imported catalog GPX metadata.
 
 ## Key Concepts
 
@@ -35,7 +35,6 @@ related_tables:
 - `organizerAidStationProducts`: optional planner JSON field for organizer ravito suggestions imported from catalog source stations.
 - `elevation_profile`: separate JSONB array of distance/elevation points.
 - `race_id`: optional link to the source `races` row.
-- `coach_id`: optional coach owner for coachee plans.
 - `plan_gpx_path`: private storage key in the `plan-gpx` bucket.
 
 ## Columns
@@ -45,8 +44,7 @@ related_tables:
 | `id` | `uuid` | primary key, default `gen_random_uuid()` | Stable plan id. |
 | `created_at` | `timestamptz` | not null, default UTC `now()` | Creation time. |
 | `updated_at` | `timestamptz` | not null, default UTC `now()`, trigger-maintained | Last update time. |
-| `user_id` | `uuid` | not null, default `auth.uid()` | Plan owner/coachee id. |
-| `coach_id` | `uuid` | nullable, references `user_profiles(user_id)` | Coach id when a coach creates/manages a coachee plan. |
+| `user_id` | `uuid` | not null, default `auth.uid()` | Plan owner id. |
 | `name` | `text` | not null | User-visible plan name. |
 | `planner_values` | `jsonb` | not null | Main planner state. |
 | `elevation_profile` | `jsonb` | not null, default `[]` | Elevation data stored separately from planner JSON. |
@@ -57,7 +55,6 @@ related_tables:
 
 ## Foreign Keys
 
-- `coach_id -> public.user_profiles(user_id)`
 - `race_id -> public.races(id) on delete set null`
 
 `user_id` defaults to `auth.uid()` and is treated as an auth user id in code and policies.
@@ -65,14 +62,12 @@ related_tables:
 Inbound references:
 
 - `plan_aid_stations.plan_id -> public.race_plans(id) on delete cascade`
-- `coach_comments.plan_id -> public.race_plans(id) on delete cascade`
 - `push_notification_events.plan_id -> public.race_plans(id) on delete cascade`
 - `plan_share_links.plan_id -> public.race_plans(id) on delete cascade`
 
 ## Indexes
 
 - `race_plans_user_id_idx` on `user_id`
-- `race_plans_coach_id_idx` on `coach_id`
 
 ## RLS Policies
 
@@ -81,7 +76,6 @@ See [../rls-policies.md](../rls-policies.md) for full policy text.
 Summary:
 
 - Users can select, insert, update, and delete own plans.
-- Coaches can access coachee plans only through active coach/coachee relationships.
 - Anon role privileges are granted so anonymous Supabase users with `auth.uid()` can access their own plans through RLS.
 
 ## Business Invariants

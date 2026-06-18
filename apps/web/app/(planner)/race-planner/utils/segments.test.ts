@@ -18,7 +18,7 @@ const baseValues = {
 };
 
 describe("buildSegments", () => {
-  it("prefers coach overrides over adjusted pacing", () => {
+  it("prefers manual time overrides over adjusted pacing", () => {
     const segments = buildSegments(
       {
         ...baseValues,

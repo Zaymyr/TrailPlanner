@@ -3,7 +3,7 @@
 import { memo, type ReactNode } from "react";
 import type { UseFormRegister, UseFormSetValue } from "react-hook-form";
 
-import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../../../locales/types";
+import type { RacePlannerTranslations } from "../../../../locales/types";
 import type { FuelProduct } from "../../../../lib/product-types";
 import type { StoredProductPreference } from "../../../../lib/product-preferences";
 import { ActionPlan } from "../../../../components/race-planner/ActionPlan";
@@ -68,13 +68,6 @@ type PlanPrimaryContentProps = {
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   onUpgrade: (reason: "autoFill" | "print") => void;
   upgradeStatus: "idle" | "opening";
-  coachCommentsCopy: CoachCommentsTranslations;
-  coachCommentsContext?: {
-    accessToken?: string;
-    planId?: string;
-    coacheeId?: string;
-    canEdit?: boolean;
-  };
 };
 
 export const PlanPrimaryContent = memo(function PlanPrimaryContent({
@@ -116,8 +109,6 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
   premiumCopy,
   onUpgrade,
   upgradeStatus,
-  coachCommentsCopy,
-  coachCommentsContext,
 }: PlanPrimaryContentProps) {
   return (
     <div className="space-y-6">
@@ -160,8 +151,6 @@ export const PlanPrimaryContent = memo(function PlanPrimaryContent({
         premiumCopy={premiumCopy}
         onUpgrade={onUpgrade}
         upgradeStatus={upgradeStatus}
-        coachCommentsCopy={coachCommentsCopy}
-        coachCommentsContext={coachCommentsContext}
       />
     </div>
   );

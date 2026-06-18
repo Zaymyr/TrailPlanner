@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-05-17
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -12,8 +12,6 @@ related_tables:
   - subscriptions
   - user_profiles
   - premium_grants
-  - coach_profiles
-  - coach_tiers
 ---
 
 # Premium Entitlement
@@ -29,7 +27,6 @@ This document explains how Pace Yourself decides whether a user has premium acce
 - Trial: profile-based 15-day premium access.
 - Subscription: Stripe or RevenueCat row in `subscriptions`.
 - Premium grant: manual override in `premium_grants`.
-- Coach tier: plan-specific limits from `coach_tiers`.
 
 ## Web Entitlements
 
@@ -59,15 +56,12 @@ Web entitlement resolution checks:
 
 1. User subscription row.
 2. Trial state from profile.
-3. Coach profile and coach tier.
-4. Active premium grants.
-5. Profile coach flags and plan names.
+3. Active premium grants.
 
 Important behavior:
 
 - `active` and `trialing` subscription statuses are considered active.
 - If a subscription has no `current_period_end`, web active-check code can treat it as active.
-- Coach tier rows can override limits.
 - Active premium grants can elevate an otherwise free user to premium.
 
 ## Mobile Premium Hook
@@ -90,14 +84,13 @@ If RevenueCat reports an active entitlement but the server row is not synced, mo
 - `google`: RevenueCat/Google Play.
 - `apple`: RevenueCat/App Store.
 
-Stripe webhooks can also update coach profile/tier fields when metadata contains `plan_name`.
+Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do not resolve separate plan-tier tables.
 
 ## Business Invariants
 
 - Trial access is 15 days and profile-based.
 - Billing source rows all flow into `subscriptions`.
 - Premium grants are overrides, not subscriptions.
-- Coach entitlements come from `coach_tiers` when a coach tier can be resolved.
 - Plan creation routes must check effective entitlements before allowing extra saved plans.
 
 ## Gotchas

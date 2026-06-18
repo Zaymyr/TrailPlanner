@@ -1,11 +1,10 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
-  - supabase/tests/coach_rls_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
 related_tables: []
@@ -54,13 +53,12 @@ select * from public.some_table;
 rollback;
 ```
 
-Use `supabase/tests/coach_rls_checks.sql` as the user relationship-policy example and `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
+Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example for relationship-based policy checks.
 
 ## Do Not
 
 - Do not use `user_metadata` for new auth decisions.
 - Do not rely on service-role route behavior to prove RLS works.
-- Do not grant broad coach access without checking `coach_coachees.status = 'active'`.
 - Do not leave a table with RLS enabled but no reachable select policy unless it is intentionally write-only/service-only.
 - Do not forget SQL grants; a policy does not grant `select`, `insert`, `update`, or `delete` privileges by itself.
 - Do not grant `anon` to secret-link tables unless public direct table access is explicitly intended and documented.

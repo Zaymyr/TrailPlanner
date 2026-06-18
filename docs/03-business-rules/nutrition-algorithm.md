@@ -10,13 +10,13 @@ related_files:
   - apps/web/lib/default-products.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
-  - apps/web/app/(coach)/race-planner/RacePlannerPageContent.tsx
-  - apps/web/app/(coach)/race-planner/types.ts
-  - apps/web/app/(coach)/race-planner/components/PlanPrimaryContent.tsx
-  - apps/web/app/(coach)/race-planner/utils/plan-sanitizers.ts
-  - apps/web/app/(coach)/race-planner/utils/__tests__/carryover-nutrition.test.ts
-  - apps/web/app/(coach)/race-planner/utils/__tests__/plan-sanitizers.test.ts
-  - apps/web/app/(coach)/race-planner/utils/segments.ts
+  - apps/web/app/(planner)/race-planner/RacePlannerPageContent.tsx
+  - apps/web/app/(planner)/race-planner/types.ts
+  - apps/web/app/(planner)/race-planner/components/PlanPrimaryContent.tsx
+  - apps/web/app/(planner)/race-planner/utils/plan-sanitizers.ts
+  - apps/web/app/(planner)/race-planner/utils/__tests__/carryover-nutrition.test.ts
+  - apps/web/app/(planner)/race-planner/utils/__tests__/plan-sanitizers.test.ts
+  - apps/web/app/(planner)/race-planner/utils/segments.ts
   - apps/web/components/race-planner/ActionPlan.tsx
   - apps/web/components/race-planner/carryoverNutrition.ts
   - apps/web/components/race-planner/useActionPlanDerivedData.ts
@@ -87,7 +87,7 @@ The allocation function works from:
 - selected products;
 - product nutrition values from `products` or client product objects.
 
-Planner segment code in `apps/web/app/(coach)/race-planner/utils/segments.ts` computes per-segment targets from:
+Planner segment code in `apps/web/app/(planner)/race-planner/utils/segments.ts` computes per-segment targets from:
 
 - race distance and aid stations;
 - speed/pace;
@@ -131,7 +131,7 @@ If an aid station has `assistanceAllowed === false`, the runner's crew cannot ha
 Web implementation:
 
 - `apps/web/components/race-planner/carryoverNutrition.ts` simulates whole-unit inventory and nutrition balance for timeline coverage.
-- `apps/web/app/(coach)/race-planner/RacePlannerPageContent.tsx` uses the same carryover rule when auto-filling supplies.
+- `apps/web/app/(planner)/race-planner/RacePlannerPageContent.tsx` uses the same carryover rule when auto-filling supplies.
 
 Mobile implementation:
 

@@ -17,9 +17,6 @@ import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { PageLoadingSkeleton } from "../../components/PageLoadingSkeleton";
-import { fetchCoachTiers } from "../../lib/coach-tiers-client";
-import { fetchCoachSummary } from "../../lib/coach-summary-client";
-import { fetchCoachRelationshipStatus } from "../../lib/coach-relationship-client";
 import { fetchTrialStatus } from "../../lib/trial-client";
 import { isTrialActive } from "../../lib/trial";
 import { useProductSelection } from "../hooks/useProductSelection";
@@ -186,45 +183,6 @@ export default function ProfilePage() {
       const message = error instanceof Error ? error.message : t.profile.error;
       setSaveError(message);
     },
-  });
-
-  const coachTiersQuery = useQuery({
-    queryKey: ["coach-tiers", session?.accessToken],
-    enabled: Boolean(session?.accessToken),
-    queryFn: async () => {
-      if (!session?.accessToken) {
-        throw new Error(t.profile.authRequired);
-      }
-
-      return fetchCoachTiers(session.accessToken);
-    },
-    staleTime: 60_000,
-  });
-
-  const coachSummaryQuery = useQuery({
-    queryKey: ["coach-summary", session?.accessToken],
-    enabled: Boolean(session?.accessToken),
-    queryFn: async () => {
-      if (!session?.accessToken) {
-        throw new Error(t.profile.authRequired);
-      }
-
-      return fetchCoachSummary(session.accessToken);
-    },
-    staleTime: 60_000,
-  });
-
-  const coachRelationshipQuery = useQuery({
-    queryKey: ["coach-relationship", session?.accessToken],
-    enabled: Boolean(session?.accessToken),
-    queryFn: async () => {
-      if (!session?.accessToken) {
-        throw new Error(t.profile.authRequired);
-      }
-
-      return fetchCoachRelationshipStatus(session.accessToken);
-    },
-    staleTime: 60_000,
   });
 
   const trialStatusQuery = useQuery({
@@ -402,16 +360,12 @@ export default function ProfilePage() {
     trialActive,
   ]);
 
-  const coachTierLabels = t.profile.subscription.coachTiers.labels;
-  const coachPlanName = coachSummaryQuery.data?.planName ?? null;
-  const isCoach = coachSummaryQuery.data?.isCoach === true;
   const premiumSourceLabel = useMemo(() => {
-    if (!entitlements.isPremium || isCoach) return null;
+    if (!entitlements.isPremium) return null;
     if (trialActive) return t.profile.subscription.premiumSourceTrial;
     return t.profile.subscription.premiumSourceSubscription;
   }, [
     entitlements.isPremium,
-    isCoach,
     t.profile.subscription.premiumSourceSubscription,
     t.profile.subscription.premiumSourceTrial,
     trialActive,
@@ -424,26 +378,7 @@ export default function ProfilePage() {
     );
     return formatted;
   }, [locale, premiumGrant?.startsAt]);
-  const showCoachSummary = isCoach;
-  const coachSummaryLoading = showCoachSummary ? coachSummaryQuery.isLoading : coachTiersQuery.isLoading;
-  const coachSummaryError = showCoachSummary ? coachSummaryQuery.isError : coachTiersQuery.isError;
-  const coachRelationshipStatus = coachRelationshipQuery.data?.status ?? null;
-  const coachContact = coachRelationshipQuery.data?.coach ?? null;
-  const coachRelationshipLabel = useMemo(() => {
-    if (coachRelationshipStatus === "pending") return t.profile.coachRelationship.pending;
-    if (coachRelationshipStatus === "active") return t.profile.coachRelationship.active;
-    return null;
-  }, [coachRelationshipStatus, t.profile.coachRelationship.active, t.profile.coachRelationship.pending]);
-  const showCoachRelationship = Boolean(coachRelationshipLabel);
-  const showCoachRelationshipOnly = !isCoach;
-  const coachNameLabel = coachContact?.fullName ?? t.profile.coachRelationship.unknownCoach;
-  const coachEmailLabel = coachContact?.email ?? t.profile.coachRelationship.unknownEmail;
-  const showCoachPremiumNote = showCoachRelationshipOnly && coachRelationshipStatus === "active";
   const isGuestSession = session?.isAnonymous === true;
-  const coachPlanLabel = useMemo(() => {
-    if (!coachPlanName) return t.profile.subscription.coachTiers.noActivePlan;
-    return coachTierLabels[coachPlanName as keyof typeof coachTierLabels] ?? coachPlanName.toUpperCase();
-  }, [coachPlanName, coachTierLabels, t.profile.subscription.coachTiers.noActivePlan]);
   const handleUpgrade = useCallback(async () => {
     if (!session?.accessToken) {
       setUpgradeError(t.profile.authRequired);
@@ -758,84 +693,7 @@ export default function ProfilePage() {
               </div>
             ) : null}
 
-            {session?.accessToken && !showCoachRelationshipOnly ? (
-              <div className="space-y-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-foreground">
-                    {isCoach ? t.profile.subscription.coachTiers.activeTitle : t.profile.subscription.coachTiers.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {isCoach
-                      ? t.profile.subscription.coachTiers.activeDescription
-                      : t.profile.subscription.coachTiers.description}
-                  </p>
-                </div>
-                {coachSummaryLoading ? (
-                  <p className="text-xs text-muted-foreground">{t.profile.subscription.coachTiers.loading}</p>
-                ) : null}
-                {coachSummaryError ? (
-                  <p className="text-xs text-red-600 dark:text-red-300">{t.profile.subscription.coachTiers.error}</p>
-                ) : null}
-                {showCoachSummary ? (
-                  <div className="space-y-1 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {t.profile.subscription.coachTiers.activePlanLabel}
-                      </span>
-                      <span className="font-medium text-foreground">{coachPlanLabel}</span>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => router.push("/coach")}
-                      className="w-fit"
-                    >
-                      {t.profile.subscription.coachTiers.manageCoachCta}
-                    </Button>
-                  </div>
-                ) : coachTiersQuery.data && coachTiersQuery.data.length > 0 ? (
-                  <ul className="divide-y divide-border/60">
-                    {coachTiersQuery.data.map((tier) => {
-                      const label =
-                        coachTierLabels[tier.name as keyof typeof coachTierLabels] ?? tier.name.toUpperCase();
-                      return (
-                        <li key={tier.name} className="flex items-center justify-between py-1 text-sm">
-                          <span className="font-medium text-foreground">{label}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {t.profile.subscription.coachTiers.inviteLimitLabel.replace(
-                              "{count}",
-                              tier.inviteLimit.toString()
-                            )}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-              </div>
-            ) : null}
-
-            {session?.accessToken && showCoachRelationship ? (
-              <div className="space-y-1 rounded-md border border-border bg-muted/40 px-3 py-2">
-                <p className="text-sm font-semibold text-foreground">{t.profile.coachRelationship.title}</p>
-                <p className="text-xs text-muted-foreground">{coachRelationshipLabel}</p>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <p>
-                    <span className="font-semibold text-foreground">{t.profile.coachRelationship.coachNameLabel}</span>{" "}
-                    {coachNameLabel}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-foreground">{t.profile.coachRelationship.coachEmailLabel}</span>{" "}
-                    {coachEmailLabel}
-                  </p>
-                  {showCoachPremiumNote ? (
-                    <p className="text-emerald-700 dark:text-emerald-300">{t.profile.coachRelationship.premiumNote}</p>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {session?.accessToken && !showCoachRelationshipOnly ? (
+            {session?.accessToken ? (
               <div className="flex flex-wrap gap-3">
                 <Button
                   type="button"

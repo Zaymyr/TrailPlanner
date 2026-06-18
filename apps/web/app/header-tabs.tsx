@@ -25,7 +25,6 @@ export function HeaderTabs() {
   const { hasManagedRaces } = useOrganizerMembershipStatus(session?.accessToken);
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
-  const isCoach = session?.role === "coach" || session?.roles?.includes("coach");
   const organizerLabel = locale === "fr" ? "Mes courses" : "My races";
 
   const tabItems: TabItem[] = useMemo(
@@ -39,11 +38,6 @@ export function HeaderTabs() {
         label: organizerLabel,
         href: "/organizer",
         active: isActivePath(pathname, "/organizer"),
-      },
-      {
-        label: t.navigation.coach,
-        href: "/coach",
-        active: isActivePath(pathname, "/coach"),
       },
       {
         label: t.navigation.blog,
@@ -71,7 +65,6 @@ export function HeaderTabs() {
       pathname,
       t.navigation.admin,
       t.navigation.blog,
-      t.navigation.coach,
       t.navigation.profile,
       t.navigation.racePlanner,
       t.navigation.settings,
@@ -80,7 +73,6 @@ export function HeaderTabs() {
 
   const visibleTabs = tabItems.filter((item) => {
     if (item.href === "/admin") return isAdmin;
-    if (item.href === "/coach") return isCoach;
     if (item.href === "/organizer") return hasManagedRaces;
     return true;
   });

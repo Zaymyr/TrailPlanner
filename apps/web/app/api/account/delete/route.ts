@@ -45,20 +45,6 @@ const deleteOwnedRows = async (adminClient: AdminClient, table: string, column: 
   }
 };
 
-const nullifyUserReference = async (
-  adminClient: AdminClient,
-  table: string,
-  column: string,
-  userId: string,
-  payload: Record<string, null>
-) => {
-  const { error } = await adminClient.from(table).update(payload).eq(column, userId);
-
-  if (error) {
-    throw error;
-  }
-};
-
 const deleteStorageObject = async (
   supabaseService: SupabaseServiceConfig,
   bucket: string,
@@ -163,14 +149,12 @@ export async function DELETE(request: NextRequest) {
       ((ownedRacesResponse.data as OwnedRaceRow[] | null) ?? []).map((race) => race.gpx_storage_path)
     );
 
-    await nullifyUserReference(adminClient, "race_plans", "coach_id", user.id, { coach_id: null });
     await deleteOwnedRows(adminClient, "race_plans", "user_id", user.id);
     await deleteOwnedRows(adminClient, "races", "created_by", user.id);
     await deleteOwnedRows(adminClient, "products", "created_by", user.id);
     await deleteOwnedRows(adminClient, "race_requests", "user_id", user.id);
     await deleteOwnedRows(adminClient, "affiliate_events", "user_id", user.id);
     await deleteOwnedRows(adminClient, "traces", "owner_id", user.id);
-    await deleteOwnedRows(adminClient, "coach_invites", "invitee_user_id", user.id);
     await deleteOwnedRows(adminClient, "user_profiles", "user_id", user.id);
 
     const { error: deleteUserError } = await adminClient.auth.admin.deleteUser(user.id);

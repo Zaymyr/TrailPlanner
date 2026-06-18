@@ -6,9 +6,9 @@ ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
   - apps/web/app/api/onboarding/save-plan/route.ts
-  - apps/web/app/(coach)/race-planner/hooks/useRacePlan.ts
-  - apps/web/app/(coach)/race-planner/utils/plan-sanitizers.ts
-  - apps/web/app/(coach)/race-planner/utils/__tests__/plan-sanitizers.test.ts
+  - apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts
+  - apps/web/app/(planner)/race-planner/utils/plan-sanitizers.ts
+  - apps/web/app/(planner)/race-planner/utils/__tests__/plan-sanitizers.test.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
@@ -110,7 +110,7 @@ The public shared page can persist limited crew-side tracking data through `apps
 
 ## Hydration on Read
 
-`apps/web/app/(coach)/race-planner/hooks/useRacePlan.ts` maps saved rows into planner state.
+`apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts` maps saved rows into planner state.
 
 It:
 

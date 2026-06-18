@@ -1,12 +1,12 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-05-27
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
   - apps/web/app/api/onboarding/save-plan/route.ts
-  - apps/web/app/(coach)/race-planner/hooks/useRacePlan.ts
+  - apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts
   - apps/mobile/app/_layout.tsx
 related_tables:
   - race_plans
@@ -50,7 +50,7 @@ After a successful save it sets:
 - `sessionStorage.setItem('onboarding_plan_saved', '1')`;
 - `localStorage.setItem('onboarding_plan_saved', '1')`.
 
-`apps/web/app/(coach)/race-planner/hooks/useRacePlan.ts` later removes `trailplanner.pendingPlanId` and both onboarding save flags after loading the pending plan.
+`apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts` later removes `trailplanner.pendingPlanId` and both onboarding save flags after loading the pending plan.
 
 ## Server-Side Backstop
 

@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-05-27
+last_verified: 2026-06-18
 ai_priority: medium
 related_files:
   - package.json
@@ -18,9 +18,8 @@ related_files:
   - apps/mobile/app/_layout.tsx
   - apps/mobile/lib/resendContactSync.ts
   - apps/web/app/api/auth/session/route.ts
-  - apps/web/app/api/coach/invite/route.ts
 related_tables:
-  - coach_invites
+  - user_profiles
 ---
 
 # Resend Integration
@@ -35,7 +34,6 @@ This document records the current Resend integration in the repo. Resend is used
 - Resend Contacts: global contacts database used by Resend Broadcasts, Segments, and Topics.
 - Resend Broadcasts: marketing/product emails managed from Resend, not from app runtime routes.
 - Supabase Auth email: email delivery managed by Supabase Auth configuration.
-- Coach invite: app table and flow for connecting coach/coachee accounts.
 - Admin sync: server-side route that reads Supabase Auth users with the service role and upserts matching Resend contacts.
 - Identified-user sync: authenticated route used by web and mobile after a non-anonymous Supabase session is active.
 
@@ -96,8 +94,6 @@ Request options:
 The app still has:
 
 - Supabase Auth flows for login/signup/password-related behavior;
-- coach invite records in `coach_invites`;
-- UI/actions that can resend an invite conceptually through Supabase Auth, not Resend;
 - no React Email templates or Resend email-sending route.
 
 The production-launch template is intended for Resend Broadcasts or manual dashboard use. It references public HTTPS assets served by the web app:
@@ -130,7 +126,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.
 - Resend can return `429` during large syncs. Keep the default request delay or run batches with `startPage`/`maxPages`.
 - Do not add a Resend dependency unless SDK-specific behavior is needed; current code uses REST through `fetch`.
-- Coach invite table behavior is not proof that app-managed email sending exists.
+- Supabase Auth email behavior is separate from Resend Contact syncing; this repo still has no app-managed Resend transactional email route.
 
 ## Related Docs
 

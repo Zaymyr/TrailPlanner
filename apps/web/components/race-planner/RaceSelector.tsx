@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Race } from "../../app/(coach)/race-planner/types";
+import type { Race } from "../../app/(planner)/race-planner/types";
 import { CreateRaceForm, type CreateRaceFormValues } from "./CreateRaceForm";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";

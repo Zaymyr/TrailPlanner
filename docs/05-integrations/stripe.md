@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-05-17
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -12,7 +12,6 @@ related_files:
   - apps/web/lib/entitlements.ts
 related_tables:
   - subscriptions
-  - coach_profiles
   - user_profiles
 ---
 
@@ -20,7 +19,7 @@ related_tables:
 
 ## Purpose
 
-This document describes the web billing flow backed by Stripe. Stripe is used for web subscriptions and coach-tier billing metadata.
+This document describes the web billing flow backed by Stripe. Stripe is used for web subscriptions that feed the shared entitlement model.
 
 ## Key Concepts
 
@@ -28,7 +27,7 @@ This document describes the web billing flow backed by Stripe. Stripe is used fo
 - Billing portal: Stripe-hosted customer management.
 - Webhook: Stripe event handler that updates Supabase.
 - Price id: active Stripe price configured by environment.
-- Plan name: optional metadata used to map billing to coach tiers.
+- Plan name: optional billing metadata stored on the subscription row.
 
 ## Configuration
 
@@ -95,8 +94,6 @@ Subscription events upsert:
 - price id;
 - plan name from price or subscription metadata;
 - current period end.
-
-They also upsert `coach_profiles` and update `user_profiles` coach status when plan metadata maps to a coach tier.
 
 ## Trial vs Paid Distinction
 

@@ -43,7 +43,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Plan aid station: per-plan aid station snapshot.
 - Race aid station: catalog/private race aid station source, including water, solid, and assistance service flags.
 - Organizer membership: event-scoped access through `race_event_organizers`.
-- Entitlement source: subscription, trial, coach profile, or premium grant.
+- Entitlement source: subscription, trial, or premium grant.
 
 ## Tables
 
@@ -54,12 +54,6 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `affiliate_events` | Authenticated affiliate event tracking such as popup open or click. |
 | `affiliate_offers` | Merchant offer links attached to `products`. |
 | `app_changelog` | Published mobile app changelog entries. |
-| `coach_coachees` | Active or pending coach/coachee relationships. |
-| `coach_comments` | Coach annotations on plans, sections, or aid stations. |
-| `coach_intake_targets` | Coach-defined nutrition targets for a coachee. |
-| `coach_invites` | Email invites from coaches to prospective coachees. |
-| `coach_profiles` | Billing and tier metadata for coach accounts. |
-| `coach_tiers` | Coach plan limits and entitlement capabilities. |
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |
 | `plan_share_links` | Public crew recap snapshots and limited crew tracking state for saved plans, looked up by hashed share token. |
@@ -78,15 +72,22 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |
 | `subscriptions` | Web Stripe and mobile RevenueCat entitlement rows. |
 | `user_favorite_products` | User favorites for products. |
-| `user_profiles` | App profile, trial fields, coach flags, defaults, and body metrics. |
+| `user_profiles` | App profile, trial fields, defaults, sign-in metrics, and body metrics. |
 
 Removed legacy tables:
 
 - `traces`
 - `trace_points`
 - `aid_stations`
+- `coach_tiers`
+- `coach_profiles`
+- `coach_coachees`
+- `coach_intake_targets`
+- `coach_invites`
+- `coach_comments`
 
 `supabase/migrations/20250614120000_remove_traces.sql` disables RLS and drops trace-era objects.
+`supabase/migrations/20260618145940_remove_coach_features.sql` drops the retired coach/coachee schema, coach-specific columns on `race_plans` and `user_profiles`, and coach RLS branches.
 
 ## Major Relationships
 
@@ -104,14 +105,6 @@ erDiagram
   RACE_AID_STATIONS ||--o{ RACE_AID_STATION_PRODUCTS : offers
   RACE_PLANS ||--o{ PLAN_AID_STATIONS : has
   RACE_PLANS ||--o{ PLAN_SHARE_LINKS : shares
-  USER_PROFILES ||--o{ COACH_COACHEES : coach
-  USER_PROFILES ||--o{ COACH_COACHEES : coachee
-  USER_PROFILES ||--o{ COACH_COMMENTS : coach
-  RACE_PLANS ||--o{ COACH_COMMENTS : annotated
-  USER_PROFILES ||--o{ COACH_INTAKE_TARGETS : coach
-  USER_PROFILES ||--o{ COACH_INTAKE_TARGETS : coachee
-  USER_PROFILES ||--o| COACH_PROFILES : coach_profile
-  COACH_TIERS ||--o{ COACH_PROFILES : assigned
   USER_PROFILES ||--o{ PUSH_DEVICES : registers
   PUSH_DEVICES ||--o{ PUSH_NOTIFICATION_EVENTS : logs
   RACE_EVENTS ||--o{ RACES : groups
@@ -155,6 +148,7 @@ erDiagram
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 - Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
+- The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: premium_grants Table
 scope: database
-last_verified: 2026-05-17
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260301090000_add_premium_grants.sql

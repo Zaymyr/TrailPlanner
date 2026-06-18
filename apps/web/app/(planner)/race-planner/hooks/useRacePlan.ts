@@ -105,7 +105,6 @@ type UseRacePlanParams = {
   setUpgradeDialogOpen: (open: boolean) => void;
   setUpgradeError: (message: string | null) => void;
   setUpgradeReason: (reason: "autoFill" | "print" | "plans") => void;
-  coachCoacheeId?: string | null;
   onSessionCleared?: () => void;
 };
 
@@ -123,7 +122,6 @@ export const useRacePlan = ({
   setUpgradeDialogOpen,
   setUpgradeError,
   setUpgradeReason,
-  coachCoacheeId,
   onSessionCleared,
 }: UseRacePlanParams) => {
   const { session, isLoading: isSessionLoading } = useVerifiedSession();
@@ -142,34 +140,22 @@ export const useRacePlan = ({
   const savedElevationRef = useRef<ElevationPoint[]>([]);
   const [savedElevationGeneration, setSavedElevationGeneration] = useState(0);
   const authStatus: "idle" | "signingIn" | "signingUp" | "checking" = isSessionLoading ? "checking" : "idle";
-  const isCoach =
-    session?.role === "coach" || session?.roles?.includes("coach") || session?.role === "admin";
-  const resolvedCoachCoacheeId = coachCoacheeId?.trim() ? coachCoacheeId.trim() : null;
-  const isCoachPlanMode = Boolean(isCoach && resolvedCoachCoacheeId);
 
   const planLimitReached = useMemo(() => {
-    if (isCoachPlanMode) {
-      return false;
-    }
-
     return (
       !entitlements.isPremium &&
       Number.isFinite(entitlements.planLimit) &&
       savedPlans.length >= entitlements.planLimit
     );
-  }, [entitlements.isPremium, entitlements.planLimit, isCoachPlanMode, savedPlans.length]);
+  }, [entitlements.isPremium, entitlements.planLimit, savedPlans.length]);
 
   const canSavePlan = useMemo(() => {
-    if (isCoachPlanMode) {
-      return true;
-    }
-
     return (
       entitlements.isPremium ||
       !planLimitReached ||
       Boolean(savedPlans.find((plan) => plan.id === activePlanId))
     );
-  }, [activePlanId, entitlements.isPremium, isCoachPlanMode, planLimitReached, savedPlans]);
+  }, [activePlanId, entitlements.isPremium, planLimitReached, savedPlans]);
 
   const requestPremiumUpgrade = useCallback(
     (message?: string, reason: "autoFill" | "print" | "plans" = "plans") => {
@@ -185,16 +171,8 @@ export const useRacePlan = ({
 
   const refreshSavedPlans = useCallback(
     async (accessToken: string) => {
-      if (isCoachPlanMode && !resolvedCoachCoacheeId) {
-        setSavedPlans([]);
-        return;
-      }
-
       try {
-        const endpoint = isCoachPlanMode
-          ? `/api/coach/plans?coacheeId=${encodeURIComponent(resolvedCoachCoacheeId ?? "")}`
-          : "/api/plans";
-        const response = await fetch(endpoint, {
+        const response = await fetch("/api/plans", {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
@@ -216,7 +194,7 @@ export const useRacePlan = ({
         setAccountError(racePlannerCopy.account.errors.fetchFailed);
       }
     },
-    [isCoachPlanMode, racePlannerCopy.account.errors.fetchFailed, resolvedCoachCoacheeId]
+    [racePlannerCopy.account.errors.fetchFailed]
   );
 
   const refreshRaces = useCallback(async (accessToken: string) => {
@@ -240,7 +218,7 @@ export const useRacePlan = ({
 
   useEffect(() => {
     const accessToken = session?.accessToken ?? null;
-    const contextKey = `${accessToken ?? "anon"}:${isCoachPlanMode ? resolvedCoachCoacheeId : "self"}`;
+    const contextKey = `${accessToken ?? "anon"}:self`;
 
     if (!accessToken) {
       if (previousContextRef.current) {
@@ -268,12 +246,10 @@ export const useRacePlan = ({
       void refreshRaces(accessToken);
     }
   }, [
-    isCoachPlanMode,
     onSessionCleared,
     racePlannerCopy.account.messages.signedIn,
     refreshRaces,
     refreshSavedPlans,
-    resolvedCoachCoacheeId,
     session?.accessToken,
   ]);
 
@@ -427,8 +403,7 @@ export const useRacePlan = ({
         elevationProfile: sanitizeElevationProfile(elevationProfile),
       };
 
-      const endpoint = isCoachPlanMode ? "/api/coach/plans" : "/api/plans";
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/plans", {
         method: planIdToUpdate ? "PUT" : "POST",
         headers: {
           "Content-Type": "application/json",
@@ -439,9 +414,8 @@ export const useRacePlan = ({
             ? {
                 ...payload,
                 id: planIdToUpdate,
-                ...(isCoachPlanMode ? { coacheeId: resolvedCoachCoacheeId } : {}),
               }
-            : { ...payload, ...(isCoachPlanMode ? { coacheeId: resolvedCoachCoacheeId } : {}) }
+            : payload
         ),
       });
 
@@ -488,7 +462,6 @@ export const useRacePlan = ({
     activePlanId,
     elevationProfile,
     form,
-    isCoachPlanMode,
     parsedValues,
     planLimitReached,
     planName,
@@ -499,7 +472,6 @@ export const useRacePlan = ({
     racePlannerCopy.account.messages.savedPlan,
     racePlannerCopy.account.plans.defaultName,
     requestPremiumUpgrade,
-    resolvedCoachCoacheeId,
     savedPlans,
     session?.accessToken,
   ]);
@@ -516,14 +488,13 @@ export const useRacePlan = ({
     setDeletingPlanId(planId);
 
     try {
-      const endpoint = isCoachPlanMode ? "/api/coach/plans" : "/api/plans";
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/plans", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.accessToken}`,
         },
-        body: JSON.stringify(isCoachPlanMode ? { id: planId, coacheeId: resolvedCoachCoacheeId } : { id: planId }),
+        body: JSON.stringify({ id: planId }),
       });
 
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
@@ -543,11 +514,9 @@ export const useRacePlan = ({
       setActivePlanId((current) => (current === planId ? null : current));
     }
   }, [
-    isCoachPlanMode,
     racePlannerCopy.account.errors.deleteFailed,
     racePlannerCopy.account.errors.missingSession,
     racePlannerCopy.account.messages.deletedPlan,
-    resolvedCoachCoacheeId,
     session?.accessToken,
   ]);
 

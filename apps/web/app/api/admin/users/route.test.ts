@@ -49,7 +49,6 @@ describe("GET /api/admin/users", () => {
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([]));
 
     const response = (await GET(usersRequest())) as Response;
@@ -75,7 +74,7 @@ describe("GET /api/admin/users", () => {
       },
     });
     expect(payload.users[0]).not.toHaveProperty("email");
-    expect(mockFetch).toHaveBeenCalledTimes(9);
+    expect(mockFetch).toHaveBeenCalledTimes(8);
   });
 
   it("returns explicit Supabase Auth error details when the user list request fails", async () => {

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useOnboarding } from "../../../contexts/OnboardingContext";
 import { calculateNutrition, getInsightMessage, formatEstimatedTime, formatAveragePace } from "../../../lib/nutrition";
-import { ElevationProfileChart } from "../../(coach)/race-planner/components/ElevationProfileChart";
+import { ElevationProfileChart } from "../../(planner)/race-planner/components/ElevationProfileChart";
 import type { RacePlannerTranslations } from "../../../locales/types";
 import { trackOnboardingEvent } from "../../../lib/google-analytics";
 

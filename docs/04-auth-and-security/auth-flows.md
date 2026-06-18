@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-06-17
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -19,15 +19,13 @@ related_files:
   - apps/mobile/lib/trial.ts
 related_tables:
   - user_profiles
-  - coach_invites
-  - coach_coachees
 ---
 
 # Auth Flows
 
 ## Purpose
 
-This document explains how Pace Yourself verifies Supabase sessions and connects auth state to profile, trial, and coach invite behavior.
+This document explains how Pace Yourself verifies Supabase sessions and connects auth state to profile and trial behavior.
 
 ## Key Concepts
 
@@ -35,7 +33,6 @@ This document explains how Pace Yourself verifies Supabase sessions and connects
 - Refresh token: token used by `/api/auth/session` to refresh an invalid access token.
 - Verified session: client session state after server validation.
 - Anonymous user: Supabase user whose app metadata provider is `anonymous`.
-- Coach invite acceptance: server-side linking after session verification.
 
 ## Web Session Verification
 
@@ -47,9 +44,8 @@ The route:
 2. Validates the token through Supabase Auth `/auth/v1/user`.
 3. Attempts refresh when access token verification fails and a refresh token is present.
 4. Calls `ensureTrialStatus` for the resolved user.
-5. Accepts pending coach invites by email when a service-role config is present.
-6. Returns normalized user/session data.
-7. Sets HTTP-only auth cookies.
+5. Returns normalized user/session data.
+6. Sets HTTP-only auth cookies.
 
 After a web session is verified, `useVerifiedSession` also calls `POST /api/resend/contact` once per `userId + email` browser storage marker. That route re-validates the bearer token, skips anonymous users, and only syncs identified users into Resend Contacts.
 
@@ -87,16 +83,11 @@ Mobile social auth is platform-specific: iOS account surfaces show Sign in with 
 
 Do not use `user_metadata` for new authorization decisions.
 
-## Coach Invite Acceptance
-
-The web session route checks `coach_invites` after user verification. When a pending invite matches the user's email, the route inserts into `coach_coachees` and marks the invite accepted using service-role requests.
-
 ## Gotchas
 
 - Token storage exists in browser localStorage, but session verification is server-backed.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Trial repair runs during session verification and must stay idempotent.
-- Coach invite acceptance should remain service-side because it links users across tables.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.
 - Do not render Google sign-in on iOS builds; App Review devices should only see the Apple social login path.
 - For Apple ID-token auth, send Apple the hashed nonce challenge and Supabase the raw nonce. The Apple authorization code is not a provider access token for Supabase `signInWithIdToken`.

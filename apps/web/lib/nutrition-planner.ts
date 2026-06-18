@@ -1,4 +1,4 @@
-import type { AidStation } from "../app/(coach)/race-planner/types";
+import type { AidStation } from "../app/(planner)/race-planner/types";
 import type { FuelProduct } from "./product-types";
 
 export type NutritionItem = {

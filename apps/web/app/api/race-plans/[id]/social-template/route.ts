@@ -5,7 +5,7 @@ import { withSecurityHeaders, checkRateLimit } from "../../../../../lib/http";
 import { defaultFuelType, fuelTypeSchema } from "../../../../../lib/fuel-types";
 import { buildSocialRacePlanTemplate } from "../../../../../lib/social-race-plan-template";
 import type { FuelProduct } from "../../../../../lib/product-types";
-import type { FormValues } from "../../../../(coach)/race-planner/types";
+import type { FormValues } from "../../../../(planner)/race-planner/types";
 import {
   extractBearerToken,
   fetchSupabaseUser,
