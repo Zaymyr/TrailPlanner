@@ -101,7 +101,6 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const roleLabels = useMemo(
     () => ({
       user: t.admin.users.roles.user,
-      coach: t.admin.users.roles.coach,
       admin: t.admin.users.roles.admin,
     }),
     [t.admin.users.roles]

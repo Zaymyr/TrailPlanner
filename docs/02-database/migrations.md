@@ -5,7 +5,6 @@ last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
-  - supabase/tests/coach_rls_checks.sql
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
   - race_plans
@@ -98,24 +97,18 @@ These migrations add profile and billing support:
 
 It also adds `races.created_by` and `races.is_public`.
 
-### Coach System
+### Retired Coach System
 
-Coach migrations add:
+Historical migrations added a coach/coachee feature, including `coach_tiers`, `coach_profiles`, `coach_coachees`, `coach_intake_targets`, `coach_invites`, `coach_comments`, coach status columns on `user_profiles`, `race_plans.coach_id`, and coach access policies for `race_plans`.
 
-- `coach_tiers`
-- coach status fields on `user_profiles`
-- `coach_coachees`
-- `coach_intake_targets`
-- `coach_invites`
-- `coach_profiles`
-- `coach_comments`
-- coach access policies for `race_plans`
+`supabase/migrations/20260618145940_remove_coach_features.sql` retires that surface by:
 
-Important repair migrations:
+- dropping the `coach_*` tables and `coach_tiers`;
+- dropping coach-specific columns from `race_plans` and `user_profiles`;
+- dropping the coach `race_plans` policies;
+- removing `coach_profiles` joins from `public.get_admin_user_rows()`.
 
-- `supabase/migrations/20260220193000_require_active_coach_relationship_for_race_plans.sql`
-- `supabase/migrations/20260220210000_allow_coach_access_to_all_coachee_plans.sql`
-- `supabase/migrations/20260304130000_fix_coach_coachees_rls.sql`
+Treat older coach migrations as history only. Do not build new schema or RLS behavior on those objects unless the feature is explicitly reintroduced.
 
 ### Premium and Trials
 

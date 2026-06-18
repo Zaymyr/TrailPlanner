@@ -156,7 +156,7 @@ export const adminAnalyticsSchema = z.object({
   ),
 });
 
-export const userRoleOptions = ["user", "coach", "admin"] as const;
+export const userRoleOptions = ["user", "admin"] as const;
 export type UserRoleOption = (typeof userRoleOptions)[number];
 
 export const basePillClass = "rounded-full px-3 py-1 text-xs font-semibold";

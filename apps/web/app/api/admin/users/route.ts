@@ -77,7 +77,7 @@ const mappedUsersSchema = z.object({
   ),
 });
 
-const userRoleSchema = z.enum(["user", "coach", "admin"]);
+const userRoleSchema = z.enum(["user", "admin"]);
 
 const updateUserRoleSchema = z.object({
   id: z.string().uuid(),
@@ -148,11 +148,6 @@ const subscriptionRowSchema = z.object({
   user_id: z.string().uuid(),
   status: z.string().nullable().optional(),
   current_period_end: z.string().nullable().optional(),
-});
-
-const coachProfileRowSchema = z.object({
-  user_id: z.string().uuid(),
-  subscription_status: z.string().nullable().optional(),
 });
 
 const racePlanRowSchema = z.object({
@@ -377,7 +372,7 @@ export async function GET(request: NextRequest) {
     let profilesByUserId = new Map<string, z.infer<typeof userProfileInsightRowSchema>>();
 
     if (relationalUserIds.length > 0) {
-      const [grantsResponse, trialsResponse, subscriptionsResponse, coachProfilesResponse, plansResponse, favoritesResponse, productsResponse, profilesResponse] = await Promise.all([
+      const [grantsResponse, trialsResponse, subscriptionsResponse, plansResponse, favoritesResponse, productsResponse, profilesResponse] = await Promise.all([
         fetch(
           `${auth.supabaseService.supabaseUrl}/rest/v1/premium_grants?user_id=in.(${relationalUserIds.join(
             ","
@@ -406,18 +401,6 @@ export async function GET(request: NextRequest) {
           `${auth.supabaseService.supabaseUrl}/rest/v1/subscriptions?user_id=in.(${relationalUserIds.join(
             ","
           )})&select=user_id,status,current_period_end`,
-          {
-            headers: {
-              apikey: auth.supabaseService.supabaseServiceRoleKey,
-              Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
-            },
-            cache: "no-store",
-          }
-        ),
-        fetch(
-          `${auth.supabaseService.supabaseUrl}/rest/v1/coach_profiles?user_id=in.(${relationalUserIds.join(
-            ","
-          )})&select=user_id,subscription_status`,
           {
             headers: {
               apikey: auth.supabaseService.supabaseServiceRoleKey,
@@ -471,11 +454,10 @@ export async function GET(request: NextRequest) {
         ),
       ]);
 
-      const [grantsPayload, trialsPayload, subscriptionsPayload, coachProfilesPayload, plansPayload, favoritesPayload, productsPayload, profilesPayload] = await Promise.all([
+      const [grantsPayload, trialsPayload, subscriptionsPayload, plansPayload, favoritesPayload, productsPayload, profilesPayload] = await Promise.all([
         grantsResponse.json().catch(() => null),
         trialsResponse.json().catch(() => null),
         subscriptionsResponse.json().catch(() => null),
-        coachProfilesResponse.json().catch(() => null),
         plansResponse.json().catch(() => null),
         favoritesResponse.json().catch(() => null),
         productsResponse.json().catch(() => null),
@@ -544,25 +526,6 @@ export async function GET(request: NextRequest) {
         }
       } else {
         console.error("Unable to load subscription payload", subscriptionsPayload);
-      }
-
-      if (coachProfilesResponse.ok) {
-        const parsedCoachProfiles = z.array(coachProfileRowSchema).safeParse(coachProfilesPayload);
-
-        if (parsedCoachProfiles.success) {
-          for (const coachProfile of parsedCoachProfiles.data) {
-            if (subscriptionsByUserId.has(coachProfile.user_id)) continue;
-            if (!isSubscriptionStatusActive(coachProfile.subscription_status)) continue;
-            subscriptionsByUserId.set(coachProfile.user_id, {
-              status: coachProfile.subscription_status ?? "active",
-              currentPeriodEnd: null,
-            });
-          }
-        } else {
-          console.warn("Unable to parse coach profile payload", parsedCoachProfiles.error.flatten().fieldErrors);
-        }
-      } else {
-        console.error("Unable to load coach profile payload", coachProfilesPayload);
       }
 
       if (plansResponse.ok) {

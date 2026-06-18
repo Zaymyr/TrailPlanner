@@ -1,12 +1,12 @@
 import { z } from "zod";
 
-import type { ElevationPoint, FormValues, SectionSegment, StationSupply } from "../app/(coach)/race-planner/types";
-import { dedupeAidStations, sanitizeElevationProfile, sanitizePlannerValues } from "../app/(coach)/race-planner/utils/plan-sanitizers";
-import { estimateEffortDurationSeconds, minutesPerKm, DEFAULT_FATIGUE_LEVEL } from "../app/(coach)/race-planner/utils/pacing";
-import { buildSectionKey, getSectionSegments } from "../app/(coach)/race-planner/utils/section-segments";
-import { recomputeSectionFromSubSections } from "../app/(coach)/race-planner/utils/section-recompute";
-import { buildSegments } from "../app/(coach)/race-planner/utils/segments";
-import { getElevationSlice } from "../app/(coach)/race-planner/utils/elevation-slice";
+import type { ElevationPoint, FormValues, SectionSegment, StationSupply } from "../app/(planner)/race-planner/types";
+import { dedupeAidStations, sanitizeElevationProfile, sanitizePlannerValues } from "../app/(planner)/race-planner/utils/plan-sanitizers";
+import { estimateEffortDurationSeconds, minutesPerKm, DEFAULT_FATIGUE_LEVEL } from "../app/(planner)/race-planner/utils/pacing";
+import { buildSectionKey, getSectionSegments } from "../app/(planner)/race-planner/utils/section-segments";
+import { recomputeSectionFromSubSections } from "../app/(planner)/race-planner/utils/section-recompute";
+import { buildSegments } from "../app/(planner)/race-planner/utils/segments";
+import { getElevationSlice } from "../app/(planner)/race-planner/utils/elevation-slice";
 import type { FuelProduct } from "./product-types";
 
 const nullableMetricSchema = z.number().finite().nonnegative().nullable();

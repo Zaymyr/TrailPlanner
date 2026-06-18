@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -51,7 +51,7 @@ npm run test
 ```
 
 If the policy is complex, add a manual SQL check under `supabase/tests/`.
-Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example and `supabase/tests/coach_rls_checks.sql` as the user-relationship example.
+Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
 
 ## Do Not
 

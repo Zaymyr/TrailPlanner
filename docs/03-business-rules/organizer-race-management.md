@@ -24,7 +24,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
-  - apps/web/app/(coach)/race-planner/RacePlannerPageContent.tsx
+  - apps/web/app/(planner)/race-planner/RacePlannerPageContent.tsx
   - apps/web/components/race-planner/ActionPlan.tsx
 related_tables:
   - race_event_claims

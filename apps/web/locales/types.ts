@@ -185,7 +185,6 @@ export type RacePlannerTranslations = {
     raceInputs: {
       title: string;
       description: string;
-      coachManagedNote: string;
       courseTitle: string;
       pacingTitle: string;
       nutritionTitle: string;
@@ -524,12 +523,6 @@ export type RacePlannerTranslations = {
       empty: string;
       updatedAt: string;
       unsavedChanges: string;
-    };
-    coach: {
-      planOwnerLabel: string;
-      planOwnerHelper: string;
-      myPlans: string;
-      loadError: string;
     };
     messages: {
       accountCreated: string;
@@ -875,7 +868,6 @@ export type AdminTranslations = {
     };
     roles: {
       user: string;
-      coach: string;
       admin: string;
     };
     table: {
@@ -1315,25 +1307,6 @@ export type ProfileTranslations = {
     unsubscribeCta: string;
     checkoutError: string;
     portalError: string;
-    coachTiers: {
-      title: string;
-      description: string;
-      activeTitle: string;
-      activeDescription: string;
-      activePlanLabel: string;
-      noActivePlan: string;
-      loading: string;
-      error: string;
-      inviteCountLabel: string;
-      inviteUsageLabel: string;
-      inviteLimitLabel: string;
-      manageCoachCta: string;
-      labels: {
-        starter: string;
-        pro: string;
-        elite: string;
-      };
-    };
     unsubscribeConfirm: {
       title: string;
       description: string;
@@ -1341,16 +1314,6 @@ export type ProfileTranslations = {
       confirm: string;
       cancel: string;
     };
-  };
-  coachRelationship: {
-    title: string;
-    pending: string;
-    active: string;
-    coachNameLabel: string;
-    coachEmailLabel: string;
-    premiumNote: string;
-    unknownCoach: string;
-    unknownEmail: string;
   };
   premiumModal: {
     title: string;
@@ -1365,242 +1328,6 @@ export type ProfileTranslations = {
   };
 };
 
-export type CoachIntakeTargetsTranslations = {
-  title: string;
-  description: string;
-  helper: string;
-  authRequired: string;
-  loading: string;
-  loadError: string;
-  save: string;
-  saving: string;
-  success: string;
-  error: string;
-  fields: {
-    carbsLabel: string;
-    carbsPlaceholder: string;
-    waterLabel: string;
-    waterPlaceholder: string;
-    sodiumLabel: string;
-    sodiumPlaceholder: string;
-  };
-};
-
-export type CoachPlansTranslations = {
-  title: string;
-  description: string;
-  authRequired: string;
-  loading: string;
-  loadError: string;
-  empty: string;
-  createTitle: string;
-  listTitle: string;
-  listDescription: string;
-  updatedLabel: string;
-  fields: {
-    nameLabel: string;
-    namePlaceholder: string;
-  };
-  actions: {
-    create: string;
-    creating: string;
-    save: string;
-    saving: string;
-    delete: string;
-    deleting: string;
-  };
-  messages: {
-    created: string;
-    updated: string;
-    deleted: string;
-  };
-  errors: {
-    create: string;
-    update: string;
-    delete: string;
-  };
-};
-
-export type CoachCommentsTranslations = {
-  title: string;
-  description: string;
-  authRequired: string;
-  loading: string;
-  loadError: string;
-  empty: string;
-  fields: {
-    contextLabel: string;
-    contextPlaceholder: string;
-    bodyLabel: string;
-    bodyPlaceholder: string;
-  };
-  contextOptions: {
-    plan: string;
-    start: string;
-    finish: string;
-    aidStation: string;
-  };
-  actions: {
-    create: string;
-    creating: string;
-    save: string;
-    saving: string;
-    delete: string;
-    deleting: string;
-    edit: string;
-    cancel: string;
-  };
-  messages: {
-    created: string;
-    updated: string;
-    deleted: string;
-  };
-  errors: {
-    create: string;
-    update: string;
-    delete: string;
-  };
-  viewer: {
-    title: string;
-    updatedLabel: string;
-  };
-};
-
-export type CoachDashboardTranslations = {
-  title: string;
-  description: string;
-  authRequired: string;
-  loading: string;
-  loadError: string;
-  tier: {
-    title: string;
-    description: string;
-    planLabel: string;
-    noActivePlan: string;
-    inviteLimitLabel: string;
-    invitesUsedLabel: string;
-    seatsRemainingLabel: string;
-    loading: string;
-    error: string;
-  };
-  inviteForm: {
-    title: string;
-    description: string;
-    emailLabel: string;
-    emailPlaceholder: string;
-    submit: string;
-    submitting: string;
-    success: string;
-  };
-  invites: {
-    title: string;
-    description: string;
-    empty: string;
-    loading: string;
-    error: string;
-    columns: {
-      email: string;
-      status: string;
-      sentAt: string;
-      actions: string;
-    };
-    status: {
-      pending: string;
-      accepted: string;
-      canceled: string;
-    };
-    actions: {
-      resend: string;
-      resending: string;
-      cancel: string;
-      canceling: string;
-      confirmCancel: string;
-      unavailable: string;
-    };
-  };
-  coachees: {
-    title: string;
-    description: string;
-    empty: string;
-    loading: string;
-    error: string;
-    unknownName: string;
-    columns: {
-      name: string;
-      status: string;
-      age: string;
-      added: string;
-      actions: string;
-    };
-    status: {
-      active: string;
-      pending: string;
-      disabled: string;
-    };
-    actions: {
-      reactivate: string;
-      reactivating: string;
-      unavailable: string;
-    };
-  };
-};
-
-export type CoachCoacheeDetailTranslations = {
-  title: string;
-  description: string;
-  authRequired: string;
-  loading: string;
-  loadError: string;
-  unknownName: string;
-  profile: {
-    title: string;
-    fields: {
-      name: string;
-      status: string;
-      age: string;
-      waterBag: string;
-      email: string;
-    };
-  };
-  override: {
-    title: string;
-    description: string;
-    helper: string;
-    latestLabel: string;
-    latestEmpty: string;
-    save: string;
-    saving: string;
-    success: string;
-    error: string;
-    fields: {
-      carbsLabel: string;
-      carbsPlaceholder: string;
-      waterLabel: string;
-      waterPlaceholder: string;
-      sodiumLabel: string;
-      sodiumPlaceholder: string;
-    };
-  };
-  plans: {
-    title: string;
-    description: string;
-    empty: string;
-    loading: string;
-    loadError: string;
-    updatedLabel: string;
-    openPlanner: string;
-  };
-  actions: {
-    title: string;
-    description: string;
-    remove: string;
-    removing: string;
-    confirm: string;
-    success: string;
-    error: string;
-  };
-};
-
 export type Translations = {
   homeHero: HomeHeroTranslations;
   mobileAppPrompt: MobileAppPromptTranslations;
@@ -1612,7 +1339,6 @@ export type Translations = {
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
     racePlanner: string;
-    coach: string;
     blog: string;
     settings: string;
     admin: string;
@@ -1623,11 +1349,6 @@ export type Translations = {
   admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;
   profile: ProfileTranslations;
-  coachIntakeTargets: CoachIntakeTargetsTranslations;
-  coachPlans: CoachPlansTranslations;
-  coachComments: CoachCommentsTranslations;
-  coachDashboard: CoachDashboardTranslations;
-  coachCoacheeDetail: CoachCoacheeDetailTranslations;
 };
 
 export type ProductSettingsTranslations = {

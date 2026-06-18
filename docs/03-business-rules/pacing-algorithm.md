@@ -4,8 +4,8 @@ scope: business-rule
 last_verified: 2026-06-18
 ai_priority: high
 related_files:
-  - apps/web/app/(coach)/race-planner/utils/segments.ts
-  - apps/web/app/(coach)/race-planner/utils/pacing.ts
+  - apps/web/app/(planner)/race-planner/utils/segments.ts
+  - apps/web/app/(planner)/race-planner/utils/pacing.ts
   - packages/fuel-planner/computeFuelPlan.ts
   - packages/shared/src/index.ts
   - apps/web/lib/nutrition.ts
@@ -17,7 +17,7 @@ related_tables:
 
 ## Purpose
 
-This document records how Pace Yourself estimates segment timing and converts pacing into nutrition planning inputs. The main implementation is in the race-planner utilities under `apps/web/app/(coach)/race-planner/utils`.
+This document records how Pace Yourself estimates segment timing and converts pacing into nutrition planning inputs. The main implementation is in the race-planner utilities under `apps/web/app/(planner)/race-planner/utils`.
 
 ## Key Concepts
 
@@ -29,7 +29,7 @@ This document records how Pace Yourself estimates segment timing and converts pa
 
 ## Web Segment Computation
 
-`apps/web/app/(coach)/race-planner/utils/segments.ts` builds a checkpoint list:
+`apps/web/app/(planner)/race-planner/utils/segments.ts` builds a checkpoint list:
 
 1. Start.
 2. Aid stations before the race distance.

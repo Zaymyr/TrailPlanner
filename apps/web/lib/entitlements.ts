@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { fetchCoachTierById, fetchCoachTierByName, type CoachTierRow } from "./coach-tiers";
 import { getSupabaseServiceConfig } from "./supabase";
 import { isTrialActive } from "./trial";
 
@@ -17,13 +16,6 @@ type SubscriptionRow = {
 type TrialRow = {
   trial_ends_at: string | null;
   trial_expired_seen_at: string | null;
-  is_coach?: boolean | null;
-  coach_plan_name?: string | null;
-};
-
-type CoachProfileRow = {
-  coach_tier_id: string | null;
-  subscription_status: string | null;
 };
 
 export type UserEntitlements = {
@@ -62,15 +54,6 @@ const trialRowSchema = z.array(
   z.object({
     trial_ends_at: z.string().nullable().optional(),
     trial_expired_seen_at: z.string().nullable().optional(),
-    is_coach: z.boolean().nullable().optional(),
-    coach_plan_name: z.string().nullable().optional(),
-  })
-);
-
-const coachProfileSchema = z.array(
-  z.object({
-    coach_tier_id: z.string().nullable().optional(),
-    subscription_status: z.string().nullable().optional(),
   })
 );
 
@@ -118,19 +101,6 @@ const getPremiumEntitlements = (): UserEntitlements => ({
   customProductLimit: Number.POSITIVE_INFINITY,
   allowExport: true,
   allowAutoFill: true,
-  trialEndsAt: null,
-  trialExpiredSeenAt: null,
-  subscriptionStatus: null,
-  premiumGrant: null,
-});
-
-const getCoachTierEntitlements = (tier: CoachTierRow): UserEntitlements => ({
-  isPremium: tier.is_premium ?? true,
-  planLimit: tier.plan_limit ?? Number.POSITIVE_INFINITY,
-  favoriteLimit: tier.favorite_limit ?? Number.POSITIVE_INFINITY,
-  customProductLimit: Number.POSITIVE_INFINITY,
-  allowExport: tier.allow_export ?? true,
-  allowAutoFill: tier.allow_auto_fill ?? true,
   trialEndsAt: null,
   trialExpiredSeenAt: null,
   subscriptionStatus: null,
@@ -210,25 +180,11 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     ] as SubscriptionRow | undefined;
 
     const subscriptionActive = isSubscriptionActive(subscriptionRow ?? null);
-    const subscriptionPlanName = subscriptionRow?.plan_name ?? null;
-
-    const [trialResponse, coachProfileResponse, premiumGrantResponse] = await Promise.all([
+    const [trialResponse, premiumGrantResponse] = await Promise.all([
       fetch(
         `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(
           userId
-        )}&select=trial_ends_at,trial_expired_seen_at,is_coach,coach_plan_name&limit=1`,
-        {
-          headers: {
-            apikey: serviceConfig.supabaseServiceRoleKey,
-            Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
-          },
-          cache: "no-store",
-        }
-      ),
-      fetch(
-        `${serviceConfig.supabaseUrl}/rest/v1/coach_profiles?user_id=eq.${encodeURIComponent(
-          userId
-        )}&select=coach_tier_id,subscription_status&limit=1`,
+        )}&select=trial_ends_at,trial_expired_seen_at&limit=1`,
         {
           headers: {
             apikey: serviceConfig.supabaseServiceRoleKey,
@@ -256,14 +212,7 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
       return subscriptionActive ? getPremiumEntitlements() : getDefaultEntitlements();
     }
 
-    if (!coachProfileResponse.ok) {
-      console.error("Unable to load coach profile for entitlements", await coachProfileResponse.text());
-    }
-
     const trialRow = trialRowSchema.parse(await trialResponse.json())?.[0] as TrialRow | undefined;
-    const coachProfileRow = coachProfileResponse.ok
-      ? (coachProfileSchema.parse(await coachProfileResponse.json())?.[0] as CoachProfileRow | undefined)
-      : undefined;
     const premiumGrantRows = premiumGrantResponse.ok
       ? premiumGrantRowSchema.parse(await premiumGrantResponse.json())
       : [];
@@ -274,48 +223,9 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
     const trialActive = isTrialActive(trialRow?.trial_ends_at ?? null);
     const trialEndsAt = trialRow?.trial_ends_at ?? null;
     const trialExpiredSeenAt = trialRow?.trial_expired_seen_at ?? null;
-    const coachProfileStatus = coachProfileRow?.subscription_status ?? null;
-    const subscriptionStatus = coachProfileStatus ?? subscriptionRow?.status ?? null;
-    const isCoach = Boolean(trialRow?.is_coach);
-    const coachPlanName = isCoach ? trialRow?.coach_plan_name ?? null : null;
-    const normalizedCoachStatus = coachProfileStatus?.toLowerCase() ?? null;
-    const coachProfileEligible = normalizedCoachStatus === "active" || normalizedCoachStatus === "trialing";
-    const coachProfileTierId = coachProfileEligible ? coachProfileRow?.coach_tier_id ?? null : null;
-
-    let entitlements: UserEntitlements | null = null;
-
-    if (coachProfileTierId) {
-      const coachTier = await fetchCoachTierById(coachProfileTierId);
-      if (coachTier) {
-        entitlements = getCoachTierEntitlements(coachTier);
-      }
-    }
-
-    if (!entitlements && !isCoach && subscriptionActive && subscriptionPlanName) {
-      const coachTier = await fetchCoachTierByName(subscriptionPlanName);
-      if (coachTier) {
-        entitlements = getCoachTierEntitlements(coachTier);
-      }
-    }
-
-    if (!entitlements && coachPlanName) {
-      const coachTier = await fetchCoachTierByName(coachPlanName);
-      if (coachTier) {
-        entitlements = getCoachTierEntitlements(coachTier);
-      }
-    }
-
-    if (!entitlements && isCoach) {
-      entitlements = getPremiumEntitlements();
-    }
-
-    if (!entitlements && !subscriptionActive && !trialActive) {
-      entitlements = getDefaultEntitlements();
-    }
-
-    if (!entitlements) {
-      entitlements = getPremiumEntitlements();
-    }
+    const subscriptionStatus = subscriptionRow?.status ?? null;
+    const entitlements =
+      subscriptionActive || trialActive ? getPremiumEntitlements() : getDefaultEntitlements();
 
     let normalized = withTrialInfo(entitlements, trialEndsAt, trialExpiredSeenAt, subscriptionStatus);
 

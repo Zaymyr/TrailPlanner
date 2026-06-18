@@ -5,9 +5,9 @@ import type {
   SectionSegment,
   Segment,
   StationSupply,
-} from "../../app/(coach)/race-planner/types";
-import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
-import { recomputeSectionFromSubSections } from "../../app/(coach)/race-planner/utils/section-recompute";
+} from "../../app/(planner)/race-planner/types";
+import { buildSectionKey } from "../../app/(planner)/race-planner/utils/section-segments";
+import { recomputeSectionFromSubSections } from "../../app/(planner)/race-planner/utils/section-recompute";
 import type { FuelProduct } from "../../lib/product-types";
 import { buildCarryoverCoverageByItemId } from "./carryoverNutrition";
 

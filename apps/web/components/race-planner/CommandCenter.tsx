@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { UseFormRegister } from "react-hook-form";
 
 import type { RacePlannerTranslations } from "../../locales/types";
-import type { FormValues } from "../../app/(coach)/race-planner/types";
-import { estimateEffortDurationMinutes } from "../../app/(coach)/race-planner/utils/pacing";
+import type { FormValues } from "../../app/(planner)/race-planner/types";
+import { estimateEffortDurationMinutes } from "../../app/(planner)/race-planner/utils/pacing";
 import { Card, CardContent, CardHeader } from "../ui/card";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -23,7 +23,6 @@ type CommandCenterProps = {
     speedKph: number;
     fatigueLevel: number;
   };
-  coachManaged?: boolean;
   register: UseFormRegister<FormValues>;
   onPaceChange: (minutes: number, seconds: number) => void;
   onSpeedChange: (speedKph: number) => void;
@@ -51,7 +50,6 @@ export function CommandCenter({
   sections = ["pacing", "intake"],
   headingLevel = "h2",
   pacing,
-  coachManaged = false,
   register,
   onPaceChange,
   onSpeedChange,
@@ -287,11 +285,6 @@ export function CommandCenter({
                 {copy.sections.raceInputs.nutritionTitle}
               </HeadingTag>
               <p className="text-xs text-foreground dark:text-slate-400">{copy.sections.raceInputs.description}</p>
-              {coachManaged ? (
-                <p className="text-xs text-amber-700 dark:text-amber-200">
-                  {copy.sections.raceInputs.coachManagedNote}
-                </p>
-              ) : null}
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1">
@@ -306,8 +299,6 @@ export function CommandCenter({
                 type="number"
                 step="1"
                 className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
-                readOnly={coachManaged}
-                aria-readonly={coachManaged}
                 {...register("targetIntakePerHour", { valueAsNumber: true })}
               />
             </div>
@@ -324,8 +315,6 @@ export function CommandCenter({
                 step="50"
                 min="0"
                 className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
-                readOnly={coachManaged}
-                aria-readonly={coachManaged}
                 {...register("waterIntakePerHour", { valueAsNumber: true })}
               />
             </div>
@@ -342,8 +331,6 @@ export function CommandCenter({
                 step="50"
                 min="0"
                 className="h-11 border-border bg-background text-base font-semibold text-foreground focus-visible:ring-ring dark:bg-slate-900 dark:text-slate-50"
-                readOnly={coachManaged}
-                aria-readonly={coachManaged}
                 {...register("sodiumIntakePerHour", { valueAsNumber: true })}
               />
             </div>

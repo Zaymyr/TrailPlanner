@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-06-09
+last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql
   - supabase/migrations/20260609091933_add_plan_share_links.sql
+  - supabase/migrations/20260618145940_remove_coach_features.sql
   - supabase/migrations/20250624103000_add_user_profiles.sql
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -80,7 +81,7 @@ The design is:
 2. A saved plan stores a race link plus plan-specific aid station snapshots.
 3. Plan share links store public crew recap snapshots for a saved plan.
 4. Deleting a race detaches plans by setting `race_plans.race_id = null`, rather than deleting user plans.
-5. Deleting a saved plan deletes attached plan aid stations, coach comments, push reminder rows, and share links.
+5. Deleting a saved plan deletes attached plan aid stations, push reminder rows, and share links.
 
 ## Product Relationships
 
@@ -95,23 +96,6 @@ User-created products can remain if the user is deleted because `created_by` is 
 
 Organizer-created products are also user-created products, but they are usually non-live rows linked to source aid stations through `race_aid_station_products`.
 
-## Coach Relationships
-
-Coach relationships are centered on `user_profiles`:
-
-- `coach_coachees.coach_id -> user_profiles(user_id)`
-- `coach_coachees.coachee_id -> user_profiles(user_id)`
-- `coach_intake_targets.coach_id -> user_profiles(user_id)`
-- `coach_intake_targets.coachee_id -> user_profiles(user_id)`
-- `coach_comments.coach_id -> user_profiles(user_id)`
-- `coach_comments.coachee_id -> user_profiles(user_id)`
-- `coach_comments.plan_id -> race_plans(id)`
-- `coach_profiles.user_id -> user_profiles(user_id)`
-- `coach_profiles.coach_tier_id -> coach_tiers(id)`
-- `user_profiles.coach_tier_id -> coach_tiers(id)`
-
-RLS checks require an active coach relationship for coachee plan access.
-
 ## Subscription Relationships
 
 `subscriptions` is keyed by `user_id`. It stores both:
@@ -119,7 +103,7 @@ RLS checks require an active coach relationship for coachee plan access.
 - web Stripe rows with provider `web`;
 - mobile RevenueCat rows with provider `google` or `apple`.
 
-`coach_profiles` also stores Stripe customer/subscription IDs for coach-tier plans. Stripe webhooks update both `subscriptions` and `coach_profiles`.
+Stripe and RevenueCat entitlement checks read the unified `subscriptions` row for the user.
 
 ## Race Events Relationship
 
@@ -151,7 +135,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 
 - Do not restore `race_catalog` names from archived docs. Current code uses `races`.
 - Deleting a race should preserve saved plans. Use `race_id = null`, not cascade deletion.
-- Coach access must be relationship-based, not just `coach_id` field matching.
+- The legacy coach/coachee relationship schema was removed by `20260618145940_remove_coach_features.sql`; do not build new relationships on the historical `coach_*` tables.
 - `plan_aid_stations.race_aid_station_id` is referenced by `GpxAidStationImporter`, but no visible migration creates it.
 - Do not cascade-delete public races when revoking organizer access; set `race_event_organizers.revoked_at`.
 - Organizer station products are source-race suggestions and are not copied into `plan_aid_stations`.

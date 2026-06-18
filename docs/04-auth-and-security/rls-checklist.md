@@ -5,7 +5,6 @@ last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
-  - supabase/tests/coach_rls_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
@@ -78,7 +77,6 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 
 Use:
 
-- `supabase/tests/coach_rls_checks.sql` as a pattern for manual RLS context checks;
 - `supabase/tests/organizer_rls_checks.sql` for event-membership and organizer station-product checks;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
@@ -87,7 +85,6 @@ Use:
 
 - Service role bypasses RLS, so passing a service-route test does not prove client RLS works.
 - `anon` grants are intentional for anonymous Supabase users only when policies still bind to `auth.uid()`.
-- Coach policies must require an active coach relationship.
 - Archived schema docs may show stale policy names.
 - Avoid overloading owner columns for presentation metadata. For example, `products.is_official` is the official/shared catalog flag; `products.created_by` remains ownership only.
 - Data-only official product imports that only upsert `products` rows can reuse existing product RLS policies; changing grants, views, functions, or ownership semantics requires the full checklist.

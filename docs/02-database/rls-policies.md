@@ -5,7 +5,6 @@ last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
-  - supabase/tests/coach_rls_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
@@ -72,13 +71,12 @@ Do not add new policies that rely on:
 
 ### `race_plans`
 
-Declared in `20241215010000_create_race_plans.sql` and coach migrations.
+Declared in `20241215010000_create_race_plans.sql`; legacy coach policy branches were removed by `20260618145940_remove_coach_features.sql`.
 
 - Users can select own rows where `auth.uid() = user_id`.
 - Users can insert own rows.
 - Users can update own rows.
 - Users can delete own rows.
-- Coaches can select, insert, update, and delete coachee rows when an active `coach_coachees` relationship exists.
 - Anonymous authenticated Supabase users are allowed through `auth.uid()` after `20260326000000_allow_anon_race_plans.sql` grants table privileges to `anon`.
 
 ### `plan_aid_stations`
@@ -194,17 +192,6 @@ Declared in `20260301090000_add_premium_grants.sql`.
 
 <!-- CONFLICT: the manage policy includes app_metadata, user_profiles.role, user_metadata, and top-level role checks. New policies should not use user_metadata. -->
 
-### Coach Tables
-
-- `coach_tiers`: authenticated users can read.
-- `coach_profiles`: service role manages; user reads own profile.
-- `coach_coachees`: coaches and coachees can read relationships; service role inserts after repair migration.
-- `coach_invites`: coaches read/write own invites; invited users can read by email claim or invitee id.
-- `coach_intake_targets`: coach and coachee read; coach writes for active relationship.
-- `coach_comments`: coaches manage comments for coachee plans; coachees read comments on their plans.
-
-Manual coach checks live in `supabase/tests/coach_rls_checks.sql`.
-
 ### Push Tables
 
 Declared in `20260504120000_add_push_notifications.sql`.
@@ -221,6 +208,7 @@ Declared in `20260504120000_add_push_notifications.sql`.
 - `app_changelog`: authenticated users can view.
 - `race_requests`: authenticated users can insert and read own requests.
 - `nutrition_plans`: users can insert and view own rows.
+- Legacy coach/coachee tables and RLS policies were removed by `20260618145940_remove_coach_features.sql`.
 
 ## SECURITY DEFINER Use
 
@@ -262,7 +250,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - `auth.users` is not a normal client-readable app table. Do not query it from client routes.
 - Grants to `anon` do not bypass RLS; they allow anonymous Supabase users to reach the policy checks.
 - Service role bypasses RLS. Only server code and Supabase functions may use it.
-- Coach access is relationship-based. Do not grant coaches broad access by role alone.
+- The coach/coachee feature is retired; do not add broad coach-role access or restore historical coach policies without a new design.
 - For product catalog UX, do not derive "official/shared" from `created_by is null`. Ownership and catalog curation are separate concerns.
 - Data-only official product imports do not require new policies when they only set catalog metadata and live visibility on the existing `products` table.
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.

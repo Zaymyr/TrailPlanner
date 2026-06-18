@@ -2,7 +2,7 @@
 
 import type { RacePlannerTranslations } from "../../locales/types";
 import { useMemo, useState } from "react";
-import type { Race, SavedPlan } from "../../app/(coach)/race-planner/types";
+import type { Race, SavedPlan } from "../../app/(planner)/race-planner/types";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Input } from "../ui/input";

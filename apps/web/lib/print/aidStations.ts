@@ -1,5 +1,5 @@
 import type { FuelProduct } from "../product-types";
-import type { Segment } from "../../app/(coach)/race-planner/types";
+import type { Segment } from "../../app/(planner)/race-planner/types";
 
 export type PrintAidStationLineIcon = "gel" | "iso" | "water" | "salt" | "solid";
 export type PrintAidStationLine = { icon: PrintAidStationLineIcon; label: string; value: string; note?: string };

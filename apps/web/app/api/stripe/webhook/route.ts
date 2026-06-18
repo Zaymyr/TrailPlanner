@@ -89,128 +89,6 @@ const upsertSubscription = async (params: {
   });
 };
 
-const fetchCoachTierIdByName = async (planName: string): Promise<string | null> => {
-  const serviceConfig = getSupabaseServiceConfig();
-
-  if (!serviceConfig) return null;
-
-  try {
-    const response = await fetch(
-      `${serviceConfig.supabaseUrl}/rest/v1/coach_tiers?name=eq.${encodeURIComponent(
-        planName
-      )}&select=id&limit=1`,
-      {
-        headers: {
-          apikey: serviceConfig.supabaseServiceRoleKey,
-          Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
-        },
-        cache: "no-store",
-      }
-    );
-
-    if (!response.ok) {
-      console.error("Unable to fetch coach tier for subscription", await response.text());
-      return null;
-    }
-
-    const row = (await response.json().catch(() => null)) as Array<{ id: string }> | null;
-    return row?.[0]?.id ?? null;
-  } catch (error) {
-    console.error("Unexpected error while fetching coach tier", error);
-    return null;
-  }
-};
-
-const upsertCoachProfile = async (params: {
-  userId: string;
-  customerId?: string;
-  subscriptionId?: string;
-  subscriptionStatus?: string | null;
-  coachTierId?: string | null;
-}) => {
-  const serviceConfig = getSupabaseServiceConfig();
-
-  if (!serviceConfig) return;
-
-  const payload = {
-    user_id: params.userId,
-    stripe_customer_id: params.customerId,
-    stripe_subscription_id: params.subscriptionId,
-    subscription_status: params.subscriptionStatus,
-    coach_tier_id: params.coachTierId ?? null,
-  };
-
-  const onConflict = params.subscriptionId
-    ? "stripe_subscription_id"
-    : params.customerId
-      ? "stripe_customer_id"
-      : "user_id";
-
-  await fetch(`${serviceConfig.supabaseUrl}/rest/v1/coach_profiles?on_conflict=${onConflict}`, {
-    method: "POST",
-    headers: {
-      apikey: serviceConfig.supabaseServiceRoleKey,
-      Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
-      "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates",
-    },
-    body: JSON.stringify(payload),
-  }).catch((error) => {
-    console.error("Unable to upsert coach profile from webhook", error);
-  });
-};
-
-const updateCoachStatus = async (params: {
-  userId: string;
-  isActive: boolean;
-  planName?: string | null;
-  coachTierId?: string | null;
-}) => {
-  const serviceConfig = getSupabaseServiceConfig();
-
-  if (!serviceConfig) return;
-
-  const coachTierId =
-    params.isActive && params.planName
-      ? params.coachTierId ?? (await fetchCoachTierIdByName(params.planName))
-      : null;
-  const payload = params.isActive
-    ? {
-        is_coach: true,
-        coach_plan_name: params.planName ?? null,
-        coach_tier_id: coachTierId,
-      }
-    : {
-        is_coach: false,
-        coach_plan_name: null,
-        coach_tier_id: null,
-      };
-
-  await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(params.userId)}`,
-    {
-      method: "PATCH",
-      headers: {
-        apikey: serviceConfig.supabaseServiceRoleKey,
-        Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify(payload),
-    }
-  ).catch((error) => {
-    console.error("Unable to update coach status from webhook", error);
-  });
-};
-
-const isSubscriptionActive = (status: string | null, currentPeriodEnd: string | null): boolean => {
-  if (status !== "active") return false;
-  if (!currentPeriodEnd) return false;
-  const periodEnd = Date.parse(currentPeriodEnd);
-  if (Number.isNaN(periodEnd)) return false;
-  return periodEnd >= Date.now();
-};
-
 const handleSubscriptionEvent = async (payload: StripeSubscriptionEventData) => {
   const customerId = typeof payload.customer === "string" ? payload.customer : undefined;
   const subscriptionId = typeof payload.id === "string" ? payload.id : undefined;
@@ -241,8 +119,6 @@ const handleSubscriptionEvent = async (payload: StripeSubscriptionEventData) => 
     return;
   }
 
-  const coachTierId = planName ? await fetchCoachTierIdByName(planName) : null;
-
   await upsertSubscription({
     userId,
     customerId,
@@ -251,21 +127,6 @@ const handleSubscriptionEvent = async (payload: StripeSubscriptionEventData) => 
     priceId,
     planName,
     currentPeriodEnd: periodEnd,
-  });
-
-  await upsertCoachProfile({
-    userId,
-    customerId,
-    subscriptionId,
-    subscriptionStatus: status,
-    coachTierId,
-  });
-
-  await updateCoachStatus({
-    userId,
-    isActive: isSubscriptionActive(status, periodEnd),
-    planName,
-    coachTierId,
   });
 };
 
@@ -301,7 +162,6 @@ const handleCheckoutSessionCompleted = async (payload: StripeCheckoutSessionEven
     return;
   }
 
-  const coachTierId = planName ? await fetchCoachTierIdByName(planName) : null;
   const subscriptionStatus = getCheckoutSubscriptionStatus(payload);
 
   await upsertSubscription({
@@ -309,14 +169,7 @@ const handleCheckoutSessionCompleted = async (payload: StripeCheckoutSessionEven
     customerId,
     subscriptionId,
     status: subscriptionStatus,
-  });
-
-  await upsertCoachProfile({
-    userId,
-    customerId,
-    subscriptionId,
-    subscriptionStatus,
-    coachTierId,
+    planName,
   });
 };
 

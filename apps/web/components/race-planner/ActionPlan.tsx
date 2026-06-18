@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { ReactNode, SVGProps } from "react";
 import type { Path, UseFormRegister, UseFormSetValue } from "react-hook-form";
 
-import type { CoachCommentsTranslations, RacePlannerTranslations } from "../../locales/types";
+import type { RacePlannerTranslations } from "../../locales/types";
 import type {
   ElevationPoint,
   FormValues,
@@ -15,20 +15,18 @@ import type {
   Segment,
   SegmentPlan,
   StationSupply,
-} from "../../app/(coach)/race-planner/types";
+} from "../../app/(planner)/race-planner/types";
 import {
   adjustedPaceMinutesPerKm as getAdjustedPaceMinutesPerKm,
   estimateEffortDurationSeconds,
-} from "../../app/(coach)/race-planner/utils/pacing";
-import { autoSegmentSection, type SegmentPreset } from "../../app/(coach)/race-planner/utils/segmentation";
-import { buildSectionKey } from "../../app/(coach)/race-planner/utils/section-segments";
-import { getElevationSlice } from "../../app/(coach)/race-planner/utils/elevation-slice";
-import { SubSectionElevationChart } from "../../app/(coach)/race-planner/components/SubSectionElevationChart";
-import type { CoachComment } from "../../lib/coach-comments";
+} from "../../app/(planner)/race-planner/utils/pacing";
+import { autoSegmentSection, type SegmentPreset } from "../../app/(planner)/race-planner/utils/segmentation";
+import { buildSectionKey } from "../../app/(planner)/race-planner/utils/section-segments";
+import { getElevationSlice } from "../../app/(planner)/race-planner/utils/elevation-slice";
+import { SubSectionElevationChart } from "../../app/(planner)/race-planner/components/SubSectionElevationChart";
 import type { FuelProduct } from "../../lib/product-types";
 import type { StoredProductPreference } from "../../lib/product-preferences";
 import { fuelTypeValues, type FuelType } from "../../lib/fuel-types";
-import { useCoachComments } from "../../app/hooks/useCoachComments";
 import { useI18n } from "../../app/i18n-provider";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader } from "../ui/card";
@@ -41,7 +39,6 @@ import { AutoSegmentModal } from "./AutoSegmentModal";
 import { EditSubSectionModal } from "./EditSubSectionModal";
 import { FuelTypeBadge, getFuelTypeLabel } from "../products/FuelTypeBadge";
 import { isVerifiedProduct, VerifiedProductBadge } from "../products/VerifiedProductBadge";
-import { CoachCommentsBlock, CommentsPanel } from "./CoachCommentsBlock";
 import { useActionPlanDerivedData } from "./useActionPlanDerivedData";
 import {
   BoltIcon,
@@ -178,13 +175,6 @@ type ActionPlanProps = {
   premiumCopy: RacePlannerTranslations["account"]["premium"];
   onUpgrade: (reason: "autoFill" | "print") => void;
   upgradeStatus: "idle" | "opening";
-  coachCommentsCopy: CoachCommentsTranslations;
-  coachCommentsContext?: {
-    accessToken?: string;
-    planId?: string;
-    coacheeId?: string;
-    canEdit?: boolean;
-  };
 };
 
 const parseOptionalNumber = (value: string | number) => {
@@ -1171,8 +1161,6 @@ export function ActionPlan({
   premiumCopy,
   onUpgrade,
   upgradeStatus,
-  coachCommentsCopy,
-  coachCommentsContext,
 }: ActionPlanProps) {
   const { locale } = useI18n();
   const [collapsedAidStations, setCollapsedAidStations] = useState<Record<string, boolean>>({});
@@ -1696,119 +1684,6 @@ export function ActionPlan({
     normalizeSectionSegments,
     paceModel,
   });
-  const {
-    data: coachCommentsData,
-    createComment,
-    updateComment,
-    deleteComment,
-    isCreating: isCoachCommentCreating,
-    isUpdating: isCoachCommentUpdating,
-    isDeleting: isCoachCommentDeleting,
-    createError: coachCommentCreateError,
-    updateError: coachCommentUpdateError,
-    deleteError: coachCommentDeleteError,
-  } = useCoachComments({
-    accessToken: coachCommentsContext?.accessToken,
-    planId: coachCommentsContext?.planId,
-  });
-  const coachComments = useMemo(() => coachCommentsData ?? [], [coachCommentsData]);
-  const coachCommentCreateErrorSafe = coachCommentCreateError instanceof Error ? coachCommentCreateError : null;
-  const coachCommentUpdateErrorSafe = coachCommentUpdateError instanceof Error ? coachCommentUpdateError : null;
-  const coachCommentDeleteErrorSafe = coachCommentDeleteError instanceof Error ? coachCommentDeleteError : null;
-  const commentsByContext = useMemo(() => {
-    const map = new Map<string, CoachComment[]>();
-    coachComments.forEach((comment) => {
-      const key = comment.targetType === "plan" ? "plan" : comment.targetId;
-      if (!key) return;
-      const existing = map.get(key) ?? [];
-      map.set(key, [...existing, comment]);
-    });
-    return map;
-  }, [coachComments]);
-  const planComments = commentsByContext.get("plan") ?? [];
-  const commentContextOptions = useMemo(() => {
-    const baseOptions = [
-      {
-        targetType: "plan" as const,
-        targetId: "plan",
-        label: coachCommentsCopy.contextOptions.plan,
-      },
-      {
-        targetType: "section" as const,
-        targetId: "start",
-        label: coachCommentsCopy.contextOptions.start,
-      },
-      {
-        targetType: "section" as const,
-        targetId: "finish",
-        label: coachCommentsCopy.contextOptions.finish,
-      },
-    ];
-    const aidStationOptions = new Map<number, { targetType: "aid-station"; targetId: string; label: string }>();
-    renderItems.forEach((item) => {
-      if (typeof item.aidStationIndex !== "number" || item.isFinish) return;
-      const index = item.aidStationIndex;
-      if (aidStationOptions.has(index)) return;
-      const labelBase = coachCommentsCopy.contextOptions.aidStation.replace("{index}", String(index + 1));
-      const label = item.title ? `${labelBase} · ${item.title}` : labelBase;
-      aidStationOptions.set(index, {
-        targetType: "aid-station",
-        targetId: `aid-${index}`,
-        label,
-      });
-    });
-    return [...baseOptions, ...Array.from(aidStationOptions.values())];
-  }, [
-    coachCommentsCopy.contextOptions.aidStation,
-    coachCommentsCopy.contextOptions.finish,
-    coachCommentsCopy.contextOptions.plan,
-    coachCommentsCopy.contextOptions.start,
-    renderItems,
-  ]);
-  const canEditCoachComments = Boolean(
-    coachCommentsContext?.canEdit &&
-      coachCommentsContext?.accessToken &&
-      coachCommentsContext?.planId &&
-      coachCommentsContext?.coacheeId
-  );
-  const handleCreateCoachComment = useCallback(
-    async (payload: { targetType: CoachComment["targetType"]; targetId: string; body: string }) => {
-      if (!coachCommentsContext?.coacheeId || !coachCommentsContext?.planId) return;
-      await createComment({
-        coacheeId: coachCommentsContext.coacheeId,
-        planId: coachCommentsContext.planId,
-        targetType: payload.targetType,
-        targetId: payload.targetId,
-        body: payload.body,
-      });
-    },
-    [coachCommentsContext?.coacheeId, coachCommentsContext?.planId, createComment]
-  );
-  const handleUpdateCoachComment = useCallback(
-    async (payload: { id: string; targetType: CoachComment["targetType"]; targetId: string; body: string }) => {
-      if (!coachCommentsContext?.coacheeId || !coachCommentsContext?.planId) return;
-      await updateComment({
-        id: payload.id,
-        coacheeId: coachCommentsContext.coacheeId,
-        planId: coachCommentsContext.planId,
-        targetType: payload.targetType,
-        targetId: payload.targetId,
-        body: payload.body,
-      });
-    },
-    [coachCommentsContext?.coacheeId, coachCommentsContext?.planId, updateComment]
-  );
-  const handleDeleteCoachComment = useCallback(
-    async (commentId: string) => {
-      if (!coachCommentsContext?.coacheeId || !coachCommentsContext?.planId) return;
-      await deleteComment({
-        id: commentId,
-        coacheeId: coachCommentsContext.coacheeId,
-        planId: coachCommentsContext.planId,
-      });
-    },
-    [coachCommentsContext?.coacheeId, coachCommentsContext?.planId, deleteComment]
-  );
   const metricIcons = {
     carbs: (
       <Image
@@ -2105,25 +1980,6 @@ export function ActionPlan({
         ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
-        {canEditCoachComments ? (
-          <CommentsPanel
-            comments={coachComments}
-            copy={coachCommentsCopy}
-            contextOptions={commentContextOptions}
-            onCreate={handleCreateCoachComment}
-            onUpdate={handleUpdateCoachComment}
-            onDelete={handleDeleteCoachComment}
-            isCreating={isCoachCommentCreating}
-            isUpdating={isCoachCommentUpdating}
-            isDeleting={isCoachCommentDeleting}
-            createError={coachCommentCreateErrorSafe}
-            updateError={coachCommentUpdateErrorSafe}
-            deleteError={coachCommentDeleteErrorSafe}
-          />
-        ) : null}
-        {planComments.length > 0 ? (
-          <CoachCommentsBlock comments={planComments} copy={coachCommentsCopy} />
-        ) : null}
         {segments.length > 0 ? (
           <div className="relative space-y-8">
             {(() => {
@@ -2193,14 +2049,6 @@ export function ActionPlan({
                 const assistanceLabel = assistanceAvailable
                   ? locale === "fr" ? "Assistance" : "Crew access"
                   : locale === "fr" ? "Sans assistance" : "No crew access";
-                const commentContextKey = item.isStart
-                  ? "start"
-                  : item.isFinish
-                    ? "finish"
-                    : typeof item.aidStationIndex === "number"
-                      ? `aid-${item.aidStationIndex}`
-                      : "plan";
-                const contextComments = commentsByContext.get(commentContextKey) ?? [];
                 const aidStationBadge = item.isStart ? (
                   <AidStationBadge step={pointNumber} variant="start" />
                 ) : isAidStation ? (
@@ -3008,11 +2856,6 @@ export function ActionPlan({
                         isExpanded={isFinishDetailsOpen}
                         onToggleDetails={() => setIsFinishDetailsOpen((prev) => !prev)}
                       />
-                      {contextComments.length > 0 ? (
-                        <div className="mt-3">
-                          <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
-                        </div>
-                      ) : null}
                     </div>
                   );
                 }
@@ -3066,11 +2909,6 @@ export function ActionPlan({
                           </div>
                         }
                       />
-                      {contextComments.length > 0 ? (
-                        <div className="mt-3">
-                          <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
-                        </div>
-                      ) : null}
                     </div>
                   );
                 }
@@ -3116,13 +2954,8 @@ export function ActionPlan({
                         }
                       />
                       {organizerSuggestionsBlock}
-                      {contextComments.length > 0 ? (
-                        <div className="mt-3">
-                          <CoachCommentsBlock comments={contextComments} copy={coachCommentsCopy} />
-                        </div>
-                      ) : null}
                       {sectionBlock ? (
-                        <div className={`relative ${contextComments.length > 0 ? "mt-3" : "-mt-px"}`}>
+                        <div className="relative -mt-px">
                           {sectionBlock}
                         </div>
                       ) : null}

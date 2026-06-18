@@ -1,5 +1,5 @@
 import type { FuelProduct } from "../../lib/product-types";
-import type { Segment, StationSupply } from "../../app/(coach)/race-planner/types";
+import type { Segment, StationSupply } from "../../app/(planner)/race-planner/types";
 
 export type CarryoverBalance = {
   carbs: number;

@@ -95,7 +95,7 @@ The client session entry point is `apps/web/app/hooks/useVerifiedSession.tsx`. I
 - triggers the authenticated Resend contact sync for identified, non-anonymous sessions;
 - clears planner local storage on sign-out.
 
-The session API route validates Supabase users through `apps/web/lib/supabase.ts`, calls `ensureTrialStatus`, accepts pending coach invites, and sets HTTP-only cookies through auth cookie helpers.
+The session API route validates Supabase users through `apps/web/lib/supabase.ts`, calls `ensureTrialStatus`, and sets HTTP-only cookies through auth cookie helpers.
 
 ### Planner API
 
@@ -140,7 +140,7 @@ Stripe routes live under `apps/web/app/api/stripe`:
 - `checkout/route.ts`: creates subscription checkout sessions.
 - `portal/route.ts`: creates billing portal sessions.
 - `price/route.ts`: fetches the configured Stripe price and caches it for 5 minutes.
-- `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`, `coach_profiles`, and coach status.
+- `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`.
 
 RevenueCat routes live under `apps/web/app/api/revenuecat`. They synchronize mobile purchases into the same `subscriptions` table with provider `google` or `apple`.
 

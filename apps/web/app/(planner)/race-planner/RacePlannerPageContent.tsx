@@ -10,8 +10,6 @@ import { Label } from "../../../components/ui/label";
 import { Button } from "../../../components/ui/button";
 import { useI18n } from "../../i18n-provider";
 import { useProductSelection } from "../../hooks/useProductSelection";
-import { useCoachIntakeTargets } from "../../hooks/useCoachIntakeTargets";
-import { useEffectiveIntakeTargets } from "../../hooks/useEffectiveIntakeTargets";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, OrganizerAidStationProductSuggestion, StationSupply } from "./types";
@@ -322,7 +320,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const searchParams = useSearchParams();
   const printLayout = searchParams?.get("printLayout");
   const usePrintLayoutV2 = printLayout !== "classic";
-  const [selectedCoacheeId, setSelectedCoacheeId] = useState<string | null>(null);
   const queryPlanIdRef = useRef<string | null>(null);
   const queryCatalogRaceIdRef = useRef<string | null>(null);
   const initializedQueryRef = useRef(false);
@@ -438,13 +435,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   useEffect(() => {
     if (initializedQueryRef.current) return;
 
-    const coacheeIdParam = searchParams?.get("coacheeId");
     const planIdParam = searchParams?.get("planId");
     const catalogRaceIdParam = searchParams?.get("catalogRaceId");
-
-    if (coacheeIdParam) {
-      setSelectedCoacheeId(coacheeIdParam);
-    }
 
     if (planIdParam) {
       queryPlanIdRef.current = planIdParam;
@@ -571,21 +563,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     setUpgradeDialogOpen,
     setUpgradeError,
     setUpgradeReason,
-    coachCoacheeId: selectedCoacheeId,
     onSessionCleared: () => {
       setUpgradeError(null);
     },
   });
   const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
-  const isCoach = Boolean(isAdmin || session?.role === "coach" || session?.roles?.includes("coach"));
   const isAuthed = Boolean(session?.accessToken);
-  const { targets: coachTargets } = useCoachIntakeTargets(session?.accessToken);
-  const { effectiveTargets, isCoachManaged } = useEffectiveIntakeTargets(baseIntakeTargets, coachTargets);
-  const canEditCoachComments = Boolean(
-    isAdmin || session?.role === "coach" || session?.roles?.includes("coach")
-  );
-  const coachCommentsCoacheeId = isCoach && selectedCoacheeId ? selectedCoacheeId : session?.id;
 
   useEffect(() => {
     if (!queryPlanIdRef.current) return;
@@ -869,25 +853,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     replaceSelection,
     session?.accessToken,
   ]);
-
-  useEffect(() => {
-    if (!isCoachManaged) {
-      return;
-    }
-
-    const currentValues = form.getValues();
-
-    if (currentValues.targetIntakePerHour !== effectiveTargets.carbsPerHour) {
-      form.setValue("targetIntakePerHour", effectiveTargets.carbsPerHour);
-    }
-    if (currentValues.waterIntakePerHour !== effectiveTargets.waterMlPerHour) {
-      form.setValue("waterIntakePerHour", effectiveTargets.waterMlPerHour);
-    }
-    if (currentValues.sodiumIntakePerHour !== effectiveTargets.sodiumMgPerHour) {
-      form.setValue("sodiumIntakePerHour", effectiveTargets.sodiumMgPerHour);
-    }
-  }, [effectiveTargets, form, isCoachManaged]);
-
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -1817,7 +1782,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 speedKph: speedKphValue,
                 fatigueLevel: fatigueLevelValue,
               }}
-              coachManaged={isCoachManaged}
               register={register}
               onPaceChange={handlePaceUpdate}
               onSpeedChange={handleSpeedUpdate}
@@ -1875,13 +1839,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       premiumCopy={premiumCopy}
       onUpgrade={handlePremiumFeature}
       upgradeStatus={upgradeStatus}
-      coachCommentsCopy={t.coachComments}
-      coachCommentsContext={{
-        accessToken: session?.accessToken,
-        planId: activePlanId ?? undefined,
-        coacheeId: coachCommentsCoacheeId,
-        canEdit: canEditCoachComments,
-      }}
     />
   );
 
@@ -2053,7 +2010,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           mobileView={mobileView}
           onMobileViewChange={setMobileView}
           planLabel={racePlannerCopy.sections.summary.title}
-          settingsLabel={racePlannerCopy.account.coach.myPlans}
+          settingsLabel={racePlannerCopy.account.plans.title}
           isSettingsCollapsed={isSettingsCollapsed}
           onSettingsToggle={() => setIsSettingsCollapsed((collapsed) => !collapsed)}
           settingsCount={visibleSavedPlans.length}
