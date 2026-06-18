@@ -21,7 +21,8 @@ export function sanitizeSegmentPlan(plan?: unknown): SegmentPlan {
           const productId = typeof supply?.productId === "string" ? supply.productId : null;
           const quantity = toNonNegativeNumber(supply?.quantity);
           if (!productId || quantity === undefined) return null;
-          return { productId, quantity };
+          const source = supply.source === "organizer" || supply.source === "runner" ? supply.source : undefined;
+          return { productId, quantity, ...(source ? { source } : {}) };
         })
         .filter((supply): supply is StationSupply => Boolean(supply))
     : [];
@@ -107,7 +108,7 @@ export function sanitizeAidStations(
     solidRefill?: boolean;
     assistanceAllowed?: boolean;
     pauseMinutes?: number;
-    supplies?: Array<{ productId?: string; quantity?: number }>;
+    supplies?: Array<{ productId?: string; quantity?: number; source?: "runner" | "organizer" }>;
   }[]
 ): AidStation[] {
   if (!stations?.length) return [];
@@ -118,6 +119,10 @@ export function sanitizeAidStations(
     if (typeof station?.name !== "string" || typeof station?.distanceKm !== "number") return;
 
     const plan = sanitizeSegmentPlan(station);
+    const supplies =
+      station.assistanceAllowed === false
+        ? plan.supplies?.filter((supply) => supply.source === "organizer")
+        : plan.supplies;
 
     sanitized.push({
       name: station.name,
@@ -126,7 +131,8 @@ export function sanitizeAidStations(
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.assistanceAllowed !== false,
       ...plan,
-      ...(station.assistanceAllowed === false ? { supplies: [] } : {}),
+      ...(supplies?.length ? { supplies } : {}),
+      ...(station.assistanceAllowed === false && !supplies?.length ? { supplies: [] } : {}),
     });
   });
 

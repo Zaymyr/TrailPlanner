@@ -160,7 +160,10 @@ export function buildSegments(
       elevationGainM: Math.round(elevationDelta.gain),
       elevationLossM: Math.round(elevationDelta.loss),
       pickupGels: station.pickupGels,
-      supplies: station.assistanceAllowed === false ? [] : station.supplies,
+      supplies:
+        station.assistanceAllowed === false
+          ? station.supplies?.filter((supply) => supply.source === "organizer")
+          : station.supplies,
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.kind === "start" ? true : station.assistanceAllowed !== false,

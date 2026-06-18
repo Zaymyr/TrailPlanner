@@ -167,12 +167,13 @@ const createSegmentPlanSchema = (validation: RacePlannerTranslations["validation
     pickupGels: z.coerce.number().nonnegative({ message: validation.nonNegative }).optional(),
     supplies: z
       .array(
-        z.object({
-          productId: z.string().min(1),
-          quantity: z.coerce.number().positive({ message: validation.nonNegative }),
-        })
-      )
-      .optional(),
+      z.object({
+        productId: z.string().min(1),
+        quantity: z.coerce.number().positive({ message: validation.nonNegative }),
+        source: z.enum(["runner", "organizer"]).optional(),
+      })
+    )
+    .optional(),
   });
 
 const createSectionSegmentSchema = (validation: RacePlannerTranslations["validation"]) =>
@@ -1392,16 +1393,24 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   );
 
   const handleSupplyDrop = useCallback(
-    (aidStationIndex: number, productId: string, quantity = 1) => {
-      if (form.getValues(`aidStations.${aidStationIndex}.assistanceAllowed`) === false) return;
+    (aidStationIndex: number, productId: string, quantity = 1, options?: { source?: StationSupply["source"] }) => {
+      const source =
+        options?.source === "organizer" || options?.source === "runner" ? options.source : undefined;
+      if (form.getValues(`aidStations.${aidStationIndex}.assistanceAllowed`) === false && source !== "organizer") return;
       const current = form.getValues(`aidStations.${aidStationIndex}.supplies`) ?? [];
       const sanitized = sanitizeSegmentPlan({ supplies: current }).supplies ?? [];
       const existing = sanitized.find((supply) => supply.productId === productId);
       const nextSupplies: StationSupply[] = existing
         ? sanitized.map((supply) =>
-            supply.productId === productId ? { ...supply, quantity: supply.quantity + quantity } : supply
+            supply.productId === productId
+              ? {
+                  ...supply,
+                  quantity: supply.quantity + quantity,
+                  ...(source ? { source } : {}),
+                }
+              : supply
           )
-        : [...sanitized, { productId, quantity }];
+        : [...sanitized, { productId, quantity, ...(source ? { source } : {}) }];
 
       form.setValue(`aidStations.${aidStationIndex}.supplies`, nextSupplies, {
         shouldDirty: true,
@@ -1446,10 +1455,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     form.setValue("startSupplies", filtered, { shouldDirty: true, shouldValidate: true });
   }, [form]);
 
-  const handleAutomaticFill = useCallback(() => {
+  const handleAutomaticFill = useCallback((options?: { useOrganizerProducts?: boolean }) => {
     if (segments.length === 0) return;
+    const useOrganizerProducts = options?.useOrganizerProducts === true;
+    const currentValues = form.getValues();
+    const aidStations = currentValues.aidStations ?? [];
 
-    const productOptions = (() => {
+    const baseProductOptions = (() => {
       const mergedById = new Map(mergedFuelProducts.map((product) => [product.id, product]));
 
       const favoriteMatches = selectedProducts
@@ -1462,7 +1474,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
       const favoriteIds = new Set(selectedProducts.map((product) => product.id));
       const favoriteSlugs = new Set(selectedProducts.map((product) => product.slug));
-      const currentValues = form.getValues();
       const explicitlySelectedIds = new Set<string>();
       currentValues.startSupplies?.forEach((supply) => explicitlySelectedIds.add(supply.productId));
       currentValues.aidStations?.forEach((station) => {
@@ -1477,12 +1488,51 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       });
     })();
 
-    if (productOptions.length === 0) return;
+    const organizerProductsByAidStationIndex = new Map<number, FuelProduct[]>();
+    aidStations.forEach((station, index) => {
+      const selectedOrganizerProductIds = new Set(
+        (station.supplies ?? [])
+          .filter((supply) => supply.source === "organizer")
+          .map((supply) => supply.productId)
+      );
+      if (!useOrganizerProducts && selectedOrganizerProductIds.size === 0) return;
 
-    const buildPlanForTarget = (targetFuelGrams: number, targetSodiumMg: number): StationSupply[] => {
+      const key = buildAidStationProductKey(station.name, station.distanceKm);
+      const products = (organizerAidStationProducts[key] ?? [])
+        .map((suggestion) => suggestion.product)
+        .filter((product): product is FuelProduct => Boolean(product && (product.carbsGrams > 0 || product.sodiumMg > 0)))
+        .filter((product) => useOrganizerProducts || selectedOrganizerProductIds.has(product.id));
+      if (products.length > 0) organizerProductsByAidStationIndex.set(index, products);
+    });
+
+    const getOrganizerProductsForTarget = (target: "start" | number) =>
+      typeof target === "number" ? organizerProductsByAidStationIndex.get(target) ?? [] : [];
+
+    const getOrganizerProductIdsForTarget = (target: "start" | number) =>
+      new Set(getOrganizerProductsForTarget(target).map((product) => product.id));
+
+    const getProductOptionsForTarget = (target: "start" | number, organizerOnly = false) => {
+      if (organizerOnly) return getOrganizerProductsForTarget(target);
+      const products = new Map(baseProductOptions.map((product) => [product.id, product]));
+      getOrganizerProductsForTarget(target).forEach((product) => products.set(product.id, product));
+      return Array.from(products.values());
+    };
+
+    const hasOrganizerOptions = Array.from(organizerProductsByAidStationIndex.values()).some((products) => products.length > 0);
+    if (baseProductOptions.length === 0 && !hasOrganizerOptions) return;
+
+    const buildPlanForTarget = (
+      targetFuelGrams: number,
+      targetSodiumMg: number,
+      target: "start" | number,
+      settings: { organizerOnly?: boolean } = {}
+    ): StationSupply[] => {
       const safeTargetFuelGrams = Number.isFinite(targetFuelGrams) ? Math.max(0, targetFuelGrams) : 0;
       const safeTargetSodiumMg = Number.isFinite(targetSodiumMg) ? Math.max(0, targetSodiumMg) : 0;
       if (safeTargetFuelGrams <= 0 && safeTargetSodiumMg <= 0) return [];
+      const productOptions = getProductOptionsForTarget(target, settings.organizerOnly);
+      if (productOptions.length === 0) return [];
+      const organizerIdsForTarget = getOrganizerProductIdsForTarget(target);
 
       const carbCandidates = productOptions
         .slice()
@@ -1502,14 +1552,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           ).map((product) => [product.id, product])
         ).values()
       ).slice(0, 3);
-      const options = candidateProducts.map((product) => ({
+      const candidateOptions = candidateProducts.map((product) => ({
         id: product.id,
         carbs: Math.max(product.carbsGrams, 0),
         sodium: Math.max(product.sodiumMg ?? 0, 0),
       }));
 
-      const minCarbs = Math.max(Math.min(...options.map((option) => Math.max(option.carbs, 1))), 1);
-      const minSodium = Math.max(Math.min(...options.map((option) => Math.max(option.sodium, 1))), 1);
+      const minCarbs = Math.max(Math.min(...candidateOptions.map((option) => Math.max(option.carbs, 1))), 1);
+      const minSodium = Math.max(Math.min(...candidateOptions.map((option) => Math.max(option.sodium, 1))), 1);
       const maxUnits = Math.min(
         12,
         Math.max(3, Math.ceil(safeTargetFuelGrams / minCarbs) + 2, Math.ceil(safeTargetSodiumMg / minSodium) + 1)
@@ -1517,8 +1567,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       const best = { score: Number.POSITIVE_INFINITY, combo: [] as number[] };
 
       const evaluateCombo = (combo: number[]) => {
-        const plannedCarbs = combo.reduce((total, qty, index) => total + qty * options[index].carbs, 0);
-        const plannedSodium = combo.reduce((total, qty, index) => total + qty * options[index].sodium, 0);
+        const plannedCarbs = combo.reduce((total, qty, index) => total + qty * candidateOptions[index].carbs, 0);
+        const plannedSodium = combo.reduce((total, qty, index) => total + qty * candidateOptions[index].sodium, 0);
         const carbDiff = Math.abs(plannedCarbs - safeTargetFuelGrams) / Math.max(safeTargetFuelGrams, 1);
         const sodiumDiff =
           safeTargetSodiumMg > 0 ? Math.abs(plannedSodium - safeTargetSodiumMg) / safeTargetSodiumMg : 0;
@@ -1533,7 +1583,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       };
 
       const search = (index: number, combo: number[], totalUnits: number) => {
-        if (index === options.length) {
+        if (index === candidateOptions.length) {
           evaluateCombo(combo);
           return;
         }
@@ -1545,32 +1595,47 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
         }
       };
 
-      search(0, new Array(options.length).fill(0), 0);
+      search(0, new Array(candidateOptions.length).fill(0), 0);
 
       if (best.score === Number.POSITIVE_INFINITY || best.combo.every((qty) => qty === 0)) {
         return [];
       }
 
       return best.combo
-        .map((qty, index) => ({ productId: options[index].id, quantity: qty }))
+        .map((qty, index) => {
+          const product = candidateProducts[index];
+          return {
+            productId: product.id,
+            quantity: qty,
+            ...(organizerIdsForTarget.has(product.id) ? { source: "organizer" as const } : {}),
+          };
+        })
         .filter((supply) => supply.quantity > 0);
     };
 
-    const productsById = Object.fromEntries(productOptions.map((product) => [product.id, product]));
+    const productsById = Object.fromEntries(mergedFuelProducts.map((product) => [product.id, product]));
     const inventory = new Map<string, number>();
     const balance = { carbs: 0, sodium: 0 };
     type SupplyTarget = "start" | number;
     const plannedSuppliesByTarget = new Map<SupplyTarget, StationSupply[]>();
-    const aidStations = form.getValues("aidStations") ?? [];
     let lastAssistanceTarget: SupplyTarget = "start";
     const mergeSupplies = (base: StationSupply[], extra: StationSupply[]) => {
       const quantities = new Map<string, number>();
+      const sources = new Map<string, StationSupply["source"]>();
 
       [...base, ...extra].forEach((supply) => {
         quantities.set(supply.productId, (quantities.get(supply.productId) ?? 0) + supply.quantity);
+        if (supply.source === "organizer") sources.set(supply.productId, "organizer");
       });
 
-      return [...quantities.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+      return [...quantities.entries()].map(([productId, quantity]) => {
+        const source = sources.get(productId);
+        return {
+          productId,
+          quantity,
+          ...(source ? { source } : {}),
+        };
+      });
     };
 
     segments.forEach((segment, index) => {
@@ -1595,19 +1660,38 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       const remainingSodiumMg = Math.max(0, -balance.sodium);
       if (remainingFuelGrams <= 0 && remainingSodiumMg <= 0) return;
 
-      const supplies = buildPlanForTarget(remainingFuelGrams, remainingSodiumMg);
-      plannedSuppliesByTarget.set(
+      const applySupplies = (target: SupplyTarget, supplies: StationSupply[]) => {
+        if (supplies.length === 0) return;
+        plannedSuppliesByTarget.set(target, mergeSupplies(plannedSuppliesByTarget.get(target) ?? [], supplies));
+        addSuppliesToInventory(inventory, supplies);
+        consumeInventoryForTargets({
+          inventory,
+          productsById,
+          balance,
+          targetCarbs: 0,
+          targetSodium: 0,
+        });
+      };
+
+      if (
+        typeof pickupTarget === "number" &&
+        aidStations[pickupTarget]?.assistanceAllowed === false &&
+        organizerProductsByAidStationIndex.has(pickupTarget)
+      ) {
+        applySupplies(
+          pickupTarget,
+          buildPlanForTarget(remainingFuelGrams, remainingSodiumMg, pickupTarget, { organizerOnly: true })
+        );
+      }
+
+      const remainingAfterOrganizerFuelGrams = Math.max(0, -balance.carbs);
+      const remainingAfterOrganizerSodiumMg = Math.max(0, -balance.sodium);
+      if (remainingAfterOrganizerFuelGrams <= 0 && remainingAfterOrganizerSodiumMg <= 0) return;
+
+      applySupplies(
         lastAssistanceTarget,
-        mergeSupplies(plannedSuppliesByTarget.get(lastAssistanceTarget) ?? [], supplies)
+        buildPlanForTarget(remainingAfterOrganizerFuelGrams, remainingAfterOrganizerSodiumMg, lastAssistanceTarget)
       );
-      addSuppliesToInventory(inventory, supplies);
-      consumeInventoryForTargets({
-        inventory,
-        productsById,
-        balance,
-        targetCarbs: 0,
-        targetSodium: 0,
-      });
     });
 
     form.setValue("startSupplies", plannedSuppliesByTarget.get("start") ?? [], {
@@ -1615,12 +1699,13 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       shouldValidate: true,
     });
     aidStations.forEach((station, index) => {
-      form.setValue(`aidStations.${index}.supplies`, station.assistanceAllowed === false ? [] : plannedSuppliesByTarget.get(index) ?? [], {
+      const supplies = plannedSuppliesByTarget.get(index) ?? [];
+      form.setValue(`aidStations.${index}.supplies`, station.assistanceAllowed === false ? supplies.filter((supply) => supply.source === "organizer") : supplies, {
         shouldDirty: true,
         shouldValidate: true,
       });
     });
-  }, [form, mergedFuelProducts, organizerProductIds, segments, selectedProducts]);
+  }, [form, mergedFuelProducts, organizerAidStationProducts, organizerProductIds, segments, selectedProducts]);
 
   const totalDistanceKm =
     (parsedValues.success ? parsedValues.data.raceDistanceKm : watchedValues?.raceDistanceKm) ??

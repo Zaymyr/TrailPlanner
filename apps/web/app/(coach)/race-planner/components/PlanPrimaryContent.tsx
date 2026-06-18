@@ -38,7 +38,7 @@ type PlanPrimaryContentProps = {
   baseMinutesPerKm: number | null;
   raceTotals: RaceTotals | null;
   onPrintAssistance: () => void;
-  onAutomaticFill: () => void;
+  onAutomaticFill: (options?: { useOrganizerProducts?: boolean }) => void;
   onAddAidStation: (station: { name: string; distanceKm: number; waterRefill?: boolean; solidRefill?: boolean; assistanceAllowed?: boolean }) => void;
   onRemoveAidStation: (index: number) => void;
   setValue: UseFormSetValue<FormValues>;
@@ -56,7 +56,12 @@ type PlanPrimaryContentProps = {
   startSupplies: StationSupply[];
   onStartSupplyDrop: (productId: string, quantity?: number) => void;
   onStartSupplyRemove: (productId: string) => void;
-  onSupplyDrop: (aidStationIndex: number, productId: string, quantity?: number) => void;
+  onSupplyDrop: (
+    aidStationIndex: number,
+    productId: string,
+    quantity?: number,
+    options?: { source?: StationSupply["source"] }
+  ) => void;
   onSupplyRemove: (aidStationIndex: number, productId: string) => void;
   allowAutoFill: boolean;
   allowExport: boolean;

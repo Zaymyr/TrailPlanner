@@ -145,9 +145,13 @@ export const buildCarryoverCoverageByItemId = (
     if (!upcomingSegment) return;
 
     const checkpointAllowsAssistance = item.isStart || item.checkpointSegment?.assistanceAllowed !== false;
+    const stationSupplies =
+      item.checkpointSegment?.assistanceAllowed === false
+        ? (item.checkpointSegment.supplies ?? []).filter((supply) => supply.source === "organizer")
+        : item.checkpointSegment?.supplies;
     addSuppliesToInventory(
       inventory,
-      checkpointAllowsAssistance ? (item.isStart ? startSupplies : item.checkpointSegment?.supplies) : []
+      checkpointAllowsAssistance ? (item.isStart ? startSupplies : stationSupplies) : stationSupplies
     );
 
     coverageByItemId.set(

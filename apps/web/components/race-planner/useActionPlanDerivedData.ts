@@ -90,6 +90,11 @@ const summarizeSuppliesForProducts = (
   return { items, totals };
 };
 
+const getAvailableStationSupplies = (segment: Segment | undefined): StationSupply[] =>
+  segment?.assistanceAllowed === false
+    ? (segment.supplies ?? []).filter((supply) => supply.source === "organizer")
+    : segment?.supplies ?? [];
+
 type UseActionPlanDerivedDataParams = {
   segments: Segment[];
   fuelProducts: FuelProduct[];
@@ -143,7 +148,7 @@ export function useActionPlanDerivedData({
     const totalElevationLoss = segments.reduce((total, segment) => total + (segment.elevationLossM ?? 0), 0);
     const allSupplies = [
       ...startSupplies,
-      ...segments.flatMap((segment) => (segment.assistanceAllowed === false ? [] : segment.supplies ?? [])),
+      ...segments.flatMap((segment) => getAvailableStationSupplies(segment)),
     ];
     const totalCalories = allSupplies.reduce((total, supply) => {
       const product = productById[supply.productId];
@@ -225,10 +230,7 @@ export function useActionPlanDerivedData({
   const summarizedSuppliesByItemId = useMemo(() => {
     const map = new Map<string, ReturnType<typeof summarizeSuppliesForProducts>>();
     renderItems.forEach((item) => {
-      const supplies =
-        item.isStart || item.checkpointSegment?.assistanceAllowed !== false
-          ? (item.isStart ? startSupplies : item.checkpointSegment?.supplies)
-          : [];
+      const supplies = item.isStart ? startSupplies : getAvailableStationSupplies(item.checkpointSegment);
       map.set(item.id, summarizeSuppliesForProducts(supplies, productById));
     });
     return map;
@@ -243,7 +245,7 @@ export function useActionPlanDerivedData({
     const map = new Map<number, StationSupply[]>();
     segments.forEach((segment) => {
       if (typeof segment.aidStationIndex !== "number") return;
-      map.set(segment.aidStationIndex, segment.assistanceAllowed === false ? [] : segment.supplies ?? []);
+      map.set(segment.aidStationIndex, getAvailableStationSupplies(segment));
     });
     return map;
   }, [segments]);
