@@ -75,4 +75,22 @@ describe("organizer completion", () => {
     expect(completion.modules.find((module) => module.id === "equipment")?.status).toBe("complete");
     expect(completion.modules.find((module) => module.id === "products")?.status).toBe("complete");
   });
+
+  it("counts race-specific equipment separately from common equipment", () => {
+    const race = {
+      ...baseEvent.races[0]!,
+      organizerDetails: {
+        ...defaultOrganizerRaceDetails,
+        mandatoryEquipment: {
+          items: [{ id: "race-item-1", label: "Lampe frontale", required: true, note: null }],
+          note: null,
+        },
+      },
+    };
+    const completion = buildOrganizerCompletion({ ...baseEvent, races: [race] }, race, [], []);
+    const equipmentModule = completion.modules.find((module) => module.id === "equipment");
+
+    expect(equipmentModule?.status).toBe("complete");
+    expect(equipmentModule?.countLabel).toBe("0 commun / 1 format");
+  });
 });

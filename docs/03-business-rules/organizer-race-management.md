@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-06-18
+last_verified: 2026-06-19
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -57,7 +57,7 @@ This document records the v1 web-only organizer portal rules: users can request 
 - Event membership: approved organizer access stored in `race_event_organizers`.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
-- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables.
+- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults; race details are format-specific overrides or additions.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
 ## Claim and Approval Flow
@@ -79,17 +79,17 @@ Rejecting a claim stores review metadata and does not grant membership. Revoking
 
 Approved organizers can:
 
-- edit event-level name, location, date, image, live state, and `race_events.organizer_details`;
-- edit existing race formats under the event, including `races.organizer_details`;
+- edit event-level name, location, date, image, live state, and common `race_events.organizer_details`;
+- edit existing race formats under the event, including format-specific `races.organizer_details`;
 - add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = true`, and optional organizer details;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
 - replace a format GPX source in `race-gpx`;
-- edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and `race_aid_stations.organizer_details`;
+- edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and station-specific `race_aid_stations.organizer_details`;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a top synthesis plus ten modules: event information, formats/GPX, ravitos, equipment, schedule/cutoffs, bib pickup, access/shuttles, products, services/partners, and runner preview. It keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
+The dashboard is organized as a top synthesis plus ten modules: event information, formats/GPX, ravitos, equipment, schedule/cutoffs, bib pickup, access/shuttles, products, services/partners, and runner preview. Equipment, bib pickup, and access are split in the UI between common event data and format-specific data for the active race. It keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
 
 Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
 
@@ -104,6 +104,13 @@ Publishing an event through `/api/organizer/events/[id]` requires:
 Recommended modules improve the dashboard score but do not block publication: GPX, ravitos, schedules/cutoffs, equipment, bib pickup, and access/shuttles.
 
 Optional modules also improve the score but never block publication: ravito products, supporter notes, accommodations/restaurants/recovery, partners, and last-minute messages.
+
+Runner-facing preview resolves details as:
+
+- equipment = common event equipment plus active-format equipment;
+- bib pickup and access = format value when filled, otherwise event value;
+- schedule and runner notes = active-format details;
+- services and partners = event details.
 
 ## GPX Replacement
 
@@ -149,6 +156,7 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Manual organizer claims create non-live draft events; do not treat those rows as public catalog entries until an admin or organizer publishes the event through the normal event edit flow.
 - Do not publish an event with no live, publishable format; the organizer event route rejects that state even when the event-level fields are valid.
+- Do not duplicate common event details into every format. Store shared information on the event and only use `races.organizer_details` for differences or additions.
 
 ## Related Docs
 

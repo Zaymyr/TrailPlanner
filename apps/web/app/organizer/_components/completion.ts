@@ -3,6 +3,7 @@ import type {
   OrganizerEventDetails,
   OrganizerRaceDetails,
 } from "../../../lib/organizer-dashboard-details";
+import { buildRunnerOrganizerDetails, defaultOrganizerEventDetails } from "../../../lib/organizer-dashboard-details";
 
 export type OrganizerModuleId =
   | "event"
@@ -109,12 +110,15 @@ export function buildOrganizerCompletion(
   const publishableRaceCount = event.races.filter(isPublishableRace).length;
   const formatCount = event.races.length;
   const gpxCount = event.races.filter((race) => hasText(race.gpx_storage_path)).length;
-  const schedule = activeRace?.organizerDetails?.schedule;
-  const eventDetails = event.organizerDetails;
-  const equipmentItems = eventDetails?.mandatoryEquipment.items ?? [];
-  const bibPickup = eventDetails?.bibPickup;
-  const access = eventDetails?.access;
-  const services = eventDetails?.services;
+  const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
+  const runnerDetails = buildRunnerOrganizerDetails(eventDetails, activeRace?.organizerDetails);
+  const schedule = runnerDetails.schedule;
+  const equipmentItems = runnerDetails.equipment.items;
+  const commonEquipmentCount = runnerDetails.commonEquipment.items.length;
+  const raceEquipmentCount = runnerDetails.raceEquipment.items.length;
+  const bibPickup = runnerDetails.bibPickup;
+  const access = runnerDetails.access;
+  const services = runnerDetails.services;
   const linkedStationProductCount = stationProducts.length;
   const stationsWithDetails = aidStations.filter((station) => {
     const details = station.organizerDetails;
@@ -157,11 +161,11 @@ export function buildOrganizerCompletion(
     },
     {
       id: "equipment",
-      title: "Materiel obligatoire",
-      description: "Checklist obligatoire ou recommandee.",
+      title: "Materiel commun / format",
+      description: "Materiel commun evenement et specifique au format actif.",
       level: "recommended",
-      status: equipmentItems.length > 0 ? "complete" : hasText(eventDetails?.mandatoryEquipment.note) ? "incomplete" : "empty",
-      countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
+      status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
+      countLabel: `${commonEquipmentCount} commun / ${raceEquipmentCount} format`,
     },
     {
       id: "schedule",
@@ -173,8 +177,8 @@ export function buildOrganizerCompletion(
     },
     {
       id: "bibPickup",
-      title: "Dossard & retrait",
-      description: "Lieu, horaires, documents et controle materiel.",
+      title: "Dossard commun / format",
+      description: "Commun evenement avec surcharge possible par format.",
       level: "recommended",
       status: statusFrom(
         filledCount([
@@ -192,8 +196,8 @@ export function buildOrganizerCompletion(
     },
     {
       id: "access",
-      title: "Acces / parking / navettes",
-      description: "Adresses, parkings, navettes, routes fermees.",
+      title: "Acces & infos format",
+      description: "Acces commun avec surcharge possible par format.",
       level: "recommended",
       status: statusFrom(
         filledCount([

@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-06-18
+last_verified: 2026-06-19
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -132,13 +132,13 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 The v1 organizer portal is web-only:
 
 - `/organizers` lets authenticated users search live events or create a missing non-live draft event before creating an event claim.
-- `/organizer` lets approved organizers manage their claimed events through a modular dashboard with event synthesis, module completion, per-format tabs, ravito tables, JSONB detail modules, and an internal runner preview.
+- `/organizer` lets approved organizers manage their claimed events through a modular dashboard with event synthesis, module completion, per-format tabs, ravito tables, common-vs-format JSONB detail modules, and an internal runner preview.
 - The main header shows `/organizer` as "Mes courses" / "My races" only after `/api/organizer/claims` reports at least one active membership.
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
 - `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.
 - `/api/admin/organizer-claims` and the admin "Organisateurs" tab handle claim approval, rejection, and membership revocation.
 
-Organizer edits are live source edits for `race_events`, `races`, `race_aid_stations`, and `race_aid_station_products`. Aid station edits include water, solid, assistance flags, and optional station `organizer_details`; event and race routes also persist nullable `organizer_details` JSONB for progressive organizer dashboard fields. Publishing through the organizer event route is blocked until the event has name/date/location and at least one live publishable format. The organizer ravito timeline uses a catalog-product picker modal to attach existing products with brand grouping, quick fuel-type filters, and visible nutrition characteristics, while organizer-created products stay behind the scoped station-product route. Catalog imports expose those official products in the matching planner ravito picker and behind the opt-in auto-fill toggle, but do not use them by default. Existing saved plans remain snapshots for GPX, station layout, service flags, pacing, and supplies; official ravito products are refreshed into `/api/plans` responses for plans with `race_id`.
+Organizer edits are live source edits for `race_events`, `races`, `race_aid_stations`, and `race_aid_station_products`. Aid station edits include water, solid, assistance flags, and optional station `organizer_details`; event and race routes also persist nullable `organizer_details` JSONB for progressive organizer dashboard fields. Event details store common defaults, while race details store format-specific equipment, bib pickup, access, schedules, and runner notes. The runner preview merges those layers by showing common plus format equipment and preferring format values for bib pickup/access when present. Publishing through the organizer event route is blocked until the event has name/date/location and at least one live publishable format. The organizer ravito timeline uses a catalog-product picker modal to attach existing products with brand grouping, quick fuel-type filters, and visible nutrition characteristics, while organizer-created products stay behind the scoped station-product route. Catalog imports expose those official products in the matching planner ravito picker and behind the opt-in auto-fill toggle, but do not use them by default. Existing saved plans remain snapshots for GPX, station layout, service flags, pacing, and supplies; official ravito products are refreshed into `/api/plans` responses for plans with `race_id`.
 
 ### Billing and Entitlements
 
@@ -176,6 +176,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
 - Organizer manual claims create non-live `race_events` draft rows through a service route; keep that path server-side and do not expose service-role writes to client code.
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
+- Store shared organizer information at event level and format differences at race level; avoid copying the same equipment/access/dossard text into every `races.organizer_details` payload.
 - Organizer-created products are non-live rows attached to source ravitos; do not expose them through public client env or the global catalog API.
 - Organizer ravito product refresh is a read-time overlay on `/api/plans`; if the service-role refresh fails, return the stored `organizerAidStationProducts` snapshot instead of blocking plan load.
 - Public plan share pages are unauthenticated by design, but they must display only the bounded snapshot in `plan_share_links`, not live editable plan data.
