@@ -202,6 +202,9 @@ const emptyProductForm: ProductFormValues = {
   notes: "",
 };
 
+const EVENT_TAB_ID = "__event";
+const ADD_FORMAT_TAB_ID = "__add";
+
 const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 const createEmptyEventForm = (): EventFormValues => ({
@@ -269,7 +272,7 @@ export function OrganizerDashboard() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDetail, setEventDetail] = useState<OrganizerEventDetail | null>(null);
   const [eventForm, setEventForm] = useState<EventFormValues>(() => createEmptyEventForm());
-  const [activeTab, setActiveTab] = useState("__add");
+  const [activeTab, setActiveTab] = useState(EVENT_TAB_ID);
   const [activeModule, setActiveModule] = useState<OrganizerModuleId>("event");
   const [raceForm, setRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
   const [newRaceForm, setNewRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
@@ -404,7 +407,7 @@ export function OrganizerDashboard() {
     void loadOrganizerData();
   }, [accessToken]);
 
-  const loadEvent = async (eventId: string) => {
+  const loadEvent = async (eventId: string, preferredTab = activeTab) => {
     if (!accessToken) return;
     setStatus("loading");
     setError(null);
@@ -436,8 +439,11 @@ export function OrganizerDashboard() {
         isLive: nextEvent.is_live !== false,
         organizerDetails: cloneJson(nextEvent.organizerDetails ?? defaultOrganizerEventDetails),
       });
-      const nextRaceId = sortedRaces.find((race) => race.id === activeTab)?.id ?? sortedRaces[0]?.id ?? "__add";
-      setActiveTab(nextRaceId);
+      const preferredTabExists =
+        preferredTab === EVENT_TAB_ID ||
+        preferredTab === ADD_FORMAT_TAB_ID ||
+        sortedRaces.some((race) => race.id === preferredTab);
+      setActiveTab(preferredTabExists ? preferredTab : EVENT_TAB_ID);
       setDirtyModules(new Set());
     } catch (caught) {
       console.error("Unable to load organizer event", caught);
@@ -579,7 +585,7 @@ export function OrganizerDashboard() {
       }
       setMessage("Format mis a jour.");
       clearDirty(["formats", "schedule"]);
-      await loadEvent(selectedEventId);
+      await loadEvent(selectedEventId, activeRace.id);
       return true;
     } finally {
       setStatus("idle");
@@ -618,7 +624,7 @@ export function OrganizerDashboard() {
       setActiveTab(data.race.id);
       setActiveModule("formats");
       setMessage("Format ajoute.");
-      await loadEvent(selectedEventId);
+      await loadEvent(selectedEventId, data.race.id);
     } finally {
       setStatus("idle");
     }
@@ -652,8 +658,9 @@ export function OrganizerDashboard() {
         return;
       }
       setActiveTab(data.race.id);
+      setActiveModule("formats");
       setMessage("Format duplique en brouillon, sans GPX ni ravitos.");
-      await loadEvent(selectedEventId);
+      await loadEvent(selectedEventId, data.race.id);
     } finally {
       setStatus("idle");
     }
@@ -679,7 +686,7 @@ export function OrganizerDashboard() {
         return;
       }
       setMessage("GPX remplace. Les plans existants restent des snapshots.");
-      await loadEvent(selectedEventId);
+      await loadEvent(selectedEventId, activeRace.id);
       await loadRaceSidecar(activeRace.id);
     } finally {
       setStatus("idle");
@@ -825,12 +832,17 @@ export function OrganizerDashboard() {
   };
 
   const handleTabChange = (nextTab: string) => {
-    if (dirtyModules.has("formats") || dirtyModules.has("schedule")) {
+    if (nextTab === activeTab) return;
+    const raceDirtyModules: OrganizerModuleId[] = ["formats", "schedule", "aidStations"];
+    const hasRaceDirtyChanges = raceDirtyModules.some((moduleId) => dirtyModules.has(moduleId));
+    const isLeavingRaceTab = activeTab !== EVENT_TAB_ID;
+    if (isLeavingRaceTab && hasRaceDirtyChanges) {
       const confirmed = window.confirm("Des modifications de format ne sont pas enregistrees. Changer de format les ignorera.");
       if (!confirmed) return;
-      clearDirty(["formats", "schedule"]);
+      clearDirty(raceDirtyModules);
     }
     setActiveTab(nextTab);
+    setActiveModule(nextTab === EVENT_TAB_ID ? "event" : "formats");
   };
 
   if (isLoading) {
@@ -849,8 +861,9 @@ export function OrganizerDashboard() {
   }
 
   const tabs = [
+    { id: EVENT_TAB_ID, label: "Evenement" },
     ...(eventDetail?.races ?? []).map((race) => ({ id: race.id, label: race.name })),
-    { id: "__add", label: "+" },
+    { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
 
   return (
@@ -858,6 +871,7 @@ export function OrganizerDashboard() {
       <OrganizerSummaryHeader
         selectedMembership={selectedMembership}
         event={eventDraft}
+        activeRace={activeRace}
         aidStationCount={aidStations.length}
         memberships={memberships}
         selectedEventId={selectedEventId}
@@ -867,6 +881,8 @@ export function OrganizerDashboard() {
             if (!confirmed) return;
           }
           setSelectedEventId(eventId);
+          setActiveTab(EVENT_TAB_ID);
+          setActiveModule("event");
         }}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
@@ -882,27 +898,16 @@ export function OrganizerDashboard() {
       {message ? <p className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
 
       {completion ? (
-        <>
-          <CompletionSection
-            title="Avancement evenement"
-            description="Ce qui concerne tous les formats de la course."
-            score={completion.eventScore}
-            modules={completion.eventModules}
-            activeModule={activeModule}
-            dirtyModules={dirtyModules}
-            onSelectModule={setActiveModule}
-          />
-          <FormatProgressPanel
-            tabs={tabs}
-            activeTab={activeTab}
-            activeRace={activeRace}
-            completion={completion}
-            dirtyModules={dirtyModules}
-            onTabChange={handleTabChange}
-            onSelectModule={setActiveModule}
-            activeModule={activeModule}
-          />
-        </>
+        <CompletionTabsPanel
+          tabs={tabs}
+          activeTab={activeTab}
+          activeRace={activeRace}
+          completion={completion}
+          dirtyModules={dirtyModules}
+          onTabChange={handleTabChange}
+          onSelectModule={setActiveModule}
+          activeModule={activeModule}
+        />
       ) : null}
 
       <Card className="rounded-lg">
@@ -918,8 +923,6 @@ export function OrganizerDashboard() {
           ) : activeModule === "formats" ? (
             <FormatsEditor
               activeTab={activeTab}
-              onTabChange={handleTabChange}
-              races={eventDraft.races}
               activeRace={activeRace}
               raceForm={raceForm}
               newRaceForm={newRaceForm}
@@ -1150,6 +1153,7 @@ function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { pendingC
 function OrganizerSummaryHeader({
   selectedMembership,
   event,
+  activeRace,
   aidStationCount,
   memberships,
   selectedEventId,
@@ -1163,6 +1167,7 @@ function OrganizerSummaryHeader({
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
+  activeRace: RaceFormat | null;
   aidStationCount: number;
   memberships: MembershipRow[];
   selectedEventId: string | null;
@@ -1176,6 +1181,7 @@ function OrganizerSummaryHeader({
 }) {
   const eventScore = completion?.eventScore ?? 0;
   const formatScore = completion?.formatScore ?? 0;
+  const formatScoreLabel = activeRace ? `${formatScore}%` : "-";
   const isLive = event?.is_live !== false;
 
   return (
@@ -1215,7 +1221,7 @@ function OrganizerSummaryHeader({
         <MetricPill label="Formats" value={String(event?.races.length ?? 0)} />
         <MetricPill label="Ravitos" value={String(aidStationCount)} />
         <MetricPill label="Evenement" value={`${eventScore}%`} tone={completion?.requiredComplete ? "success" : "warning"} />
-        <MetricPill label="Format actif" value={`${formatScore}%`} tone={formatScore >= 80 ? "success" : "warning"} />
+        <MetricPill label="Format actif" value={formatScoreLabel} tone={!activeRace ? "muted" : formatScore >= 80 ? "success" : "warning"} />
         <MetricPill label="Etat" value={hasDirtyChanges ? "Non enregistre" : "A jour"} tone={hasDirtyChanges ? "warning" : "success"} />
       </div>
 
@@ -1255,41 +1261,7 @@ function MetricPill({ label, value, tone = "default" }: { label: string; value: 
   );
 }
 
-function CompletionSection({
-  title,
-  description,
-  score,
-  modules,
-  activeModule,
-  dirtyModules,
-  onSelectModule,
-}: {
-  title: string;
-  description: string;
-  score: number;
-  modules: OrganizerCompletionSummary["modules"];
-  activeModule: OrganizerModuleId;
-  dirtyModules: Set<OrganizerModuleId>;
-  onSelectModule: (moduleId: OrganizerModuleId) => void;
-}) {
-  return (
-    <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
-          <p className="text-sm text-muted-foreground">{description}</p>
-        </div>
-        <span className="text-sm font-semibold text-foreground">{score}%</span>
-      </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${score}%` }} />
-      </div>
-      <OrganizerModuleGrid modules={modules} activeModule={activeModule} dirtyModules={dirtyModules} onSelectModule={onSelectModule} />
-    </section>
-  );
-}
-
-function FormatProgressPanel({
+function CompletionTabsPanel({
   tabs,
   activeTab,
   activeRace,
@@ -1308,37 +1280,53 @@ function FormatProgressPanel({
   onSelectModule: (moduleId: OrganizerModuleId) => void;
   activeModule: OrganizerModuleId;
 }) {
+  const isEventTab = activeTab === EVENT_TAB_ID;
+  const isAddTab = activeTab === ADD_FORMAT_TAB_ID;
+  const score = isEventTab ? completion.eventScore : activeRace ? completion.formatScore : 0;
+  const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
+  const description = isEventTab
+    ? "Informations communes a tous les formats."
+    : activeRace
+      ? "Informations propres au format selectionne."
+      : "Cree un nouveau format depuis le formulaire ci-dessous.";
+  const selectModule = (moduleId: OrganizerModuleId) => {
+    if (isEventTab && moduleId === "formats") {
+      const firstFormatTab = tabs.find((tab) => tab.id !== EVENT_TAB_ID && tab.id !== ADD_FORMAT_TAB_ID)?.id ?? ADD_FORMAT_TAB_ID;
+      onTabChange(firstFormatTab);
+      return;
+    }
+    onSelectModule(moduleId);
+  };
+
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Avancement du format</h2>
-            <p className="text-sm text-muted-foreground">
-              Change de format, puis complete ses informations propres.
-            </p>
+            <h2 className="text-lg font-semibold text-foreground">Avancement global</h2>
+            <p className="text-sm text-muted-foreground">{description}</p>
           </div>
-          {activeRace ? <span className="text-sm font-semibold text-foreground">{completion.formatScore}%</span> : null}
+          {!isAddTab ? <span className="text-sm font-semibold text-foreground">{score}%</span> : null}
         </div>
         <TabsList tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} />
       </div>
 
-      {activeRace ? (
+      {!isAddTab ? (
         <>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${completion.formatScore}%` }} />
+            <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${score}%` }} />
           </div>
           <OrganizerModuleGrid
-            modules={completion.formatModules}
+            modules={modules}
             activeModule={activeModule}
             dirtyModules={dirtyModules}
-            onSelectModule={onSelectModule}
-            formatMode
+            onSelectModule={selectModule}
+            formatMode={!isEventTab}
           />
         </>
       ) : (
         <div className="mt-3 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Ajoute un nouveau format ou selectionne un format existant pour voir son avancement.
+          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaitront apres creation.
         </div>
       )}
     </section>
@@ -1460,8 +1448,6 @@ function EventInfoEditor({
 
 function FormatsEditor({
   activeTab,
-  onTabChange,
-  races,
   activeRace,
   raceForm,
   newRaceForm,
@@ -1477,8 +1463,6 @@ function FormatsEditor({
   status,
 }: {
   activeTab: string;
-  onTabChange: (tab: string) => void;
-  races: RaceFormat[];
   activeRace: RaceFormat | null;
   raceForm: RaceFormValues;
   newRaceForm: RaceFormValues;
@@ -1495,13 +1479,7 @@ function FormatsEditor({
 }) {
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 lg:grid-cols-3">
-        {races.map((race) => (
-          <RaceSummaryCard key={race.id} race={race} active={race.id === activeRace?.id} onClick={() => onTabChange(race.id)} />
-        ))}
-      </div>
-
-      {activeTab === "__add" ? (
+      {activeTab === ADD_FORMAT_TAB_ID ? (
         <RaceForm
           title="Ajouter un format"
           values={newRaceForm}
@@ -1552,33 +1530,6 @@ function FormatsEditor({
         <p className="text-sm text-muted-foreground">Selectionne ou ajoute un format.</p>
       )}
     </div>
-  );
-}
-
-function RaceSummaryCard({ race, active, onClick }: { race: RaceFormat; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "rounded-lg border bg-background p-4 text-left transition hover:border-brand-border",
-        active && "border-brand-border ring-2 ring-brand/20"
-      )}
-      onClick={onClick}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-foreground">{race.name}</p>
-          <p className="text-xs text-muted-foreground">{race.race_date ?? "Date format non renseignee"}</p>
-        </div>
-        <StatusBadge status={race.is_live ? "complete" : "incomplete"} />
-      </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-        <span>{formatKm(race.distance_km)}</span>
-        <span>D+ {Math.round(race.elevation_gain_m)} m</span>
-        <span>D- {Math.round(race.elevation_loss_m ?? 0)} m</span>
-        <span>{race.gpx_storage_path ? "GPX present" : "Sans GPX"}</span>
-      </div>
-    </button>
   );
 }
 
