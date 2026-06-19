@@ -11,6 +11,10 @@ import {
   serviceHeaders,
 } from "../../../../lib/organizer";
 import { withSecurityHeaders } from "../../../../lib/http";
+import {
+  organizerRaceDetailsSchema,
+  parseOrganizerRaceDetails,
+} from "../../../../lib/organizer-dashboard-details";
 
 const createRaceSchema = z.object({
   eventId: z.string().uuid(),
@@ -22,6 +26,7 @@ const createRaceSchema = z.object({
   raceDate: optionalTextOrNull,
   thumbnailUrl: optionalTextOrNull,
   isLive: z.boolean().optional().default(true),
+  organizerDetails: organizerRaceDetailsSchema.optional(),
 });
 
 const raceRowSchema = z.object({
@@ -37,6 +42,7 @@ const raceRowSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   is_live: z.boolean(),
+  organizer_details: z.unknown().nullable().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -67,6 +73,7 @@ export async function POST(request: NextRequest) {
       location_text: parsed.data.locationText,
       race_date: parsed.data.raceDate,
       thumbnail_url: parsed.data.thumbnailUrl,
+      organizer_details: parsed.data.organizerDetails ?? null,
       gpx_path: `organizer/${parsed.data.eventId}/${raceId}.gpx`,
       gpx_hash: `manual:${raceId}`,
       gpx_storage_path: null,
@@ -84,5 +91,15 @@ export async function POST(request: NextRequest) {
   }
 
   const race = z.array(raceRowSchema).parse(await response.json())[0];
-  return withSecurityHeaders(NextResponse.json({ race }, { status: 201 }));
+  return withSecurityHeaders(
+    NextResponse.json(
+      {
+        race: {
+          ...race,
+          organizerDetails: parseOrganizerRaceDetails(race.organizer_details),
+        },
+      },
+      { status: 201 }
+    )
+  );
 }

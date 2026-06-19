@@ -8,11 +8,13 @@ related_files:
   - supabase/migrations/20260324000000_refactor_race_catalog_to_races.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
+  - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
+  - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/components/GpxAidStationImporter.tsx
 related_tables:
   - race_aid_stations
@@ -34,6 +36,7 @@ related_tables:
 - Service availability: water refill, official solid food, and crew assistance availability.
 - GPX waypoint import: route/admin logic can derive stations from GPX waypoints.
 - Organizer products: optional station-product links live in `race_aid_station_products`.
+- Organizer station details: optional JSONB for station type, cumulative D+/D-, altitude, cutoff time, drop bag, and organizer note.
 
 ## Columns
 
@@ -48,6 +51,7 @@ related_tables:
 | `assistance_allowed` | `boolean` | not null, default `true` | Whether personal crew assistance is allowed. |
 | `notes` | `text` | nullable | Station notes. |
 | `order_index` | `int` | not null, default `0` | Sort order within the race. |
+| `organizer_details` | `jsonb` | nullable, added by `20260618160000_add_organizer_dashboard_details.sql` | Organizer-managed progressive station details. |
 
 <!-- CONFLICT: apps/web/components/GpxAidStationImporter.tsx references race_aid_stations.needs_review and race_aid_stations.last_gpx_import_at, but visible migrations in this repo do not create those columns. -->
 
@@ -70,6 +74,7 @@ Summary:
 - Private race aid stations are readable/manageable by the race owner.
 - Admins can manage catalog aid stations.
 - Approved event organizers can manage source aid stations through service routes after an active event-membership check.
+- `organizer_details` inherits the same row policies as the station row; no separate JSONB grants or policies were added.
 
 ## Business Invariants
 
@@ -79,13 +84,14 @@ Summary:
 - Existing code attempts to avoid destructive deletion when linked plan stations exist, but the link column is not visible in migrations.
 - Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
 - The organizer product picker requires a saved source station id; new ravitos must be saved before products can be attached.
+- Organizer station details are saved together with station edits through `/api/organizer/races/[id]/aid-stations`; preserving row ids also preserves those details.
 
 ## Common Queries
 
 Fetch source aid stations for a race:
 
 ```sql
-select id, name, km, water_available, solid_available, assistance_allowed, notes, order_index
+select id, name, km, water_available, solid_available, assistance_allowed, notes, order_index, organizer_details
 from public.race_aid_stations
 where race_id = '<race-id>'
 order by order_index asc, km asc;
@@ -101,9 +107,10 @@ insert into public.race_aid_stations (
   water_available,
   solid_available,
   assistance_allowed,
+  organizer_details,
   order_index
 )
-values ('<race-id>', 'Aid station 1', 12.5, true, true, true, 0);
+values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"water"}'::jsonb, 0);
 ```
 
 ## Gotchas
@@ -113,6 +120,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, 0);
 - Review-related columns need live-schema verification before new importer work.
 - Deleting and recreating a station changes its id and removes `race_aid_station_products` links through cascade; update existing rows when preserving product suggestions matters.
 - Missing service flags from legacy reads should be treated as enabled to preserve old catalog behavior.
+- Missing `organizer_details` from legacy reads should be parsed as empty/default dashboard details, not treated as invalid station data.
 
 ## Related Docs
 

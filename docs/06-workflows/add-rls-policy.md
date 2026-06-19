@@ -16,6 +16,8 @@ related_tables: []
 
 Use this workflow when adding or changing row-level security policies.
 
+For column-only migrations on existing RLS-protected tables, first verify that the existing row policies cover the new data sensitivity. Add or change policies only when the new column changes who should be able to read or mutate the row.
+
 ## Key Concepts
 
 - Owner check: `auth.uid() = user_id`.
@@ -62,6 +64,7 @@ Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example fo
 - Do not leave a table with RLS enabled but no reachable select policy unless it is intentionally write-only/service-only.
 - Do not forget SQL grants; a policy does not grant `select`, `insert`, `update`, or `delete` privileges by itself.
 - Do not grant `anon` to secret-link tables unless public direct table access is explicitly intended and documented.
+- Do not add separate policies for columns such as organizer detail JSONB when row-level access on the existing table is still the intended boundary.
 
 ## Related Docs
 

@@ -49,6 +49,11 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
             assistance_allowed: true,
             notes: "Water only",
             order_index: 0,
+            organizer_details: {
+              stationType: "solid",
+              cutoffTime: "12:30",
+              dropBagAvailable: true,
+            },
           },
           {
             id: newStationId,
@@ -59,6 +64,10 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
             assistance_allowed: false,
             notes: null,
             order_index: 1,
+            organizer_details: {
+              stationType: "assistance",
+              altitudeM: 1800,
+            },
           },
         ])
       );
@@ -74,6 +83,15 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
             solidRefill: false,
             assistanceAllowed: true,
             notes: "Water only",
+            organizerDetails: {
+              stationType: "solid",
+              cumulativeElevationGainM: 900,
+              cumulativeElevationLossM: null,
+              altitudeM: null,
+              cutoffTime: "12:30",
+              dropBagAvailable: true,
+              organizerNote: "Controle materiel",
+            },
           },
           {
             name: "Col",
@@ -82,6 +100,15 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
             solidRefill: true,
             assistanceAllowed: false,
             notes: "",
+            organizerDetails: {
+              stationType: "assistance",
+              cumulativeElevationGainM: null,
+              cumulativeElevationLossM: null,
+              altitudeM: 1800,
+              cutoffTime: null,
+              dropBagAvailable: false,
+              organizerNote: null,
+            },
           },
         ],
       }),
@@ -92,12 +119,18 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
     expect(response.status).toBe(200);
     expect(payload.aidStations[0].solid_available).toBe(false);
     expect(payload.aidStations[1].assistance_allowed).toBe(false);
+    expect(payload.aidStations[0].organizerDetails.cutoffTime).toBe("12:30");
 
     const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
       water_available: true,
       solid_available: false,
       assistance_allowed: true,
+      organizer_details: {
+        stationType: "solid",
+        cutoffTime: "12:30",
+        dropBagAvailable: true,
+      },
     });
 
     const insertCall = mockFetch.mock.calls.find(
@@ -108,6 +141,10 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
       water_available: false,
       solid_available: true,
       assistance_allowed: false,
+      organizer_details: {
+        stationType: "assistance",
+        altitudeM: 1800,
+      },
     });
   });
 });
