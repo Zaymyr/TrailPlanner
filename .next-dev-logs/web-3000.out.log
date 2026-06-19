@@ -1,0 +1,49 @@
+
+> @trailplanner/web@0.1.0 dev
+> next dev -p 3000
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · typedRoutes
+
+ ✓ Starting...
+   automatically enabled Fast Refresh for 1 custom loader
+ ✓ Ready in 2.8s
+ ✓ Compiled /middleware in 427ms (117 modules)
+ ○ Compiling /organizer ...
+ ✓ Compiled /organizer in 5.6s (736 modules)
+ GET /organizer 200 in 5987ms
+ GET /organizer 200 in 148ms
+ ○ Compiling /api/auth/signout ...
+ ✓ Compiled /api/auth/signout in 1082ms (423 modules)
+ POST /api/auth/signout 200 in 1580ms
+ ○ Compiling /sign-in ...
+ ✓ Compiled /sign-in in 2.4s (783 modules)
+ ○ Compiling /api/auth/signin ...
+ ✓ Compiled /api/auth/signin in 801ms (445 modules)
+ POST /api/auth/signin 500 in 977ms
+ GET /sign-in 200 in 644ms
+ POST /api/auth/signout 200 in 307ms
+ POST /api/auth/signin 500 in 81ms
+ GET /organizer 200 in 266ms
+ POST /api/auth/signout 200 in 244ms
+ POST /api/auth/signin 500 in 41ms
+ ✓ Compiled in 1206ms (869 modules)
+ ○ Compiling /organizer/mockup ...
+ ✓ Compiled /organizer/mockup in 582ms (764 modules)
+ GET /organizer/mockup 200 in 739ms
+ GET /organizer/mockup 200 in 56ms
+ GET /organizer/mockup 200 in 144ms
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 1482ms (753 modules)
+ GET /_next/static/css/app/layout.css?v=1781874109991 404 in 2289ms
+ GET /_next/static/chunks/webpack.js?v=1781874109991 404 in 2287ms
+ GET /_next/static/chunks/main-app.js?v=1781874109991 404 in 2285ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 2283ms
+ GET /_next/static/chunks/app/layout.js 404 in 2244ms
+ GET /_next/static/chunks/app/organizer/mockup/page.js 404 in 2257ms
+ ✓ Compiled in 2.5s (872 modules)
+ ✓ Compiled in 936ms (351 modules)
+ ✓ Compiled in 793ms (351 modules)
