@@ -16,6 +16,8 @@ related_tables: []
 
 Use this workflow when adding a Supabase table to Pace Yourself.
 
+For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced.
+
 ## Key Concepts
 
 - Migration: timestamped SQL file in `supabase/migrations`.
@@ -56,6 +58,7 @@ Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
 ## Do Not
 
 - Do not add a table without RLS unless it is service-only and documented.
+- Do not apply the new-table RLS checklist mechanically to a column-only migration on an existing table; verify the existing row policies still match the new column sensitivity.
 - Do not use `user_metadata` for admin authorization.
 - Do not update `docs/_archive/db/schema.sql` as current documentation.
 - Do not assume columns used in code exist without checking migrations or live schema.

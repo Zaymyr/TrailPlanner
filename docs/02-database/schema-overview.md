@@ -5,6 +5,7 @@ last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/lib/organizer-aid-station-products.ts
@@ -42,8 +43,9 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Saved plan: a row in `race_plans` with flexible planner JSON.
 - Plan share link: a public crew recap snapshot tied to a saved plan through a hashed token, with narrow crew-side tracking state.
 - Plan aid station: per-plan aid station snapshot.
-- Race aid station: catalog/private race aid station source, including water, solid, and assistance service flags.
+- Race aid station: catalog/private race aid station source, including water, solid, assistance service flags, and optional organizer detail JSON.
 - Organizer membership: event-scoped access through `race_event_organizers`.
+- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Entitlement source: subscription, trial, or premium grant.
 
 ## Tables
@@ -63,10 +65,10 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `push_devices` | Expo push tokens and device metadata per user. |
 | `push_notification_events` | Push reminder send log and dedupe records. |
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
-| `race_aid_stations` | Aid stations attached to `races`, with service availability flags. |
+| `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
-| `race_events` | Event grouping table used by code; creation migration is not visible in this repo. |
+| `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`. |
@@ -145,6 +147,7 @@ erDiagram
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
+- Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.

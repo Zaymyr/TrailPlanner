@@ -9,6 +9,10 @@ import {
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
+import {
+  organizerAidStationDetailsSchema,
+  parseOrganizerAidStationDetails,
+} from "../../../../../../lib/organizer-dashboard-details";
 
 const aidStationRowSchema = z.object({
   id: z.string().uuid(),
@@ -19,6 +23,7 @@ const aidStationRowSchema = z.object({
   assistance_allowed: z.boolean().optional().default(true),
   notes: z.string().nullable().optional(),
   order_index: z.number(),
+  organizer_details: z.unknown().nullable().optional(),
 });
 
 const aidStationInputSchema = z.object({
@@ -29,6 +34,7 @@ const aidStationInputSchema = z.object({
   solidRefill: z.boolean().optional().default(true),
   assistanceAllowed: z.boolean().optional().default(true),
   notes: z.string().trim().optional().transform((value) => (value ? value : null)),
+  organizerDetails: organizerAidStationDetailsSchema.optional(),
 });
 
 const updateAidStationsSchema = z.object({
@@ -46,7 +52,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if ("error" in race) return race.error;
 
   const response = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index&order=order_index.asc`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details&order=order_index.asc`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",
@@ -59,7 +65,14 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   }
 
   const aidStations = z.array(aidStationRowSchema).parse(await response.json());
-  return withSecurityHeaders(NextResponse.json({ aidStations }));
+  return withSecurityHeaders(
+    NextResponse.json({
+      aidStations: aidStations.map((station) => ({
+        ...station,
+        organizerDetails: parseOrganizerAidStationDetails(station.organizer_details),
+      })),
+    })
+  );
 }
 
 export async function PUT(request: NextRequest, context: { params: { id?: string } }) {
@@ -117,6 +130,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
           solid_available: station.solidRefill,
           assistance_allowed: station.assistanceAllowed,
           notes: station.notes,
+          organizer_details: station.organizerDetails ?? null,
           order_index: index,
         }),
         cache: "no-store",
@@ -144,6 +158,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
             solid_available: station.solidRefill,
             assistance_allowed: station.assistanceAllowed,
             notes: station.notes,
+            organizer_details: station.organizerDetails ?? null,
             order_index: index,
           };
         })
@@ -158,7 +173,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const reloadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index&order=order_index.asc`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details&order=order_index.asc`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",
@@ -171,5 +186,12 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const aidStations = z.array(aidStationRowSchema).parse(await reloadResponse.json());
-  return withSecurityHeaders(NextResponse.json({ aidStations }));
+  return withSecurityHeaders(
+    NextResponse.json({
+      aidStations: aidStations.map((station) => ({
+        ...station,
+        organizerDetails: parseOrganizerAidStationDetails(station.organizer_details),
+      })),
+    })
+  );
 }

@@ -5,6 +5,7 @@ last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
   - race_plans
@@ -147,6 +148,14 @@ Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.s
 
 `supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql` extends `race_aid_stations` with `solid_available` and `assistance_allowed`, both defaulting to `true`. It adds no new table, grants, foreign keys, or RLS policies; existing aid-station policies continue to control the rows.
 
+`supabase/migrations/20260618160000_add_organizer_dashboard_details.sql` extends existing organizer source tables with nullable JSONB:
+
+- `race_events.organizer_details`
+- `races.organizer_details`
+- `race_aid_stations.organizer_details`
+
+It adds comments on the new columns and deliberately adds no grants, foreign keys, or RLS policies. Existing table row policies plus organizer service-route membership checks remain the access boundary.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -189,6 +198,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.
 - Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
+- Organizer dashboard JSONB columns are nullable progressive metadata. Keep public/mobile queries explicit when they should not expose organizer draft details.
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 - Data-only brand imports created after official product metadata should populate `official_name` and `is_official` in the same migration.
 - Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.

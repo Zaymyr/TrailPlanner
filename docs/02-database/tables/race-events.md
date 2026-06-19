@@ -6,10 +6,13 @@ ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
+  - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
+  - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx
@@ -33,6 +36,7 @@ related_tables:
 - Event image: `thumbnail_url` can be used as a shared event thumbnail.
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created when an organizer claims a missing race.
+- Organizer dashboard details: nullable JSONB for equipment, bib pickup, access, services, partners, and runner notes.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
@@ -46,6 +50,7 @@ related_tables:
 | `race_date` | `text` or date-like | nullable in API schemas | Event date used for sorting/filtering/display. |
 | `thumbnail_url` | `text` | nullable, added by migration | Shared event thumbnail URL. |
 | `is_live` | `boolean` | nullable/boolean in API schemas | Visibility flag used by onboarding/profile routes. |
+| `organizer_details` | `jsonb` | nullable, added by `20260618160000_add_organizer_dashboard_details.sql` | Organizer-managed progressive dashboard details. |
 
 <!-- TODO: verify with maintainer: confirm exact race_events column types, constraints, indexes, and RLS policies in the live Supabase project. -->
 
@@ -65,7 +70,7 @@ No `race_events` RLS policy migration was found in this repo.
 
 Because API routes use service role for event writes, client/mobile read access must be verified against the live policies before changing catalog access.
 
-Organizer portal writes also go through web service routes after checking `race_event_organizers`. The organizer portal migration adds RLS for claims and memberships, but it does not add a `race_events` table policy.
+Organizer portal writes also go through web service routes after checking `race_event_organizers`. The organizer portal migration adds RLS for claims and memberships, but it does not add a `race_events` table policy. The organizer details migration adds only a nullable JSONB column and comments; it adds no grants or new policies.
 
 ## Business Invariants
 
@@ -73,6 +78,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Event rows can also be created by the organizer claim route for missing events; those rows are inserted with `is_live = false`.
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
+- Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
@@ -86,6 +92,14 @@ Observed admin/mobile query shape:
 select id, name, location, race_date, thumbnail_url, is_live
 from public.race_events
 order by name asc;
+```
+
+Observed organizer detail shape:
+
+```sql
+select id, name, location, race_date, thumbnail_url, is_live, organizer_details
+from public.race_events
+where id = '<event-id>';
 ```
 
 Observed race join shape:
@@ -103,6 +117,8 @@ from public.races;
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Manual organizer draft events are not public catalog rows until their `is_live` state is explicitly changed.
+- Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed.
+- Publishing from the organizer route requires at least one live publishable format; event-level fields alone are not enough.
 
 ## Related Docs
 

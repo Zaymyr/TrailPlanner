@@ -13,6 +13,7 @@ related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
+  - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -131,6 +132,8 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 
 Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Claimed catalog race rows should not be reassigned through `races.created_by`.
 
+`20260618160000_add_organizer_dashboard_details.sql` adds nullable organizer detail JSONB columns to `race_events`, `races`, and `race_aid_stations`. It adds no foreign keys and does not change cascade behavior.
+
 ## Gotchas
 
 - Do not restore `race_catalog` names from archived docs. Current code uses `races`.
@@ -139,6 +142,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - `plan_aid_stations.race_aid_station_id` is referenced by `GpxAidStationImporter`, but no visible migration creates it.
 - Do not cascade-delete public races when revoking organizer access; set `race_event_organizers.revoked_at`.
 - Organizer station products are source-race suggestions and are not copied into `plan_aid_stations`.
+- Organizer detail JSONB columns are metadata on existing source rows; they do not create new ownership or cascade relationships.
 - Public crew share links are plan children; deleting the plan must invalidate the public recap by cascading `plan_share_links`.
 
 ## Related Docs

@@ -5,6 +5,7 @@ last_verified: 2026-06-18
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
@@ -110,6 +111,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Admins can manage catalog races.
 - Owners can manage private races through `created_by`.
 - Approved organizers manage public claimed races through service routes and `race_event_organizers`, not through `races.created_by`.
+- `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
 
 Some policy branches include legacy admin metadata checks. Do not copy them into new migrations.
 
@@ -121,6 +123,7 @@ Declared through old `race_catalog_aid_stations` policies and renamed in `202603
 - Insert/update/delete are allowed for admins and race owners according to parent race access.
 - Organizer service routes can manage source aid stations after checking active `race_event_organizers` membership for the parent event.
 - `solid_available` and `assistance_allowed` are columns on the existing table, so they inherit the same row policies as `water_available`.
+- `organizer_details` is also a column on the existing table and inherits the same row policies; no separate JSONB grants or policies were added.
 
 ### Organizer Portal Tables
 
@@ -257,6 +260,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 - Adding service-flag columns to `race_aid_stations` does not grant new row access; keep organizer mutations behind the existing service-route membership check.
+- Adding organizer dashboard JSONB columns to existing source tables does not grant new row access. Keep event/race/station mutations behind the existing organizer service routes and active membership checks.
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.
 - Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.

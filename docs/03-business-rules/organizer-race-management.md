@@ -6,17 +6,23 @@ ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
+  - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-aid-station-products.ts
+  - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
+  - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/app/organizer/_components/completion.ts
+  - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.test.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
+  - apps/web/app/api/organizer/events/[id]/route.test.ts
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
@@ -31,6 +37,7 @@ related_files:
 related_tables:
   - race_event_claims
   - race_event_organizers
+  - race_aid_stations
   - race_aid_station_products
   - race_events
   - races
@@ -41,7 +48,7 @@ related_tables:
 
 ## Purpose
 
-This document records the v1 web-only organizer portal rules: users can request control of an existing event or submit a missing event as a draft, admins validate the claim, and approved organizers manage event formats, GPX files, aid stations, and products offered at aid stations.
+This document records the v1 web-only organizer portal rules: users can request control of an existing event or submit a missing event as a draft, admins validate the claim, and approved organizers manage event formats, GPX files, aid stations, products offered at aid stations, and progressive runner-facing organizer details.
 
 ## Key Concepts
 
@@ -50,6 +57,7 @@ This document records the v1 web-only organizer portal rules: users can request 
 - Event membership: approved organizer access stored in `race_event_organizers`.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
+- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
 ## Claim and Approval Flow
@@ -67,19 +75,35 @@ Rejecting a claim stores review metadata and does not grant membership. Revoking
 
 ## Organizer Dashboard Rules
 
-`/organizer` is web-only in v1. It shows states for no request, pending request, rejected request, and approved dashboard.
+`/organizer` is web-only in v1. It shows states for no request, pending request, rejected request, and an approved modular dashboard.
 
 Approved organizers can:
 
-- edit event-level name, location, date, site, image, and notes where supported by live schema;
-- edit existing race formats under the event;
-- add a new format as a new `races` row with `created_by = null`, `is_public = true`, and `is_live = true`;
+- edit event-level name, location, date, image, live state, and `race_events.organizer_details`;
+- edit existing race formats under the event, including `races.organizer_details`;
+- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = true`, and optional organizer details;
+- duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
 - replace a format GPX source in `race-gpx`;
-- edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, and `assistanceAllowed` service flags;
+- edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and `race_aid_stations.organizer_details`;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
-- create non-live organizer-scoped products and attach them to a station.
+- create non-live organizer-scoped products and attach them to a station;
+- preview an internal runner-facing summary before a public runner page exists.
+
+The dashboard is organized as a top synthesis plus ten modules: event information, formats/GPX, ravitos, equipment, schedule/cutoffs, bib pickup, access/shuttles, products, services/partners, and runner preview. It keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
 
 Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
+
+## Publication and Completion Rules
+
+Publishing an event through `/api/organizer/events/[id]` requires:
+
+- event name;
+- event date and location;
+- at least one live format with a non-empty name, `distance_km > 0`, and `elevation_gain_m >= 0`.
+
+Recommended modules improve the dashboard score but do not block publication: GPX, ravitos, schedules/cutoffs, equipment, bib pickup, and access/shuttles.
+
+Optional modules also improve the score but never block publication: ravito products, supporter notes, accommodations/restaurants/recovery, partners, and last-minute messages.
 
 ## GPX Replacement
 
@@ -88,6 +112,8 @@ Replacing a GPX updates the source `races` row and storage object for that forma
 When GPX waypoints are present and the format has no aid stations, the organizer GPX route can create source `race_aid_stations` from normalized waypoints. Existing station rows are edited through the aid station route.
 
 Organizer aid station edits should preserve existing station ids when possible so `race_aid_station_products` links survive. New or legacy stations default all service flags to enabled unless an organizer disables water, solid food, or assistance explicitly.
+
+Aid station `organizer_details` adds runner-facing type, cumulative D+/D-, altitude, cutoff time, drop-bag availability, and organizer note. These fields are stored with the station row and must be saved through the organizer aid-station route so existing station ids are kept.
 
 ## Organizer Products
 
@@ -115,11 +141,14 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 ## Gotchas
 
 - Do not use `races.created_by` to authorize claimed public race edits.
+- Do not expose organizer JSONB fields through public/mobile broad selects accidentally; public surfaces should keep explicit column selection.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
+- Do not add separate grants or RLS policies for organizer JSONB columns on existing source tables; route membership checks and table row policies remain the access boundary.
 - Do not auto-sync existing saved plans after organizer source edits. Official ravito product links are read-time response overlays only; service flags, GPX, station distances, pacing, and runner supplies remain stored plan data.
 - Do not use `user_metadata` for admin claim approval or revocation checks.
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Manual organizer claims create non-live draft events; do not treat those rows as public catalog entries until an admin or organizer publishes the event through the normal event edit flow.
+- Do not publish an event with no live, publishable format; the organizer event route rejects that state even when the event-level fields are valid.
 
 ## Related Docs
 

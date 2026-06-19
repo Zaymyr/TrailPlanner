@@ -10,6 +10,10 @@ import {
   uuidParamSchema,
 } from "../../../../../lib/organizer";
 import { withSecurityHeaders } from "../../../../../lib/http";
+import {
+  organizerRaceDetailsSchema,
+  parseOrganizerRaceDetails,
+} from "../../../../../lib/organizer-dashboard-details";
 
 const updateRaceSchema = z.object({
   name: z.string().trim().min(1).optional(),
@@ -20,6 +24,7 @@ const updateRaceSchema = z.object({
   raceDate: optionalTextOrNull,
   thumbnailUrl: optionalTextOrNull,
   isLive: z.boolean().optional(),
+  organizerDetails: organizerRaceDetailsSchema.optional(),
 });
 
 const raceRowSchema = z.object({
@@ -35,6 +40,7 @@ const raceRowSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   is_live: z.boolean(),
+  organizer_details: z.unknown().nullable().optional(),
 });
 
 export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
@@ -61,6 +67,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.raceDate !== undefined) updatePayload.race_date = parsedBody.data.raceDate;
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;
   if (parsedBody.data.isLive !== undefined) updatePayload.is_live = parsedBody.data.isLive;
+  if (parsedBody.data.organizerDetails !== undefined) updatePayload.organizer_details = parsedBody.data.organizerDetails;
 
   if (Object.keys(updatePayload).length === 0) return jsonError("No fields to update.", 400);
 
@@ -83,5 +90,14 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const updated = z.array(raceRowSchema).parse(await response.json())[0] ?? null;
-  return withSecurityHeaders(NextResponse.json({ race: updated }));
+  return withSecurityHeaders(
+    NextResponse.json({
+      race: updated
+        ? {
+            ...updated,
+            organizerDetails: parseOrganizerRaceDetails(updated.organizer_details),
+          }
+        : null,
+    })
+  );
 }

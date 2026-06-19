@@ -10,6 +10,7 @@ related_files:
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
+  - apps/web/app/organizer/_components/OrganizerDashboard.tsx
 related_tables:
   - race_event_claims
   - race_event_organizers
@@ -78,7 +79,7 @@ Summary:
 - One user cannot keep multiple pending/approved claims for the same event.
 - Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
-- The organizer dashboard product picker, including brand grouping and quick filters, is available only after the approved-claim membership handoff; pending claims should not unlock station or product edits.
+- The organizer dashboard, including modular JSONB detail editors and product picker with brand grouping and quick filters, is available only after the approved-claim membership handoff; pending claims should not unlock event, format, station, or product edits.
 - Rejection stores review metadata but does not create membership.
 
 ## Common Queries
@@ -107,6 +108,7 @@ order by created_at asc;
 - Do not use `user_metadata` for reviewer/admin checks.
 - Deleting an auth user removes their claims, but public race/event data remains owned by catalog tables.
 - Rejected manual claims should keep their claim audit trail; deleting the draft event would cascade-delete the claim.
+- Pending claims should show request status only, not the organizer dashboard modules.
 
 ## Related Docs
 
