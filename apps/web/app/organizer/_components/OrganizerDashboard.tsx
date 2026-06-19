@@ -898,7 +898,6 @@ export function OrganizerDashboard() {
       <OrganizerSummaryHeader
         selectedMembership={selectedMembership}
         event={eventDraft}
-        activeRace={activeRace}
         aidStationCount={aidStations.length}
         memberships={memberships}
         selectedEventId={selectedEventId}
@@ -1183,7 +1182,6 @@ function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { pendingC
 function OrganizerSummaryHeader({
   selectedMembership,
   event,
-  activeRace,
   aidStationCount,
   memberships,
   selectedEventId,
@@ -1197,7 +1195,6 @@ function OrganizerSummaryHeader({
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
-  activeRace: RaceFormat | null;
   aidStationCount: number;
   memberships: MembershipRow[];
   selectedEventId: string | null;
@@ -1210,8 +1207,6 @@ function OrganizerSummaryHeader({
   onTogglePublish: () => void;
 }) {
   const eventScore = completion?.eventScore ?? 0;
-  const formatScore = completion?.formatScore ?? 0;
-  const formatScoreLabel = activeRace ? `${formatScore}%` : "-";
   const isLive = event?.is_live !== false;
 
   return (
@@ -1246,48 +1241,52 @@ function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <MetricPill label="Statut" value={isLive ? "Live" : "Brouillon"} tone={isLive ? "success" : "muted"} />
-        <MetricPill label="Formats" value={String(event?.races.length ?? 0)} />
-        <MetricPill label="Ravitos" value={String(aidStationCount)} />
-        <MetricPill label="Evenement" value={`${eventScore}%`} tone={completion?.requiredComplete ? "success" : "warning"} />
-        <MetricPill label="Format actif" value={formatScoreLabel} tone={!activeRace ? "muted" : formatScore >= 80 ? "success" : "warning"} />
-        <MetricPill label="Etat" value={hasDirtyChanges ? "Non enregistre" : "A jour"} tone={hasDirtyChanges ? "warning" : "success"} />
+      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <span className="inline-flex items-center gap-2 font-semibold text-foreground">
+            <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
+            {isLive ? "Live" : "Brouillon"}
+          </span>
+          <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
+          <span className="text-muted-foreground">{aidStationCount} ravitos</span>
+          <span className={cn("font-medium", hasDirtyChanges ? "text-amber-700" : "text-emerald-700")}>
+            {hasDirtyChanges ? "Non enregistre" : "A jour"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onTogglePublish}
+          disabled={status === "saving"}
+          className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-60"
+          aria-pressed={isLive}
+        >
+          <span className={cn("relative h-5 w-9 rounded-full transition", isLive ? "bg-brand" : "bg-muted")}>
+            <span
+              className={cn(
+                "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition",
+                isLive ? "left-4" : "left-0.5"
+              )}
+            />
+          </span>
+          {isLive ? "Publie" : "Brouillon"}
+        </button>
       </div>
 
-      <div className="mt-4 h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${eventScore}%` }} />
+      <div className="mt-4 h-3 overflow-hidden rounded-full bg-muted">
+        <div className="flex h-full min-w-10 items-center justify-end rounded-full bg-brand px-2 text-[10px] font-semibold leading-none text-white transition-all" style={{ width: `${eventScore}%` }}>
+          {eventScore}%
+        </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" onClick={onPreview} variant="outline">
           Previsualiser cote coureur
         </Button>
-        <Button type="button" onClick={onTogglePublish} variant={isLive ? "outline" : "default"} disabled={status === "saving"}>
-          {isLive ? "Depublier" : "Publier"}
-        </Button>
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
         </Button>
       </div>
     </section>
-  );
-}
-
-function MetricPill({ label, value, tone = "default" }: { label: string; value: string; tone?: "default" | "success" | "warning" | "muted" }) {
-  return (
-    <div
-      className={cn(
-        "rounded-md border px-3 py-2",
-        tone === "success" && "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-100",
-        tone === "warning" && "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-100",
-        tone === "muted" && "border-border bg-muted text-muted-foreground",
-        tone === "default" && "border-border bg-background"
-      )}
-    >
-      <p className="text-[11px] font-semibold uppercase tracking-wide opacity-70">{label}</p>
-      <p className="mt-1 text-sm font-semibold">{value}</p>
-    </div>
   );
 }
 

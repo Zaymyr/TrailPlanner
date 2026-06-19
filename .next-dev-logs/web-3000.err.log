@@ -1,0 +1,6 @@
+Missing Supabase anon configuration { supabaseUrl: [ 'Required' ], supabaseAnonKey: [ 'Required' ] }
+Missing Supabase service role configuration { supabaseUrl: [ 'Required' ], supabaseServiceRoleKey: [ 'Required' ] }
+Missing Supabase anon configuration { supabaseUrl: [ 'Required' ], supabaseAnonKey: [ 'Required' ] }
+Missing Supabase service role configuration { supabaseUrl: [ 'Required' ], supabaseServiceRoleKey: [ 'Required' ] }
+Missing Supabase anon configuration { supabaseUrl: [ 'Required' ], supabaseAnonKey: [ 'Required' ] }
+Missing Supabase service role configuration { supabaseUrl: [ 'Required' ], supabaseServiceRoleKey: [ 'Required' ] }
