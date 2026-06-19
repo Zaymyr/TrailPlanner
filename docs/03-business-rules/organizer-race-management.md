@@ -89,9 +89,9 @@ Approved organizers can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a top synthesis plus one tabbed completion surface. The first tab is the event scope and shows common event tiles for event information, publishable formats, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and tiles for identity/GPX, schedule, inherited/specific equipment, inherited/specific bib pickup, inherited/specific access, ravitos, products, and preview. The active module editor sits directly below this tabbed tile area.
+The dashboard is organized as a top synthesis plus one tabbed completion surface. The first tab is the event scope and shows common event tiles for event information, publishable formats, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and tiles for identity/GPX, schedule, format equipment, format bib pickup, format access, ravitos, products, and preview. The active module editor sits directly below this tabbed tile area.
 
-Equipment, bib pickup, and access are split in the UI between common event data and format-specific data for the active race. It keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
+Equipment, bib pickup, and access are split by tab in the UI: the event tab edits only common event data, while a format tab edits only that format's data. The editor must not stack common and format forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. The dashboard keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
 
 Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
 
@@ -158,7 +158,7 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Manual organizer claims create non-live draft events; do not treat those rows as public catalog entries until an admin or organizer publishes the event through the normal event edit flow.
 - Do not publish an event with no live, publishable format; the organizer event route rejects that state even when the event-level fields are valid.
-- Do not duplicate common event details into every format. Store shared information on the event and only use `races.organizer_details` for differences or additions.
+- Do not bulk-duplicate common event details into every existing format. Store shared information on the event by default; the add-format draft may be prefilled from the event or previous format only when the organizer intentionally creates a new format.
 
 ## Related Docs
 

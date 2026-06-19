@@ -228,6 +228,27 @@ const createEmptyRaceForm = (): RaceFormValues => ({
   organizerDetails: cloneJson(defaultOrganizerRaceDetails),
 });
 
+const createRaceFormFromEventDefaults = (eventForm: EventFormValues): RaceFormValues => ({
+  ...createEmptyRaceForm(),
+  locationText: eventForm.location,
+  raceDate: eventForm.raceDate,
+  thumbnailUrl: eventForm.thumbnailUrl,
+  organizerDetails: {
+    ...cloneJson(defaultOrganizerRaceDetails),
+    mandatoryEquipment: cloneJson(eventForm.organizerDetails.mandatoryEquipment),
+    bibPickup: cloneJson(eventForm.organizerDetails.bibPickup),
+    access: cloneJson(eventForm.organizerDetails.access),
+  },
+});
+
+const createRaceFormFromFormatDefaults = (race: RaceFormat, raceForm: RaceFormValues): RaceFormValues => ({
+  ...createEmptyRaceForm(),
+  locationText: raceForm.locationText || race.location_text || "",
+  raceDate: raceForm.raceDate || formatDate(race.race_date),
+  thumbnailUrl: raceForm.thumbnailUrl || race.thumbnail_url || "",
+  organizerDetails: cloneJson(raceForm.organizerDetails ?? race.organizerDetails ?? defaultOrganizerRaceDetails),
+});
+
 const formatDate = (value?: string | null) => (value ? value.slice(0, 10) : "");
 
 const toNumberOrNull = (value: string) => {
@@ -431,14 +452,16 @@ export function OrganizerDashboard() {
         })),
       };
       setEventDetail(nextEvent);
-      setEventForm({
+      const nextEventForm = {
         name: nextEvent.name,
         location: nextEvent.location ?? "",
         raceDate: formatDate(nextEvent.race_date),
         thumbnailUrl: nextEvent.thumbnail_url ?? "",
         isLive: nextEvent.is_live !== false,
         organizerDetails: cloneJson(nextEvent.organizerDetails ?? defaultOrganizerEventDetails),
-      });
+      };
+      setEventForm(nextEventForm);
+      setNewRaceForm(createRaceFormFromEventDefaults(nextEventForm));
       const preferredTabExists =
         preferredTab === EVENT_TAB_ID ||
         preferredTab === ADD_FORMAT_TAB_ID ||
@@ -841,6 +864,9 @@ export function OrganizerDashboard() {
       if (!confirmed) return;
       clearDirty(raceDirtyModules);
     }
+    if (nextTab === ADD_FORMAT_TAB_ID) {
+      setNewRaceForm(activeRace ? createRaceFormFromFormatDefaults(activeRace, raceForm) : createRaceFormFromEventDefaults(eventForm));
+    }
     setActiveTab(nextTab);
     setActiveModule(nextTab === EVENT_TAB_ID ? "event" : "formats");
   };
@@ -865,6 +891,7 @@ export function OrganizerDashboard() {
     ...(eventDetail?.races ?? []).map((race) => ({ id: race.id, label: race.name })),
     { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
+  const isEventTab = activeTab === EVENT_TAB_ID;
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6">
@@ -980,6 +1007,7 @@ export function OrganizerDashboard() {
             />
           ) : activeModule === "equipment" ? (
             <EquipmentEditor
+              scope={isEventTab ? "event" : "format"}
               activeRace={activeRace}
               eventDetails={eventForm.organizerDetails}
               raceDetails={raceForm.organizerDetails}
@@ -1000,6 +1028,7 @@ export function OrganizerDashboard() {
             />
           ) : activeModule === "bibPickup" ? (
             <BibPickupEditor
+              scope={isEventTab ? "event" : "format"}
               activeRace={activeRace}
               eventDetails={eventForm.organizerDetails}
               raceDetails={raceForm.organizerDetails}
@@ -1011,6 +1040,7 @@ export function OrganizerDashboard() {
             />
           ) : activeModule === "access" ? (
             <AccessEditor
+              scope={isEventTab ? "event" : "format"}
               activeRace={activeRace}
               eventDetails={eventForm.organizerDetails}
               raceDetails={raceForm.organizerDetails}
@@ -1346,9 +1376,13 @@ function OrganizerModuleGrid({
   onSelectModule: (moduleId: OrganizerModuleId) => void;
   formatMode?: boolean;
 }) {
-  const isDirty = (moduleId: OrganizerModuleId) =>
-    dirtyModules.has(moduleId) ||
-    (formatMode && moduleId !== "aidStations" && moduleId !== "products" && moduleId !== "preview" && dirtyModules.has("formats"));
+  const isDirty = (moduleId: OrganizerModuleId) => {
+    if (!formatMode) return dirtyModules.has(moduleId);
+    if (moduleId === "formats" || moduleId === "schedule" || moduleId === "aidStations" || moduleId === "products") {
+      return dirtyModules.has(moduleId);
+    }
+    return moduleId !== "preview" && dirtyModules.has("formats");
+  };
 
   return (
     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -1785,6 +1819,7 @@ function StationDetailsPanel({ station, onChange, productsSlot }: { station: Aid
 }
 
 function EquipmentEditor({
+  scope,
   activeRace,
   eventDetails,
   raceDetails,
@@ -1794,6 +1829,7 @@ function EquipmentEditor({
   onSaveRace,
   status,
 }: {
+  scope: "event" | "format";
   activeRace: RaceFormat | null;
   eventDetails: OrganizerEventDetails;
   raceDetails: OrganizerRaceDetails;
@@ -1803,8 +1839,8 @@ function EquipmentEditor({
   onSaveRace: () => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  return (
-    <div className="space-y-4">
+  if (scope === "event") {
+    return (
       <EquipmentFields
         title="Materiel commun a tous les formats"
         description="Renseigne ici uniquement ce qui vaut pour chaque course de l'evenement."
@@ -1814,22 +1850,27 @@ function EquipmentEditor({
         saveLabel="Sauvegarder le commun"
         disabled={status === "saving"}
       />
-      {activeRace ? (
-        <EquipmentFields
-          title={`Materiel specifique - ${activeRace.name}`}
-          description="Ajoute seulement les obligations ou recommandations propres a ce format."
-          equipment={raceDetails.mandatoryEquipment}
-          onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment })}
-          onSave={onSaveRace}
-          saveLabel="Sauvegarder ce format"
-          disabled={status === "saving"}
-        />
-      ) : (
-        <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Selectionne un format pour ajouter du materiel specifique.
-        </p>
-      )}
-    </div>
+    );
+  }
+
+  if (!activeRace) {
+    return (
+      <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+        Selectionne un format pour ajouter du materiel specifique.
+      </p>
+    );
+  }
+
+  return (
+    <EquipmentFields
+      title={`Materiel - ${activeRace.name}`}
+      description="Ajoute les obligations ou recommandations propres a ce format."
+      equipment={raceDetails.mandatoryEquipment}
+      onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment })}
+      onSave={onSaveRace}
+      saveLabel="Sauvegarder ce format"
+      disabled={status === "saving"}
+    />
   );
 }
 
@@ -1966,6 +2007,7 @@ function ScheduleEditor({
 }
 
 function BibPickupEditor({
+  scope,
   activeRace,
   eventDetails,
   raceDetails,
@@ -1975,6 +2017,7 @@ function BibPickupEditor({
   onSaveRace,
   status,
 }: {
+  scope: "event" | "format";
   activeRace: RaceFormat | null;
   eventDetails: OrganizerEventDetails;
   raceDetails: OrganizerRaceDetails;
@@ -1984,8 +2027,8 @@ function BibPickupEditor({
   onSaveRace: () => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  return (
-    <div className="space-y-4">
+  if (scope === "event") {
+    return (
       <BibPickupFields
         title="Retrait dossard commun"
         description="Renseigne les infos valables pour tous les formats."
@@ -1995,22 +2038,27 @@ function BibPickupEditor({
         saveLabel="Sauvegarder le commun"
         disabled={status === "saving"}
       />
-      {activeRace ? (
-        <BibPickupFields
-          title={`Retrait specifique - ${activeRace.name}`}
-          description="A remplir seulement si ce format a un retrait, des documents ou un controle different."
-          bib={raceDetails.bibPickup}
-          onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup })}
-          onSave={onSaveRace}
-          saveLabel="Sauvegarder ce format"
-          disabled={status === "saving"}
-        />
-      ) : (
-        <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Selectionne un format pour ajouter une consigne dossard specifique.
-        </p>
-      )}
-    </div>
+    );
+  }
+
+  if (!activeRace) {
+    return (
+      <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+        Selectionne un format pour ajouter une consigne dossard specifique.
+      </p>
+    );
+  }
+
+  return (
+    <BibPickupFields
+      title={`Retrait dossard - ${activeRace.name}`}
+      description="Renseigne le retrait, les documents ou le controle propres a ce format."
+      bib={raceDetails.bibPickup}
+      onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup })}
+      onSave={onSaveRace}
+      saveLabel="Sauvegarder ce format"
+      disabled={status === "saving"}
+    />
   );
 }
 
@@ -2056,6 +2104,7 @@ function BibPickupFields({
 }
 
 function AccessEditor({
+  scope,
   activeRace,
   eventDetails,
   raceDetails,
@@ -2065,6 +2114,7 @@ function AccessEditor({
   onSaveRace,
   status,
 }: {
+  scope: "event" | "format";
   activeRace: RaceFormat | null;
   eventDetails: OrganizerEventDetails;
   raceDetails: OrganizerRaceDetails;
@@ -2074,8 +2124,8 @@ function AccessEditor({
   onSaveRace: () => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  return (
-    <div className="space-y-4">
+  if (scope === "event") {
+    return (
       <AccessFields
         title="Acces commun evenement"
         description="Adresse principale, parking et consignes valables pour tous les formats."
@@ -2085,32 +2135,38 @@ function AccessEditor({
         saveLabel="Sauvegarder le commun"
         disabled={status === "saving"}
       />
-      {activeRace ? (
-        <section className="space-y-4 rounded-lg border border-border bg-background p-4">
-          <AccessFields
-            title={`Acces specifique - ${activeRace.name}`}
-            description="A remplir seulement si ce format a un depart, une arrivee, des navettes ou des restrictions differentes."
-            access={raceDetails.access}
-            onAccessChange={(access) => onRaceChange({ ...raceDetails, access })}
-            onSave={onSaveRace}
-            saveLabel="Sauvegarder ce format"
-            disabled={status === "saving"}
-            embedded
-          />
-          <RunnerInfoFields
-            runnerInfo={raceDetails.runnerInfo}
-            onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })}
-          />
-          <Button type="button" onClick={onSaveRace} disabled={status === "saving"}>
-            Sauvegarder les informations du format
-          </Button>
-        </section>
-      ) : (
-        <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Selectionne un format pour ajouter un acces ou une information specifique.
-        </p>
-      )}
-    </div>
+    );
+  }
+
+  if (!activeRace) {
+    return (
+      <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+        Selectionne un format pour ajouter un acces ou une information specifique.
+      </p>
+    );
+  }
+
+  return (
+    <section className="space-y-4 rounded-lg border border-border bg-background p-4">
+      <AccessFields
+        title={`Acces - ${activeRace.name}`}
+        description="Renseigne le depart, l'arrivee, les navettes ou les restrictions propres a ce format."
+        access={raceDetails.access}
+        onAccessChange={(access) => onRaceChange({ ...raceDetails, access })}
+        onSave={onSaveRace}
+        saveLabel="Sauvegarder ce format"
+        disabled={status === "saving"}
+        embedded
+        showSaveButton={false}
+      />
+      <RunnerInfoFields
+        runnerInfo={raceDetails.runnerInfo}
+        onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })}
+      />
+      <Button type="button" onClick={onSaveRace} disabled={status === "saving"}>
+        Sauvegarder les informations du format
+      </Button>
+    </section>
   );
 }
 
@@ -2123,6 +2179,7 @@ function AccessFields({
   saveLabel,
   disabled,
   embedded,
+  showSaveButton = true,
 }: {
   title: string;
   description: string;
@@ -2132,6 +2189,7 @@ function AccessFields({
   saveLabel: string;
   disabled?: boolean;
   embedded?: boolean;
+  showSaveButton?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["access"]>) => onAccessChange({ ...access, ...next });
   return (
@@ -2150,9 +2208,11 @@ function AccessFields({
       <TextAreaField label="Routes fermees / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
       <TextField label="Lien Google Maps ou adresse" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
       <TextAreaField label="Note acces" value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
-      <Button type="button" onClick={onSave} disabled={disabled}>
-        {saveLabel}
-      </Button>
+      {showSaveButton ? (
+        <Button type="button" onClick={onSave} disabled={disabled}>
+          {saveLabel}
+        </Button>
+      ) : null}
     </section>
   );
 }
