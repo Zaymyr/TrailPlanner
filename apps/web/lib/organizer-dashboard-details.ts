@@ -29,70 +29,92 @@ const equipmentItemSchema = z.object({
   note: nullableText,
 });
 
+export const organizerEquipmentDetailsSchema = z
+  .object({
+    items: z.array(equipmentItemSchema).default([]),
+    note: nullableText,
+  })
+  .default({ items: [], note: null });
+
+export const organizerBibPickupDetailsSchema = z
+  .object({
+    location: nullableText,
+    schedule: nullableText,
+    requiredDocuments: nullableText,
+    thirdPartyPickupAllowed: nullableBoolean,
+    equipmentCheck: nullableBoolean,
+    note: nullableText,
+  })
+  .default({
+    location: null,
+    schedule: null,
+    requiredDocuments: null,
+    thirdPartyPickupAllowed: null,
+    equipmentCheck: null,
+    note: null,
+  });
+
+export const organizerAccessDetailsSchema = z
+  .object({
+    startAddress: nullableText,
+    finishAddress: nullableText,
+    officialParkings: nullableText,
+    shuttles: nullableText,
+    shuttleSchedule: nullableText,
+    roadRestrictions: nullableText,
+    mapUrl: nullableUrl,
+    note: nullableText,
+  })
+  .default({
+    startAddress: null,
+    finishAddress: null,
+    officialParkings: null,
+    shuttles: null,
+    shuttleSchedule: null,
+    roadRestrictions: null,
+    mapUrl: null,
+    note: null,
+  });
+
+export const organizerServicesDetailsSchema = z
+  .object({
+    supporters: nullableText,
+    accommodations: nullableText,
+    restaurants: nullableText,
+    recovery: nullableText,
+    partners: nullableText,
+    lastMinuteMessage: nullableText,
+    note: nullableText,
+  })
+  .default({
+    supporters: null,
+    accommodations: null,
+    restaurants: null,
+    recovery: null,
+    partners: null,
+    lastMinuteMessage: null,
+    note: null,
+  });
+
+export const organizerRunnerInfoDetailsSchema = z
+  .object({
+    startArea: nullableText,
+    briefing: nullableText,
+    rules: nullableText,
+    note: nullableText,
+  })
+  .default({
+    startArea: null,
+    briefing: null,
+    rules: null,
+    note: null,
+  });
+
 export const organizerEventDetailsSchema = z.object({
-  mandatoryEquipment: z
-    .object({
-      items: z.array(equipmentItemSchema).default([]),
-      note: nullableText,
-    })
-    .default({ items: [], note: null }),
-  bibPickup: z
-    .object({
-      location: nullableText,
-      schedule: nullableText,
-      requiredDocuments: nullableText,
-      thirdPartyPickupAllowed: nullableBoolean,
-      equipmentCheck: nullableBoolean,
-      note: nullableText,
-    })
-    .default({
-      location: null,
-      schedule: null,
-      requiredDocuments: null,
-      thirdPartyPickupAllowed: null,
-      equipmentCheck: null,
-      note: null,
-    }),
-  access: z
-    .object({
-      startAddress: nullableText,
-      finishAddress: nullableText,
-      officialParkings: nullableText,
-      shuttles: nullableText,
-      shuttleSchedule: nullableText,
-      roadRestrictions: nullableText,
-      mapUrl: nullableUrl,
-      note: nullableText,
-    })
-    .default({
-      startAddress: null,
-      finishAddress: null,
-      officialParkings: null,
-      shuttles: null,
-      shuttleSchedule: null,
-      roadRestrictions: null,
-      mapUrl: null,
-      note: null,
-    }),
-  services: z
-    .object({
-      supporters: nullableText,
-      accommodations: nullableText,
-      restaurants: nullableText,
-      recovery: nullableText,
-      partners: nullableText,
-      lastMinuteMessage: nullableText,
-      note: nullableText,
-    })
-    .default({
-      supporters: null,
-      accommodations: null,
-      restaurants: null,
-      recovery: null,
-      partners: null,
-      lastMinuteMessage: null,
-      note: null,
-    }),
+  mandatoryEquipment: organizerEquipmentDetailsSchema,
+  bibPickup: organizerBibPickupDetailsSchema,
+  access: organizerAccessDetailsSchema,
+  services: organizerServicesDetailsSchema,
 });
 
 export const organizerRaceDetailsSchema = z.object({
@@ -111,6 +133,10 @@ export const organizerRaceDetailsSchema = z.object({
       cutoffNote: null,
       note: null,
     }),
+  mandatoryEquipment: organizerEquipmentDetailsSchema,
+  bibPickup: organizerBibPickupDetailsSchema,
+  access: organizerAccessDetailsSchema,
+  runnerInfo: organizerRunnerInfoDetailsSchema,
 });
 
 export const aidStationTypeSchema = z.enum(["water", "solid", "assistance", "life_base", "other"]);
@@ -133,6 +159,7 @@ export type OrganizerEventDetails = z.infer<typeof organizerEventDetailsSchema>;
 export type OrganizerRaceDetails = z.infer<typeof organizerRaceDetailsSchema>;
 export type OrganizerAidStationDetails = z.infer<typeof organizerAidStationDetailsSchema>;
 export type AidStationType = z.infer<typeof aidStationTypeSchema>;
+export type RunnerOrganizerDetails = ReturnType<typeof buildRunnerOrganizerDetails>;
 
 export const parseOrganizerEventDetails = (value: unknown): OrganizerEventDetails =>
   organizerEventDetailsSchema.catch(defaultOrganizerEventDetails).parse(value ?? {});
@@ -142,3 +169,36 @@ export const parseOrganizerRaceDetails = (value: unknown): OrganizerRaceDetails 
 
 export const parseOrganizerAidStationDetails = (value: unknown): OrganizerAidStationDetails =>
   organizerAidStationDetailsSchema.catch(defaultOrganizerAidStationDetails).parse(value ?? {});
+
+const hasOverrideValue = (value: unknown) => {
+  if (typeof value === "string") return value.trim().length > 0;
+  return value !== null && value !== undefined;
+};
+
+const mergePreferRace = <T extends Record<string, unknown>>(eventDetails: T, raceDetails: T): T => {
+  const merged = { ...eventDetails };
+  for (const [key, value] of Object.entries(raceDetails)) {
+    if (hasOverrideValue(value)) {
+      merged[key as keyof T] = value as T[keyof T];
+    }
+  }
+  return merged;
+};
+
+export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails, raceDetails?: OrganizerRaceDetails | null) {
+  const race = raceDetails ?? defaultOrganizerRaceDetails;
+
+  return {
+    commonEquipment: eventDetails.mandatoryEquipment,
+    raceEquipment: race.mandatoryEquipment,
+    equipment: {
+      items: [...eventDetails.mandatoryEquipment.items, ...race.mandatoryEquipment.items],
+      note: [eventDetails.mandatoryEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null,
+    },
+    bibPickup: mergePreferRace(eventDetails.bibPickup, race.bibPickup),
+    access: mergePreferRace(eventDetails.access, race.access),
+    services: eventDetails.services,
+    schedule: race.schedule,
+    runnerInfo: race.runnerInfo,
+  };
+}

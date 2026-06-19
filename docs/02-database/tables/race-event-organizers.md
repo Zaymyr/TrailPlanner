@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-06-19
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -82,7 +82,7 @@ Summary:
 - Approved organizer writes must check an active membership for the parent event.
 - A membership grants access to all formats under the event.
 - A membership grants access to source ravito service flags (`water_available`, `solid_available`, `assistance_allowed`) for all formats under the event.
-- A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos.
+- A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos. Event JSONB stores common defaults; race JSONB stores active-format differences or additions.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
@@ -116,6 +116,7 @@ order by created_at asc;
 - JWT admin checks must use `app_metadata`, not `user_metadata`.
 - New organizer-facing fields on child source tables should continue to check active membership for the parent event.
 - Organizer dashboard JSONB fields do not change the membership model; keep using active `race_event_organizers` checks instead of field-level shortcuts.
+- Common-vs-format detail splitting is an application convention, not a new authorization boundary.
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 
 ## Related Docs
