@@ -49,9 +49,21 @@ describe("organizer completion", () => {
     expect(completion.requiredComplete).toBe(true);
     expect(completion.modules.find((module) => module.id === "event")?.status).toBe("complete");
     expect(completion.modules.find((module) => module.id === "formats")?.status).toBe("complete");
+    expect(completion.eventModules.find((module) => module.id === "event")?.status).toBe("complete");
+    expect(completion.formatModules.find((module) => module.id === "aidStations")?.status).toBe("empty");
+    expect(completion.eventScore).toBeGreaterThan(0);
+    expect(completion.formatScore).toBeGreaterThan(0);
     expect(completion.modules.find((module) => module.id === "products")?.status).toBe("empty");
     expect(completion.score).toBeGreaterThan(0);
     expect(completion.score).toBeLessThan(100);
+  });
+
+  it("does not report format progress when no format is active", () => {
+    const completion = buildOrganizerCompletion(baseEvent, null, [], []);
+
+    expect(completion.formatScore).toBe(0);
+    expect(completion.formatModules).toHaveLength(0);
+    expect(completion.eventScore).toBeGreaterThan(0);
   });
 
   it("counts equipment items and station products in module statuses", () => {
@@ -89,8 +101,11 @@ describe("organizer completion", () => {
     };
     const completion = buildOrganizerCompletion({ ...baseEvent, races: [race] }, race, [], []);
     const equipmentModule = completion.modules.find((module) => module.id === "equipment");
+    const formatEquipmentModule = completion.formatModules.find((module) => module.id === "equipment");
 
     expect(equipmentModule?.status).toBe("complete");
     expect(equipmentModule?.countLabel).toBe("0 commun / 1 format");
+    expect(formatEquipmentModule?.status).toBe("complete");
+    expect(formatEquipmentModule?.countLabel).toBe("0 commun / 1 format");
   });
 });

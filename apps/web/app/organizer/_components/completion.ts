@@ -68,8 +68,12 @@ export type OrganizerModuleSummary = {
 
 export type OrganizerCompletionSummary = {
   score: number;
+  eventScore: number;
+  formatScore: number;
   requiredComplete: boolean;
   modules: OrganizerModuleSummary[];
+  eventModules: OrganizerModuleSummary[];
+  formatModules: OrganizerModuleSummary[];
 };
 
 const hasText = (value: string | null | undefined) => Boolean(value?.trim());
@@ -100,6 +104,9 @@ const statusFrom = (filled: number, total: number, requiredFilled = total): Orga
   return "incomplete";
 };
 
+const scoreModules = (modules: OrganizerModuleSummary[]) =>
+  modules.length === 0 ? 0 : Math.round((modules.filter((module) => module.status === "complete").length / modules.length) * 100);
+
 export function buildOrganizerCompletion(
   event: CompletionEvent,
   activeRace: CompletionRace | null,
@@ -119,6 +126,9 @@ export function buildOrganizerCompletion(
   const bibPickup = runnerDetails.bibPickup;
   const access = runnerDetails.access;
   const services = runnerDetails.services;
+  const commonEquipment = eventDetails.mandatoryEquipment;
+  const commonBibPickup = eventDetails.bibPickup;
+  const commonAccess = eventDetails.access;
   const linkedStationProductCount = stationProducts.length;
   const stationsWithDetails = aidStations.filter((station) => {
     const details = station.organizerDetails;
@@ -253,11 +263,201 @@ export function buildOrganizerCompletion(
     },
   ];
 
-  const score = Math.round((modules.filter((module) => module.status === "complete").length / modules.length) * 100);
+  const eventModules: OrganizerModuleSummary[] = [
+    {
+      id: "event",
+      title: "Informations evenement",
+      description: "Nom, date, lieu et statut public.",
+      level: "required",
+      status: statusFrom(eventFilled, 3),
+      countLabel: `${eventFilled}/3 champs`,
+    },
+    {
+      id: "formats",
+      title: "Formats publies",
+      description: "Presence d'au moins un format publiable.",
+      level: "required",
+      status: publishableRaceCount > 0 ? "complete" : formatCount > 0 ? "incomplete" : "empty",
+      countLabel: `${publishableRaceCount}/${formatCount} publiable${publishableRaceCount > 1 ? "s" : ""}`,
+    },
+    {
+      id: "equipment",
+      title: "Materiel commun",
+      description: "Materiel valable pour tous les formats.",
+      level: "recommended",
+      status: commonEquipment.items.length > 0 ? "complete" : hasText(commonEquipment.note) ? "incomplete" : "empty",
+      countLabel: `${commonEquipment.items.length} item${commonEquipment.items.length > 1 ? "s" : ""}`,
+    },
+    {
+      id: "bibPickup",
+      title: "Dossard commun",
+      description: "Retrait et documents par defaut.",
+      level: "recommended",
+      status: statusFrom(
+        filledCount([
+          commonBibPickup.location,
+          commonBibPickup.schedule,
+          commonBibPickup.requiredDocuments,
+          commonBibPickup.thirdPartyPickupAllowed,
+          commonBibPickup.equipmentCheck,
+          commonBibPickup.note,
+        ]),
+        6,
+        2
+      ),
+      countLabel: hasText(commonBibPickup.location) ? "Lieu commun" : "Non renseigne",
+    },
+    {
+      id: "access",
+      title: "Acces commun",
+      description: "Acces, parking et navettes par defaut.",
+      level: "recommended",
+      status: statusFrom(
+        filledCount([
+          commonAccess.startAddress,
+          commonAccess.finishAddress,
+          commonAccess.officialParkings,
+          commonAccess.shuttles,
+          commonAccess.shuttleSchedule,
+          commonAccess.roadRestrictions,
+          commonAccess.mapUrl,
+          commonAccess.note,
+        ]),
+        8,
+        2
+      ),
+      countLabel: hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles) ? "Infos transport" : "Non renseigne",
+    },
+    {
+      id: "services",
+      title: "Services evenement",
+      description: "Accompagnants, hebergement, restauration, partenaires.",
+      level: "optional",
+      status: statusFrom(
+        filledCount([
+          services.supporters,
+          services.accommodations,
+          services.restaurants,
+          services.recovery,
+          services.partners,
+          services.lastMinuteMessage,
+          services.note,
+        ]),
+        7,
+        1
+      ),
+      countLabel: hasText(services.partners) ? "Partenaires renseignes" : "Optionnel",
+    },
+  ];
+
+  const formatModules: OrganizerModuleSummary[] = activeRace
+    ? [
+        {
+          id: "formats",
+          title: "Identite format",
+          description: "Nom, distance, denivele, statut et GPX.",
+          level: "required",
+          status: isPublishableRace(activeRace) ? "complete" : hasText(activeRace.name) ? "incomplete" : "empty",
+          countLabel: `${activeRace.is_live ? "Live" : "Brouillon"} / ${activeRace.gpx_storage_path ? "GPX" : "Sans GPX"}`,
+        },
+        {
+          id: "schedule",
+          title: "Horaires & barrieres",
+          description: "Depart, limite arrivee, navettes et barrieres.",
+          level: "recommended",
+          status: statusFrom(filledCount([schedule?.startTime, schedule?.finishCutoffTime, schedule?.cutoffNote]), 3, 1),
+          countLabel: `${stationsWithDetails} point${stationsWithDetails > 1 ? "s" : ""} detaille${stationsWithDetails > 1 ? "s" : ""}`,
+        },
+        {
+          id: "equipment",
+          title: "Materiel du format",
+          description: "Commun herite et specificites du format.",
+          level: "recommended",
+          status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
+          countLabel: `${commonEquipmentCount} commun / ${raceEquipmentCount} format`,
+        },
+        {
+          id: "bibPickup",
+          title: "Dossard du format",
+          description: "Commun herite ou retrait specifique.",
+          level: "recommended",
+          status: statusFrom(
+            filledCount([
+              bibPickup?.location,
+              bibPickup?.schedule,
+              bibPickup?.requiredDocuments,
+              bibPickup?.thirdPartyPickupAllowed,
+              bibPickup?.equipmentCheck,
+              bibPickup?.note,
+            ]),
+            6,
+            2
+          ),
+          countLabel: hasText(activeRace.organizerDetails?.bibPickup.location) ? "Specifique" : hasText(bibPickup?.location) ? "Herite" : "Non renseigne",
+        },
+        {
+          id: "access",
+          title: "Acces du format",
+          description: "Commun herite ou acces specifique.",
+          level: "recommended",
+          status: statusFrom(
+            filledCount([
+              access?.startAddress,
+              access?.finishAddress,
+              access?.officialParkings,
+              access?.shuttles,
+              access?.shuttleSchedule,
+              access?.roadRestrictions,
+              access?.mapUrl,
+              access?.note,
+              activeRace.organizerDetails?.runnerInfo.startArea,
+              activeRace.organizerDetails?.runnerInfo.briefing,
+              activeRace.organizerDetails?.runnerInfo.rules,
+              activeRace.organizerDetails?.runnerInfo.note,
+            ]),
+            12,
+            2
+          ),
+          countLabel: hasText(activeRace.organizerDetails?.access.startAddress) ? "Specifique" : hasText(access?.startAddress) ? "Herite" : "Non renseigne",
+        },
+        {
+          id: "aidStations",
+          title: "Ravitos format",
+          description: "Points de course et services du format.",
+          level: "recommended",
+          status: aidStations.length > 0 ? "complete" : "empty",
+          countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}`,
+        },
+        {
+          id: "products",
+          title: "Produits format",
+          description: "Produits officiels disponibles aux ravitos.",
+          level: "optional",
+          status: linkedStationProductCount > 0 ? "complete" : "empty",
+          countLabel: `${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}`,
+        },
+        {
+          id: "preview",
+          title: "Preview format",
+          description: "Controle de la version coureur du format.",
+          level: "optional",
+          status: isPublishableRace(activeRace) ? "complete" : "incomplete",
+          countLabel: isPublishableRace(activeRace) ? "Pret" : "Essentiel manquant",
+        },
+      ]
+    : [];
+
+  const score = scoreModules(modules);
+  const eventScore = scoreModules(eventModules);
+  const formatScore = scoreModules(formatModules);
 
   return {
     score,
+    eventScore,
+    formatScore,
     requiredComplete: isEventReadyToPublish(event),
     modules,
+    eventModules,
+    formatModules,
   };
 }
