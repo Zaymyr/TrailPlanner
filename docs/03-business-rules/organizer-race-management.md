@@ -89,10 +89,7 @@ Approved organizers can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a top synthesis plus two completion surfaces:
-
-- event completion for common event information, publishable formats, common equipment, common bib pickup, common access, and services;
-- active-format completion with format tabs, a format progress bar, and format tiles for identity/GPX, schedule, inherited/specific equipment, inherited/specific bib pickup, inherited/specific access, ravitos, products, and preview.
+The dashboard is organized as a top synthesis plus one tabbed completion surface. The first tab is the event scope and shows common event tiles for event information, publishable formats, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and tiles for identity/GPX, schedule, inherited/specific equipment, inherited/specific bib pickup, inherited/specific access, ravitos, products, and preview. The active module editor sits directly below this tabbed tile area.
 
 Equipment, bib pickup, and access are split in the UI between common event data and format-specific data for the active race. It keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
 
