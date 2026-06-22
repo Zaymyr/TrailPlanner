@@ -50,7 +50,9 @@ describe("organizer completion", () => {
     expect(completion.modules.find((module) => module.id === "event")?.status).toBe("complete");
     expect(completion.modules.find((module) => module.id === "formats")?.status).toBe("complete");
     expect(completion.eventModules.find((module) => module.id === "event")?.status).toBe("complete");
+    expect(completion.eventModules.some((module) => module.id === "formats")).toBe(false);
     expect(completion.formatModules.find((module) => module.id === "aidStations")?.status).toBe("empty");
+    expect(completion.formatModules.some((module) => module.id === "preview")).toBe(false);
     expect(completion.eventScore).toBeGreaterThan(0);
     expect(completion.formatScore).toBeGreaterThan(0);
     expect(completion.modules.find((module) => module.id === "products")?.status).toBe("empty");

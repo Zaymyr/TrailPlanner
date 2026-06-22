@@ -273,14 +273,6 @@ export function buildOrganizerCompletion(
       countLabel: `${eventFilled}/3 champs`,
     },
     {
-      id: "formats",
-      title: "Formats publies",
-      description: "Presence d'au moins un format publiable.",
-      level: "required",
-      status: publishableRaceCount > 0 ? "complete" : formatCount > 0 ? "incomplete" : "empty",
-      countLabel: `${publishableRaceCount}/${formatCount} publiable${publishableRaceCount > 1 ? "s" : ""}`,
-    },
-    {
       id: "equipment",
       title: "Materiel commun",
       description: "Materiel valable pour tous les formats.",
@@ -435,14 +427,6 @@ export function buildOrganizerCompletion(
           level: "optional",
           status: linkedStationProductCount > 0 ? "complete" : "empty",
           countLabel: `${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}`,
-        },
-        {
-          id: "preview",
-          title: "Preview format",
-          description: "Controle de la version coureur du format.",
-          level: "optional",
-          status: isPublishableRace(activeRace) ? "complete" : "incomplete",
-          countLabel: isPublishableRace(activeRace) ? "Pret" : "Essentiel manquant",
         },
       ]
     : [];
