@@ -204,8 +204,17 @@ const emptyProductForm: ProductFormValues = {
 
 const EVENT_TAB_ID = "__event";
 const ADD_FORMAT_TAB_ID = "__add";
+const EVENT_MODULE_IDS: OrganizerModuleId[] = ["event", "equipment", "bibPickup", "access", "services"];
+const FORMAT_MODULE_IDS: OrganizerModuleId[] = ["formats", "schedule", "equipment", "bibPickup", "access", "aidStations", "products"];
 
 const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const getModuleForTab = (tabId: string, currentModule: OrganizerModuleId): OrganizerModuleId => {
+  if (tabId === ADD_FORMAT_TAB_ID) return "formats";
+  const targetModules = tabId === EVENT_TAB_ID ? EVENT_MODULE_IDS : FORMAT_MODULE_IDS;
+  if (targetModules.includes(currentModule)) return currentModule;
+  return tabId === EVENT_TAB_ID ? "event" : "formats";
+};
 
 const createEmptyEventForm = (): EventFormValues => ({
   name: "",
@@ -868,7 +877,7 @@ export function OrganizerDashboard() {
       setNewRaceForm(activeRace ? createRaceFormFromFormatDefaults(activeRace, raceForm) : createRaceFormFromEventDefaults(eventForm));
     }
     setActiveTab(nextTab);
-    setActiveModule(nextTab === EVENT_TAB_ID ? "event" : "formats");
+    setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
   };
 
   if (isLoading) {
@@ -1318,14 +1327,6 @@ function CompletionTabsPanel({
     : activeRace
       ? "Informations propres au format selectionne."
       : "Cree un nouveau format depuis le formulaire ci-dessous.";
-  const selectModule = (moduleId: OrganizerModuleId) => {
-    if (isEventTab && moduleId === "formats") {
-      const firstFormatTab = tabs.find((tab) => tab.id !== EVENT_TAB_ID && tab.id !== ADD_FORMAT_TAB_ID)?.id ?? ADD_FORMAT_TAB_ID;
-      onTabChange(firstFormatTab);
-      return;
-    }
-    onSelectModule(moduleId);
-  };
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -1349,7 +1350,7 @@ function CompletionTabsPanel({
             modules={modules}
             activeModule={activeModule}
             dirtyModules={dirtyModules}
-            onSelectModule={selectModule}
+            onSelectModule={onSelectModule}
             formatMode={!isEventTab}
           />
         </>
@@ -1380,7 +1381,7 @@ function OrganizerModuleGrid({
     if (moduleId === "formats" || moduleId === "schedule" || moduleId === "aidStations" || moduleId === "products") {
       return dirtyModules.has(moduleId);
     }
-    return moduleId !== "preview" && dirtyModules.has("formats");
+    return dirtyModules.has("formats");
   };
 
   return (
@@ -1389,10 +1390,12 @@ function OrganizerModuleGrid({
         <button
           key={module.id}
           type="button"
+          aria-label={`${module.title}. ${module.description}`}
           className={cn(
-            "min-h-40 rounded-lg border bg-card p-4 text-left transition hover:border-brand-border hover:shadow-sm",
-            activeModule === module.id && "border-brand-border ring-2 ring-brand/20",
-            isDirty(module.id) && "border-amber-300"
+            "min-h-[112px] rounded-lg border bg-card p-3 text-left transition hover:border-brand-border hover:shadow-sm",
+            module.status === "complete" && "border-emerald-300 ring-1 ring-emerald-100",
+            activeModule === module.id && "ring-2 ring-brand/20",
+            isDirty(module.id) && module.status !== "complete" && "border-amber-300"
           )}
           onClick={() => onSelectModule(module.id)}
         >
@@ -1400,9 +1403,8 @@ function OrganizerModuleGrid({
             <StatusBadge status={module.status} />
             <LevelBadge level={module.level} />
           </div>
-          <h2 className="mt-3 text-sm font-semibold text-foreground">{module.title}</h2>
-          <p className="mt-1 min-h-10 text-xs text-muted-foreground">{module.description}</p>
-          <div className="mt-3 flex items-center justify-between gap-2">
+          <h2 className="mt-2 text-sm font-semibold leading-snug text-foreground">{module.title}</h2>
+          <div className="mt-4 flex items-end justify-between gap-2">
             <span className="text-xs font-medium text-foreground">{module.countLabel}</span>
             <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "A sauver" : "Modifier"}</span>
           </div>
