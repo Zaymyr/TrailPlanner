@@ -123,6 +123,7 @@ describe("/api/organizer/events/[id]", () => {
           name: "Grand Trail",
           location: "Annecy",
           race_date: "2026-09-12",
+          organizer_details: { dateRange: { endDate: "2026-09-13" } },
           races: [
             {
               id: "22222222-2222-2222-2222-222222222222",
@@ -141,6 +142,37 @@ describe("/api/organizer/events/[id]", () => {
 
     expect(response.status).toBe(409);
     expect(payload.message).toContain("live format");
+    expect(mockFetch.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
+  });
+
+  it("blocks publishing without an event end date", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          id: eventId,
+          name: "Grand Trail",
+          location: "Annecy",
+          race_date: "2026-09-12",
+          organizer_details: null,
+          races: [
+            {
+              id: "22222222-2222-2222-2222-222222222222",
+              name: "42K",
+              distance_km: 42,
+              elevation_gain_m: 2400,
+              is_live: true,
+            },
+          ],
+        },
+      ])
+    );
+
+    const response = await PATCH(organizerRequest({ isLive: true }), { params: { id: eventId } });
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload.message).toContain("end date");
     expect(mockFetch.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
   });
 });

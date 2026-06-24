@@ -9,7 +9,10 @@ const baseEvent: CompletionEvent = {
   location: "Annecy",
   race_date: "2026-09-12",
   is_live: false,
-  organizerDetails: defaultOrganizerEventDetails,
+  organizerDetails: {
+    ...defaultOrganizerEventDetails,
+    dateRange: { endDate: "2026-09-13" },
+  },
   races: [
     {
       id: "race-1",
@@ -29,6 +32,12 @@ describe("organizer completion", () => {
     expect(isEventReadyToPublish(baseEvent)).toBe(true);
 
     expect(isEventReadyToPublish({ ...baseEvent, location: "" })).toBe(false);
+    expect(
+      isEventReadyToPublish({
+        ...baseEvent,
+        organizerDetails: { ...baseEvent.organizerDetails!, dateRange: { endDate: null } },
+      })
+    ).toBe(false);
     expect(
       isEventReadyToPublish({
         ...baseEvent,

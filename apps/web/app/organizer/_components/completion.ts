@@ -96,7 +96,11 @@ export const isPublishableRace = (race: CompletionRace) =>
   race.elevation_gain_m >= 0;
 
 export const isEventReadyToPublish = (event: CompletionEvent) =>
-  hasText(event.name) && hasText(event.location) && hasText(event.race_date) && event.races.some(isPublishableRace);
+  hasText(event.name) &&
+  hasText(event.location) &&
+  hasText(event.race_date) &&
+  hasText((event.organizerDetails ?? defaultOrganizerEventDetails).dateRange.endDate) &&
+  event.races.some(isPublishableRace);
 
 const statusFrom = (filled: number, total: number, requiredFilled = total): OrganizerModuleStatus => {
   if (filled <= 0) return "empty";
@@ -113,11 +117,11 @@ export function buildOrganizerCompletion(
   aidStations: CompletionAidStation[],
   stationProducts: CompletionStationProduct[]
 ): OrganizerCompletionSummary {
-  const eventFilled = filledCount([event.name, event.location, event.race_date]);
+  const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
+  const eventFilled = filledCount([event.name, event.location, event.race_date, eventDetails.dateRange.endDate]);
   const publishableRaceCount = event.races.filter(isPublishableRace).length;
   const formatCount = event.races.length;
   const gpxCount = event.races.filter((race) => hasText(race.gpx_storage_path)).length;
-  const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, activeRace?.organizerDetails);
   const schedule = runnerDetails.schedule;
   const equipmentItems = runnerDetails.equipment.items;
@@ -148,10 +152,10 @@ export function buildOrganizerCompletion(
     {
       id: "event",
       title: "Informations evenement",
-      description: "Nom, date, lieu et statut public.",
+      description: "Nom, lieu, dates et statut public.",
       level: "required",
-      status: statusFrom(eventFilled, 3),
-      countLabel: `${eventFilled}/3 champs`,
+      status: statusFrom(eventFilled, 4),
+      countLabel: `${eventFilled}/4 champs`,
     },
     {
       id: "formats",
@@ -267,10 +271,10 @@ export function buildOrganizerCompletion(
     {
       id: "event",
       title: "Informations evenement",
-      description: "Nom, date, lieu et statut public.",
+      description: "Nom, lieu, dates et statut public.",
       level: "required",
-      status: statusFrom(eventFilled, 3),
-      countLabel: `${eventFilled}/3 champs`,
+      status: statusFrom(eventFilled, 4),
+      countLabel: `${eventFilled}/4 champs`,
     },
     {
       id: "equipment",

@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-06-19
+last_verified: 2026-06-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -57,7 +57,7 @@ This document records the v1 web-only organizer portal rules: users can request 
 - Event membership: approved organizer access stored in `race_event_organizers`.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
-- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults; race details are format-specific overrides or additions.
+- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults, including `dateRange.endDate`; race details are format-specific overrides or additions.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
 ## Claim and Approval Flow
@@ -89,7 +89,7 @@ Approved organizers can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The synthesis uses inline event facts, a small live/brouillon indicator, a publish toggle, and an event completion progress bar with the percentage inside the bar rather than metric cards. The first completion tab is the event scope and shows only fillable common event tiles: event information, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and only fillable format tiles: identity/GPX, schedule, format equipment, format bib pickup, format access, ravitos, and products. Completed tiles get a green outline, tiles stay compact with status, level, title, and count/action only, and changing tabs keeps the same active tile when the destination scope has the same module. The active module editor sits directly below this tabbed tile area.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The synthesis uses inline event facts, a small live/brouillon indicator, a publish toggle, and an event completion progress bar with the percentage inside the bar rather than metric cards. The first completion tab is the event scope and shows only fillable common event tiles: event information, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and only fillable format tiles: identity/GPX, schedule, format equipment, format bib pickup, format access, ravitos, and products. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, tiles stay compact with status, level, title, and count/action only, and changing tabs keeps the same active tile when the destination scope has the same module. The active module editor sits directly below this tabbed tile area.
 
 Equipment, bib pickup, and access are split by tab in the UI: the event tab edits only common event data, while a format tab edits only that format's data. The editor must not stack common and format forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. The dashboard keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
 
@@ -100,7 +100,7 @@ Organizer access is event-scoped. A claim for one event grants access to every f
 Publishing an event through `/api/organizer/events/[id]` requires:
 
 - event name;
-- event date and location;
+- event location, start date (`race_events.race_date`), and end date (`race_events.organizer_details.dateRange.endDate`);
 - at least one live format with a non-empty name, `distance_km > 0`, and `elevation_gain_m >= 0`.
 
 Recommended modules improve the dashboard score but do not block publication: GPX, ravitos, schedules/cutoffs, equipment, bib pickup, and access/shuttles.

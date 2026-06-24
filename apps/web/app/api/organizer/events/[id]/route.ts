@@ -16,6 +16,7 @@ import {
   organizerEventDetailsSchema,
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
+  type OrganizerEventDetails,
 } from "../../../../../lib/organizer-dashboard-details";
 
 const updateEventSchema = z.object({
@@ -61,6 +62,7 @@ const eventPublishReadinessSchema = z.object({
   name: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),
+  organizer_details: z.unknown().nullable().optional(),
   races: z
     .array(
       z.object({
@@ -95,10 +97,10 @@ type PublicationReadinessResult =
 async function validateOrganizerEventPublication(
   serviceConfig: OrganizerAuth["serviceConfig"],
   eventId: string,
-  nextFields: { name?: string; location?: string | null; raceDate?: string | null }
+  nextFields: { name?: string; location?: string | null; raceDate?: string | null; organizerDetails?: OrganizerEventDetails }
 ): Promise<PublicationReadinessResult> {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,races(id,name,distance_km,elevation_gain_m,is_live)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,organizer_details,races(id,name,distance_km,elevation_gain_m,is_live)&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
@@ -116,6 +118,7 @@ async function validateOrganizerEventPublication(
   const name = nextFields.name ?? event.name ?? "";
   const location = nextFields.location !== undefined ? nextFields.location : event.location ?? null;
   const raceDate = nextFields.raceDate !== undefined ? nextFields.raceDate : event.race_date ?? null;
+  const eventDetails = nextFields.organizerDetails ?? parseOrganizerEventDetails(event.organizer_details);
   const hasPublishableRace = (event.races ?? []).some(
     (race) =>
       race.is_live &&
@@ -128,7 +131,10 @@ async function validateOrganizerEventPublication(
 
   if (!name.trim()) return { ok: false, message: "Add an event name before publishing.", status: 409 };
   if (!location?.trim()) return { ok: false, message: "Add an event location before publishing.", status: 409 };
-  if (!raceDate?.trim()) return { ok: false, message: "Add an event date before publishing.", status: 409 };
+  if (!raceDate?.trim()) return { ok: false, message: "Add an event start date before publishing.", status: 409 };
+  if (!eventDetails.dateRange.endDate?.trim()) {
+    return { ok: false, message: "Add an event end date before publishing.", status: 409 };
+  }
   if (!hasPublishableRace) {
     return {
       ok: false,
@@ -187,6 +193,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
       name: parsedBody.data.name,
       location: parsedBody.data.location,
       raceDate: parsedBody.data.raceDate,
+      organizerDetails: parsedBody.data.organizerDetails,
     });
     if (!readiness.ok) return jsonError(readiness.message, readiness.status);
   }

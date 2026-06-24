@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-06-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -79,7 +79,7 @@ Summary:
 - One user cannot keep multiple pending/approved claims for the same event.
 - Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
-- The organizer dashboard, including modular JSONB detail editors and product picker with brand grouping and quick filters, is available only after the approved-claim membership handoff; pending claims should not unlock event, format, station, or product edits.
+- The organizer dashboard, including modular JSONB detail editors for event date range/common details and product picker with brand grouping and quick filters, is available only after the approved-claim membership handoff; pending claims should not unlock event, format, station, or product edits.
 - Rejection stores review metadata but does not create membership.
 
 ## Common Queries
