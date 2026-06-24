@@ -64,6 +64,7 @@ export type OrganizerModuleSummary = {
   level: OrganizerModuleLevel;
   status: OrganizerModuleStatus;
   countLabel: string;
+  missingLabels?: string[];
 };
 
 export type OrganizerCompletionSummary = {
@@ -111,6 +112,9 @@ const statusFrom = (filled: number, total: number, requiredFilled = total): Orga
 const scoreModules = (modules: OrganizerModuleSummary[]) =>
   modules.length === 0 ? 0 : Math.round((modules.filter((module) => module.status === "complete").length / modules.length) * 100);
 
+const compactMissingLabels = (entries: Array<[label: string, isFilled: boolean]>) =>
+  entries.filter(([, isFilled]) => !isFilled).map(([label]) => label);
+
 export function buildOrganizerCompletion(
   event: CompletionEvent,
   activeRace: CompletionRace | null,
@@ -133,6 +137,45 @@ export function buildOrganizerCompletion(
   const commonEquipment = eventDetails.mandatoryEquipment;
   const commonBibPickup = eventDetails.bibPickup;
   const commonAccess = eventDetails.access;
+  const eventMissingLabels = compactMissingLabels([
+    ["Nom", hasText(event.name)],
+    ["Lieu", hasText(event.location)],
+    ["Date debut", hasText(event.race_date)],
+    ["Date fin", hasText(eventDetails.dateRange.endDate)],
+  ]);
+  const formatMissingLabels = activeRace
+    ? compactMissingLabels([
+        ["Nom", hasText(activeRace.name)],
+        ["Distance", Number.isFinite(activeRace.distance_km) && activeRace.distance_km > 0],
+        ["D+", Number.isFinite(activeRace.elevation_gain_m) && activeRace.elevation_gain_m >= 0],
+      ])
+    : [];
+  const scheduleMissingLabels = compactMissingLabels([
+    ["Heure depart", hasText(schedule?.startTime)],
+    ["Barriere arrivee", hasText(schedule?.finishCutoffTime) || hasText(schedule?.cutoffNote)],
+  ]);
+  const commonEquipmentMissingLabels = compactMissingLabels([
+    ["Materiel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)],
+  ]);
+  const formatEquipmentMissingLabels = compactMissingLabels([
+    ["Materiel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)],
+  ]);
+  const commonBibPickupMissingLabels = compactMissingLabels([
+    ["Lieu retrait", hasText(commonBibPickup.location)],
+    ["Horaires", hasText(commonBibPickup.schedule)],
+  ]);
+  const formatBibPickupMissingLabels = compactMissingLabels([
+    ["Lieu retrait", hasText(bibPickup?.location)],
+    ["Horaires", hasText(bibPickup?.schedule)],
+  ]);
+  const commonAccessMissingLabels = compactMissingLabels([
+    ["Depart", hasText(commonAccess.startAddress)],
+    ["Parking/navettes", hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles)],
+  ]);
+  const formatAccessMissingLabels = compactMissingLabels([
+    ["Depart", hasText(access?.startAddress)],
+    ["Parking/navettes", hasText(access?.officialParkings) || hasText(access?.shuttles)],
+  ]);
   const linkedStationProductCount = stationProducts.length;
   const stationsWithDetails = aidStations.filter((station) => {
     const details = station.organizerDetails;
@@ -156,6 +199,7 @@ export function buildOrganizerCompletion(
       level: "required",
       status: statusFrom(eventFilled, 4),
       countLabel: `${eventFilled}/4 champs`,
+      missingLabels: eventMissingLabels,
     },
     {
       id: "formats",
@@ -180,6 +224,7 @@ export function buildOrganizerCompletion(
       level: "recommended",
       status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
       countLabel: `${commonEquipmentCount} commun / ${raceEquipmentCount} format`,
+      missingLabels: formatEquipmentMissingLabels,
     },
     {
       id: "schedule",
@@ -188,6 +233,7 @@ export function buildOrganizerCompletion(
       level: "recommended",
       status: statusFrom(filledCount([schedule?.startTime, schedule?.finishCutoffTime, schedule?.cutoffNote]), 3, 1),
       countLabel: activeRace ? `${stationsWithDetails} point${stationsWithDetails > 1 ? "s" : ""} detaille${stationsWithDetails > 1 ? "s" : ""}` : "Aucun format",
+      missingLabels: scheduleMissingLabels,
     },
     {
       id: "bibPickup",
@@ -207,6 +253,7 @@ export function buildOrganizerCompletion(
         2
       ),
       countLabel: hasText(bibPickup?.location) ? "Lieu renseigne" : "Non renseigne",
+      missingLabels: formatBibPickupMissingLabels,
     },
     {
       id: "access",
@@ -228,6 +275,7 @@ export function buildOrganizerCompletion(
         2
       ),
       countLabel: hasText(access?.officialParkings) || hasText(access?.shuttles) ? "Infos transport" : "Non renseigne",
+      missingLabels: formatAccessMissingLabels,
     },
     {
       id: "products",
@@ -275,6 +323,7 @@ export function buildOrganizerCompletion(
       level: "required",
       status: statusFrom(eventFilled, 4),
       countLabel: `${eventFilled}/4 champs`,
+      missingLabels: eventMissingLabels,
     },
     {
       id: "equipment",
@@ -283,6 +332,7 @@ export function buildOrganizerCompletion(
       level: "recommended",
       status: commonEquipment.items.length > 0 ? "complete" : hasText(commonEquipment.note) ? "incomplete" : "empty",
       countLabel: `${commonEquipment.items.length} item${commonEquipment.items.length > 1 ? "s" : ""}`,
+      missingLabels: commonEquipmentMissingLabels,
     },
     {
       id: "bibPickup",
@@ -302,6 +352,7 @@ export function buildOrganizerCompletion(
         2
       ),
       countLabel: hasText(commonBibPickup.location) ? "Lieu commun" : "Non renseigne",
+      missingLabels: commonBibPickupMissingLabels,
     },
     {
       id: "access",
@@ -323,6 +374,7 @@ export function buildOrganizerCompletion(
         2
       ),
       countLabel: hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles) ? "Infos transport" : "Non renseigne",
+      missingLabels: commonAccessMissingLabels,
     },
     {
       id: "services",
@@ -355,6 +407,7 @@ export function buildOrganizerCompletion(
           level: "required",
           status: isPublishableRace(activeRace) ? "complete" : hasText(activeRace.name) ? "incomplete" : "empty",
           countLabel: `${activeRace.is_live ? "Live" : "Brouillon"} / ${activeRace.gpx_storage_path ? "GPX" : "Sans GPX"}`,
+          missingLabels: formatMissingLabels,
         },
         {
           id: "schedule",
@@ -363,6 +416,7 @@ export function buildOrganizerCompletion(
           level: "recommended",
           status: statusFrom(filledCount([schedule?.startTime, schedule?.finishCutoffTime, schedule?.cutoffNote]), 3, 1),
           countLabel: `${stationsWithDetails} point${stationsWithDetails > 1 ? "s" : ""} detaille${stationsWithDetails > 1 ? "s" : ""}`,
+          missingLabels: scheduleMissingLabels,
         },
         {
           id: "equipment",
@@ -371,6 +425,7 @@ export function buildOrganizerCompletion(
           level: "recommended",
           status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
           countLabel: `${commonEquipmentCount} commun / ${raceEquipmentCount} format`,
+          missingLabels: formatEquipmentMissingLabels,
         },
         {
           id: "bibPickup",
@@ -390,6 +445,7 @@ export function buildOrganizerCompletion(
             2
           ),
           countLabel: hasText(activeRace.organizerDetails?.bibPickup.location) ? "Specifique" : hasText(bibPickup?.location) ? "Herite" : "Non renseigne",
+          missingLabels: formatBibPickupMissingLabels,
         },
         {
           id: "access",
@@ -415,6 +471,7 @@ export function buildOrganizerCompletion(
             2
           ),
           countLabel: hasText(activeRace.organizerDetails?.access.startAddress) ? "Specifique" : hasText(access?.startAddress) ? "Herite" : "Non renseigne",
+          missingLabels: formatAccessMissingLabels,
         },
         {
           id: "aidStations",
@@ -423,6 +480,7 @@ export function buildOrganizerCompletion(
           level: "recommended",
           status: aidStations.length > 0 ? "complete" : "empty",
           countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}`,
+          missingLabels: aidStations.length > 0 ? [] : ["Ravitos"],
         },
         {
           id: "products",

@@ -11,6 +11,8 @@ related_files:
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/races/route.ts
+  - apps/web/app/api/organizer/races/[id]/gpx/route.ts
+  - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
@@ -85,6 +87,7 @@ Summary:
 - Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
 - The organizer product picker requires a saved source station id; new ravitos must be saved before products can be attached.
 - Organizer station details are saved together with station edits through `/api/organizer/races/[id]/aid-stations`; preserving row ids also preserves those details.
+- Organizer GPX upload creates stations from waypoints only when a format has no existing source stations; existing station ids are preserved and must be edited through the ravito route.
 
 ## Common Queries
 
@@ -119,6 +122,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Code uses `distanceKm`; the database column is `km`.
 - Review-related columns need live-schema verification before new importer work.
 - Deleting and recreating a station changes its id and removes `race_aid_station_products` links through cascade; update existing rows when preserving product suggestions matters.
+- Do not use organizer GPX upload to replace existing stations; safe-mode waypoint import avoids breaking station-product links.
 - Missing service flags from legacy reads should be treated as enabled to preserve old catalog behavior.
 - Missing `organizer_details` from legacy reads should be parsed as empty/default dashboard details, not treated as invalid station data.
 

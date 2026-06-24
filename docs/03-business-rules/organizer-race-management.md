@@ -23,9 +23,12 @@ related_files:
   - apps/web/app/api/admin/organizer-claims/route.test.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/[id]/image/route.ts
+  - apps/web/app/api/organizer/events/[id]/image/route.test.ts
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
+  - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
@@ -79,7 +82,7 @@ Rejecting a claim stores review metadata and does not grant membership. Revoking
 
 Approved organizers can:
 
-- edit event-level name, location, date, image, live state, and common `race_events.organizer_details`;
+- edit event-level name, location, date, PNG image, live state, and common `race_events.organizer_details`;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
 - add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = true`, and optional organizer details;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
@@ -89,9 +92,9 @@ Approved organizers can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The synthesis uses inline event facts, a small live/brouillon indicator, a publish toggle, and an event completion progress bar with the percentage inside the bar rather than metric cards. The first completion tab is the event scope and shows only fillable common event tiles: event information, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and only fillable format tiles: identity/GPX, schedule, format equipment, format bib pickup, format access, ravitos, and products. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, tiles stay compact with status, level, title, and count/action only, and changing tabs keeps the same active tile when the destination scope has the same module. The active module editor sits directly below this tabbed tile area.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The synthesis uses inline event facts, a small live/brouillon indicator, a publish toggle, and an event completion progress bar with the percentage inside the bar rather than metric cards. The first completion tab is the event scope and shows only fillable common event tiles: event information, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and only fillable format tiles: identity/GPX, schedule, format equipment, format bib pickup, format access, ravitos, and products. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs keeps the same active tile when the destination scope has the same module. The active module editor sits directly below this tabbed tile area.
 
-Equipment, bib pickup, and access are split by tab in the UI: the event tab edits only common event data, while a format tab edits only that format's data. The editor must not stack common and format forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. The dashboard keeps unsaved-change state per module, gives save feedback, and warns on `beforeunload` when a module is dirty.
+Equipment, bib pickup, and access are split by tab in the UI: the event tab edits only common event data, while a format tab edits only that format's data. The editor must not stack common and format forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. Event publishing and format liveness use compact live/brouillon toggles instead of duplicate checkboxes. The dashboard keeps unsaved-change state per module, gives short floating save/error feedback, and warns on `beforeunload` when a module is dirty.
 
 Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
 
@@ -116,9 +119,9 @@ Runner-facing preview resolves details as:
 
 ## GPX Replacement
 
-Replacing a GPX updates the source `races` row and storage object for that format. Existing saved plans remain snapshots: their `plan_gpx_path`, `elevation_profile`, `planner_values`, and `plan_aid_stations` are not automatically rewritten.
+Replacing a GPX updates the source `races` row and storage object for that format, then returns parsed stats, detected waypoint ravitos, and a transient elevation profile for the organizer dashboard preview. Existing saved plans remain snapshots: their `plan_gpx_path`, `elevation_profile`, `planner_values`, and `plan_aid_stations` are not automatically rewritten.
 
-When GPX waypoints are present and the format has no aid stations, the organizer GPX route can create source `race_aid_stations` from normalized waypoints. Existing station rows are edited through the aid station route.
+When GPX waypoints are present and the format has no aid stations, the organizer GPX route can create source `race_aid_stations` from normalized waypoints. When station rows already exist, the GPX route preserves them and reports detected waypoints without replacing rows, so station-product links survive. Existing station rows are edited through the aid station route.
 
 Organizer aid station edits should preserve existing station ids when possible so `race_aid_station_products` links survive. New or legacy stations default all service flags to enabled unless an organizer disables water, solid food, or assistance explicitly.
 
@@ -159,6 +162,8 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 - Manual organizer claims create non-live draft events; do not treat those rows as public catalog entries until an admin or organizer publishes the event through the normal event edit flow.
 - Do not publish an event with no live, publishable format; the organizer event route rejects that state even when the event-level fields are valid.
 - Do not bulk-duplicate common event details into every existing format. Store shared information on the event by default; the add-format draft may be prefilled from the event or previous format only when the organizer intentionally creates a new format.
+- Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
+- Organizer event images are uploaded through the server-side PNG route; do not expose direct Storage writes from the dashboard client.
 
 ## Related Docs
 
