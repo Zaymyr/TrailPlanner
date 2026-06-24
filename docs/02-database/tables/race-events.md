@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-06-19
+last_verified: 2026-06-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -36,7 +36,7 @@ related_tables:
 - Event image: `thumbnail_url` can be used as a shared event thumbnail.
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created when an organizer claims a missing race.
-- Organizer dashboard details: nullable JSONB for common equipment, bib pickup, access, services, partners, and runner notes.
+- Organizer dashboard details: nullable JSONB for event end date, common equipment, bib pickup, access, services, partners, and runner notes.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
@@ -47,7 +47,7 @@ related_tables:
 | `id` | `uuid` | inferred primary key | Event id used by `races.event_id`. |
 | `name` | `text` | required by API schemas | Event display name. |
 | `location` | `text` | nullable in API schemas | Event location. |
-| `race_date` | `text` or date-like | nullable in API schemas | Event date used for sorting/filtering/display. |
+| `race_date` | `text` or date-like | nullable in API schemas | Event start date used for sorting/filtering/display. |
 | `thumbnail_url` | `text` | nullable, added by migration | Shared event thumbnail URL. |
 | `is_live` | `boolean` | nullable/boolean in API schemas | Visibility flag used by onboarding/profile routes. |
 | `organizer_details` | `jsonb` | nullable, added by `20260618160000_add_organizer_dashboard_details.sql` | Organizer-managed progressive common dashboard details. |
@@ -79,6 +79,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables.
+- Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. Format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
@@ -119,7 +120,7 @@ from public.races;
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Manual organizer draft events are not public catalog rows until their `is_live` state is explicitly changed.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed.
-- Publishing from the organizer route requires at least one live publishable format; event-level fields alone are not enough.
+- Publishing from the organizer route requires event name, location, start date, end date, and at least one live publishable format; event-level fields alone are not enough.
 - Do not store per-format equipment, dossard, or access differences on the event row.
 
 ## Related Docs

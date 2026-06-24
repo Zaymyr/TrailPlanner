@@ -110,7 +110,16 @@ export const organizerRunnerInfoDetailsSchema = z
     note: null,
   });
 
+export const organizerEventDateRangeDetailsSchema = z
+  .object({
+    endDate: nullableText,
+  })
+  .default({
+    endDate: null,
+  });
+
 export const organizerEventDetailsSchema = z.object({
+  dateRange: organizerEventDateRangeDetailsSchema,
   mandatoryEquipment: organizerEquipmentDetailsSchema,
   bibPickup: organizerBibPickupDetailsSchema,
   access: organizerAccessDetailsSchema,

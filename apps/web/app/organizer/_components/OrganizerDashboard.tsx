@@ -260,6 +260,13 @@ const createRaceFormFromFormatDefaults = (race: RaceFormat, raceForm: RaceFormVa
 
 const formatDate = (value?: string | null) => (value ? value.slice(0, 10) : "");
 
+const formatEventDateRange = (event?: Pick<OrganizerEventDetail, "race_date" | "organizerDetails"> | null) => {
+  const startDate = formatDate(event?.race_date);
+  const endDate = formatDate(event?.organizerDetails?.dateRange.endDate);
+  if (startDate && endDate && startDate !== endDate) return `${startDate} - ${endDate}`;
+  return startDate || endDate;
+};
+
 const toNumberOrNull = (value: string) => {
   if (!value.trim()) return null;
   const parsed = Number(value);
@@ -1217,6 +1224,7 @@ function OrganizerSummaryHeader({
 }) {
   const eventScore = completion?.eventScore ?? 0;
   const isLive = event?.is_live !== false;
+  const dateLabel = formatEventDateRange(event);
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -1229,7 +1237,7 @@ function OrganizerSummaryHeader({
             {selectedMembership?.race_events?.name ?? event?.name ?? "Evenement"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-            {[event?.location, event?.race_date].filter(Boolean).join(" - ") || "Lieu et date a completer"}
+            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates a completer"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1393,8 +1401,8 @@ function OrganizerModuleGrid({
           aria-label={`${module.title}. ${module.description}`}
           className={cn(
             "min-h-[112px] rounded-lg border bg-card p-3 text-left transition hover:border-brand-border hover:shadow-sm",
-            module.status === "complete" && "border-emerald-300 ring-1 ring-emerald-100",
-            activeModule === module.id && "ring-2 ring-brand/20",
+            module.status === "complete" && activeModule !== module.id && "border-emerald-300",
+            activeModule === module.id && "border-brand bg-brand-surface/60 ring-2 ring-brand/30 shadow-sm",
             isDirty(module.id) && module.status !== "complete" && "border-amber-300"
           )}
           onClick={() => onSelectModule(module.id)}
@@ -1454,9 +1462,25 @@ function EventInfoEditor({
   onSave: () => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
+  const dateRange = eventForm.organizerDetails.dateRange;
+  const updateEndDate = (value: string) => {
+    onChange(
+      {
+        organizerDetails: {
+          ...eventForm.organizerDetails,
+          dateRange: {
+            ...dateRange,
+            endDate: value || null,
+          },
+        },
+      },
+      "event"
+    );
+  };
+
   return (
     <form
-      className="grid gap-3 lg:grid-cols-[1fr_1fr_180px_auto]"
+      className="grid gap-3 lg:grid-cols-[1fr_1fr_170px_170px_auto]"
       onSubmit={(event) => {
         event.preventDefault();
         onSave();
@@ -1464,12 +1488,13 @@ function EventInfoEditor({
     >
       <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required />
       <TextField label="Lieu" value={eventForm.location} onChange={(value) => onChange({ location: value })} />
-      <TextField label="Date" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} />
+      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} />
+      <TextField label="Date fin" type="date" value={dateRange.endDate ?? ""} onChange={updateEndDate} />
       <label className="flex items-end gap-2 pb-2 text-sm">
         <input type="checkbox" checked={eventForm.isLive} onChange={(event) => onChange({ isLive: event.target.checked })} />
         Live
       </label>
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-4">
         <TextField label="Image" value={eventForm.thumbnailUrl} onChange={(value) => onChange({ thumbnailUrl: value })} placeholder="https://..." />
       </div>
       <div className="flex items-end">
@@ -2579,13 +2604,14 @@ function RunnerPreviewDialog({
 }) {
   const activeRace = event?.races.find((race) => race.id === activeRaceId) ?? event?.races.find((race) => race.is_live) ?? event?.races[0] ?? null;
   const runnerDetails = event ? buildRunnerOrganizerDetails(event.organizerDetails ?? defaultOrganizerEventDetails, activeRace?.organizerDetails) : null;
+  const dateLabel = formatEventDateRange(event);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{event?.name ?? "Previsualisation coureur"}</DialogTitle>
-          <DialogDescription>{[event?.location, event?.race_date].filter(Boolean).join(" - ") || "Informations a completer"}</DialogDescription>
+          <DialogDescription>{[event?.location, dateLabel].filter(Boolean).join(" - ") || "Informations a completer"}</DialogDescription>
         </DialogHeader>
         {!event ? (
           <p className="text-sm text-muted-foreground">Aucun evenement charge.</p>
