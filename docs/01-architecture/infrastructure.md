@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-05-19
+last_verified: 2026-06-24
 ai_priority: high
 related_files:
   - vercel.json
@@ -74,7 +74,7 @@ The repository uses Supabase for:
 - Storage buckets:
   - `race-gpx`: private GPX catalog/user race storage.
   - `plan-gpx`: private copied GPX per saved plan.
-  - `race-images`: public race image storage.
+  - `race-images`: public race image storage, including organizer event PNG thumbnails under `organizer-events/<eventId>/`.
   - `product-images`: public product image storage.
 - Edge Functions:
   - `push-register`
@@ -135,6 +135,7 @@ Document variable names, not secret values. Important names visible in code incl
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
 - The archived storage doc predates the image buckets.
+- Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
 
 ## Related Docs
 

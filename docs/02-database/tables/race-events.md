@@ -12,6 +12,8 @@ related_files:
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/[id]/image/route.ts
+  - apps/web/app/api/organizer/events/[id]/image/route.test.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
@@ -33,7 +35,7 @@ related_tables:
 ## Key Concepts
 
 - Event grouping: multiple `races` can belong to one event.
-- Event image: `thumbnail_url` can be used as a shared event thumbnail.
+- Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created when an organizer claims a missing race.
 - Organizer dashboard details: nullable JSONB for event end date, common equipment, bib pickup, access, services, partners, and runner notes.
@@ -81,6 +83,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. Format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code.
+- Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
@@ -122,6 +125,7 @@ from public.races;
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed.
 - Publishing from the organizer route requires event name, location, start date, end date, and at least one live publishable format; event-level fields alone are not enough.
 - Do not store per-format equipment, dossard, or access differences on the event row.
+- Keep image upload validation in the server route; the database stores only the resulting URL.
 
 ## Related Docs
 

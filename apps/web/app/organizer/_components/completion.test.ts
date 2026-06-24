@@ -77,6 +77,47 @@ describe("organizer completion", () => {
     expect(completion.eventScore).toBeGreaterThan(0);
   });
 
+  it("reports missing labels for event and format identity modules", () => {
+    const incompleteRace = {
+      ...baseEvent.races[0]!,
+      name: "",
+      distance_km: 0,
+      elevation_gain_m: Number.NaN,
+    };
+    const completion = buildOrganizerCompletion(
+      {
+        ...baseEvent,
+        name: "",
+        location: "",
+        race_date: "",
+        organizerDetails: { ...baseEvent.organizerDetails!, dateRange: { endDate: null } },
+        races: [incompleteRace],
+      },
+      incompleteRace,
+      [],
+      []
+    );
+
+    expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual([
+      "Nom",
+      "Lieu",
+      "Date debut",
+      "Date fin",
+    ]);
+    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual([
+      "Nom",
+      "Distance",
+      "D+",
+    ]);
+  });
+
+  it("omits missing labels for complete event and format identity modules", () => {
+    const completion = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], []);
+
+    expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual([]);
+    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual([]);
+  });
+
   it("counts equipment items and station products in module statuses", () => {
     const event: CompletionEvent = {
       ...baseEvent,

@@ -78,6 +78,30 @@ type RaceFormat = {
   organizerDetails?: OrganizerRaceDetails;
 };
 
+type ElevationPoint = {
+  distanceKm: number;
+  elevationM: number;
+  lat?: number;
+  lon?: number;
+};
+
+type GpxDetectedAidStation = {
+  name: string;
+  distanceKm: number;
+};
+
+type GpxPreview = {
+  stats?: {
+    distanceKm: number;
+    gainM: number;
+    lossM: number;
+    minAltM: number | null;
+    maxAltM: number | null;
+  };
+  elevationProfile: ElevationPoint[];
+  detectedAidStations: GpxDetectedAidStation[];
+};
+
 type OrganizerEventDetail = {
   id: string;
   name: string;
@@ -204,6 +228,7 @@ const emptyProductForm: ProductFormValues = {
 
 const EVENT_TAB_ID = "__event";
 const ADD_FORMAT_TAB_ID = "__add";
+const MAX_EVENT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const EVENT_MODULE_IDS: OrganizerModuleId[] = ["event", "equipment", "bibPickup", "access", "services"];
 const FORMAT_MODULE_IDS: OrganizerModuleId[] = ["formats", "schedule", "equipment", "bibPickup", "access", "aidStations", "products"];
 
@@ -325,8 +350,9 @@ export function OrganizerDashboard() {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [dirtyModules, setDirtyModules] = useState<Set<OrganizerModuleId>>(() => new Set());
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "uploading">("idle");
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ id: number; type: "success" | "error"; message: string } | null>(null);
+  const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
 
   const accessToken = session?.accessToken ?? null;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
@@ -336,6 +362,10 @@ export function OrganizerDashboard() {
     ? aidStations.find((station) => station.id === productPickerStationId) ?? null
     : null;
   const hasDirtyChanges = dirtyModules.size > 0;
+
+  const showToast = (type: "success" | "error", message: string) => {
+    setToast({ id: Date.now(), type, message });
+  };
 
   const eventDraft: OrganizerEventDetail | null = eventDetail
     ? {
@@ -409,6 +439,12 @@ export function OrganizerDashboard() {
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [hasDirtyChanges]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(null), 1800);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
 
   const loadOrganizerData = async () => {
     if (!accessToken) return;
@@ -540,11 +576,39 @@ export function OrganizerDashboard() {
     }
   };
 
+  const loadRaceGpxPreview = async (raceId: string) => {
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`/api/organizer/races/${raceId}/gpx`, {
+        headers: authHeaders,
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        setGpxPreview(null);
+        return;
+      }
+      const data = (await response.json().catch(() => null)) as GpxPreview | null;
+      setGpxPreview(
+        data
+          ? {
+              stats: data.stats,
+              elevationProfile: data.elevationProfile ?? [],
+              detectedAidStations: data.detectedAidStations ?? [],
+            }
+          : null
+      );
+    } catch (caught) {
+      console.error("Unable to load organizer GPX preview", caught);
+      setGpxPreview(null);
+    }
+  };
+
   useEffect(() => {
     if (!activeRace) {
       setRaceForm(createEmptyRaceForm());
       setAidStations([]);
       setStationProducts([]);
+      setGpxPreview(null);
       return;
     }
     setRaceForm({
@@ -560,6 +624,11 @@ export function OrganizerDashboard() {
     });
     setExpandedStationKey(null);
     void loadRaceSidecar(activeRace.id);
+    if (activeRace.gpx_storage_path) {
+      void loadRaceGpxPreview(activeRace.id);
+    } else {
+      setGpxPreview(null);
+    }
   }, [activeRace?.id]);
 
   const saveEvent = async (override?: Partial<EventFormValues>) => {
@@ -567,7 +636,6 @@ export function OrganizerDashboard() {
     const nextForm = { ...eventForm, ...override };
     setStatus("saving");
     setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/organizer/events/${selectedEventId}`, {
         method: "PATCH",
@@ -583,10 +651,10 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        setError(data?.message ?? "Impossible d'enregistrer l'evenement.");
+        showToast("error", data?.message ?? "Impossible d'enregistrer l'evenement.");
         return false;
       }
-      setMessage("Evenement mis a jour.");
+      showToast("success", "Evenement mis a jour.");
       clearDirty(["event", "equipment", "bibPickup", "access", "services"]);
       await loadEvent(selectedEventId);
       return true;
@@ -600,7 +668,6 @@ export function OrganizerDashboard() {
     const nextForm = { ...raceForm, ...override };
     setStatus("saving");
     setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/organizer/races/${activeRace.id}`, {
         method: "PATCH",
@@ -619,10 +686,10 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        setError(data?.message ?? "Impossible d'enregistrer le format.");
+        showToast("error", data?.message ?? "Impossible d'enregistrer le format.");
         return false;
       }
-      setMessage("Format mis a jour.");
+      showToast("success", "Format mis a jour.");
       clearDirty(["formats", "schedule"]);
       await loadEvent(selectedEventId, activeRace.id);
       return true;
@@ -636,7 +703,6 @@ export function OrganizerDashboard() {
     if (!accessToken || !selectedEventId) return;
     setStatus("saving");
     setError(null);
-    setMessage(null);
     try {
       const response = await fetch("/api/organizer/races", {
         method: "POST",
@@ -656,13 +722,13 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
       if (!response.ok || !data?.race) {
-        setError(data?.message ?? "Impossible d'ajouter le format.");
+        showToast("error", data?.message ?? "Impossible d'ajouter le format.");
         return;
       }
       setNewRaceForm(createEmptyRaceForm());
       setActiveTab(data.race.id);
       setActiveModule("formats");
-      setMessage("Format ajoute.");
+      showToast("success", "Format ajoute.");
       await loadEvent(selectedEventId, data.race.id);
     } finally {
       setStatus("idle");
@@ -673,7 +739,6 @@ export function OrganizerDashboard() {
     if (!accessToken || !selectedEventId || !activeRace) return;
     setStatus("saving");
     setError(null);
-    setMessage(null);
     try {
       const response = await fetch("/api/organizer/races", {
         method: "POST",
@@ -693,12 +758,12 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
       if (!response.ok || !data?.race) {
-        setError(data?.message ?? "Impossible de dupliquer le format.");
+        showToast("error", data?.message ?? "Impossible de dupliquer le format.");
         return;
       }
       setActiveTab(data.race.id);
       setActiveModule("formats");
-      setMessage("Format duplique en brouillon, sans GPX ni ravitos.");
+      showToast("success", "Format duplique en brouillon, sans GPX ni ravitos.");
       await loadEvent(selectedEventId, data.race.id);
     } finally {
       setStatus("idle");
@@ -710,7 +775,6 @@ export function OrganizerDashboard() {
     if (!file || !accessToken || !activeRace || !selectedEventId) return;
     setStatus("uploading");
     setError(null);
-    setMessage(null);
     try {
       const formData = new FormData();
       formData.append("gpx", file);
@@ -719,14 +783,70 @@ export function OrganizerDashboard() {
         headers: authHeaders,
         body: formData,
       });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      const data = (await response.json().catch(() => null)) as (GpxPreview & { message?: string; appliedAidStationCount?: number }) | null;
       if (!response.ok) {
-        setError(data?.message ?? "GPX invalide ou impossible a importer.");
+        showToast("error", data?.message ?? "GPX invalide ou impossible a importer.");
         return;
       }
-      setMessage("GPX remplace. Les plans existants restent des snapshots.");
+      setGpxPreview(
+        data
+          ? {
+              stats: data.stats,
+              elevationProfile: data.elevationProfile ?? [],
+              detectedAidStations: data.detectedAidStations ?? [],
+            }
+          : null
+      );
+      const detectedCount = data?.detectedAidStations?.length ?? 0;
+      const appliedCount = data?.appliedAidStationCount ?? 0;
+      showToast(
+        "success",
+        appliedCount > 0
+          ? `GPX importe. ${appliedCount} ravito${appliedCount > 1 ? "s" : ""} cree${appliedCount > 1 ? "s" : ""}.`
+          : detectedCount > 0
+            ? "GPX importe. Waypoints detectes, ravitos existants preserves."
+            : "GPX importe. Les plans existants restent des snapshots."
+      );
       await loadEvent(selectedEventId, activeRace.id);
       await loadRaceSidecar(activeRace.id);
+    } finally {
+      setStatus("idle");
+      event.target.value = "";
+    }
+  };
+
+  const uploadEventImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file || !accessToken || !selectedEventId) return;
+    if (file.type !== "image/png") {
+      showToast("error", "Ajoute une image PNG.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > MAX_EVENT_IMAGE_SIZE_BYTES) {
+      showToast("error", "Image trop lourde: 5 Mo maximum.");
+      event.target.value = "";
+      return;
+    }
+
+    setStatus("uploading");
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const response = await fetch(`/api/organizer/events/${selectedEventId}/image`, {
+        method: "PUT",
+        headers: authHeaders,
+        body: formData,
+      });
+      const data = (await response.json().catch(() => null)) as { thumbnailUrl?: string; message?: string } | null;
+      if (!response.ok || !data?.thumbnailUrl) {
+        showToast("error", data?.message ?? "Impossible d'envoyer l'image.");
+        return;
+      }
+      setEventForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
+      showToast("success", "Image evenement mise a jour.");
+      await loadEvent(selectedEventId, activeTab);
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -737,7 +857,6 @@ export function OrganizerDashboard() {
     if (!accessToken || !activeRace) return false;
     setStatus("saving");
     setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-stations`, {
         method: "PUT",
@@ -746,10 +865,10 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        setError(data?.message ?? "Impossible d'enregistrer les ravitos.");
+        showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
         return false;
       }
-      setMessage("Ravitos mis a jour.");
+      showToast("success", "Ravitos mis a jour.");
       clearDirty(["aidStations"]);
       await loadRaceSidecar(activeRace.id);
       return true;
@@ -770,7 +889,7 @@ export function OrganizerDashboard() {
     });
     if (!response.ok) {
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
-      setError(data?.message ?? "Impossible de mettre a jour les produits.");
+      showToast("error", data?.message ?? "Impossible de mettre a jour les produits.");
       return false;
     }
     await loadRaceSidecar(activeRace.id);
@@ -781,7 +900,7 @@ export function OrganizerDashboard() {
     if (!productId) return;
     const selectedProduct = catalogProducts.find((product) => product.id === productId);
     if (!selectedProduct) {
-      setError("Produit introuvable dans le catalogue.");
+      showToast("error", "Produit introuvable dans le catalogue.");
       return;
     }
     const current = stationProducts
@@ -807,7 +926,6 @@ export function OrganizerDashboard() {
     if (!accessToken || !activeRace || !productStationId) return;
     setStatus("saving");
     setError(null);
-    setMessage(null);
     try {
       const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-station-products`, {
         method: "POST",
@@ -820,11 +938,11 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        setError(data?.message ?? "Impossible de creer le produit.");
+        showToast("error", data?.message ?? "Impossible de creer le produit.");
         return;
       }
       setProductForm(emptyProductForm);
-      setMessage("Produit cree pour ce ravito.");
+      showToast("success", "Produit cree pour ce ravito.");
       await loadRaceSidecar(activeRace.id);
     } finally {
       setStatus("idle");
@@ -911,6 +1029,7 @@ export function OrganizerDashboard() {
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6">
+      <OrganizerToast toast={toast} />
       <OrganizerSummaryHeader
         selectedMembership={selectedMembership}
         event={eventDraft}
@@ -937,7 +1056,6 @@ export function OrganizerDashboard() {
       />
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-      {message ? <p className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-700">{message}</p> : null}
 
       {completion ? (
         <CompletionTabsPanel
@@ -961,7 +1079,13 @@ export function OrganizerDashboard() {
           {!eventDetail || !eventDraft ? (
             <p className="text-sm text-muted-foreground">Chargement de l'evenement...</p>
           ) : activeModule === "event" ? (
-            <EventInfoEditor eventForm={eventForm} onChange={updateEventForm} onSave={() => void saveEvent()} status={status} />
+            <EventInfoEditor
+              eventForm={eventForm}
+              onChange={updateEventForm}
+              onSave={() => void saveEvent()}
+              onUploadImage={uploadEventImage}
+              status={status}
+            />
           ) : activeModule === "formats" ? (
             <FormatsEditor
               activeTab={activeTab}
@@ -977,6 +1101,7 @@ export function OrganizerDashboard() {
               onUploadGpx={uploadGpx}
               onDuplicateRace={() => void duplicateActiveRace()}
               onPreviewRace={() => setPreviewOpen(true)}
+              gpxPreview={gpxPreview}
               status={status}
             />
           ) : activeModule === "aidStations" ? (
@@ -1195,6 +1320,59 @@ function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { pendingC
   );
 }
 
+function OrganizerToast({ toast }: { toast: { id: number; type: "success" | "error"; message: string } | null }) {
+  if (!toast) return null;
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4" role="status" aria-live="polite">
+      <div
+        key={toast.id}
+        className={cn(
+          "max-w-md rounded-full border px-4 py-2 text-sm font-semibold shadow-lg",
+          toast.type === "success" && "border-emerald-300 bg-emerald-50 text-emerald-800",
+          toast.type === "error" && "border-red-300 bg-red-50 text-red-800"
+        )}
+      >
+        {toast.message}
+      </div>
+    </div>
+  );
+}
+
+function LiveToggle({
+  checked,
+  disabled,
+  onChange,
+  liveLabel = "Publie",
+  draftLabel = "Brouillon",
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+  liveLabel?: string;
+  draftLabel?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      disabled={disabled}
+      className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-60"
+      aria-pressed={checked}
+    >
+      <span className={cn("relative h-5 w-9 rounded-full transition", checked ? "bg-brand" : "bg-muted")}>
+        <span
+          className={cn(
+            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition",
+            checked ? "left-4" : "left-0.5"
+          )}
+        />
+      </span>
+      {checked ? liveLabel : draftLabel}
+    </button>
+  );
+}
+
 function OrganizerSummaryHeader({
   selectedMembership,
   event,
@@ -1270,23 +1448,7 @@ function OrganizerSummaryHeader({
             {hasDirtyChanges ? "Non enregistre" : "A jour"}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onTogglePublish}
-          disabled={status === "saving"}
-          className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-60"
-          aria-pressed={isLive}
-        >
-          <span className={cn("relative h-5 w-9 rounded-full transition", isLive ? "bg-brand" : "bg-muted")}>
-            <span
-              className={cn(
-                "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition",
-                isLive ? "left-4" : "left-0.5"
-              )}
-            />
-          </span>
-          {isLive ? "Publie" : "Brouillon"}
-        </button>
+        <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
       </div>
 
       <div className="mt-4 h-3 overflow-hidden rounded-full bg-muted">
@@ -1412,6 +1574,12 @@ function OrganizerModuleGrid({
             <LevelBadge level={module.level} />
           </div>
           <h2 className="mt-2 text-sm font-semibold leading-snug text-foreground">{module.title}</h2>
+          {module.missingLabels?.length ? (
+            <p className="mt-2 line-clamp-2 text-[11px] font-medium text-amber-700">
+              Manque: {module.missingLabels.slice(0, 3).join(", ")}
+              {module.missingLabels.length > 3 ? "..." : ""}
+            </p>
+          ) : null}
           <div className="mt-4 flex items-end justify-between gap-2">
             <span className="text-xs font-medium text-foreground">{module.countLabel}</span>
             <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "A sauver" : "Modifier"}</span>
@@ -1455,14 +1623,20 @@ function EventInfoEditor({
   eventForm,
   onChange,
   onSave,
+  onUploadImage,
   status,
 }: {
   eventForm: EventFormValues;
   onChange: (next: Partial<EventFormValues>, moduleId?: OrganizerModuleId) => void;
   onSave: () => void;
+  onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
   const dateRange = eventForm.organizerDetails.dateRange;
+  const missingName = !eventForm.name.trim();
+  const missingLocation = !eventForm.location.trim();
+  const missingStartDate = !eventForm.raceDate.trim();
+  const missingEndDate = !dateRange.endDate?.trim();
   const updateEndDate = (value: string) => {
     onChange(
       {
@@ -1486,16 +1660,23 @@ function EventInfoEditor({
         onSave();
       }}
     >
-      <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required />
-      <TextField label="Lieu" value={eventForm.location} onChange={(value) => onChange({ location: value })} />
-      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} />
-      <TextField label="Date fin" type="date" value={dateRange.endDate ?? ""} onChange={updateEndDate} />
-      <label className="flex items-end gap-2 pb-2 text-sm">
-        <input type="checkbox" checked={eventForm.isLive} onChange={(event) => onChange({ isLive: event.target.checked })} />
-        Live
-      </label>
-      <div className="lg:col-span-4">
-        <TextField label="Image" value={eventForm.thumbnailUrl} onChange={(value) => onChange({ thumbnailUrl: value })} placeholder="https://..." />
+      <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
+      <TextField label="Lieu" value={eventForm.location} onChange={(value) => onChange({ location: value })} invalid={missingLocation} />
+      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
+      <TextField label="Date fin" type="date" value={dateRange.endDate ?? ""} onChange={updateEndDate} invalid={missingEndDate} />
+      <div className="space-y-2 lg:col-span-4">
+        <Label>Image evenement (PNG)</Label>
+        {eventForm.thumbnailUrl ? (
+          <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
+            <img src={eventForm.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="flex h-20 w-full items-center rounded-md border border-dashed border-border bg-muted px-3 text-sm text-muted-foreground sm:w-56">
+            Aucune image
+          </div>
+        )}
+        <Input type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
+        <p className="text-xs text-muted-foreground">PNG uniquement, 5 Mo maximum.</p>
       </div>
       <div className="flex items-end">
         <Button type="submit" disabled={status === "saving"}>
@@ -1520,6 +1701,7 @@ function FormatsEditor({
   onUploadGpx,
   onDuplicateRace,
   onPreviewRace,
+  gpxPreview,
   status,
 }: {
   activeTab: string;
@@ -1535,6 +1717,7 @@ function FormatsEditor({
   onUploadGpx: (event: ChangeEvent<HTMLInputElement>) => void;
   onDuplicateRace: () => void;
   onPreviewRace: () => void;
+  gpxPreview: GpxPreview | null;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
   return (
@@ -1564,16 +1747,16 @@ function FormatsEditor({
           {showRaceDetails ? (
             <RaceForm
               title="Details du format"
-              values={raceForm}
-              onChange={(values) => onRaceFormChange(values)}
-              onSubmit={(event) => {
+          values={raceForm}
+          onChange={(values) => onRaceFormChange(values)}
+          onSubmit={(event) => {
                 event.preventDefault();
                 onSaveRace();
               }}
               submitLabel="Sauvegarder le format"
-              disabled={status === "saving"}
-            />
-          ) : null}
+          disabled={status === "saving"}
+        />
+      ) : null}
           <div className="rounded-lg border border-border bg-background p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1584,6 +1767,7 @@ function FormatsEditor({
               </div>
               <Input type="file" accept=".gpx,application/gpx+xml" onChange={onUploadGpx} disabled={status === "uploading"} className="max-w-sm" />
             </div>
+            <MiniElevationProfile preview={gpxPreview} activeRace={activeRace} />
           </div>
         </div>
       ) : (
@@ -1608,24 +1792,33 @@ function RaceForm({
   submitLabel: string;
   disabled?: boolean;
 }) {
+  const missingName = !values.name.trim();
+  const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
+  const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
+
   return (
     <form className="rounded-lg border border-border bg-background p-4" onSubmit={onSubmit}>
-      <p className="mb-3 font-semibold text-foreground">{title}</p>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="font-semibold text-foreground">{title}</p>
+        <LiveToggle
+          checked={values.isLive}
+          disabled={disabled}
+          onChange={(checked) => onChange({ ...values, isLive: checked })}
+          liveLabel="Live"
+          draftLabel="Brouillon"
+        />
+      </div>
       <div className="grid gap-3 lg:grid-cols-4">
         <div className="lg:col-span-2">
-          <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required />
+          <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
         </div>
-        <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" />
-        <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" />
+        <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
+        <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
         <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
         <TextField label="Date optionnelle" type="date" value={values.raceDate} onChange={(value) => onChange({ ...values, raceDate: value })} />
         <div className="lg:col-span-2">
           <TextField label="Lieu format" value={values.locationText} onChange={(value) => onChange({ ...values, locationText: value })} />
         </div>
-        <label className="flex items-end gap-2 pb-2 text-sm">
-          <input type="checkbox" checked={values.isLive} onChange={(event) => onChange({ ...values, isLive: event.target.checked })} />
-          Live
-        </label>
         <div className="lg:col-span-3">
           <TextField label="Image format" value={values.thumbnailUrl} onChange={(value) => onChange({ ...values, thumbnailUrl: value })} placeholder="https://..." />
         </div>
@@ -1636,6 +1829,99 @@ function RaceForm({
         </div>
       </div>
     </form>
+  );
+}
+
+function MiniElevationProfile({ preview, activeRace }: { preview: GpxPreview | null; activeRace: RaceFormat }) {
+  const profile = preview?.elevationProfile ?? [];
+  const hasProfile = profile.length >= 2;
+  const distanceKm = preview?.stats?.distanceKm ?? activeRace.distance_km;
+  const gainM = preview?.stats?.gainM ?? activeRace.elevation_gain_m;
+  const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
+
+  if (!activeRace.gpx_storage_path) {
+    return (
+      <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">
+        La courbe apparaitra apres l'ajout d'un GPX.
+      </div>
+    );
+  }
+
+  if (!hasProfile) {
+    return (
+      <div className="mt-4 rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">
+        GPX present. Courbe de niveau indisponible pour ce fichier.
+      </div>
+    );
+  }
+
+  const width = 720;
+  const height = 180;
+  const paddingX = 28;
+  const paddingTop = 18;
+  const paddingBottom = 34;
+  const chartHeight = height - paddingTop - paddingBottom;
+  const maxDistance = Math.max(distanceKm, profile.at(-1)?.distanceKm ?? 0, 1);
+  const elevations = profile.map((point) => point.elevationM);
+  const minElevation = Math.min(...elevations);
+  const maxElevation = Math.max(...elevations);
+  const elevationRange = Math.max(maxElevation - minElevation, 1);
+  const xScale = (distance: number) => paddingX + (Math.min(Math.max(distance, 0), maxDistance) / maxDistance) * (width - paddingX * 2);
+  const yScale = (elevation: number) =>
+    paddingTop + chartHeight - ((elevation - minElevation) / elevationRange) * chartHeight;
+  const path = profile
+    .map((point, index) => `${index === 0 ? "M" : "L"}${xScale(point.distanceKm).toFixed(1)},${yScale(point.elevationM).toFixed(1)}`)
+    .join(" ");
+  const firstProfilePoint = profile[0];
+  const lastProfilePoint = profile.at(-1);
+  const areaPath = `${path} L${xScale(lastProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} L${xScale(firstProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} Z`;
+
+  return (
+    <div className="mt-4 rounded-md border border-border bg-card p-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+        <p className="font-semibold text-foreground">Courbe de niveau</p>
+        <p className="text-xs font-medium text-muted-foreground">
+          {formatKm(distanceKm)} - D+ {Math.round(gainM)} m - D- {Math.round(lossM)} m
+        </p>
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img" aria-label="Courbe de niveau GPX">
+        <defs>
+          <linearGradient id="organizerElevationGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#2f5d1e" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="#2f5d1e" stopOpacity="0.04" />
+          </linearGradient>
+        </defs>
+        <line x1={paddingX} x2={width - paddingX} y1={height - paddingBottom} y2={height - paddingBottom} stroke="#d6d3cc" />
+        <path d={areaPath} fill="url(#organizerElevationGradient)" />
+        <path d={path} fill="none" stroke="#2f5d1e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <text x={paddingX} y={height - 10} fontSize="11" fill="#6b655c">
+          0 km
+        </text>
+        <text x={width - paddingX} y={height - 10} fontSize="11" fill="#6b655c" textAnchor="end">
+          {maxDistance.toFixed(1)} km
+        </text>
+        <text x={paddingX} y={paddingTop + 4} fontSize="11" fill="#6b655c">
+          {Math.round(maxElevation)} m
+        </text>
+        <text x={paddingX} y={height - paddingBottom - 6} fontSize="11" fill="#6b655c">
+          {Math.round(minElevation)} m
+        </text>
+        {preview?.detectedAidStations.map((station) => {
+          const x = xScale(station.distanceKm);
+          return (
+            <g key={`${station.name}-${station.distanceKm}`}>
+              <line x1={x} x2={x} y1={paddingTop} y2={height - paddingBottom} stroke="#d89b22" strokeDasharray="3 4" />
+              <circle cx={x} cy={height - paddingBottom} r="4" fill="#d89b22" />
+            </g>
+          );
+        })}
+      </svg>
+      {preview?.detectedAidStations.length ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito detecte{preview.detectedAidStations.length > 1 ? "s" : ""}.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -1919,9 +2205,10 @@ function EquipmentFields({
 }) {
   const updateItems = (items: OrganizerEventDetails["mandatoryEquipment"]["items"]) =>
     onEquipmentChange({ ...equipment, items });
+  const missingEquipment = equipment.items.length === 0 && !equipment.note?.trim();
 
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-background p-4">
+    <section className={cn("space-y-4 rounded-lg border bg-background p-4", missingEquipment ? "border-amber-300" : "border-border")}>
       <div>
         <p className="font-semibold text-foreground">{title}</p>
         <p className="text-sm text-muted-foreground">{description}</p>
@@ -1974,7 +2261,12 @@ function EquipmentFields({
       >
         Ajouter un item
       </Button>
-      <TextAreaField label="Note materiel" value={equipment.note ?? ""} onChange={(value) => onEquipmentChange({ ...equipment, note: value || null })} />
+      <TextAreaField
+        label="Note materiel"
+        value={equipment.note ?? ""}
+        onChange={(value) => onEquipmentChange({ ...equipment, note: value || null })}
+        invalid={missingEquipment}
+      />
       <Button type="button" onClick={onSave} disabled={disabled}>
         {saveLabel}
       </Button>
@@ -2002,15 +2294,17 @@ function ScheduleEditor({
   const updateSchedule = (next: Partial<OrganizerRaceDetails["schedule"]>) =>
     onChange({ organizerDetails: { ...raceForm.organizerDetails, schedule: { ...schedule, ...next } } });
   const cutoffStations = aidStations.filter((station) => station.organizerDetails.cutoffTime);
+  const missingStartTime = !schedule.startTime?.trim();
+  const missingFinishCutoff = !schedule.finishCutoffTime?.trim() && !schedule.cutoffNote?.trim();
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Heure de depart" value={schedule.startTime ?? ""} onChange={(value) => updateSchedule({ startTime: value || null })} />
-        <TextField label="Heure limite arrivee" value={schedule.finishCutoffTime ?? ""} onChange={(value) => updateSchedule({ finishCutoffTime: value || null })} />
+        <TextField label="Heure de depart" value={schedule.startTime ?? ""} onChange={(value) => updateSchedule({ startTime: value || null })} invalid={missingStartTime} />
+        <TextField label="Heure limite arrivee" value={schedule.finishCutoffTime ?? ""} onChange={(value) => updateSchedule({ finishCutoffTime: value || null })} invalid={missingFinishCutoff} />
       </div>
       <TextAreaField label="Horaires navettes" value={schedule.shuttleSchedule ?? ""} onChange={(value) => updateSchedule({ shuttleSchedule: value || null })} />
-      <TextAreaField label="Note horaires / barrieres" value={schedule.cutoffNote ?? ""} onChange={(value) => updateSchedule({ cutoffNote: value || null })} />
+      <TextAreaField label="Note horaires / barrieres" value={schedule.cutoffNote ?? ""} onChange={(value) => updateSchedule({ cutoffNote: value || null })} invalid={missingFinishCutoff} />
       <div className="rounded-md border border-border bg-background p-3">
         <p className="text-sm font-semibold">Barrieres liees aux ravitos</p>
         {cutoffStations.length === 0 ? (
@@ -2106,6 +2400,9 @@ function BibPickupFields({
   disabled?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
+  const missingLocation = !bib.location?.trim();
+  const missingSchedule = !bib.schedule?.trim();
+
   return (
     <section className="space-y-4 rounded-lg border border-border bg-background p-4">
       <div>
@@ -2113,8 +2410,8 @@ function BibPickupFields({
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Lieu de retrait" value={bib.location ?? ""} onChange={(value) => update({ location: value || null })} />
-        <TextField label="Horaires retrait" value={bib.schedule ?? ""} onChange={(value) => update({ schedule: value || null })} />
+        <TextField label="Lieu de retrait" value={bib.location ?? ""} onChange={(value) => update({ location: value || null })} invalid={missingLocation} />
+        <TextField label="Horaires retrait" value={bib.schedule ?? ""} onChange={(value) => update({ schedule: value || null })} invalid={missingSchedule} />
       </div>
       <TextAreaField label="Documents necessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
       <div className="flex flex-wrap gap-2">
@@ -2218,6 +2515,9 @@ function AccessFields({
   showSaveButton?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["access"]>) => onAccessChange({ ...access, ...next });
+  const missingStartAddress = !access.startAddress?.trim();
+  const missingParkingOrShuttle = !access.officialParkings?.trim() && !access.shuttles?.trim();
+
   return (
     <section className={cn("space-y-4", !embedded && "rounded-lg border border-border bg-background p-4")}>
       <div>
@@ -2225,11 +2525,11 @@ function AccessFields({
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Adresse depart" value={access.startAddress ?? ""} onChange={(value) => update({ startAddress: value || null })} />
+        <TextField label="Adresse depart" value={access.startAddress ?? ""} onChange={(value) => update({ startAddress: value || null })} invalid={missingStartAddress} />
         <TextField label="Adresse arrivee" value={access.finishAddress ?? ""} onChange={(value) => update({ finishAddress: value || null })} />
       </div>
-      <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} />
-      <TextAreaField label="Navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} />
+      <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
+      <TextAreaField label="Navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} invalid={missingParkingOrShuttle} />
       <TextAreaField label="Horaires navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
       <TextAreaField label="Routes fermees / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
       <TextField label="Lien Google Maps ou adresse" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
@@ -2756,6 +3056,7 @@ function TextField({
   type = "text",
   required,
   placeholder,
+  invalid,
 }: {
   label: string;
   value: string;
@@ -2763,33 +3064,75 @@ function TextField({
   type?: string;
   required?: boolean;
   placeholder?: string;
+  invalid?: boolean;
 }) {
   return (
     <div className="space-y-1">
       <Label>{label}</Label>
-      <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} placeholder={placeholder} />
+      <Input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+        placeholder={placeholder}
+        className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
+      />
+      {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>
   );
 }
 
-function NumberField({ label, value, onChange, step = "0.1" }: { label: string; value: number; onChange: (value: number) => void; step?: string }) {
+function NumberField({
+  label,
+  value,
+  onChange,
+  step = "0.1",
+  invalid,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  step?: string;
+  invalid?: boolean;
+}) {
   return (
     <div className="space-y-1">
       <Label>{label}</Label>
-      <Input type="number" step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+      <Input
+        type="number"
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
+      />
+      {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>
   );
 }
 
-function TextAreaField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+function TextAreaField({
+  label,
+  value,
+  onChange,
+  invalid,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  invalid?: boolean;
+}) {
   return (
     <div className="space-y-1">
       <Label>{label}</Label>
       <textarea
-        className="min-h-24 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className={cn(
+          "min-h-24 w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          invalid ? "border-amber-400 bg-amber-50/50 focus-visible:ring-amber-500" : "border-border"
+        )}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+      {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>
   );
 }
