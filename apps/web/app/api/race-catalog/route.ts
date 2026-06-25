@@ -140,7 +140,7 @@ const createRaceSchema = z.object({
   is_live: z
     .string()
     .optional()
-    .transform((value) => (value === "false" ? false : true)),
+    .transform((value) => value === "true"),
 });
 
 const raceEventRowSchema = z.object({
@@ -382,7 +382,7 @@ export async function POST(request: NextRequest) {
         location: parsedFields.data.event_location ?? parsedFields.data.location_text ?? null,
         race_date: parsedFields.data.event_race_date ?? parsedFields.data.race_date ?? null,
         thumbnail_url: parsedFields.data.event_thumbnail_url ?? parsedFields.data.thumbnail_url ?? null,
-        is_live: parsedFields.data.is_live ?? true,
+        is_live: parsedFields.data.is_live,
       });
       eventId = event?.id ?? null;
       createdEventId = eventId;
@@ -476,7 +476,7 @@ export async function POST(request: NextRequest) {
       bounds_min_lng: parsedGpx.stats.boundsMinLng,
       bounds_max_lat: parsedGpx.stats.boundsMaxLat,
       bounds_max_lng: parsedGpx.stats.boundsMaxLng,
-      is_live: parsedFields.data.is_live ?? true,
+      is_live: parsedFields.data.is_live,
       is_public: true,
       created_by: null,
     }),

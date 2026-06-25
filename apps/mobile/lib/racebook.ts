@@ -551,7 +551,7 @@ export function canShowRacebook(signals: RacebookSignals): boolean {
   const eventDetails = parseEventDetails(signals.eventOrganizerDetails);
   const raceDetails = parseRaceDetails(signals.raceOrganizerDetails);
 
-  return hasOrganizerContent(eventDetails, raceDetails) || signals.hasAidStations === true;
+  return hasOrganizerContent(eventDetails, raceDetails);
 }
 
 export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScreenData | null> {

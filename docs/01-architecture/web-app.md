@@ -6,6 +6,7 @@ ai_priority: high
 related_files:
   - apps/web/package.json
   - apps/web/next.config.mjs
+  - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/web/app/hooks/useOrganizerMembershipStatus.ts
   - apps/web/app/header-tabs.tsx
@@ -22,6 +23,8 @@ related_files:
   - apps/web/app/root-chrome.tsx
   - apps/web/lib/plan-share.ts
   - apps/web/app/api/race-catalog/route.ts
+  - apps/web/app/api/admin/race-catalog/utmb/route.ts
+  - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
   - apps/web/lib/organizer.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
@@ -136,7 +139,7 @@ Plan crew recap links are handled by `apps/web/app/api/plan-shares/route.ts`, `a
 
 ### Race Catalog and GPX
 
-Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`.
+Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live.
 
 User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false` and `created_by` set to the authenticated user.
 
@@ -189,6 +192,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer routes can also write public `races`, but only after an active `race_event_organizers` membership check. Claimed public races should not rely on `races.created_by`.
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
 - Organizer manual claims create non-live `race_events` draft rows through a service route; keep that path server-side and do not expose service-role writes to client code.
+- Keep public catalog creation conservative by default: imported/admin-created events and races should start as non-live until someone publishes them deliberately.
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
 - Keep bib pickup shared at event level in the current organizer UI. Equipment is the exception: the dashboard mirrors shared items into every race list so a course can later drop one and shrink the event-level common subset.
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.

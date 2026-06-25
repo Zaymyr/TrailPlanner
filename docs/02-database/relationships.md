@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -110,7 +110,7 @@ Stripe and RevenueCat entitlement checks read the unified `subscriptions` row fo
 
 Current code treats `race_events` as a parent/grouping table for `races`:
 
-- `apps/web/app/api/race-catalog/route.ts` creates `race_events`.
+- `apps/web/app/api/race-catalog/route.ts` creates `race_events`, and those new event/race rows should default to draft unless the admin explicitly publishes them.
 - admin APIs query `races(..., race_events(...))`.
 - mobile catalog groups races by `race_events`.
 - organizer claims reference `race_events(id)`.

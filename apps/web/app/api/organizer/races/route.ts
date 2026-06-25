@@ -25,7 +25,7 @@ const createRaceSchema = z.object({
   locationText: optionalTextOrNull,
   raceDate: optionalTextOrNull,
   thumbnailUrl: optionalTextOrNull,
-  isLive: z.boolean().optional().default(true),
+  isLive: z.boolean().optional().default(false),
   organizerDetails: organizerRaceDetailsSchema.optional(),
 });
 

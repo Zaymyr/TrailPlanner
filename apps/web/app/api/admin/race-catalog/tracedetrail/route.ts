@@ -26,7 +26,7 @@ const credentialsSchema = z.object({
 const requestSchema = z.object({
   url: z.string().trim().url(),
   action: z.enum(["preview", "import"]).default("preview"),
-  isLive: z.boolean().optional().default(true),
+  isLive: z.boolean().optional().default(false),
   credentials: credentialsSchema.optional(),
 });
 
