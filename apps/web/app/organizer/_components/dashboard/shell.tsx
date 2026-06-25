@@ -168,17 +168,17 @@ export function OrganizerSummaryHeader({
 
       <div className="mt-3 space-y-2">
         <div className="flex items-center gap-3 rounded-md border border-border/70 bg-background/80 p-3">
-          <InlineProgressBar score={eventScore} className="w-28 sm:w-40" />
-          <span className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground">
+          <span className="min-w-0 shrink-0 text-lg font-semibold text-foreground">
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </span>
+          <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
           <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => (
             <div key={race.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm">
-              <InlineProgressBar score={race.score} className="w-24 sm:w-32" />
-              <span className="min-w-0 flex-1 truncate font-medium text-foreground">{race.name || "Course sans nom"}</span>
+              <span className="min-w-0 shrink-0 font-medium text-foreground">{race.name || "Course sans nom"}</span>
+              <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
               <LiveToggle
                 checked={race.is_live}
                 disabled={status === "saving"}
