@@ -805,7 +805,6 @@ export function OrganizerDashboard() {
       <OrganizerSummaryHeader
         selectedMembership={selectedMembership}
         event={eventDraft}
-        aidStationCount={aidStations.length}
         memberships={memberships}
         selectedEventId={selectedEventId}
         onSelectedEventChange={(eventId) => {

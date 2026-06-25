@@ -1,14 +1,14 @@
-import Link from 'next/link';
+import Link from "next/link";
 
-import { Button } from '../../../../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../../components/ui/card';
-import { TabsList } from '../../../../components/ui/tabs';
-import { cn } from '../../../../components/utils';
-import type { OrganizerCompletionSummary, OrganizerModuleId } from '../completion';
-import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from './constants';
-import { formatEventDateRange } from './helpers';
-import type { ClaimRow, MembershipRow, OrganizerEventDetail, RaceFormat } from './types';
-import { LevelBadge, LiveToggle, StatusBadge } from './controls';
+import { Button } from "../../../../components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { TabsList } from "../../../../components/ui/tabs";
+import { cn } from "../../../../components/utils";
+import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
+import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
+import { formatEventDateRange } from "./helpers";
+import type { ClaimRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
+import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
 const getProgressTone = (score: number) => {
   if (score < 20) {
@@ -38,7 +38,7 @@ export function OrganizerSignedOutCard() {
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Dashboard organisateur</CardTitle>
-          <CardDescription>Connecte-toi pour accÃ©der Ã  ton espace organisateur.</CardDescription>
+          <CardDescription>Connecte-toi pour accéder à ton espace organisateur.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Link href="/sign-in">
@@ -59,7 +59,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Dashboard organisateur</CardTitle>
-          <CardDescription>Aucune course approuvÃ©e pour ce compte.</CardDescription>
+          <CardDescription>Aucune course approuvée pour ce compte.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {pendingClaims.length > 0 ? (
@@ -74,7 +74,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
           ) : null}
           {rejectedClaims.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold">Demandes refusÃ©es</p>
+              <p className="text-sm font-semibold">Demandes refusées</p>
               {rejectedClaims.map((claim) => (
                 <div key={claim.id} className="rounded-md border border-border bg-background p-3 text-sm">
                   <p className="font-medium">{claim.race_events?.name ?? claim.organization_name}</p>
@@ -84,7 +84,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
             </div>
           ) : null}
           {pendingClaims.length === 0 && rejectedClaims.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tu n'as pas encore de demande.</p>
+            <p className="text-sm text-muted-foreground">Tu n&apos;as pas encore de demande.</p>
           ) : null}
           <Link href="/organizers">
             <Button>Demander un claim</Button>
@@ -98,7 +98,6 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
 export function OrganizerSummaryHeader({
   selectedMembership,
   event,
-  aidStationCount,
   memberships,
   selectedEventId,
   onSelectedEventChange,
@@ -111,7 +110,6 @@ export function OrganizerSummaryHeader({
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
-  aidStationCount: number;
   memberships: MembershipRow[];
   selectedEventId: string | null;
   onSelectedEventChange: (eventId: string) => void;
@@ -122,7 +120,8 @@ export function OrganizerSummaryHeader({
   onPreview: () => void;
   onTogglePublish: () => void;
 }) {
-  const eventScore = completion?.eventScore ?? 0;
+  const eventScore = completion?.raceProgressScore ?? 0;
+  const raceProgress = completion?.raceProgress ?? [];
   const isLive = event?.is_live !== false;
   const dateLabel = formatEventDateRange(event);
   const eventProgressTone = getProgressTone(eventScore);
@@ -131,14 +130,12 @@ export function OrganizerSummaryHeader({
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">
-            Dashboard organisateur
-          </p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Dashboard organisateur</p>
           <h1 className="mt-1 break-words text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
-            {selectedMembership?.race_events?.name ?? event?.name ?? "Ã‰vÃ©nement"}
+            {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates Ã  complÃ©ter"}
+            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates à compléter"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -166,26 +163,39 @@ export function OrganizerSummaryHeader({
             {isLive ? "Live" : "Brouillon"}
           </span>
           <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
-          <span className="text-muted-foreground">{aidStationCount} ravitos</span>
-          <span className={cn("font-medium", hasDirtyChanges ? "text-amber-700" : "text-emerald-700")}>
-            {hasDirtyChanges ? "Non enregistrÃ©" : "Ã€ jour"}
-          </span>
         </div>
         <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
       </div>
 
       <div className={cn("mt-4 h-3 overflow-hidden rounded-full", eventProgressTone.track)}>
         <div
-          className={cn("flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[10px] font-semibold leading-none transition-all", eventProgressTone.fill, eventProgressTone.text)}
+          className={cn(
+            "flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[10px] font-semibold leading-none transition-all",
+            eventProgressTone.fill,
+            eventProgressTone.text
+          )}
           style={{ width: `${eventScore}%` }}
         >
           {eventScore}%
         </div>
       </div>
 
+      <div className="mt-3 space-y-2">
+        {raceProgress.length > 0 ? (
+          raceProgress.map((race) => (
+            <div key={race.id} className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate font-medium text-foreground">{race.name || "Course sans nom"}</span>
+              <span className="shrink-0 text-muted-foreground">{race.score}%</span>
+            </div>
+          ))
+        ) : (
+          <p className="text-sm text-muted-foreground">Aucune course pour le moment.</p>
+        )}
+      </div>
+
       <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" onClick={onPreview} variant="outline">
-          PrÃ©visualiser cÃ´tÃ© coureur
+          Prévisualiser côté coureur
         </Button>
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
@@ -219,10 +229,10 @@ export function CompletionTabsPanel({
   const score = isEventTab ? completion.eventScore : activeRace ? completion.formatScore : 0;
   const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
   const description = isEventTab
-    ? "Informations communes Ã  tous les formats."
+    ? "Informations communes à tous les formats."
     : activeRace
-      ? "Informations propres au format sÃ©lectionnÃ©."
-      : "CrÃ©e un nouveau format depuis le formulaire ci-dessous.";
+      ? "Informations propres au format sélectionné."
+      : "Crée un nouveau format depuis le formulaire ci-dessous.";
   const progressTone = getProgressTone(score);
 
   return (
@@ -241,7 +251,11 @@ export function CompletionTabsPanel({
         <>
           <div className={cn("mt-3 h-5 overflow-hidden rounded-full", progressTone.track)}>
             <div
-              className={cn("flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[11px] font-semibold transition-all", progressTone.fill, progressTone.text)}
+              className={cn(
+                "flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[11px] font-semibold transition-all",
+                progressTone.fill,
+                progressTone.text
+              )}
               style={{ width: `${score}%` }}
             >
               {score}%
@@ -256,7 +270,7 @@ export function CompletionTabsPanel({
         </>
       ) : (
         <div className="mt-3 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaÃ®tront aprÃ¨s crÃ©ation.
+          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaîtront après création.
         </div>
       )}
     </section>
@@ -304,7 +318,7 @@ export function OrganizerModuleGrid({
           ) : null}
           <div className="mt-4 flex items-end justify-between gap-2">
             <span className="text-xs font-medium text-foreground">{module.countLabel}</span>
-            <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "Ã€ sauvegarder" : "Modifier"}</span>
+            <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "À sauvegarder" : "Modifier"}</span>
           </div>
         </button>
       ))}

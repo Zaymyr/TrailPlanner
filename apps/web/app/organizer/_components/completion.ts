@@ -66,10 +66,18 @@ export type OrganizerModuleSummary = {
   missingLabels?: string[];
 };
 
+export type OrganizerRaceProgress = {
+  id: string;
+  name: string;
+  score: number;
+};
+
 export type OrganizerCompletionSummary = {
   score: number;
   eventScore: number;
   formatScore: number;
+  raceProgress: OrganizerRaceProgress[];
+  raceProgressScore: number;
   requiredComplete: boolean;
   modules: OrganizerModuleSummary[];
   eventModules: OrganizerModuleSummary[];
@@ -111,6 +119,16 @@ const statusFrom = (filled: number, total: number, requiredFilled = total): Orga
 const scoreModules = (modules: OrganizerModuleSummary[]) =>
   modules.length === 0 ? 0 : Math.round((modules.filter((module) => module.status === "complete").length / modules.length) * 100);
 
+const scoreRaceProgress = (race: CompletionRace) => {
+  const filled = [
+    hasText(race.name),
+    Number.isFinite(race.distance_km) && race.distance_km > 0,
+    Number.isFinite(race.elevation_gain_m) && race.elevation_gain_m >= 0,
+    hasText(race.gpx_storage_path),
+  ].filter(Boolean).length;
+  return Math.round((filled / 4) * 100);
+};
+
 const compactMissingLabels = (entries: Array<[label: string, isFilled: boolean]>) =>
   entries.filter(([, isFilled]) => !isFilled).map(([label]) => label);
 
@@ -125,6 +143,12 @@ export function buildOrganizerCompletion(
   const publishableRaceCount = event.races.filter(isPublishableRace).length;
   const formatCount = event.races.length;
   const gpxCount = event.races.filter((race) => hasText(race.gpx_storage_path)).length;
+  const raceProgress = event.races.map((race) => ({
+    id: race.id,
+    name: race.name,
+    score: scoreRaceProgress(race),
+  }));
+  const raceProgressScore = raceProgress.length > 0 ? Math.round(raceProgress.reduce((total, race) => total + race.score, 0) / raceProgress.length) : 0;
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, activeRace?.organizerDetails);
   const equipmentItems = runnerDetails.equipment.items;
   const access = runnerDetails.access;
@@ -456,6 +480,8 @@ export function buildOrganizerCompletion(
     score,
     eventScore,
     formatScore,
+    raceProgress,
+    raceProgressScore,
     requiredComplete: isEventReadyToPublish(event),
     modules,
     eventModules,
