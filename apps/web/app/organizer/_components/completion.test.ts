@@ -128,7 +128,7 @@ describe("organizer completion", () => {
     expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toEqual([]);
   });
 
-  it("derives event header progress from race completion", () => {
+  it("derives event header progress from per-format completion modules", () => {
     const completion = buildOrganizerCompletion(
       {
         ...baseEvent,
@@ -151,10 +151,10 @@ describe("organizer completion", () => {
     );
 
     expect(completion.raceProgress).toEqual([
-      { id: "race-1", name: "42K", score: 100 },
-      { id: "race-2", name: "25K", score: 75 },
+      { id: "race-1", name: "42K", score: 25 },
+      { id: "race-2", name: "25K", score: 25 },
     ]);
-    expect(completion.raceProgressScore).toBe(88);
+    expect(completion.raceProgressScore).toBe(25);
   });
 
   it("marks re-enabled empty access sections as incomplete", () => {
