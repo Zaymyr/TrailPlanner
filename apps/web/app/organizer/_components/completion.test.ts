@@ -156,8 +156,8 @@ describe("organizer completion", () => {
     const formatEquipmentModule = completion.formatModules.find((module) => module.id === "equipment");
 
     expect(equipmentModule?.status).toBe("complete");
-    expect(equipmentModule?.countLabel).toBe("0 commun / 1 format");
+    expect(equipmentModule?.countLabel).toBe("1 item");
     expect(formatEquipmentModule?.status).toBe("complete");
-    expect(formatEquipmentModule?.countLabel).toBe("0 commun / 1 format");
+    expect(formatEquipmentModule?.countLabel).toBe("1 item");
   });
 });

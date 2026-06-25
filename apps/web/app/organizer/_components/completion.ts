@@ -129,8 +129,6 @@ export function buildOrganizerCompletion(
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, activeRace?.organizerDetails);
   const schedule = runnerDetails.schedule;
   const equipmentItems = runnerDetails.equipment.items;
-  const commonEquipmentCount = runnerDetails.commonEquipment.items.length;
-  const raceEquipmentCount = runnerDetails.raceEquipment.items.length;
   const bibPickup = runnerDetails.bibPickup;
   const access = runnerDetails.access;
   const services = runnerDetails.services;
@@ -194,7 +192,7 @@ export function buildOrganizerCompletion(
   const modules: OrganizerModuleSummary[] = [
     {
       id: "event",
-      title: "Informations evenement",
+      title: "Informations",
       description: "Nom, lieu, dates et statut public.",
       level: "required",
       status: statusFrom(eventFilled, 4),
@@ -219,11 +217,11 @@ export function buildOrganizerCompletion(
     },
     {
       id: "equipment",
-      title: "Materiel commun / format",
-      description: "Materiel commun evenement et specifique au format actif.",
+      title: "Materiel",
+      description: "Materiel visible sur la course selectionnee.",
       level: "recommended",
       status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
-      countLabel: `${commonEquipmentCount} commun / ${raceEquipmentCount} format`,
+      countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
       missingLabels: formatEquipmentMissingLabels,
     },
     {
@@ -237,7 +235,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "bibPickup",
-      title: "Dossard commun / format",
+      title: "Dossard",
       description: "Commun evenement avec surcharge possible par format.",
       level: "recommended",
       status: statusFrom(
@@ -257,7 +255,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "access",
-      title: "Acces & infos format",
+      title: "Acces",
       description: "Acces commun avec surcharge possible par format.",
       level: "recommended",
       status: statusFrom(
@@ -279,7 +277,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "products",
-      title: "Produits aux ravitos",
+      title: "Produits",
       description: "Produits officiels disponibles sur les points de course.",
       level: "optional",
       status: linkedStationProductCount > 0 ? "complete" : "empty",
@@ -318,7 +316,7 @@ export function buildOrganizerCompletion(
   const eventModules: OrganizerModuleSummary[] = [
     {
       id: "event",
-      title: "Informations evenement",
+      title: "Informations",
       description: "Nom, lieu, dates et statut public.",
       level: "required",
       status: statusFrom(eventFilled, 4),
@@ -327,7 +325,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "equipment",
-      title: "Materiel commun",
+      title: "Materiel",
       description: "Materiel valable pour tous les formats.",
       level: "recommended",
       status: commonEquipment.items.length > 0 ? "complete" : hasText(commonEquipment.note) ? "incomplete" : "empty",
@@ -336,7 +334,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "bibPickup",
-      title: "Dossard commun",
+      title: "Dossard",
       description: "Retrait et documents par defaut.",
       level: "recommended",
       status: statusFrom(
@@ -356,7 +354,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "access",
-      title: "Acces commun",
+      title: "Acces",
       description: "Acces, parking et navettes par defaut.",
       level: "recommended",
       status: statusFrom(
@@ -378,7 +376,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "services",
-      title: "Services evenement",
+      title: "Services",
       description: "Accompagnants, hebergement, restauration, partenaires.",
       level: "optional",
       status: statusFrom(
@@ -402,7 +400,7 @@ export function buildOrganizerCompletion(
     ? [
         {
           id: "formats",
-          title: "Identite format",
+          title: "Identite",
           description: "Nom, distance, denivele, statut et GPX.",
           level: "required",
           status: isPublishableRace(activeRace) ? "complete" : hasText(activeRace.name) ? "incomplete" : "empty",
@@ -420,16 +418,16 @@ export function buildOrganizerCompletion(
         },
         {
           id: "equipment",
-          title: "Materiel du format",
-          description: "Commun herite et specificites du format.",
+          title: "Materiel",
+          description: "Materiel visible sur cette course.",
           level: "recommended",
           status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
-          countLabel: `${commonEquipmentCount} commun / ${raceEquipmentCount} format`,
+          countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
           missingLabels: formatEquipmentMissingLabels,
         },
         {
           id: "bibPickup",
-          title: "Dossard du format",
+          title: "Dossard",
           description: "Commun herite ou retrait specifique.",
           level: "recommended",
           status: statusFrom(
@@ -449,7 +447,7 @@ export function buildOrganizerCompletion(
         },
         {
           id: "access",
-          title: "Acces du format",
+          title: "Acces",
           description: "Commun herite ou acces specifique.",
           level: "recommended",
           status: statusFrom(
@@ -475,7 +473,7 @@ export function buildOrganizerCompletion(
         },
         {
           id: "aidStations",
-          title: "Ravitos format",
+          title: "Ravitos",
           description: "Points de course et services du format.",
           level: "recommended",
           status: aidStations.length > 0 ? "complete" : "empty",
@@ -484,7 +482,7 @@ export function buildOrganizerCompletion(
         },
         {
           id: "products",
-          title: "Produits format",
+          title: "Produits",
           description: "Produits officiels disponibles aux ravitos.",
           level: "optional",
           status: linkedStationProductCount > 0 ? "complete" : "empty",

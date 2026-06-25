@@ -31,12 +31,12 @@ export function EquipmentEditor({
   if (scope === "event") {
     return (
       <EquipmentFields
-        title="Materiel commun a tous les formats"
-        description="Renseigne ici uniquement ce qui vaut pour chaque course de l'evenement."
+        title="Materiel"
+        description="Chaque ajout ici sera reporte sur toutes les courses de l'evenement."
         equipment={eventDetails.mandatoryEquipment}
         onEquipmentChange={(mandatoryEquipment) => onEventChange({ ...eventDetails, mandatoryEquipment })}
         onSave={onSaveEvent}
-        saveLabel="Sauvegarder le commun"
+        saveLabel="Sauvegarder pour toutes les courses"
         disabled={status === "saving"}
       />
     );
@@ -53,11 +53,11 @@ export function EquipmentEditor({
   return (
     <EquipmentFields
       title={`Materiel - ${activeRace.name}`}
-      description="Ajoute les obligations ou recommandations propres a ce format."
+      description="Cette liste contient tout le materiel visible sur cette course. Retirer un item partage l'enleve du commun."
       equipment={raceDetails.mandatoryEquipment}
       onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment })}
       onSave={onSaveRace}
-      saveLabel="Sauvegarder ce format"
+      saveLabel="Sauvegarder la course"
       disabled={status === "saving"}
     />
   );
@@ -83,6 +83,8 @@ export function EquipmentFields({
   const updateItems = (items: OrganizerEventDetails["mandatoryEquipment"]["items"]) =>
     onEquipmentChange({ ...equipment, items });
   const missingEquipment = equipment.items.length === 0 && !equipment.note?.trim();
+  const existingLabels = new Set(equipment.items.map((item) => item.label.trim().toLocaleLowerCase("fr-FR")));
+  const availableSuggestions = equipmentSuggestions.filter((suggestion) => !existingLabels.has(suggestion.toLocaleLowerCase("fr-FR")));
 
   return (
     <section className={cn("space-y-4 rounded-lg border bg-background p-4", missingEquipment ? "border-amber-300" : "border-border")}>
@@ -91,14 +93,13 @@ export function EquipmentFields({
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        {equipmentSuggestions.map((suggestion) => (
+        {availableSuggestions.map((suggestion) => (
           <Button
             key={suggestion}
             type="button"
             variant="outline"
             className="h-8 text-xs"
             onClick={() => {
-              if (equipment.items.some((item) => item.label.toLowerCase() === suggestion.toLowerCase())) return;
               updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, note: null }]);
             }}
           >

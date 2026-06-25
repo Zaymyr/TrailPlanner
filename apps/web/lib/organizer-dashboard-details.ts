@@ -169,6 +169,8 @@ export type OrganizerRaceDetails = z.infer<typeof organizerRaceDetailsSchema>;
 export type OrganizerAidStationDetails = z.infer<typeof organizerAidStationDetailsSchema>;
 export type AidStationType = z.infer<typeof aidStationTypeSchema>;
 export type RunnerOrganizerDetails = ReturnType<typeof buildRunnerOrganizerDetails>;
+export type OrganizerEquipmentDetails = z.infer<typeof organizerEquipmentDetailsSchema>;
+export type OrganizerEquipmentItem = OrganizerEquipmentDetails["items"][number];
 
 export const parseOrganizerEventDetails = (value: unknown): OrganizerEventDetails =>
   organizerEventDetailsSchema.catch(defaultOrganizerEventDetails).parse(value ?? {});
@@ -194,15 +196,103 @@ const mergePreferRace = <T extends Record<string, unknown>>(eventDetails: T, rac
   return merged;
 };
 
-export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails, raceDetails?: OrganizerRaceDetails | null) {
-  const race = raceDetails ?? defaultOrganizerRaceDetails;
+const buildEquipmentKey = (item: Pick<OrganizerEquipmentItem, "label" | "required">) =>
+  `${item.label.trim().toLocaleLowerCase("fr-FR")}::${item.required ? "required" : "recommended"}`;
+
+export const dedupeEquipmentItems = (items: OrganizerEquipmentItem[]): OrganizerEquipmentItem[] => {
+  const seen = new Set<string>();
+  const uniqueItems: OrganizerEquipmentItem[] = [];
+
+  items.forEach((item) => {
+    const key = buildEquipmentKey(item);
+    if (seen.has(key)) return;
+    seen.add(key);
+    uniqueItems.push(item);
+  });
+
+  return uniqueItems;
+};
+
+export const mergeEquipmentItems = (...lists: OrganizerEquipmentItem[][]): OrganizerEquipmentItem[] =>
+  dedupeEquipmentItems(lists.flat());
+
+export const getRaceSpecificEquipment = (
+  commonEquipment: OrganizerEquipmentDetails,
+  raceEquipment: OrganizerEquipmentDetails
+): OrganizerEquipmentDetails => {
+  const commonKeys = new Set(commonEquipment.items.map((item) => buildEquipmentKey(item)));
 
   return {
-    commonEquipment: eventDetails.mandatoryEquipment,
-    raceEquipment: race.mandatoryEquipment,
+    ...raceEquipment,
+    items: dedupeEquipmentItems(raceEquipment.items).filter((item) => !commonKeys.has(buildEquipmentKey(item))),
+  };
+};
+
+export const expandRaceEquipmentWithCommon = (
+  commonEquipment: OrganizerEquipmentDetails,
+  raceEquipment: OrganizerEquipmentDetails
+): OrganizerEquipmentDetails => ({
+  ...raceEquipment,
+  items: mergeEquipmentItems(commonEquipment.items, raceEquipment.items),
+});
+
+export const applyCommonEquipmentToRace = (
+  previousCommonEquipment: OrganizerEquipmentDetails,
+  nextCommonEquipment: OrganizerEquipmentDetails,
+  raceEquipment: OrganizerEquipmentDetails
+): OrganizerEquipmentDetails => {
+  const previousCommonKeys = new Set(previousCommonEquipment.items.map((item) => buildEquipmentKey(item)));
+  const raceSpecificItems = dedupeEquipmentItems(raceEquipment.items).filter(
+    (item) => !previousCommonKeys.has(buildEquipmentKey(item))
+  );
+
+  return {
+    ...raceEquipment,
+    items: mergeEquipmentItems(nextCommonEquipment.items, raceSpecificItems),
+  };
+};
+
+export const deriveCommonEquipmentFromRaces = (
+  races: Array<OrganizerRaceDetails | null | undefined>,
+  fallback: OrganizerEquipmentDetails
+): OrganizerEquipmentDetails => {
+  if (races.length === 0) return fallback;
+
+  const itemsByKey = new Map<string, OrganizerEquipmentItem>();
+  let commonKeys: Set<string> | null = null;
+
+  races.forEach((race) => {
+    const raceItems = dedupeEquipmentItems(race?.mandatoryEquipment.items ?? []);
+    const raceKeys = new Set(raceItems.map((item) => buildEquipmentKey(item)));
+
+    raceItems.forEach((item) => {
+      const key = buildEquipmentKey(item);
+      if (!itemsByKey.has(key)) itemsByKey.set(key, item);
+    });
+
+    commonKeys = commonKeys
+      ? new Set([...commonKeys].filter((key) => raceKeys.has(key)))
+      : raceKeys;
+  });
+
+  return {
+    ...fallback,
+    items: [...(commonKeys ?? [])].map((key) => itemsByKey.get(key)).filter((item): item is OrganizerEquipmentItem => Boolean(item)),
+  };
+};
+
+export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails, raceDetails?: OrganizerRaceDetails | null) {
+  const race = raceDetails ?? defaultOrganizerRaceDetails;
+  const commonEquipment = eventDetails.mandatoryEquipment;
+  const expandedRaceEquipment = expandRaceEquipmentWithCommon(commonEquipment, race.mandatoryEquipment);
+  const raceSpecificEquipment = getRaceSpecificEquipment(commonEquipment, expandedRaceEquipment);
+
+  return {
+    commonEquipment,
+    raceEquipment: raceSpecificEquipment,
     equipment: {
-      items: [...eventDetails.mandatoryEquipment.items, ...race.mandatoryEquipment.items],
-      note: [eventDetails.mandatoryEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null,
+      items: mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items),
+      note: [commonEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null,
     },
     bibPickup: mergePreferRace(eventDetails.bibPickup, race.bibPickup),
     access: mergePreferRace(eventDetails.access, race.access),
