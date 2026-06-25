@@ -1,16 +1,21 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-06-09
+last_verified: 2026-06-25
 ai_priority: medium
 related_files:
   - apps/mobile/app
+  - apps/mobile/app/(app)/_layout.tsx
+  - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/app/(app)/race/_layout.tsx
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/app/(app)/training-live.tsx
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/app/_layout.tsx
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
+  - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
@@ -37,6 +42,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
 - Non-root plan actions can reuse `FloatingActionMenu` directly. The component keeps its default add icon for root menus but also accepts optional closed/open icons when a screen needs an actions affordance instead of a create affordance.
 - Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item. Use `href: null` alone when the screen should keep the bottom navigation visible; add `tabBarStyle: { display: 'none' }` only for flows that should hide the bar.
+- Compact detail routes under an existing stack, such as `race/[id]/racebook`, can keep a route-local tab bar/state machine instead of introducing a shared navigation primitive when the screen is read-only and scoped to one flow.
 - Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code. Preserve per-checkpoint assistance availability in the generated snapshot so recap screens can highlight crew handoff points, mute no-assistance points, and avoid showing a product handoff block where the crew cannot be present.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
 - When a setup/onboarding step already sits inside a shell card, prefer flat rows for one-off lists; when the same choice exists as a primary app surface, reuse the primary component for consistency.
@@ -58,6 +64,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 10. Import mobile text from `components/themed/Text` / `Heading`, not from `react-native`; use `DataText` for metric-like values.
 11. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens.
 12. For a new root tab, add the help/feedback entry point through `RootScreenActionMenu`; add screen-specific actions there instead of occupying native header space.
+13. For a new hidden child screen under an existing stack, register the explicit child route in `apps/mobile/app/(app)/_layout.tsx` and give it a localized title in the stack layout for that feature area.
 
 ## Validation
 

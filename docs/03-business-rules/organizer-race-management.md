@@ -7,6 +7,8 @@ related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/lib/racebook.ts
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-aid-station-products.ts
@@ -64,7 +66,7 @@ related_tables:
 
 ## Purpose
 
-This document records the v1 web-only organizer portal rules: users can request control of an existing event or submit a missing event as a draft, admins validate the claim, and approved organizers manage event formats, GPX files, aid stations, products offered at aid stations, and progressive runner-facing organizer details.
+This document records the organizer portal rules: users can request control of an existing event or submit a missing event as a draft, admins validate the claim, approved organizers manage formats and runner-facing details on the web, and mobile consumes only the published read-only subset through the per-format Racebook screen.
 
 ## Key Concepts
 
@@ -133,6 +135,8 @@ Runner-facing preview resolves details as:
 - schedule and runner notes = active-format details;
 - services and partners = event details.
 
+The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations.
+
 ## GPX Replacement
 
 Replacing a GPX updates the source `races` row and storage object for that format, then returns parsed stats, detected waypoint ravitos, and a transient elevation profile for the organizer dashboard preview. Existing saved plans remain snapshots: their `plan_gpx_path`, `elevation_profile`, `planner_values`, and `plan_aid_stations` are not automatically rewritten.
@@ -164,12 +168,13 @@ Planner `assistanceAllowed` is separate from organizer product presence: it says
 
 ## Mobile Scope
 
-No mobile organizer screen exists in v1. Mobile can keep consuming catalog races and plans normally. The schema is ready for a future mobile organizer or runner display, but no mobile UI should assume organizer edit access.
+No mobile organizer editor exists in v1. Mobile can now consume published organizer details through the read-only `race/[id]/racebook` screen for live formats when there is meaningful organizer or ravito content. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, draft visibility, or admin powers.
 
 ## Gotchas
 
 - Do not use `races.created_by` to authorize claimed public race edits.
 - Do not expose organizer JSONB fields through public/mobile broad selects accidentally; public surfaces should keep explicit column selection.
+- Do not let the mobile Racebook bypass its live/content gate. Direct links for non-live or empty formats should fall back to an unavailable state instead of showing empty organizer shells.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
 - Do not add separate grants or RLS policies for organizer JSONB columns on existing source tables; route membership checks and table row policies remain the access boundary.
 - Do not auto-sync existing saved plans after organizer source edits. Official ravito product links are read-time response overlays only; service flags, GPX, station distances, pacing, and runner supplies remain stored plan data.

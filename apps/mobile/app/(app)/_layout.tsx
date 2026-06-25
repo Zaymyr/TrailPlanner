@@ -170,6 +170,10 @@ export default function AppLayout() {
         options={{ href: null, headerShown: false }}
       />
       <Tabs.Screen
+        name="race/[id]/racebook"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
         name="plan"
         options={{ href: null, tabBarStyle: { display: 'none' } }}
       />

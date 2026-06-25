@@ -6,13 +6,15 @@ import { Colors } from '../../../constants/colors';
 import { useI18n } from '../../../lib/i18n';
 
 export default function RaceLayout() {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
 
   const getHeaderTitle = (routeName: string) =>
     routeName === 'new'
       ? locale === 'fr'
         ? 'Nouvelle course'
         : 'New race'
+      : routeName === '[id]/racebook'
+        ? t.catalog.racebookTitle
       : routeName === '[id]/edit'
         ? locale === 'fr'
           ? 'Modifier la course'
