@@ -64,6 +64,21 @@ export const organizerAccessDetailsSchema = z
     roadRestrictions: nullableText,
     mapUrl: nullableUrl,
     note: nullableText,
+    enabledSections: z
+      .object({
+        officialParkings: z.boolean().default(true),
+        shuttles: z.boolean().default(true),
+        roadRestrictions: z.boolean().default(true),
+        mapUrl: z.boolean().default(true),
+        runnerInfo: z.boolean().default(true),
+      })
+      .default({
+        officialParkings: true,
+        shuttles: true,
+        roadRestrictions: true,
+        mapUrl: true,
+        runnerInfo: true,
+      }),
   })
   .default({
     startAddress: null,
@@ -74,6 +89,13 @@ export const organizerAccessDetailsSchema = z
     roadRestrictions: null,
     mapUrl: null,
     note: null,
+    enabledSections: {
+      officialParkings: true,
+      shuttles: true,
+      roadRestrictions: true,
+      mapUrl: true,
+      runnerInfo: true,
+    },
   });
 
 export const organizerServicesDetailsSchema = z
@@ -175,8 +197,21 @@ export type OrganizerEquipmentItem = OrganizerEquipmentDetails["items"][number];
 export const parseOrganizerEventDetails = (value: unknown): OrganizerEventDetails =>
   organizerEventDetailsSchema.catch(defaultOrganizerEventDetails).parse(value ?? {});
 
-export const parseOrganizerRaceDetails = (value: unknown): OrganizerRaceDetails =>
-  organizerRaceDetailsSchema.catch(defaultOrganizerRaceDetails).parse(value ?? {});
+export const parseOrganizerRaceDetails = (value: unknown): OrganizerRaceDetails => {
+  const parsed = organizerRaceDetailsSchema.catch(defaultOrganizerRaceDetails).parse(value ?? {});
+
+  return {
+    ...parsed,
+    access: {
+      ...parsed.access,
+      shuttleSchedule: parsed.access.shuttleSchedule ?? parsed.schedule.shuttleSchedule ?? null,
+    },
+    schedule: {
+      ...parsed.schedule,
+      shuttleSchedule: null,
+    },
+  };
+};
 
 export const parseOrganizerAidStationDetails = (value: unknown): OrganizerAidStationDetails =>
   organizerAidStationDetailsSchema.catch(defaultOrganizerAidStationDetails).parse(value ?? {});
@@ -294,7 +329,7 @@ export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails,
       items: mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items),
       note: [commonEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null,
     },
-    bibPickup: mergePreferRace(eventDetails.bibPickup, race.bibPickup),
+    bibPickup: eventDetails.bibPickup,
     access: mergePreferRace(eventDetails.access, race.access),
     services: eventDetails.services,
     schedule: race.schedule,

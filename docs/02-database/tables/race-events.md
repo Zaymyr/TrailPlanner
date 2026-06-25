@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-06-24
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -38,7 +38,7 @@ related_tables:
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created when an organizer claims a missing race.
-- Organizer dashboard details: nullable JSONB for event end date, common equipment, bib pickup, access, services, partners, and runner notes.
+- Organizer dashboard details: nullable JSONB for event end date, common equipment, common bib pickup, access, services, partners, and runner notes.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
@@ -82,7 +82,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
-- Event organizer details are common defaults. Format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code.
+- Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.

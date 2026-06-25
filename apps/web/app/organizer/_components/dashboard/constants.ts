@@ -56,4 +56,4 @@ export const EVENT_TAB_ID = "__event";
 export const ADD_FORMAT_TAB_ID = "__add";
 export const MAX_EVENT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 export const EVENT_MODULE_IDS: OrganizerModuleId[] = ["event", "equipment", "bibPickup", "access", "services"];
-export const FORMAT_MODULE_IDS: OrganizerModuleId[] = ["formats", "schedule", "equipment", "bibPickup", "access", "aidStations", "products"];
+export const FORMAT_MODULE_IDS: OrganizerModuleId[] = ["formats", "equipment", "access", "aidStations"];

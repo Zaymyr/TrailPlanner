@@ -3,7 +3,7 @@
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
-import { fuelTypeValues, type FuelType } from "../../../lib/fuel-types";
+import { type FuelType } from "../../../lib/fuel-types";
 import {
   applyCommonEquipmentToRace,
   deriveCommonEquipmentFromRaces,
@@ -17,19 +17,18 @@ import { buildOrganizerCompletion, type OrganizerCompletionSummary, type Organiz
 import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
 import { OrganizerToast } from "./dashboard/controls";
-import { AccessEditor, BibPickupEditor, EquipmentEditor, PreviewLauncher, ScheduleEditor, ServicesEditor } from "./dashboard/detail-editors";
+import { AccessEditor, BibPickupEditor, EquipmentEditor, PreviewLauncher, ServicesEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import {
+  aidStationRowsToDrafts,
+  buildEventDraft,
+  buildProductsById,
   cloneJson,
   createEmptyEventForm,
   createEmptyRaceForm,
   createRaceFormFromEventDefaults,
   createRaceFormFromFormatDefaults,
-  aidStationRowsToDrafts,
-  buildEventDraft,
-  buildProductsById,
   eventToForm,
-  formatDate,
   getModuleDescription,
   getModuleForTab,
   getModuleTitle,
@@ -91,9 +90,7 @@ export function OrganizerDashboard() {
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const activeRace = eventDetail?.races.find((race) => race.id === activeTab) ?? null;
   const activeRaceForCompletion = activeRace ? { ...activeRace, organizerDetails: raceForm.organizerDetails } : null;
-  const productPickerStation = productPickerStationId
-    ? aidStations.find((station) => station.id === productPickerStationId) ?? null
-    : null;
+  const productPickerStation = productPickerStationId ? aidStations.find((station) => station.id === productPickerStationId) ?? null : null;
   const hasDirtyChanges = dirtyModules.size > 0;
 
   const showToast = (type: "success" | "error", message: string) => {
@@ -101,20 +98,12 @@ export function OrganizerDashboard() {
   };
 
   const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm);
-
   const productsById = useMemo(() => buildProductsById(catalogProducts, stationProducts), [catalogProducts, stationProducts]);
-
-  const authHeaders = useMemo(
-    (): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    [accessToken]
-  );
+  const authHeaders = useMemo((): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), [accessToken]);
 
   const serializeEquipment = (equipment: OrganizerEventDetails["mandatoryEquipment"]) =>
     JSON.stringify({
-      items: equipment.items.map((item) => ({
-        label: item.label,
-        required: item.required,
-      })),
+      items: equipment.items.map((item) => ({ label: item.label, required: item.required })),
     });
 
   const syncEventCommonEquipment = (details: OrganizerEventDetails, races: RaceFormat[]) => ({
@@ -123,6 +112,14 @@ export function OrganizerDashboard() {
       races.map((race) => race.organizerDetails),
       details.mandatoryEquipment
     ),
+  });
+
+  const sanitizeRaceDetailsForSave = (details: RaceFormValues["organizerDetails"]) => ({
+    ...details,
+    schedule: {
+      ...details.schedule,
+      shuttleSchedule: null,
+    },
   });
 
   const completion: OrganizerCompletionSummary | null = useMemo(() => {
@@ -167,15 +164,8 @@ export function OrganizerDashboard() {
     setStatus("loading");
     setError(null);
     try {
-      const response = await fetch("/api/organizer/claims", {
-        headers: authHeaders,
-        cache: "no-store",
-      });
-      const data = (await response.json().catch(() => null)) as {
-        claims?: ClaimRow[];
-        memberships?: MembershipRow[];
-        message?: string;
-      } | null;
+      const response = await fetch("/api/organizer/claims", { headers: authHeaders, cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as { claims?: ClaimRow[]; memberships?: MembershipRow[]; message?: string } | null;
       if (!response.ok) {
         setError(data?.message ?? "Impossible de charger le compte organisateur.");
         return;
@@ -201,10 +191,7 @@ export function OrganizerDashboard() {
     setStatus("loading");
     setError(null);
     try {
-      const response = await fetch(`/api/organizer/events/${eventId}`, {
-        headers: authHeaders,
-        cache: "no-store",
-      });
+      const response = await fetch(`/api/organizer/events/${eventId}`, { headers: authHeaders, cache: "no-store" });
       const data = (await response.json().catch(() => null)) as { event?: OrganizerEventDetail; message?: string } | null;
       if (!response.ok || !data?.event) {
         setError(data?.message ?? "Impossible de charger l'événement.");
@@ -242,9 +229,7 @@ export function OrganizerDashboard() {
     ]);
 
     if (aidResponse.ok) {
-      const data = (await aidResponse.json()) as {
-        aidStations?: OrganizerAidStationRow[];
-      };
+      const data = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
       setAidStations(aidStationRowsToDrafts(data.aidStations ?? []));
     }
     if (productsResponse.ok) {
@@ -260,10 +245,7 @@ export function OrganizerDashboard() {
   const loadRaceGpxPreview = async (raceId: string) => {
     if (!accessToken) return;
     try {
-      const response = await fetch(`/api/organizer/races/${raceId}/gpx`, {
-        headers: authHeaders,
-        cache: "no-store",
-      });
+      const response = await fetch(`/api/organizer/races/${raceId}/gpx`, { headers: authHeaders, cache: "no-store" });
       if (!response.ok) {
         setGpxPreview(null);
         return;
@@ -298,12 +280,10 @@ export function OrganizerDashboard() {
     if (!accessToken || !selectedEventId) return false;
     const nextForm = { ...eventForm, ...override };
     const previousCommonEquipment = eventDetail?.organizerDetails?.mandatoryEquipment ?? eventForm.organizerDetails.mandatoryEquipment;
-    const equipmentChanged =
-      serializeEquipment(previousCommonEquipment) !== serializeEquipment(nextForm.organizerDetails.mandatoryEquipment);
+    const equipmentChanged = serializeEquipment(previousCommonEquipment) !== serializeEquipment(nextForm.organizerDetails.mandatoryEquipment);
     const raceEquipmentUpdates = equipmentChanged
       ? (eventDetail?.races ?? []).map((race) => {
           const raceOrganizerDetails = race.organizerDetails ?? defaultOrganizerRaceDetails;
-
           return {
             raceId: race.id,
             organizerDetails: {
@@ -317,6 +297,7 @@ export function OrganizerDashboard() {
           };
         })
       : [];
+
     setStatus("saving");
     setError(null);
     try {
@@ -337,6 +318,7 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible d'enregistrer l'événement.");
         return false;
       }
+
       if (raceEquipmentUpdates.length > 0) {
         const raceResponses = await Promise.all(
           raceEquipmentUpdates.map(async ({ raceId, organizerDetails }) => {
@@ -349,16 +331,16 @@ export function OrganizerDashboard() {
             return { ok: raceResponse.ok, message: raceData?.message };
           })
         );
-
         const failedRaceUpdate = raceResponses.find((result) => !result.ok);
         if (failedRaceUpdate) {
           showToast("error", failedRaceUpdate.message ?? "Impossible de reporter le matériel sur toutes les courses.");
           return false;
         }
       }
+
       showToast("success", "Événement mis à jour.");
       clearDirty(["event", "equipment", "bibPickup", "access", "services"]);
-      await loadEvent(selectedEventId);
+      await loadEvent(selectedEventId, EVENT_TAB_ID);
       return true;
     } finally {
       setStatus("idle");
@@ -367,18 +349,16 @@ export function OrganizerDashboard() {
 
   const saveRace = async (override?: Partial<RaceFormValues>) => {
     if (!accessToken || !activeRace || !selectedEventId) return false;
-    const nextForm = { ...raceForm, ...override };
-    const nextRaces = (eventDetail?.races ?? []).map((race) =>
-      race.id === activeRace.id
-        ? {
-            ...race,
-            organizerDetails: nextForm.organizerDetails,
-          }
-        : race
-    );
+    const nextForm = {
+      ...raceForm,
+      ...override,
+      organizerDetails: sanitizeRaceDetailsForSave(override?.organizerDetails ?? raceForm.organizerDetails),
+    };
+    const nextRaces = (eventDetail?.races ?? []).map((race) => (race.id === activeRace.id ? { ...race, organizerDetails: nextForm.organizerDetails } : race));
     const syncedEventDetails = syncEventCommonEquipment(eventForm.organizerDetails, nextRaces);
     const shouldSyncEventCommon =
       serializeEquipment(eventForm.organizerDetails.mandatoryEquipment) !== serializeEquipment(syncedEventDetails.mandatoryEquipment);
+
     setStatus("saving");
     setError(null);
     try {
@@ -402,6 +382,7 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible d'enregistrer le format.");
         return false;
       }
+
       if (shouldSyncEventCommon) {
         const eventResponse = await fetch(`/api/organizer/events/${selectedEventId}`, {
           method: "PATCH",
@@ -415,8 +396,9 @@ export function OrganizerDashboard() {
         }
         setEventForm((current) => ({ ...current, organizerDetails: syncedEventDetails }));
       }
+
       showToast("success", "Format mis à jour.");
-      clearDirty(["formats", "schedule"]);
+      clearDirty(["formats", "equipment", "access"]);
       await loadEvent(selectedEventId, activeRace.id);
       return true;
     } finally {
@@ -443,7 +425,7 @@ export function OrganizerDashboard() {
           raceDate: newRaceForm.raceDate,
           thumbnailUrl: newRaceForm.thumbnailUrl,
           isLive: newRaceForm.isLive,
-          organizerDetails: newRaceForm.organizerDetails,
+          organizerDetails: sanitizeRaceDetailsForSave(newRaceForm.organizerDetails),
         }),
       });
       const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
@@ -479,7 +461,7 @@ export function OrganizerDashboard() {
           raceDate: activeRace.race_date ?? "",
           thumbnailUrl: activeRace.thumbnail_url ?? "",
           isLive: false,
-          organizerDetails: activeRace.organizerDetails ?? defaultOrganizerRaceDetails,
+          organizerDetails: sanitizeRaceDetailsForSave(activeRace.organizerDetails ?? defaultOrganizerRaceDetails),
         }),
       });
       const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
@@ -504,11 +486,7 @@ export function OrganizerDashboard() {
     try {
       const formData = new FormData();
       formData.append("gpx", file);
-      const response = await fetch(`/api/organizer/races/${activeRace.id}/gpx`, {
-        method: "PUT",
-        headers: authHeaders,
-        body: formData,
-      });
+      const response = await fetch(`/api/organizer/races/${activeRace.id}/gpx`, { method: "PUT", headers: authHeaders, body: formData });
       const data = (await response.json().catch(() => null)) as (GpxPreview & { message?: string; appliedAidStationCount?: number }) | null;
       if (!response.ok) {
         showToast("error", data?.message ?? "GPX invalide ou impossible à importer.");
@@ -546,17 +524,12 @@ export function OrganizerDashboard() {
       event.target.value = "";
       return;
     }
-
     setStatus("uploading");
     setError(null);
     try {
       const formData = new FormData();
       formData.append("image", file);
-      const response = await fetch(`/api/organizer/events/${selectedEventId}/image`, {
-        method: "PUT",
-        headers: authHeaders,
-        body: formData,
-      });
+      const response = await fetch(`/api/organizer/events/${selectedEventId}/image`, { method: "PUT", headers: authHeaders, body: formData });
       const data = (await response.json().catch(() => null)) as { thumbnailUrl?: string; message?: string } | null;
       if (!response.ok || !data?.thumbnailUrl) {
         showToast("error", data?.message ?? "Impossible d'envoyer l'image.");
@@ -595,10 +568,7 @@ export function OrganizerDashboard() {
     }
   };
 
-  const replaceStationProducts = async (
-    aidStationId: string,
-    products: Array<{ productId: string; notes?: string | null }>
-  ) => {
+  const replaceStationProducts = async (aidStationId: string, products: Array<{ productId: string; notes?: string | null }>) => {
     if (!accessToken || !activeRace) return false;
     const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-station-products`, {
       method: "PUT",
@@ -621,9 +591,7 @@ export function OrganizerDashboard() {
       showToast("error", "Produit introuvable dans le catalogue.");
       return;
     }
-    const current = stationProducts
-      .filter((link) => link.aidStationId === aidStationId)
-      .map((link) => ({ productId: link.productId, notes: link.notes ?? undefined }));
+    const current = stationProducts.filter((link) => link.aidStationId === aidStationId).map((link) => ({ productId: link.productId, notes: link.notes ?? undefined }));
     if (current.some((link) => link.productId === productId)) return;
     const updated = await replaceStationProducts(aidStationId, [...current, { productId }]);
     if (updated) {
@@ -668,22 +636,30 @@ export function OrganizerDashboard() {
   };
 
   const saveAllDirty = async () => {
-    if (!hasDirtyChanges) return;
-    const eventDirty = ["event", "equipment", "bibPickup", "access", "services"].some((moduleId) =>
-      dirtyModules.has(moduleId as OrganizerModuleId)
-    );
-    const raceDirty = ["formats", "schedule"].some((moduleId) => dirtyModules.has(moduleId as OrganizerModuleId));
-    if (eventDirty) {
-      const ok = await saveEvent();
-      if (!ok) return;
+    if (!hasDirtyChanges) return true;
+    if (activeTab === EVENT_TAB_ID || !activeRace) {
+      const eventDirty = ["event", "equipment", "bibPickup", "access", "services"].some((moduleId) => dirtyModules.has(moduleId as OrganizerModuleId));
+      if (!eventDirty) return true;
+      return await saveEvent();
     }
-    if (raceDirty && activeRace) {
+    const raceDirty = ["formats", "equipment", "access"].some((moduleId) => dirtyModules.has(moduleId as OrganizerModuleId));
+    if (raceDirty) {
       const ok = await saveRace();
-      if (!ok) return;
+      if (!ok) return false;
     }
     if (dirtyModules.has("aidStations")) {
-      await saveAidStations();
+      return await saveAidStations();
     }
+    return true;
+  };
+
+  const saveBeforeNavigation = async () => {
+    const saved = await saveAllDirty();
+    if (!saved) {
+      showToast("error", "Impossible d'enregistrer les modifications en cours.");
+      return false;
+    }
+    return true;
   };
 
   const updateEventForm = (next: Partial<EventFormValues>, moduleId: OrganizerModuleId = "event") => {
@@ -706,16 +682,9 @@ export function OrganizerDashboard() {
     markDirty("aidStations");
   };
 
-  const handleTabChange = (nextTab: string) => {
+  const handleTabChange = async (nextTab: string) => {
     if (nextTab === activeTab) return;
-    const raceDirtyModules: OrganizerModuleId[] = ["formats", "schedule", "aidStations"];
-    const hasRaceDirtyChanges = raceDirtyModules.some((moduleId) => dirtyModules.has(moduleId));
-    const isLeavingRaceTab = activeTab !== EVENT_TAB_ID;
-    if (isLeavingRaceTab && hasRaceDirtyChanges) {
-      const confirmed = window.confirm("Des modifications de format ne sont pas enregistrées. Changer de format les ignorera.");
-      if (!confirmed) return;
-      clearDirty(raceDirtyModules);
-    }
+    if (!(await saveBeforeNavigation())) return;
     if (nextTab === ADD_FORMAT_TAB_ID) {
       setNewRaceForm(activeRace ? createRaceFormFromFormatDefaults(activeRace, raceForm) : createRaceFormFromEventDefaults(eventForm));
     }
@@ -723,20 +692,12 @@ export function OrganizerDashboard() {
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
   };
 
-  if (isLoading) {
-    return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Vérification de session...</div>;
-  }
-
-  if (!session) {
-    return <OrganizerSignedOutCard />;
-  }
+  if (isLoading) return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Vérification de session...</div>;
+  if (!session) return <OrganizerSignedOutCard />;
 
   const pendingClaims = claims.filter((claim) => claim.status === "pending");
   const rejectedClaims = claims.filter((claim) => claim.status === "rejected");
-
-  if (memberships.length === 0) {
-    return <OrganizerNoMembershipCard pendingClaims={pendingClaims} rejectedClaims={rejectedClaims} />;
-  }
+  if (memberships.length === 0) return <OrganizerNoMembershipCard pendingClaims={pendingClaims} rejectedClaims={rejectedClaims} />;
 
   const tabs = [
     { id: EVENT_TAB_ID, label: "Événement" },
@@ -755,21 +716,29 @@ export function OrganizerDashboard() {
         memberships={memberships}
         selectedEventId={selectedEventId}
         onSelectedEventChange={(eventId) => {
-          if (hasDirtyChanges) {
-            const confirmed = window.confirm("Des modifications ne sont pas enregistrées. Changer d'événement les ignorera.");
-            if (!confirmed) return;
-          }
-          setSelectedEventId(eventId);
-          setActiveTab(EVENT_TAB_ID);
-          setActiveModule("event");
+          void (async () => {
+            if (!(await saveBeforeNavigation())) return;
+            setSelectedEventId(eventId);
+            setActiveTab(EVENT_TAB_ID);
+            setActiveModule("event");
+          })();
         }}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
         status={status}
-        onSaveAll={saveAllDirty}
-        onPreview={() => setPreviewOpen(true)}
+        onSaveAll={() => {
+          void saveAllDirty();
+        }}
+        onPreview={() => {
+          void (async () => {
+            if (await saveBeforeNavigation()) setPreviewOpen(true);
+          })();
+        }}
         onTogglePublish={() => {
-          void saveEvent({ isLive: !eventForm.isLive });
+          void (async () => {
+            if (!(await saveBeforeNavigation())) return;
+            await saveEvent({ isLive: !eventForm.isLive });
+          })();
         }}
       />
 
@@ -783,7 +752,13 @@ export function OrganizerDashboard() {
           completion={completion}
           dirtyModules={dirtyModules}
           onTabChange={handleTabChange}
-          onSelectModule={setActiveModule}
+          onSelectModule={(moduleId) => {
+            void (async () => {
+              if (moduleId === activeModule) return;
+              if (!(await saveBeforeNavigation())) return;
+              setActiveModule(moduleId);
+            })();
+          }}
           activeModule={activeModule}
         />
       ) : null}
@@ -797,13 +772,7 @@ export function OrganizerDashboard() {
           {!eventDetail || !eventDraft ? (
             <p className="text-sm text-muted-foreground">Chargement de l'événement...</p>
           ) : activeModule === "event" ? (
-            <EventInfoEditor
-              eventForm={eventForm}
-              onChange={updateEventForm}
-              onSave={() => void saveEvent()}
-              onUploadImage={uploadEventImage}
-              status={status}
-            />
+            <EventInfoEditor eventForm={eventForm} onChange={updateEventForm} onUploadImage={uploadEventImage} status={status} />
           ) : activeModule === "formats" ? (
             <FormatsEditor
               activeTab={activeTab}
@@ -815,10 +784,13 @@ export function OrganizerDashboard() {
               onRaceFormChange={(next) => updateRaceForm(next, "formats")}
               onNewRaceFormChange={setNewRaceForm}
               onCreateRace={createRace}
-              onSaveRace={() => void saveRace()}
               onUploadGpx={uploadGpx}
               onDuplicateRace={() => void duplicateActiveRace()}
-              onPreviewRace={() => setPreviewOpen(true)}
+              onPreviewRace={() => {
+                void (async () => {
+                  if (await saveBeforeNavigation()) setPreviewOpen(true);
+                })();
+              }}
               gpxPreview={gpxPreview}
               status={status}
             />
@@ -826,6 +798,8 @@ export function OrganizerDashboard() {
             <AidStationsEditor
               activeRace={activeRace}
               aidStations={aidStations}
+              startTime={raceForm.organizerDetails.schedule.startTime ?? ""}
+              finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
               onAddStation={() => {
@@ -845,7 +819,28 @@ export function OrganizerDashboard() {
                 setExpandedStationKey(nextKey);
                 markDirty("aidStations");
               }}
-              onSave={() => void saveAidStations()}
+              onStartTimeChange={(value) =>
+                updateRaceForm(
+                  {
+                    organizerDetails: {
+                      ...raceForm.organizerDetails,
+                      schedule: { ...raceForm.organizerDetails.schedule, startTime: value || null },
+                    },
+                  },
+                  "aidStations"
+                )
+              }
+              onFinishCutoffTimeChange={(value) =>
+                updateRaceForm(
+                  {
+                    organizerDetails: {
+                      ...raceForm.organizerDetails,
+                      schedule: { ...raceForm.organizerDetails.schedule, finishCutoffTime: value || null },
+                    },
+                  },
+                  "aidStations"
+                )
+              }
               onUpdateStation={updateAidStation}
               onRemoveStation={(index) => {
                 setAidStations((current) => current.filter((_, stationIndex) => stationIndex !== index));
@@ -872,32 +867,10 @@ export function OrganizerDashboard() {
               eventDetails={eventForm.organizerDetails}
               raceDetails={raceForm.organizerDetails}
               onEventChange={(details) => updateEventDetails(details, "equipment")}
-              onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "formats")}
-              onSaveEvent={() => void saveEvent()}
-              onSaveRace={() => void saveRace()}
-              status={status}
-            />
-          ) : activeModule === "schedule" ? (
-            <ScheduleEditor
-              activeRace={activeRace}
-              raceForm={raceForm}
-              aidStations={aidStations}
-              onChange={(next) => updateRaceForm(next, "schedule")}
-              onSave={() => void saveRace()}
-              status={status}
+              onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "equipment")}
             />
           ) : activeModule === "bibPickup" ? (
-            <BibPickupEditor
-              scope={isEventTab ? "event" : "format"}
-              activeRace={activeRace}
-              eventDetails={eventForm.organizerDetails}
-              raceDetails={raceForm.organizerDetails}
-              onEventChange={(details) => updateEventDetails(details, "bibPickup")}
-              onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "formats")}
-              onSaveEvent={() => void saveEvent()}
-              onSaveRace={() => void saveRace()}
-              status={status}
-            />
+            <BibPickupEditor eventDetails={eventForm.organizerDetails} onEventChange={(details) => updateEventDetails(details, "bibPickup")} />
           ) : activeModule === "access" ? (
             <AccessEditor
               scope={isEventTab ? "event" : "format"}
@@ -905,10 +878,7 @@ export function OrganizerDashboard() {
               eventDetails={eventForm.organizerDetails}
               raceDetails={raceForm.organizerDetails}
               onEventChange={(details) => updateEventDetails(details, "access")}
-              onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "formats")}
-              onSaveEvent={() => void saveEvent()}
-              onSaveRace={() => void saveRace()}
-              status={status}
+              onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "access")}
             />
           ) : activeModule === "products" ? (
             <ProductsEditor
@@ -928,14 +898,15 @@ export function OrganizerDashboard() {
               status={status}
             />
           ) : activeModule === "services" ? (
-            <ServicesEditor
-              details={eventForm.organizerDetails}
-              onChange={(details) => updateEventDetails(details, "services")}
-              onSave={() => void saveEvent()}
-              status={status}
-            />
+            <ServicesEditor details={eventForm.organizerDetails} onChange={(details) => updateEventDetails(details, "services")} />
           ) : (
-            <PreviewLauncher onPreview={() => setPreviewOpen(true)} />
+            <PreviewLauncher
+              onPreview={() => {
+                void (async () => {
+                  if (await saveBeforeNavigation()) setPreviewOpen(true);
+                })();
+              }}
+            />
           )}
         </CardContent>
       </Card>
@@ -945,11 +916,7 @@ export function OrganizerDashboard() {
         products={catalogProducts}
         linkedProductIds={
           productPickerStationId
-            ? new Set(
-                stationProducts
-                  .filter((link) => link.aidStationId === productPickerStationId)
-                  .map((link) => link.productId)
-              )
+            ? new Set(stationProducts.filter((link) => link.aidStationId === productPickerStationId).map((link) => link.productId))
             : new Set<string>()
         }
         search={productSearch}

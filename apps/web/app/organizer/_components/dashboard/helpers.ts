@@ -6,10 +6,10 @@ import {
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
   type OrganizerAidStationDetails,
-} from '../../../../lib/organizer-dashboard-details';
-import type { FuelProduct } from '../../../../lib/product-types';
-import type { OrganizerModuleId } from '../completion';
-import { ADD_FORMAT_TAB_ID, EVENT_MODULE_IDS, EVENT_TAB_ID, FORMAT_MODULE_IDS } from './constants';
+} from "../../../../lib/organizer-dashboard-details";
+import type { FuelProduct } from "../../../../lib/product-types";
+import type { OrganizerModuleId } from "../completion";
+import { ADD_FORMAT_TAB_ID, EVENT_MODULE_IDS, EVENT_TAB_ID, FORMAT_MODULE_IDS } from "./constants";
 import type {
   AidStationDraft,
   EventFormValues,
@@ -18,7 +18,7 @@ import type {
   RaceFormat,
   RaceFormValues,
   StationProduct,
-} from './types';
+} from "./types";
 
 export const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
@@ -58,7 +58,6 @@ export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): Rac
   organizerDetails: {
     ...cloneJson(defaultOrganizerRaceDetails),
     mandatoryEquipment: cloneJson(eventForm.organizerDetails.mandatoryEquipment),
-    bibPickup: cloneJson(eventForm.organizerDetails.bibPickup),
     access: cloneJson(eventForm.organizerDetails.access),
   },
 });
@@ -164,16 +163,16 @@ export const normalizeOrganizerEventDetail = (event: OrganizerEventDetail): Orga
   return {
     ...event,
     organizerDetails,
-    races: sortedRaces.map((race) => ({
-      ...race,
-      organizerDetails: (() => {
-        const raceDetails = parseOrganizerRaceDetails(race.organizerDetails);
-        return {
+    races: sortedRaces.map((race) => {
+      const raceDetails = parseOrganizerRaceDetails(race.organizerDetails);
+      return {
+        ...race,
+        organizerDetails: {
           ...raceDetails,
           mandatoryEquipment: expandRaceEquipmentWithCommon(organizerDetails.mandatoryEquipment, raceDetails.mandatoryEquipment),
-        };
-      })(),
-    })),
+        },
+      };
+    }),
   };
 };
 
@@ -236,7 +235,6 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
     formats: "Formats & GPX",
     aidStations: "Ravitos & points de course",
     equipment: "Matériel",
-    schedule: "Horaires & barrières",
     bibPickup: "Dossard",
     access: "Accès",
     products: "Produits",
@@ -250,11 +248,10 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
   const descriptions: Record<OrganizerModuleId, string> = {
     event: "Les informations principales qui cadrent l'événement.",
     formats: "Les formats restent en onglets, avec résumé et actions rapides.",
-    aidStations: "Un tableau rapide, avec détails extensibles par ravito.",
+    aidStations: "Départ, arrivée et ravitos dans une même vue.",
     equipment: "Le matériel partagé se gère depuis l'événement, puis chaque course peut l'ajuster.",
-    schedule: "Horaires de départ, arrivée, navettes et barrières.",
-    bibPickup: "Retrait dossard partagé ou spécifique selon l'onglet actif.",
-    access: "Accès partagé ou spécifique selon l'onglet actif.",
+    bibPickup: "Retrait dossard commun à tous les formats.",
+    access: "Accès et sections optionnelles selon l'onglet actif.",
     products: "Produits officiels disponibles par ravito.",
     services: "Informations optionnelles utiles aux coureurs.",
     preview: "Contrôle visuel de la version coureur interne.",

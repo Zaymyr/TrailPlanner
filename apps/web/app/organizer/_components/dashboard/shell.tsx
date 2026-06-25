@@ -221,7 +221,6 @@ export function CompletionTabsPanel({
             activeModule={activeModule}
             dirtyModules={dirtyModules}
             onSelectModule={onSelectModule}
-            formatMode={!isEventTab}
           />
         </>
       ) : (
@@ -238,21 +237,13 @@ export function OrganizerModuleGrid({
   activeModule,
   dirtyModules,
   onSelectModule,
-  formatMode,
 }: {
   modules: OrganizerCompletionSummary["modules"];
   activeModule: OrganizerModuleId;
   dirtyModules: Set<OrganizerModuleId>;
   onSelectModule: (moduleId: OrganizerModuleId) => void;
-  formatMode?: boolean;
 }) {
-  const isDirty = (moduleId: OrganizerModuleId) => {
-    if (!formatMode) return dirtyModules.has(moduleId);
-    if (moduleId === "formats" || moduleId === "schedule" || moduleId === "aidStations" || moduleId === "products") {
-      return dirtyModules.has(moduleId);
-    }
-    return dirtyModules.has("formats");
-  };
+  const isDirty = (moduleId: OrganizerModuleId) => dirtyModules.has(moduleId);
 
   return (
     <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
