@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-06-24
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -14,6 +14,16 @@ related_files:
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/app/organizer/_components/dashboard/types.ts
+  - apps/web/app/organizer/_components/dashboard/constants.ts
+  - apps/web/app/organizer/_components/dashboard/helpers.ts
+  - apps/web/app/organizer/_components/dashboard/controls.tsx
+  - apps/web/app/organizer/_components/dashboard/shell.tsx
+  - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/products-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/runner-preview-dialog.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
@@ -92,7 +102,7 @@ Approved organizers can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The synthesis uses inline event facts, a small live/brouillon indicator, a publish toggle, and an event completion progress bar with the percentage inside the bar rather than metric cards. The first completion tab is the event scope and shows only fillable common event tiles: event information, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and only fillable format tiles: identity/GPX, schedule, format equipment, format bib pickup, format access, ravitos, and products. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs keeps the same active tile when the destination scope has the same module. The active module editor sits directly below this tabbed tile area.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/race/module, dirty state, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. The synthesis uses inline event facts, a small live/brouillon indicator, a publish toggle, and an event completion progress bar with the percentage inside the bar rather than metric cards. The first completion tab is the event scope and shows only fillable common event tiles: event information, common equipment, common bib pickup, common access, and services. The following tabs are race formats; each format tab shows that format's progress bar and only fillable format tiles: identity/GPX, schedule, format equipment, format bib pickup, format access, ravitos, and products. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs keeps the same active tile when the destination scope has the same module. The active module editor sits directly below this tabbed tile area.
 
 Equipment, bib pickup, and access are split by tab in the UI: the event tab edits only common event data, while a format tab edits only that format's data. The editor must not stack common and format forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. Event publishing and format liveness use compact live/brouillon toggles instead of duplicate checkboxes. The dashboard keeps unsaved-change state per module, gives short floating save/error feedback, and warns on `beforeunload` when a module is dirty.
 
@@ -164,6 +174,7 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 - Do not bulk-duplicate common event details into every existing format. Store shared information on the event by default; the add-format draft may be prefilled from the event or previous format only when the organizer intentionally creates a new format.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Organizer event images are uploaded through the server-side PNG route; do not expose direct Storage writes from the dashboard client.
+- Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 
 ## Related Docs
 

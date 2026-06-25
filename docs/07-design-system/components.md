@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-05-17
+last_verified: 2026-06-25
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -41,6 +41,10 @@ Current files include:
 - `SectionHeader.tsx`
 
 The `cn` helper in `apps/web/components/utils.ts` filters falsey class values and joins strings.
+
+## Reuse-First Rule
+
+Before creating a new UI component, search `apps/web/components`, the nearest route `_components` folder, and package design-system exports. Reuse or extend an existing component when it fits the interaction and visual language. Keep new components at the narrowest practical scope first, then promote them to a shared location only after multiple screens need the same abstraction.
 
 ## Button
 
@@ -99,6 +103,7 @@ Card subcomponents:
 - Web UI primitives are not currently exported from `@pace-yourself/design-system`.
 - If moving primitives into the design-system package, update package exports, web transpilation, and docs.
 - Keep primitive variants small and consistent with existing Tailwind/CSS variable names.
+- Avoid duplicating primitives or route-local components without first checking whether an existing component can be reused or extended.
 - Do not introduce a new class merge library without a real collision problem; current `cn` only joins classes.
 
 ## Related Docs

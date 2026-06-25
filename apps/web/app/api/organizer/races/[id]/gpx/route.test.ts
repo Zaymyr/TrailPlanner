@@ -65,7 +65,7 @@ describe("/api/organizer/races/[id]/gpx", () => {
       .mockResolvedValueOnce(buildJsonResponse([{ id: raceId, gpx_storage_path: "race.gpx" }]))
       .mockResolvedValueOnce(buildTextResponse(gpxContent));
 
-    const response = await GET(getRequest(), { params: { id: raceId } });
+    const response = (await GET(getRequest(), { params: { id: raceId } })) as Response;
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -83,7 +83,7 @@ describe("/api/organizer/races/[id]/gpx", () => {
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(new Response(null, { status: 201 }));
 
-    const response = await PUT(putRequest(), { params: { id: raceId } });
+    const response = (await PUT(putRequest(), { params: { id: raceId } })) as Response;
     const payload = await response.json();
 
     expect(response.status).toBe(200);
@@ -108,7 +108,7 @@ describe("/api/organizer/races/[id]/gpx", () => {
       .mockResolvedValueOnce(buildJsonResponse([{ id: raceId, gpx_storage_path: "new.gpx" }]))
       .mockResolvedValueOnce(buildJsonResponse([{ id: existingStationId }]));
 
-    const response = await PUT(putRequest(), { params: { id: raceId } });
+    const response = (await PUT(putRequest(), { params: { id: raceId } })) as Response;
     const payload = await response.json();
 
     expect(response.status).toBe(200);

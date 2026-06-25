@@ -93,6 +93,16 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Design system changes | `docs/07-design-system/` |
 | New feature shipping | `docs/06-workflows/ship-a-feature.md` |
 
+## Context Budget And Progressive Reading
+
+Use the smallest reliable context first, then expand only when the task needs it.
+
+- Start with the active file, direct imports, the nearest relevant test, and the minimum required docs for the task.
+- Prefer targeted search (`rg`, symbol search, path search) before opening full files or whole test suites.
+- When tests are needed, open the closest or smallest test that can confirm the behavior before loading adjacent suites.
+- Expand context immediately when confidence is not high enough or when the change touches shared utilities, business rules, auth/RLS, database schema, API contracts, or regression-sensitive flows.
+- If the answer cannot be justified from the current context, stop optimizing for token savings and gather the missing sources before editing.
+
 ## If You Are Working On Database Changes, Read:
 
 - `docs/02-database/schema-overview.md`
@@ -162,6 +172,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 - `products` has no `water_ml`; water demand is segment/carry context.
 - Onboarding plan save must remain idempotent across duplicate auth/session events.
 - Preserve anonymous Supabase user ownership behavior for guest plan flows.
+- Before creating UI components, search existing components in `apps/web/components`, the nearest `_components` folder, and package design-system exports. Reuse or extend an existing component when it fits; create new components at the narrowest practical scope and promote them only after multiple screens need them.
 - When code and archived docs conflict, document the conflict and follow code/migrations.
 
 ## Forbidden Patterns
