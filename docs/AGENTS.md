@@ -93,6 +93,16 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Design system changes | `docs/07-design-system/` |
 | New feature shipping | `docs/06-workflows/ship-a-feature.md` |
 
+## Context Budget And Progressive Reading
+
+Use the smallest reliable context first, then expand only when the task needs it.
+
+- Start with the active file, direct imports, the nearest relevant test, and the minimum required docs for the task.
+- Prefer targeted search (`rg`, symbol search, path search) before opening full files or whole test suites.
+- When tests are needed, open the closest or smallest test that can confirm the behavior before loading adjacent suites.
+- Expand context immediately when confidence is not high enough or when the change touches shared utilities, business rules, auth/RLS, database schema, API contracts, or regression-sensitive flows.
+- If the answer cannot be justified from the current context, stop optimizing for token savings and gather the missing sources before editing.
+
 ## If You Are Working On Database Changes, Read:
 
 - `docs/02-database/schema-overview.md`
