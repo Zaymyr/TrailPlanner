@@ -197,6 +197,8 @@ export function AccessEditor({
         description="Adresse principale, parking et consignes valables pour tous les formats."
         access={eventDetails.access}
         onAccessChange={(access) => onEventChange({ ...eventDetails, access })}
+        formatMode
+        showRunnerInfoToggle={false}
       />
     );
   }
@@ -227,12 +229,14 @@ function AccessFields({
   access,
   onAccessChange,
   formatMode = false,
+  showRunnerInfoToggle = formatMode,
 }: {
   title: string;
   description: string;
   access: OrganizerEventDetails["access"];
   onAccessChange: (access: OrganizerEventDetails["access"]) => void;
   formatMode?: boolean;
+  showRunnerInfoToggle?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["access"]>) => onAccessChange({ ...access, ...next });
   const updateSection = (key: keyof OrganizerEventDetails["access"]["enabledSections"], checked: boolean) =>
@@ -261,7 +265,9 @@ function AccessFields({
           <ToggleChip checked={access.enabledSections.shuttles} label="Navettes" onChange={(checked) => updateSection("shuttles", checked)} />
           <ToggleChip checked={access.enabledSections.roadRestrictions} label="Restrictions route" onChange={(checked) => updateSection("roadRestrictions", checked)} />
           <ToggleChip checked={access.enabledSections.mapUrl} label="Carte / Google Maps" onChange={(checked) => updateSection("mapUrl", checked)} />
-          <ToggleChip checked={access.enabledSections.runnerInfo} label="Infos coureur spécifiques" onChange={(checked) => updateSection("runnerInfo", checked)} />
+          {showRunnerInfoToggle ? (
+            <ToggleChip checked={access.enabledSections.runnerInfo} label="Infos coureur spécifiques" onChange={(checked) => updateSection("runnerInfo", checked)} />
+          ) : null}
         </div>
       ) : null}
       {(!formatMode || access.enabledSections.officialParkings) ? (
