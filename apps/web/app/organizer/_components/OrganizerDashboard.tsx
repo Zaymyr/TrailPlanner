@@ -785,6 +785,49 @@ export function OrganizerDashboard() {
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
   };
 
+  const handleRacePublishToggle = async (raceId: string, nextIsLive: boolean) => {
+    if (!(await saveBeforeNavigation())) return;
+    if (!accessToken || !selectedEventId || !eventDetail) return;
+
+    const targetRace = eventDetail.races.find((race) => race.id === raceId);
+    if (!targetRace) return;
+
+    if (activeRace?.id === raceId) {
+      await saveRace({ isLive: nextIsLive });
+      return;
+    }
+
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/races/${raceId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: targetRace.name,
+          distanceKm: targetRace.distance_km,
+          elevationGainM: targetRace.elevation_gain_m,
+          elevationLossM: targetRace.elevation_loss_m,
+          locationText: targetRace.location_text ?? "",
+          raceDate: targetRace.race_date ?? "",
+          thumbnailUrl: targetRace.thumbnail_url ?? "",
+          isLive: nextIsLive,
+          organizerDetails: targetRace.organizerDetails,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        showToast("error", data?.message ?? "Impossible d'enregistrer le format.");
+        return;
+      }
+
+      showToast("success", "Format mis à jour.");
+      await loadEvent(selectedEventId, activeTab);
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   if (isLoading) return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Vérification de session...</div>;
   if (!session) return <OrganizerSignedOutCard />;
 
@@ -832,6 +875,9 @@ export function OrganizerDashboard() {
             await saveEvent({ isLive: !eventForm.isLive });
           })();
         }}
+        onToggleRacePublish={(raceId, nextIsLive) => {
+          void handleRacePublishToggle(raceId, nextIsLive);
+        }}
       />
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -862,7 +908,7 @@ export function OrganizerDashboard() {
         </CardHeader>
         <CardContent>
           {!eventDetail || !eventDraft ? (
-            <p className="text-sm text-muted-foreground">Chargement de l'événement...</p>
+            <p className="text-sm text-muted-foreground">Chargement de l&apos;événement...</p>
           ) : activeModule === "event" ? (
             <EventInfoEditor eventForm={eventForm} onChange={updateEventForm} onUploadImage={uploadEventImage} status={status} />
           ) : activeModule === "formats" ? (

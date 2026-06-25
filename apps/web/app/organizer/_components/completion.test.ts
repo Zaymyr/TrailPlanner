@@ -157,6 +157,16 @@ describe("organizer completion", () => {
     expect(completion.raceProgressScore).toBe(25);
   });
 
+  it("does not change completion percentages when publication toggles change", () => {
+    const draftRace = { ...baseEvent.races[0]!, is_live: false };
+    const draftCompletion = buildOrganizerCompletion({ ...baseEvent, is_live: false, races: [draftRace] }, draftRace, [], []);
+    const liveCompletion = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], []);
+
+    expect(draftCompletion.raceProgress).toEqual(liveCompletion.raceProgress);
+    expect(draftCompletion.raceProgressScore).toBe(liveCompletion.raceProgressScore);
+    expect(draftCompletion.formatModules.find((module) => module.id === "formats")?.status).toBe("complete");
+  });
+
   it("marks re-enabled empty access sections as incomplete", () => {
     const race = {
       ...baseEvent.races[0]!,

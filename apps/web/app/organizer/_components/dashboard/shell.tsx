@@ -107,6 +107,7 @@ export function OrganizerSummaryHeader({
   onSaveAll,
   onPreview,
   onTogglePublish,
+  onToggleRacePublish,
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
@@ -119,21 +120,22 @@ export function OrganizerSummaryHeader({
   onSaveAll: () => void;
   onPreview: () => void;
   onTogglePublish: () => void;
+  onToggleRacePublish: (raceId: string, nextIsLive: boolean) => void;
 }) {
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
+  const raceRows = (event?.races ?? []).map((race) => ({
+    ...race,
+    score: raceProgress.find((entry) => entry.id === race.id)?.score ?? 0,
+  }));
   const isLive = event?.is_live !== false;
   const dateLabel = formatEventDateRange(event);
-  const eventProgressTone = getProgressTone(eventScore);
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Dashboard organisateur</p>
-          <h1 className="mt-1 break-words text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
-            {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
-          </h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
             {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates à compléter"}
           </p>
@@ -156,36 +158,32 @@ export function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-          <span className="inline-flex items-center gap-2 font-semibold text-foreground">
-            <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
-            {isLive ? "Live" : "Brouillon"}
-          </span>
-          <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
-        </div>
-        <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
-      </div>
-
-      <div className={cn("mt-4 h-3 overflow-hidden rounded-full", eventProgressTone.track)}>
-        <div
-          className={cn(
-            "flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[10px] font-semibold leading-none transition-all",
-            eventProgressTone.fill,
-            eventProgressTone.text
-          )}
-          style={{ width: `${eventScore}%` }}
-        >
-          {eventScore}%
-        </div>
+      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+        <span className="inline-flex items-center gap-2 font-semibold text-foreground">
+          <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
+          {isLive ? "Live" : "Brouillon"}
+        </span>
+        <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
       </div>
 
       <div className="mt-3 space-y-2">
-        {raceProgress.length > 0 ? (
-          raceProgress.map((race) => (
-            <div key={race.id} className="flex items-center justify-between gap-3 text-sm">
-              <span className="min-w-0 truncate font-medium text-foreground">{race.name || "Course sans nom"}</span>
-              <span className="shrink-0 text-muted-foreground">{race.score}%</span>
+        <div className="flex items-center gap-3 rounded-md border border-border/70 bg-background/80 p-3">
+          <InlineProgressBar score={eventScore} className="w-28 sm:w-40" />
+          <span className="min-w-0 flex-1 truncate text-lg font-semibold text-foreground">
+            {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
+          </span>
+          <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
+        </div>
+        {raceRows.length > 0 ? (
+          raceRows.map((race) => (
+            <div key={race.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm">
+              <InlineProgressBar score={race.score} className="w-24 sm:w-32" />
+              <span className="min-w-0 flex-1 truncate font-medium text-foreground">{race.name || "Course sans nom"}</span>
+              <LiveToggle
+                checked={race.is_live}
+                disabled={status === "saving"}
+                onChange={() => onToggleRacePublish(race.id, !race.is_live)}
+              />
             </div>
           ))
         ) : (
@@ -226,14 +224,12 @@ export function CompletionTabsPanel({
 }) {
   const isEventTab = activeTab === EVENT_TAB_ID;
   const isAddTab = activeTab === ADD_FORMAT_TAB_ID;
-  const score = isEventTab ? completion.eventScore : activeRace ? completion.formatScore : 0;
   const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
   const description = isEventTab
     ? "Informations communes à tous les formats."
     : activeRace
       ? "Informations propres au format sélectionné."
       : "Crée un nouveau format depuis le formulaire ci-dessous.";
-  const progressTone = getProgressTone(score);
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -248,26 +244,12 @@ export function CompletionTabsPanel({
       </div>
 
       {!isAddTab ? (
-        <>
-          <div className={cn("mt-3 h-5 overflow-hidden rounded-full", progressTone.track)}>
-            <div
-              className={cn(
-                "flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[11px] font-semibold transition-all",
-                progressTone.fill,
-                progressTone.text
-              )}
-              style={{ width: `${score}%` }}
-            >
-              {score}%
-            </div>
-          </div>
-          <OrganizerModuleGrid
-            modules={modules}
-            activeModule={activeModule}
-            dirtyModules={dirtyModules}
-            onSelectModule={onSelectModule}
-          />
-        </>
+        <OrganizerModuleGrid
+          modules={modules}
+          activeModule={activeModule}
+          dirtyModules={dirtyModules}
+          onSelectModule={onSelectModule}
+        />
       ) : (
         <div className="mt-3 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
           Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaîtront après création.
@@ -322,6 +304,25 @@ export function OrganizerModuleGrid({
           </div>
         </button>
       ))}
+    </div>
+  );
+}
+
+function InlineProgressBar({ score, className }: { score: number; className?: string }) {
+  const progressTone = getProgressTone(score);
+
+  return (
+    <div className={cn("h-6 overflow-hidden rounded-full", progressTone.track, className)}>
+      <div
+        className={cn(
+          "flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[11px] font-semibold leading-none transition-all",
+          progressTone.fill,
+          progressTone.text
+        )}
+        style={{ width: `${score}%` }}
+      >
+        {score}%
+      </div>
     </div>
   );
 }

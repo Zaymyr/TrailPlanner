@@ -103,12 +103,26 @@ export const isPublishableRace = (race: CompletionRace) =>
   Number.isFinite(race.elevation_gain_m) &&
   race.elevation_gain_m >= 0;
 
+const isRaceIdentityComplete = (race: CompletionRace) =>
+  hasText(race.name) &&
+  Number.isFinite(race.distance_km) &&
+  race.distance_km > 0 &&
+  Number.isFinite(race.elevation_gain_m) &&
+  race.elevation_gain_m >= 0;
+
 export const isEventReadyToPublish = (event: CompletionEvent) =>
   hasText(event.name) &&
   hasText(event.location) &&
   hasText(event.race_date) &&
   hasText((event.organizerDetails ?? defaultOrganizerEventDetails).dateRange.endDate) &&
   event.races.some(isPublishableRace);
+
+const isEventCompleteForProgress = (event: CompletionEvent) =>
+  hasText(event.name) &&
+  hasText(event.location) &&
+  hasText(event.race_date) &&
+  hasText((event.organizerDetails ?? defaultOrganizerEventDetails).dateRange.endDate) &&
+  event.races.some(isRaceIdentityComplete);
 
 const statusFrom = (filled: number, total: number, requiredFilled = total): OrganizerModuleStatus => {
   if (filled <= 0) return "empty";
@@ -136,10 +150,10 @@ const buildFormatProgressModules = (
     {
       id: "formats",
       title: "Identité",
-      description: "Nom, distance, dénivelé, statut et GPX.",
+      description: "Nom, distance, dénivelé et GPX.",
       level: "required",
-      status: isPublishableRace(race) ? "complete" : hasText(race.name) ? "incomplete" : "empty",
-      countLabel: `${race.is_live ? "Live" : "Brouillon"} / ${race.gpx_storage_path ? "GPX" : "Sans GPX"}`,
+      status: isRaceIdentityComplete(race) ? "complete" : hasText(race.name) ? "incomplete" : "empty",
+      countLabel: race.gpx_storage_path ? "GPX prêt" : "Sans GPX",
     },
     {
       id: "equipment",
@@ -199,7 +213,6 @@ export function buildOrganizerCompletion(
 ): OrganizerCompletionSummary {
   const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
   const eventFilled = filledCount([event.name, event.location, event.race_date, eventDetails.dateRange.endDate]);
-  const publishableRaceCount = event.races.filter(isPublishableRace).length;
   const formatCount = event.races.length;
   const gpxCount = event.races.filter((race) => hasText(race.gpx_storage_path)).length;
   const raceProgress = event.races.map((race) => {
@@ -275,7 +288,7 @@ export function buildOrganizerCompletion(
     {
       id: "event",
       title: "Informations",
-      description: "Nom, lieu, dates et statut public.",
+      description: "Nom, lieu et dates de l'événement.",
       level: "required",
       status: statusFrom(eventFilled, 4),
       countLabel: `${eventFilled}/4 champs`,
@@ -286,7 +299,7 @@ export function buildOrganizerCompletion(
       title: "Formats & GPX",
       description: "Formats de course, distances, dénivelés et traces GPX.",
       level: "required",
-      status: publishableRaceCount > 0 ? "complete" : formatCount > 0 ? "incomplete" : "empty",
+      status: event.races.some(isRaceIdentityComplete) ? "complete" : formatCount > 0 ? "incomplete" : "empty",
       countLabel: `${formatCount} format${formatCount > 1 ? "s" : ""}, ${gpxCount} GPX`,
     },
     {
@@ -379,8 +392,8 @@ export function buildOrganizerCompletion(
       title: "Prévisualisation coureur",
       description: "Version simple de ce que verra un coureur.",
       level: "optional",
-      status: isEventReadyToPublish(event) ? "complete" : "incomplete",
-      countLabel: isEventReadyToPublish(event) ? "Prêt" : "Essentiel manquant",
+      status: isEventCompleteForProgress(event) ? "complete" : "incomplete",
+      countLabel: isEventCompleteForProgress(event) ? "Prêt" : "Essentiel manquant",
     },
   ];
 
@@ -388,7 +401,7 @@ export function buildOrganizerCompletion(
     {
       id: "event",
       title: "Informations",
-      description: "Nom, lieu, dates et statut public.",
+      description: "Nom, lieu et dates de l'événement.",
       level: "required",
       status: statusFrom(eventFilled, 4),
       countLabel: `${eventFilled}/4 champs`,
