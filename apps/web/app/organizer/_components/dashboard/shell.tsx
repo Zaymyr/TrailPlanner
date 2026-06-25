@@ -167,8 +167,8 @@ export function OrganizerSummaryHeader({
       </div>
 
       <div className="mt-3 space-y-2">
-        <div className="flex items-center gap-3 rounded-md border border-border/70 bg-background/80 p-3">
-          <span className="min-w-0 shrink-0 text-lg font-semibold text-foreground">
+        <div className="grid gap-3 rounded-md border border-border/70 bg-background/80 p-3 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
+          <span className="min-w-0 text-lg font-semibold text-foreground">
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </span>
           <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
@@ -176,8 +176,11 @@ export function OrganizerSummaryHeader({
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => (
-            <div key={race.id} className="flex items-center gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm">
-              <span className="min-w-0 shrink-0 font-medium text-foreground">{race.name || "Course sans nom"}</span>
+            <div
+              key={race.id}
+              className="grid gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
+            >
+              <span className="min-w-0 font-medium text-foreground">{race.name || "Course sans nom"}</span>
               <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
               <LiveToggle
                 checked={race.is_live}
