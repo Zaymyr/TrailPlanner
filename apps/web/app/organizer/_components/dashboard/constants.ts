@@ -1,5 +1,4 @@
 import type { FuelType } from '../../../../lib/fuel-types';
-import type { AidStationType } from '../../../../lib/organizer-dashboard-details';
 import type { OrganizerModuleId } from '../completion';
 import type { ProductFormValues } from './types';
 
@@ -14,14 +13,6 @@ export const equipmentSuggestions = [
   "Sifflet",
   "Pièce d'identité",
 ];
-
-export const aidStationTypeLabels: Record<AidStationType, string> = {
-  water: "Eau",
-  solid: "Solide",
-  assistance: "Assistance",
-  life_base: "Base vie",
-  other: "Autre",
-};
 
 export const fuelTypeLabels: Record<FuelType, string> = {
   gel: "Gel",

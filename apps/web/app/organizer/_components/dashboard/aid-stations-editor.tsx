@@ -4,10 +4,8 @@ import { AidStationBadge } from '../../../../components/race-planner/AidStationB
 import { ChevronDownIcon, ChevronUpIcon } from '../../../../components/race-planner/TimelineIcons';
 import { Button } from '../../../../components/ui/button';
 import { cn } from '../../../../components/utils';
-import type { AidStationType } from '../../../../lib/organizer-dashboard-details';
 import type { FuelProduct } from '../../../../lib/product-types';
-import { aidStationTypeLabels } from './constants';
-import { NumberField, TextAreaField, TextField, ToggleChip } from './controls';
+import { NumberField, TextAreaField, TextField } from './controls';
 import { formatKm } from './helpers';
 import { StationProductsBlock } from './products-editor';
 import type { AidStationDraft, ProductFormValues, RaceFormat, StationProduct } from './types';
@@ -49,7 +47,7 @@ export function AidStationsEditor({
   onToggleProductForm: (stationId: string) => void;
   onProductFormChange: (values: ProductFormValues) => void;
   onCreateProduct: (event: FormEvent<HTMLFormElement>) => void;
-  status: "idle" | "loading" | "saving" | "uploading";
+  status: 'idle' | 'loading' | 'saving' | 'uploading';
 }) {
   if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
 
@@ -64,7 +62,7 @@ export function AidStationsEditor({
           <Button type="button" variant="outline" onClick={onAddStation}>
             Ajouter un ravito
           </Button>
-          <Button type="button" onClick={onSave} disabled={status === "saving"}>
+          <Button type="button" onClick={onSave} disabled={status === 'saving'}>
             Sauvegarder les ravitos
           </Button>
         </div>
@@ -84,8 +82,8 @@ export function AidStationsEditor({
               <article
                 key={key}
                 className={cn(
-                  "overflow-hidden rounded-[1.5rem] border bg-card shadow-sm transition",
-                  isExpanded ? "border-brand-border bg-brand-surface/20 shadow-[0_12px_30px_-18px_rgba(16,185,129,0.55)]" : "border-border"
+                  'overflow-hidden rounded-[1.5rem] border bg-card shadow-sm transition',
+                  isExpanded ? 'border-brand-border bg-brand-surface/20 shadow-[0_12px_30px_-18px_rgba(16,185,129,0.55)]' : 'border-border'
                 )}
               >
                 <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-between">
@@ -97,7 +95,7 @@ export function AidStationsEditor({
                           <p className="truncate text-lg font-semibold text-foreground">{station.name || `Ravito ${index + 1}`}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {formatKm(station.distanceKm)}
-                            {details.cutoffTime ? ` - Barrière ${details.cutoffTime}` : " - Barrière à définir"}
+                            {details.cutoffTime ? ` - Barrière ${details.cutoffTime}` : ' - Barrière à définir'}
                           </p>
                         </div>
                         {!station.id ? (
@@ -111,9 +109,9 @@ export function AidStationsEditor({
                         <StationMetaChip>{formatKm(station.distanceKm)}</StationMetaChip>
                         <StationMetaChip>D+ {formatOptionalMeters(details.cumulativeElevationGainM)}</StationMetaChip>
                         <StationMetaChip>D- {formatOptionalMeters(details.cumulativeElevationLossM)}</StationMetaChip>
-                        <StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}</StationMetaChip>
+                        <StationMetaChip>Barrière {details.cutoffTime?.trim() || '-'}</StationMetaChip>
                         <StationMetaChip>
-                          {productCount} produit{productCount > 1 ? "s" : ""}
+                          {productCount} produit{productCount > 1 ? 's' : ''}
                         </StationMetaChip>
                       </div>
 
@@ -121,20 +119,31 @@ export function AidStationsEditor({
                         <StationServiceChip
                           checked={station.waterRefill}
                           label="Eau disponible"
-                          disabled={status === "saving"}
+                          disabled={status === 'saving'}
                           onChange={(checked) => onUpdateStation(index, { ...station, waterRefill: checked })}
                         />
                         <StationServiceChip
                           checked={station.solidRefill}
                           label="Solide disponible"
-                          disabled={status === "saving"}
+                          disabled={status === 'saving'}
                           onChange={(checked) => onUpdateStation(index, { ...station, solidRefill: checked })}
                         />
                         <StationServiceChip
                           checked={station.assistanceAllowed}
                           label="Assistance"
-                          disabled={status === "saving"}
+                          disabled={status === 'saving'}
                           onChange={(checked) => onUpdateStation(index, { ...station, assistanceAllowed: checked })}
+                        />
+                        <StationServiceChip
+                          checked={details.dropBagAvailable}
+                          label="Sac de délestage"
+                          disabled={status === 'saving'}
+                          onChange={(checked) =>
+                            onUpdateStation(index, {
+                              ...station,
+                              organizerDetails: { ...details, dropBagAvailable: checked },
+                            })
+                          }
                         />
                       </div>
                     </div>
@@ -148,7 +157,7 @@ export function AidStationsEditor({
                       onClick={() => {
                         if (station.id) onOpenProductPicker(station.id);
                       }}
-                      disabled={!station.id || status === "saving"}
+                      disabled={!station.id || status === 'saving'}
                     >
                       Ajouter un produit
                     </Button>
@@ -157,8 +166,8 @@ export function AidStationsEditor({
                       variant="ghost"
                       className="h-10 w-10 rounded-full border border-border bg-background p-0"
                       onClick={() => onExpandedStationKeyChange(isExpanded ? null : key)}
-                      aria-label={isExpanded ? "Replier le ravito" : "Deplier le ravito"}
-                      title={isExpanded ? "Replier le ravito" : "Deplier le ravito"}
+                      aria-label={isExpanded ? 'Replier le ravito' : 'Deplier le ravito'}
+                      title={isExpanded ? 'Replier le ravito' : 'Deplier le ravito'}
                     >
                       {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
                     </Button>
@@ -190,10 +199,10 @@ export function AidStationsEditor({
                           productForm={productForm}
                           onProductFormChange={onProductFormChange}
                           onCreateProduct={onCreateProduct}
-                          disabled={status === "saving"}
+                          disabled={status === 'saving'}
                         />
                       ) : (
-                        <p className="mt-3 text-xs text-muted-foreground">Sauvegarde le ravito avant d'y ajouter des produits.</p>
+                        <p className="mt-3 text-xs text-muted-foreground">Sauvegarde le ravito avant d&apos;y ajouter des produits.</p>
                       )
                     }
                   />
@@ -231,56 +240,18 @@ export function StationDetailsPanel({ station, onChange, productsSlot }: { stati
         <div className="xl:col-span-2">
           <TextField
             label="Barrière horaire"
-            value={details.cutoffTime ?? ""}
+            value={details.cutoffTime ?? ''}
             onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })}
           />
         </div>
       </div>
 
       <div className="mt-4 rounded-[1.25rem] border border-border bg-background p-4">
-        <p className="text-sm font-semibold text-foreground">Infos secondaires</p>
-        <p className="mt-1 text-xs text-muted-foreground">Type de point, altitude optionnelle, sac de délestage et note organisateur.</p>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-foreground">Type</label>
-            <select
-              className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm"
-              value={details.stationType}
-              onChange={(event) =>
-                onChange({
-                  ...station,
-                  organizerDetails: { ...details, stationType: event.target.value as AidStationType },
-                })
-              }
-            >
-              {Object.entries(aidStationTypeLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <NumberField
-            label="Altitude optionnelle"
-            value={details.altitudeM ?? 0}
-            step="1"
-            onChange={(value) => onChange({ ...station, organizerDetails: { ...details, altitudeM: value } })}
-          />
-          <div className="flex items-end">
-            <ToggleChip
-              checked={details.dropBagAvailable}
-              label="Sac de délestage"
-              onChange={(checked) => onChange({ ...station, organizerDetails: { ...details, dropBagAvailable: checked } })}
-            />
-          </div>
-          <div className="md:col-span-3">
-            <TextAreaField
-              label="Note organisateur"
-              value={details.organizerNote ?? station.notes ?? ""}
-              onChange={(value) => onChange({ ...station, notes: value, organizerDetails: { ...details, organizerNote: value || null } })}
-            />
-          </div>
-        </div>
+        <TextAreaField
+          label="Note organisateur"
+          value={details.organizerNote ?? station.notes ?? ''}
+          onChange={(value) => onChange({ ...station, notes: value, organizerDetails: { ...details, organizerNote: value || null } })}
+        />
       </div>
 
       <div className="mt-4">{productsSlot}</div>
@@ -306,9 +277,9 @@ function StationServiceChip({
   return (
     <label
       className={cn(
-        "inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition",
-        checked ? "border-brand-border bg-background text-foreground" : "border-border bg-background text-muted-foreground",
-        disabled && "cursor-not-allowed opacity-60"
+        'inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition',
+        checked ? 'border-brand-border bg-background text-foreground' : 'border-border bg-background text-muted-foreground',
+        disabled && 'cursor-not-allowed opacity-60'
       )}
     >
       <input
@@ -324,5 +295,5 @@ function StationServiceChip({
 }
 
 function formatOptionalMeters(value: number | null | undefined) {
-  return value === null || value === undefined ? "-" : `${value} m`;
+  return value === null || value === undefined ? '-' : `${value} m`;
 }

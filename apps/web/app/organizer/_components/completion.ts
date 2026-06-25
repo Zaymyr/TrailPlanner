@@ -179,10 +179,8 @@ export function buildOrganizerCompletion(
     const details = station.organizerDetails;
     return Boolean(
       details &&
-        (details.stationType !== "water" ||
-          details.cumulativeElevationGainM !== null ||
+        (details.cumulativeElevationGainM !== null ||
           details.cumulativeElevationLossM !== null ||
-          details.altitudeM !== null ||
           hasText(details.cutoffTime) ||
           details.dropBagAvailable ||
           hasText(details.organizerNote))
