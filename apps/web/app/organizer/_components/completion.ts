@@ -119,18 +119,77 @@ const statusFrom = (filled: number, total: number, requiredFilled = total): Orga
 const scoreModules = (modules: OrganizerModuleSummary[]) =>
   modules.length === 0 ? 0 : Math.round((modules.filter((module) => module.status === "complete").length / modules.length) * 100);
 
-const scoreRaceProgress = (race: CompletionRace) => {
-  const filled = [
-    hasText(race.name),
-    Number.isFinite(race.distance_km) && race.distance_km > 0,
-    Number.isFinite(race.elevation_gain_m) && race.elevation_gain_m >= 0,
-    hasText(race.gpx_storage_path),
-  ].filter(Boolean).length;
-  return Math.round((filled / 4) * 100);
-};
-
 const compactMissingLabels = (entries: Array<[label: string, isFilled: boolean]>) =>
   entries.filter(([, isFilled]) => !isFilled).map(([label]) => label);
+
+const buildFormatProgressModules = (
+  eventDetails: OrganizerEventDetails,
+  race: CompletionRace,
+  aidStations: CompletionAidStation[],
+  stationProducts: CompletionStationProduct[]
+): OrganizerModuleSummary[] => {
+  const runnerDetails = buildRunnerOrganizerDetails(eventDetails, race.organizerDetails);
+  const equipmentItems = runnerDetails.equipment.items;
+  const access = runnerDetails.access;
+
+  return [
+    {
+      id: "formats",
+      title: "Identité",
+      description: "Nom, distance, dénivelé, statut et GPX.",
+      level: "required",
+      status: isPublishableRace(race) ? "complete" : hasText(race.name) ? "incomplete" : "empty",
+      countLabel: `${race.is_live ? "Live" : "Brouillon"} / ${race.gpx_storage_path ? "GPX" : "Sans GPX"}`,
+    },
+    {
+      id: "equipment",
+      title: "Matériel",
+      description: "Matériel visible sur cette course.",
+      level: "recommended",
+      status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
+      countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
+    },
+    {
+      id: "access",
+      title: "Accès",
+      description: "Accès format, transports et infos coureur activées.",
+      level: "recommended",
+      status: statusFrom(
+        filledCount([
+          access.startAddress,
+          access.finishAddress,
+          access.enabledSections.officialParkings ? access.officialParkings : true,
+          access.enabledSections.shuttles ? access.shuttles || access.shuttleSchedule : true,
+          access.enabledSections.roadRestrictions ? access.roadRestrictions : true,
+          access.enabledSections.mapUrl ? access.mapUrl : true,
+          access.enabledSections.runnerInfo
+            ? race.organizerDetails?.runnerInfo.startArea ||
+              race.organizerDetails?.runnerInfo.briefing ||
+              race.organizerDetails?.runnerInfo.rules ||
+              race.organizerDetails?.runnerInfo.note
+            : true,
+          access.note,
+        ]),
+        8,
+        2
+      ),
+      countLabel: hasText(race.organizerDetails?.access.startAddress) ? "Spécifique" : hasText(access.startAddress) ? "Hérité" : "Non renseigné",
+    },
+    {
+      id: "aidStations",
+      title: "Ravitos",
+      description: "Départ, arrivée, ravitos, barrières et produits du format.",
+      level: "recommended",
+      status:
+        hasText(race.organizerDetails?.schedule.startTime) ||
+        hasText(race.organizerDetails?.schedule.finishCutoffTime) ||
+        aidStations.length > 0
+          ? "complete"
+          : "empty",
+      countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${stationProducts.length} produit${stationProducts.length > 1 ? "s" : ""}` : ""}`,
+    },
+  ];
+};
 
 export function buildOrganizerCompletion(
   event: CompletionEvent,
@@ -143,11 +202,14 @@ export function buildOrganizerCompletion(
   const publishableRaceCount = event.races.filter(isPublishableRace).length;
   const formatCount = event.races.length;
   const gpxCount = event.races.filter((race) => hasText(race.gpx_storage_path)).length;
-  const raceProgress = event.races.map((race) => ({
-    id: race.id,
-    name: race.name,
-    score: scoreRaceProgress(race),
-  }));
+  const raceProgress = event.races.map((race) => {
+    const isActiveRace = activeRace?.id === race.id;
+    return {
+      id: race.id,
+      name: race.name,
+      score: scoreModules(buildFormatProgressModules(eventDetails, race, isActiveRace ? aidStations : [], isActiveRace ? stationProducts : [])),
+    };
+  });
   const raceProgressScore = raceProgress.length > 0 ? Math.round(raceProgress.reduce((total, race) => total + race.score, 0) / raceProgress.length) : 0;
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, activeRace?.organizerDetails);
   const equipmentItems = runnerDetails.equipment.items;
@@ -178,12 +240,8 @@ export function buildOrganizerCompletion(
         ["Ravitos", aidStations.length > 0],
       ])
     : [];
-  const commonEquipmentMissingLabels = compactMissingLabels([
-    ["Matériel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)],
-  ]);
-  const formatEquipmentMissingLabels = compactMissingLabels([
-    ["Matériel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)],
-  ]);
+  const commonEquipmentMissingLabels = compactMissingLabels([["Matériel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)]]);
+  const formatEquipmentMissingLabels = compactMissingLabels([["Matériel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)]]);
   const bibPickupMissingLabels = compactMissingLabels([
     ["Lieu retrait", hasText(commonBibPickup.location)],
     ["Horaires", hasText(commonBibPickup.schedule)],
@@ -409,67 +467,13 @@ export function buildOrganizerCompletion(
   ];
 
   const formatModules: OrganizerModuleSummary[] = activeRace
-    ? [
-        {
-          id: "formats",
-          title: "Identité",
-          description: "Nom, distance, dénivelé, statut et GPX.",
-          level: "required",
-          status: isPublishableRace(activeRace) ? "complete" : hasText(activeRace.name) ? "incomplete" : "empty",
-          countLabel: `${activeRace.is_live ? "Live" : "Brouillon"} / ${activeRace.gpx_storage_path ? "GPX" : "Sans GPX"}`,
-          missingLabels: formatMissingLabels,
-        },
-        {
-          id: "equipment",
-          title: "Matériel",
-          description: "Matériel visible sur cette course.",
-          level: "recommended",
-          status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
-          countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
-          missingLabels: formatEquipmentMissingLabels,
-        },
-        {
-          id: "access",
-          title: "Accès",
-          description: "Accès format, transports et infos coureur activées.",
-          level: "recommended",
-          status: statusFrom(
-            filledCount([
-              access.startAddress,
-              access.finishAddress,
-              access.enabledSections.officialParkings ? access.officialParkings : true,
-              access.enabledSections.shuttles ? access.shuttles || access.shuttleSchedule : true,
-              access.enabledSections.roadRestrictions ? access.roadRestrictions : true,
-              access.enabledSections.mapUrl ? access.mapUrl : true,
-              access.enabledSections.runnerInfo
-                ? activeRace.organizerDetails?.runnerInfo.startArea ||
-                  activeRace.organizerDetails?.runnerInfo.briefing ||
-                  activeRace.organizerDetails?.runnerInfo.rules ||
-                  activeRace.organizerDetails?.runnerInfo.note
-                : true,
-              access.note,
-            ]),
-            8,
-            2
-          ),
-          countLabel: hasText(activeRace.organizerDetails?.access.startAddress) ? "Spécifique" : hasText(access.startAddress) ? "Hérité" : "Non renseigné",
-          missingLabels: formatAccessMissingLabels,
-        },
-        {
-          id: "aidStations",
-          title: "Ravitos",
-          description: "Départ, arrivée, ravitos, barrières et produits du format.",
-          level: "recommended",
-          status:
-            hasText(activeRace.organizerDetails?.schedule.startTime) ||
-            hasText(activeRace.organizerDetails?.schedule.finishCutoffTime) ||
-            aidStations.length > 0
-              ? "complete"
-              : "empty",
-          countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
-          missingLabels: aidStationMissingLabels,
-        },
-      ]
+    ? buildFormatProgressModules(eventDetails, activeRace, aidStations, stationProducts).map((module) => {
+        if (module.id === "formats") return { ...module, missingLabels: formatMissingLabels };
+        if (module.id === "equipment") return { ...module, missingLabels: formatEquipmentMissingLabels };
+        if (module.id === "access") return { ...module, missingLabels: formatAccessMissingLabels };
+        if (module.id === "aidStations") return { ...module, missingLabels: aidStationMissingLabels };
+        return module;
+      })
     : [];
 
   const score = scoreModules(modules);
