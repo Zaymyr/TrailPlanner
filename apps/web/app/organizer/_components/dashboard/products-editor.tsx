@@ -84,19 +84,19 @@ export function StationProductsBlock({
   return (
     <div className="mt-3 border-t border-border pt-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-foreground">Produits proposes</p>
+        <p className="text-sm font-semibold text-foreground">Produits proposés</p>
         <div className="flex items-center gap-2">
           <Button type="button" variant="outline" className="h-9" onClick={onOpenProductPicker} disabled={disabled}>
             Ajouter un produit
           </Button>
           <Button type="button" variant="outline" className="h-9" onClick={onToggleProductForm}>
-            {productFormOpen ? "Fermer" : "Creer un produit"}
+            {productFormOpen ? "Fermer" : "Créer un produit"}
           </Button>
         </div>
       </div>
       <div className="mt-3 flex min-h-16 flex-wrap gap-2 rounded-md border border-dashed border-brand-border bg-brand-surface/50 p-2 dark:border-emerald-400/50 dark:bg-emerald-500/5">
         {linkedProducts.length === 0 ? (
-          <p className="self-center px-2 text-xs text-muted-foreground">Aucun produit attache a ce ravito.</p>
+          <p className="self-center px-2 text-xs text-muted-foreground">Aucun produit attaché à ce ravito.</p>
         ) : (
           linkedProducts.map((link) => {
             const product = link.product ?? productsById.get(link.productId);
@@ -106,7 +106,7 @@ export function StationProductsBlock({
                   <p className="truncate font-semibold">{product?.name ?? link.productId}</p>
                   {product ? (
                     <p className="truncate text-[11px] text-muted-foreground">
-                      {fuelTypeLabels[product.fuelType]} - {formatProductAmount(product.carbsGrams, "g glucides")} - {formatProductAmount(product.sodiumMg, "mg sodium")}
+                  {fuelTypeLabels[product.fuelType]} - {formatProductAmount(product.carbsGrams, "g glucides")} - {formatProductAmount(product.sodiumMg, "mg sodium")}
                     </p>
                   ) : null}
                 </div>
@@ -134,7 +134,7 @@ export function StationProductsBlock({
             <select className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={productForm.fuelType} onChange={(event) => onProductFormChange({ ...productForm, fuelType: event.target.value as FuelType })}>
               {fuelTypeValues.map((fuelType) => (
                 <option key={fuelType} value={fuelType}>
-                  {fuelType}
+                  {fuelTypeLabels[fuelType]}
                 </option>
               ))}
             </select>
@@ -142,7 +142,7 @@ export function StationProductsBlock({
           <NumberField label="Calories" value={productForm.caloriesKcal} onChange={(value) => onProductFormChange({ ...productForm, caloriesKcal: value })} />
           <NumberField label="Glucides g" value={productForm.carbsGrams} onChange={(value) => onProductFormChange({ ...productForm, carbsGrams: value })} />
           <NumberField label="Sodium mg" value={productForm.sodiumMg} onChange={(value) => onProductFormChange({ ...productForm, sodiumMg: value })} />
-          <NumberField label="Proteines g" value={productForm.proteinGrams} onChange={(value) => onProductFormChange({ ...productForm, proteinGrams: value })} />
+          <NumberField label="Protéines g" value={productForm.proteinGrams} onChange={(value) => onProductFormChange({ ...productForm, proteinGrams: value })} />
           <NumberField label="Lipides g" value={productForm.fatGrams} onChange={(value) => onProductFormChange({ ...productForm, fatGrams: value })} />
           <TextField label="SKU" value={productForm.sku} onChange={(value) => onProductFormChange({ ...productForm, sku: value })} />
           <div className="md:col-span-2">
@@ -151,7 +151,7 @@ export function StationProductsBlock({
           <TextField label="Note ravito" value={productForm.notes} onChange={(value) => onProductFormChange({ ...productForm, notes: value })} />
           <div className="md:col-span-3">
             <Button type="submit" disabled={disabled}>
-              Creer et attacher a {station.name}
+              Créer et attacher à {station.name}
             </Button>
           </div>
         </form>
@@ -217,7 +217,7 @@ export function ProductPickerModal({
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-300">Catalogue</p>
             <h2 id="organizer-product-picker-title" className="mt-1 text-xl font-semibold text-foreground">
-              Ajouter un produit a {station.name}
+              Ajouter un produit à {station.name}
             </h2>
           </div>
           <Button type="button" variant="ghost" className="h-8 px-2" onClick={onClose} aria-label="Fermer">
@@ -247,7 +247,7 @@ export function ProductPickerModal({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
           {filteredProducts.length === 0 ? (
-            <p className="rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">Aucun produit trouve.</p>
+            <p className="rounded-lg border border-border bg-background p-4 text-sm text-muted-foreground">Aucun produit trouvé.</p>
           ) : (
             <div className="grid gap-5">
               {groupedProducts.map((group) => (
@@ -276,7 +276,7 @@ export function ProductPickerModal({
                             </div>
                           </div>
                           <Button type="button" variant={alreadyLinked ? "outline" : "default"} disabled={alreadyLinked || disabled} onClick={() => onAddProduct(product.id)}>
-                            {alreadyLinked ? "Deja ajoute" : "Ajouter"}
+                            {alreadyLinked ? "Déjà ajouté" : "Ajouter"}
                           </Button>
                         </div>
                       );

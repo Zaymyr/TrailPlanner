@@ -5,14 +5,14 @@ import type { ProductFormValues } from './types';
 
 export const equipmentSuggestions = [
   "Couverture de survie",
-  "Telephone charge",
-  "Reserve d'eau",
-  "Reserve alimentaire",
-  "Veste impermeable",
+  "Téléphone chargé",
+  "Réserve d'eau",
+  "Réserve alimentaire",
+  "Veste imperméable",
   "Gobelet personnel",
   "Lampe frontale",
   "Sifflet",
-  "Piece d'identite",
+  "Pièce d'identité",
 ];
 
 export const aidStationTypeLabels: Record<AidStationType, string> = {
@@ -26,7 +26,7 @@ export const aidStationTypeLabels: Record<AidStationType, string> = {
 export const fuelTypeLabels: Record<FuelType, string> = {
   gel: "Gel",
   drink_mix: "Boisson",
-  electrolyte: "Electrolytes",
+  electrolyte: "Électrolytes",
   capsule: "Capsule",
   bar: "Barre",
   real_food: "Aliment",

@@ -207,7 +207,7 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { event?: OrganizerEventDetail; message?: string } | null;
       if (!response.ok || !data?.event) {
-        setError(data?.message ?? "Impossible de charger l'evenement.");
+        setError(data?.message ?? "Impossible de charger l'événement.");
         return;
       }
       const nextEvent = normalizeOrganizerEventDetail(data.event);
@@ -223,7 +223,7 @@ export function OrganizerDashboard() {
       setDirtyModules(new Set());
     } catch (caught) {
       console.error("Unable to load organizer event", caught);
-      setError("Impossible de charger l'evenement.");
+      setError("Impossible de charger l'événement.");
     } finally {
       setStatus("idle");
     }
@@ -334,7 +334,7 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        showToast("error", data?.message ?? "Impossible d'enregistrer l'evenement.");
+        showToast("error", data?.message ?? "Impossible d'enregistrer l'événement.");
         return false;
       }
       if (raceEquipmentUpdates.length > 0) {
@@ -352,11 +352,11 @@ export function OrganizerDashboard() {
 
         const failedRaceUpdate = raceResponses.find((result) => !result.ok);
         if (failedRaceUpdate) {
-          showToast("error", failedRaceUpdate.message ?? "Impossible de reporter le materiel sur toutes les courses.");
+          showToast("error", failedRaceUpdate.message ?? "Impossible de reporter le matériel sur toutes les courses.");
           return false;
         }
       }
-      showToast("success", "Evenement mis a jour.");
+      showToast("success", "Événement mis à jour.");
       clearDirty(["event", "equipment", "bibPickup", "access", "services"]);
       await loadEvent(selectedEventId);
       return true;
@@ -410,12 +410,12 @@ export function OrganizerDashboard() {
         });
         const eventData = (await eventResponse.json().catch(() => null)) as { message?: string } | null;
         if (!eventResponse.ok) {
-          showToast("error", eventData?.message ?? "Impossible de mettre a jour le materiel partage.");
+          showToast("error", eventData?.message ?? "Impossible de mettre à jour le matériel partagé.");
           return false;
         }
         setEventForm((current) => ({ ...current, organizerDetails: syncedEventDetails }));
       }
-      showToast("success", "Format mis a jour.");
+      showToast("success", "Format mis à jour.");
       clearDirty(["formats", "schedule"]);
       await loadEvent(selectedEventId, activeRace.id);
       return true;
@@ -454,7 +454,7 @@ export function OrganizerDashboard() {
       setNewRaceForm(createEmptyRaceForm());
       setActiveTab(data.race.id);
       setActiveModule("formats");
-      showToast("success", "Format ajoute.");
+      showToast("success", "Format ajouté.");
       await loadEvent(selectedEventId, data.race.id);
     } finally {
       setStatus("idle");
@@ -489,7 +489,7 @@ export function OrganizerDashboard() {
       }
       setActiveTab(data.race.id);
       setActiveModule("formats");
-      showToast("success", "Format duplique en brouillon, sans GPX ni ravitos.");
+      showToast("success", "Format dupliqué en brouillon, sans GPX ni ravitos.");
       await loadEvent(selectedEventId, data.race.id);
     } finally {
       setStatus("idle");
@@ -511,7 +511,7 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as (GpxPreview & { message?: string; appliedAidStationCount?: number }) | null;
       if (!response.ok) {
-        showToast("error", data?.message ?? "GPX invalide ou impossible a importer.");
+        showToast("error", data?.message ?? "GPX invalide ou impossible à importer.");
         return;
       }
       setGpxPreview(normalizeGpxPreview(data));
@@ -520,10 +520,10 @@ export function OrganizerDashboard() {
       showToast(
         "success",
         appliedCount > 0
-          ? `GPX importe. ${appliedCount} ravito${appliedCount > 1 ? "s" : ""} cree${appliedCount > 1 ? "s" : ""}.`
+          ? `GPX importé. ${appliedCount} ravito${appliedCount > 1 ? "s" : ""} créé${appliedCount > 1 ? "s" : ""}.`
           : detectedCount > 0
-            ? "GPX importe. Waypoints detectes, ravitos existants preserves."
-            : "GPX importe. Les plans existants restent des snapshots."
+            ? "GPX importé. Waypoints détectés, ravitos existants préservés."
+            : "GPX importé. Les plans existants restent des snapshots."
       );
       await loadEvent(selectedEventId, activeRace.id);
       await loadRaceSidecar(activeRace.id);
@@ -563,7 +563,7 @@ export function OrganizerDashboard() {
         return;
       }
       setEventForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
-      showToast("success", "Image evenement mise a jour.");
+      showToast("success", "Image événement mise à jour.");
       await loadEvent(selectedEventId, activeTab);
     } finally {
       setStatus("idle");
@@ -586,7 +586,7 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
         return false;
       }
-      showToast("success", "Ravitos mis a jour.");
+      showToast("success", "Ravitos mis à jour.");
       clearDirty(["aidStations"]);
       await loadRaceSidecar(activeRace.id);
       return true;
@@ -607,7 +607,7 @@ export function OrganizerDashboard() {
     });
     if (!response.ok) {
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
-      showToast("error", data?.message ?? "Impossible de mettre a jour les produits.");
+      showToast("error", data?.message ?? "Impossible de mettre à jour les produits.");
       return false;
     }
     await loadRaceSidecar(activeRace.id);
@@ -656,11 +656,11 @@ export function OrganizerDashboard() {
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        showToast("error", data?.message ?? "Impossible de creer le produit.");
+        showToast("error", data?.message ?? "Impossible de créer le produit.");
         return;
       }
       setProductForm(emptyProductForm);
-      showToast("success", "Produit cree pour ce ravito.");
+      showToast("success", "Produit créé pour ce ravito.");
       await loadRaceSidecar(activeRace.id);
     } finally {
       setStatus("idle");
@@ -712,7 +712,7 @@ export function OrganizerDashboard() {
     const hasRaceDirtyChanges = raceDirtyModules.some((moduleId) => dirtyModules.has(moduleId));
     const isLeavingRaceTab = activeTab !== EVENT_TAB_ID;
     if (isLeavingRaceTab && hasRaceDirtyChanges) {
-      const confirmed = window.confirm("Des modifications de format ne sont pas enregistrees. Changer de format les ignorera.");
+      const confirmed = window.confirm("Des modifications de format ne sont pas enregistrées. Changer de format les ignorera.");
       if (!confirmed) return;
       clearDirty(raceDirtyModules);
     }
@@ -724,7 +724,7 @@ export function OrganizerDashboard() {
   };
 
   if (isLoading) {
-    return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Verification de session...</div>;
+    return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Vérification de session...</div>;
   }
 
   if (!session) {
@@ -739,7 +739,7 @@ export function OrganizerDashboard() {
   }
 
   const tabs = [
-    { id: EVENT_TAB_ID, label: "Evenement" },
+    { id: EVENT_TAB_ID, label: "Événement" },
     ...(eventDetail?.races ?? []).map((race) => ({ id: race.id, label: race.name })),
     { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
@@ -756,7 +756,7 @@ export function OrganizerDashboard() {
         selectedEventId={selectedEventId}
         onSelectedEventChange={(eventId) => {
           if (hasDirtyChanges) {
-            const confirmed = window.confirm("Des modifications ne sont pas enregistrees. Changer d'evenement les ignorera.");
+            const confirmed = window.confirm("Des modifications ne sont pas enregistrées. Changer d'événement les ignorera.");
             if (!confirmed) return;
           }
           setSelectedEventId(eventId);
@@ -795,7 +795,7 @@ export function OrganizerDashboard() {
         </CardHeader>
         <CardContent>
           {!eventDetail || !eventDraft ? (
-            <p className="text-sm text-muted-foreground">Chargement de l'evenement...</p>
+            <p className="text-sm text-muted-foreground">Chargement de l'événement...</p>
           ) : activeModule === "event" ? (
             <EventInfoEditor
               eventForm={eventForm}

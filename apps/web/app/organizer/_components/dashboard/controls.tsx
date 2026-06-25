@@ -26,7 +26,7 @@ export function LiveToggle({
   checked,
   disabled,
   onChange,
-  liveLabel = "Publie",
+  liveLabel = "Publié",
   draftLabel = "Brouillon",
 }: {
   checked: boolean;
@@ -79,7 +79,7 @@ export function StatusBadge({ status }: { status: OrganizerModuleStatus }) {
 export function LevelBadge({ level }: { level: OrganizerModuleLevel }) {
   const labels: Record<OrganizerModuleLevel, string> = {
     required: "Obligatoire",
-    recommended: "Recommande",
+    recommended: "Recommandé",
     optional: "Optionnel",
   };
   return <span className="rounded-full border border-border bg-background px-2 py-1 text-[11px] font-semibold text-muted-foreground">{labels[level]}</span>;

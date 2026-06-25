@@ -163,7 +163,7 @@ export default function OrganizersPage() {
         contactEmail: current.contactEmail,
       }));
       setManualEventForm(initialManualEventForm);
-      setMessage("Demande envoyee. Tu la retrouveras dans le dashboard organisateur.");
+      setMessage("Demande envoyée. Tu la retrouveras dans le dashboard organisateur.");
       await loadClaims();
     } catch (caught) {
       console.error("Unable to submit organizer claim", caught);
@@ -181,10 +181,11 @@ export default function OrganizersPage() {
             Espace organisateurs
           </p>
           <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50 sm:text-4xl">
-            Claim une course et gere ses formats, GPX, ravitos et produits.
+            Claim une course et gère ses formats, GPX, ravitos et produits.
           </h1>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground dark:text-slate-300">
-            Un compte Supabase classique suffit. Une fois la demande validee par l'admin, les modifications sont publiees directement sur l'evenement public.
+            Un compte Supabase classique suffit. Une fois la demande validée par l'admin, les modifications sont
+            publiées directement sur l'événement public.
           </p>
           <div className="flex flex-wrap gap-3">
             {session ? (
@@ -197,7 +198,7 @@ export default function OrganizersPage() {
                   <Button>Se connecter</Button>
                 </Link>
                 <Link href="/sign-up">
-                  <Button variant="outline">Creer un compte</Button>
+                  <Button variant="outline">Créer un compte</Button>
                 </Link>
               </>
             )}
@@ -212,7 +213,7 @@ export default function OrganizersPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Verification de session...</p>
+              <p className="text-sm text-muted-foreground">Vérification de session...</p>
             ) : !session ? (
               <p className="text-sm text-muted-foreground">Connecte-toi pour envoyer ou suivre une demande.</p>
             ) : claims.length === 0 ? (
@@ -242,7 +243,7 @@ export default function OrganizersPage() {
         <Card className="rounded-lg">
           <CardHeader>
             <CardTitle>1. Choisir la course</CardTitle>
-            <CardDescription>Le claim porte sur l'evenement, pas sur un format isole.</CardDescription>
+            <CardDescription>Le claim porte sur l'événement, pas sur un format isolé.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-2 sm:grid-cols-2">
@@ -284,7 +285,7 @@ export default function OrganizersPage() {
                 </div>
                 <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
                   {events.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Aucune course trouvee.</p>
+                    <p className="text-sm text-muted-foreground">Aucune course trouvée.</p>
                   ) : (
                     events.map((event) => (
                       <button
@@ -299,7 +300,7 @@ export default function OrganizersPage() {
                       >
                         <span className="block font-semibold">{event.name}</span>
                         <span className="block text-xs text-muted-foreground">
-                          {[event.location, event.race_date].filter(Boolean).join(" · ") || "Details a completer"}
+                          {[event.location, event.race_date].filter(Boolean).join(" · ") || "Détails à compléter"}
                         </span>
                         {event.races?.length ? (
                           <span className="mt-2 block text-xs text-muted-foreground">
@@ -344,7 +345,7 @@ export default function OrganizersPage() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  La course sera creee comme brouillon non public, puis rattachee a ta demande.
+                  La course sera créée comme brouillon non public, puis rattachée à ta demande.
                 </p>
               </div>
             )}
@@ -355,19 +356,19 @@ export default function OrganizersPage() {
           <CardHeader>
             <CardTitle>2. Demander le claim</CardTitle>
             <CardDescription>
-              {claimTargetName ?? "Selectionne une course pour activer le formulaire."}
+              {claimTargetName ?? "Sélectionne une course pour activer le formulaire."}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {!session ? (
               <div className="space-y-3 text-sm text-muted-foreground">
-                <p>La demande est liee a ton compte. Connecte-toi ou cree un compte avant de l'envoyer.</p>
+                <p>La demande est liée à ton compte. Connecte-toi ou crée un compte avant de l'envoyer.</p>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/sign-in">
                     <Button>Se connecter</Button>
                   </Link>
                   <Link href="/sign-up">
-                    <Button variant="outline">Creer un compte</Button>
+                    <Button variant="outline">Créer un compte</Button>
                   </Link>
                 </div>
               </div>
@@ -384,7 +385,7 @@ export default function OrganizersPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="roleTitle">Role</Label>
+                    <Label htmlFor="roleTitle">Rôle</Label>
                     <Input
                       id="roleTitle"
                       value={claimForm.roleTitle}

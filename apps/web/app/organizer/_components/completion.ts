@@ -138,7 +138,7 @@ export function buildOrganizerCompletion(
   const eventMissingLabels = compactMissingLabels([
     ["Nom", hasText(event.name)],
     ["Lieu", hasText(event.location)],
-    ["Date debut", hasText(event.race_date)],
+    ["Date début", hasText(event.race_date)],
     ["Date fin", hasText(eventDetails.dateRange.endDate)],
   ]);
   const formatMissingLabels = activeRace
@@ -149,14 +149,14 @@ export function buildOrganizerCompletion(
       ])
     : [];
   const scheduleMissingLabels = compactMissingLabels([
-    ["Heure depart", hasText(schedule?.startTime)],
-    ["Barriere arrivee", hasText(schedule?.finishCutoffTime) || hasText(schedule?.cutoffNote)],
+    ["Heure départ", hasText(schedule?.startTime)],
+    ["Barrière arrivée", hasText(schedule?.finishCutoffTime) || hasText(schedule?.cutoffNote)],
   ]);
   const commonEquipmentMissingLabels = compactMissingLabels([
-    ["Materiel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)],
+    ["Matériel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)],
   ]);
   const formatEquipmentMissingLabels = compactMissingLabels([
-    ["Materiel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)],
+    ["Matériel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)],
   ]);
   const commonBibPickupMissingLabels = compactMissingLabels([
     ["Lieu retrait", hasText(commonBibPickup.location)],
@@ -167,11 +167,11 @@ export function buildOrganizerCompletion(
     ["Horaires", hasText(bibPickup?.schedule)],
   ]);
   const commonAccessMissingLabels = compactMissingLabels([
-    ["Depart", hasText(commonAccess.startAddress)],
+    ["Départ", hasText(commonAccess.startAddress)],
     ["Parking/navettes", hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles)],
   ]);
   const formatAccessMissingLabels = compactMissingLabels([
-    ["Depart", hasText(access?.startAddress)],
+    ["Départ", hasText(access?.startAddress)],
     ["Parking/navettes", hasText(access?.officialParkings) || hasText(access?.shuttles)],
   ]);
   const linkedStationProductCount = stationProducts.length;
@@ -202,7 +202,7 @@ export function buildOrganizerCompletion(
     {
       id: "formats",
       title: "Formats & GPX",
-      description: "Formats de course, distances, deniveles et traces GPX.",
+      description: "Formats de course, distances, dénivelés et traces GPX.",
       level: "required",
       status: publishableRaceCount > 0 ? "complete" : formatCount > 0 ? "incomplete" : "empty",
       countLabel: `${formatCount} format${formatCount > 1 ? "s" : ""}, ${gpxCount} GPX`,
@@ -210,15 +210,15 @@ export function buildOrganizerCompletion(
     {
       id: "aidStations",
       title: "Ravitos & points de course",
-      description: "Liste des ravitos, services, barrieres et produits officiels.",
+      description: "Liste des ravitos, services, barrières et produits officiels.",
       level: "recommended",
       status: aidStations.length > 0 ? "complete" : "empty",
       countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
     },
     {
       id: "equipment",
-      title: "Materiel",
-      description: "Materiel visible sur la course selectionnee.",
+      title: "Matériel",
+      description: "Matériel visible sur la course sélectionnée.",
       level: "recommended",
       status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
       countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
@@ -226,17 +226,17 @@ export function buildOrganizerCompletion(
     },
     {
       id: "schedule",
-      title: "Horaires & barrieres",
-      description: "Depart, limite arrivee, navettes et synthese barrieres.",
+      title: "Horaires & barrières",
+      description: "Départ, limite arrivée, navettes et synthèse barrières.",
       level: "recommended",
       status: statusFrom(filledCount([schedule?.startTime, schedule?.finishCutoffTime, schedule?.cutoffNote]), 3, 1),
-      countLabel: activeRace ? `${stationsWithDetails} point${stationsWithDetails > 1 ? "s" : ""} detaille${stationsWithDetails > 1 ? "s" : ""}` : "Aucun format",
+      countLabel: activeRace ? `${stationsWithDetails} point${stationsWithDetails > 1 ? "s" : ""} détaillé${stationsWithDetails > 1 ? "s" : ""}` : "Aucun format",
       missingLabels: scheduleMissingLabels,
     },
     {
       id: "bibPickup",
       title: "Dossard",
-      description: "Commun evenement avec surcharge possible par format.",
+      description: "Commun événement avec surcharge possible par format.",
       level: "recommended",
       status: statusFrom(
         filledCount([
@@ -250,13 +250,13 @@ export function buildOrganizerCompletion(
         6,
         2
       ),
-      countLabel: hasText(bibPickup?.location) ? "Lieu renseigne" : "Non renseigne",
+      countLabel: hasText(bibPickup?.location) ? "Lieu renseigné" : "Non renseigné",
       missingLabels: formatBibPickupMissingLabels,
     },
     {
       id: "access",
-      title: "Acces",
-      description: "Acces commun avec surcharge possible par format.",
+      title: "Accès",
+      description: "Accès commun avec surcharge possible par format.",
       level: "recommended",
       status: statusFrom(
         filledCount([
@@ -272,13 +272,13 @@ export function buildOrganizerCompletion(
         8,
         2
       ),
-      countLabel: hasText(access?.officialParkings) || hasText(access?.shuttles) ? "Infos transport" : "Non renseigne",
+      countLabel: hasText(access?.officialParkings) || hasText(access?.shuttles) ? "Infos transport" : "Non renseigné",
       missingLabels: formatAccessMissingLabels,
     },
     {
       id: "services",
       title: "Partenaires / services",
-      description: "Accompagnants, hebergement, restauration, recup, partenaires.",
+      description: "Accompagnants, hébergement, restauration, récup, partenaires.",
       level: "optional",
       status: statusFrom(
         filledCount([
@@ -293,15 +293,15 @@ export function buildOrganizerCompletion(
         7,
         1
       ),
-      countLabel: hasText(services?.partners) ? "Partenaires renseignes" : "Optionnel",
+      countLabel: hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
     },
     {
       id: "preview",
-      title: "Previsualisation coureur",
+      title: "Prévisualisation coureur",
       description: "Version simple de ce que verra un coureur.",
       level: "optional",
       status: isEventReadyToPublish(event) ? "complete" : "incomplete",
-      countLabel: isEventReadyToPublish(event) ? "Pret" : "Essentiel manquant",
+      countLabel: isEventReadyToPublish(event) ? "Prêt" : "Essentiel manquant",
     },
   ];
 
@@ -317,8 +317,8 @@ export function buildOrganizerCompletion(
     },
     {
       id: "equipment",
-      title: "Materiel",
-      description: "Materiel valable pour tous les formats.",
+      title: "Matériel",
+      description: "Matériel valable pour tous les formats.",
       level: "recommended",
       status: commonEquipment.items.length > 0 ? "complete" : hasText(commonEquipment.note) ? "incomplete" : "empty",
       countLabel: `${commonEquipment.items.length} item${commonEquipment.items.length > 1 ? "s" : ""}`,
@@ -327,7 +327,7 @@ export function buildOrganizerCompletion(
     {
       id: "bibPickup",
       title: "Dossard",
-      description: "Retrait et documents par defaut.",
+      description: "Retrait et documents par défaut.",
       level: "recommended",
       status: statusFrom(
         filledCount([
@@ -341,13 +341,13 @@ export function buildOrganizerCompletion(
         6,
         2
       ),
-      countLabel: hasText(commonBibPickup.location) ? "Lieu commun" : "Non renseigne",
+      countLabel: hasText(commonBibPickup.location) ? "Lieu commun" : "Non renseigné",
       missingLabels: commonBibPickupMissingLabels,
     },
     {
       id: "access",
-      title: "Acces",
-      description: "Acces, parking et navettes par defaut.",
+      title: "Accès",
+      description: "Accès, parking et navettes par défaut.",
       level: "recommended",
       status: statusFrom(
         filledCount([
@@ -363,13 +363,13 @@ export function buildOrganizerCompletion(
         8,
         2
       ),
-      countLabel: hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles) ? "Infos transport" : "Non renseigne",
+      countLabel: hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles) ? "Infos transport" : "Non renseigné",
       missingLabels: commonAccessMissingLabels,
     },
     {
       id: "services",
       title: "Services",
-      description: "Accompagnants, hebergement, restauration, partenaires.",
+      description: "Accompagnants, hébergement, restauration, partenaires.",
       level: "optional",
       status: statusFrom(
         filledCount([
@@ -384,7 +384,7 @@ export function buildOrganizerCompletion(
         7,
         1
       ),
-      countLabel: hasText(services.partners) ? "Partenaires renseignes" : "Optionnel",
+      countLabel: hasText(services.partners) ? "Partenaires renseignés" : "Optionnel",
     },
   ];
 
@@ -392,8 +392,8 @@ export function buildOrganizerCompletion(
     ? [
         {
           id: "formats",
-          title: "Identite",
-          description: "Nom, distance, denivele, statut et GPX.",
+          title: "Identité",
+          description: "Nom, distance, dénivelé, statut et GPX.",
           level: "required",
           status: isPublishableRace(activeRace) ? "complete" : hasText(activeRace.name) ? "incomplete" : "empty",
           countLabel: `${activeRace.is_live ? "Live" : "Brouillon"} / ${activeRace.gpx_storage_path ? "GPX" : "Sans GPX"}`,
@@ -401,17 +401,17 @@ export function buildOrganizerCompletion(
         },
         {
           id: "schedule",
-          title: "Horaires & barrieres",
-          description: "Depart, limite arrivee, navettes et barrieres.",
+          title: "Horaires & barrières",
+          description: "Départ, limite arrivée, navettes et barrières.",
           level: "recommended",
           status: statusFrom(filledCount([schedule?.startTime, schedule?.finishCutoffTime, schedule?.cutoffNote]), 3, 1),
-          countLabel: `${stationsWithDetails} point${stationsWithDetails > 1 ? "s" : ""} detaille${stationsWithDetails > 1 ? "s" : ""}`,
+          countLabel: `${stationsWithDetails} point${stationsWithDetails > 1 ? "s" : ""} détaillé${stationsWithDetails > 1 ? "s" : ""}`,
           missingLabels: scheduleMissingLabels,
         },
         {
           id: "equipment",
-          title: "Materiel",
-          description: "Materiel visible sur cette course.",
+          title: "Matériel",
+          description: "Matériel visible sur cette course.",
           level: "recommended",
           status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
           countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
@@ -420,7 +420,7 @@ export function buildOrganizerCompletion(
         {
           id: "bibPickup",
           title: "Dossard",
-          description: "Commun herite ou retrait specifique.",
+          description: "Commun hérité ou retrait spécifique.",
           level: "recommended",
           status: statusFrom(
             filledCount([
@@ -434,13 +434,13 @@ export function buildOrganizerCompletion(
             6,
             2
           ),
-          countLabel: hasText(activeRace.organizerDetails?.bibPickup.location) ? "Specifique" : hasText(bibPickup?.location) ? "Herite" : "Non renseigne",
+          countLabel: hasText(activeRace.organizerDetails?.bibPickup.location) ? "Spécifique" : hasText(bibPickup?.location) ? "Hérité" : "Non renseigné",
           missingLabels: formatBibPickupMissingLabels,
         },
         {
           id: "access",
-          title: "Acces",
-          description: "Commun herite ou acces specifique.",
+          title: "Accès",
+          description: "Commun hérité ou accès spécifique.",
           level: "recommended",
           status: statusFrom(
             filledCount([
@@ -460,13 +460,13 @@ export function buildOrganizerCompletion(
             12,
             2
           ),
-          countLabel: hasText(activeRace.organizerDetails?.access.startAddress) ? "Specifique" : hasText(access?.startAddress) ? "Herite" : "Non renseigne",
+          countLabel: hasText(activeRace.organizerDetails?.access.startAddress) ? "Spécifique" : hasText(access?.startAddress) ? "Hérité" : "Non renseigné",
           missingLabels: formatAccessMissingLabels,
         },
         {
           id: "aidStations",
           title: "Ravitos",
-          description: "Points de course, services, barrieres et produits du format.",
+          description: "Points de course, services, barrières et produits du format.",
           level: "recommended",
           status: aidStations.length > 0 ? "complete" : "empty",
           countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,

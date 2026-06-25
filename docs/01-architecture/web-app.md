@@ -146,6 +146,7 @@ The v1 organizer portal is web-only:
 
 - `/organizers` lets authenticated users search live events or create a missing non-live draft event before creating an event claim.
 - `/organizer` lets approved organizers manage their claimed events through a modular dashboard with compact event synthesis, one tabbed completion surface whose first tab is the event and whose following tabs are formats, planner-style ravito cards, common-vs-format JSONB detail modules, and an internal runner preview. `OrganizerDashboard.tsx` stays the client-state orchestrator while route-local dashboard components under `_components/dashboard/` own the reusable shell, controls, editors, ravito/product blocks, and runner preview.
+- The organizer claim screen and approved dashboard keep a shared French copy layer: claim/request status cards, module titles, toasts, and runner-preview labels are intentionally concise and accented consistently across `/organizers` and `/organizer`.
 - The main header shows `/organizer` as "Mes courses" / "My races" only after `/api/organizer/claims` reports at least one active membership.
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
 - `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.

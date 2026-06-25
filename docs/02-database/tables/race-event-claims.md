@@ -116,6 +116,7 @@ order by created_at asc;
 - Deleting an auth user removes their claims, but public race/event data remains owned by catalog tables.
 - Rejected manual claims should keep their claim audit trail; deleting the draft event would cascade-delete the claim.
 - Pending claims should show request status only, not the organizer dashboard modules.
+- Keep organizer request-state copy aligned across `/organizers` and `/organizer`: pending/rejected cards are status-only French UI and must not imply edit access before membership approval.
 
 ## Related Docs
 

@@ -51,14 +51,14 @@ export function AidStationsEditor({
   onCreateProduct: (event: FormEvent<HTMLFormElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  if (!activeRace) return <p className="text-sm text-muted-foreground">Selectionne un format pour gerer ses ravitos.</p>;
+  if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between gap-2">
         <div>
           <p className="font-semibold text-foreground">{activeRace.name}</p>
-          <p className="text-sm text-muted-foreground">Vue ravitos compacte, avec produits et details dans la meme carte.</p>
+          <p className="text-sm text-muted-foreground">Vue ravitos compacte, avec produits et détails dans la même carte.</p>
         </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onAddStation}>
@@ -97,7 +97,7 @@ export function AidStationsEditor({
                           <p className="truncate text-lg font-semibold text-foreground">{station.name || `Ravito ${index + 1}`}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {formatKm(station.distanceKm)}
-                            {details.cutoffTime ? ` - Barriere ${details.cutoffTime}` : " - Barriere a definir"}
+                            {details.cutoffTime ? ` - Barrière ${details.cutoffTime}` : " - Barrière à définir"}
                           </p>
                         </div>
                         {!station.id ? (
@@ -111,7 +111,7 @@ export function AidStationsEditor({
                         <StationMetaChip>{formatKm(station.distanceKm)}</StationMetaChip>
                         <StationMetaChip>D+ {formatOptionalMeters(details.cumulativeElevationGainM)}</StationMetaChip>
                         <StationMetaChip>D- {formatOptionalMeters(details.cumulativeElevationLossM)}</StationMetaChip>
-                        <StationMetaChip>Barriere {details.cutoffTime?.trim() || "-"}</StationMetaChip>
+                        <StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}</StationMetaChip>
                         <StationMetaChip>
                           {productCount} produit{productCount > 1 ? "s" : ""}
                         </StationMetaChip>
@@ -217,20 +217,20 @@ export function StationDetailsPanel({ station, onChange, productsSlot }: { stati
         </div>
         <NumberField label="Distance km" value={station.distanceKm} step="0.1" onChange={(value) => onChange({ ...station, distanceKm: value })} />
         <NumberField
-          label="D+ cumule"
+          label="D+ cumulé"
           value={details.cumulativeElevationGainM ?? 0}
           step="1"
           onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cumulativeElevationGainM: value } })}
         />
         <NumberField
-          label="D- cumule"
+          label="D- cumulé"
           value={details.cumulativeElevationLossM ?? 0}
           step="1"
           onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cumulativeElevationLossM: value } })}
         />
         <div className="xl:col-span-2">
           <TextField
-            label="Barriere horaire"
+            label="Barrière horaire"
             value={details.cutoffTime ?? ""}
             onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })}
           />
@@ -239,7 +239,7 @@ export function StationDetailsPanel({ station, onChange, productsSlot }: { stati
 
       <div className="mt-4 rounded-[1.25rem] border border-border bg-background p-4">
         <p className="text-sm font-semibold text-foreground">Infos secondaires</p>
-        <p className="mt-1 text-xs text-muted-foreground">Type de point, altitude optionnelle, sac de delestage et note organisateur.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Type de point, altitude optionnelle, sac de délestage et note organisateur.</p>
         <div className="mt-3 grid gap-3 md:grid-cols-3">
           <div className="space-y-1">
             <label className="text-sm font-medium text-foreground">Type</label>
@@ -269,7 +269,7 @@ export function StationDetailsPanel({ station, onChange, productsSlot }: { stati
           <div className="flex items-end">
             <ToggleChip
               checked={details.dropBagAvailable}
-              label="Sac de delestage"
+              label="Sac de délestage"
               onChange={(checked) => onChange({ ...station, organizerDetails: { ...details, dropBagAvailable: checked } })}
             />
           </div>
