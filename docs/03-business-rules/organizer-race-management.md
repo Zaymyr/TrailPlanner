@@ -99,7 +99,7 @@ Approved organizers can:
 
 - edit event-level name, location, date, PNG image, live state, and common `race_events.organizer_details`;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
-- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = true`, and optional organizer details;
+- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = false` by default, and optional organizer details;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
 - upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
@@ -168,13 +168,14 @@ Planner `assistanceAllowed` is separate from organizer product presence: it says
 
 ## Mobile Scope
 
-No mobile organizer editor exists in v1. Mobile can now consume published organizer details through the read-only `race/[id]/racebook` screen for live formats when there is meaningful organizer or ravito content. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, draft visibility, or admin powers.
+No mobile organizer editor exists in v1. Mobile can now consume published organizer details through the read-only `race/[id]/racebook` screen for live formats when there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, draft visibility, or admin powers.
 
 ## Gotchas
 
 - Do not use `races.created_by` to authorize claimed public race edits.
 - Do not expose organizer JSONB fields through public/mobile broad selects accidentally; public surfaces should keep explicit column selection.
-- Do not let the mobile Racebook bypass its live/content gate. Direct links for non-live or empty formats should fall back to an unavailable state instead of showing empty organizer shells.
+- Do not let the mobile Racebook bypass its live/content gate. Direct links for non-live, aid-station-only, or otherwise empty formats should fall back to an unavailable state instead of showing empty organizer shells.
+- New organizer formats should start in draft (`is_live = false`) until someone publishes them deliberately.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
 - Do not add separate grants or RLS policies for organizer JSONB columns on existing source tables; route membership checks and table row policies remain the access boundary.
 - Do not auto-sync existing saved plans after organizer source edits. Official ravito product links are read-time response overlays only; service flags, GPX, station distances, pacing, and runner supplies remain stored plan data.

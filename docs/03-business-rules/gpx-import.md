@@ -1,12 +1,15 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-06-24
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
   - apps/web/lib/gpx/normalizeImportedWaypoints.ts
   - apps/web/lib/organizer-aid-station-products.ts
+  - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
+  - apps/web/app/api/admin/race-catalog/utmb/route.ts
+  - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
@@ -71,10 +74,10 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 
 1. Requires bearer token and admin user.
 2. Accepts multipart form data with GPX.
-3. Optionally creates a `race_events` row.
+3. Optionally creates a draft `race_events` row unless the admin explicitly marks it live.
 4. Uploads GPX into private `race-gpx`.
 5. Optionally uploads image into public `race-images`.
-6. Inserts a public/live `races` row.
+6. Inserts a public `races` row that stays draft (`is_live = false`) by default unless the admin explicitly marks it live.
 7. Inserts `race_aid_stations` from manual stations or normalized GPX waypoints.
 
 ## User Private Race Import
@@ -144,6 +147,7 @@ Existing saved plans are not rewritten after organizer GPX replacement. They kee
 - Organizer GPX replacement updates source race data only; saved plans remain snapshots.
 - Organizer GPX waypoint import is safe-mode only: detected waypoints do not replace existing source stations, because replacing rows would break station ids and product links.
 - Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`. Organizer station-product links are the exception at response time: plans with `race_id` can receive current product suggestions from `/api/plans` without rewriting the saved plan row.
+- Imported or manually added source aid stations do not count as published organizer mobile content by themselves; the mobile Racebook gate still needs explicit organizer details.
 
 ## Related Docs
 

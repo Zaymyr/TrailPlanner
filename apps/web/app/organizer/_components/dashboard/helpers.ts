@@ -34,7 +34,7 @@ export const createEmptyEventForm = (): EventFormValues => ({
   location: "",
   raceDate: "",
   thumbnailUrl: "",
-  isLive: true,
+  isLive: false,
   organizerDetails: cloneJson(defaultOrganizerEventDetails),
 });
 
@@ -46,7 +46,7 @@ export const createEmptyRaceForm = (): RaceFormValues => ({
   locationText: "",
   raceDate: "",
   thumbnailUrl: "",
-  isLive: true,
+  isLive: false,
   organizerDetails: cloneJson(defaultOrganizerRaceDetails),
 });
 

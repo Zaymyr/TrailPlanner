@@ -83,6 +83,7 @@ Summary:
 - Race aid stations are source data, not per-plan state.
 - When a plan is created from catalog, water availability is copied into `plan_aid_stations`, while water, solid, and assistance flags are copied into `race_plans.planner_values.aidStations`.
 - If a race has no aid stations, import code may derive stations from GPX waypoints.
+- Derived or imported source aid stations do not by themselves make a race eligible for the mobile Racebook entry point.
 - Existing code attempts to avoid destructive deletion when linked plan stations exist, but the link column is not visible in migrations.
 - Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
 - The organizer product picker requires a saved source station id; new ravitos must be saved before products can be attached.

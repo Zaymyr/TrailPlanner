@@ -540,7 +540,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       trace_id: "",
       external_site_url: "",
       thumbnail_url: "",
-      is_live: true,
+      is_live: false,
     },
   });
 

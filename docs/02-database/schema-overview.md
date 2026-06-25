@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -147,6 +147,7 @@ erDiagram
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
+- Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
