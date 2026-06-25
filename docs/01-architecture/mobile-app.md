@@ -1,16 +1,21 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-06-10
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - apps/mobile/package.json
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/app/(app)/_layout.tsx
+  - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/app/(app)/race/_layout.tsx
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/lib/race-import.ts
+  - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/lib/webApi.ts
@@ -92,6 +97,7 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 The layout also tracks auth analytics for signed-in and signed-out events.
 Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion.
 Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx` so the onboarding race choice uses the same event-card UX as the Courses tab.
+The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior.
 
 ## Premium and Purchases
 
@@ -129,12 +135,14 @@ Do not copy actual keys into docs. Use environment variable names only.
 
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
+- The mobile catalog now has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details` on live formats: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
+- Keep the mobile Racebook read-only. It consumes published organizer details plus live ravito source data; it must not import organizer dashboard mutation logic or admin routes.
 
 ## Related Docs
 

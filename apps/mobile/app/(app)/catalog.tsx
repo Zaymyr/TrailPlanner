@@ -21,6 +21,7 @@ import type { FloatingActionMenuItem } from '../../components/navigation/Floatin
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { canShowRacebook } from '../../lib/racebook';
 import { supabase } from '../../lib/supabase';
 
 type Race = {
@@ -29,9 +30,11 @@ type Race = {
   distance_km: number;
   elevation_gain_m: number;
   race_date?: string | null;
+  is_live: boolean | null;
   has_aid_stations: boolean | null;
   gpx_storage_path: string | null;
   thumbnail_url?: string | null;
+  organizer_details?: unknown;
 };
 
 type EventGroup = {
@@ -40,6 +43,8 @@ type EventGroup = {
   location: string | null;
   race_date: string | null;
   thumbnail_url?: string | null;
+  is_live: boolean | null;
+  organizer_details?: unknown;
   races: Race[];
 };
 
@@ -210,13 +215,17 @@ function SkeletonEventCard() {
 function RaceRow({
   title,
   subtitle,
-  actionLabel,
-  onPress,
+  secondaryActionLabel,
+  onSecondaryPress,
+  primaryActionLabel,
+  onPrimaryPress,
 }: {
   title: string;
   subtitle: string;
-  actionLabel: string;
-  onPress: () => void;
+  secondaryActionLabel?: string;
+  onSecondaryPress?: () => void;
+  primaryActionLabel: string;
+  onPrimaryPress: () => void;
 }) {
   return (
     <View style={styles.formatRow}>
@@ -224,9 +233,16 @@ function RaceRow({
         <Text style={styles.formatTitle}>{title}</Text>
         <Text style={styles.formatSubtitle}>{subtitle}</Text>
       </View>
-      <TouchableOpacity style={styles.formatActionButton} onPress={onPress}>
-        <Text style={styles.formatActionButtonText}>{actionLabel}</Text>
-      </TouchableOpacity>
+      <View style={styles.formatActions}>
+        {secondaryActionLabel && onSecondaryPress ? (
+          <TouchableOpacity style={styles.formatSecondaryActionButton} onPress={onSecondaryPress}>
+            <Text style={styles.formatSecondaryActionButtonText}>{secondaryActionLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
+        <TouchableOpacity style={styles.formatActionButton} onPress={onPrimaryPress}>
+          <Text style={styles.formatActionButtonText}>{primaryActionLabel}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -257,8 +273,8 @@ function PersonalRacesSection({
             key={race.id}
             title={race.name}
             subtitle={`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m`}
-            actionLabel={createPlanLabel}
-            onPress={() => onCreatePlan(race.id)}
+            primaryActionLabel={createPlanLabel}
+            onPrimaryPress={() => onCreatePlan(race.id)}
           />
         ))}
       </View>
@@ -308,28 +324,32 @@ export default function CatalogScreen() {
               location,
               race_date,
               thumbnail_url,
+              is_live,
+              organizer_details,
               races (
                 id,
                 name,
                 distance_km,
                 elevation_gain_m,
                 race_date,
+                is_live,
                 has_aid_stations,
                 gpx_storage_path,
-                thumbnail_url
+                thumbnail_url,
+                organizer_details
               )
             `)
             .eq('is_live', true)
             .order('name'),
           supabase
             .from('races')
-            .select('id, name, distance_km, elevation_gain_m, race_date, has_aid_stations, gpx_storage_path, thumbnail_url')
+            .select('id, name, distance_km, elevation_gain_m, race_date, is_live, has_aid_stations, gpx_storage_path, thumbnail_url')
             .eq('is_live', true)
             .is('event_id', null),
           userId
             ? supabase
                 .from('races')
-                .select('id, name, distance_km, elevation_gain_m, race_date, has_aid_stations, gpx_storage_path, thumbnail_url')
+                .select('id, name, distance_km, elevation_gain_m, race_date, is_live, has_aid_stations, gpx_storage_path, thumbnail_url')
                 .eq('is_public', false)
                 .eq('created_by', userId)
             : Promise.resolve({ data: [], error: null }),
@@ -355,6 +375,8 @@ export default function CatalogScreen() {
             location: null,
             race_date: null,
             thumbnail_url: null,
+            is_live: true,
+            organizer_details: null,
             races: orphans,
           });
         }
@@ -725,9 +747,26 @@ export default function CatalogScreen() {
                 <RaceRow
                   key={race.id}
                   title={getRaceShortLabel(race.name, selectedEvent.name)}
+                  secondaryActionLabel={
+                    canShowRacebook({
+                      raceIsLive: race.is_live,
+                      hasAidStations: race.has_aid_stations,
+                      eventOrganizerDetails: selectedEvent.organizer_details,
+                      raceOrganizerDetails: race.organizer_details,
+                    })
+                      ? t.catalog.racebookCta
+                      : undefined
+                  }
+                  onSecondaryPress={() => {
+                    setSelectedEvent(null);
+                    router.push({
+                      pathname: '/(app)/race/[id]/racebook',
+                      params: { id: race.id },
+                    });
+                  }}
                   subtitle={`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m`}
-                  actionLabel={t.catalog.createPlan}
-                  onPress={() => {
+                  primaryActionLabel={t.catalog.createPlan}
+                  onPrimaryPress={() => {
                     setSelectedEvent(null);
                     handleCreatePlan(race.id);
                   }}
@@ -965,7 +1004,7 @@ const styles = StyleSheet.create({
   },
   formatRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 12,
     padding: 14,
     borderRadius: 16,
@@ -987,7 +1026,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   formatActionButton: {
-    minWidth: 112,
+    minWidth: 104,
+    minHeight: 42,
+    borderRadius: 10,
+    backgroundColor: Colors.brandPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  formatActionButtonText: {
+    color: Colors.textOnBrand,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  formatActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  formatSecondaryActionButton: {
+    minWidth: 96,
     minHeight: 42,
     borderRadius: 10,
     borderWidth: 1.5,
@@ -997,7 +1055,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 12,
   },
-  formatActionButtonText: {
+  formatSecondaryActionButtonText: {
     color: Colors.brandPrimary,
     fontSize: 13,
     fontWeight: '700',

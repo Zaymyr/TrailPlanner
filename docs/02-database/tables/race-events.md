@@ -18,7 +18,9 @@ related_files:
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
+  - apps/mobile/lib/racebook.ts
 related_tables:
   - race_events
   - race_event_claims
@@ -39,6 +41,7 @@ related_tables:
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created when an organizer claims a missing race.
 - Organizer dashboard details: nullable JSONB for event end date, common equipment, common bib pickup, access, services, partners, and runner notes.
+- Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
@@ -83,6 +86,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
+- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual organizer/ravito content.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
@@ -107,6 +111,14 @@ from public.race_events
 where id = '<event-id>';
 ```
 
+Observed mobile Racebook event shape:
+
+```sql
+select id, name, location, race_date, thumbnail_url, is_live, organizer_details
+from public.race_events
+where is_live = true;
+```
+
 Observed race join shape:
 
 ```sql
@@ -122,7 +134,7 @@ from public.races;
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Manual organizer draft events are not public catalog rows until their `is_live` state is explicitly changed.
-- Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed.
+- Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow.
 - Publishing from the organizer route requires event name, location, start date, end date, and at least one live publishable format; event-level fields alone are not enough.
 - Do not store per-format equipment, dossard, or access differences on the event row.
 - Keep image upload validation in the server route; the database stores only the resulting URL.
