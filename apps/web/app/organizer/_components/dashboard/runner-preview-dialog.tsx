@@ -4,7 +4,6 @@ import { Button } from '../../../../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
 import { buildRunnerOrganizerDetails, defaultOrganizerEventDetails } from '../../../../lib/organizer-dashboard-details';
 import type { FuelProduct } from '../../../../lib/product-types';
-import { aidStationTypeLabels } from './constants';
 import { formatEventDateRange, formatKm } from './helpers';
 import type { AidStationDraft, OrganizerEventDetail, StationProduct } from './types';
 
@@ -33,8 +32,8 @@ export function RunnerPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{event?.name ?? "Prévisualisation coureur"}</DialogTitle>
-          <DialogDescription>{[event?.location, dateLabel].filter(Boolean).join(" - ") || "Informations à compléter"}</DialogDescription>
+          <DialogTitle>{event?.name ?? 'Prévisualisation coureur'}</DialogTitle>
+          <DialogDescription>{[event?.location, dateLabel].filter(Boolean).join(' - ') || 'Informations à compléter'}</DialogDescription>
         </DialogHeader>
         {!event ? (
           <p className="text-sm text-muted-foreground">Aucun événement chargé.</p>
@@ -47,7 +46,7 @@ export function RunnerPreviewDialog({
                   <div key={race.id} className="rounded-md border border-border bg-background p-3">
                     <p className="font-semibold">{race.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatKm(race.distance_km)} - D+ {Math.round(race.elevation_gain_m)} m - {race.gpx_storage_path ? "GPX disponible" : "GPX à venir"}
+                      {formatKm(race.distance_km)} - D+ {Math.round(race.elevation_gain_m)} m - {race.gpx_storage_path ? 'GPX disponible' : 'GPX à venir'}
                     </p>
                   </div>
                 ))}
@@ -68,12 +67,12 @@ export function RunnerPreviewDialog({
                             {station.name} - {formatKm(station.distanceKm)}
                           </p>
                           <p className="text-sm text-muted-foreground">
-                            {aidStationTypeLabels[station.organizerDetails.stationType]} - {station.waterRefill ? "eau" : "sans eau"} - {station.solidRefill ? "solide" : "sans solide"} - {station.assistanceAllowed ? "assistance" : "sans assistance"}
-                            {station.organizerDetails.cutoffTime ? ` - barrière ${station.organizerDetails.cutoffTime}` : ""}
+                            {station.waterRefill ? 'eau' : 'sans eau'} - {station.solidRefill ? 'solide' : 'sans solide'} - {station.assistanceAllowed ? 'assistance' : 'sans assistance'}
+                            {station.organizerDetails.cutoffTime ? ` - barrière ${station.organizerDetails.cutoffTime}` : ''}
                           </p>
                           {products.length > 0 ? (
                             <p className="mt-1 text-xs text-muted-foreground">
-                              Produits: {products.map((link) => productsById.get(link.productId)?.name ?? link.productId).join(", ")}
+                              Produits: {products.map((link) => productsById.get(link.productId)?.name ?? link.productId).join(', ')}
                             </p>
                           ) : null}
                         </div>
@@ -87,12 +86,12 @@ export function RunnerPreviewDialog({
               <>
                 <PreviewTextSection
                   title="Matériel commun"
-                  values={runnerDetails.commonEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommandé)"}`)}
+                  values={runnerDetails.commonEquipment.items.map((item) => `${item.label}${item.required ? '' : ' (recommandé)'}`)}
                   empty="Matériel commun à venir."
                 />
                 <PreviewTextSection
-                  title={activeRace ? `Matériel ${activeRace.name}` : "Matériel format"}
-                  values={runnerDetails.raceEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommandé)"}`)}
+                  title={activeRace ? `Matériel ${activeRace.name}` : 'Matériel format'}
+                  values={runnerDetails.raceEquipment.items.map((item) => `${item.label}${item.required ? '' : ' (recommandé)'}`)}
                   empty="Pas de matériel spécifique pour ce format."
                 />
                 <PreviewTextSection
@@ -145,7 +144,7 @@ export function RunnerPreviewDialog({
                 <Button>Créer mon plan</Button>
               </Link>
             ) : (
-              <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">Le bouton "Créer mon plan" apparaîtra pour un format live.</p>
+              <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">Le bouton &quot;Créer mon plan&quot; apparaîtra pour un format live.</p>
             )}
           </div>
         )}
