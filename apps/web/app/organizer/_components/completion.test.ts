@@ -128,6 +128,35 @@ describe("organizer completion", () => {
     expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toEqual([]);
   });
 
+  it("derives event header progress from race completion", () => {
+    const completion = buildOrganizerCompletion(
+      {
+        ...baseEvent,
+        races: [
+          {
+            ...baseEvent.races[0]!,
+            gpx_storage_path: "race.gpx",
+          },
+          {
+            ...baseEvent.races[0]!,
+            id: "race-2",
+            name: "25K",
+            gpx_storage_path: null,
+          },
+        ],
+      },
+      baseEvent.races[0]!,
+      [],
+      []
+    );
+
+    expect(completion.raceProgress).toEqual([
+      { id: "race-1", name: "42K", score: 100 },
+      { id: "race-2", name: "25K", score: 75 },
+    ]);
+    expect(completion.raceProgressScore).toBe(88);
+  });
+
   it("marks re-enabled empty access sections as incomplete", () => {
     const race = {
       ...baseEvent.races[0]!,
