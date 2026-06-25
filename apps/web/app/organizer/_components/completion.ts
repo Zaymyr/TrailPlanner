@@ -166,7 +166,10 @@ export function buildOrganizerCompletion(
   ]);
   const commonAccessMissingLabels = compactMissingLabels([
     ["Départ", hasText(commonAccess.startAddress)],
-    ["Parking/navettes", hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles)],
+    ["Parkings", !commonAccess.enabledSections.officialParkings || hasText(commonAccess.officialParkings)],
+    ["Navettes", !commonAccess.enabledSections.shuttles || hasText(commonAccess.shuttles) || hasText(commonAccess.shuttleSchedule)],
+    ["Restrictions route", !commonAccess.enabledSections.roadRestrictions || hasText(commonAccess.roadRestrictions)],
+    ["Carte / Google Maps", !commonAccess.enabledSections.mapUrl || hasText(commonAccess.mapUrl)],
   ]);
   const formatAccessMissingLabels = compactMissingLabels([
     ["Départ", hasText(access.startAddress)],
@@ -347,14 +350,13 @@ export function buildOrganizerCompletion(
         filledCount([
           commonAccess.startAddress,
           commonAccess.finishAddress,
-          commonAccess.officialParkings,
-          commonAccess.shuttles,
-          commonAccess.shuttleSchedule,
-          commonAccess.roadRestrictions,
-          commonAccess.mapUrl,
+          commonAccess.enabledSections.officialParkings ? commonAccess.officialParkings : true,
+          commonAccess.enabledSections.shuttles ? commonAccess.shuttles || commonAccess.shuttleSchedule : true,
+          commonAccess.enabledSections.roadRestrictions ? commonAccess.roadRestrictions : true,
+          commonAccess.enabledSections.mapUrl ? commonAccess.mapUrl : true,
           commonAccess.note,
         ]),
-        8,
+        6,
         2
       ),
       countLabel: hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles) ? "Infos transport" : "Non renseigné",

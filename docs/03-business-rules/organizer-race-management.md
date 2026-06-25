@@ -37,6 +37,9 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
+  - apps/web/app/api/organizer/races/[id]/route.test.ts
+  - apps/web/app/api/organizer/races/[id]/image/route.ts
+  - apps/web/app/api/organizer/races/[id]/image/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
@@ -96,7 +99,9 @@ Approved organizers can:
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
 - add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = true`, and optional organizer details;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
+- upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
+- delete a format from the identity module after a confirmation step; source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and station-specific `race_aid_stations.organizer_details`;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
@@ -104,7 +109,7 @@ Approved organizers can:
 
 The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/race/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. The synthesis uses inline event facts, a small live/brouillon indicator, a publish toggle, and an event completion progress bar with the percentage inside the bar rather than metric cards. The first completion tab is the event scope and shows only fillable event tiles: information, equipment, bib pickup, access, and services. The following tabs are race formats; each format tab shows that format's progress bar and only fillable race tiles: identity/GPX, equipment, access, and ravitos. The old schedule tile is gone: the ravito tile now owns the fixed `Départ` and `Arrivée` cards for `startTime` and `finishCutoffTime`, while `Horaires navettes` lives only in access. Official ravito products are managed inside that ravito module rather than through a separate products tile. Labels stay short because the active tab already provides the scope. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs or modules now attempts an autosave first and blocks the navigation when the save fails.
 
-Equipment, bib pickup, and access are split by tab in the UI, but equipment now has a special sync rule: the event tab edits the shared subset and saving it mirrors those items into every race list; saving a race recomputes the event-level shared subset as the intersection still present across all formats. Bib pickup is now event-only in the UI and runner preview; format-level bib JSON may still exist for compatibility reads, but the dashboard no longer edits or scores it. Access keeps the event-default / format-override model and format access now includes explicit `enabledSections` toggles for parkings, navettes, route restrictions, map link, and runner-specific info. Disabled access sections are treated as intentionally complete in the dashboard score and hidden from the runner preview. The editor must not stack event and race forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. Event publishing and format liveness use compact live/brouillon toggles instead of duplicate checkboxes. The dashboard keeps unsaved-change state per module, gives short floating save/error feedback, and warns on `beforeunload` when a module is dirty.
+Equipment, bib pickup, and access are split by tab in the UI, but equipment now has a special sync rule: the event tab edits the shared subset and saving it mirrors those items into every race list; saving a race recomputes the event-level shared subset as the intersection still present across all formats. Bib pickup is now event-only in the UI and runner preview; format-level bib JSON may still exist for compatibility reads, but the dashboard no longer edits or scores it. Access keeps the event-default / format-override model and both event access and format access now include explicit `enabledSections` toggles for parkings, navettes, route restrictions, and map link; the format tab adds the runner-specific info toggle on top. Disabled access sections are treated as intentionally complete in the dashboard score and hidden from the runner preview. The editor must not stack event and race forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. Event publishing and format liveness use compact live/brouillon toggles instead of duplicate checkboxes. The dashboard keeps unsaved-change state per module, gives short floating save/error feedback, and warns on `beforeunload` when a module is dirty.
 
 Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
 
@@ -175,7 +180,8 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 - Do not bulk-duplicate common event details into every existing format except for equipment, which is intentionally mirrored into each race list so one race can later remove an item and automatically shrink the event-level shared subset.
 - Do not reintroduce a separate schedule tile or format-level bib workflow without also changing completion, autosave routing, and runner-preview resolution.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
-- Organizer event images are uploaded through the server-side PNG route; do not expose direct Storage writes from the dashboard client.
+- Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
+- Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 
 ## Related Docs
