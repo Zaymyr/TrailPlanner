@@ -59,6 +59,9 @@ import type {
   StationProduct,
 } from "./dashboard/types";
 
+const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
+
 export function OrganizerDashboard() {
   const { session, isLoading } = useVerifiedSession();
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
@@ -70,6 +73,7 @@ export function OrganizerDashboard() {
   const [activeModule, setActiveModule] = useState<OrganizerModuleId>("event");
   const [raceForm, setRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
   const [newRaceForm, setNewRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
+  const [newRaceImageFile, setNewRaceImageFile] = useState<File | null>(null);
   const [showRaceDetails, setShowRaceDetails] = useState(true);
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
   const [expandedStationKey, setExpandedStationKey] = useState<string | null>(null);
@@ -121,6 +125,18 @@ export function OrganizerDashboard() {
       shuttleSchedule: null,
     },
   });
+
+  const validateRaceImage = (file: File) => {
+    if (!RACE_IMAGE_MIME_TYPES.includes(file.type as (typeof RACE_IMAGE_MIME_TYPES)[number])) {
+      showToast("error", "Ajoute une image JPEG, PNG, WebP ou AVIF.");
+      return false;
+    }
+    if (file.size > MAX_RACE_IMAGE_SIZE_BYTES) {
+      showToast("error", "Image trop lourde: 5 Mo maximum.");
+      return false;
+    }
+    return true;
+  };
 
   const completion: OrganizerCompletionSummary | null = useMemo(() => {
     if (!eventDraft) return null;
@@ -202,6 +218,7 @@ export function OrganizerDashboard() {
       const nextEventForm = eventToForm(nextEvent);
       setEventForm(nextEventForm);
       setNewRaceForm(createRaceFormFromEventDefaults(nextEventForm));
+      setNewRaceImageFile(null);
       const preferredTabExists =
         preferredTab === EVENT_TAB_ID ||
         preferredTab === ADD_FORMAT_TAB_ID ||
@@ -433,10 +450,12 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible d'ajouter le format.");
         return;
       }
+      const imageUploaded = newRaceImageFile ? await uploadRaceImageFile(data.race.id, newRaceImageFile) : true;
       setNewRaceForm(createEmptyRaceForm());
+      setNewRaceImageFile(null);
       setActiveTab(data.race.id);
       setActiveModule("formats");
-      showToast("success", "Format ajouté.");
+      showToast("success", imageUploaded ? "Format ajouté." : "Format ajouté. Réessaie l'image si besoin.");
       await loadEvent(selectedEventId, data.race.id);
     } finally {
       setStatus("idle");
@@ -541,6 +560,80 @@ export function OrganizerDashboard() {
     } finally {
       setStatus("idle");
       event.target.value = "";
+    }
+  };
+
+  const uploadRaceImageFile = async (raceId: string, file: File) => {
+    if (!accessToken) return false;
+    if (!validateRaceImage(file)) return false;
+
+    setStatus("uploading");
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const response = await fetch(`/api/organizer/races/${raceId}/image`, { method: "PUT", headers: authHeaders, body: formData });
+      const data = (await response.json().catch(() => null)) as { thumbnailUrl?: string; message?: string } | null;
+      if (!response.ok || !data?.thumbnailUrl) {
+        showToast("error", data?.message ?? "Impossible d'envoyer l'image du format.");
+        return false;
+      }
+      if (activeRace?.id === raceId) {
+        setRaceForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
+      }
+      return true;
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const uploadRaceImage = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file || !activeRace || !selectedEventId) return;
+    try {
+      const uploaded = await uploadRaceImageFile(activeRace.id, file);
+      if (!uploaded) return;
+      showToast("success", "Image du format mise Ã  jour.");
+      await loadEvent(selectedEventId, activeRace.id);
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const selectNewRaceImage = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+    if (!validateRaceImage(file)) {
+      event.target.value = "";
+      return;
+    }
+    setNewRaceImageFile(file);
+    event.target.value = "";
+  };
+
+  const deleteActiveRace = async () => {
+    if (!accessToken || !activeRace || !selectedEventId) return;
+    const confirmed = window.confirm(`Supprimer la course "${activeRace.name}" ? Cette action est définitive.`);
+    if (!confirmed) return;
+
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/races/${activeRace.id}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        showToast("error", data?.message ?? "Impossible de supprimer la course.");
+        return;
+      }
+      setActiveTab(EVENT_TAB_ID);
+      setActiveModule("event");
+      showToast("success", "Course supprimée.");
+      await loadEvent(selectedEventId, EVENT_TAB_ID);
+    } finally {
+      setStatus("idle");
     }
   };
 
@@ -779,13 +872,21 @@ export function OrganizerDashboard() {
               activeRace={activeRace}
               raceForm={raceForm}
               newRaceForm={newRaceForm}
+              newRaceImageName={newRaceImageFile?.name ?? null}
               showRaceDetails={showRaceDetails}
               onToggleRaceDetails={() => setShowRaceDetails((current) => !current)}
               onRaceFormChange={(next) => updateRaceForm(next, "formats")}
               onNewRaceFormChange={setNewRaceForm}
               onCreateRace={createRace}
+              onUploadRaceImage={(event) => {
+                void uploadRaceImage(event);
+              }}
+              onSelectNewRaceImage={selectNewRaceImage}
               onUploadGpx={uploadGpx}
               onDuplicateRace={() => void duplicateActiveRace()}
+              onDeleteRace={() => {
+                void deleteActiveRace();
+              }}
               onPreviewRace={() => {
                 void (async () => {
                   if (await saveBeforeNavigation()) setPreviewOpen(true);

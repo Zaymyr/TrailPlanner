@@ -10,13 +10,35 @@ import { formatEventDateRange } from './helpers';
 import type { ClaimRow, MembershipRow, OrganizerEventDetail, RaceFormat } from './types';
 import { LevelBadge, LiveToggle, StatusBadge } from './controls';
 
+const getProgressTone = (score: number) => {
+  if (score < 20) {
+    return {
+      track: "bg-red-100",
+      fill: "bg-red-500",
+      text: "text-white",
+    };
+  }
+  if (score <= 80) {
+    return {
+      track: "bg-amber-100",
+      fill: "bg-amber-500",
+      text: "text-white",
+    };
+  }
+  return {
+    track: "bg-emerald-100",
+    fill: "bg-emerald-500",
+    text: "text-white",
+  };
+};
+
 export function OrganizerSignedOutCard() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Dashboard organisateur</CardTitle>
-          <CardDescription>Connecte-toi pour accéder à ton espace organisateur.</CardDescription>
+          <CardDescription>Connecte-toi pour accÃ©der Ã  ton espace organisateur.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Link href="/sign-in">
@@ -37,7 +59,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Dashboard organisateur</CardTitle>
-          <CardDescription>Aucune course approuvée pour ce compte.</CardDescription>
+          <CardDescription>Aucune course approuvÃ©e pour ce compte.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {pendingClaims.length > 0 ? (
@@ -52,7 +74,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
           ) : null}
           {rejectedClaims.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold">Demandes refusées</p>
+              <p className="text-sm font-semibold">Demandes refusÃ©es</p>
               {rejectedClaims.map((claim) => (
                 <div key={claim.id} className="rounded-md border border-border bg-background p-3 text-sm">
                   <p className="font-medium">{claim.race_events?.name ?? claim.organization_name}</p>
@@ -103,6 +125,7 @@ export function OrganizerSummaryHeader({
   const eventScore = completion?.eventScore ?? 0;
   const isLive = event?.is_live !== false;
   const dateLabel = formatEventDateRange(event);
+  const eventProgressTone = getProgressTone(eventScore);
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -112,10 +135,10 @@ export function OrganizerSummaryHeader({
             Dashboard organisateur
           </p>
           <h1 className="mt-1 break-words text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
-            {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
+            {selectedMembership?.race_events?.name ?? event?.name ?? "Ã‰vÃ©nement"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates à compléter"}
+            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates Ã  complÃ©ter"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -145,21 +168,24 @@ export function OrganizerSummaryHeader({
           <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
           <span className="text-muted-foreground">{aidStationCount} ravitos</span>
           <span className={cn("font-medium", hasDirtyChanges ? "text-amber-700" : "text-emerald-700")}>
-            {hasDirtyChanges ? "Non enregistré" : "À jour"}
+            {hasDirtyChanges ? "Non enregistrÃ©" : "Ã€ jour"}
           </span>
         </div>
         <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
       </div>
 
-      <div className="mt-4 h-3 overflow-hidden rounded-full bg-muted">
-        <div className="flex h-full min-w-10 items-center justify-end rounded-full bg-brand px-2 text-[10px] font-semibold leading-none text-white transition-all" style={{ width: `${eventScore}%` }}>
+      <div className={cn("mt-4 h-3 overflow-hidden rounded-full", eventProgressTone.track)}>
+        <div
+          className={cn("flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[10px] font-semibold leading-none transition-all", eventProgressTone.fill, eventProgressTone.text)}
+          style={{ width: `${eventScore}%` }}
+        >
           {eventScore}%
         </div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" onClick={onPreview} variant="outline">
-          Prévisualiser côté coureur
+          PrÃ©visualiser cÃ´tÃ© coureur
         </Button>
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
@@ -193,10 +219,11 @@ export function CompletionTabsPanel({
   const score = isEventTab ? completion.eventScore : activeRace ? completion.formatScore : 0;
   const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
   const description = isEventTab
-    ? "Informations communes à tous les formats."
+    ? "Informations communes Ã  tous les formats."
     : activeRace
-      ? "Informations propres au format sélectionné."
-      : "Crée un nouveau format depuis le formulaire ci-dessous.";
+      ? "Informations propres au format sÃ©lectionnÃ©."
+      : "CrÃ©e un nouveau format depuis le formulaire ci-dessous.";
+  const progressTone = getProgressTone(score);
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -206,15 +233,19 @@ export function CompletionTabsPanel({
             <h2 className="text-lg font-semibold text-foreground">Avancement global</h2>
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
-          {!isAddTab ? <span className="text-sm font-semibold text-foreground">{score}%</span> : null}
         </div>
         <TabsList tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} />
       </div>
 
       {!isAddTab ? (
         <>
-          <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-brand transition-all" style={{ width: `${score}%` }} />
+          <div className={cn("mt-3 h-5 overflow-hidden rounded-full", progressTone.track)}>
+            <div
+              className={cn("flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[11px] font-semibold transition-all", progressTone.fill, progressTone.text)}
+              style={{ width: `${score}%` }}
+            >
+              {score}%
+            </div>
           </div>
           <OrganizerModuleGrid
             modules={modules}
@@ -225,7 +256,7 @@ export function CompletionTabsPanel({
         </>
       ) : (
         <div className="mt-3 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaîtront après création.
+          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaÃ®tront aprÃ¨s crÃ©ation.
         </div>
       )}
     </section>
@@ -273,7 +304,7 @@ export function OrganizerModuleGrid({
           ) : null}
           <div className="mt-4 flex items-end justify-between gap-2">
             <span className="text-xs font-medium text-foreground">{module.countLabel}</span>
-            <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "À sauvegarder" : "Modifier"}</span>
+            <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "Ã€ sauvegarder" : "Modifier"}</span>
           </div>
         </button>
       ))}

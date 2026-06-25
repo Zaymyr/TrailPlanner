@@ -43,6 +43,30 @@ const raceRowSchema = z.object({
   organizer_details: z.unknown().nullable().optional(),
 });
 
+const raceDeleteReadSchema = z.object({
+  id: z.string().uuid(),
+  gpx_storage_path: z.string().nullable().optional(),
+  thumbnail_url: z.string().nullable().optional(),
+});
+
+const deleteStorageObject = async (
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  bucket: string,
+  storagePath: string
+) => {
+  await fetch(`${serviceConfig.supabaseUrl}/storage/v1/object/${bucket}/${storagePath}`, {
+    method: "DELETE",
+    headers: serviceHeaders(serviceConfig, ""),
+    cache: "no-store",
+  }).catch(() => null);
+};
+
+const getPublicRaceImageStoragePath = (supabaseUrl: string, publicUrl: string | null | undefined) => {
+  if (!publicUrl) return null;
+  const publicPrefix = `${supabaseUrl}/storage/v1/object/public/race-images/`;
+  return publicUrl.startsWith(publicPrefix) ? publicUrl.slice(publicPrefix.length) : null;
+};
+
 export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
@@ -100,4 +124,56 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
         : null,
     })
   );
+}
+
+export async function DELETE(request: NextRequest, context: { params: { id?: string } }) {
+  const auth = await requireOrganizerAuth(request);
+  if ("error" in auth) return auth.error;
+
+  const parsedParams = uuidParamSchema.safeParse(context.params);
+  if (!parsedParams.success) return jsonError("Invalid race id.", 400);
+
+  const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
+  if ("error" in race) return race.error;
+
+  const raceReadResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}&select=id,gpx_storage_path,thumbnail_url&limit=1`,
+    {
+      headers: serviceHeaders(auth.serviceConfig, ""),
+      cache: "no-store",
+    }
+  );
+
+  if (!raceReadResponse.ok) {
+    console.error("Unable to load organizer race before delete", await raceReadResponse.text());
+    return jsonError("Unable to load race before delete.", 502);
+  }
+
+  const raceRow = z.array(raceDeleteReadSchema).parse(await raceReadResponse.json())[0] ?? null;
+  if (!raceRow) return jsonError("Race not found.", 404);
+
+  const deleteResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
+    {
+      method: "DELETE",
+      headers: serviceHeaders(auth.serviceConfig, ""),
+      cache: "no-store",
+    }
+  );
+
+  if (!deleteResponse.ok) {
+    console.error("Unable to delete organizer race", await deleteResponse.text());
+    return jsonError("Unable to delete race format.", 502);
+  }
+
+  if (raceRow.gpx_storage_path) {
+    await deleteStorageObject(auth.serviceConfig, "race-gpx", raceRow.gpx_storage_path);
+  }
+
+  const raceImageStoragePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, raceRow.thumbnail_url);
+  if (raceImageStoragePath) {
+    await deleteStorageObject(auth.serviceConfig, "race-images", raceImageStoragePath);
+  }
+
+  return withSecurityHeaders(NextResponse.json({ deleted: true, raceId: parsedParams.data.id, eventId: race.event_id }));
 }

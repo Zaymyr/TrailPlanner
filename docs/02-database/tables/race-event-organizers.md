@@ -15,6 +15,9 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
+  - apps/web/app/api/organizer/races/[id]/route.test.ts
+  - apps/web/app/api/organizer/races/[id]/image/route.ts
+  - apps/web/app/api/organizer/races/[id]/image/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
@@ -86,7 +89,7 @@ Summary:
 - A membership grants access to all formats under the event.
 - A membership grants access to source ravito service flags (`water_available`, `solid_available`, `assistance_allowed`) for all formats under the event.
 - A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos. Event JSONB stores common defaults and the event end date; race JSONB stores active-format differences or additions, including the current access-section toggles used by the organizer dashboard.
-- A membership grants service-route access to upload the event PNG thumbnail and to preview/replace format GPX files for every format under the event.
+- A membership grants service-route access to upload the event PNG thumbnail, upload a format thumbnail, preview/replace format GPX files, and delete a format for every race under the event.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
@@ -123,7 +126,8 @@ order by created_at asc;
 - Common-vs-format detail splitting is an application convention, not a new authorization boundary.
 - The current organizer UI treats bib pickup as event-only, and treats format access-section toggles plus ravito start/finish timing cards as ordinary race-detail edits; all of them still rely on the same active event-membership check.
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
-- Event image and GPX routes are also source mutations/reads and must keep checking active event membership.
+- Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
+- Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 
 ## Related Docs
 

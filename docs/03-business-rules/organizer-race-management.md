@@ -37,6 +37,9 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
+  - apps/web/app/api/organizer/races/[id]/route.test.ts
+  - apps/web/app/api/organizer/races/[id]/image/route.ts
+  - apps/web/app/api/organizer/races/[id]/image/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
@@ -96,7 +99,9 @@ Approved organizers can:
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
 - add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = true`, and optional organizer details;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
+- upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
+- delete a format from the identity module after a confirmation step; source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and station-specific `race_aid_stations.organizer_details`;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
@@ -175,7 +180,8 @@ No mobile organizer screen exists in v1. Mobile can keep consuming catalog races
 - Do not bulk-duplicate common event details into every existing format except for equipment, which is intentionally mirrored into each race list so one race can later remove an item and automatically shrink the event-level shared subset.
 - Do not reintroduce a separate schedule tile or format-level bib workflow without also changing completion, autosave routing, and runner-preview resolution.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
-- Organizer event images are uploaded through the server-side PNG route; do not expose direct Storage writes from the dashboard client.
+- Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
+- Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 
 ## Related Docs
