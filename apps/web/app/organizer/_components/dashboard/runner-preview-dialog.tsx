@@ -1,0 +1,173 @@
+import Link from 'next/link';
+
+import { Button } from '../../../../components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../../../components/ui/dialog';
+import { buildRunnerOrganizerDetails, defaultOrganizerEventDetails } from '../../../../lib/organizer-dashboard-details';
+import type { FuelProduct } from '../../../../lib/product-types';
+import { aidStationTypeLabels } from './constants';
+import { formatEventDateRange, formatKm } from './helpers';
+import type { AidStationDraft, OrganizerEventDetail, StationProduct } from './types';
+
+export function RunnerPreviewDialog({
+  open,
+  onOpenChange,
+  event,
+  activeRaceId,
+  aidStations,
+  stationProducts,
+  productsById,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  event: OrganizerEventDetail | null;
+  activeRaceId: string | null;
+  aidStations: AidStationDraft[];
+  stationProducts: StationProduct[];
+  productsById: Map<string, FuelProduct>;
+}) {
+  const activeRace = event?.races.find((race) => race.id === activeRaceId) ?? event?.races.find((race) => race.is_live) ?? event?.races[0] ?? null;
+  const runnerDetails = event ? buildRunnerOrganizerDetails(event.organizerDetails ?? defaultOrganizerEventDetails, activeRace?.organizerDetails) : null;
+  const dateLabel = formatEventDateRange(event);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{event?.name ?? "Previsualisation coureur"}</DialogTitle>
+          <DialogDescription>{[event?.location, dateLabel].filter(Boolean).join(" - ") || "Informations a completer"}</DialogDescription>
+        </DialogHeader>
+        {!event ? (
+          <p className="text-sm text-muted-foreground">Aucun evenement charge.</p>
+        ) : (
+          <div className="space-y-5">
+            <section>
+              <h3 className="text-sm font-semibold text-foreground">Formats disponibles</h3>
+              <div className="mt-2 grid gap-2 md:grid-cols-2">
+                {event.races.map((race) => (
+                  <div key={race.id} className="rounded-md border border-border bg-background p-3">
+                    <p className="font-semibold">{race.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatKm(race.distance_km)} - D+ {Math.round(race.elevation_gain_m)} m - {race.gpx_storage_path ? "GPX disponible" : "GPX a venir"}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+            {activeRace ? (
+              <section>
+                <h3 className="text-sm font-semibold text-foreground">Ravitos - {activeRace.name}</h3>
+                {aidStations.length === 0 ? (
+                  <p className="mt-1 text-sm text-muted-foreground">Ravitos a venir.</p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {aidStations.map((station) => {
+                      const products = station.id ? stationProducts.filter((link) => link.aidStationId === station.id) : [];
+                      return (
+                        <div key={station.id ?? station.name} className="rounded-md border border-border bg-background p-3">
+                          <p className="font-semibold">
+                            {station.name} - {formatKm(station.distanceKm)}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {aidStationTypeLabels[station.organizerDetails.stationType]} - {station.waterRefill ? "eau" : "sans eau"} - {station.solidRefill ? "solide" : "sans solide"} - {station.assistanceAllowed ? "assistance" : "sans assistance"}
+                            {station.organizerDetails.cutoffTime ? ` - barriere ${station.organizerDetails.cutoffTime}` : ""}
+                          </p>
+                          {products.length > 0 ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              Produits: {products.map((link) => productsById.get(link.productId)?.name ?? link.productId).join(", ")}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            ) : null}
+            {runnerDetails ? (
+              <>
+                <PreviewTextSection
+                  title="Materiel commun"
+                  values={runnerDetails.commonEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommande)"}`)}
+                  empty="Materiel commun a venir."
+                />
+                <PreviewTextSection
+                  title={activeRace ? `Materiel ${activeRace.name}` : "Materiel format"}
+                  values={runnerDetails.raceEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommande)"}`)}
+                  empty="Pas de materiel specifique pour ce format."
+                />
+                <PreviewTextSection
+                  title="Horaires"
+                  values={[
+                    runnerDetails.schedule.startTime ? `Depart ${runnerDetails.schedule.startTime}` : null,
+                    runnerDetails.schedule.finishCutoffTime ? `Limite arrivee ${runnerDetails.schedule.finishCutoffTime}` : null,
+                    runnerDetails.schedule.cutoffNote,
+                  ]}
+                  empty="Horaires a venir."
+                />
+                <PreviewTextSection
+                  title="Dossard"
+                  values={[runnerDetails.bibPickup.location, runnerDetails.bibPickup.schedule, runnerDetails.bibPickup.requiredDocuments, runnerDetails.bibPickup.note]}
+                  empty="Retrait dossard a venir."
+                />
+                <PreviewTextSection
+                  title="Acces"
+                  values={[
+                    runnerDetails.access.startAddress,
+                    runnerDetails.access.finishAddress,
+                    runnerDetails.access.officialParkings,
+                    runnerDetails.access.shuttles,
+                    runnerDetails.access.roadRestrictions,
+                    runnerDetails.access.note,
+                  ]}
+                  empty="Acces a venir."
+                />
+                <PreviewTextSection
+                  title="Informations format"
+                  values={[runnerDetails.runnerInfo.startArea, runnerDetails.runnerInfo.briefing, runnerDetails.runnerInfo.rules, runnerDetails.runnerInfo.note]}
+                  empty="Pas d'information specifique pour ce format."
+                />
+                <PreviewTextSection
+                  title="Services"
+                  values={[
+                    runnerDetails.services.supporters,
+                    runnerDetails.services.accommodations,
+                    runnerDetails.services.restaurants,
+                    runnerDetails.services.recovery,
+                    runnerDetails.services.partners,
+                    runnerDetails.services.lastMinuteMessage,
+                  ]}
+                  empty="Services a venir."
+                />
+              </>
+            ) : null}
+            {activeRace?.is_live ? (
+              <Link href={`/race-planner?catalogRaceId=${activeRace.id}`}>
+                <Button>Creer mon plan</Button>
+              </Link>
+            ) : (
+              <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">Le bouton "Creer mon plan" apparaitra pour un format live.</p>
+            )}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function PreviewTextSection({ title, values, empty }: { title: string; values: Array<string | null | undefined>; empty: string }) {
+  const lines = values.filter((value): value is string => Boolean(value?.trim()));
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {lines.length === 0 ? (
+        <p className="mt-1 text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+          {lines.map((line, index) => (
+            <li key={`${title}-${index}`}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}

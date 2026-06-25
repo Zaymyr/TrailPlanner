@@ -181,24 +181,30 @@ vi.mock("../../../../../lib/http", () => ({
   withSecurityHeaders: (response: Response) => response,
 }));
 
-vi.mock("../../../../../lib/organizer", () => ({
-  jsonError: (message: string, status: number) => Response.json({ message }, { status }),
-  requireEventOrganizer: () => Promise.resolve(true),
-  requireOrganizerAuth: () =>
-    Promise.resolve({
-      user: { id: "00000000-0000-0000-0000-000000000001" },
-      serviceConfig: {
-        supabaseUrl: "https://supabase.example",
-        supabaseServiceRoleKey: "service-key",
-      },
+vi.mock("../../../../../lib/organizer", async () => {
+  const { z } = await import("zod");
+
+  return {
+    jsonError: (message: string, status: number) => Response.json({ message }, { status }),
+    optionalTextOrNull: z.string().nullable().optional(),
+    optionalUrlOrNull: z.string().nullable().optional(),
+    requireEventOrganizer: () => Promise.resolve(true),
+    requireOrganizerAuth: () =>
+      Promise.resolve({
+        user: { id: "00000000-0000-0000-0000-000000000001" },
+        serviceConfig: {
+          supabaseUrl: "https://supabase.example",
+          supabaseServiceRoleKey: "service-key",
+        },
+      }),
+    serviceHeaders: (_serviceConfig: unknown, contentType = "application/json") => ({
+      apikey: "service-key",
+      Authorization: "Bearer service-key",
+      ...(contentType ? { "Content-Type": contentType } : {}),
     }),
-  serviceHeaders: (_serviceConfig: unknown, contentType = "application/json") => ({
-    apikey: "service-key",
-    Authorization: "Bearer service-key",
-    ...(contentType ? { "Content-Type": contentType } : {}),
-  }),
-  uuidParamSchema: {
-    safeParse: (params: { id?: string }) =>
-      typeof params.id === "string" ? { success: true, data: { id: params.id } } : { success: false },
-  },
-}));
+    uuidParamSchema: {
+      safeParse: (params: { id?: string }) =>
+        typeof params.id === "string" ? { success: true, data: { id: params.id } } : { success: false },
+    },
+  };
+});

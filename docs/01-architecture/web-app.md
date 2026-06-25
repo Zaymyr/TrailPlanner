@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-06-24
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -26,6 +26,16 @@ related_files:
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/app/organizer/_components/dashboard/types.ts
+  - apps/web/app/organizer/_components/dashboard/constants.ts
+  - apps/web/app/organizer/_components/dashboard/helpers.ts
+  - apps/web/app/organizer/_components/dashboard/controls.tsx
+  - apps/web/app/organizer/_components/dashboard/shell.tsx
+  - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/products-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/runner-preview-dialog.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -135,7 +145,7 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 The v1 organizer portal is web-only:
 
 - `/organizers` lets authenticated users search live events or create a missing non-live draft event before creating an event claim.
-- `/organizer` lets approved organizers manage their claimed events through a modular dashboard with compact event synthesis, one tabbed completion surface whose first tab is the event and whose following tabs are formats, ravito tables, common-vs-format JSONB detail modules, and an internal runner preview.
+- `/organizer` lets approved organizers manage their claimed events through a modular dashboard with compact event synthesis, one tabbed completion surface whose first tab is the event and whose following tabs are formats, ravito tables, common-vs-format JSONB detail modules, and an internal runner preview. `OrganizerDashboard.tsx` stays the client-state orchestrator while route-local dashboard components under `_components/dashboard/` own the reusable shell, controls, editors, ravito/product blocks, and runner preview.
 - The main header shows `/organizer` as "Mes courses" / "My races" only after `/api/organizer/claims` reports at least one active membership.
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
 - `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.

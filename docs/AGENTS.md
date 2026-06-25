@@ -162,6 +162,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 - `products` has no `water_ml`; water demand is segment/carry context.
 - Onboarding plan save must remain idempotent across duplicate auth/session events.
 - Preserve anonymous Supabase user ownership behavior for guest plan flows.
+- Before creating UI components, search existing components in `apps/web/components`, the nearest `_components` folder, and package design-system exports. Reuse or extend an existing component when it fits; create new components at the narrowest practical scope and promote them only after multiple screens need them.
 - When code and archived docs conflict, document the conflict and follow code/migrations.
 
 ## Forbidden Patterns

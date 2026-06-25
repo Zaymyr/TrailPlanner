@@ -21,6 +21,8 @@ Before doing ANY task in this repo, read in this order:
 
 5. **Supabase auth** — admin role is in `auth.users.raw_app_meta_data` (JWT claims), NOT in `user_profiles.role`. RLS policies reference `app_metadata`, not `user_metadata`.
 
+6. **UI component reuse-first** — before creating a UI component, search existing components in `apps/web/components`, the local `_components` folder, and package design-system exports. Reuse or extend an existing component when it fits; keep new components at the narrowest scope until they are used by multiple screens.
+
 ## Quick task routing
 
 | Task type | Read first |
