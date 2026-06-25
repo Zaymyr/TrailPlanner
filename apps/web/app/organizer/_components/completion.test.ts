@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultOrganizerEventDetails, defaultOrganizerRaceDetails } from "../../../lib/organizer-dashboard-details";
+import {
+  defaultOrganizerAidStationDetails,
+  defaultOrganizerEventDetails,
+  defaultOrganizerRaceDetails,
+} from "../../../lib/organizer-dashboard-details";
 import { buildOrganizerCompletion, isEventReadyToPublish, type CompletionEvent } from "./completion";
 
 const baseEvent: CompletionEvent = {
@@ -62,9 +66,10 @@ describe("organizer completion", () => {
     expect(completion.eventModules.some((module) => module.id === "formats")).toBe(false);
     expect(completion.formatModules.find((module) => module.id === "aidStations")?.status).toBe("empty");
     expect(completion.formatModules.some((module) => module.id === "preview")).toBe(false);
+    expect(completion.formatModules.some((module) => module.id === "products")).toBe(false);
     expect(completion.eventScore).toBeGreaterThan(0);
     expect(completion.formatScore).toBeGreaterThan(0);
-    expect(completion.modules.find((module) => module.id === "products")?.status).toBe("empty");
+    expect(completion.modules.some((module) => module.id === "products")).toBe(false);
     expect(completion.score).toBeGreaterThan(0);
     expect(completion.score).toBeLessThan(100);
   });
@@ -118,7 +123,7 @@ describe("organizer completion", () => {
     expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual([]);
   });
 
-  it("counts equipment items and station products in module statuses", () => {
+  it("keeps station products surfaced inside the aid station module", () => {
     const event: CompletionEvent = {
       ...baseEvent,
       organizerDetails: {
@@ -132,12 +137,23 @@ describe("organizer completion", () => {
     const completion = buildOrganizerCompletion(
       event,
       event.races[0]!,
-      [],
+      [
+        {
+          id: "station-1",
+          name: "Base vie",
+          distanceKm: 12,
+          waterRefill: true,
+          solidRefill: true,
+          assistanceAllowed: true,
+          organizerDetails: defaultOrganizerAidStationDetails,
+        },
+      ],
       [{ aidStationId: "station-1", productId: "product-1" }]
     );
 
     expect(completion.modules.find((module) => module.id === "equipment")?.status).toBe("complete");
-    expect(completion.modules.find((module) => module.id === "products")?.status).toBe("complete");
+    expect(completion.modules.find((module) => module.id === "aidStations")?.countLabel).toContain("1 produit");
+    expect(completion.formatModules.find((module) => module.id === "aidStations")?.countLabel).toContain("1 produit");
   });
 
   it("counts race-specific equipment separately from common equipment", () => {

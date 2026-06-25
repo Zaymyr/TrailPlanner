@@ -829,6 +829,7 @@ export function OrganizerDashboard() {
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
               onAddStation={() => {
+                const nextKey = `new-${aidStations.length}`;
                 setAidStations((current) => [
                   ...current,
                   {
@@ -841,6 +842,7 @@ export function OrganizerDashboard() {
                     organizerDetails: cloneJson(defaultOrganizerAidStationDetails),
                   },
                 ]);
+                setExpandedStationKey(nextKey);
                 markDirty("aidStations");
               }}
               onSave={() => void saveAidStations()}

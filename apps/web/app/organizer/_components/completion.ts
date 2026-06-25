@@ -210,10 +210,10 @@ export function buildOrganizerCompletion(
     {
       id: "aidStations",
       title: "Ravitos & points de course",
-      description: "Liste rapide des ravitos et services disponibles.",
+      description: "Liste des ravitos, services, barrieres et produits officiels.",
       level: "recommended",
       status: aidStations.length > 0 ? "complete" : "empty",
-      countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}`,
+      countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
     },
     {
       id: "equipment",
@@ -274,14 +274,6 @@ export function buildOrganizerCompletion(
       ),
       countLabel: hasText(access?.officialParkings) || hasText(access?.shuttles) ? "Infos transport" : "Non renseigne",
       missingLabels: formatAccessMissingLabels,
-    },
-    {
-      id: "products",
-      title: "Produits",
-      description: "Produits officiels disponibles sur les points de course.",
-      level: "optional",
-      status: linkedStationProductCount > 0 ? "complete" : "empty",
-      countLabel: `${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}`,
     },
     {
       id: "services",
@@ -474,19 +466,11 @@ export function buildOrganizerCompletion(
         {
           id: "aidStations",
           title: "Ravitos",
-          description: "Points de course et services du format.",
+          description: "Points de course, services, barrieres et produits du format.",
           level: "recommended",
           status: aidStations.length > 0 ? "complete" : "empty",
-          countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}`,
+          countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
           missingLabels: aidStations.length > 0 ? [] : ["Ravitos"],
-        },
-        {
-          id: "products",
-          title: "Produits",
-          description: "Produits officiels disponibles aux ravitos.",
-          level: "optional",
-          status: linkedStationProductCount > 0 ? "complete" : "empty",
-          countLabel: `${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}`,
         },
       ]
     : [];
