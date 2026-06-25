@@ -1,4 +1,5 @@
 import {
+  expandRaceEquipmentWithCommon,
   defaultOrganizerEventDetails,
   defaultOrganizerRaceDetails,
   parseOrganizerAidStationDetails,
@@ -159,12 +160,19 @@ export const buildEventDraft = (
 
 export const normalizeOrganizerEventDetail = (event: OrganizerEventDetail): OrganizerEventDetail => {
   const sortedRaces = [...event.races].sort((left, right) => left.distance_km - right.distance_km);
+  const organizerDetails = parseOrganizerEventDetails(event.organizerDetails);
   return {
     ...event,
-    organizerDetails: parseOrganizerEventDetails(event.organizerDetails),
+    organizerDetails,
     races: sortedRaces.map((race) => ({
       ...race,
-      organizerDetails: parseOrganizerRaceDetails(race.organizerDetails),
+      organizerDetails: (() => {
+        const raceDetails = parseOrganizerRaceDetails(race.organizerDetails);
+        return {
+          ...raceDetails,
+          mandatoryEquipment: expandRaceEquipmentWithCommon(organizerDetails.mandatoryEquipment, raceDetails.mandatoryEquipment),
+        };
+      })(),
     })),
   };
 };
@@ -224,15 +232,15 @@ export const normalizeGpxPreview = (data: GpxPreview | null): GpxPreview | null 
 
 export function getModuleTitle(moduleId: OrganizerModuleId) {
   const titles: Record<OrganizerModuleId, string> = {
-    event: "Informations evenement",
+    event: "Informations",
     formats: "Formats & GPX",
     aidStations: "Ravitos & points de course",
-    equipment: "Materiel commun / format",
+    equipment: "Materiel",
     schedule: "Horaires & barrieres",
-    bibPickup: "Dossard commun / format",
-    access: "Acces & infos format",
-    products: "Produits aux ravitos",
-    services: "Partenaires / services",
+    bibPickup: "Dossard",
+    access: "Acces",
+    products: "Produits",
+    services: "Services",
     preview: "Previsualisation coureur",
   };
   return titles[moduleId];
@@ -240,13 +248,13 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
 
 export function getModuleDescription(moduleId: OrganizerModuleId) {
   const descriptions: Record<OrganizerModuleId, string> = {
-    event: "Les informations parent qui cadrent tout l'evenement.",
+    event: "Les informations principales qui cadrent l'evenement.",
     formats: "Les formats restent en onglets, avec resume et actions rapides.",
     aidStations: "Un tableau rapide, avec details extensibles par ravito.",
-    equipment: "Materiel commun a l'evenement et specificites du format actif.",
+    equipment: "Le materiel partage se gere depuis l'evenement, puis chaque course peut l'ajuster.",
     schedule: "Horaires de depart, arrivee, navettes et barrieres.",
-    bibPickup: "Retrait dossard commun avec surcharge possible par format.",
-    access: "Acces commun, acces format et informations coureur specifiques.",
+    bibPickup: "Retrait dossard partage ou specifique selon l'onglet actif.",
+    access: "Acces partage ou specifique selon l'onglet actif.",
     products: "Produits officiels disponibles par ravito.",
     services: "Informations optionnelles utiles aux coureurs.",
     preview: "Controle visuel de la version coureur interne.",

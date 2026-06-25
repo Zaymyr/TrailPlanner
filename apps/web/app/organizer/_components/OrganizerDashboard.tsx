@@ -5,6 +5,8 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { fuelTypeValues, type FuelType } from "../../../lib/fuel-types";
 import {
+  applyCommonEquipmentToRace,
+  deriveCommonEquipmentFromRaces,
   defaultOrganizerAidStationDetails,
   defaultOrganizerRaceDetails,
   type OrganizerEventDetails,
@@ -106,6 +108,22 @@ export function OrganizerDashboard() {
     (): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     [accessToken]
   );
+
+  const serializeEquipment = (equipment: OrganizerEventDetails["mandatoryEquipment"]) =>
+    JSON.stringify({
+      items: equipment.items.map((item) => ({
+        label: item.label,
+        required: item.required,
+      })),
+    });
+
+  const syncEventCommonEquipment = (details: OrganizerEventDetails, races: RaceFormat[]) => ({
+    ...details,
+    mandatoryEquipment: deriveCommonEquipmentFromRaces(
+      races.map((race) => race.organizerDetails),
+      details.mandatoryEquipment
+    ),
+  });
 
   const completion: OrganizerCompletionSummary | null = useMemo(() => {
     if (!eventDraft) return null;
@@ -279,6 +297,26 @@ export function OrganizerDashboard() {
   const saveEvent = async (override?: Partial<EventFormValues>) => {
     if (!accessToken || !selectedEventId) return false;
     const nextForm = { ...eventForm, ...override };
+    const previousCommonEquipment = eventDetail?.organizerDetails?.mandatoryEquipment ?? eventForm.organizerDetails.mandatoryEquipment;
+    const equipmentChanged =
+      serializeEquipment(previousCommonEquipment) !== serializeEquipment(nextForm.organizerDetails.mandatoryEquipment);
+    const raceEquipmentUpdates = equipmentChanged
+      ? (eventDetail?.races ?? []).map((race) => {
+          const raceOrganizerDetails = race.organizerDetails ?? defaultOrganizerRaceDetails;
+
+          return {
+            raceId: race.id,
+            organizerDetails: {
+              ...raceOrganizerDetails,
+              mandatoryEquipment: applyCommonEquipmentToRace(
+                previousCommonEquipment,
+                nextForm.organizerDetails.mandatoryEquipment,
+                raceOrganizerDetails.mandatoryEquipment
+              ),
+            },
+          };
+        })
+      : [];
     setStatus("saving");
     setError(null);
     try {
@@ -299,6 +337,25 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible d'enregistrer l'evenement.");
         return false;
       }
+      if (raceEquipmentUpdates.length > 0) {
+        const raceResponses = await Promise.all(
+          raceEquipmentUpdates.map(async ({ raceId, organizerDetails }) => {
+            const raceResponse = await fetch(`/api/organizer/races/${raceId}`, {
+              method: "PATCH",
+              headers: { ...authHeaders, "Content-Type": "application/json" },
+              body: JSON.stringify({ organizerDetails }),
+            });
+            const raceData = (await raceResponse.json().catch(() => null)) as { message?: string } | null;
+            return { ok: raceResponse.ok, message: raceData?.message };
+          })
+        );
+
+        const failedRaceUpdate = raceResponses.find((result) => !result.ok);
+        if (failedRaceUpdate) {
+          showToast("error", failedRaceUpdate.message ?? "Impossible de reporter le materiel sur toutes les courses.");
+          return false;
+        }
+      }
       showToast("success", "Evenement mis a jour.");
       clearDirty(["event", "equipment", "bibPickup", "access", "services"]);
       await loadEvent(selectedEventId);
@@ -311,6 +368,17 @@ export function OrganizerDashboard() {
   const saveRace = async (override?: Partial<RaceFormValues>) => {
     if (!accessToken || !activeRace || !selectedEventId) return false;
     const nextForm = { ...raceForm, ...override };
+    const nextRaces = (eventDetail?.races ?? []).map((race) =>
+      race.id === activeRace.id
+        ? {
+            ...race,
+            organizerDetails: nextForm.organizerDetails,
+          }
+        : race
+    );
+    const syncedEventDetails = syncEventCommonEquipment(eventForm.organizerDetails, nextRaces);
+    const shouldSyncEventCommon =
+      serializeEquipment(eventForm.organizerDetails.mandatoryEquipment) !== serializeEquipment(syncedEventDetails.mandatoryEquipment);
     setStatus("saving");
     setError(null);
     try {
@@ -333,6 +401,19 @@ export function OrganizerDashboard() {
       if (!response.ok) {
         showToast("error", data?.message ?? "Impossible d'enregistrer le format.");
         return false;
+      }
+      if (shouldSyncEventCommon) {
+        const eventResponse = await fetch(`/api/organizer/events/${selectedEventId}`, {
+          method: "PATCH",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ organizerDetails: syncedEventDetails }),
+        });
+        const eventData = (await eventResponse.json().catch(() => null)) as { message?: string } | null;
+        if (!eventResponse.ok) {
+          showToast("error", eventData?.message ?? "Impossible de mettre a jour le materiel partage.");
+          return false;
+        }
+        setEventForm((current) => ({ ...current, organizerDetails: syncedEventDetails }));
       }
       showToast("success", "Format mis a jour.");
       clearDirty(["formats", "schedule"]);

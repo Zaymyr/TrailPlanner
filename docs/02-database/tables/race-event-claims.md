@@ -86,6 +86,7 @@ Summary:
 - Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
 - The organizer dashboard, including modular JSONB detail editors, event PNG upload, format GPX preview/replacement, and product picker with brand grouping and quick filters, is available only after the approved-claim membership handoff. Its route-local dashboard components render the shell, editors, ravito/product blocks, and preview, but the authorization gate remains the approved membership state; pending claims should not unlock event, format, station, image, GPX, or product edits.
+- Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Rejection stores review metadata but does not create membership.
 
 ## Common Queries
