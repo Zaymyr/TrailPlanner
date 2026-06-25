@@ -7,7 +7,7 @@ import type { OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues } from "./types";
-import { LiveToggle, NumberField, TextField } from "./controls";
+import { NumberField, TextField } from "./controls";
 
 export function EventInfoEditor({
   eventForm,
@@ -197,9 +197,8 @@ function RaceForm({
 
   return (
     <form className="rounded-lg border border-border bg-background p-4" onSubmit={onSubmit}>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-3">
         <p className="font-semibold text-foreground">{title}</p>
-        <LiveToggle checked={values.isLive} disabled={disabled} onChange={(checked) => onChange({ ...values, isLive: checked })} liveLabel="Live" draftLabel="Brouillon" />
       </div>
       <div className="grid gap-3 lg:grid-cols-4">
         <div className="lg:col-span-2">
@@ -255,7 +254,7 @@ function MiniElevationProfile({ preview, activeRace }: { preview: GpxPreview | n
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!activeRace.gpx_storage_path) {
-    return <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaÃ®tra aprÃ¨s l'ajout d'un GPX.</div>;
+    return <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaÃ®tra aprÃ¨s l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (!hasProfile) {
