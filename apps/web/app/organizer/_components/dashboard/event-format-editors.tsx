@@ -1,24 +1,22 @@
-import type { ChangeEvent, FormEvent } from 'react';
+import type { ChangeEvent, FormEvent } from "react";
 
-import { Button } from '../../../../components/ui/button';
-import { Input } from '../../../../components/ui/input';
-import { Label } from '../../../../components/ui/label';
-import type { OrganizerModuleId } from '../completion';
-import { ADD_FORMAT_TAB_ID } from './constants';
-import { formatKm } from './helpers';
-import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues } from './types';
-import { LiveToggle, NumberField, TextField } from './controls';
+import { Button } from "../../../../components/ui/button";
+import { Input } from "../../../../components/ui/input";
+import { Label } from "../../../../components/ui/label";
+import type { OrganizerModuleId } from "../completion";
+import { ADD_FORMAT_TAB_ID } from "./constants";
+import { formatKm } from "./helpers";
+import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues } from "./types";
+import { LiveToggle, NumberField, TextField } from "./controls";
 
 export function EventInfoEditor({
   eventForm,
   onChange,
-  onSave,
   onUploadImage,
   status,
 }: {
   eventForm: EventFormValues;
   onChange: (next: Partial<EventFormValues>, moduleId?: OrganizerModuleId) => void;
-  onSave: () => void;
   onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
@@ -27,33 +25,29 @@ export function EventInfoEditor({
   const missingLocation = !eventForm.location.trim();
   const missingStartDate = !eventForm.raceDate.trim();
   const missingEndDate = !dateRange.endDate?.trim();
-  const updateEndDate = (value: string) => {
-    onChange(
-      {
-        organizerDetails: {
-          ...eventForm.organizerDetails,
-          dateRange: {
-            ...dateRange,
-            endDate: value || null,
-          },
-        },
-      },
-      "event"
-    );
-  };
 
   return (
-    <form
-      className="grid gap-3 lg:grid-cols-[1fr_1fr_170px_170px_auto]"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave();
-      }}
-    >
+    <div className="grid gap-3 lg:grid-cols-[1fr_1fr_170px_170px]">
       <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
       <TextField label="Lieu" value={eventForm.location} onChange={(value) => onChange({ location: value })} invalid={missingLocation} />
       <TextField label="Date début" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
-      <TextField label="Date fin" type="date" value={dateRange.endDate ?? ""} onChange={updateEndDate} invalid={missingEndDate} />
+      <TextField
+        label="Date fin"
+        type="date"
+        value={dateRange.endDate ?? ""}
+        onChange={(value) =>
+          onChange(
+            {
+              organizerDetails: {
+                ...eventForm.organizerDetails,
+                dateRange: { ...dateRange, endDate: value || null },
+              },
+            },
+            "event"
+          )
+        }
+        invalid={missingEndDate}
+      />
       <div className="space-y-2 lg:col-span-4">
         <Label>Image événement (PNG)</Label>
         {eventForm.thumbnailUrl ? (
@@ -68,12 +62,7 @@ export function EventInfoEditor({
         <Input type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
         <p className="text-xs text-muted-foreground">PNG uniquement, 5 Mo maximum.</p>
       </div>
-      <div className="flex items-end">
-        <Button type="submit" disabled={status === "saving"}>
-          Sauvegarder
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 }
 
@@ -87,7 +76,6 @@ export function FormatsEditor({
   onRaceFormChange,
   onNewRaceFormChange,
   onCreateRace,
-  onSaveRace,
   onUploadGpx,
   onDuplicateRace,
   onPreviewRace,
@@ -103,7 +91,6 @@ export function FormatsEditor({
   onRaceFormChange: (next: Partial<RaceFormValues>) => void;
   onNewRaceFormChange: (next: RaceFormValues) => void;
   onCreateRace: (event: FormEvent<HTMLFormElement>) => void;
-  onSaveRace: () => void;
   onUploadGpx: (event: ChangeEvent<HTMLInputElement>) => void;
   onDuplicateRace: () => void;
   onPreviewRace: () => void;
@@ -139,21 +126,17 @@ export function FormatsEditor({
               title="Détails du format"
               values={raceForm}
               onChange={(values) => onRaceFormChange(values)}
-              onSubmit={(event) => {
-                event.preventDefault();
-                onSaveRace();
-              }}
-              submitLabel="Sauvegarder le format"
+              onSubmit={(event) => event.preventDefault()}
+              submitLabel=""
               disabled={status === "saving"}
+              hideSubmit
             />
           ) : null}
           <div className="rounded-lg border border-border bg-background p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-semibold text-foreground">GPX</p>
-                <p className="text-sm text-muted-foreground">
-                  {activeRace.gpx_storage_path ? "GPX source présent." : "Aucun GPX source pour ce format."}
-                </p>
+                <p className="text-sm text-muted-foreground">{activeRace.gpx_storage_path ? "GPX source présent." : "Aucun GPX source pour ce format."}</p>
               </div>
               <Input type="file" accept=".gpx,application/gpx+xml" onChange={onUploadGpx} disabled={status === "uploading"} className="max-w-sm" />
             </div>
@@ -167,13 +150,14 @@ export function FormatsEditor({
   );
 }
 
-export function RaceForm({
+function RaceForm({
   title,
   values,
   onChange,
   onSubmit,
   submitLabel,
   disabled,
+  hideSubmit = false,
 }: {
   title: string;
   values: RaceFormValues;
@@ -181,6 +165,7 @@ export function RaceForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   submitLabel: string;
   disabled?: boolean;
+  hideSubmit?: boolean;
 }) {
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
@@ -190,13 +175,7 @@ export function RaceForm({
     <form className="rounded-lg border border-border bg-background p-4" onSubmit={onSubmit}>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <p className="font-semibold text-foreground">{title}</p>
-        <LiveToggle
-          checked={values.isLive}
-          disabled={disabled}
-          onChange={(checked) => onChange({ ...values, isLive: checked })}
-          liveLabel="Live"
-          draftLabel="Brouillon"
-        />
+        <LiveToggle checked={values.isLive} disabled={disabled} onChange={(checked) => onChange({ ...values, isLive: checked })} liveLabel="Live" draftLabel="Brouillon" />
       </div>
       <div className="grid gap-3 lg:grid-cols-4">
         <div className="lg:col-span-2">
@@ -212,17 +191,19 @@ export function RaceForm({
         <div className="lg:col-span-3">
           <TextField label="Image format" value={values.thumbnailUrl} onChange={(value) => onChange({ ...values, thumbnailUrl: value })} placeholder="https://..." />
         </div>
-        <div className="flex items-end">
-          <Button type="submit" disabled={disabled}>
-            {submitLabel}
-          </Button>
-        </div>
+        {!hideSubmit ? (
+          <div className="flex items-end">
+            <Button type="submit" disabled={disabled}>
+              {submitLabel}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </form>
   );
 }
 
-export function MiniElevationProfile({ preview, activeRace }: { preview: GpxPreview | null; activeRace: RaceFormat }) {
+function MiniElevationProfile({ preview, activeRace }: { preview: GpxPreview | null; activeRace: RaceFormat }) {
   const profile = preview?.elevationProfile ?? [];
   const hasProfile = profile.length >= 2;
   const distanceKm = preview?.stats?.distanceKm ?? activeRace.distance_km;
@@ -230,19 +211,11 @@ export function MiniElevationProfile({ preview, activeRace }: { preview: GpxPrev
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!activeRace.gpx_storage_path) {
-    return (
-      <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">
-        La courbe apparaîtra après l'ajout d'un GPX.
-      </div>
-    );
+    return <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaîtra après l'ajout d'un GPX.</div>;
   }
 
   if (!hasProfile) {
-    return (
-      <div className="mt-4 rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">
-        GPX présent. Courbe de niveau indisponible pour ce fichier.
-      </div>
-    );
+    return <div className="mt-4 rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX présent. Courbe de niveau indisponible pour ce fichier.</div>;
   }
 
   const width = 720;
@@ -257,8 +230,7 @@ export function MiniElevationProfile({ preview, activeRace }: { preview: GpxPrev
   const maxElevation = Math.max(...elevations);
   const elevationRange = Math.max(maxElevation - minElevation, 1);
   const xScale = (distance: number) => paddingX + (Math.min(Math.max(distance, 0), maxDistance) / maxDistance) * (width - paddingX * 2);
-  const yScale = (elevation: number) =>
-    paddingTop + chartHeight - ((elevation - minElevation) / elevationRange) * chartHeight;
+  const yScale = (elevation: number) => paddingTop + chartHeight - ((elevation - minElevation) / elevationRange) * chartHeight;
   const path = profile
     .map((point, index) => `${index === 0 ? "M" : "L"}${xScale(point.distanceKm).toFixed(1)},${yScale(point.elevationM).toFixed(1)}`)
     .join(" ");

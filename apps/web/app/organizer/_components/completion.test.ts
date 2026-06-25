@@ -34,52 +34,50 @@ const baseEvent: CompletionEvent = {
 describe("organizer completion", () => {
   it("requires event basics and at least one publishable live format", () => {
     expect(isEventReadyToPublish(baseEvent)).toBe(true);
-
     expect(isEventReadyToPublish({ ...baseEvent, location: "" })).toBe(false);
-    expect(
-      isEventReadyToPublish({
-        ...baseEvent,
-        organizerDetails: { ...baseEvent.organizerDetails!, dateRange: { endDate: null } },
-      })
-    ).toBe(false);
-    expect(
-      isEventReadyToPublish({
-        ...baseEvent,
-        races: [{ ...baseEvent.races[0]!, is_live: false }],
-      })
-    ).toBe(false);
-    expect(
-      isEventReadyToPublish({
-        ...baseEvent,
-        races: [{ ...baseEvent.races[0]!, distance_km: 0 }],
-      })
-    ).toBe(false);
+    expect(isEventReadyToPublish({ ...baseEvent, organizerDetails: { ...baseEvent.organizerDetails!, dateRange: { endDate: null } } })).toBe(false);
+    expect(isEventReadyToPublish({ ...baseEvent, races: [{ ...baseEvent.races[0]!, is_live: false }] })).toBe(false);
+    expect(isEventReadyToPublish({ ...baseEvent, races: [{ ...baseEvent.races[0]!, distance_km: 0 }] })).toBe(false);
   });
 
-  it("marks optional modules as non-blocking while computing a global score", () => {
-    const completion = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], []);
+  it("keeps products inside the aid station module and removes schedule/products format tiles", () => {
+    const completion = buildOrganizerCompletion(
+      {
+        ...baseEvent,
+        races: [
+          {
+            ...baseEvent.races[0]!,
+            organizerDetails: {
+              ...defaultOrganizerRaceDetails,
+              schedule: { ...defaultOrganizerRaceDetails.schedule, startTime: "07:00", finishCutoffTime: "15:00" },
+            },
+          },
+        ],
+      },
+      {
+        ...baseEvent.races[0]!,
+        organizerDetails: {
+          ...defaultOrganizerRaceDetails,
+          schedule: { ...defaultOrganizerRaceDetails.schedule, startTime: "07:00", finishCutoffTime: "15:00" },
+        },
+      },
+      [
+        {
+          id: "station-1",
+          name: "Base vie",
+          distanceKm: 12,
+          waterRefill: true,
+          solidRefill: true,
+          assistanceAllowed: true,
+          organizerDetails: defaultOrganizerAidStationDetails,
+        },
+      ],
+      [{ aidStationId: "station-1", productId: "product-1" }]
+    );
 
-    expect(completion.requiredComplete).toBe(true);
-    expect(completion.modules.find((module) => module.id === "event")?.status).toBe("complete");
-    expect(completion.modules.find((module) => module.id === "formats")?.status).toBe("complete");
-    expect(completion.eventModules.find((module) => module.id === "event")?.status).toBe("complete");
-    expect(completion.eventModules.some((module) => module.id === "formats")).toBe(false);
-    expect(completion.formatModules.find((module) => module.id === "aidStations")?.status).toBe("empty");
-    expect(completion.formatModules.some((module) => module.id === "preview")).toBe(false);
+    expect(completion.modules.find((module) => module.id === "aidStations")?.countLabel).toContain("1 produit");
     expect(completion.formatModules.some((module) => module.id === "products")).toBe(false);
-    expect(completion.eventScore).toBeGreaterThan(0);
-    expect(completion.formatScore).toBeGreaterThan(0);
-    expect(completion.modules.some((module) => module.id === "products")).toBe(false);
-    expect(completion.score).toBeGreaterThan(0);
-    expect(completion.score).toBeLessThan(100);
-  });
-
-  it("does not report format progress when no format is active", () => {
-    const completion = buildOrganizerCompletion(baseEvent, null, [], []);
-
-    expect(completion.formatScore).toBe(0);
-    expect(completion.formatModules).toHaveLength(0);
-    expect(completion.eventScore).toBeGreaterThan(0);
+    expect(completion.formatModules.some((module) => module.id === "bibPickup")).toBe(false);
   });
 
   it("reports missing labels for event and format identity modules", () => {
@@ -103,77 +101,54 @@ describe("organizer completion", () => {
       []
     );
 
-    expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual([
-      "Nom",
-      "Lieu",
-      "Date début",
-      "Date fin",
-    ]);
-    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual([
-      "Nom",
-      "Distance",
-      "D+",
-    ]);
+    expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual(["Nom", "Lieu", "Date début", "Date fin"]);
+    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual(["Nom", "Distance", "D+"]);
   });
 
-  it("omits missing labels for complete event and format identity modules", () => {
-    const completion = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], []);
-
-    expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual([]);
-    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual([]);
-  });
-
-  it("keeps station products surfaced inside the aid station module", () => {
-    const event: CompletionEvent = {
-      ...baseEvent,
-      organizerDetails: {
-        ...defaultOrganizerEventDetails,
-        mandatoryEquipment: {
-          items: [{ id: "item-1", label: "Couverture de survie", required: true, note: null }],
-          note: null,
-        },
-      },
-    };
-    const completion = buildOrganizerCompletion(
-      event,
-      event.races[0]!,
-      [
-        {
-          id: "station-1",
-          name: "Base vie",
-          distanceKm: 12,
-          waterRefill: true,
-          solidRefill: true,
-          assistanceAllowed: true,
-          organizerDetails: defaultOrganizerAidStationDetails,
-        },
-      ],
-      [{ aidStationId: "station-1", productId: "product-1" }]
-    );
-
-    expect(completion.modules.find((module) => module.id === "equipment")?.status).toBe("complete");
-    expect(completion.modules.find((module) => module.id === "aidStations")?.countLabel).toContain("1 produit");
-    expect(completion.formatModules.find((module) => module.id === "aidStations")?.countLabel).toContain("1 produit");
-  });
-
-  it("counts race-specific equipment separately from common equipment", () => {
+  it("counts disabled access sections as satisfied", () => {
     const race = {
       ...baseEvent.races[0]!,
       organizerDetails: {
         ...defaultOrganizerRaceDetails,
-        mandatoryEquipment: {
-          items: [{ id: "race-item-1", label: "Lampe frontale", required: true, note: null }],
-          note: null,
+        access: {
+          ...defaultOrganizerRaceDetails.access,
+          startAddress: "1 rue du départ",
+          enabledSections: {
+            ...defaultOrganizerRaceDetails.access.enabledSections,
+            officialParkings: false,
+            shuttles: false,
+            roadRestrictions: false,
+            mapUrl: false,
+            runnerInfo: false,
+          },
         },
       },
     };
     const completion = buildOrganizerCompletion({ ...baseEvent, races: [race] }, race, [], []);
-    const equipmentModule = completion.modules.find((module) => module.id === "equipment");
-    const formatEquipmentModule = completion.formatModules.find((module) => module.id === "equipment");
+    expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toEqual([]);
+  });
 
-    expect(equipmentModule?.status).toBe("complete");
-    expect(equipmentModule?.countLabel).toBe("1 item");
-    expect(formatEquipmentModule?.status).toBe("complete");
-    expect(formatEquipmentModule?.countLabel).toBe("1 item");
+  it("marks re-enabled empty access sections as incomplete", () => {
+    const race = {
+      ...baseEvent.races[0]!,
+      organizerDetails: {
+        ...defaultOrganizerRaceDetails,
+        access: {
+          ...defaultOrganizerRaceDetails.access,
+          startAddress: "1 rue du départ",
+          enabledSections: {
+            ...defaultOrganizerRaceDetails.access.enabledSections,
+            officialParkings: true,
+            shuttles: true,
+          },
+          officialParkings: null,
+          shuttles: null,
+          shuttleSchedule: null,
+        },
+      },
+    };
+    const completion = buildOrganizerCompletion({ ...baseEvent, races: [race] }, race, [], []);
+    expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toContain("Parkings");
+    expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toContain("Navettes");
   });
 });

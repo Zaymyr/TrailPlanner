@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-06-24
+last_verified: 2026-06-25
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -38,7 +38,7 @@ related_tables:
 - Service availability: water refill, official solid food, and crew assistance availability.
 - GPX waypoint import: route/admin logic can derive stations from GPX waypoints.
 - Organizer products: optional station-product links live in `race_aid_station_products`.
-- Organizer station details: optional JSONB for station type, cumulative D+/D-, altitude, cutoff time, drop bag, and organizer note. The shared dashboard-detail parser also contains event/race schemas, but the station JSON shape remains scoped to station metadata.
+- Organizer station details: optional JSONB for station type, cumulative D+/D-, altitude, cutoff time, drop bag, and organizer note. The shared dashboard-detail parser also contains event/race schemas, but the station JSON shape remains scoped to station metadata. Format-level start and finish times are not stored as fake aid stations; they stay in `races.organizer_details.schedule` and are only rendered alongside ravitos in the organizer UI.
 
 ## Columns
 
@@ -87,6 +87,7 @@ Summary:
 - Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
 - The organizer product picker requires a saved source station id; new ravitos must be saved before products can be attached.
 - Organizer station details are saved together with station edits through `/api/organizer/races/[id]/aid-stations`; preserving row ids also preserves those details.
+- The organizer ravito tile now also surfaces the fixed `Départ` and `Arrivée` timing cards, but those values are not part of `race_aid_stations` and must not be persisted as synthetic rows.
 - Organizer GPX upload creates stations from waypoints only when a format has no existing source stations; existing station ids are preserved and must be edited through the ravito route.
 
 ## Common Queries
