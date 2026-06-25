@@ -31,8 +31,8 @@ export function EquipmentEditor({
   if (scope === "event") {
     return (
       <EquipmentFields
-        title="Materiel"
-        description="Chaque ajout ici sera reporte sur toutes les courses de l'evenement."
+        title="Matériel"
+        description="Chaque ajout ici sera reporté sur toutes les courses de l'événement."
         equipment={eventDetails.mandatoryEquipment}
         onEquipmentChange={(mandatoryEquipment) => onEventChange({ ...eventDetails, mandatoryEquipment })}
         onSave={onSaveEvent}
@@ -45,15 +45,15 @@ export function EquipmentEditor({
   if (!activeRace) {
     return (
       <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-        Selectionne un format pour ajouter du materiel specifique.
+        Sélectionne un format pour ajouter du matériel spécifique.
       </p>
     );
   }
 
   return (
     <EquipmentFields
-      title={`Materiel - ${activeRace.name}`}
-      description="Cette liste contient tout le materiel visible sur cette course. Retirer un item partage l'enleve du commun."
+      title={`Matériel - ${activeRace.name}`}
+      description="Cette liste contient tout le matériel visible sur cette course. Retirer un item partagé l'enlève du commun."
       equipment={raceDetails.mandatoryEquipment}
       onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment })}
       onSave={onSaveRace}
@@ -124,7 +124,7 @@ export function EquipmentFields({
               }
             >
               <option value="required">Obligatoire</option>
-              <option value="recommended">Recommande</option>
+              <option value="recommended">Recommandé</option>
             </select>
             <Button type="button" variant="ghost" onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}>
               Retirer
@@ -140,7 +140,7 @@ export function EquipmentFields({
         Ajouter un item
       </Button>
       <TextAreaField
-        label="Note materiel"
+        label="Note matériel"
         value={equipment.note ?? ""}
         onChange={(value) => onEquipmentChange({ ...equipment, note: value || null })}
         invalid={missingEquipment}
@@ -167,7 +167,7 @@ export function ScheduleEditor({
   onSave: () => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  if (!activeRace) return <p className="text-sm text-muted-foreground">Selectionne un format pour renseigner les horaires.</p>;
+  if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour renseigner les horaires.</p>;
   const schedule = raceForm.organizerDetails.schedule;
   const updateSchedule = (next: Partial<OrganizerRaceDetails["schedule"]>) =>
     onChange({ organizerDetails: { ...raceForm.organizerDetails, schedule: { ...schedule, ...next } } });
@@ -178,15 +178,15 @@ export function ScheduleEditor({
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Heure de depart" value={schedule.startTime ?? ""} onChange={(value) => updateSchedule({ startTime: value || null })} invalid={missingStartTime} />
-        <TextField label="Heure limite arrivee" value={schedule.finishCutoffTime ?? ""} onChange={(value) => updateSchedule({ finishCutoffTime: value || null })} invalid={missingFinishCutoff} />
+        <TextField label="Heure de départ" value={schedule.startTime ?? ""} onChange={(value) => updateSchedule({ startTime: value || null })} invalid={missingStartTime} />
+        <TextField label="Heure limite arrivée" value={schedule.finishCutoffTime ?? ""} onChange={(value) => updateSchedule({ finishCutoffTime: value || null })} invalid={missingFinishCutoff} />
       </div>
       <TextAreaField label="Horaires navettes" value={schedule.shuttleSchedule ?? ""} onChange={(value) => updateSchedule({ shuttleSchedule: value || null })} />
-      <TextAreaField label="Note horaires / barrieres" value={schedule.cutoffNote ?? ""} onChange={(value) => updateSchedule({ cutoffNote: value || null })} invalid={missingFinishCutoff} />
+      <TextAreaField label="Note horaires / barrières" value={schedule.cutoffNote ?? ""} onChange={(value) => updateSchedule({ cutoffNote: value || null })} invalid={missingFinishCutoff} />
       <div className="rounded-md border border-border bg-background p-3">
-        <p className="text-sm font-semibold">Barrieres liees aux ravitos</p>
+        <p className="text-sm font-semibold">Barrières liées aux ravitos</p>
         {cutoffStations.length === 0 ? (
-          <p className="mt-1 text-sm text-muted-foreground">Aucune barriere renseignee dans les ravitos.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Aucune barrière renseignée dans les ravitos.</p>
         ) : (
           <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
             {cutoffStations.map((station) => (
@@ -242,7 +242,7 @@ export function BibPickupEditor({
   if (!activeRace) {
     return (
       <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-        Selectionne un format pour ajouter une consigne dossard specifique.
+        Sélectionne un format pour ajouter une consigne dossard spécifique.
       </p>
     );
   }
@@ -250,7 +250,7 @@ export function BibPickupEditor({
   return (
     <BibPickupFields
       title={`Retrait dossard - ${activeRace.name}`}
-      description="Renseigne le retrait, les documents ou le controle propres a ce format."
+      description="Renseigne le retrait, les documents ou le contrôle propres à ce format."
       bib={raceDetails.bibPickup}
       onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup })}
       onSave={onSaveRace}
@@ -291,10 +291,10 @@ export function BibPickupFields({
         <TextField label="Lieu de retrait" value={bib.location ?? ""} onChange={(value) => update({ location: value || null })} invalid={missingLocation} />
         <TextField label="Horaires retrait" value={bib.schedule ?? ""} onChange={(value) => update({ schedule: value || null })} invalid={missingSchedule} />
       </div>
-      <TextAreaField label="Documents necessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
+      <TextAreaField label="Documents nécessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
       <div className="flex flex-wrap gap-2">
         <ToggleChip checked={bib.thirdPartyPickupAllowed === true} label="Retrait par tiers" onChange={(checked) => update({ thirdPartyPickupAllowed: checked })} />
-        <ToggleChip checked={bib.equipmentCheck === true} label="Controle materiel" onChange={(checked) => update({ equipmentCheck: checked })} />
+        <ToggleChip checked={bib.equipmentCheck === true} label="Contrôle matériel" onChange={(checked) => update({ equipmentCheck: checked })} />
       </div>
       <TextAreaField label="Note dossard" value={bib.note ?? ""} onChange={(value) => update({ note: value || null })} />
       <Button type="button" onClick={onSave} disabled={disabled}>
@@ -328,7 +328,7 @@ export function AccessEditor({
   if (scope === "event") {
     return (
       <AccessFields
-        title="Acces commun evenement"
+        title="Accès commun événement"
         description="Adresse principale, parking et consignes valables pour tous les formats."
         access={eventDetails.access}
         onAccessChange={(access) => onEventChange({ ...eventDetails, access })}
@@ -342,7 +342,7 @@ export function AccessEditor({
   if (!activeRace) {
     return (
       <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-        Selectionne un format pour ajouter un acces ou une information specifique.
+        Sélectionne un format pour ajouter un accès ou une information spécifique.
       </p>
     );
   }
@@ -350,8 +350,8 @@ export function AccessEditor({
   return (
     <section className="space-y-4 rounded-lg border border-border bg-background p-4">
       <AccessFields
-        title={`Acces - ${activeRace.name}`}
-        description="Renseigne le depart, l'arrivee, les navettes ou les restrictions propres a ce format."
+        title={`Accès - ${activeRace.name}`}
+        description="Renseigne le départ, l'arrivée, les navettes ou les restrictions propres à ce format."
         access={raceDetails.access}
         onAccessChange={(access) => onRaceChange({ ...raceDetails, access })}
         onSave={onSaveRace}
@@ -403,15 +403,15 @@ export function AccessFields({
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Adresse depart" value={access.startAddress ?? ""} onChange={(value) => update({ startAddress: value || null })} invalid={missingStartAddress} />
-        <TextField label="Adresse arrivee" value={access.finishAddress ?? ""} onChange={(value) => update({ finishAddress: value || null })} />
+        <TextField label="Adresse départ" value={access.startAddress ?? ""} onChange={(value) => update({ startAddress: value || null })} invalid={missingStartAddress} />
+        <TextField label="Adresse arrivée" value={access.finishAddress ?? ""} onChange={(value) => update({ finishAddress: value || null })} />
       </div>
       <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
       <TextAreaField label="Navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} invalid={missingParkingOrShuttle} />
       <TextAreaField label="Horaires navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
-      <TextAreaField label="Routes fermees / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
+      <TextAreaField label="Routes fermées / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
       <TextField label="Lien Google Maps ou adresse" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
-      <TextAreaField label="Note acces" value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
+      <TextAreaField label="Note accès" value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
       {showSaveButton ? (
         <Button type="button" onClick={onSave} disabled={disabled}>
           {saveLabel}
@@ -432,12 +432,12 @@ export function RunnerInfoFields({
   return (
     <div className="space-y-3 border-t border-border pt-4">
       <div>
-        <p className="font-semibold text-foreground">Informations coureur specifiques</p>
-        <p className="text-sm text-muted-foreground">Briefing, zone de depart ou consigne propre au format actif.</p>
+        <p className="font-semibold text-foreground">Informations coureur spécifiques</p>
+        <p className="text-sm text-muted-foreground">Briefing, zone de départ ou consigne propre au format actif.</p>
       </div>
-      <TextField label="Zone de depart" value={runnerInfo.startArea ?? ""} onChange={(value) => update({ startArea: value || null })} />
+      <TextField label="Zone de départ" value={runnerInfo.startArea ?? ""} onChange={(value) => update({ startArea: value || null })} />
       <TextAreaField label="Briefing" value={runnerInfo.briefing ?? ""} onChange={(value) => update({ briefing: value || null })} />
-      <TextAreaField label="Regles specifiques" value={runnerInfo.rules ?? ""} onChange={(value) => update({ rules: value || null })} />
+      <TextAreaField label="Règles spécifiques" value={runnerInfo.rules ?? ""} onChange={(value) => update({ rules: value || null })} />
       <TextAreaField label="Note format" value={runnerInfo.note ?? ""} onChange={(value) => update({ note: value || null })} />
     </div>
   );
@@ -459,11 +459,11 @@ export function ServicesEditor({
   return (
     <div className="space-y-4">
       <TextAreaField label="Accompagnants" value={services.supporters ?? ""} onChange={(value) => update({ supporters: value || null })} />
-      <TextAreaField label="Hebergements" value={services.accommodations ?? ""} onChange={(value) => update({ accommodations: value || null })} />
+      <TextAreaField label="Hébergements" value={services.accommodations ?? ""} onChange={(value) => update({ accommodations: value || null })} />
       <TextAreaField label="Restaurants" value={services.restaurants ?? ""} onChange={(value) => update({ restaurants: value || null })} />
-      <TextAreaField label="Massage / recuperation" value={services.recovery ?? ""} onChange={(value) => update({ recovery: value || null })} />
+      <TextAreaField label="Massage / récupération" value={services.recovery ?? ""} onChange={(value) => update({ recovery: value || null })} />
       <TextAreaField label="Partenaires" value={services.partners ?? ""} onChange={(value) => update({ partners: value || null })} />
-      <TextAreaField label="Message derniere minute" value={services.lastMinuteMessage ?? ""} onChange={(value) => update({ lastMinuteMessage: value || null })} />
+      <TextAreaField label="Message dernière minute" value={services.lastMinuteMessage ?? ""} onChange={(value) => update({ lastMinuteMessage: value || null })} />
       <TextAreaField label="Note services" value={services.note ?? ""} onChange={(value) => update({ note: value || null })} />
       <Button type="button" onClick={onSave} disabled={status === "saving"}>
         Sauvegarder les services
@@ -475,9 +475,9 @@ export function ServicesEditor({
 export function PreviewLauncher({ onPreview }: { onPreview: () => void }) {
   return (
     <div className="rounded-md border border-dashed border-border bg-background p-5">
-      <p className="text-sm text-muted-foreground">Ouvre une version simple cote coureur pour verifier les informations renseignees.</p>
+      <p className="text-sm text-muted-foreground">Ouvre une version simple côté coureur pour vérifier les informations renseignées.</p>
       <Button type="button" className="mt-3" onClick={onPreview}>
-        Previsualiser cote coureur
+        Prévisualiser côté coureur
       </Button>
     </div>
   );

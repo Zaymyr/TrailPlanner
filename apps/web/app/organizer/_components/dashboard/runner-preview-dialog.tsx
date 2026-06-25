@@ -33,11 +33,11 @@ export function RunnerPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{event?.name ?? "Previsualisation coureur"}</DialogTitle>
-          <DialogDescription>{[event?.location, dateLabel].filter(Boolean).join(" - ") || "Informations a completer"}</DialogDescription>
+          <DialogTitle>{event?.name ?? "Prévisualisation coureur"}</DialogTitle>
+          <DialogDescription>{[event?.location, dateLabel].filter(Boolean).join(" - ") || "Informations à compléter"}</DialogDescription>
         </DialogHeader>
         {!event ? (
-          <p className="text-sm text-muted-foreground">Aucun evenement charge.</p>
+          <p className="text-sm text-muted-foreground">Aucun événement chargé.</p>
         ) : (
           <div className="space-y-5">
             <section>
@@ -47,7 +47,7 @@ export function RunnerPreviewDialog({
                   <div key={race.id} className="rounded-md border border-border bg-background p-3">
                     <p className="font-semibold">{race.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {formatKm(race.distance_km)} - D+ {Math.round(race.elevation_gain_m)} m - {race.gpx_storage_path ? "GPX disponible" : "GPX a venir"}
+                      {formatKm(race.distance_km)} - D+ {Math.round(race.elevation_gain_m)} m - {race.gpx_storage_path ? "GPX disponible" : "GPX à venir"}
                     </p>
                   </div>
                 ))}
@@ -57,7 +57,7 @@ export function RunnerPreviewDialog({
               <section>
                 <h3 className="text-sm font-semibold text-foreground">Ravitos - {activeRace.name}</h3>
                 {aidStations.length === 0 ? (
-                  <p className="mt-1 text-sm text-muted-foreground">Ravitos a venir.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Ravitos à venir.</p>
                 ) : (
                   <div className="mt-2 space-y-2">
                     {aidStations.map((station) => {
@@ -69,7 +69,7 @@ export function RunnerPreviewDialog({
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {aidStationTypeLabels[station.organizerDetails.stationType]} - {station.waterRefill ? "eau" : "sans eau"} - {station.solidRefill ? "solide" : "sans solide"} - {station.assistanceAllowed ? "assistance" : "sans assistance"}
-                            {station.organizerDetails.cutoffTime ? ` - barriere ${station.organizerDetails.cutoffTime}` : ""}
+                            {station.organizerDetails.cutoffTime ? ` - barrière ${station.organizerDetails.cutoffTime}` : ""}
                           </p>
                           {products.length > 0 ? (
                             <p className="mt-1 text-xs text-muted-foreground">
@@ -86,31 +86,31 @@ export function RunnerPreviewDialog({
             {runnerDetails ? (
               <>
                 <PreviewTextSection
-                  title="Materiel commun"
-                  values={runnerDetails.commonEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommande)"}`)}
-                  empty="Materiel commun a venir."
+                  title="Matériel commun"
+                  values={runnerDetails.commonEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommandé)"}`)}
+                  empty="Matériel commun à venir."
                 />
                 <PreviewTextSection
-                  title={activeRace ? `Materiel ${activeRace.name}` : "Materiel format"}
-                  values={runnerDetails.raceEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommande)"}`)}
-                  empty="Pas de materiel specifique pour ce format."
+                  title={activeRace ? `Matériel ${activeRace.name}` : "Matériel format"}
+                  values={runnerDetails.raceEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommandé)"}`)}
+                  empty="Pas de matériel spécifique pour ce format."
                 />
                 <PreviewTextSection
                   title="Horaires"
                   values={[
-                    runnerDetails.schedule.startTime ? `Depart ${runnerDetails.schedule.startTime}` : null,
-                    runnerDetails.schedule.finishCutoffTime ? `Limite arrivee ${runnerDetails.schedule.finishCutoffTime}` : null,
+                    runnerDetails.schedule.startTime ? `Départ ${runnerDetails.schedule.startTime}` : null,
+                    runnerDetails.schedule.finishCutoffTime ? `Limite arrivée ${runnerDetails.schedule.finishCutoffTime}` : null,
                     runnerDetails.schedule.cutoffNote,
                   ]}
-                  empty="Horaires a venir."
+                  empty="Horaires à venir."
                 />
                 <PreviewTextSection
                   title="Dossard"
                   values={[runnerDetails.bibPickup.location, runnerDetails.bibPickup.schedule, runnerDetails.bibPickup.requiredDocuments, runnerDetails.bibPickup.note]}
-                  empty="Retrait dossard a venir."
+                  empty="Retrait dossard à venir."
                 />
                 <PreviewTextSection
-                  title="Acces"
+                  title="Accès"
                   values={[
                     runnerDetails.access.startAddress,
                     runnerDetails.access.finishAddress,
@@ -119,12 +119,12 @@ export function RunnerPreviewDialog({
                     runnerDetails.access.roadRestrictions,
                     runnerDetails.access.note,
                   ]}
-                  empty="Acces a venir."
+                  empty="Accès à venir."
                 />
                 <PreviewTextSection
                   title="Informations format"
                   values={[runnerDetails.runnerInfo.startArea, runnerDetails.runnerInfo.briefing, runnerDetails.runnerInfo.rules, runnerDetails.runnerInfo.note]}
-                  empty="Pas d'information specifique pour ce format."
+                  empty="Pas d'information spécifique pour ce format."
                 />
                 <PreviewTextSection
                   title="Services"
@@ -136,16 +136,16 @@ export function RunnerPreviewDialog({
                     runnerDetails.services.partners,
                     runnerDetails.services.lastMinuteMessage,
                   ]}
-                  empty="Services a venir."
+                  empty="Services à venir."
                 />
               </>
             ) : null}
             {activeRace?.is_live ? (
               <Link href={`/race-planner?catalogRaceId=${activeRace.id}`}>
-                <Button>Creer mon plan</Button>
+                <Button>Créer mon plan</Button>
               </Link>
             ) : (
-              <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">Le bouton "Creer mon plan" apparaitra pour un format live.</p>
+              <p className="rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">Le bouton "Créer mon plan" apparaîtra pour un format live.</p>
             )}
           </div>
         )}

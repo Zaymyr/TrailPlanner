@@ -106,7 +106,7 @@ describe("organizer completion", () => {
     expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual([
       "Nom",
       "Lieu",
-      "Date debut",
+      "Date début",
       "Date fin",
     ]);
     expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual([

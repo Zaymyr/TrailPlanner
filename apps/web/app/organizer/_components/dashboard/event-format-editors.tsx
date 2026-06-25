@@ -52,10 +52,10 @@ export function EventInfoEditor({
     >
       <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
       <TextField label="Lieu" value={eventForm.location} onChange={(value) => onChange({ location: value })} invalid={missingLocation} />
-      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
+      <TextField label="Date début" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
       <TextField label="Date fin" type="date" value={dateRange.endDate ?? ""} onChange={updateEndDate} invalid={missingEndDate} />
       <div className="space-y-2 lg:col-span-4">
-        <Label>Image evenement (PNG)</Label>
+        <Label>Image événement (PNG)</Label>
         {eventForm.thumbnailUrl ? (
           <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
             <img src={eventForm.thumbnailUrl} alt="" className="h-full w-full object-cover" />
@@ -128,31 +128,31 @@ export function FormatsEditor({
               Dupliquer ce format
             </Button>
             <Button type="button" variant="outline" onClick={onPreviewRace}>
-              Previsualiser ce format
+              Prévisualiser ce format
             </Button>
             <Button type="button" variant="ghost" onClick={onToggleRaceDetails}>
-              {showRaceDetails ? "Masquer les details" : "Afficher les details"}
+              {showRaceDetails ? "Masquer les détails" : "Afficher les détails"}
             </Button>
           </div>
           {showRaceDetails ? (
             <RaceForm
-              title="Details du format"
-          values={raceForm}
-          onChange={(values) => onRaceFormChange(values)}
-          onSubmit={(event) => {
+              title="Détails du format"
+              values={raceForm}
+              onChange={(values) => onRaceFormChange(values)}
+              onSubmit={(event) => {
                 event.preventDefault();
                 onSaveRace();
               }}
               submitLabel="Sauvegarder le format"
-          disabled={status === "saving"}
-        />
-      ) : null}
+              disabled={status === "saving"}
+            />
+          ) : null}
           <div className="rounded-lg border border-border bg-background p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-semibold text-foreground">GPX</p>
                 <p className="text-sm text-muted-foreground">
-                  {activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
+                  {activeRace.gpx_storage_path ? "GPX source présent." : "Aucun GPX source pour ce format."}
                 </p>
               </div>
               <Input type="file" accept=".gpx,application/gpx+xml" onChange={onUploadGpx} disabled={status === "uploading"} className="max-w-sm" />
@@ -161,7 +161,7 @@ export function FormatsEditor({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Selectionne ou ajoute un format.</p>
+        <p className="text-sm text-muted-foreground">Sélectionne ou ajoute un format.</p>
       )}
     </div>
   );
@@ -207,7 +207,7 @@ export function RaceForm({
         <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
         <TextField label="Date optionnelle" type="date" value={values.raceDate} onChange={(value) => onChange({ ...values, raceDate: value })} />
         <div className="lg:col-span-2">
-          <TextField label="Lieu format" value={values.locationText} onChange={(value) => onChange({ ...values, locationText: value })} />
+          <TextField label="Lieu du format" value={values.locationText} onChange={(value) => onChange({ ...values, locationText: value })} />
         </div>
         <div className="lg:col-span-3">
           <TextField label="Image format" value={values.thumbnailUrl} onChange={(value) => onChange({ ...values, thumbnailUrl: value })} placeholder="https://..." />
@@ -232,7 +232,7 @@ export function MiniElevationProfile({ preview, activeRace }: { preview: GpxPrev
   if (!activeRace.gpx_storage_path) {
     return (
       <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">
-        La courbe apparaitra apres l'ajout d'un GPX.
+        La courbe apparaîtra après l'ajout d'un GPX.
       </div>
     );
   }
@@ -240,7 +240,7 @@ export function MiniElevationProfile({ preview, activeRace }: { preview: GpxPrev
   if (!hasProfile) {
     return (
       <div className="mt-4 rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">
-        GPX present. Courbe de niveau indisponible pour ce fichier.
+        GPX présent. Courbe de niveau indisponible pour ce fichier.
       </div>
     );
   }
@@ -308,7 +308,7 @@ export function MiniElevationProfile({ preview, activeRace }: { preview: GpxPrev
       </svg>
       {preview?.detectedAidStations.length ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito detecte{preview.detectedAidStations.length > 1 ? "s" : ""}.
+          {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito détecté{preview.detectedAidStations.length > 1 ? "s" : ""}.
         </p>
       ) : null}
     </div>

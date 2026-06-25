@@ -235,29 +235,29 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
     event: "Informations",
     formats: "Formats & GPX",
     aidStations: "Ravitos & points de course",
-    equipment: "Materiel",
-    schedule: "Horaires & barrieres",
+    equipment: "Matériel",
+    schedule: "Horaires & barrières",
     bibPickup: "Dossard",
-    access: "Acces",
+    access: "Accès",
     products: "Produits",
     services: "Services",
-    preview: "Previsualisation coureur",
+    preview: "Prévisualisation coureur",
   };
   return titles[moduleId];
 }
 
 export function getModuleDescription(moduleId: OrganizerModuleId) {
   const descriptions: Record<OrganizerModuleId, string> = {
-    event: "Les informations principales qui cadrent l'evenement.",
-    formats: "Les formats restent en onglets, avec resume et actions rapides.",
-    aidStations: "Un tableau rapide, avec details extensibles par ravito.",
-    equipment: "Le materiel partage se gere depuis l'evenement, puis chaque course peut l'ajuster.",
-    schedule: "Horaires de depart, arrivee, navettes et barrieres.",
-    bibPickup: "Retrait dossard partage ou specifique selon l'onglet actif.",
-    access: "Acces partage ou specifique selon l'onglet actif.",
+    event: "Les informations principales qui cadrent l'événement.",
+    formats: "Les formats restent en onglets, avec résumé et actions rapides.",
+    aidStations: "Un tableau rapide, avec détails extensibles par ravito.",
+    equipment: "Le matériel partagé se gère depuis l'événement, puis chaque course peut l'ajuster.",
+    schedule: "Horaires de départ, arrivée, navettes et barrières.",
+    bibPickup: "Retrait dossard partagé ou spécifique selon l'onglet actif.",
+    access: "Accès partagé ou spécifique selon l'onglet actif.",
     products: "Produits officiels disponibles par ravito.",
     services: "Informations optionnelles utiles aux coureurs.",
-    preview: "Controle visuel de la version coureur interne.",
+    preview: "Contrôle visuel de la version coureur interne.",
   };
   return descriptions[moduleId];
 }

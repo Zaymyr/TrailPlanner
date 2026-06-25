@@ -16,7 +16,7 @@ export function OrganizerSignedOutCard() {
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Dashboard organisateur</CardTitle>
-          <CardDescription>Connecte-toi pour acceder aux courses claimees.</CardDescription>
+          <CardDescription>Connecte-toi pour accéder à ton espace organisateur.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
           <Link href="/sign-in">
@@ -37,7 +37,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Dashboard organisateur</CardTitle>
-          <CardDescription>Aucune course approuvee pour ce compte.</CardDescription>
+          <CardDescription>Aucune course approuvée pour ce compte.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {pendingClaims.length > 0 ? (
@@ -52,7 +52,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
           ) : null}
           {rejectedClaims.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-sm font-semibold">Demandes refusees</p>
+              <p className="text-sm font-semibold">Demandes refusées</p>
               {rejectedClaims.map((claim) => (
                 <div key={claim.id} className="rounded-md border border-border bg-background p-3 text-sm">
                   <p className="font-medium">{claim.race_events?.name ?? claim.organization_name}</p>
@@ -112,10 +112,10 @@ export function OrganizerSummaryHeader({
             Dashboard organisateur
           </p>
           <h1 className="mt-1 break-words text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50">
-            {selectedMembership?.race_events?.name ?? event?.name ?? "Evenement"}
+            {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates a completer"}
+            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates à compléter"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -145,7 +145,7 @@ export function OrganizerSummaryHeader({
           <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
           <span className="text-muted-foreground">{aidStationCount} ravitos</span>
           <span className={cn("font-medium", hasDirtyChanges ? "text-amber-700" : "text-emerald-700")}>
-            {hasDirtyChanges ? "Non enregistre" : "A jour"}
+            {hasDirtyChanges ? "Non enregistré" : "À jour"}
           </span>
         </div>
         <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
@@ -159,7 +159,7 @@ export function OrganizerSummaryHeader({
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" onClick={onPreview} variant="outline">
-          Previsualiser cote coureur
+          Prévisualiser côté coureur
         </Button>
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
@@ -193,10 +193,10 @@ export function CompletionTabsPanel({
   const score = isEventTab ? completion.eventScore : activeRace ? completion.formatScore : 0;
   const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
   const description = isEventTab
-    ? "Informations communes a tous les formats."
+    ? "Informations communes à tous les formats."
     : activeRace
-      ? "Informations propres au format selectionne."
-      : "Cree un nouveau format depuis le formulaire ci-dessous.";
+      ? "Informations propres au format sélectionné."
+      : "Crée un nouveau format depuis le formulaire ci-dessous.";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -226,7 +226,7 @@ export function CompletionTabsPanel({
         </>
       ) : (
         <div className="mt-3 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
-          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaitront apres creation.
+          Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaîtront après création.
         </div>
       )}
     </section>
@@ -276,13 +276,13 @@ export function OrganizerModuleGrid({
           <h2 className="mt-2 text-sm font-semibold leading-snug text-foreground">{module.title}</h2>
           {module.missingLabels?.length ? (
             <p className="mt-2 line-clamp-2 text-[11px] font-medium text-amber-700">
-              Manque: {module.missingLabels.slice(0, 3).join(", ")}
+              Manque : {module.missingLabels.slice(0, 3).join(", ")}
               {module.missingLabels.length > 3 ? "..." : ""}
             </p>
           ) : null}
           <div className="mt-4 flex items-end justify-between gap-2">
             <span className="text-xs font-medium text-foreground">{module.countLabel}</span>
-            <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "A sauver" : "Modifier"}</span>
+            <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "À sauvegarder" : "Modifier"}</span>
           </div>
         </button>
       ))}
