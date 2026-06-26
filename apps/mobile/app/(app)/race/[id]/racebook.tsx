@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Linking,
+  Pressable,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,47 +19,35 @@ import { fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData
 
 type RacebookTabKey = 'profile' | 'gear' | 'access' | 'aid';
 
-function formatDateRange(startDate: string | null, endDate: string | null, locale: 'fr' | 'en'): string | null {
-  if (!startDate && !endDate) return null;
+type LabeledItem = {
+  label: string;
+  value: string;
+};
 
-  const formatDate = (value: string | null) => {
-    if (!value) return null;
+function formatDate(value: string | null, locale: 'fr' | 'en'): string | null {
+  if (!value) return null;
 
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
 
-    return parsed.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
-  const start = formatDate(startDate);
-  const end = formatDate(endDate);
-
-  if (start && end && start !== end) {
-    return `${start} - ${end}`;
-  }
-
-  return start ?? end;
+  return parsed.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
-function formatElevation(elevationGainM: number) {
-  return Math.round(elevationGainM).toString();
+function formatElevation(value: number | null) {
+  if (value === null) return null;
+  return Math.round(value).toString();
 }
 
 function formatStationDistance(km: number) {
   return `${formatDistance(km)} km`;
-}
-
-function compactList(values: string[], maxItems = 3): string[] {
-  if (values.length <= maxItems) return values;
-  return [...values.slice(0, maxItems), `+${values.length - maxItems}`];
 }
 
 function SectionCard({
@@ -94,6 +82,19 @@ function InfoList({ values }: { values: string[] }) {
   );
 }
 
+function LabeledInfoList({ items }: { items: LabeledItem[] }) {
+  return (
+    <View style={styles.listGroup}>
+      {items.map((item) => (
+        <View key={`${item.label}:${item.value}`} style={styles.keyValueRow}>
+          <Text style={styles.keyValueLabel}>{item.label}</Text>
+          <Text style={styles.keyValueValue}>{item.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function ChipRow({ values }: { values: string[] }) {
   return (
     <View style={styles.chipRow}>
@@ -106,33 +107,88 @@ function ChipRow({ values }: { values: string[] }) {
   );
 }
 
+function GearList({
+  items,
+  requiredLabel,
+  recommendedLabel,
+}: {
+  items: RacebookScreenData['runnerDetails']['equipment']['items'];
+  requiredLabel: string;
+  recommendedLabel: string;
+}) {
+  return (
+    <View style={styles.listGroup}>
+      {items.map((item) => (
+        <View key={`${item.id ?? item.label}-${item.required ? 'required' : 'recommended'}`} style={styles.gearRow}>
+          <View style={styles.listRow}>
+            <View style={styles.listDot} />
+            <Text style={styles.listText}>{item.label}</Text>
+          </View>
+          <View style={[styles.statusBadge, item.required ? styles.statusBadgeRequired : styles.statusBadgeRecommended]}>
+            <Text style={[styles.statusBadgeText, item.required ? styles.statusBadgeTextRequired : styles.statusBadgeTextRecommended]}>
+              {item.required ? requiredLabel : recommendedLabel}
+            </Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function ServicePill({
+  icon,
+  label,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+}) {
+  return (
+    <View style={styles.servicePill}>
+      <Ionicons name={icon} size={14} color={Colors.brandPrimary} />
+      <Text style={styles.servicePillText}>{label}</Text>
+    </View>
+  );
+}
+
 function AidStationCard({
   station,
-  locale,
+  previousStation,
+  copy,
 }: {
   station: RacebookAidStation;
-  locale: 'fr' | 'en';
+  previousStation?: RacebookAidStation;
+  copy: {
+    aidProducts: string;
+    aidWater: string;
+    aidFood: string;
+    aidAssistance: string;
+    aidDropBag: string;
+    aidCutoff: string;
+  };
 }) {
-  const serviceChips = [
-    station.waterAvailable ? (locale === 'fr' ? 'Eau' : 'Water') : null,
-    station.solidAvailable ? (locale === 'fr' ? 'Solide' : 'Food') : null,
-    station.assistanceAllowed ? (locale === 'fr' ? 'Assistance' : 'Crew') : null,
-    station.organizerDetails.dropBagAvailable ? (locale === 'fr' ? 'Sac' : 'Drop bag') : null,
+  const serviceItems = [
+    station.waterAvailable ? { icon: 'water-outline' as const, label: copy.aidWater } : null,
+    station.solidAvailable ? { icon: 'restaurant-outline' as const, label: copy.aidFood } : null,
+    station.assistanceAllowed ? { icon: 'people-outline' as const, label: copy.aidAssistance } : null,
+    station.organizerDetails.dropBagAvailable ? { icon: 'briefcase-outline' as const, label: copy.aidDropBag } : null,
     station.organizerDetails.cutoffTime
-      ? locale === 'fr'
-        ? `Barrière ${station.organizerDetails.cutoffTime}`
-        : `Cutoff ${station.organizerDetails.cutoffTime}`
+      ? { icon: 'timer-outline' as const, label: `${copy.aidCutoff} ${station.organizerDetails.cutoffTime}` }
       : null,
-  ].filter((value): value is string => Boolean(value));
+  ].filter((value): value is NonNullable<typeof value> => Boolean(value));
 
-  const profileChips = [
+  const segmentGain =
+    previousStation &&
+    previousStation.organizerDetails.cumulativeElevationGainM !== null &&
     station.organizerDetails.cumulativeElevationGainM !== null
-      ? `D+ ${Math.round(station.organizerDetails.cumulativeElevationGainM)} m`
-      : null,
+      ? Math.round(station.organizerDetails.cumulativeElevationGainM - previousStation.organizerDetails.cumulativeElevationGainM)
+      : null;
+
+  const segmentLoss =
+    previousStation &&
+    previousStation.organizerDetails.cumulativeElevationLossM !== null &&
     station.organizerDetails.cumulativeElevationLossM !== null
-      ? `D- ${Math.round(station.organizerDetails.cumulativeElevationLossM)} m`
-      : null,
-  ].filter((value): value is string => Boolean(value));
+      ? Math.round(station.organizerDetails.cumulativeElevationLossM - previousStation.organizerDetails.cumulativeElevationLossM)
+      : null;
 
   return (
     <View style={styles.aidStationCard}>
@@ -141,15 +197,31 @@ function AidStationCard({
           <Text style={styles.aidStationName}>{station.name}</Text>
           <DataText style={styles.aidStationDistance}>{formatStationDistance(station.km)}</DataText>
         </View>
-        {profileChips.length > 0 ? <ChipRow values={profileChips} /> : null}
+
+        {segmentGain !== null || segmentLoss !== null ? (
+          <View style={styles.segmentStatsRow}>
+            {segmentGain !== null ? (
+              <DataText style={[styles.segmentStatText, styles.segmentGainText]}>{`D+ ${segmentGain} m`}</DataText>
+            ) : null}
+            {segmentLoss !== null ? (
+              <DataText style={[styles.segmentStatText, styles.segmentLossText]}>{`D- ${segmentLoss} m`}</DataText>
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
-      {serviceChips.length > 0 ? <ChipRow values={serviceChips} /> : null}
+      {serviceItems.length > 0 ? (
+        <View style={styles.servicePillRow}>
+          {serviceItems.map((item) => (
+            <ServicePill key={`${station.id}-${item.label}`} icon={item.icon} label={item.label} />
+          ))}
+        </View>
+      ) : null}
 
       {station.products.length > 0 ? (
         <View style={styles.inlineBlock}>
-          <Text style={styles.inlineBlockTitle}>{locale === 'fr' ? 'Produits' : 'Products'}</Text>
-          <ChipRow values={compactList(station.products.map((product) => product.label), 4)} />
+          <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
+          <ChipRow values={station.products.map((product) => product.label)} />
         </View>
       ) : null}
 
@@ -211,48 +283,39 @@ export default function RaceRacebookScreen() {
     [t.catalog.racebookTabAccess, t.catalog.racebookTabAid, t.catalog.racebookTabGear, t.catalog.racebookTabProfile],
   );
 
-  const headerDate = formatDateRange(
-    data?.event.raceDate ?? data?.race.raceDate ?? null,
-    data?.event.organizerDetails.dateRange.endDate ?? null,
-    locale,
-  );
-
+  const headerDate = formatDate(data?.race.raceDate ?? data?.event.raceDate ?? null, locale);
   const headerLocation = data?.event.location ?? data?.race.location ?? null;
   const eventMeta = [headerLocation, headerDate].filter(Boolean) as string[];
+  const lastMinuteMessage = data?.runnerDetails.services.lastMinuteMessage ?? null;
 
   const profileSections = useMemo(() => {
     if (!data) return [];
 
     const runnerDetails = data.runnerDetails;
-    const scheduleLines = [
+    const startInfoItems = [
       runnerDetails.schedule.startTime
-        ? locale === 'fr'
-          ? `Départ ${runnerDetails.schedule.startTime}`
-          : `Start ${runnerDetails.schedule.startTime}`
+        ? { label: t.catalog.racebookFieldStartTime, value: runnerDetails.schedule.startTime }
         : null,
-      runnerDetails.schedule.finishCutoffTime
-        ? locale === 'fr'
-          ? `Barrière arrivée ${runnerDetails.schedule.finishCutoffTime}`
-          : `Finish cutoff ${runnerDetails.schedule.finishCutoffTime}`
+      runnerDetails.access.startAddress
+        ? { label: t.catalog.racebookFieldStartLocation, value: runnerDetails.access.startAddress }
         : null,
-      runnerDetails.schedule.cutoffNote,
-      runnerDetails.schedule.note,
-    ].filter((value): value is string => Boolean(value));
+    ].filter((value): value is LabeledItem => Boolean(value));
+
+    const bibItems = [
+      runnerDetails.bibPickup.location
+        ? { label: t.catalog.racebookFieldBibLocation, value: runnerDetails.bibPickup.location }
+        : null,
+      runnerDetails.bibPickup.schedule
+        ? { label: t.catalog.racebookFieldBibWindow, value: runnerDetails.bibPickup.schedule }
+        : null,
+      runnerDetails.bibPickup.requiredDocuments
+        ? { label: t.catalog.racebookFieldBibDocuments, value: runnerDetails.bibPickup.requiredDocuments }
+        : null,
+    ].filter((value): value is LabeledItem => Boolean(value));
 
     const bibLines = [
-      runnerDetails.bibPickup.location,
-      runnerDetails.bibPickup.schedule,
-      runnerDetails.bibPickup.requiredDocuments,
-      runnerDetails.bibPickup.thirdPartyPickupAllowed === true
-        ? locale === 'fr'
-          ? 'Retrait par tiers autorisé'
-          : 'Third-party pickup allowed'
-        : null,
-      runnerDetails.bibPickup.equipmentCheck === true
-        ? locale === 'fr'
-          ? 'Contrôle matériel prévu'
-          : 'Equipment check planned'
-        : null,
+      runnerDetails.bibPickup.thirdPartyPickupAllowed === true ? t.catalog.racebookBibThirdPartyPickupAllowed : null,
+      runnerDetails.bibPickup.equipmentCheck === true ? t.catalog.racebookBibEquipmentCheck : null,
       runnerDetails.bibPickup.note,
     ].filter((value): value is string => Boolean(value));
 
@@ -272,17 +335,29 @@ export default function RaceRacebookScreen() {
       runnerDetails.services.restaurants,
       runnerDetails.services.recovery,
       runnerDetails.services.partners,
-      runnerDetails.services.lastMinuteMessage,
       runnerDetails.services.note,
     ].filter((value): value is string => Boolean(value));
 
     return [
-      { title: t.catalog.racebookSectionSchedule, lines: scheduleLines },
-      { title: t.catalog.racebookSectionBib, lines: bibLines },
-      { title: t.catalog.racebookSectionRunnerInfo, lines: runnerInfoLines },
-      { title: t.catalog.racebookSectionServices, lines: servicesLines },
-    ].filter((section) => section.lines.length > 0);
-  }, [data, locale, t.catalog.racebookSectionBib, t.catalog.racebookSectionRunnerInfo, t.catalog.racebookSectionSchedule, t.catalog.racebookSectionServices]);
+      { title: t.catalog.racebookSectionStartInfo, items: startInfoItems, lines: [] as string[] },
+      { title: t.catalog.racebookSectionBib, items: bibItems, lines: bibLines },
+      { title: t.catalog.racebookSectionRunnerInfo, items: [] as LabeledItem[], lines: runnerInfoLines },
+      { title: t.catalog.racebookSectionServices, items: [] as LabeledItem[], lines: servicesLines },
+    ].filter((section) => section.items.length > 0 || section.lines.length > 0);
+  }, [
+    data,
+    t.catalog.racebookBibEquipmentCheck,
+    t.catalog.racebookBibThirdPartyPickupAllowed,
+    t.catalog.racebookFieldBibDocuments,
+    t.catalog.racebookFieldBibLocation,
+    t.catalog.racebookFieldBibWindow,
+    t.catalog.racebookFieldStartLocation,
+    t.catalog.racebookFieldStartTime,
+    t.catalog.racebookSectionBib,
+    t.catalog.racebookSectionRunnerInfo,
+    t.catalog.racebookSectionServices,
+    t.catalog.racebookSectionStartInfo,
+  ]);
 
   const accessSections = useMemo(() => {
     if (!data) return [];
@@ -329,14 +404,8 @@ export default function RaceRacebookScreen() {
     t.catalog.racebookAccessShuttles,
   ]);
 
-  const equipmentRequired = data?.runnerDetails.equipment.items
-    .filter((item: RacebookScreenData['runnerDetails']['equipment']['items'][number]) => item.required)
-    .map((item: RacebookScreenData['runnerDetails']['equipment']['items'][number]) => item.label) ?? [];
-  const equipmentRecommended = data?.runnerDetails.equipment.items
-    .filter((item: RacebookScreenData['runnerDetails']['equipment']['items'][number]) => !item.required)
-    .map((item: RacebookScreenData['runnerDetails']['equipment']['items'][number]) => item.label) ?? [];
+  const equipmentItems = data?.runnerDetails.equipment.items ?? [];
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
-
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
@@ -355,9 +424,9 @@ export default function RaceRacebookScreen() {
             {t.catalog.racebookUnavailableTitle}
           </Heading>
           <Text style={styles.unavailableBody}>{t.catalog.racebookUnavailableBody}</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>{t.common.back}</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       ) : data ? (
         <>
@@ -371,9 +440,7 @@ export default function RaceRacebookScreen() {
                 <Heading variant="h2" style={styles.heroTitle}>
                   {data.race.name}
                 </Heading>
-                {eventMeta.length > 0 ? (
-                  <Text style={styles.heroMeta}>{eventMeta.join(' • ')}</Text>
-                ) : null}
+                {eventMeta.length > 0 ? <Text style={styles.heroMeta}>{eventMeta.join(' • ')}</Text> : null}
               </View>
             </View>
 
@@ -384,6 +451,11 @@ export default function RaceRacebookScreen() {
               <View style={styles.summaryChip}>
                 <DataText style={styles.summaryChipText}>{`D+ ${formatElevation(data.race.elevationGainM)} m`}</DataText>
               </View>
+              {data.race.elevationLossM !== null ? (
+                <View style={styles.summaryChip}>
+                  <DataText style={styles.summaryChipText}>{`D- ${formatElevation(data.race.elevationLossM)} m`}</DataText>
+                </View>
+              ) : null}
               {data.runnerDetails.schedule.startTime ? (
                 <View style={styles.summaryChip}>
                   <DataText style={styles.summaryChipText}>{data.runnerDetails.schedule.startTime}</DataText>
@@ -392,12 +464,24 @@ export default function RaceRacebookScreen() {
             </View>
           </View>
 
+          {lastMinuteMessage ? (
+            <View style={styles.alertCard}>
+              <View style={styles.alertHeader}>
+                <View style={styles.alertIconWrap}>
+                  <Ionicons name="megaphone-outline" size={16} color={Colors.warning} />
+                </View>
+                <Text style={styles.alertTitle}>{t.catalog.racebookLastMinuteTitle}</Text>
+              </View>
+              <Text style={styles.alertBody}>{lastMinuteMessage}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.tabsWrap}>
             {tabs.map((tab) => {
               const active = activeTab === tab.key;
 
               return (
-                <TouchableOpacity
+                <Pressable
                   key={tab.key}
                   style={[styles.tabButton, active && styles.tabButtonActive]}
                   onPress={() => setActiveTab(tab.key)}
@@ -405,7 +489,7 @@ export default function RaceRacebookScreen() {
                   <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]} numberOfLines={1}>
                     {tab.label}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
@@ -415,7 +499,8 @@ export default function RaceRacebookScreen() {
               profileSections.length > 0 ? (
                 profileSections.map((section) => (
                   <SectionCard key={section.title} title={section.title}>
-                    <InfoList values={section.lines} />
+                    {section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
+                    {section.lines.length > 0 ? <InfoList values={section.lines} /> : null}
                   </SectionCard>
                 ))
               ) : (
@@ -427,23 +512,16 @@ export default function RaceRacebookScreen() {
 
             {activeTab === 'gear' ? (
               <SectionCard title={t.catalog.racebookTabGear}>
-                {equipmentRequired.length === 0 &&
-                equipmentRecommended.length === 0 &&
-                equipmentNotes.length === 0 ? (
+                {equipmentItems.length === 0 && equipmentNotes.length === 0 ? (
                   <EmptyState message={t.catalog.racebookEmptyGear} />
                 ) : (
                   <>
-                    {equipmentRequired.length > 0 ? (
-                      <View style={styles.inlineBlock}>
-                        <Text style={styles.inlineBlockTitle}>{t.catalog.racebookGearRequired}</Text>
-                        <ChipRow values={equipmentRequired} />
-                      </View>
-                    ) : null}
-                    {equipmentRecommended.length > 0 ? (
-                      <View style={styles.inlineBlock}>
-                        <Text style={styles.inlineBlockTitle}>{t.catalog.racebookGearRecommended}</Text>
-                        <ChipRow values={equipmentRecommended} />
-                      </View>
+                    {equipmentItems.length > 0 ? (
+                      <GearList
+                        items={equipmentItems}
+                        requiredLabel={t.catalog.racebookGearRequired}
+                        recommendedLabel={t.catalog.racebookGearRecommended}
+                      />
                     ) : null}
                     {equipmentNotes.length > 0 ? <InfoList values={equipmentNotes} /> : null}
                   </>
@@ -456,9 +534,9 @@ export default function RaceRacebookScreen() {
                 accessSections.map((section) => (
                   <SectionCard key={section.title} title={section.title}>
                     {section.title === t.catalog.racebookAccessMap && section.lines[0]?.startsWith('http') ? (
-                      <TouchableOpacity onPress={() => Linking.openURL(section.lines[0]!).catch(() => {})}>
+                      <Pressable onPress={() => Linking.openURL(section.lines[0]!).catch(() => {})}>
                         <Text style={styles.linkText}>{section.lines[0]}</Text>
-                      </TouchableOpacity>
+                      </Pressable>
                     ) : (
                       <InfoList values={section.lines} />
                     )}
@@ -475,8 +553,20 @@ export default function RaceRacebookScreen() {
               data.aidStations.length > 0 ? (
                 <SectionCard title={t.catalog.racebookTabAid}>
                   <View style={styles.aidStationsWrap}>
-                    {data.aidStations.map((station: RacebookAidStation) => (
-                      <AidStationCard key={station.id} station={station} locale={locale} />
+                    {data.aidStations.map((station: RacebookAidStation, index: number) => (
+                      <AidStationCard
+                        key={station.id}
+                        station={station}
+                        previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
+                        copy={{
+                          aidProducts: t.catalog.racebookAidProducts,
+                          aidWater: t.catalog.racebookAidWater,
+                          aidFood: t.catalog.racebookAidFood,
+                          aidAssistance: t.catalog.racebookAidAssistance,
+                          aidDropBag: t.catalog.racebookAidDropBag,
+                          aidCutoff: t.catalog.racebookAidCutoff,
+                        }}
+                      />
                     ))}
                   </View>
                 </SectionCard>
@@ -551,6 +641,37 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  alertCard: {
+    gap: 10,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E7C97A',
+    backgroundColor: Colors.warningSurface,
+  },
+  alertHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  alertIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF6DA',
+  },
+  alertTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  alertBody: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   heroHeader: {
     flexDirection: 'row',
@@ -672,6 +793,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  keyValueRow: {
+    gap: 4,
+  },
+  keyValueLabel: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  keyValueValue: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -697,6 +833,36 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
+  },
+  gearRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusBadgeRequired: {
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandBorder,
+  },
+  statusBadgeRecommended: {
+    backgroundColor: Colors.surfaceSecondary,
+    borderColor: Colors.border,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusBadgeTextRequired: {
+    color: Colors.brandPrimary,
+  },
+  statusBadgeTextRecommended: {
+    color: Colors.textSecondary,
   },
   linkText: {
     color: Colors.brandPrimary,
@@ -733,6 +899,42 @@ const styles = StyleSheet.create({
   aidStationDistance: {
     color: Colors.brandPrimary,
     fontSize: 12,
+  },
+  servicePillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  servicePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  servicePillText: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  segmentStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  segmentStatText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  segmentGainText: {
+    color: Colors.danger,
+  },
+  segmentLossText: {
+    color: '#2563EB',
   },
   noteText: {
     color: Colors.textSecondary,
