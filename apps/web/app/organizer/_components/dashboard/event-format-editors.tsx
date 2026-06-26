@@ -34,6 +34,7 @@ export function EventInfoEditor({
         label="Lieu"
         value={eventForm.location}
         location={eventForm.organizerDetails.eventLocation}
+        biasLocation={eventForm.organizerDetails.eventLocation}
         onChange={(value) => onChange({ location: value })}
         onLocationChange={(eventLocation) =>
           onChange(
@@ -129,6 +130,7 @@ export function FormatsEditor({
         <RaceForm
           title="Ajouter un format"
           values={newRaceForm}
+          biasLocation={null}
           pendingImageName={newRaceImageName}
           onChange={(values) => onNewRaceFormChange(values)}
           onSubmit={onCreateRace}
@@ -162,6 +164,7 @@ export function FormatsEditor({
             <RaceForm
               title="DÃ©tails du format"
               values={raceForm}
+              biasLocation={raceForm.organizerDetails.raceLocation}
               onChange={(values) => onRaceFormChange(values)}
               onSubmit={(event) => event.preventDefault()}
               onImageChange={onUploadRaceImage}
@@ -191,6 +194,7 @@ export function FormatsEditor({
 function RaceForm({
   title,
   values,
+  biasLocation,
   onChange,
   onSubmit,
   onImageChange,
@@ -201,6 +205,7 @@ function RaceForm({
 }: {
   title: string;
   values: RaceFormValues;
+  biasLocation: RaceFormValues["organizerDetails"]["raceLocation"] | null;
   onChange: (values: RaceFormValues) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
@@ -231,6 +236,7 @@ function RaceForm({
             label="Lieu du format"
             value={values.locationText}
             location={values.organizerDetails.raceLocation}
+            biasLocation={biasLocation ?? undefined}
             onChange={(value) => onChange({ ...values, locationText: value })}
             onLocationChange={(raceLocation) =>
               onChange({

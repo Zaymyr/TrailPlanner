@@ -136,7 +136,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - The mobile catalog now has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details` on live formats: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. Aid stations alone are not enough to expose the mobile Racebook entry point.
-- The mobile Racebook also parses additive geocoded organizer metadata for event/format, bib pickup, and start/finish access. When a published organizer location includes a Google Maps URL, the screen shows an inline Google action next to the corresponding label instead of forcing runners to copy/paste the address manually.
+- The mobile Racebook also parses additive geocoded organizer metadata for event/format, bib pickup, and start/finish access. When a published organizer location includes a Google Maps URL, the screen shows an inline Google action next to the corresponding label instead of forcing runners to copy/paste the address manually. Keep those actions in a fixed trailing slot so the value column stays visually aligned even when only some rows have navigation links.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.

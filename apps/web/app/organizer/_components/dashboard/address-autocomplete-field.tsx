@@ -20,6 +20,7 @@ export function AddressAutocompleteField({
   label,
   value,
   location,
+  biasLocation,
   onChange,
   onLocationChange,
   required,
@@ -29,6 +30,7 @@ export function AddressAutocompleteField({
   label: string;
   value: string;
   location: OrganizerLocation;
+  biasLocation?: OrganizerLocation;
   onChange: (value: string) => void;
   onLocationChange: (location: OrganizerLocation) => void;
   required?: boolean;
@@ -65,7 +67,19 @@ export function AddressAutocompleteField({
       lastQueryRef.current = trimmedValue;
 
       try {
-        const response = await fetch(`/api/location-search?q=${encodeURIComponent(trimmedValue)}`, {
+        const params = new URLSearchParams({ q: trimmedValue });
+        const preferredLocation = hasCoordinates(location) ? location : biasLocation;
+
+        if (
+          preferredLocation &&
+          preferredLocation.lat !== null &&
+          preferredLocation.lng !== null
+        ) {
+          params.set("biasLat", preferredLocation.lat.toString());
+          params.set("biasLng", preferredLocation.lng.toString());
+        }
+
+        const response = await fetch(`/api/location-search?${params.toString()}`, {
           signal: controller.signal,
           cache: "no-store",
         });
