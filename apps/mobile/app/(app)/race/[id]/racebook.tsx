@@ -24,6 +24,12 @@ type LabeledItem = {
   value: string;
 };
 
+type MetricItem = {
+  label: string;
+  value: string;
+  tone?: 'neutral' | 'gain' | 'loss';
+};
+
 function formatDate(value: string | null, locale: 'fr' | 'en'): string | null {
   if (!value) return null;
 
@@ -86,9 +92,10 @@ function LabeledInfoList({ items }: { items: LabeledItem[] }) {
   return (
     <View style={styles.listGroup}>
       {items.map((item) => (
-        <View key={`${item.label}:${item.value}`} style={styles.keyValueRow}>
-          <Text style={styles.keyValueLabel}>{item.label}</Text>
-          <Text style={styles.keyValueValue}>{item.value}</Text>
+        <View key={`${item.label}:${item.value}`} style={styles.tableRow}>
+          <Text style={styles.tableLabel}>{item.label}</Text>
+          <View style={styles.tableDivider} />
+          <Text style={styles.tableValue}>{item.value}</Text>
         </View>
       ))}
     </View>
@@ -163,7 +170,10 @@ function AidStationCard({
     aidFood: string;
     aidAssistance: string;
     aidDropBag: string;
-    aidCutoff: string;
+    aidDistance: string;
+    aidElevationGain: string;
+    aidElevationLoss: string;
+    aidCutoffTime: string;
   };
 }) {
   const serviceItems = [
@@ -171,63 +181,78 @@ function AidStationCard({
     station.solidAvailable ? { icon: 'restaurant-outline' as const, label: copy.aidFood } : null,
     station.assistanceAllowed ? { icon: 'people-outline' as const, label: copy.aidAssistance } : null,
     station.organizerDetails.dropBagAvailable ? { icon: 'briefcase-outline' as const, label: copy.aidDropBag } : null,
-    station.organizerDetails.cutoffTime
-      ? { icon: 'timer-outline' as const, label: `${copy.aidCutoff} ${station.organizerDetails.cutoffTime}` }
-      : null,
   ].filter((value): value is NonNullable<typeof value> => Boolean(value));
 
-  const segmentGain =
-    previousStation &&
-    previousStation.organizerDetails.cumulativeElevationGainM !== null &&
-    station.organizerDetails.cumulativeElevationGainM !== null
-      ? Math.round(station.organizerDetails.cumulativeElevationGainM - previousStation.organizerDetails.cumulativeElevationGainM)
-      : null;
+  const segmentGain = (() => {
+    if (station.organizerDetails.cumulativeElevationGainM === null) return null;
+    if (!previousStation || previousStation.organizerDetails.cumulativeElevationGainM === null) {
+      return Math.round(station.organizerDetails.cumulativeElevationGainM);
+    }
+    return Math.round(station.organizerDetails.cumulativeElevationGainM - previousStation.organizerDetails.cumulativeElevationGainM);
+  })();
 
-  const segmentLoss =
-    previousStation &&
-    previousStation.organizerDetails.cumulativeElevationLossM !== null &&
-    station.organizerDetails.cumulativeElevationLossM !== null
-      ? Math.round(station.organizerDetails.cumulativeElevationLossM - previousStation.organizerDetails.cumulativeElevationLossM)
-      : null;
+  const segmentLoss = (() => {
+    if (station.organizerDetails.cumulativeElevationLossM === null) return null;
+    if (!previousStation || previousStation.organizerDetails.cumulativeElevationLossM === null) {
+      return Math.round(station.organizerDetails.cumulativeElevationLossM);
+    }
+    return Math.round(station.organizerDetails.cumulativeElevationLossM - previousStation.organizerDetails.cumulativeElevationLossM);
+  })();
+
+  const metricItems: MetricItem[] = [
+    { label: copy.aidDistance, value: formatStationDistance(station.km) },
+    ...(segmentGain !== null ? [{ label: copy.aidElevationGain, value: `${segmentGain} m`, tone: 'gain' as const }] : []),
+    ...(segmentLoss !== null ? [{ label: copy.aidElevationLoss, value: `${segmentLoss} m`, tone: 'loss' as const }] : []),
+    ...(station.organizerDetails.cutoffTime ? [{ label: copy.aidCutoffTime, value: station.organizerDetails.cutoffTime }] : []),
+  ];
 
   return (
     <View style={styles.aidStationCard}>
-      <View style={styles.aidStationHeader}>
-        <View style={styles.aidStationTitleWrap}>
-          <Text style={styles.aidStationName}>{station.name}</Text>
-          <DataText style={styles.aidStationDistance}>{formatStationDistance(station.km)}</DataText>
+      <View style={styles.aidStationLayout}>
+        <View style={styles.aidStationMainColumn}>
+          <View style={styles.aidStationHeader}>
+            <View style={styles.aidStationTitleWrap}>
+              <Text style={styles.aidStationName}>{station.name}</Text>
+            </View>
+          </View>
+
+          {serviceItems.length > 0 ? (
+            <View style={styles.servicePillRow}>
+              {serviceItems.map((item) => (
+                <ServicePill key={`${station.id}-${item.label}`} icon={item.icon} label={item.label} />
+              ))}
+            </View>
+          ) : null}
+
+          {station.products.length > 0 ? (
+            <View style={styles.inlineBlock}>
+              <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
+              <ChipRow values={station.products.map((product) => product.label)} />
+            </View>
+          ) : null}
+
+          {station.organizerDetails.organizerNote || station.notes ? (
+            <Text style={styles.noteText}>{station.organizerDetails.organizerNote ?? station.notes}</Text>
+          ) : null}
         </View>
 
-        {segmentGain !== null || segmentLoss !== null ? (
-          <View style={styles.segmentStatsRow}>
-            {segmentGain !== null ? (
-              <DataText style={[styles.segmentStatText, styles.segmentGainText]}>{`D+ ${segmentGain} m`}</DataText>
-            ) : null}
-            {segmentLoss !== null ? (
-              <DataText style={[styles.segmentStatText, styles.segmentLossText]}>{`D- ${segmentLoss} m`}</DataText>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
-
-      {serviceItems.length > 0 ? (
-        <View style={styles.servicePillRow}>
-          {serviceItems.map((item) => (
-            <ServicePill key={`${station.id}-${item.label}`} icon={item.icon} label={item.label} />
+        <View style={styles.aidStationMetricsColumn}>
+          {metricItems.map((item) => (
+            <View key={`${station.id}-${item.label}`} style={styles.metricRow}>
+              <Text style={styles.metricLabel}>{item.label}</Text>
+              <DataText
+                style={[
+                  styles.metricValue,
+                  item.tone === 'gain' ? styles.segmentGainText : null,
+                  item.tone === 'loss' ? styles.segmentLossText : null,
+                ]}
+              >
+                {item.value}
+              </DataText>
+            </View>
           ))}
         </View>
-      ) : null}
-
-      {station.products.length > 0 ? (
-        <View style={styles.inlineBlock}>
-          <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
-          <ChipRow values={station.products.map((product) => product.label)} />
-        </View>
-      ) : null}
-
-      {station.organizerDetails.organizerNote || station.notes ? (
-        <Text style={styles.noteText}>{station.organizerDetails.organizerNote ?? station.notes}</Text>
-      ) : null}
+      </View>
     </View>
   );
 }
@@ -564,7 +589,10 @@ export default function RaceRacebookScreen() {
                           aidFood: t.catalog.racebookAidFood,
                           aidAssistance: t.catalog.racebookAidAssistance,
                           aidDropBag: t.catalog.racebookAidDropBag,
-                          aidCutoff: t.catalog.racebookAidCutoff,
+                          aidDistance: t.catalog.racebookAidDistance,
+                          aidElevationGain: t.catalog.racebookAidElevationGain,
+                          aidElevationLoss: t.catalog.racebookAidElevationLoss,
+                          aidCutoffTime: t.catalog.racebookAidCutoffTime,
                         }}
                       />
                     ))}
@@ -793,17 +821,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  keyValueRow: {
-    gap: 4,
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  keyValueLabel: {
+  tableLabel: {
+    flexShrink: 0,
     color: Colors.textSecondary,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
-  keyValueValue: {
+  tableDivider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  tableValue: {
+    minWidth: 72,
+    textAlign: 'right',
     color: Colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
@@ -841,28 +877,32 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statusBadge: {
+    alignSelf: 'flex-start',
+    flexShrink: 0,
+    minWidth: 96,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
   },
   statusBadgeRequired: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
+    backgroundColor: '#FDECEA',
+    borderColor: '#E9B0AA',
   },
   statusBadgeRecommended: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderColor: Colors.border,
+    backgroundColor: '#EAF2FF',
+    borderColor: '#B8D0FF',
   },
   statusBadgeText: {
+    textAlign: 'center',
     fontSize: 11,
     fontWeight: '700',
   },
   statusBadgeTextRequired: {
-    color: Colors.brandPrimary,
+    color: Colors.danger,
   },
   statusBadgeTextRecommended: {
-    color: Colors.textSecondary,
+    color: '#2563EB',
   },
   linkText: {
     color: Colors.brandPrimary,
@@ -874,20 +914,25 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   aidStationCard: {
-    gap: 10,
     padding: 14,
     borderRadius: 16,
     backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  aidStationLayout: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 14,
+  },
+  aidStationMainColumn: {
+    flex: 1,
+    gap: 10,
+  },
   aidStationHeader: {
-    gap: 8,
+    gap: 6,
   },
   aidStationTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
     gap: 8,
   },
   aidStationName: {
@@ -896,9 +941,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  aidStationDistance: {
-    color: Colors.brandPrimary,
-    fontSize: 12,
+  aidStationMetricsColumn: {
+    width: 88,
+    paddingLeft: 12,
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.border,
+    gap: 8,
+  },
+  metricRow: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  metricLabel: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  metricValue: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   servicePillRow: {
     flexDirection: 'row',
@@ -918,15 +980,6 @@ const styles = StyleSheet.create({
   },
   servicePillText: {
     color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  segmentStatsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  segmentStatText: {
     fontSize: 12,
     fontWeight: '700',
   },

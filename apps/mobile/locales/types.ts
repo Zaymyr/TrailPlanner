@@ -589,6 +589,10 @@ export type MobileTranslations = {
     racebookAidFood: string;
     racebookAidAssistance: string;
     racebookAidDropBag: string;
+    racebookAidDistance: string;
+    racebookAidElevationGain: string;
+    racebookAidElevationLoss: string;
+    racebookAidCutoffTime: string;
     racebookAidCutoff: string;
     racebookEmptyProfile: string;
     racebookEmptyGear: string;
