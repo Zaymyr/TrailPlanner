@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-06-25
+last_verified: 2026-06-26
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -135,7 +135,7 @@ Runner-facing preview resolves details as:
 - schedule and runner notes = active-format details;
 - services and partners = event details.
 
-The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations.
+The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations. The header uses the format race date plus distance, D+, D-, and start time. Event-level `services.lastMinuteMessage`, when present, is promoted into a dedicated alert card above the local tabs; the rest of the service copy remains in the Profile tab. Equipment is shown as per-item required/recommended rows rather than only grouped chips.
 
 ## GPX Replacement
 
@@ -145,7 +145,7 @@ When GPX waypoints are present and the format has no aid stations, the organizer
 
 Organizer aid station edits should preserve existing station ids when possible so `race_aid_station_products` links survive. New or legacy stations default all service flags to enabled unless an organizer disables water, solid food, or assistance explicitly.
 
-Aid station `organizer_details` stores cumulative D+/D-, cutoff time, drop-bag availability, and organizer note on the station row; legacy `stationType` and `altitudeM` values may still exist in persisted JSONB, but the current organizer dashboard no longer exposes editors for them. These fields must still be saved through the organizer aid-station route so existing station ids are kept. In the current organizer UI, ravitos use the same expandable card pattern as the runner planner: the compact card keeps distance, cumulative D+/D-, cutoff, water/solid/assistance/drop-bag toggles, and product actions visible first, while the expanded panel goes directly from the main info grid to the organizer note block. The same ravito tile also owns the fixed `Départ` and `Arrivée` timing cards for the format.
+Aid station `organizer_details` stores cumulative D+/D-, cutoff time, drop-bag availability, and organizer note on the station row; legacy `stationType` and `altitudeM` values may still exist in persisted JSONB, but the current organizer dashboard no longer exposes editors for them. These fields must still be saved through the organizer aid-station route so existing station ids are kept. In the current organizer UI, ravitos use the same expandable card pattern as the runner planner: the compact card keeps distance, cumulative D+/D-, cutoff, water/solid/assistance/drop-bag toggles, and product actions visible first, while the expanded panel goes directly from the main info grid to the organizer note block. The same ravito tile also owns the fixed `Départ` and `Arrivée` timing cards for the format. The mobile read-only Racebook does not repeat those cumulative D+/D- values as primary chips anymore; it derives segment D+/D- between successive published ravitos from those cumulative fields and skips the segment display on the first ravito.
 
 ## Organizer Products
 

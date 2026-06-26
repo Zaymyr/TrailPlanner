@@ -112,6 +112,7 @@ export type RacebookScreenData = {
     name: string;
     distanceKm: number;
     elevationGainM: number;
+    elevationLossM: number | null;
     raceDate: string | null;
     isLive: boolean;
     thumbnailUrl: string | null;
@@ -564,6 +565,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       name,
       distance_km,
       elevation_gain_m,
+      elevation_loss_m,
       race_date,
       is_live,
       thumbnail_url,
@@ -672,6 +674,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       name: readText(raceRow.name) ?? '',
       distanceKm: readNumber(raceRow.distance_km) ?? 0,
       elevationGainM: readNumber(raceRow.elevation_gain_m) ?? 0,
+      elevationLossM: readNumber(raceRow.elevation_loss_m),
       raceDate: readText(raceRow.race_date),
       isLive: raceRow.is_live === true,
       thumbnailUrl: readText(raceRow.thumbnail_url),
