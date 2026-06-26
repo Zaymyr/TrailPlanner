@@ -20,6 +20,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/constants.ts
   - apps/web/app/organizer/_components/dashboard/helpers.ts
   - apps/web/app/organizer/_components/dashboard/controls.tsx
+  - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
   - apps/web/app/organizer/_components/dashboard/shell.tsx
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
@@ -47,11 +48,13 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
+  - apps/web/app/api/location-search/route.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/(planner)/race-planner/RacePlannerPageContent.tsx
   - apps/web/components/race-planner/ActionPlan.tsx
+  - apps/web/lib/location-utils.ts
 related_tables:
   - race_event_claims
   - race_event_organizers
@@ -75,7 +78,7 @@ This document records the organizer portal rules: users can request control of a
 - Event membership: approved organizer access stored in `race_event_organizers`.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
-- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults, including `dateRange.endDate`; event-level `mandatoryEquipment` also stores the active weather plan as `weatherPlan = normal | cold | heat`, while each equipment item can opt into `cold` and/or `heat`. Race details keep each course's full equipment list plus format-specific overrides or additions for the other modules.
+- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults, including `dateRange.endDate`; event-level `mandatoryEquipment` also stores the active weather plan as `weatherPlan = normal | cold | heat`, while each equipment item can opt into `cold` and/or `heat`. Event and race details now also store structured geocoded location objects beside the existing text fields for event location, format location, bib pickup, and start/finish access. Race details keep each course's full equipment list plus format-specific overrides or additions for the other modules.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
 ## Claim and Approval Flow
@@ -109,7 +112,7 @@ Approved organizers can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/race/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. The synthesis uses inline event facts, a small live/brouillon indicator, and one publish row per scope: each event/race row shows the label first in a shared fixed-width column, then a progress bar that stretches across the available space, and finally the publish toggle. Those percentages are derived only from organizer completion fields and must not increase or decrease when an organizer flips event/race publication. The old ravito count and "a jour" status chip are no longer displayed in that top card. The first completion tab is the event scope and shows only fillable event tiles: information, equipment, bib pickup, access, and services. The following tabs are race formats and show only fillable race tiles: identity/GPX, equipment, access, and ravitos, without an extra progress bar under the tab strip because progress already lives in the top synthesis rows. The old schedule tile is gone: the ravito tile now owns the fixed `Départ` and `Arrivée` cards for `startTime` and `finishCutoffTime`, while `Horaires navettes` lives only in access. Official ravito products are managed inside that ravito module rather than through a separate products tile. Labels stay short because the active tab already provides the scope. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs or modules now attempts an autosave first and blocks the navigation when the save fails.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/race/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. Address fields on those editors now share a route-local autocomplete component backed by `/api/location-search`; selecting a suggestion keeps the original text field filled for publication checks while also storing `lat/lng` plus a Google Maps URL in `organizer_details`. The synthesis uses inline event facts, a small live/brouillon indicator, and one publish row per scope: each event/race row shows the label first in a shared fixed-width column, then a progress bar that stretches across the available space, and finally the publish toggle. Those percentages are derived only from organizer completion fields and must not increase or decrease when an organizer flips event/race publication. The old ravito count and "a jour" status chip are no longer displayed in that top card. The first completion tab is the event scope and shows only fillable event tiles: information, equipment, bib pickup, access, and services. The following tabs are race formats and show only fillable race tiles: identity/GPX, equipment, access, and ravitos, without an extra progress bar under the tab strip because progress already lives in the top synthesis rows. The old schedule tile is gone: the ravito tile now owns the fixed `Départ` and `Arrivée` cards for `startTime` and `finishCutoffTime`, while `Horaires navettes` lives only in access. Official ravito products are managed inside that ravito module rather than through a separate products tile. Labels stay short because the active tab already provides the scope. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs or modules now attempts an autosave first and blocks the navigation when the save fails.
 
 The completion shell does not repeat a local heading or helper sentence above the tabs. The active tab should be visually larger and more contrasty than inactive tabs so the current scope remains obvious, and desktop event-scope tiles should stay on a single row by shrinking before wrapping.
 
@@ -136,6 +139,7 @@ Runner-facing preview resolves details as:
 - access = format value when filled, otherwise event value, filtered by enabled access sections;
 - schedule and runner notes = active-format details;
 - services and partners = event details.
+- key locations = plain text address plus optional geocoded `organizer_details` metadata for event, format, bib pickup, and start/finish access, rendered as GPS coordinates and Google Maps links when available.
 
 The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations. The header uses the format race date plus distance, D+, D-, and start time. When the active event weather plan is `cold` or `heat`, the screen shows a dedicated compact weather alert above the last-minute message card: `Plan grand froid activé - vérifie le matériel` or `Plan grosse chaleur activé - vérifie le matériel`. Event-level `services.lastMinuteMessage`, when present, stays in its own compact alert card below that weather warning, and both alert cards render their title and message inline on the same text row; the rest of the service copy remains in the Profile tab. Start and bib sections render as table-like label/value rows. Equipment is shown as per-item rows sorted with active required items first, active recommended items second, and weather-muted inactive items last; status badges stay inline and right-aligned on the same row as the item label, rows do not show bullet dots, and weather-tagged items expose icon-only inline cold/heat markers while remaining grayed out whenever the active plan does not match.
 
@@ -192,6 +196,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
+- Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
 
 ## Related Docs
 

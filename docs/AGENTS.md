@@ -88,7 +88,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Auth / session work | `docs/04-auth-and-security/` + `docs/03-business-rules/trial-lifecycle.md` |
 | Business logic changes | `docs/03-business-rules/` |
 | Organizer portal / race organizer claims | `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/` + `docs/01-architecture/web-app.md` |
-| Integration work (Stripe, Resend, Edge Functions) | `docs/05-integrations/` |
+| Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |
 | Design system changes | `docs/07-design-system/` |
 | New feature shipping | `docs/06-workflows/ship-a-feature.md` |
@@ -149,6 +149,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 - Stripe: `docs/05-integrations/stripe.md`
 - Resend Broadcasts: `docs/05-integrations/resend-broadcasts.md`
 - Mulebar catalog scraping: `docs/05-integrations/mulebar-scraping.md`
+- Geocoding/address autocomplete: `docs/05-integrations/geocoding.md`
 - RevenueCat context: `docs/03-business-rules/premium-entitlement.md`
 - Supabase functions: `docs/05-integrations/supabase-edge-functions.md`
 - Analytics: `docs/05-integrations/analytics.md`

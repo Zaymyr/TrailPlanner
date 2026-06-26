@@ -2,6 +2,7 @@ import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { cn } from "../../../../components/utils";
 import type { OrganizerEventDetails, OrganizerRaceDetails } from "../../../../lib/organizer-dashboard-details";
+import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
 import { TextAreaField, TextField, ToggleChip } from "./controls";
 import type { RaceFormat } from "./types";
@@ -263,7 +264,14 @@ function BibPickupFields({
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Lieu de retrait" value={bib.location ?? ""} onChange={(value) => update({ location: value || null })} invalid={missingLocation} />
+        <AddressAutocompleteField
+          label="Lieu de retrait"
+          value={bib.location ?? ""}
+          location={bib.locationDetails}
+          onChange={(value) => update({ location: value || null })}
+          onLocationChange={(locationDetails) => update({ locationDetails })}
+          invalid={missingLocation}
+        />
         <TextField label="Horaires retrait" value={bib.schedule ?? ""} onChange={(value) => update({ schedule: value || null })} invalid={missingSchedule} />
       </div>
       <TextAreaField label="Documents nécessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
@@ -357,8 +365,21 @@ function AccessFields({
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
-        <TextField label="Adresse départ" value={access.startAddress ?? ""} onChange={(value) => update({ startAddress: value || null })} invalid={missingStartAddress} />
-        <TextField label="Adresse arrivée" value={access.finishAddress ?? ""} onChange={(value) => update({ finishAddress: value || null })} />
+        <AddressAutocompleteField
+          label="Adresse départ"
+          value={access.startAddress ?? ""}
+          location={access.startLocation}
+          onChange={(value) => update({ startAddress: value || null })}
+          onLocationChange={(startLocation) => update({ startLocation })}
+          invalid={missingStartAddress}
+        />
+        <AddressAutocompleteField
+          label="Adresse arrivée"
+          value={access.finishAddress ?? ""}
+          location={access.finishLocation}
+          onChange={(value) => update({ finishAddress: value || null })}
+          onLocationChange={(finishLocation) => update({ finishLocation })}
+        />
       </div>
       {formatMode ? (
         <div className="flex flex-wrap gap-2">
