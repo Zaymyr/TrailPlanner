@@ -571,6 +571,7 @@ export type MobileTranslations = {
     racebookLastMinuteTitle: string;
     racebookFieldStartTime: string;
     racebookFieldStartLocation: string;
+    racebookFieldFinishLocation: string;
     racebookFieldBibLocation: string;
     racebookFieldBibWindow: string;
     racebookFieldBibDocuments: string;

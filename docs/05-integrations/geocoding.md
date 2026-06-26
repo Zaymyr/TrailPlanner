@@ -36,6 +36,7 @@ The current organizer flow is:
 3. The route proxies the lookup to OpenStreetMap Nominatim server-side.
 4. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
 5. The runner preview reads that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link.
+6. The mobile Racebook can reuse the same stored Google Maps URL for bib pickup plus start/finish rows.
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
@@ -46,7 +47,9 @@ Manual free text is still allowed. In that case the helper stores the label plus
 - provider: OpenStreetMap Nominatim search endpoint;
 - server-side fetch only;
 - per-IP in-memory rate limiting with `checkRateLimit`;
-- `Accept-Language` forwarding from the incoming request when available.
+- `Accept-Language` forwarding from the incoming request when available;
+- a France-neighbor country filter (`fr`, `mc`, `be`, `ch`, `lu`);
+- a wider upstream fetch window plus local relevance scoring and deduplication before returning the final shortlist.
 
 The route returns a narrow payload:
 
@@ -79,6 +82,7 @@ Each object stores:
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
 - Do not assume every historical organizer row has geocoded metadata; old rows should parse to empty/default location objects.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.
+- The current quality improvement is still heuristic on top of Nominatim. It helps French race addresses significantly, but it is not a full postal-address provider with rooftop accuracy guarantees.
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 

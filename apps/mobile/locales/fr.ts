@@ -579,6 +579,7 @@ export const fr: MobileTranslations = {
     racebookLastMinuteTitle: 'Dernière minute',
     racebookFieldStartTime: 'Heure',
     racebookFieldStartLocation: 'Lieu de départ',
+    racebookFieldFinishLocation: 'Lieu d’arrivée',
     racebookFieldBibLocation: 'Lieu de retrait',
     racebookFieldBibWindow: 'Plage horaire',
     racebookFieldBibDocuments: 'Documents à avoir',

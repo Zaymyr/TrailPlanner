@@ -17,8 +17,17 @@ type RunnerEquipmentItem = OrganizerEquipmentItem & {
   active: boolean;
 };
 
+type OrganizerLocationDetails = {
+  label: string | null;
+  lat: number | null;
+  lng: number | null;
+  googleMapsUrl: string | null;
+  source: 'manual' | 'autocomplete' | null;
+};
+
 type OrganizerBibPickupDetails = {
   location: string | null;
+  locationDetails: OrganizerLocationDetails;
   schedule: string | null;
   requiredDocuments: string | null;
   thirdPartyPickupAllowed: boolean | null;
@@ -28,7 +37,9 @@ type OrganizerBibPickupDetails = {
 
 type OrganizerAccessDetails = {
   startAddress: string | null;
+  startLocation: OrganizerLocationDetails;
   finishAddress: string | null;
+  finishLocation: OrganizerLocationDetails;
   officialParkings: string | null;
   shuttles: string | null;
   shuttleSchedule: string | null;
@@ -65,6 +76,7 @@ type OrganizerEventDetails = {
   dateRange: {
     endDate: string | null;
   };
+  eventLocation: OrganizerLocationDetails;
   mandatoryEquipment: OrganizerEquipmentDetails;
   bibPickup: OrganizerBibPickupDetails;
   access: OrganizerAccessDetails;
@@ -72,6 +84,7 @@ type OrganizerEventDetails = {
 };
 
 type OrganizerRaceDetails = {
+  raceLocation: OrganizerLocationDetails;
   schedule: {
     startTime: string | null;
     finishCutoffTime: string | null;
@@ -168,8 +181,17 @@ const DEFAULT_EQUIPMENT: OrganizerEquipmentDetails = {
   note: null,
 };
 
+const DEFAULT_LOCATION_DETAILS: OrganizerLocationDetails = {
+  label: null,
+  lat: null,
+  lng: null,
+  googleMapsUrl: null,
+  source: null,
+};
+
 const DEFAULT_BIB_PICKUP: OrganizerBibPickupDetails = {
   location: null,
+  locationDetails: DEFAULT_LOCATION_DETAILS,
   schedule: null,
   requiredDocuments: null,
   thirdPartyPickupAllowed: null,
@@ -179,7 +201,9 @@ const DEFAULT_BIB_PICKUP: OrganizerBibPickupDetails = {
 
 const DEFAULT_ACCESS: OrganizerAccessDetails = {
   startAddress: null,
+  startLocation: DEFAULT_LOCATION_DETAILS,
   finishAddress: null,
+  finishLocation: DEFAULT_LOCATION_DETAILS,
   officialParkings: null,
   shuttles: null,
   shuttleSchedule: null,
@@ -216,6 +240,7 @@ const DEFAULT_EVENT_DETAILS: OrganizerEventDetails = {
   dateRange: {
     endDate: null,
   },
+  eventLocation: DEFAULT_LOCATION_DETAILS,
   mandatoryEquipment: DEFAULT_EQUIPMENT,
   bibPickup: DEFAULT_BIB_PICKUP,
   access: DEFAULT_ACCESS,
@@ -223,6 +248,7 @@ const DEFAULT_EVENT_DETAILS: OrganizerEventDetails = {
 };
 
 const DEFAULT_RACE_DETAILS: OrganizerRaceDetails = {
+  raceLocation: DEFAULT_LOCATION_DETAILS,
   schedule: {
     startTime: null,
     finishCutoffTime: null,
@@ -271,6 +297,19 @@ function readNumber(value: unknown): number | null {
   return null;
 }
 
+function parseLocationDetails(value: unknown): OrganizerLocationDetails {
+  const record = readRecord(value);
+  const source = record.source === 'manual' || record.source === 'autocomplete' ? record.source : null;
+
+  return {
+    label: readText(record.label),
+    lat: readNumber(record.lat),
+    lng: readNumber(record.lng),
+    googleMapsUrl: readText(record.googleMapsUrl),
+    source,
+  };
+}
+
 function parseEquipmentDetails(value: unknown): OrganizerEquipmentDetails {
   const record = readRecord(value);
   const items = Array.isArray(record.items)
@@ -304,6 +343,7 @@ function parseBibPickupDetails(value: unknown): OrganizerBibPickupDetails {
 
   return {
     location: readText(record.location),
+    locationDetails: parseLocationDetails(record.locationDetails),
     schedule: readText(record.schedule),
     requiredDocuments: readText(record.requiredDocuments),
     thirdPartyPickupAllowed: readNullableBoolean(record.thirdPartyPickupAllowed),
@@ -318,7 +358,9 @@ function parseAccessDetails(value: unknown): OrganizerAccessDetails {
 
   return {
     startAddress: readText(record.startAddress),
+    startLocation: parseLocationDetails(record.startLocation),
     finishAddress: readText(record.finishAddress),
+    finishLocation: parseLocationDetails(record.finishLocation),
     officialParkings: readText(record.officialParkings),
     shuttles: readText(record.shuttles),
     shuttleSchedule: readText(record.shuttleSchedule),
@@ -368,6 +410,7 @@ function parseEventDetails(value: unknown): OrganizerEventDetails {
     dateRange: {
       endDate: readText(dateRange.endDate),
     },
+    eventLocation: parseLocationDetails(record.eventLocation),
     mandatoryEquipment: parseEquipmentDetails(record.mandatoryEquipment),
     bibPickup: parseBibPickupDetails(record.bibPickup),
     access: parseAccessDetails(record.access),
@@ -382,6 +425,7 @@ function parseRaceDetails(value: unknown): OrganizerRaceDetails {
   const shuttleSchedule = access.shuttleSchedule ?? readText(schedule.shuttleSchedule);
 
   return {
+    raceLocation: parseLocationDetails(record.raceLocation),
     schedule: {
       startTime: readText(schedule.startTime),
       finishCutoffTime: readText(schedule.finishCutoffTime),
@@ -415,6 +459,10 @@ function hasAnyText(values: Array<string | null | undefined>): boolean {
   return values.some((value) => typeof value === 'string' && value.trim().length > 0);
 }
 
+function hasLocationContent(location: OrganizerLocationDetails): boolean {
+  return hasAnyText([location.label, location.googleMapsUrl]) || (location.lat !== null && location.lng !== null);
+}
+
 function hasEquipmentContent(details: OrganizerEquipmentDetails): boolean {
   return details.items.length > 0 || hasAnyText([details.note]);
 }
@@ -422,6 +470,7 @@ function hasEquipmentContent(details: OrganizerEquipmentDetails): boolean {
 function hasBibContent(details: OrganizerBibPickupDetails): boolean {
   return (
     hasAnyText([details.location, details.schedule, details.requiredDocuments, details.note]) ||
+    hasLocationContent(details.locationDetails) ||
     details.thirdPartyPickupAllowed !== null ||
     details.equipmentCheck !== null
   );
@@ -437,7 +486,7 @@ function hasAccessContent(details: OrganizerAccessDetails): boolean {
     details.enabledSections.roadRestrictions ? details.roadRestrictions : null,
     details.enabledSections.mapUrl ? details.mapUrl : null,
     details.note,
-  ]);
+  ]) || hasLocationContent(details.startLocation) || hasLocationContent(details.finishLocation);
 }
 
 function hasServicesContent(details: OrganizerServicesDetails): boolean {
@@ -551,7 +600,13 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
     bibPickup: eventDetails.bibPickup,
     access: {
       startAddress: mergePreferredText(eventDetails.access.startAddress, raceDetails.access.startAddress),
+      startLocation: hasLocationContent(raceDetails.access.startLocation)
+        ? raceDetails.access.startLocation
+        : eventDetails.access.startLocation,
       finishAddress: mergePreferredText(eventDetails.access.finishAddress, raceDetails.access.finishAddress),
+      finishLocation: hasLocationContent(raceDetails.access.finishLocation)
+        ? raceDetails.access.finishLocation
+        : eventDetails.access.finishLocation,
       officialParkings: mergePreferredText(eventDetails.access.officialParkings, raceDetails.access.officialParkings),
       shuttles: mergePreferredText(eventDetails.access.shuttles, raceDetails.access.shuttles),
       shuttleSchedule: mergePreferredText(eventDetails.access.shuttleSchedule, raceDetails.access.shuttleSchedule),
@@ -575,6 +630,8 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
 function hasOrganizerContent(eventDetails: OrganizerEventDetails, raceDetails: OrganizerRaceDetails): boolean {
   return (
     hasAnyText([eventDetails.dateRange.endDate]) ||
+    hasLocationContent(eventDetails.eventLocation) ||
+    hasLocationContent(raceDetails.raceLocation) ||
     hasEquipmentContent(eventDetails.mandatoryEquipment) ||
     hasEquipmentContent(raceDetails.mandatoryEquipment) ||
     hasBibContent(eventDetails.bibPickup) ||

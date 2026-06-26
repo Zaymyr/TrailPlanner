@@ -22,12 +22,20 @@ type RacebookTabKey = 'profile' | 'gear' | 'access' | 'aid';
 type LabeledItem = {
   label: string;
   value: string;
+  actionUrl: string | null;
 };
 
 type MetricItem = {
   label: string;
   value: string;
   tone?: 'neutral' | 'gain' | 'loss';
+};
+
+type AccessSection = {
+  title: string;
+  items?: LabeledItem[];
+  lines?: string[];
+  linkUrl?: string | null;
 };
 
 function sortGearItems(items: RacebookScreenData['runnerDetails']['equipmentStatus']['items']) {
@@ -129,7 +137,19 @@ function LabeledInfoList({ items }: { items: LabeledItem[] }) {
         <View key={`${item.label}:${item.value}`} style={styles.tableRow}>
           <Text style={styles.tableLabel}>{item.label}</Text>
           <View style={styles.tableDivider} />
-          <Text style={styles.tableValue}>{item.value}</Text>
+          <View style={styles.tableValueWrap}>
+            <Text style={styles.tableValue}>{item.value}</Text>
+            {item.actionUrl ? (
+              <Pressable
+                style={styles.inlineActionButton}
+                onPress={() => Linking.openURL(item.actionUrl!).catch(() => {})}
+                accessibilityRole="button"
+                accessibilityLabel={`${item.label} Google Maps`}
+              >
+                <Ionicons name="logo-google" size={16} color={Colors.brandPrimary} />
+              </Pressable>
+            ) : null}
+          </View>
         </View>
       ))}
     </View>
@@ -396,22 +416,30 @@ export default function RaceRacebookScreen() {
     const runnerDetails = data.runnerDetails;
     const startInfoItems = [
       runnerDetails.schedule.startTime
-        ? { label: t.catalog.racebookFieldStartTime, value: runnerDetails.schedule.startTime }
+        ? { label: t.catalog.racebookFieldStartTime, value: runnerDetails.schedule.startTime, actionUrl: null }
         : null,
       runnerDetails.access.startAddress
-        ? { label: t.catalog.racebookFieldStartLocation, value: runnerDetails.access.startAddress }
+        ? {
+            label: t.catalog.racebookFieldStartLocation,
+            value: runnerDetails.access.startAddress,
+            actionUrl: runnerDetails.access.startLocation.googleMapsUrl,
+          }
         : null,
     ].filter((value): value is LabeledItem => Boolean(value));
 
     const bibItems = [
       runnerDetails.bibPickup.location
-        ? { label: t.catalog.racebookFieldBibLocation, value: runnerDetails.bibPickup.location }
+        ? {
+            label: t.catalog.racebookFieldBibLocation,
+            value: runnerDetails.bibPickup.location,
+            actionUrl: runnerDetails.bibPickup.locationDetails.googleMapsUrl,
+          }
         : null,
       runnerDetails.bibPickup.schedule
-        ? { label: t.catalog.racebookFieldBibWindow, value: runnerDetails.bibPickup.schedule }
+        ? { label: t.catalog.racebookFieldBibWindow, value: runnerDetails.bibPickup.schedule, actionUrl: null }
         : null,
       runnerDetails.bibPickup.requiredDocuments
-        ? { label: t.catalog.racebookFieldBibDocuments, value: runnerDetails.bibPickup.requiredDocuments }
+        ? { label: t.catalog.racebookFieldBibDocuments, value: runnerDetails.bibPickup.requiredDocuments, actionUrl: null }
         : null,
     ].filter((value): value is LabeledItem => Boolean(value));
 
@@ -469,7 +497,22 @@ export default function RaceRacebookScreen() {
     return [
       {
         title: t.catalog.racebookAccessGettingThere,
-        lines: [access.startAddress, access.finishAddress].filter((value): value is string => Boolean(value)),
+        items: [
+          access.startAddress
+            ? {
+                label: t.catalog.racebookFieldStartLocation,
+                value: access.startAddress,
+                actionUrl: access.startLocation.googleMapsUrl,
+              }
+            : null,
+          access.finishAddress
+            ? {
+                label: t.catalog.racebookFieldFinishLocation,
+                value: access.finishAddress,
+                actionUrl: access.finishLocation.googleMapsUrl,
+              }
+            : null,
+        ].filter((value): value is LabeledItem => Boolean(value)),
       },
       {
         title: t.catalog.racebookAccessParking,
@@ -490,14 +533,16 @@ export default function RaceRacebookScreen() {
       {
         title: t.catalog.racebookAccessMap,
         lines: access.enabledSections.mapUrl && access.mapUrl ? [access.mapUrl] : [],
+        linkUrl: access.enabledSections.mapUrl ? access.mapUrl : null,
       },
       {
         title: t.catalog.racebookAccessNote,
         lines: access.note ? [access.note] : [],
       },
-    ].filter((section) => section.lines.length > 0);
+    ].filter((section) => (section.items?.length ?? 0) > 0 || (section.lines?.length ?? 0) > 0) as AccessSection[];
   }, [
     data,
+    t.catalog.racebookFieldFinishLocation,
     t.catalog.racebookAccessGettingThere,
     t.catalog.racebookAccessMap,
     t.catalog.racebookAccessNote,
@@ -631,13 +676,14 @@ export default function RaceRacebookScreen() {
               accessSections.length > 0 ? (
                 accessSections.map((section) => (
                   <SectionCard key={section.title} title={section.title}>
-                    {section.title === t.catalog.racebookAccessMap && section.lines[0]?.startsWith('http') ? (
-                      <Pressable onPress={() => Linking.openURL(section.lines[0]!).catch(() => {})}>
+                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
+                    {section.linkUrl && section.lines?.[0]?.startsWith('http') ? (
+                      <Pressable onPress={() => Linking.openURL(section.linkUrl!).catch(() => {})}>
                         <Text style={styles.linkText}>{section.lines[0]}</Text>
                       </Pressable>
-                    ) : (
+                    ) : section.lines && section.lines.length > 0 ? (
                       <InfoList values={section.lines} />
-                    )}
+                    ) : null}
                   </SectionCard>
                 ))
               ) : (
@@ -921,11 +967,27 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.border,
   },
   tableValue: {
-    minWidth: 72,
-    textAlign: 'right',
+    flex: 1,
     color: Colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
+  },
+  tableValueWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  inlineActionButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
   },
   chipRow: {
     flexDirection: 'row',
