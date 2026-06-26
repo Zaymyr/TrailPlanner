@@ -7,6 +7,8 @@ import { buildGoogleMapsUrl } from "../../../lib/location-utils";
 const searchParamsSchema = z.object({
   q: z.string().trim().min(3).max(120),
   limit: z.coerce.number().int().min(1).max(6).default(5),
+  biasLat: z.coerce.number().finite().optional(),
+  biasLng: z.coerce.number().finite().optional(),
 });
 
 const nominatimRowSchema = z.object({
@@ -32,9 +34,33 @@ const normalizeSearchText = (value: string) =>
 
 const tokenizeSearchText = (value: string) => normalizeSearchText(value).split(/\s+/).filter(Boolean);
 
+const toRadians = (value: number) => (value * Math.PI) / 180;
+
+const calculateDistanceKm = (
+  leftLat: number,
+  leftLng: number,
+  rightLat: number,
+  rightLng: number,
+) => {
+  const earthRadiusKm = 6371;
+  const deltaLat = toRadians(rightLat - leftLat);
+  const deltaLng = toRadians(rightLng - leftLng);
+  const startLat = toRadians(leftLat);
+  const endLat = toRadians(rightLat);
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(startLat) * Math.cos(endLat) * Math.sin(deltaLng / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
 const scoreSuggestion = (
   query: string,
   row: z.infer<typeof nominatimRowSchema>,
+  options?: {
+    biasLat?: number;
+    biasLng?: number;
+  },
 ) => {
   const normalizedQuery = normalizeSearchText(query);
   const queryTokens = tokenizeSearchText(query);
@@ -62,6 +88,21 @@ const scoreSuggestion = (
   score += Math.max(0, 2 - Math.abs(placeRank - 30) / 10);
   score -= Math.min(label.length / 200, 1);
 
+  if (typeof options?.biasLat === "number" && typeof options?.biasLng === "number") {
+    const rowLat = Number(row.lat);
+    const rowLng = Number(row.lon);
+
+    if (Number.isFinite(rowLat) && Number.isFinite(rowLng)) {
+      const distanceKm = calculateDistanceKm(options.biasLat, options.biasLng, rowLat, rowLng);
+
+      if (distanceKm <= 5) score += 6;
+      else if (distanceKm <= 15) score += 4;
+      else if (distanceKm <= 35) score += 2.5;
+      else if (distanceKm <= 75) score += 1;
+      else score -= Math.min(distanceKm / 120, 3.5);
+    }
+  }
+
   return score;
 };
 
@@ -74,6 +115,8 @@ export async function GET(request: NextRequest) {
   const parsedParams = searchParamsSchema.safeParse({
     q: request.nextUrl.searchParams.get("q"),
     limit: request.nextUrl.searchParams.get("limit") ?? undefined,
+    biasLat: request.nextUrl.searchParams.get("biasLat") ?? undefined,
+    biasLng: request.nextUrl.searchParams.get("biasLng") ?? undefined,
   });
 
   if (!parsedParams.success) {
@@ -124,7 +167,10 @@ export async function GET(request: NextRequest) {
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
         return {
-          score: scoreSuggestion(parsedParams.data.q, row),
+          score: scoreSuggestion(parsedParams.data.q, row, {
+            biasLat: parsedParams.data.biasLat,
+            biasLng: parsedParams.data.biasLng,
+          }),
           label: row.display_name,
           lat: Number(lat.toFixed(6)),
           lng: Number(lng.toFixed(6)),

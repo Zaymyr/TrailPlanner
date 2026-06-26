@@ -34,10 +34,11 @@ The current organizer flow is:
 1. The user types into a route-local `AddressAutocompleteField`.
 2. After 3+ characters and a short debounce, the component calls `GET /api/location-search?q=...`.
 3. The route proxies the lookup to OpenStreetMap Nominatim server-side.
-4. The user can keep typing free text normally; the component keeps the raw input locally and only syncs a manual location object on blur when no autocomplete suggestion was chosen.
-5. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
-6. The runner preview reads that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link.
-7. The mobile Racebook can reuse the same stored Google Maps URL for bib pickup plus start/finish rows.
+4. When the field or its parent scope already has coordinates, the component also sends a proximity bias so nearby suggestions rank first.
+5. The user can keep typing free text normally; the component keeps the raw input locally and only syncs a manual location object on blur when no autocomplete suggestion was chosen.
+6. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
+7. The runner preview reads that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link.
+8. The mobile Racebook can reuse the same stored Google Maps URL for bib pickup plus start/finish rows.
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
@@ -50,6 +51,7 @@ Manual free text is still allowed. In that case the helper stores the label plus
 - per-IP in-memory rate limiting with `checkRateLimit`;
 - `Accept-Language` forwarding from the incoming request when available;
 - a France-neighbor country filter (`fr`, `mc`, `be`, `ch`, `lu`);
+- optional `biasLat` / `biasLng` query params to favor suggestions near a known event or format location;
 - a wider upstream fetch window plus local relevance scoring and deduplication before returning the final shortlist.
 
 The route returns a narrow payload:

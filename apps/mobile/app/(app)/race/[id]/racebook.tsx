@@ -139,16 +139,18 @@ function LabeledInfoList({ items }: { items: LabeledItem[] }) {
           <View style={styles.tableDivider} />
           <View style={styles.tableValueWrap}>
             <Text style={styles.tableValue}>{item.value}</Text>
-            {item.actionUrl ? (
-              <Pressable
-                style={styles.inlineActionButton}
-                onPress={() => Linking.openURL(item.actionUrl!).catch(() => {})}
-                accessibilityRole="button"
-                accessibilityLabel={`${item.label} Google Maps`}
-              >
-                <Ionicons name="logo-google" size={16} color={Colors.brandPrimary} />
-              </Pressable>
-            ) : null}
+            <View style={styles.inlineActionSlot}>
+              {item.actionUrl ? (
+                <Pressable
+                  style={styles.inlineActionButton}
+                  onPress={() => Linking.openURL(item.actionUrl!).catch(() => {})}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.label} Google Maps`}
+                >
+                  <Ionicons name="logo-google" size={16} color={Colors.brandPrimary} />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         </View>
       ))}
@@ -968,6 +970,7 @@ const styles = StyleSheet.create({
   },
   tableValue: {
     flex: 1,
+    textAlign: 'right',
     color: Colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
@@ -978,6 +981,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 8,
+  },
+  inlineActionSlot: {
+    width: 32,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
   inlineActionButton: {
     width: 28,

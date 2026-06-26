@@ -268,6 +268,7 @@ function BibPickupFields({
           label="Lieu de retrait"
           value={bib.location ?? ""}
           location={bib.locationDetails}
+          biasLocation={bib.locationDetails}
           onChange={(value) => update({ location: value || null })}
           onLocationChange={(locationDetails) => update({ locationDetails })}
           invalid={missingLocation}
@@ -305,6 +306,7 @@ export function AccessEditor({
         title="Accès commun événement"
         description="Adresse principale, parking et consignes valables pour tous les formats."
         access={eventDetails.access}
+        biasLocation={eventDetails.eventLocation}
         onAccessChange={(access) => onEventChange({ ...eventDetails, access })}
         formatMode
         showRunnerInfoToggle={false}
@@ -322,6 +324,7 @@ export function AccessEditor({
         title={`Accès - ${activeRace.name}`}
         description="Renseigne le départ, l'arrivée et active seulement les sections utiles à ce format."
         access={raceDetails.access}
+        biasLocation={raceDetails.raceLocation.label ? raceDetails.raceLocation : eventDetails.eventLocation}
         onAccessChange={(access) => onRaceChange({ ...raceDetails, access })}
         formatMode
       />
@@ -336,6 +339,7 @@ function AccessFields({
   title,
   description,
   access,
+  biasLocation,
   onAccessChange,
   formatMode = false,
   showRunnerInfoToggle = formatMode,
@@ -343,6 +347,7 @@ function AccessFields({
   title: string;
   description: string;
   access: OrganizerEventDetails["access"];
+  biasLocation?: OrganizerEventDetails["eventLocation"];
   onAccessChange: (access: OrganizerEventDetails["access"]) => void;
   formatMode?: boolean;
   showRunnerInfoToggle?: boolean;
@@ -369,6 +374,7 @@ function AccessFields({
           label="Adresse départ"
           value={access.startAddress ?? ""}
           location={access.startLocation}
+          biasLocation={biasLocation}
           onChange={(value) => update({ startAddress: value || null })}
           onLocationChange={(startLocation) => update({ startLocation })}
           invalid={missingStartAddress}
@@ -377,6 +383,7 @@ function AccessFields({
           label="Adresse arrivée"
           value={access.finishAddress ?? ""}
           location={access.finishLocation}
+          biasLocation={biasLocation}
           onChange={(value) => update({ finishAddress: value || null })}
           onLocationChange={(finishLocation) => update({ finishLocation })}
         />
