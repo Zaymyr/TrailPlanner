@@ -26,15 +26,20 @@ const equipmentItemSchema = z.object({
   id: nullableText,
   label: z.string().trim().min(1),
   required: z.boolean().default(true),
+  cold: z.boolean().default(false),
+  heat: z.boolean().default(false),
   note: nullableText,
 });
 
+export const organizerWeatherPlanSchema = z.enum(["normal", "cold", "heat"]);
+
 export const organizerEquipmentDetailsSchema = z
   .object({
+    weatherPlan: organizerWeatherPlanSchema.default("normal"),
     items: z.array(equipmentItemSchema).default([]),
     note: nullableText,
   })
-  .default({ items: [], note: null });
+  .default({ weatherPlan: "normal", items: [], note: null });
 
 export const organizerBibPickupDetailsSchema = z
   .object({
@@ -193,6 +198,11 @@ export type AidStationType = z.infer<typeof aidStationTypeSchema>;
 export type RunnerOrganizerDetails = ReturnType<typeof buildRunnerOrganizerDetails>;
 export type OrganizerEquipmentDetails = z.infer<typeof organizerEquipmentDetailsSchema>;
 export type OrganizerEquipmentItem = OrganizerEquipmentDetails["items"][number];
+export type OrganizerWeatherPlan = z.infer<typeof organizerWeatherPlanSchema>;
+
+export type RunnerEquipmentItem = OrganizerEquipmentItem & {
+  active: boolean;
+};
 
 export const parseOrganizerEventDetails = (value: unknown): OrganizerEventDetails =>
   organizerEventDetailsSchema.catch(defaultOrganizerEventDetails).parse(value ?? {});
@@ -231,8 +241,29 @@ const mergePreferRace = <T extends Record<string, unknown>>(eventDetails: T, rac
   return merged;
 };
 
-const buildEquipmentKey = (item: Pick<OrganizerEquipmentItem, "label" | "required">) =>
-  `${item.label.trim().toLocaleLowerCase("fr-FR")}::${item.required ? "required" : "recommended"}`;
+const buildEquipmentKey = (item: Pick<OrganizerEquipmentItem, "label" | "required" | "cold" | "heat">) =>
+  `${item.label.trim().toLocaleLowerCase("fr-FR")}::${item.required ? "required" : "recommended"}::${item.cold ? "cold" : "base"}::${item.heat ? "heat" : "base"}`;
+
+export const isWeatherTaggedEquipment = (item: Pick<OrganizerEquipmentItem, "cold" | "heat">) => item.cold || item.heat;
+
+export const isEquipmentItemActiveForWeatherPlan = (
+  item: Pick<OrganizerEquipmentItem, "cold" | "heat">,
+  weatherPlan: OrganizerWeatherPlan
+) => {
+  if (!isWeatherTaggedEquipment(item)) return true;
+  if (weatherPlan === "cold") return item.cold;
+  if (weatherPlan === "heat") return item.heat;
+  return false;
+};
+
+export const decorateEquipmentItemsWithWeatherPlan = (
+  items: OrganizerEquipmentItem[],
+  weatherPlan: OrganizerWeatherPlan
+): RunnerEquipmentItem[] =>
+  items.map((item) => ({
+    ...item,
+    active: isEquipmentItemActiveForWeatherPlan(item, weatherPlan),
+  }));
 
 export const dedupeEquipmentItems = (items: OrganizerEquipmentItem[]): OrganizerEquipmentItem[] => {
   const seen = new Set<string>();
@@ -321,13 +352,22 @@ export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails,
   const commonEquipment = eventDetails.mandatoryEquipment;
   const expandedRaceEquipment = expandRaceEquipmentWithCommon(commonEquipment, race.mandatoryEquipment);
   const raceSpecificEquipment = getRaceSpecificEquipment(commonEquipment, expandedRaceEquipment);
+  const weatherPlan = commonEquipment.weatherPlan;
+  const mergedEquipmentItems = mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items);
 
   return {
     commonEquipment,
     raceEquipment: raceSpecificEquipment,
     equipment: {
-      items: mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items),
+      weatherPlan,
+      items: mergedEquipmentItems,
       note: [commonEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null,
+    },
+    equipmentStatus: {
+      weatherPlan,
+      items: decorateEquipmentItemsWithWeatherPlan(mergedEquipmentItems, weatherPlan),
+      commonItems: decorateEquipmentItemsWithWeatherPlan(commonEquipment.items, weatherPlan),
+      raceItems: decorateEquipmentItemsWithWeatherPlan(raceSpecificEquipment.items, weatherPlan),
     },
     bibPickup: eventDetails.bibPickup,
     access: mergePreferRace(eventDetails.access, race.access),

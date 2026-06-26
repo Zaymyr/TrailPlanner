@@ -2,12 +2,19 @@ type OrganizerEquipmentItem = {
   id: string | null;
   label: string;
   required: boolean;
+  cold: boolean;
+  heat: boolean;
   note: string | null;
 };
 
 type OrganizerEquipmentDetails = {
+  weatherPlan: 'normal' | 'cold' | 'heat';
   items: OrganizerEquipmentItem[];
   note: string | null;
+};
+
+type RunnerEquipmentItem = OrganizerEquipmentItem & {
+  active: boolean;
 };
 
 type OrganizerBibPickupDetails = {
@@ -130,6 +137,12 @@ export type RacebookScreenData = {
   };
   runnerDetails: {
     equipment: OrganizerEquipmentDetails;
+    equipmentStatus: {
+      weatherPlan: OrganizerEquipmentDetails['weatherPlan'];
+      items: RunnerEquipmentItem[];
+      commonItems: RunnerEquipmentItem[];
+      raceItems: RunnerEquipmentItem[];
+    };
     commonEquipment: OrganizerEquipmentDetails;
     raceEquipment: OrganizerEquipmentDetails;
     bibPickup: OrganizerBibPickupDetails;
@@ -150,6 +163,7 @@ export type RacebookSignals = {
 };
 
 const DEFAULT_EQUIPMENT: OrganizerEquipmentDetails = {
+  weatherPlan: 'normal',
   items: [],
   note: null,
 };
@@ -270,6 +284,8 @@ function parseEquipmentDetails(value: unknown): OrganizerEquipmentDetails {
             id: readText(entry.id),
             label,
             required: readBoolean(entry.required, true),
+            cold: readBoolean(entry.cold, false),
+            heat: readBoolean(entry.heat, false),
             note: readText(entry.note),
           },
         ];
@@ -277,6 +293,7 @@ function parseEquipmentDetails(value: unknown): OrganizerEquipmentDetails {
     : [];
 
   return {
+    weatherPlan: record.weatherPlan === 'cold' || record.weatherPlan === 'heat' ? record.weatherPlan : 'normal',
     items,
     note: readText(record.note),
   };
@@ -449,8 +466,8 @@ function hasScheduleContent(details: OrganizerRaceDetails['schedule']): boolean 
   ]);
 }
 
-function buildEquipmentKey(item: Pick<OrganizerEquipmentItem, 'label' | 'required'>) {
-  return `${item.label.trim().toLocaleLowerCase('fr-FR')}::${item.required ? 'required' : 'recommended'}`;
+function buildEquipmentKey(item: Pick<OrganizerEquipmentItem, 'label' | 'required' | 'cold' | 'heat'>) {
+  return `${item.label.trim().toLocaleLowerCase('fr-FR')}::${item.required ? 'required' : 'recommended'}::${item.cold ? 'cold' : 'base'}::${item.heat ? 'heat' : 'base'}`;
 }
 
 function dedupeEquipmentItems(items: OrganizerEquipmentItem[]): OrganizerEquipmentItem[] {
@@ -487,16 +504,49 @@ function mergePreferredText(eventValue: string | null, raceValue: string | null)
   return raceValue ?? eventValue;
 }
 
+function isWeatherTaggedEquipment(item: Pick<OrganizerEquipmentItem, 'cold' | 'heat'>) {
+  return item.cold || item.heat;
+}
+
+function isEquipmentItemActiveForWeatherPlan(
+  item: Pick<OrganizerEquipmentItem, 'cold' | 'heat'>,
+  weatherPlan: OrganizerEquipmentDetails['weatherPlan'],
+) {
+  if (!isWeatherTaggedEquipment(item)) return true;
+  if (weatherPlan === 'cold') return item.cold;
+  if (weatherPlan === 'heat') return item.heat;
+  return false;
+}
+
+function decorateEquipmentItemsWithWeatherPlan(
+  items: OrganizerEquipmentItem[],
+  weatherPlan: OrganizerEquipmentDetails['weatherPlan'],
+): RunnerEquipmentItem[] {
+  return items.map((item) => ({
+    ...item,
+    active: isEquipmentItemActiveForWeatherPlan(item, weatherPlan),
+  }));
+}
+
 function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: OrganizerRaceDetails) {
   const commonEquipment = eventDetails.mandatoryEquipment;
   const raceSpecificEquipment = getRaceSpecificEquipment(commonEquipment, raceDetails.mandatoryEquipment);
+  const weatherPlan = commonEquipment.weatherPlan;
+  const mergedEquipmentItems = mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items);
 
   return {
     commonEquipment,
     raceEquipment: raceSpecificEquipment,
     equipment: {
-      items: mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items),
+      weatherPlan,
+      items: mergedEquipmentItems,
       note: [commonEquipment.note, raceDetails.mandatoryEquipment.note].filter(Boolean).join('\n') || null,
+    },
+    equipmentStatus: {
+      weatherPlan,
+      items: decorateEquipmentItemsWithWeatherPlan(mergedEquipmentItems, weatherPlan),
+      commonItems: decorateEquipmentItemsWithWeatherPlan(commonEquipment.items, weatherPlan),
+      raceItems: decorateEquipmentItemsWithWeatherPlan(raceSpecificEquipment.items, weatherPlan),
     },
     bibPickup: eventDetails.bibPickup,
     access: {

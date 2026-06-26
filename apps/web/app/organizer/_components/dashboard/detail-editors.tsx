@@ -27,6 +27,7 @@ export function EquipmentEditor({
         title="Matériel"
         description="Chaque ajout ici sera reporté sur toutes les courses de l'événement."
         equipment={eventDetails.mandatoryEquipment}
+        weatherPlanEditable
         onEquipmentChange={(mandatoryEquipment) => onEventChange({ ...eventDetails, mandatoryEquipment })}
       />
     );
@@ -41,6 +42,7 @@ export function EquipmentEditor({
       title={`Matériel - ${activeRace.name}`}
       description="Cette liste contient tout le matériel visible sur cette course. Retirer un item partagé l'enlève du commun."
       equipment={raceDetails.mandatoryEquipment}
+      sharedWeatherPlan={eventDetails.mandatoryEquipment.weatherPlan}
       onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment })}
     />
   );
@@ -50,17 +52,24 @@ function EquipmentFields({
   title,
   description,
   equipment,
+  weatherPlanEditable = false,
+  sharedWeatherPlan,
   onEquipmentChange,
 }: {
   title: string;
   description: string;
   equipment: OrganizerEventDetails["mandatoryEquipment"];
+  weatherPlanEditable?: boolean;
+  sharedWeatherPlan?: OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"];
   onEquipmentChange: (equipment: OrganizerEventDetails["mandatoryEquipment"]) => void;
 }) {
   const updateItems = (items: OrganizerEventDetails["mandatoryEquipment"]["items"]) => onEquipmentChange({ ...equipment, items });
+  const updateWeatherPlan = (weatherPlan: OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"]) => onEquipmentChange({ ...equipment, weatherPlan });
   const missingEquipment = equipment.items.length === 0 && !equipment.note?.trim();
   const existingLabels = new Set(equipment.items.map((item) => item.label.trim().toLocaleLowerCase("fr-FR")));
   const availableSuggestions = equipmentSuggestions.filter((suggestion) => !existingLabels.has(suggestion.toLocaleLowerCase("fr-FR")));
+  const effectiveWeatherPlan = sharedWeatherPlan ?? equipment.weatherPlan;
+  const weatherPlanLabel = effectiveWeatherPlan === "cold" ? "Grand froid" : effectiveWeatherPlan === "heat" ? "Grosse chaleur" : "Normal";
 
   return (
     <section className={cn("space-y-4 rounded-lg border bg-background p-4", missingEquipment ? "border-amber-300" : "border-border")}>
@@ -68,6 +77,40 @@ function EquipmentFields({
         <p className="font-semibold text-foreground">{title}</p>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
+      {weatherPlanEditable ? (
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">Plan météo actif</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "normal", label: "Normal" },
+              { value: "cold", label: "Grand froid" },
+              { value: "heat", label: "Grosse chaleur" },
+            ].map((option) => (
+              <label
+                key={option.value}
+                className={cn(
+                  "inline-flex min-h-9 items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                  equipment.weatherPlan === option.value ? "border-brand bg-brand/10 text-foreground" : "border-border bg-background text-foreground"
+                )}
+              >
+                <input
+                  type="radio"
+                  name={`${title}-weather-plan`}
+                  value={option.value}
+                  checked={equipment.weatherPlan === option.value}
+                  onChange={() => updateWeatherPlan(option.value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
+                  className="h-4 w-4"
+                />
+                <span>{option.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          Plan météo actif: <span className="font-medium text-foreground">{weatherPlanLabel}</span>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {availableSuggestions.map((suggestion) => (
           <Button
@@ -75,7 +118,7 @@ function EquipmentFields({
             type="button"
             variant="outline"
             className="h-8 text-xs"
-            onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, note: null }])}
+            onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: suggestion, required: true, cold: false, heat: false, note: null }])}
           >
             + {suggestion}
           </Button>
@@ -83,23 +126,61 @@ function EquipmentFields({
       </div>
       <div className="space-y-3">
         {equipment.items.map((item, index) => (
-          <div key={item.id ?? index} className="grid gap-3 rounded-md border border-border bg-card p-3 md:grid-cols-[1fr_auto_auto]">
+          <div key={item.id ?? index} className="grid gap-3 rounded-md border border-border bg-card p-3 md:grid-cols-[auto_1fr_auto_auto]">
+            <div className="flex flex-col gap-2 md:pt-1">
+              <ToggleChip
+                checked={item.cold}
+                label="Grand froid"
+                onChange={(checked) =>
+                  updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, cold: checked } : candidate)))
+                }
+              />
+              <ToggleChip
+                checked={item.heat}
+                label="Grosse chaleur"
+                onChange={(checked) =>
+                  updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, heat: checked } : candidate)))
+                }
+              />
+            </div>
             <Input
               value={item.label}
               onChange={(event) =>
                 updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, label: event.target.value } : candidate)))
               }
             />
-            <select
-              className="h-10 rounded-md border border-border bg-card px-3 text-sm"
-              value={item.required ? "required" : "recommended"}
-              onChange={(event) =>
-                updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, required: event.target.value === "required" } : candidate)))
-              }
-            >
-              <option value="required">Obligatoire</option>
-              <option value="recommended">Recommandé</option>
-            </select>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { value: "required", label: "Obligatoire" },
+                { value: "recommended", label: "Recommandé" },
+              ].map((option) => (
+                <label
+                  key={option.value}
+                  className={cn(
+                    "inline-flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                    (item.required ? "required" : "recommended") === option.value
+                      ? "border-brand bg-brand/10 text-foreground"
+                      : "border-border bg-background text-foreground"
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name={`equipment-${index}-status`}
+                    value={option.value}
+                    checked={(item.required ? "required" : "recommended") === option.value}
+                    onChange={() =>
+                      updateItems(
+                        equipment.items.map((candidate, itemIndex) =>
+                          itemIndex === index ? { ...candidate, required: option.value === "required" } : candidate
+                        )
+                      )
+                    }
+                    className="h-4 w-4"
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
             <Button type="button" variant="ghost" onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}>
               Retirer
             </Button>
@@ -109,7 +190,7 @@ function EquipmentFields({
       <Button
         type="button"
         variant="outline"
-        onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, note: null }])}
+        onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, cold: false, heat: false, note: null }])}
       >
         Ajouter un item
       </Button>

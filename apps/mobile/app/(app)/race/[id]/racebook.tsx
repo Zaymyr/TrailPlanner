@@ -119,7 +119,7 @@ function GearList({
   requiredLabel,
   recommendedLabel,
 }: {
-  items: RacebookScreenData['runnerDetails']['equipment']['items'];
+  items: RacebookScreenData['runnerDetails']['equipmentStatus']['items'];
   requiredLabel: string;
   recommendedLabel: string;
 }) {
@@ -128,9 +128,15 @@ function GearList({
       {items.map((item) => (
         <View key={`${item.id ?? item.label}-${item.required ? 'required' : 'recommended'}`} style={styles.gearRow}>
           <View style={styles.gearInlineRow}>
-            <View style={styles.listDot} />
-            <Text style={styles.gearLabel}>{item.label}</Text>
-            <View style={[styles.statusBadge, item.required ? styles.statusBadgeRequired : styles.statusBadgeRecommended]}>
+            <View style={[styles.listDot, !item.active ? styles.listDotMuted : null]} />
+            <Text style={[styles.gearLabel, !item.active ? styles.gearLabelMuted : null]}>{item.label}</Text>
+            <View
+              style={[
+                styles.statusBadge,
+                item.required ? styles.statusBadgeRequired : styles.statusBadgeRecommended,
+                !item.active ? styles.statusBadgeMuted : null,
+              ]}
+            >
               <Text style={[styles.statusBadgeText, item.required ? styles.statusBadgeTextRequired : styles.statusBadgeTextRecommended]}>
                 {item.required ? requiredLabel : recommendedLabel}
               </Text>
@@ -311,6 +317,14 @@ export default function RaceRacebookScreen() {
   const headerDate = formatDate(data?.race.raceDate ?? data?.event.raceDate ?? null, locale);
   const headerLocation = data?.event.location ?? data?.race.location ?? null;
   const eventMeta = [headerLocation, headerDate].filter(Boolean) as string[];
+  const weatherPlan = data?.runnerDetails.equipmentStatus.weatherPlan ?? 'normal';
+  const weatherAlertMessage =
+    weatherPlan === 'cold'
+      ? 'Plan grand froid activé - vérifie le matériel'
+      : weatherPlan === 'heat'
+        ? 'Plan grosse chaleur activé - vérifie le matériel'
+        : null;
+  const weatherAlertIcon = weatherPlan === 'heat' ? 'thermometer-outline' : 'snow-outline';
   const lastMinuteMessage = data?.runnerDetails.services.lastMinuteMessage ?? null;
 
   const profileSections = useMemo(() => {
@@ -429,7 +443,7 @@ export default function RaceRacebookScreen() {
     t.catalog.racebookAccessShuttles,
   ]);
 
-  const equipmentItems = data?.runnerDetails.equipment.items ?? [];
+  const equipmentItems = data?.runnerDetails.equipmentStatus.items ?? [];
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const unavailable = !loading && (!data || !data.canOpen);
 
@@ -488,6 +502,18 @@ export default function RaceRacebookScreen() {
               ) : null}
             </View>
           </View>
+
+          {weatherAlertMessage ? (
+            <View style={styles.alertCard}>
+                <View style={styles.alertHeader}>
+                  <View style={styles.alertIconWrap}>
+                    <Ionicons name={weatherAlertIcon} size={16} color={Colors.warning} />
+                  </View>
+                  <Text style={styles.alertTitle}>Alerte météo</Text>
+                </View>
+              <Text style={styles.alertBody}>{weatherAlertMessage}</Text>
+            </View>
+          ) : null}
 
           {lastMinuteMessage ? (
             <View style={styles.alertCard}>
@@ -815,6 +841,9 @@ const styles = StyleSheet.create({
     marginTop: 7,
     backgroundColor: Colors.brandPrimary,
   },
+  listDotMuted: {
+    backgroundColor: Colors.border,
+  },
   listText: {
     flex: 1,
     color: Colors.textSecondary,
@@ -876,17 +905,21 @@ const styles = StyleSheet.create({
   gearInlineRow: {
     width: '100%',
     flexDirection: 'row',
-    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
   },
   gearLabel: {
-    flexShrink: 1,
+    flex: 1,
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
   },
+  gearLabelMuted: {
+    color: Colors.textSecondary,
+    opacity: 0.5,
+  },
   statusBadge: {
+    marginLeft: 'auto',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
@@ -910,6 +943,9 @@ const styles = StyleSheet.create({
   },
   statusBadgeTextRecommended: {
     color: '#2563EB',
+  },
+  statusBadgeMuted: {
+    opacity: 0.45,
   },
   linkText: {
     color: Colors.brandPrimary,

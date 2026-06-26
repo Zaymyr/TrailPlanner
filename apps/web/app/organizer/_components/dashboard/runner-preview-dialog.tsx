@@ -28,6 +28,12 @@ export function RunnerPreviewDialog({
   const runnerDetails = event ? buildRunnerOrganizerDetails(event.organizerDetails ?? defaultOrganizerEventDetails, activeRace?.organizerDetails) : null;
   const dateLabel = formatEventDateRange(event);
   const formatRunnerInfoVisible = runnerDetails?.access.enabledSections.runnerInfo !== false;
+  const weatherAlertMessage =
+    runnerDetails?.equipmentStatus.weatherPlan === "cold"
+      ? "Plan grand froid activé - vérifie le matériel"
+      : runnerDetails?.equipmentStatus.weatherPlan === "heat"
+        ? "Plan grosse chaleur activé - vérifie le matériel"
+        : null;
   const previewAccessValues = runnerDetails
     ? [
         runnerDetails.access.startAddress,
@@ -105,8 +111,9 @@ export function RunnerPreviewDialog({
             ) : null}
             {runnerDetails ? (
               <>
-                <PreviewTextSection title="Matériel commun" values={runnerDetails.commonEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommandé)"}`)} empty="Matériel commun à venir." />
-                <PreviewTextSection title={activeRace ? `Matériel ${activeRace.name}` : "Matériel format"} values={runnerDetails.raceEquipment.items.map((item) => `${item.label}${item.required ? "" : " (recommandé)"}`)} empty="Pas de matériel spécifique pour ce format." />
+                {weatherAlertMessage ? <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">{weatherAlertMessage}</p> : null}
+                <PreviewEquipmentSection title="Matériel commun" items={runnerDetails.equipmentStatus.commonItems} empty="Matériel commun à venir." />
+                <PreviewEquipmentSection title={activeRace ? `Matériel ${activeRace.name}` : "Matériel format"} items={runnerDetails.equipmentStatus.raceItems} empty="Pas de matériel spécifique pour ce format." />
                 <PreviewTextSection title="Dossard" values={[runnerDetails.bibPickup.location, runnerDetails.bibPickup.schedule, runnerDetails.bibPickup.requiredDocuments, runnerDetails.bibPickup.note]} empty="Retrait dossard à venir." />
                 <PreviewTextSection title="Accès" values={previewAccessValues} empty="Accès à venir." />
                 {formatRunnerInfoVisible ? (
@@ -151,6 +158,34 @@ export function PreviewTextSection({ title, values, empty }: { title: string; va
         <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
           {lines.map((line, index) => (
             <li key={`${title}-${index}`}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function PreviewEquipmentSection({
+  title,
+  items,
+  empty,
+}: {
+  title: string;
+  items: Array<{ label: string; required: boolean; active: boolean }>;
+  empty: string;
+}) {
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      {items.length === 0 ? (
+        <p className="mt-1 text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="mt-1 space-y-1 text-sm">
+          {items.map((item, index) => (
+            <li key={`${title}-${index}-${item.label}`} className={item.active ? "text-muted-foreground" : "text-muted-foreground opacity-50"}>
+              {item.label}
+              {item.required ? "" : " (recommandé)"}
+            </li>
           ))}
         </ul>
       )}
