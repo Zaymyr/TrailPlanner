@@ -135,7 +135,7 @@ Runner-facing preview resolves details as:
 - schedule and runner notes = active-format details;
 - services and partners = event details.
 
-The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations. The header uses the format race date plus distance, D+, D-, and start time. Event-level `services.lastMinuteMessage`, when present, is promoted into a dedicated alert card above the local tabs; the rest of the service copy remains in the Profile tab. Start and bib sections render as table-like label/value rows. Equipment is shown as per-item required/recommended rows with status badges that stay inside the card width.
+The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations. The header uses the format race date plus distance, D+, D-, and start time. Event-level `services.lastMinuteMessage`, when present, is promoted into a dedicated alert card above the local tabs; the rest of the service copy remains in the Profile tab. Start and bib sections render as table-like label/value rows. Equipment is shown as per-item required/recommended rows with status badges that stay inside the card width by stacking under the item label on narrower devices.
 
 ## GPX Replacement
 

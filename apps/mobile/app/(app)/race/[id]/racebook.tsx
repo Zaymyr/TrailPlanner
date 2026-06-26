@@ -127,14 +127,16 @@ function GearList({
     <View style={styles.listGroup}>
       {items.map((item) => (
         <View key={`${item.id ?? item.label}-${item.required ? 'required' : 'recommended'}`} style={styles.gearRow}>
-          <View style={styles.listRow}>
-            <View style={styles.listDot} />
-            <Text style={styles.listText}>{item.label}</Text>
-          </View>
-          <View style={[styles.statusBadge, item.required ? styles.statusBadgeRequired : styles.statusBadgeRecommended]}>
-            <Text style={[styles.statusBadgeText, item.required ? styles.statusBadgeTextRequired : styles.statusBadgeTextRecommended]}>
-              {item.required ? requiredLabel : recommendedLabel}
-            </Text>
+          <View style={styles.gearContent}>
+            <View style={styles.listRow}>
+              <View style={styles.listDot} />
+              <Text style={styles.listText}>{item.label}</Text>
+            </View>
+            <View style={[styles.statusBadge, item.required ? styles.statusBadgeRequired : styles.statusBadgeRecommended]}>
+              <Text style={[styles.statusBadgeText, item.required ? styles.statusBadgeTextRequired : styles.statusBadgeTextRecommended]}>
+                {item.required ? requiredLabel : recommendedLabel}
+              </Text>
+            </View>
           </View>
         </View>
       ))}
@@ -871,15 +873,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   gearRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
+    width: '100%',
+  },
+  gearContent: {
+    width: '100%',
+    gap: 8,
   },
   statusBadge: {
     alignSelf: 'flex-start',
-    flexShrink: 0,
-    minWidth: 96,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
