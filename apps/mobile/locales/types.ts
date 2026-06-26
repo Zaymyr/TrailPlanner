@@ -584,6 +584,8 @@ export type MobileTranslations = {
     racebookAccessNote: string;
     racebookGearRequired: string;
     racebookGearRecommended: string;
+    racebookGearColdWeather: string;
+    racebookGearHotWeather: string;
     racebookAidProducts: string;
     racebookAidWater: string;
     racebookAidFood: string;

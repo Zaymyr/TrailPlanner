@@ -118,10 +118,14 @@ function GearList({
   items,
   requiredLabel,
   recommendedLabel,
+  coldWeatherLabel,
+  hotWeatherLabel,
 }: {
   items: RacebookScreenData['runnerDetails']['equipmentStatus']['items'];
   requiredLabel: string;
   recommendedLabel: string;
+  coldWeatherLabel: string;
+  hotWeatherLabel: string;
 }) {
   return (
     <View style={styles.listGroup}>
@@ -130,6 +134,30 @@ function GearList({
           <View style={styles.gearInlineRow}>
             <View style={[styles.listDot, !item.active ? styles.listDotMuted : null]} />
             <Text style={[styles.gearLabel, !item.active ? styles.gearLabelMuted : null]}>{item.label}</Text>
+            {item.cold || item.heat ? (
+              <View style={styles.weatherIconRow}>
+                {item.cold ? (
+                  <View
+                    accessible
+                    accessibilityRole="image"
+                    accessibilityLabel={coldWeatherLabel}
+                    style={[styles.weatherIconBadge, styles.weatherIconBadgeCold, !item.active ? styles.weatherIconBadgeMuted : null]}
+                  >
+                    <Ionicons name="snow-outline" size={12} color="#2563EB" />
+                  </View>
+                ) : null}
+                {item.heat ? (
+                  <View
+                    accessible
+                    accessibilityRole="image"
+                    accessibilityLabel={hotWeatherLabel}
+                    style={[styles.weatherIconBadge, styles.weatherIconBadgeHeat, !item.active ? styles.weatherIconBadgeMuted : null]}
+                  >
+                    <Ionicons name="thermometer-outline" size={12} color={Colors.warning} />
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
             <View
               style={[
                 styles.statusBadge,
@@ -572,6 +600,8 @@ export default function RaceRacebookScreen() {
                         items={equipmentItems}
                         requiredLabel={t.catalog.racebookGearRequired}
                         recommendedLabel={t.catalog.racebookGearRecommended}
+                        coldWeatherLabel={t.catalog.racebookGearColdWeather}
+                        hotWeatherLabel={t.catalog.racebookGearHotWeather}
                       />
                     ) : null}
                     {equipmentNotes.length > 0 ? <InfoList values={equipmentNotes} /> : null}
@@ -917,6 +947,30 @@ const styles = StyleSheet.create({
   gearLabelMuted: {
     color: Colors.textSecondary,
     opacity: 0.5,
+  },
+  weatherIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  weatherIconBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  weatherIconBadgeCold: {
+    backgroundColor: '#EAF2FF',
+    borderColor: '#B8D0FF',
+  },
+  weatherIconBadgeHeat: {
+    backgroundColor: '#FEF3C7',
+    borderColor: '#F6D37A',
+  },
+  weatherIconBadgeMuted: {
+    opacity: 0.45,
   },
   statusBadge: {
     marginLeft: 'auto',
