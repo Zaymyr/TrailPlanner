@@ -85,6 +85,30 @@ function EmptyState({ message }: { message: string }) {
   return <Text style={styles.emptyText}>{message}</Text>;
 }
 
+function InlineAlertCard({
+  icon,
+  title,
+  message,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  message: string;
+}) {
+  return (
+    <View style={styles.alertCard}>
+      <View style={styles.alertHeader}>
+        <View style={styles.alertIconWrap}>
+          <Ionicons name={icon} size={14} color={Colors.warning} />
+        </View>
+        <Text style={styles.alertInlineText}>
+          <Text style={styles.alertTitle}>{title}</Text>
+          <Text style={styles.alertBody}>{` - ${message}`}</Text>
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function InfoList({ values }: { values: string[] }) {
   return (
     <View style={styles.listGroup}>
@@ -542,28 +566,10 @@ export default function RaceRacebookScreen() {
             </View>
           </View>
 
-          {weatherAlertMessage ? (
-            <View style={styles.alertCard}>
-              <View style={styles.alertHeader}>
-                <View style={styles.alertIconWrap}>
-                  <Ionicons name={weatherAlertIcon} size={14} color={Colors.warning} />
-                </View>
-                <Text style={styles.alertTitle}>Alerte météo</Text>
-              </View>
-              <Text style={styles.alertBody}>{weatherAlertMessage}</Text>
-            </View>
-          ) : null}
+          {weatherAlertMessage ? <InlineAlertCard icon={weatherAlertIcon} title="Alerte météo" message={weatherAlertMessage} /> : null}
 
           {lastMinuteMessage ? (
-            <View style={styles.alertCard}>
-              <View style={styles.alertHeader}>
-                <View style={styles.alertIconWrap}>
-                  <Ionicons name="megaphone-outline" size={14} color={Colors.warning} />
-                </View>
-                <Text style={styles.alertTitle}>{t.catalog.racebookLastMinuteTitle}</Text>
-              </View>
-              <Text style={styles.alertBody}>{lastMinuteMessage}</Text>
-            </View>
+            <InlineAlertCard icon="megaphone-outline" title={t.catalog.racebookLastMinuteTitle} message={lastMinuteMessage} />
           ) : null}
 
           <View style={styles.tabsWrap}>
@@ -748,8 +754,14 @@ const styles = StyleSheet.create({
   },
   alertHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
+  },
+  alertInlineText: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 18,
   },
   alertIconWrap: {
     width: 24,
