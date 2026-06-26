@@ -30,6 +30,16 @@ type MetricItem = {
   tone?: 'neutral' | 'gain' | 'loss';
 };
 
+function sortGearItems(items: RacebookScreenData['runnerDetails']['equipmentStatus']['items']) {
+  return [...items].sort((left, right) => {
+    const leftGroup = !left.active ? 2 : left.required ? 0 : 1;
+    const rightGroup = !right.active ? 2 : right.required ? 0 : 1;
+
+    if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+    return 0;
+  });
+}
+
 function formatDate(value: string | null, locale: 'fr' | 'en'): string | null {
   if (!value) return null;
 
@@ -127,12 +137,13 @@ function GearList({
   coldWeatherLabel: string;
   hotWeatherLabel: string;
 }) {
+  const sortedItems = sortGearItems(items);
+
   return (
     <View style={styles.listGroup}>
-      {items.map((item) => (
+      {sortedItems.map((item) => (
         <View key={`${item.id ?? item.label}-${item.required ? 'required' : 'recommended'}`} style={styles.gearRow}>
           <View style={styles.gearInlineRow}>
-            <View style={[styles.listDot, !item.active ? styles.listDotMuted : null]} />
             <Text style={[styles.gearLabel, !item.active ? styles.gearLabelMuted : null]}>{item.label}</Text>
             {item.cold || item.heat ? (
               <View style={styles.weatherIconRow}>
@@ -533,12 +544,12 @@ export default function RaceRacebookScreen() {
 
           {weatherAlertMessage ? (
             <View style={styles.alertCard}>
-                <View style={styles.alertHeader}>
-                  <View style={styles.alertIconWrap}>
-                    <Ionicons name={weatherAlertIcon} size={16} color={Colors.warning} />
-                  </View>
-                  <Text style={styles.alertTitle}>Alerte météo</Text>
+              <View style={styles.alertHeader}>
+                <View style={styles.alertIconWrap}>
+                  <Ionicons name={weatherAlertIcon} size={14} color={Colors.warning} />
                 </View>
+                <Text style={styles.alertTitle}>Alerte météo</Text>
+              </View>
               <Text style={styles.alertBody}>{weatherAlertMessage}</Text>
             </View>
           ) : null}
@@ -547,7 +558,7 @@ export default function RaceRacebookScreen() {
             <View style={styles.alertCard}>
               <View style={styles.alertHeader}>
                 <View style={styles.alertIconWrap}>
-                  <Ionicons name="megaphone-outline" size={16} color={Colors.warning} />
+                  <Ionicons name="megaphone-outline" size={14} color={Colors.warning} />
                 </View>
                 <Text style={styles.alertTitle}>{t.catalog.racebookLastMinuteTitle}</Text>
               </View>
@@ -727,9 +738,10 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   alertCard: {
-    gap: 10,
-    padding: 16,
-    borderRadius: 18,
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E7C97A',
     backgroundColor: Colors.warningSurface,
@@ -737,25 +749,25 @@ const styles = StyleSheet.create({
   alertHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   alertIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFF6DA',
   },
   alertTitle: {
     color: Colors.textPrimary,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   alertBody: {
     color: Colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   heroHeader: {
     flexDirection: 'row',

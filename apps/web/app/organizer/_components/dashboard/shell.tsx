@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
-import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
@@ -228,22 +227,27 @@ export function CompletionTabsPanel({
   const isEventTab = activeTab === EVENT_TAB_ID;
   const isAddTab = activeTab === ADD_FORMAT_TAB_ID;
   const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
-  const description = isEventTab
-    ? "Informations communes à tous les formats."
-    : activeRace
-      ? "Informations propres au format sélectionné."
-      : "Crée un nouveau format depuis le formulaire ci-dessous.";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">Avancement global</h2>
-            <p className="text-sm text-muted-foreground">{description}</p>
-          </div>
+      <div className="overflow-x-auto pb-1">
+        <div className="flex min-w-max items-center gap-2 border-b border-border">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange(tab.id)}
+              className={cn(
+                "rounded-t-lg border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none",
+                activeTab === tab.id
+                  ? "border-brand border-b-card bg-brand-surface text-brand shadow-sm"
+                  : "text-muted-foreground hover:bg-background hover:text-foreground"
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        <TabsList tabs={tabs} activeTab={activeTab} onTabChange={onTabChange} />
       </div>
 
       {!isAddTab ? (
@@ -276,14 +280,14 @@ export function OrganizerModuleGrid({
   const isDirty = (moduleId: OrganizerModuleId) => dirtyModules.has(moduleId);
 
   return (
-    <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
       {modules.map((module) => (
         <button
           key={module.id}
           type="button"
           aria-label={`${module.title}. ${module.description}`}
           className={cn(
-            "min-h-[112px] rounded-lg border bg-card p-3 text-left transition hover:border-brand-border hover:shadow-sm",
+            "min-h-[112px] rounded-lg border bg-card p-3 text-left transition hover:border-brand-border hover:shadow-sm lg:min-w-0",
             module.status === "complete" && activeModule !== module.id && "border-emerald-300",
             activeModule === module.id && "border-brand bg-brand-surface/60 ring-2 ring-brand/30 shadow-sm",
             isDirty(module.id) && module.status !== "complete" && "border-amber-300"
