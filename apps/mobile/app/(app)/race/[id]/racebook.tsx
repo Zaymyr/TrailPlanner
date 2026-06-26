@@ -138,19 +138,17 @@ function LabeledInfoList({ items }: { items: LabeledItem[] }) {
           <Text style={styles.tableLabel}>{item.label}</Text>
           <View style={styles.tableDivider} />
           <View style={styles.tableValueWrap}>
-            <Text style={styles.tableValue}>{item.value}</Text>
-            <View style={styles.inlineActionSlot}>
-              {item.actionUrl ? (
-                <Pressable
-                  style={styles.inlineActionButton}
-                  onPress={() => Linking.openURL(item.actionUrl!).catch(() => {})}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${item.label} Google Maps`}
-                >
-                  <Ionicons name="logo-google" size={16} color={Colors.brandPrimary} />
-                </Pressable>
-              ) : null}
-            </View>
+            {item.actionUrl ? (
+              <Pressable
+                onPress={() => Linking.openURL(item.actionUrl!).catch(() => {})}
+                accessibilityRole="link"
+                accessibilityLabel={`Ouvrir ${item.label}`}
+              >
+                <Text style={[styles.tableValue, styles.tableValueLink]}>{item.value}</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.tableValue}>{item.value}</Text>
+            )}
           </View>
         </View>
       ))}
@@ -980,22 +978,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 8,
   },
-  inlineActionSlot: {
-    width: 32,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
-  },
-  inlineActionButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
+  tableValueLink: {
+    color: Colors.brandPrimary,
+    textDecorationLine: 'underline',
+    textDecorationColor: Colors.brandPrimary,
   },
   chipRow: {
     flexDirection: 'row',
