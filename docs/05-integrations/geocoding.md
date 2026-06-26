@@ -34,9 +34,10 @@ The current organizer flow is:
 1. The user types into a route-local `AddressAutocompleteField`.
 2. After 3+ characters and a short debounce, the component calls `GET /api/location-search?q=...`.
 3. The route proxies the lookup to OpenStreetMap Nominatim server-side.
-4. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
-5. The runner preview reads that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link.
-6. The mobile Racebook can reuse the same stored Google Maps URL for bib pickup plus start/finish rows.
+4. The user can keep typing free text normally; the component keeps the raw input locally and only syncs a manual location object on blur when no autocomplete suggestion was chosen.
+5. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
+6. The runner preview reads that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link.
+7. The mobile Racebook can reuse the same stored Google Maps URL for bib pickup plus start/finish rows.
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
@@ -83,6 +84,7 @@ Each object stores:
 - Do not assume every historical organizer row has geocoded metadata; old rows should parse to empty/default location objects.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.
 - The current quality improvement is still heuristic on top of Nominatim. It helps French race addresses significantly, but it is not a full postal-address provider with rooftop accuracy guarantees.
+- Google Places is a valid future replacement for autocomplete quality, but it requires a Google Maps Platform key, billing, quota management, and a review of Google usage terms before swapping providers.
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 

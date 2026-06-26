@@ -35,10 +35,15 @@ export function AddressAutocompleteField({
   placeholder?: string;
   invalid?: boolean;
 }) {
+  const [inputValue, setInputValue] = useState(value);
   const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const lastQueryRef = useRef("");
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -47,7 +52,7 @@ export function AddressAutocompleteField({
       return;
     }
 
-    const trimmedValue = value.trim();
+    const trimmedValue = inputValue.trim();
     if (trimmedValue.length < 3) {
       setSuggestions([]);
       setIsLoading(false);
@@ -83,9 +88,22 @@ export function AddressAutocompleteField({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [isFocused, value]);
+  }, [inputValue, isFocused]);
 
   const helperCoordinates = hasCoordinates(location) ? formatCoordinates(location.lat, location.lng) : null;
+  const syncManualLocation = (nextValue: string) => {
+    const trimmedValue = nextValue.trim();
+    const currentLabel = location.label?.trim() ?? "";
+
+    if (trimmedValue.length === 0) {
+      onLocationChange(buildOrganizerLocation({ label: null, source: "manual" }));
+      return;
+    }
+
+    if (trimmedValue === currentLabel) return;
+
+    onLocationChange(buildOrganizerLocation({ label: trimmedValue, source: "manual" }));
+  };
 
   return (
     <div className="space-y-1">
@@ -93,9 +111,10 @@ export function AddressAutocompleteField({
       <div className="relative">
         <Input
           type="text"
-          value={value}
+          value={inputValue}
           onFocus={() => setIsFocused(true)}
           onBlur={() => {
+            syncManualLocation(inputValue);
             window.setTimeout(() => {
               setIsFocused(false);
               setSuggestions([]);
@@ -103,8 +122,8 @@ export function AddressAutocompleteField({
           }}
           onChange={(event) => {
             const nextValue = event.target.value;
+            setInputValue(nextValue);
             onChange(nextValue);
-            onLocationChange(buildOrganizerLocation({ label: nextValue, source: "manual" }));
           }}
           required={required}
           placeholder={placeholder}
@@ -122,6 +141,7 @@ export function AddressAutocompleteField({
                     className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm transition hover:bg-muted"
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => {
+                      setInputValue(suggestion.label);
                       onChange(suggestion.label);
                       onLocationChange(
                         buildOrganizerLocation({
