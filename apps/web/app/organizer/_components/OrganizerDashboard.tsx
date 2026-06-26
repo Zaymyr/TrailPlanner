@@ -107,7 +107,13 @@ export function OrganizerDashboard() {
 
   const serializeEquipment = (equipment: OrganizerEventDetails["mandatoryEquipment"]) =>
     JSON.stringify({
-      items: equipment.items.map((item) => ({ label: item.label, required: item.required })),
+      weatherPlan: equipment.weatherPlan,
+      items: equipment.items.map((item) => ({
+        label: item.label,
+        required: item.required,
+        cold: item.cold,
+        heat: item.heat,
+      })),
     });
 
   const syncEventCommonEquipment = (details: OrganizerEventDetails, races: RaceFormat[]) => ({

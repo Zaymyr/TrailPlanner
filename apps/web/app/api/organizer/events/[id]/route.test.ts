@@ -42,7 +42,8 @@ describe("/api/organizer/events/[id]", () => {
           is_live: false,
           organizer_details: {
             mandatoryEquipment: {
-              items: [{ id: "item-1", label: "Couverture de survie", required: true, note: null }],
+              weatherPlan: "cold",
+              items: [{ id: "item-1", label: "Couverture de survie", required: true, cold: true, heat: false, note: null }],
               note: null,
             },
           },
@@ -70,7 +71,12 @@ describe("/api/organizer/events/[id]", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload.event.organizerDetails.mandatoryEquipment.items[0].label).toBe("Couverture de survie");
+    expect(payload.event.organizerDetails.mandatoryEquipment.weatherPlan).toBe("cold");
+    expect(payload.event.organizerDetails.mandatoryEquipment.items[0]).toMatchObject({
+      label: "Couverture de survie",
+      cold: true,
+      heat: false,
+    });
     expect(payload.event.races[0].organizerDetails.schedule.startTime).toBe("07:00");
   });
 
@@ -86,7 +92,10 @@ describe("/api/organizer/events/[id]", () => {
           thumbnail_url: null,
           is_live: false,
           organizer_details: {
-            access: { startAddress: "1 rue du depart" },
+            mandatoryEquipment: {
+              weatherPlan: "heat",
+              items: [{ id: "item-1", label: "Casquette", required: false, cold: false, heat: true, note: null }],
+            },
           },
         },
       ])
@@ -95,8 +104,10 @@ describe("/api/organizer/events/[id]", () => {
     const response = await PATCH(
       organizerRequest({
         organizerDetails: {
-          access: {
-            startAddress: "1 rue du depart",
+          mandatoryEquipment: {
+            weatherPlan: "heat",
+            items: [{ id: "item-1", label: "Casquette", required: false, cold: false, heat: true, note: null }],
+            note: null,
           },
         },
       }),
@@ -107,8 +118,9 @@ describe("/api/organizer/events/[id]", () => {
     const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
       organizer_details: {
-        access: {
-          startAddress: "1 rue du depart",
+        mandatoryEquipment: {
+          weatherPlan: "heat",
+          items: [{ label: "Casquette", required: false, cold: false, heat: true }],
         },
       },
     });
