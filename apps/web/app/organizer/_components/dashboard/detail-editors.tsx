@@ -126,16 +126,16 @@ function EquipmentFields({
       </div>
       <div className="space-y-3">
         {equipment.items.map((item, index) => (
-          <div key={item.id ?? index} className="grid gap-3 rounded-md border border-border bg-card p-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
-            <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center">
+          <div key={item.id ?? index} className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card p-3">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <Input
                 value={item.label}
                 onChange={(event) =>
                   updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, label: event.target.value } : candidate)))
                 }
-                className="h-10"
+                className="h-10 min-w-[16rem] flex-1"
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-foreground">
                   <input
                     type="checkbox"
@@ -160,7 +160,7 @@ function EquipmentFields({
                 </label>
               </div>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {[
                 { value: "required", label: "Obligatoire" },
                 { value: "recommended", label: "Recommandé" },
@@ -195,7 +195,7 @@ function EquipmentFields({
             <Button
               type="button"
               variant="ghost"
-              className="h-10 w-10 px-0 text-red-600 hover:text-red-700"
+              className="h-10 w-10 shrink-0 px-0 text-red-600 hover:text-red-700"
               onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
               aria-label={`Retirer ${item.label || "cet item"}`}
               title="Retirer"
