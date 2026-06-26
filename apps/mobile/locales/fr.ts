@@ -592,6 +592,8 @@ export const fr: MobileTranslations = {
     racebookAccessNote: 'Note accès',
     racebookGearRequired: 'Obligatoire',
     racebookGearRecommended: 'Conseillé',
+    racebookGearColdWeather: 'Matériel taggé grand froid',
+    racebookGearHotWeather: 'Matériel taggé grosse chaleur',
     racebookAidProducts: 'Produits disponibles',
     racebookAidWater: 'Eau',
     racebookAidFood: 'Solide',

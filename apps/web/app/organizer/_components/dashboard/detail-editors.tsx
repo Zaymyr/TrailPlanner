@@ -126,29 +126,40 @@ function EquipmentFields({
       </div>
       <div className="space-y-3">
         {equipment.items.map((item, index) => (
-          <div key={item.id ?? index} className="grid gap-3 rounded-md border border-border bg-card p-3 md:grid-cols-[auto_1fr_auto_auto]">
-            <div className="flex flex-col gap-2 md:pt-1">
-              <ToggleChip
-                checked={item.cold}
-                label="Grand froid"
-                onChange={(checked) =>
-                  updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, cold: checked } : candidate)))
+          <div key={item.id ?? index} className="grid gap-3 rounded-md border border-border bg-card p-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+            <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center">
+              <Input
+                value={item.label}
+                onChange={(event) =>
+                  updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, label: event.target.value } : candidate)))
                 }
+                className="h-10"
               />
-              <ToggleChip
-                checked={item.heat}
-                label="Grosse chaleur"
-                onChange={(checked) =>
-                  updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, heat: checked } : candidate)))
-                }
-              />
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={item.cold}
+                    onChange={(event) =>
+                      updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, cold: event.target.checked } : candidate)))
+                    }
+                    className="h-4 w-4"
+                  />
+                  <span>Grand froid</span>
+                </label>
+                <label className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={item.heat}
+                    onChange={(event) =>
+                      updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, heat: event.target.checked } : candidate)))
+                    }
+                    className="h-4 w-4"
+                  />
+                  <span>Grosse chaleur</span>
+                </label>
+              </div>
             </div>
-            <Input
-              value={item.label}
-              onChange={(event) =>
-                updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, label: event.target.value } : candidate)))
-              }
-            />
             <div className="flex flex-wrap gap-2">
               {[
                 { value: "required", label: "Obligatoire" },
@@ -157,7 +168,7 @@ function EquipmentFields({
                 <label
                   key={option.value}
                   className={cn(
-                    "inline-flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm",
+                    "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm whitespace-nowrap",
                     (item.required ? "required" : "recommended") === option.value
                       ? "border-brand bg-brand/10 text-foreground"
                       : "border-border bg-background text-foreground"
@@ -181,8 +192,17 @@ function EquipmentFields({
                 </label>
               ))}
             </div>
-            <Button type="button" variant="ghost" onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}>
-              Retirer
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 w-10 px-0 text-red-600 hover:text-red-700"
+              onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
+              aria-label={`Retirer ${item.label || "cet item"}`}
+              title="Retirer"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4 fill-current">
+                <path d="M3.2 4.3 4.3 3.2 8 6.9l3.7-3.7 1.1 1.1L9.1 8l3.7 3.7-1.1 1.1L8 9.1l-3.7 3.7-1.1-1.1L6.9 8 3.2 4.3Z" />
+              </svg>
             </Button>
           </div>
         ))}
