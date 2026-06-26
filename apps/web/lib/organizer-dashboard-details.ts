@@ -22,6 +22,24 @@ const nullableNumber = z.preprocess(
   z.coerce.number().finite().nullable()
 );
 
+const nullableLocationSource = z.enum(["manual", "autocomplete"]).nullish().transform((value) => value ?? null);
+
+export const organizerLocationSchema = z
+  .object({
+    label: nullableText,
+    lat: nullableNumber,
+    lng: nullableNumber,
+    googleMapsUrl: nullableUrl,
+    source: nullableLocationSource,
+  })
+  .default({
+    label: null,
+    lat: null,
+    lng: null,
+    googleMapsUrl: null,
+    source: null,
+  });
+
 const equipmentItemSchema = z.object({
   id: nullableText,
   label: z.string().trim().min(1),
@@ -44,6 +62,7 @@ export const organizerEquipmentDetailsSchema = z
 export const organizerBibPickupDetailsSchema = z
   .object({
     location: nullableText,
+    locationDetails: organizerLocationSchema,
     schedule: nullableText,
     requiredDocuments: nullableText,
     thirdPartyPickupAllowed: nullableBoolean,
@@ -52,6 +71,7 @@ export const organizerBibPickupDetailsSchema = z
   })
   .default({
     location: null,
+    locationDetails: organizerLocationSchema.parse({}),
     schedule: null,
     requiredDocuments: null,
     thirdPartyPickupAllowed: null,
@@ -62,7 +82,9 @@ export const organizerBibPickupDetailsSchema = z
 export const organizerAccessDetailsSchema = z
   .object({
     startAddress: nullableText,
+    startLocation: organizerLocationSchema,
     finishAddress: nullableText,
+    finishLocation: organizerLocationSchema,
     officialParkings: nullableText,
     shuttles: nullableText,
     shuttleSchedule: nullableText,
@@ -87,7 +109,9 @@ export const organizerAccessDetailsSchema = z
   })
   .default({
     startAddress: null,
+    startLocation: organizerLocationSchema.parse({}),
     finishAddress: null,
+    finishLocation: organizerLocationSchema.parse({}),
     officialParkings: null,
     shuttles: null,
     shuttleSchedule: null,
@@ -146,6 +170,7 @@ export const organizerEventDateRangeDetailsSchema = z
   });
 
 export const organizerEventDetailsSchema = z.object({
+  eventLocation: organizerLocationSchema,
   dateRange: organizerEventDateRangeDetailsSchema,
   mandatoryEquipment: organizerEquipmentDetailsSchema,
   bibPickup: organizerBibPickupDetailsSchema,
@@ -154,6 +179,7 @@ export const organizerEventDetailsSchema = z.object({
 });
 
 export const organizerRaceDetailsSchema = z.object({
+  raceLocation: organizerLocationSchema,
   schedule: z
     .object({
       startTime: nullableText,
@@ -194,6 +220,7 @@ export const defaultOrganizerAidStationDetails = organizerAidStationDetailsSchem
 export type OrganizerEventDetails = z.infer<typeof organizerEventDetailsSchema>;
 export type OrganizerRaceDetails = z.infer<typeof organizerRaceDetailsSchema>;
 export type OrganizerAidStationDetails = z.infer<typeof organizerAidStationDetailsSchema>;
+export type OrganizerLocation = z.infer<typeof organizerLocationSchema>;
 export type AidStationType = z.infer<typeof aidStationTypeSchema>;
 export type RunnerOrganizerDetails = ReturnType<typeof buildRunnerOrganizerDetails>;
 export type OrganizerEquipmentDetails = z.infer<typeof organizerEquipmentDetailsSchema>;
@@ -228,6 +255,8 @@ export const parseOrganizerAidStationDetails = (value: unknown): OrganizerAidSta
 
 const hasOverrideValue = (value: unknown) => {
   if (typeof value === "string") return value.trim().length > 0;
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === "object") return Object.values(value).some(hasOverrideValue);
   return value !== null && value !== undefined;
 };
 

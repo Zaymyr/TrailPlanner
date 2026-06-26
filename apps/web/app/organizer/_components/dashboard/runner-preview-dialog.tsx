@@ -2,7 +2,12 @@ import Link from "next/link";
 
 import { Button } from "../../../../components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../../components/ui/dialog";
-import { buildRunnerOrganizerDetails, defaultOrganizerEventDetails } from "../../../../lib/organizer-dashboard-details";
+import {
+  buildRunnerOrganizerDetails,
+  defaultOrganizerEventDetails,
+  type OrganizerLocation,
+} from "../../../../lib/organizer-dashboard-details";
+import { formatCoordinates } from "../../../../lib/location-utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { formatEventDateRange, formatKm } from "./helpers";
 import type { AidStationDraft, OrganizerEventDetail, StationProduct } from "./types";
@@ -36,13 +41,10 @@ export function RunnerPreviewDialog({
         : null;
   const previewAccessValues = runnerDetails
     ? [
-        runnerDetails.access.startAddress,
-        runnerDetails.access.finishAddress,
         runnerDetails.access.enabledSections.officialParkings ? runnerDetails.access.officialParkings : null,
         runnerDetails.access.enabledSections.shuttles ? runnerDetails.access.shuttles : null,
         runnerDetails.access.enabledSections.shuttles ? runnerDetails.access.shuttleSchedule : null,
         runnerDetails.access.enabledSections.roadRestrictions ? runnerDetails.access.roadRestrictions : null,
-        runnerDetails.access.enabledSections.mapUrl ? runnerDetails.access.mapUrl : null,
         runnerDetails.access.note,
       ]
     : [];
@@ -112,10 +114,33 @@ export function RunnerPreviewDialog({
             {runnerDetails ? (
               <>
                 {weatherAlertMessage ? <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-900">{weatherAlertMessage}</p> : null}
+                <PreviewLocationSection
+                  title="Lieux clés"
+                  items={[
+                    { label: "Événement", value: event.location ?? null, location: event.organizerDetails?.eventLocation },
+                    { label: "Format", value: activeRace?.location_text ?? null, location: activeRace?.organizerDetails?.raceLocation },
+                    { label: "Retrait dossard", value: runnerDetails.bibPickup.location, location: runnerDetails.bibPickup.locationDetails },
+                    { label: "Départ", value: runnerDetails.access.startAddress, location: runnerDetails.access.startLocation },
+                    { label: "Arrivée", value: runnerDetails.access.finishAddress, location: runnerDetails.access.finishLocation },
+                  ]}
+                />
                 <PreviewEquipmentSection title="Matériel commun" items={runnerDetails.equipmentStatus.commonItems} empty="Matériel commun à venir." />
                 <PreviewEquipmentSection title={activeRace ? `Matériel ${activeRace.name}` : "Matériel format"} items={runnerDetails.equipmentStatus.raceItems} empty="Pas de matériel spécifique pour ce format." />
                 <PreviewTextSection title="Dossard" values={[runnerDetails.bibPickup.location, runnerDetails.bibPickup.schedule, runnerDetails.bibPickup.requiredDocuments, runnerDetails.bibPickup.note]} empty="Retrait dossard à venir." />
                 <PreviewTextSection title="Accès" values={previewAccessValues} empty="Accès à venir." />
+                {runnerDetails.access.enabledSections.mapUrl && runnerDetails.access.mapUrl ? (
+                  <section>
+                    <h3 className="text-sm font-semibold text-foreground">Carte</h3>
+                    <a
+                      href={runnerDetails.access.mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-flex text-sm font-medium text-foreground underline underline-offset-2"
+                    >
+                      Ouvrir la carte
+                    </a>
+                  </section>
+                ) : null}
                 {formatRunnerInfoVisible ? (
                   <PreviewTextSection title="Informations format" values={[runnerDetails.runnerInfo.startArea, runnerDetails.runnerInfo.briefing, runnerDetails.runnerInfo.rules, runnerDetails.runnerInfo.note]} empty="Pas d'information spécifique pour ce format." />
                 ) : null}
@@ -161,6 +186,43 @@ export function PreviewTextSection({ title, values, empty }: { title: string; va
           ))}
         </ul>
       )}
+    </section>
+  );
+}
+
+function PreviewLocationSection({
+  title,
+  items,
+}: {
+  title: string;
+  items: Array<{ label: string; value: string | null | undefined; location?: OrganizerLocation | null }>;
+}) {
+  const rows = items.filter(({ value, location }) => Boolean(value?.trim()) || Boolean(location?.googleMapsUrl));
+
+  if (rows.length === 0) return null;
+
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      <div className="mt-2 grid gap-2 md:grid-cols-2">
+        {rows.map((item) => {
+          const gps = formatCoordinates(item.location?.lat, item.location?.lng);
+          return (
+            <div key={item.label} className="rounded-md border border-border bg-background p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{item.label}</p>
+              <p className="mt-1 text-sm text-foreground">{item.value?.trim() || item.location?.label || "Adresse à venir."}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                {gps ? <span>GPS {gps}</span> : null}
+                {item.location?.googleMapsUrl ? (
+                  <a href={item.location.googleMapsUrl} target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">
+                    Ouvrir dans Google Maps
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

@@ -57,6 +57,7 @@ export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): Rac
   thumbnailUrl: eventForm.thumbnailUrl,
   organizerDetails: {
     ...cloneJson(defaultOrganizerRaceDetails),
+    raceLocation: cloneJson(eventForm.organizerDetails.eventLocation),
     mandatoryEquipment: cloneJson(eventForm.organizerDetails.mandatoryEquipment),
     access: cloneJson(eventForm.organizerDetails.access),
   },

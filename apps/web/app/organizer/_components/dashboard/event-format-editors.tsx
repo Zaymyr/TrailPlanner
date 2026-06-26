@@ -4,6 +4,7 @@ import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
 import type { OrganizerModuleId } from "../completion";
+import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues } from "./types";
@@ -29,7 +30,24 @@ export function EventInfoEditor({
   return (
     <div className="grid gap-3 lg:grid-cols-[1fr_1fr_170px_170px]">
       <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
-      <TextField label="Lieu" value={eventForm.location} onChange={(value) => onChange({ location: value })} invalid={missingLocation} />
+      <AddressAutocompleteField
+        label="Lieu"
+        value={eventForm.location}
+        location={eventForm.organizerDetails.eventLocation}
+        onChange={(value) => onChange({ location: value })}
+        onLocationChange={(eventLocation) =>
+          onChange(
+            {
+              organizerDetails: {
+                ...eventForm.organizerDetails,
+                eventLocation,
+              },
+            },
+            "event"
+          )
+        }
+        invalid={missingLocation}
+      />
       <TextField label="Date dÃ©but" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
       <TextField
         label="Date fin"
@@ -209,7 +227,21 @@ function RaceForm({
         <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
         <TextField label="Date optionnelle" type="date" value={values.raceDate} onChange={(value) => onChange({ ...values, raceDate: value })} />
         <div className="lg:col-span-2">
-          <TextField label="Lieu du format" value={values.locationText} onChange={(value) => onChange({ ...values, locationText: value })} />
+          <AddressAutocompleteField
+            label="Lieu du format"
+            value={values.locationText}
+            location={values.organizerDetails.raceLocation}
+            onChange={(value) => onChange({ ...values, locationText: value })}
+            onLocationChange={(raceLocation) =>
+              onChange({
+                ...values,
+                organizerDetails: {
+                  ...values.organizerDetails,
+                  raceLocation,
+                },
+              })
+            }
+          />
         </div>
         <div className="space-y-2 lg:col-span-3">
           <Label>Image format</Label>

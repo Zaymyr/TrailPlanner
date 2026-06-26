@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-06-25
+last_verified: 2026-06-26
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -38,7 +38,7 @@ related_tables:
 - Service availability: water refill, official solid food, and crew assistance availability.
 - GPX waypoint import: route/admin logic can derive stations from GPX waypoints.
 - Organizer products: optional station-product links live in `race_aid_station_products`.
-- Organizer station details: optional JSONB for station type, cumulative D+/D-, altitude, cutoff time, drop bag, and organizer note. The shared dashboard-detail parser also contains event/race schemas, but the station JSON shape remains scoped to station metadata. Format-level start and finish times are not stored as fake aid stations; they stay in `races.organizer_details.schedule` and are only rendered alongside ravitos in the organizer UI.
+- Organizer station details: optional JSONB for station type, cumulative D+/D-, altitude, cutoff time, drop bag, and organizer note. The shared dashboard-detail parser also contains event/race schemas, including the newer geocoded location helpers for event/race/bib/access fields, but the station JSON shape remains scoped to station metadata. Format-level start and finish times are not stored as fake aid stations; they stay in `races.organizer_details.schedule` and are only rendered alongside ravitos in the organizer UI.
 
 ## Columns
 
