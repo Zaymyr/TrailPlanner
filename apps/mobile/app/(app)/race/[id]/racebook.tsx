@@ -127,11 +127,9 @@ function GearList({
     <View style={styles.listGroup}>
       {items.map((item) => (
         <View key={`${item.id ?? item.label}-${item.required ? 'required' : 'recommended'}`} style={styles.gearRow}>
-          <View style={styles.gearContent}>
-            <View style={styles.listRow}>
-              <View style={styles.listDot} />
-              <Text style={styles.listText}>{item.label}</Text>
-            </View>
+          <View style={styles.gearInlineRow}>
+            <View style={styles.listDot} />
+            <Text style={styles.gearLabel}>{item.label}</Text>
             <View style={[styles.statusBadge, item.required ? styles.statusBadgeRequired : styles.statusBadgeRecommended]}>
               <Text style={[styles.statusBadgeText, item.required ? styles.statusBadgeTextRequired : styles.statusBadgeTextRecommended]}>
                 {item.required ? requiredLabel : recommendedLabel}
@@ -875,12 +873,20 @@ const styles = StyleSheet.create({
   gearRow: {
     width: '100%',
   },
-  gearContent: {
+  gearInlineRow: {
     width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 8,
   },
+  gearLabel: {
+    flexShrink: 1,
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   statusBadge: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
