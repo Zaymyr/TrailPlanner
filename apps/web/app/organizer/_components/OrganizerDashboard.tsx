@@ -2,7 +2,9 @@
 
 import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 
+import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { type FuelType } from "../../../lib/fuel-types";
 import {
   applyCommonEquipmentToRace,
@@ -35,6 +37,7 @@ import {
   normalizeGpxPreview,
   normalizeOrganizerEventDetail,
   raceToForm,
+  sortAidStationsByDistance,
   toNumberOrNull,
   type OrganizerAidStationRow,
 } from "./dashboard/helpers";
@@ -61,6 +64,15 @@ import type {
 
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
+const MAX_UPDATE_MESSAGE_LENGTH = 280;
+
+type OrganizerRaceEventUpdate = {
+  id: string;
+  event_id: string;
+  message: string;
+  created_at: string;
+  created_by?: string | null;
+};
 
 export function OrganizerDashboard() {
   const { session, isLoading } = useVerifiedSession();
@@ -89,6 +101,12 @@ export function OrganizerDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; type: "success" | "error"; message: string } | null>(null);
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
+  const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
+  const [eventUpdateMessage, setEventUpdateMessage] = useState("");
+  const [eventUpdateError, setEventUpdateError] = useState<string | null>(null);
+  const [eventUpdateSending, setEventUpdateSending] = useState(false);
+  const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
+  const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
 
   const accessToken = session?.accessToken ?? null;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
@@ -99,6 +117,15 @@ export function OrganizerDashboard() {
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ id: Date.now(), type, message });
+  };
+
+  const formatUpdateDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("fr-FR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(date);
   };
 
   const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm);
@@ -181,6 +208,14 @@ export function OrganizerDashboard() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    if (!eventUpdatesDialogOpen) {
+      setEventUpdateError(null);
+      return;
+    }
+    setEventUpdateError(null);
+  }, [eventUpdatesDialogOpen]);
+
   const loadOrganizerData = async () => {
     if (!accessToken) return;
     setStatus("loading");
@@ -207,6 +242,35 @@ export function OrganizerDashboard() {
   useEffect(() => {
     void loadOrganizerData();
   }, [accessToken]);
+
+  const loadEventUpdates = async (eventId: string) => {
+    if (!accessToken) return;
+    try {
+      const response = await fetch(`/api/organizer/events/${eventId}/updates`, { headers: authHeaders, cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as
+        | {
+            favoriteCount?: number;
+            updates?: OrganizerRaceEventUpdate[];
+            message?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        setEventFavoriteCount(null);
+        setEventUpdates([]);
+        showToast("error", data?.message ?? "Impossible de charger les mises à jour coureurs.");
+        return;
+      }
+
+      setEventFavoriteCount(typeof data?.favoriteCount === "number" ? data.favoriteCount : 0);
+      setEventUpdates(Array.isArray(data?.updates) ? data.updates : []);
+    } catch (caught) {
+      console.error("Unable to load organizer event updates", caught);
+      setEventFavoriteCount(null);
+      setEventUpdates([]);
+      showToast("error", "Impossible de charger les mises à jour coureurs.");
+    }
+  };
 
   const loadEvent = async (eventId: string, preferredTab = activeTab) => {
     if (!accessToken) return;
@@ -242,6 +306,11 @@ export function OrganizerDashboard() {
   useEffect(() => {
     if (selectedEventId) void loadEvent(selectedEventId);
   }, [selectedEventId, accessToken]);
+
+  useEffect(() => {
+    if (!selectedEventId || !accessToken) return;
+    void loadEventUpdates(selectedEventId);
+  }, [selectedEventId, accessToken, authHeaders]);
 
   const loadRaceSidecar = async (raceId: string) => {
     if (!accessToken) return;
@@ -777,7 +846,7 @@ export function OrganizerDashboard() {
   };
 
   const updateAidStation = (index: number, station: AidStationDraft) => {
-    setAidStations((current) => current.map((item, stationIndex) => (stationIndex === index ? station : item)));
+    setAidStations((current) => sortAidStationsByDistance(current.map((item, stationIndex) => (stationIndex === index ? station : item))));
     markDirty("aidStations");
   };
 
@@ -834,6 +903,53 @@ export function OrganizerDashboard() {
     }
   };
 
+  const submitEventUpdate = async () => {
+    if (!selectedEventId || !accessToken) return;
+
+    const message = eventUpdateMessage.trim();
+    if (!message) {
+      setEventUpdateError("Ajoute un message avant l'envoi.");
+      return;
+    }
+    if (message.length > MAX_UPDATE_MESSAGE_LENGTH) {
+      setEventUpdateError(`Le message doit rester sous ${MAX_UPDATE_MESSAGE_LENGTH} caractères.`);
+      return;
+    }
+
+    setEventUpdateSending(true);
+    setEventUpdateError(null);
+    try {
+      const response = await fetch(`/api/organizer/events/${selectedEventId}/updates`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ message }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | {
+            update?: OrganizerRaceEventUpdate;
+            delivery?: { attempted?: number; sent?: number; failed?: number; skipped?: number };
+            message?: string;
+          }
+        | null;
+
+      if (!response.ok) {
+        setEventUpdateError(data?.message ?? "Impossible d'envoyer la notification.");
+        return;
+      }
+
+      const sentCount = data?.delivery?.sent ?? 0;
+      showToast("success", sentCount > 0 ? `Notification envoyée à ${sentCount} coureur(s).` : "Mise à jour publiée.");
+      setEventUpdateMessage("");
+      setEventUpdatesDialogOpen(false);
+      await loadEventUpdates(selectedEventId);
+    } catch (caught) {
+      console.error("Unable to create organizer event update", caught);
+      setEventUpdateError("Impossible d'envoyer la notification.");
+    } finally {
+      setEventUpdateSending(false);
+    }
+  };
+
   if (isLoading) return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Vérification de session...</div>;
   if (!session) return <OrganizerSignedOutCard />;
 
@@ -874,6 +990,10 @@ export function OrganizerDashboard() {
           void (async () => {
             if (await saveBeforeNavigation()) setPreviewOpen(true);
           })();
+        }}
+        onNotifyFollowers={() => {
+          setEventUpdateError(null);
+          setEventUpdatesDialogOpen(true);
         }}
         onTogglePublish={() => {
           void (async () => {
@@ -956,18 +1076,20 @@ export function OrganizerDashboard() {
               onExpandedStationKeyChange={setExpandedStationKey}
               onAddStation={() => {
                 const nextKey = `new-${aidStations.length}`;
-                setAidStations((current) => [
-                  ...current,
-                  {
-                    name: "Nouveau ravito",
-                    distanceKm: 0,
-                    waterRefill: true,
-                    solidRefill: true,
-                    assistanceAllowed: true,
-                    notes: "",
-                    organizerDetails: cloneJson(defaultOrganizerAidStationDetails),
-                  },
-                ]);
+                setAidStations((current) =>
+                  sortAidStationsByDistance([
+                    ...current,
+                    {
+                      name: "Nouveau ravito",
+                      distanceKm: 0,
+                      waterRefill: true,
+                      solidRefill: true,
+                      assistanceAllowed: true,
+                      notes: "",
+                      organizerDetails: cloneJson(defaultOrganizerAidStationDetails),
+                    },
+                  ])
+                );
                 setExpandedStationKey(nextKey);
                 markDirty("aidStations");
               }}
@@ -1082,6 +1204,69 @@ export function OrganizerDashboard() {
         }}
         disabled={status === "saving"}
       />
+
+      <Dialog open={eventUpdatesDialogOpen} onOpenChange={setEventUpdatesDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Notifier les coureurs</DialogTitle>
+            <DialogDescription>
+              {eventFavoriteCount === null
+                ? "Charge le nombre de favoris et publie une mise à jour visible côté coureur."
+                : `${eventFavoriteCount} coureur(s) suivent cette course. Le message sera aussi ajouté à l'historique public de l'événement.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="organizer-update-message" className="text-sm font-medium text-foreground">
+                Message
+              </label>
+              <textarea
+                id="organizer-update-message"
+                className="min-h-28 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={eventUpdateMessage}
+                maxLength={MAX_UPDATE_MESSAGE_LENGTH}
+                placeholder="Nouvelle information sur les retraits de dossard !"
+                onChange={(event) => {
+                  setEventUpdateMessage(event.target.value);
+                  if (eventUpdateError) setEventUpdateError(null);
+                }}
+              />
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <span className={eventUpdateError ? "font-medium text-red-700" : "text-muted-foreground"}>
+                  {eventUpdateError ?? "Conseil: garde un message court et actionnable."}
+                </span>
+                <span className="text-muted-foreground">
+                  {eventUpdateMessage.trim().length}/{MAX_UPDATE_MESSAGE_LENGTH}
+                </span>
+              </div>
+            </div>
+
+            {eventUpdates.length > 0 ? (
+              <div className="space-y-2 rounded-md border border-border/70 bg-background/70 p-3">
+                <p className="text-sm font-semibold text-foreground">Dernières mises à jour publiées</p>
+                <div className="space-y-2">
+                  {eventUpdates.slice(0, 3).map((update) => (
+                    <div key={update.id} className="rounded-md border border-border/60 bg-card p-3">
+                      <p className="text-sm text-foreground">{update.message}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{formatUpdateDate(update.created_at)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setEventUpdatesDialogOpen(false)} disabled={eventUpdateSending}>
+              Annuler
+            </Button>
+            <Button type="button" onClick={() => void submitEventUpdate()} disabled={eventUpdateSending || !selectedEventId}>
+              {eventUpdateSending ? "Envoi..." : "Envoyer la notification"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <RunnerPreviewDialog
         open={previewOpen}

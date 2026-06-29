@@ -1,7 +1,7 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-06-18
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -55,7 +55,7 @@ select * from public.some_table;
 rollback;
 ```
 
-Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example for relationship-based policy checks.
+Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example for relationship-based policy checks. It now also includes owner-scoped favorite rows and live-event update visibility checks.
 
 ## Do Not
 

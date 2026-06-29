@@ -1,11 +1,12 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
   - race_plans
@@ -14,8 +15,10 @@ related_tables:
   - race_events
   - race_event_claims
   - race_event_organizers
+  - race_event_updates
   - race_aid_station_products
   - products
+  - user_favorite_race_events
   - user_profiles
   - subscriptions
   - premium_grants
@@ -156,6 +159,15 @@ Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.s
 
 It adds comments on the new columns and deliberately adds no grants, foreign keys, or RLS policies. Existing table row policies plus organizer service-route membership checks remain the access boundary.
 
+`supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql` adds:
+
+- `user_favorite_race_events` for runner-owned event favorites;
+- `race_event_updates` for manual organizer announcements;
+- owner RLS for favorites;
+- live-event read RLS plus organizer/admin insert RLS for updates.
+
+The manual RLS SQL check file was expanded accordingly so organizer relationship checks now also cover event favorites and update visibility behavior.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -199,6 +211,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.
 - Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
 - Organizer dashboard JSONB columns are nullable progressive metadata. Keep public/mobile queries explicit when they should not expose organizer draft details.
+- Event-favorite and organizer-update migrations are intentionally event-scoped on `race_events`; do not move them to `races` without revisiting mobile catalog pinning and notification contracts.
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.
 - Data-only brand imports created after official product metadata should populate `official_name` and `is_official` in the same migration.
 - Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.

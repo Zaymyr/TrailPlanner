@@ -9,7 +9,7 @@ const EXPO_PUSH_CHUNK_SIZE = 100;
 
 type PushPlatform = "ios" | "android";
 type PushLocale = "fr" | "en";
-type PushNotificationKind = "inactive-user" | "unfinished-plan";
+type PushNotificationKind = "inactive-user" | "unfinished-plan" | "organizer-race-update";
 
 type PushDeviceRow = {
   id: string;
@@ -91,6 +91,10 @@ type ReminderRunSummary = {
   totalCandidateCount: number;
 };
 
+type OrganizerRaceUpdateSummary = ReminderRunSummary & {
+  favoriteUserCount: number;
+};
+
 function getServiceClient() {
   const supabaseService = getSupabaseServiceConfig();
   if (!supabaseService) {
@@ -145,6 +149,15 @@ function dedupePendingRemindersByToken(reminders: PendingReminder[]) {
   });
 }
 
+function createEmptyReminderSummary(totalCandidateCount = 0): ReminderRunSummary {
+  return {
+    disabledDeviceCount: 0,
+    sentCount: 0,
+    skippedDuplicateCount: totalCandidateCount,
+    totalCandidateCount,
+  };
+}
+
 export function buildInactiveReminderCopy(locale: PushLocale) {
   if (locale === "fr") {
     return {
@@ -170,6 +183,20 @@ export function buildUnfinishedPlanReminderCopy(locale: PushLocale, planName: st
   return {
     title: "Your plan is not finished yet",
     body: `Come back to finish ${planName} and add your fueling.`,
+  };
+}
+
+export function buildOrganizerRaceUpdateCopy(locale: PushLocale, eventName: string, message: string) {
+  if (locale === "fr") {
+    return {
+      title: `Nouvelle info - ${eventName}`,
+      body: message,
+    };
+  }
+
+  return {
+    title: `Race update - ${eventName}`,
+    body: message,
   };
 }
 
@@ -393,6 +420,78 @@ async function fetchEnabledDevicesForUsers(userIds: string[]) {
   return (data ?? []) as PushDeviceRow[];
 }
 
+async function fetchFavoriteRaceEventUserIds(eventId: string) {
+  const client = getServiceClient();
+  if (!client) {
+    throw new Error("Supabase service configuration is missing.");
+  }
+
+  const { data, error } = await client
+    .from("user_favorite_race_events")
+    .select("user_id")
+    .eq("event_id", eventId);
+
+  if (error) {
+    throw error;
+  }
+
+  const userIds = (data ?? [])
+    .map((row) => row.user_id)
+    .filter((value): value is string => typeof value === "string");
+
+  return [...new Set(userIds)];
+}
+
+async function sendPendingNotifications(candidates: PendingReminder[]): Promise<ReminderRunSummary> {
+  if (candidates.length === 0) {
+    return createEmptyReminderSummary(0);
+  }
+
+  const uniqueCandidates = dedupePendingRemindersByToken(candidates);
+  const existingDedupes = await fetchExistingDedupes(
+    uniqueCandidates.map((candidate) => candidate.pushDeviceId),
+    uniqueCandidates.map((candidate) => candidate.dedupeKey)
+  );
+
+  const remindersToSend = uniqueCandidates.filter(
+    (candidate) => !existingDedupes.has(`${candidate.pushDeviceId}:${candidate.dedupeKey}`)
+  );
+
+  if (remindersToSend.length === 0) {
+    return createEmptyReminderSummary(candidates.length);
+  }
+
+  const results = await sendExpoPushMessages(
+    remindersToSend.map<ExpoPushMessage>((reminder) => ({
+      to: reminder.expoPushToken,
+      title: reminder.title,
+      body: reminder.body,
+      sound: "default",
+      data: reminder.payload,
+    }))
+  );
+
+  const invalidTokens = remindersToSend.flatMap((reminder, index) => {
+    const result = results[index];
+    if (result?.status === "error" && result.details?.error === "DeviceNotRegistered") {
+      return [reminder.expoPushToken];
+    }
+    return [];
+  });
+
+  const [sentCount, disabledDeviceCount] = await Promise.all([
+    storeNotificationEvents(remindersToSend, results),
+    disableDevicesByToken([...new Set(invalidTokens)]),
+  ]);
+
+  return {
+    disabledDeviceCount,
+    sentCount,
+    skippedDuplicateCount: candidates.length - remindersToSend.length,
+    totalCandidateCount: candidates.length,
+  };
+}
+
 async function buildPendingReminders() {
   const inactivityCutoffIso = new Date(Date.now() - INACTIVITY_REMINDER_DELAY_MS).toISOString();
   const unfinishedPlanCutoffIso = new Date(Date.now() - UNFINISHED_PLAN_REMINDER_DELAY_MS).toISOString();
@@ -497,52 +596,51 @@ export async function upsertPushDevice(input: PushRegisterInput) {
 
 export async function sendScheduledPushReminders(): Promise<ReminderRunSummary> {
   const candidates = await buildPendingReminders();
-  const uniqueCandidates = dedupePendingRemindersByToken(candidates);
-  const existingDedupes = await fetchExistingDedupes(
-    uniqueCandidates.map((candidate) => candidate.pushDeviceId),
-    uniqueCandidates.map((candidate) => candidate.dedupeKey)
-  );
+  return sendPendingNotifications(candidates);
+}
 
-  const remindersToSend = uniqueCandidates.filter(
-    (candidate) => !existingDedupes.has(`${candidate.pushDeviceId}:${candidate.dedupeKey}`)
-  );
-
-  if (remindersToSend.length === 0) {
+export async function sendOrganizerRaceUpdateNotifications(input: {
+  eventId: string;
+  eventName: string;
+  updateId: string;
+  message: string;
+}): Promise<OrganizerRaceUpdateSummary> {
+  const favoriteUserIds = await fetchFavoriteRaceEventUserIds(input.eventId);
+  if (favoriteUserIds.length === 0) {
     return {
-      disabledDeviceCount: 0,
-      sentCount: 0,
-      skippedDuplicateCount: candidates.length,
-      totalCandidateCount: candidates.length,
+      ...createEmptyReminderSummary(0),
+      favoriteUserCount: 0,
     };
   }
 
-  const results = await sendExpoPushMessages(
-    remindersToSend.map<ExpoPushMessage>((reminder) => ({
-      to: reminder.expoPushToken,
-      title: reminder.title,
-      body: reminder.body,
-      sound: "default",
-      data: reminder.payload,
-    }))
-  );
+  const devices = await fetchEnabledDevicesForUsers(favoriteUserIds);
+  const href = `/(app)/catalog?eventId=${input.eventId}`;
+  const reminders = devices.map<PendingReminder>((device) => {
+    const locale = normalizeLocale(device.locale);
+    const copy = buildOrganizerRaceUpdateCopy(locale, input.eventName, input.message);
 
-  const invalidTokens = remindersToSend.flatMap((reminder, index) => {
-    const result = results[index];
-    if (result?.status === "error" && result.details?.error === "DeviceNotRegistered") {
-      return [reminder.expoPushToken];
-    }
-    return [];
+    return {
+      userId: device.user_id,
+      pushDeviceId: device.id,
+      expoPushToken: device.expo_push_token,
+      dedupeKey: `organizer-race-update:${input.updateId}`,
+      kind: "organizer-race-update",
+      href,
+      title: copy.title,
+      body: copy.body,
+      payload: {
+        href,
+        kind: "organizer-race-update",
+        eventId: input.eventId,
+        raceEventUpdateId: input.updateId,
+        message: input.message,
+      },
+    };
   });
 
-  const [sentCount, disabledDeviceCount] = await Promise.all([
-    storeNotificationEvents(remindersToSend, results),
-    disableDevicesByToken([...new Set(invalidTokens)]),
-  ]);
-
+  const summary = await sendPendingNotifications(reminders);
   return {
-    disabledDeviceCount,
-    sentCount,
-    skippedDuplicateCount: candidates.length - remindersToSend.length,
-    totalCandidateCount: candidates.length,
+    ...summary,
+    favoriteUserCount: favoriteUserIds.length,
   };
 }

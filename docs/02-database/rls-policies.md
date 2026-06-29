@@ -1,11 +1,12 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
@@ -20,8 +21,10 @@ related_tables:
   - race_aid_station_products
   - race_event_claims
   - race_event_organizers
+  - race_event_updates
   - race_events
   - products
+  - user_favorite_race_events
   - user_profiles
   - subscriptions
   - premium_grants
@@ -150,6 +153,23 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 Manual checks live in `supabase/tests/organizer_rls_checks.sql`.
 
+### Event Favorites and Organizer Updates
+
+Declared in `20260629123858_add_race_event_favorites_and_updates.sql`.
+
+`user_favorite_race_events`:
+
+- Authenticated users can select only their own favorites.
+- Authenticated users can insert favorites only for their own `user_id`.
+- Authenticated users can delete only their own favorites.
+- The table grants no cross-user read access; organizer UIs should use service routes when they need aggregate counts.
+
+`race_event_updates`:
+
+- `anon` and `authenticated` can select rows only when the parent `race_events` row is live.
+- Authenticated organizers and admins can insert rows only for events they actively manage, with `created_by = auth.uid()`.
+- No direct client update/delete path is documented; organizer writes are append-only through the server route.
+
 ### `products`
 
 Declared in `20241215030000_create_products_and_affiliate_offers.sql`, `20250902121500_allow_anon_read_products.sql`, and `20260322100000_add_created_by_to_products.sql`.
@@ -201,6 +221,7 @@ Declared in `20260504120000_add_push_notifications.sql`.
 
 - `push_devices`: service role manages; users can select/insert/update/delete own devices.
 - `push_notification_events`: service role manages; users can select own events.
+- `push_notification_events.notification_kind` is also used for manual organizer sends with `organizer-race-update`; dedupe remains device-scoped through `push_device_id,dedupe_key`.
 
 ### Other Tables
 
@@ -259,6 +280,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
+- Event-favorite ownership and organizer-update audience selection are separate concerns. Do not grant organizers direct read access to follower rows just because they can send updates.
 - Adding service-flag columns to `race_aid_stations` does not grant new row access; keep organizer mutations behind the existing service-route membership check.
 - Adding organizer dashboard JSONB columns to existing source tables does not grant new row access. Keep event/race/station mutations behind the existing organizer service routes and active membership checks.
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.

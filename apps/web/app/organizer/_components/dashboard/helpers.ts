@@ -210,16 +210,28 @@ export type OrganizerAidStationRow = {
 };
 
 export const aidStationRowsToDrafts = (rows: OrganizerAidStationRow[]): AidStationDraft[] =>
-  rows.map((station) => ({
-    id: station.id,
-    name: station.name,
-    distanceKm: station.km,
-    waterRefill: station.water_available !== false,
-    solidRefill: station.solid_available !== false,
-    assistanceAllowed: station.assistance_allowed !== false,
-    notes: station.notes ?? "",
-    organizerDetails: parseOrganizerAidStationDetails(station.organizerDetails),
-  }));
+  sortAidStationsByDistance(
+    rows.map((station) => ({
+      id: station.id,
+      name: station.name,
+      distanceKm: station.km,
+      waterRefill: station.water_available !== false,
+      solidRefill: station.solid_available !== false,
+      assistanceAllowed: station.assistance_allowed !== false,
+      notes: station.notes ?? "",
+      organizerDetails: parseOrganizerAidStationDetails(station.organizerDetails),
+    }))
+  );
+
+export const sortAidStationsByDistance = (stations: AidStationDraft[]): AidStationDraft[] =>
+  stations
+    .map((station, index) => ({ station, index }))
+    .sort((left, right) => {
+      const distanceDelta = left.station.distanceKm - right.station.distanceKm;
+      if (distanceDelta !== 0) return distanceDelta;
+      return left.index - right.index;
+    })
+    .map(({ station }) => station);
 
 export const normalizeGpxPreview = (data: GpxPreview | null): GpxPreview | null =>
   data

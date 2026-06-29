@@ -1,4 +1,4 @@
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
@@ -27,6 +27,10 @@ type RaceEventSummaryCardProps<T extends RaceEventSummaryRace> = {
   singleFormatLabel: string;
   multipleFormatsLabel: string;
   chooseFormatHint: string;
+  favoriteLabel?: string;
+  unfavoriteLabel?: string;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
   onOpenFormats: () => void;
 };
 
@@ -78,6 +82,10 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   singleFormatLabel,
   multipleFormatsLabel,
   chooseFormatHint,
+  favoriteLabel = 'Ajouter aux favoris',
+  unfavoriteLabel = 'Retirer des favoris',
+  isFavorite = false,
+  onToggleFavorite,
   onOpenFormats,
 }: RaceEventSummaryCardProps<T>) {
   const eventImageUrl = getEventImageUrl(event);
@@ -91,11 +99,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
       : multipleFormatsLabel.replace('{count}', String(event.races.length));
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.84}
-      onPress={onOpenFormats}
-      style={styles.card}
-    >
+    <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.badge}>
           <Ionicons name="flag-outline" size={18} color={Colors.brandPrimary} />
@@ -109,31 +113,51 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
         {eventImageUrl ? (
           <Image source={{ uri: eventImageUrl }} style={styles.thumbnail} resizeMode="cover" />
         ) : null}
-      </View>
-
-      <View style={styles.summaryRow}>
-        <View style={styles.summaryPill}>
-          <Text style={styles.summaryPillText}>{formatsLabel}</Text>
-        </View>
-        {distanceRange ? (
-          <View style={styles.summaryPill}>
-            <Text style={styles.summaryPillText}>{distanceRange}</Text>
-          </View>
+        {onToggleFavorite ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? unfavoriteLabel : favoriteLabel}
+            hitSlop={10}
+            onPress={(pressEvent) => {
+              pressEvent.stopPropagation();
+              onToggleFavorite();
+            }}
+            style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
+          >
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={18}
+              color={isFavorite ? Colors.textOnBrand : Colors.brandPrimary}
+            />
+          </Pressable>
         ) : null}
       </View>
 
-      {primaryRace ? (
-        <Text style={styles.supportText} numberOfLines={2}>
-          {event.races.length === 1
-            ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
-            : chooseFormatHint}
-        </Text>
-      ) : null}
+      <TouchableOpacity activeOpacity={0.84} onPress={onOpenFormats}>
+        <View style={styles.summaryRow}>
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryPillText}>{formatsLabel}</Text>
+          </View>
+          {distanceRange ? (
+            <View style={styles.summaryPill}>
+              <Text style={styles.summaryPillText}>{distanceRange}</Text>
+            </View>
+          ) : null}
+        </View>
 
-      <View style={styles.primaryButton}>
-        <Text style={styles.primaryButtonText}>{viewFormatsLabel}</Text>
-      </View>
-    </TouchableOpacity>
+        {primaryRace ? (
+          <Text style={styles.supportText} numberOfLines={2}>
+            {event.races.length === 1
+              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
+              : chooseFormatHint}
+          </Text>
+        ) : null}
+
+        <View style={styles.primaryButton}>
+          <Text style={styles.primaryButtonText}>{viewFormatsLabel}</Text>
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -180,6 +204,20 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceSecondary,
   },
+  favoriteButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  favoriteButtonActive: {
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
+  },
   summaryRow: {
     flexDirection: 'row',
     gap: 8,
@@ -202,6 +240,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 19,
+    marginTop: 14,
   },
   primaryButton: {
     minHeight: 48,
@@ -210,6 +249,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
+    marginTop: 14,
   },
   primaryButtonText: {
     color: Colors.textOnBrand,

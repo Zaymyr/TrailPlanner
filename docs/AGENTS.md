@@ -88,6 +88,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Auth / session work | `docs/04-auth-and-security/` + `docs/03-business-rules/trial-lifecycle.md` |
 | Business logic changes | `docs/03-business-rules/` |
 | Organizer portal / race organizer claims | `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/` + `docs/01-architecture/web-app.md` |
+| Race favorites / organizer runner notifications | `docs/02-database/tables/user-favorite-race-events.md` + `docs/02-database/tables/race-event-updates.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |
 | Design system changes | `docs/07-design-system/` |

@@ -1,14 +1,19 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-06-25
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/lib/organizer-aid-station-products.ts
+  - apps/web/app/api/race-favorites/route.ts
+  - apps/web/app/api/race-events/[id]/updates/route.ts
+  - apps/web/app/api/organizer/events/[id]/updates/route.ts
+  - apps/web/lib/push.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
   - apps/web/app/api/race-catalog/route.ts
@@ -24,7 +29,9 @@ related_tables:
   - race_events
   - race_event_claims
   - race_event_organizers
+  - race_event_updates
   - products
+  - user_favorite_race_events
   - user_profiles
   - subscriptions
   - premium_grants
@@ -68,12 +75,14 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
+| `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`. |
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |
 | `subscriptions` | Web Stripe and mobile RevenueCat entitlement rows. |
+| `user_favorite_race_events` | User-owned favorites for `race_events`, used for catalog pinning and organizer-update audience selection. |
 | `user_favorite_products` | User favorites for products. |
 | `user_profiles` | App profile, trial fields, defaults, sign-in metrics, and body metrics. |
 
@@ -100,6 +109,7 @@ erDiagram
   USER_PROFILES ||--o{ PRODUCTS : creates
   USER_PROFILES ||--o{ PREMIUM_GRANTS : receives
   USER_PROFILES ||--o{ USER_FAVORITE_PRODUCTS : favorites
+  USER_PROFILES ||--o{ USER_FAVORITE_RACE_EVENTS : favorites
   PRODUCTS ||--o{ USER_FAVORITE_PRODUCTS : favorited
   PRODUCTS ||--o{ AFFILIATE_OFFERS : has
   PRODUCTS ||--o{ RACE_AID_STATION_PRODUCTS : offered_at
@@ -113,6 +123,9 @@ erDiagram
   RACE_EVENTS ||--o{ RACES : groups
   RACE_EVENTS ||--o{ RACE_EVENT_CLAIMS : claimed_by
   RACE_EVENTS ||--o{ RACE_EVENT_ORGANIZERS : managed_by
+  RACE_EVENTS ||--o{ USER_FAVORITE_RACE_EVENTS : favorited_by
+  RACE_EVENTS ||--o{ RACE_EVENT_UPDATES : announced_in
+  PUSH_NOTIFICATION_EVENTS }o--|| PUSH_DEVICES : sent_to
 ```
 
 ## Current Table Detail Docs
@@ -125,7 +138,9 @@ erDiagram
 - [race_events](tables/race-events.md)
 - [race_event_claims](tables/race-event-claims.md)
 - [race_event_organizers](tables/race-event-organizers.md)
+- [race_event_updates](tables/race-event-updates.md)
 - [products](tables/products.md)
+- [user_favorite_race_events](tables/user-favorite-race-events.md)
 - [user_profiles](tables/user-profiles.md)
 - [subscriptions](tables/subscriptions.md)
 - [premium_grants](tables/premium-grants.md)
@@ -144,6 +159,7 @@ erDiagram
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
+- Event favorites are stored separately from organizer updates: `user_favorite_race_events` defines audience membership, while `race_event_updates` stores the runner-visible announcement history.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.

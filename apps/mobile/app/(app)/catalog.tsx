@@ -13,7 +13,7 @@ import {
   View
 } from 'react-native';
 import { Text } from '../../components/themed/Text';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
@@ -21,8 +21,10 @@ import type { FloatingActionMenuItem } from '../../components/navigation/Floatin
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { isAnonymousSession } from '../../lib/appSession';
 import { canShowRacebook } from '../../lib/racebook';
 import { supabase } from '../../lib/supabase';
+import { WEB_API_BASE_URL } from '../../lib/webApi';
 
 type Race = {
   id: string;
@@ -46,6 +48,13 @@ type EventGroup = {
   is_live: boolean | null;
   organizer_details?: unknown;
   races: Race[];
+};
+
+type RaceEventUpdate = {
+  id: string;
+  event_id: string;
+  message: string;
+  created_at: string;
 };
 
 function formatEventDate(isoDate: string | null, locale: 'fr' | 'en'): string | null {
@@ -178,17 +187,35 @@ function sortRaces(races: Race[]) {
   });
 }
 
-function sortEvents(events: EventGroup[]) {
+function sortEvents(events: EventGroup[], favoriteEventIds: string[] = []) {
   const getTimestamp = (value: string | null) => {
     if (!value) return Number.MAX_SAFE_INTEGER;
     const parsed = new Date(value).getTime();
     return Number.isFinite(parsed) ? parsed : Number.MAX_SAFE_INTEGER;
   };
 
+  const favoriteIds = new Set(favoriteEventIds);
+
   return [...events].sort((left, right) => {
+    const leftFavorite = favoriteIds.has(left.id);
+    const rightFavorite = favoriteIds.has(right.id);
+    if (leftFavorite !== rightFavorite) {
+      return leftFavorite ? -1 : 1;
+    }
+
     const timestampDiff = getTimestamp(left.race_date) - getTimestamp(right.race_date);
     if (timestampDiff !== 0) return timestampDiff;
     return left.name.localeCompare(right.name);
+  });
+}
+
+function formatUpdateDate(value: string, locale: 'fr' | 'en') {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+
+  return parsed.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    day: 'numeric',
+    month: 'short',
   });
 }
 
@@ -282,14 +309,77 @@ function PersonalRacesSection({
   );
 }
 
+async function fetchRaceFavoriteEventIds() {
+  const { data } = await supabase.auth.getSession();
+  const session = data.session;
+
+  if (!session?.access_token || isAnonymousSession(session)) {
+    return [] as string[];
+  }
+
+  const response = await fetch(`${WEB_API_BASE_URL}/api/race-favorites`, {
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+    },
+  });
+
+  const payload = (await response.json().catch(() => null)) as { eventIds?: unknown } | null;
+  if (!response.ok || !Array.isArray(payload?.eventIds)) {
+    throw new Error('Unable to load race favorites.');
+  }
+
+  return payload.eventIds.filter((value): value is string => typeof value === 'string');
+}
+
+async function saveRaceFavoriteEventIds(eventIds: string[]) {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+
+  if (!accessToken) {
+    throw new Error('Missing Supabase session.');
+  }
+
+  const response = await fetch(`${WEB_API_BASE_URL}/api/race-favorites`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ eventIds }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as { eventIds?: unknown; message?: string } | null;
+  if (!response.ok || !Array.isArray(payload?.eventIds)) {
+    throw new Error(payload?.message ?? 'Unable to update race favorites.');
+  }
+
+  return payload.eventIds.filter((value): value is string => typeof value === 'string');
+}
+
+async function fetchRaceEventUpdates(eventId: string) {
+  const response = await fetch(`${WEB_API_BASE_URL}/api/race-events/${eventId}/updates`);
+  const payload = (await response.json().catch(() => null)) as { updates?: RaceEventUpdate[]; message?: string } | null;
+
+  if (!response.ok || !Array.isArray(payload?.updates)) {
+    throw new Error(payload?.message ?? 'Unable to load race event updates.');
+  }
+
+  return payload.updates;
+}
+
 export default function CatalogScreen() {
   const router = useRouter();
+  const { eventId: selectedEventIdParam } = useLocalSearchParams<{ eventId?: string }>();
   const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
+  const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
+  const [canFavoriteEvents, setCanFavoriteEvents] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventGroup | null>(null);
+  const [selectedEventUpdates, setSelectedEventUpdates] = useState<RaceEventUpdate[]>([]);
+  const [updatesLoading, setUpdatesLoading] = useState(false);
   const [nameFilter, setNameFilter] = useState('');
   const [distanceMinFilter, setDistanceMinFilter] = useState('');
   const [distanceMaxFilter, setDistanceMaxFilter] = useState('');
@@ -299,6 +389,7 @@ export default function CatalogScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const openingEventFromParamRef = useRef<string | null>(null);
 
   function handleCreatePlan(catalogRaceId: string) {
     router.push({
@@ -314,8 +405,10 @@ export default function CatalogScreen() {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const userId = sessionData?.session?.user?.id ?? null;
+        const canUseFavorites = Boolean(sessionData?.session && !isAnonymousSession(sessionData.session));
+        setCanFavoriteEvents(canUseFavorites);
 
-        const [eventsResult, orphansResult, personalResult] = await Promise.all([
+        const [eventsResult, orphansResult, personalResult, favoriteIdsResult] = await Promise.all([
           supabase
             .from('race_events')
             .select(`
@@ -353,6 +446,7 @@ export default function CatalogScreen() {
                 .eq('is_public', false)
                 .eq('created_by', userId)
             : Promise.resolve({ data: [], error: null }),
+          canUseFavorites ? fetchRaceFavoriteEventIds() : Promise.resolve([] as string[]),
         ]);
 
         if (cancelled) return;
@@ -360,11 +454,13 @@ export default function CatalogScreen() {
         if (orphansResult.error) throw orphansResult.error;
         if (personalResult.error) throw personalResult.error;
 
+        const favoriteIds = favoriteIdsResult ?? [];
         const groups = sortEvents(
           ((eventsResult.data ?? []) as Array<Omit<EventGroup, 'races'> & { races?: Race[] | null }>).map((event) => ({
             ...event,
             races: sortRaces((event.races ?? []) as Race[]),
-          }))
+          })),
+          favoriteIds
         );
         const orphans = sortRaces((orphansResult.data ?? []) as Race[]);
 
@@ -383,6 +479,7 @@ export default function CatalogScreen() {
 
         setEventGroups(groups);
         setPersonalRaces(sortRaces((personalResult.data ?? []) as Race[]));
+        setFavoriteEventIds(favoriteIds);
         setError(null);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -408,37 +505,40 @@ export default function CatalogScreen() {
   const filteredEventGroups = useMemo(() => {
     const normalizedName = nameFilter.trim().toLowerCase();
 
-    return eventGroups
-      .filter(
+    return sortEvents(
+      eventGroups
+        .filter(
         (event) =>
           isUpcomingOrUndated(event.race_date) &&
           matchesDateRange(event.race_date, dateMinFilter, dateMaxFilter),
-      )
-      .map((event) => {
-        const eventMatchesName =
-          normalizedName.length === 0 ||
-          event.name.toLowerCase().includes(normalizedName) ||
-          (event.location ?? '').toLowerCase().includes(normalizedName);
+        )
+        .map((event) => {
+          const eventMatchesName =
+            normalizedName.length === 0 ||
+            event.name.toLowerCase().includes(normalizedName) ||
+            (event.location ?? '').toLowerCase().includes(normalizedName);
 
-        const races = sortRaces(
-          event.races.filter((race) => {
-            const raceMatchesName =
-              normalizedName.length === 0 ||
-              eventMatchesName ||
-              race.name.toLowerCase().includes(normalizedName);
+          const races = sortRaces(
+            event.races.filter((race) => {
+              const raceMatchesName =
+                normalizedName.length === 0 ||
+                eventMatchesName ||
+                race.name.toLowerCase().includes(normalizedName);
 
-            return (
-              raceMatchesName &&
-              matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&
-              matchesDateRange(race.race_date ?? event.race_date, dateMinFilter, dateMaxFilter)
-            );
-          })
-        );
+              return (
+                raceMatchesName &&
+                matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&
+                matchesDateRange(race.race_date ?? event.race_date, dateMinFilter, dateMaxFilter)
+              );
+            })
+          );
 
-        return { ...event, races };
-      })
-      .filter((event) => event.races.length > 0);
-  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, eventGroups, nameFilter]);
+          return { ...event, races };
+        })
+        .filter((event) => event.races.length > 0),
+      favoriteEventIds
+    );
+  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, eventGroups, favoriteEventIds, nameFilter]);
 
   const filteredPersonalRaces = useMemo(() => {
     const normalizedName = nameFilter.trim().toLowerCase();
@@ -526,6 +626,84 @@ export default function CatalogScreen() {
     setDateMinFilter('');
     setDateMaxFilter('');
   }
+
+  async function handleToggleFavorite(eventId: string) {
+    const previousFavoriteIds = favoriteEventIds;
+    const nextFavoriteIds = favoriteEventIds.includes(eventId)
+      ? favoriteEventIds.filter((currentId) => currentId !== eventId)
+      : [eventId, ...favoriteEventIds];
+
+    setFavoriteEventIds(nextFavoriteIds);
+    setEventGroups((current) => sortEvents(current, nextFavoriteIds));
+
+    try {
+      const savedFavoriteIds = await saveRaceFavoriteEventIds(nextFavoriteIds);
+      setFavoriteEventIds(savedFavoriteIds);
+      setEventGroups((current) => sortEvents(current, savedFavoriteIds));
+    } catch (caught) {
+      setFavoriteEventIds(previousFavoriteIds);
+      setEventGroups((current) => sortEvents(current, previousFavoriteIds));
+      Alert.alert(
+        locale === 'fr' ? 'Impossible de mettre à jour le favori' : 'Unable to update favorite',
+        caught instanceof Error ? caught.message : t.common.error,
+      );
+    }
+  }
+
+  useEffect(() => {
+    if (!selectedEvent) {
+      setSelectedEventUpdates([]);
+      setUpdatesLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setUpdatesLoading(true);
+
+    void fetchRaceEventUpdates(selectedEvent.id)
+      .then((updates) => {
+        if (!cancelled) {
+          setSelectedEventUpdates(updates);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSelectedEventUpdates([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setUpdatesLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEvent]);
+
+  useEffect(() => {
+    if (!selectedEventIdParam || openingEventFromParamRef.current === selectedEventIdParam) {
+      return;
+    }
+
+    const matchingEvent = eventGroups.find((event) => event.id === selectedEventIdParam) ?? null;
+    if (!matchingEvent) {
+      return;
+    }
+
+    openingEventFromParamRef.current = selectedEventIdParam;
+    setSelectedEvent(matchingEvent);
+  }, [eventGroups, selectedEventIdParam]);
+
+  useEffect(() => {
+    if (!selectedEvent) return;
+
+    const refreshedEvent = eventGroups.find((event) => event.id === selectedEvent.id) ?? null;
+    if (refreshedEvent && refreshedEvent !== selectedEvent) {
+      setSelectedEvent(refreshedEvent);
+    }
+  }, [eventGroups, selectedEvent]);
 
   if (loading) {
     return (
@@ -622,6 +800,16 @@ export default function CatalogScreen() {
             singleFormatLabel={t.catalog.singleFormatLabel}
             multipleFormatsLabel={t.catalog.multipleFormatsLabel}
             chooseFormatHint={t.catalog.chooseFormatHint}
+            favoriteLabel={locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites'}
+            unfavoriteLabel={locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites'}
+            isFavorite={favoriteEventIds.includes(event.id)}
+            onToggleFavorite={
+              canFavoriteEvents
+                ? () => {
+                    void handleToggleFavorite(event.id);
+                  }
+                : undefined
+            }
             onOpenFormats={() => setSelectedEvent(event)}
           />
         )}
@@ -718,6 +906,23 @@ export default function CatalogScreen() {
                 <Text style={styles.sheetTitle}>{selectedEvent?.name}</Text>
                 {selectedEventMeta ? <Text style={styles.sheetSubtitle}>{selectedEventMeta}</Text> : null}
               </View>
+              {selectedEvent && canFavoriteEvents ? (
+                <TouchableOpacity
+                  style={[
+                    styles.sheetFavoriteButton,
+                    favoriteEventIds.includes(selectedEvent.id) && styles.sheetFavoriteButtonActive,
+                  ]}
+                  onPress={() => {
+                    void handleToggleFavorite(selectedEvent.id);
+                  }}
+                >
+                  <Ionicons
+                    name={favoriteEventIds.includes(selectedEvent.id) ? 'heart' : 'heart-outline'}
+                    size={18}
+                    color={favoriteEventIds.includes(selectedEvent.id) ? Colors.textOnBrand : Colors.brandPrimary}
+                  />
+                </TouchableOpacity>
+              ) : null}
               <TouchableOpacity style={styles.sheetCloseButton} onPress={() => setSelectedEvent(null)}>
                 <Ionicons name="close" size={20} color={Colors.textPrimary} />
               </TouchableOpacity>
@@ -772,6 +977,26 @@ export default function CatalogScreen() {
                   }}
                 />
               ))}
+
+              {updatesLoading ? (
+                <Text style={styles.eventUpdatesLoading}>
+                  {locale === 'fr' ? 'Chargement des infos organisateur...' : 'Loading organizer updates...'}
+                </Text>
+              ) : selectedEventUpdates.length > 0 ? (
+                <View style={styles.eventUpdatesSection}>
+                  <Text style={styles.eventUpdatesTitle}>
+                    {locale === 'fr' ? 'Dernières infos organisateur' : 'Latest organizer updates'}
+                  </Text>
+                  {selectedEventUpdates.map((update) => (
+                    <View key={update.id} style={styles.eventUpdateCard}>
+                      <Text style={styles.eventUpdateMessage}>{update.message}</Text>
+                      {formatUpdateDate(update.created_at, locale) ? (
+                        <Text style={styles.eventUpdateDate}>{formatUpdateDate(update.created_at, locale)}</Text>
+                      ) : null}
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -1228,6 +1453,20 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  sheetFavoriteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  sheetFavoriteButtonActive: {
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
+  },
   sheetTitle: {
     color: Colors.textPrimary,
     fontSize: 20,
@@ -1264,5 +1503,39 @@ const styles = StyleSheet.create({
   sheetContent: {
     gap: 10,
     paddingBottom: 12,
+  },
+  eventUpdatesSection: {
+    gap: 10,
+    marginTop: 8,
+  },
+  eventUpdatesTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  eventUpdatesLoading: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8,
+  },
+  eventUpdateCard: {
+    gap: 6,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  eventUpdateMessage: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  eventUpdateDate: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-06-18
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -82,6 +82,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 Use:
 
 - `supabase/tests/organizer_rls_checks.sql` for event-membership and organizer station-product checks;
+- `supabase/tests/organizer_rls_checks.sql` for event-membership, race-event favorites, and organizer update visibility checks;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 

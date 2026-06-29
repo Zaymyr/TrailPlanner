@@ -147,6 +147,84 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
       },
     });
   });
+
+  it("sorts aid stations by distance before assigning order indexes", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = await PUT(
+      putRequest({
+        aidStations: [
+          {
+            id: existingStationId,
+            name: "Ravito 32",
+            distanceKm: 32,
+            waterRefill: true,
+            solidRefill: true,
+            assistanceAllowed: true,
+            organizerDetails: {
+              cumulativeElevationGainM: null,
+              cumulativeElevationLossM: null,
+              cutoffTime: null,
+              dropBagAvailable: false,
+              organizerNote: null,
+            },
+          },
+          {
+            name: "Ravito 12",
+            distanceKm: 12,
+            waterRefill: true,
+            solidRefill: true,
+            assistanceAllowed: true,
+            organizerDetails: {
+              cumulativeElevationGainM: null,
+              cumulativeElevationLossM: null,
+              cutoffTime: null,
+              dropBagAvailable: false,
+              organizerNote: null,
+            },
+          },
+          {
+            name: "Ravito 23",
+            distanceKm: 23,
+            waterRefill: true,
+            solidRefill: true,
+            assistanceAllowed: true,
+            organizerDetails: {
+              cumulativeElevationGainM: null,
+              cumulativeElevationLossM: null,
+              cutoffTime: null,
+              dropBagAvailable: false,
+              organizerNote: null,
+            },
+          },
+        ],
+      }),
+      { params: { id: raceId } }
+    );
+
+    expect(response.status).toBe(200);
+
+    const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
+    expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
+      name: "Ravito 32",
+      km: 32,
+      order_index: 2,
+    });
+
+    const insertCall = mockFetch.mock.calls.find(
+      ([url, init]) => String(url).endsWith("/rest/v1/race_aid_stations") && init?.method === "POST"
+    );
+    const insertBody = JSON.parse(insertCall?.[1]?.body as string);
+    expect(insertBody).toMatchObject([
+      { name: "Ravito 12", km: 12, order_index: 0 },
+      { name: "Ravito 23", km: 23, order_index: 1 },
+    ]);
+  });
 });
 
 vi.mock("../../../../../../lib/http", () => ({
