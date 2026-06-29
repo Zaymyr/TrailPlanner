@@ -74,14 +74,14 @@ export async function GET(request: NextRequest) {
 
   const [claimsResponse, membershipsResponse] = await Promise.all([
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?select=id,created_at,updated_at,user_id,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewed_by,reviewed_at,reviewer_notes,race_events(id,name,location,race_date)&order=created_at.desc&limit=200`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?status=eq.pending&select=id,created_at,updated_at,user_id,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewed_by,reviewed_at,reviewer_notes,race_events(id,name,location,race_date)&order=created_at.asc&limit=200`,
       {
         headers: serviceHeaders(auth.serviceConfig, ""),
         cache: "no-store",
       }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?select=id,created_at,event_id,user_id,claim_id,role,revoked_at,revoke_reason,race_events(id,name,location,race_date)&order=created_at.desc&limit=200`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?revoked_at=is.null&select=id,created_at,event_id,user_id,claim_id,role,revoked_at,revoke_reason,race_events(id,name,location,race_date)&order=created_at.desc&limit=200`,
       {
         headers: serviceHeaders(auth.serviceConfig, ""),
         cache: "no-store",

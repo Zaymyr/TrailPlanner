@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-06-26
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -92,7 +92,7 @@ Admin review happens in the web admin "Organisateurs" tab:
 3. A `race_event_organizers` row is created or reactivated for the claim user and event.
 4. The organizer dashboard can load that event.
 
-Rejecting a claim stores review metadata and does not grant membership. Revoking access sets `revoked_at` on the membership and blocks future organizer writes.
+The admin review card is an actionable queue: it lists only pending claims, while approved requests leave that queue and appear only through the active-access membership list. Rejecting a claim stores review metadata and does not grant membership. Revoking access sets `revoked_at` on the membership and blocks future organizer writes. The admin "Organisateurs" copy should stay in concise, correctly accented French for both claim and membership states.
 
 ## Organizer Dashboard Rules
 
@@ -186,6 +186,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not add separate grants or RLS policies for organizer JSONB columns on existing source tables; route membership checks and table row policies remain the access boundary.
 - Do not auto-sync existing saved plans after organizer source edits. Official ravito product links are read-time response overlays only; service flags, GPX, station distances, pacing, and runner supplies remain stored plan data.
 - Do not use `user_metadata` for admin claim approval or revocation checks.
+- Do not leave approved claims in the admin pending-review queue; once membership exists, the request belongs only in the active-access list.
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Manual organizer claims create non-live draft events; do not treat those rows as public catalog entries until an admin or organizer publishes the event through the normal event edit flow.
 - Do not publish an event with no live, publishable format; the organizer event route rejects that state even when the event-level fields are valid.

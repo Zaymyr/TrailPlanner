@@ -53,6 +53,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
 
+  const claimStatusLabel: Record<OrganizerClaim["status"], string> = {
+    pending: "En attente",
+    approved: "Approuvé",
+    rejected: "Refusé",
+  };
+
   const load = async () => {
     if (!accessToken) return;
     setStatus("loading");
@@ -112,28 +118,24 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
-  const activeMemberships = memberships.filter((membership) => !membership.revoked_at);
-
   return (
     <div className="space-y-5">
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
       <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>Claims organisateurs</CardTitle>
-          <CardDescription>Approuver, refuser ou laisser en attente les demandes de claim.</CardDescription>
+          <CardTitle>Demandes en cours</CardTitle>
+          <CardDescription>Approuver ou refuser les demandes de claim en attente.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {status === "loading" ? <p className="text-sm text-muted-foreground">Chargement...</p> : null}
           {claims.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune demande.</p>
+            <p className="text-sm text-muted-foreground">Aucune demande en attente.</p>
           ) : (
             claims.map((claim) => (
               <div key={claim.id} className="rounded-md border border-border bg-background p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-semibold text-foreground">
-                      {claim.race_events?.name ?? claim.event_id}
-                    </p>
+                    <p className="font-semibold text-foreground">{claim.race_events?.name ?? claim.event_id}</p>
                     <p className="text-sm text-muted-foreground">
                       {claim.organization_name} · {claim.role_title} · {claim.contact_email}
                     </p>
@@ -145,7 +147,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     {claim.message ? <p className="mt-2 text-sm text-foreground">{claim.message}</p> : null}
                   </div>
                   <span className="rounded-full border border-border px-2 py-1 text-xs uppercase text-muted-foreground">
-                    {claim.status}
+                    {claimStatusLabel[claim.status]}
                   </span>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -178,22 +180,20 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
 
       <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>Acces actifs</CardTitle>
-          <CardDescription>Revoquer un acces organisateur sans supprimer la course publique.</CardDescription>
+          <CardTitle>Accès actifs</CardTitle>
+          <CardDescription>Révoquer un accès organisateur sans supprimer la course publique.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {activeMemberships.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun acces actif.</p>
+          {memberships.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucun accès actif.</p>
           ) : (
-            activeMemberships.map((membership) => (
+            memberships.map((membership) => (
               <div key={membership.id} className="rounded-md border border-border bg-background p-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-semibold text-foreground">
-                      {membership.race_events?.name ?? membership.event_id}
-                    </p>
+                    <p className="font-semibold text-foreground">{membership.race_events?.name ?? membership.event_id}</p>
                     <p className="text-sm text-muted-foreground">
-                      User {membership.user_id} · role {membership.role}
+                      Utilisateur {membership.user_id} · rôle {membership.role}
                     </p>
                   </div>
                   <span className="rounded-full border border-emerald-300 px-2 py-1 text-xs text-emerald-700">
@@ -227,7 +227,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                         })
                       }
                     >
-                      Revoquer
+                      Révoquer
                     </Button>
                   </div>
                 </div>
