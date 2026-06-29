@@ -1,7 +1,5 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
-import withGoogleSignInModularHeaders from './plugins/withGoogleSignInModularHeaders';
-
 export default ({ config }: ConfigContext): ExpoConfig => {
   const googleIosUrlScheme = process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME?.trim();
   const androidGoogleServicesFile =
@@ -80,7 +78,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           color: '#22c55e',
         },
       ],
-      withGoogleSignInModularHeaders,
       ...googleSigninPlugin,
     ],
     extra: {

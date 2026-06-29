@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-06-18
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -15,6 +15,7 @@ related_files:
   - apps/mobile/app/(auth)/signup.tsx
   - apps/mobile/hooks/useAppleAuth.ts
   - apps/mobile/hooks/useGoogleAuth.ts
+  - apps/mobile/lib/onboardingGate.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/trial.ts
 related_tables:
@@ -63,6 +64,8 @@ After a web session is verified, `useVerifiedSession` also calls `POST /api/rese
 Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mobile/app/(auth)/signup.tsx`, and the guest onboarding account choice in `apps/mobile/app/(app)/onboarding.tsx`.
 
 Non-auth onboarding steps, such as race/catalog selection UI, must not add separate session side effects; keep session, analytics identity, push registration, and Resend sync behavior in `_layout.tsx` or the existing dedicated helpers.
+`apps/mobile/lib/onboardingGate.ts` decides whether required onboarding should reopen after auth. It should treat a profile as already onboarded when any durable onboarding field or favorite product already exists, and it should fail closed on profile/favorites lookup errors so transient client issues do not bounce returning users back into a blank onboarding flow.
+When onboarding does reopen for an identified user, `apps/mobile/app/(app)/onboarding.tsx` should hydrate existing `user_profiles` values and favorite products before the runner edits anything, so revisits do not appear empty or overwrite stored profile defaults unintentionally.
 The onboarding route is registered as a non-tab screen with the bottom tab bar hidden, so users do not get tab navigation access while completing the required flow.
 
 Social sign-in is split into hooks:
@@ -89,6 +92,7 @@ Do not use `user_metadata` for new authorization decisions.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Trial repair runs during session verification and must stay idempotent.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.
+- Do not key the mobile onboarding gate off a single nullable profile field. Returning users can have partial profiles, and reopening onboarding with empty local state risks resaving nulls over durable defaults.
 - Do not render Google sign-in on iOS builds; App Review devices should only see the Apple social login path.
 - For Apple ID-token auth, send Apple the hashed nonce challenge and Supabase the raw nonce. The Apple authorization code is not a provider access token for Supabase `signInWithIdToken`.
 - Anonymous Apple identity linking can return existing-account wording when the Apple ID was used in an earlier review attempt; keep that path recoverable through direct Apple ID-token sign-in plus the pending guest-merge flow.
