@@ -41,6 +41,16 @@ const updateAidStationsSchema = z.object({
   aidStations: z.array(aidStationInputSchema),
 });
 
+const sortAidStationsByDistance = <T extends { distanceKm: number }>(aidStations: T[]) =>
+  aidStations
+    .map((station, index) => ({ station, index }))
+    .sort((left, right) => {
+      const distanceDelta = left.station.distanceKm - right.station.distanceKm;
+      if (distanceDelta !== 0) return distanceDelta;
+      return left.index - right.index;
+    })
+    .map(({ station }) => station);
+
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
@@ -88,7 +98,9 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const parsedBody = updateAidStationsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid aid stations.", 400);
 
-  const submittedIds = parsedBody.data.aidStations
+  const sortedAidStations = sortAidStationsByDistance(parsedBody.data.aidStations);
+
+  const submittedIds = sortedAidStations
     .map((station) => station.id)
     .filter((id): id is string => Boolean(id));
   const deleteFilter =
@@ -109,15 +121,15 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     return jsonError("Unable to update aid stations.", 502);
   }
 
-  if (parsedBody.data.aidStations.length === 0) {
+  if (sortedAidStations.length === 0) {
     return withSecurityHeaders(NextResponse.json({ aidStations: [] }));
   }
 
-  const existingStationUpdates = parsedBody.data.aidStations.filter((station) => station.id);
-  const newStations = parsedBody.data.aidStations.filter((station) => !station.id);
+  const existingStationUpdates = sortedAidStations.filter((station) => station.id);
+  const newStations = sortedAidStations.filter((station) => !station.id);
 
   for (const station of existingStationUpdates) {
-    const index = parsedBody.data.aidStations.indexOf(station);
+    const index = sortedAidStations.indexOf(station);
     const updateResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?id=eq.${station.id}&race_id=eq.${parsedParams.data.id}`,
       {
@@ -149,7 +161,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
       headers: serviceHeaders(auth.serviceConfig),
       body: JSON.stringify(
         newStations.map((station) => {
-          const index = parsedBody.data.aidStations.indexOf(station);
+          const index = sortedAidStations.indexOf(station);
           return {
             race_id: parsedParams.data.id,
             name: station.name,

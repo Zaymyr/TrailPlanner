@@ -1,20 +1,25 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-06-26
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/[id]/updates/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
+  - apps/web/app/api/race-favorites/route.ts
+  - apps/web/app/api/race-events/[id]/updates/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
+  - apps/web/lib/push.ts
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx
@@ -25,7 +30,9 @@ related_tables:
   - race_events
   - race_event_claims
   - race_event_organizers
+  - race_event_updates
   - races
+  - user_favorite_race_events
 ---
 
 # `race_events`
@@ -41,6 +48,8 @@ related_tables:
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created when an organizer claims a missing race.
 - Organizer dashboard details: nullable JSONB for event end date, common equipment, common bib pickup, access, services, partners, and runner notes.
+- Event favorite target: runners follow the whole event, not an individual race format.
+- Organizer announcement source: manual `race_event_updates` rows can be published for the event and pushed to followers.
 - Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
 - Missing provenance: table creation must be verified outside the visible migrations.
@@ -64,6 +73,11 @@ related_tables:
 
 Current code expects `races.event_id` to reference `race_events.id`, but the visible migrations do not show the column creation or FK declaration.
 
+Event-scoped child tables added later include:
+
+- `user_favorite_race_events.event_id`
+- `race_event_updates.event_id`
+
 <!-- CONFLICT: apps/web and apps/mobile query races.event_id and race_events joins; visible migrations do not create races.event_id or race_events. -->
 
 ## Indexes
@@ -85,6 +99,8 @@ Organizer portal writes also go through web service routes after checking `race_
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
+- Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
+- Organizer runner notifications are manual. One send creates one `race_event_updates` row and may trigger push notifications for followers, but normal organizer saves and publish toggles must not auto-create announcements.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location in addition to the existing plain `location` text column.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
@@ -136,6 +152,7 @@ from public.races;
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Manual organizer draft events are not public catalog rows until their `is_live` state is explicitly changed.
+- Keep favorites and organizer updates on `race_events`. The push deep link and mobile catalog sheet both target the event id, not a specific format id.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
 - Publishing from the organizer route requires event name, location, start date, end date, and at least one live publishable format; event-level fields alone are not enough.
 - Do not store per-format equipment, dossard, or access differences on the event row.

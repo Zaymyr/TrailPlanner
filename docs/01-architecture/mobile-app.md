@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-06-26
+last_verified: 2026-06-29
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -44,6 +44,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - Web API bridge: mobile calls selected Next.js API routes for operations that need server keys.
 - Resend contact sync: mobile calls the web API bridge after identified, non-anonymous sessions; the Resend key remains server-side.
 - Plan share links: mobile sends an authenticated recap snapshot to the web API, which creates the public crew URL server-side.
+- Event favorites: authenticated runners can favorite `race_events`, pin them to the top of the Courses tab, and receive organizer update pushes for those events.
 
 ## Framework Setup
 
@@ -102,6 +103,17 @@ The layout also tracks auth analytics for signed-in and signed-out events.
 Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion.
 Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx` so the onboarding race choice uses the same event-card UX as the Courses tab.
 The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior.
+Organizer update pushes can deep-link back into the catalog with `/(app)/catalog?eventId=<uuid>`; the catalog screen reopens the matching event sheet when that query param is present.
+
+## Catalog and Event Sheets
+
+`apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
+
+- it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
+- it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping;
+- it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
+- it loads the latest manual organizer updates for the selected event and renders them below the format list in the sheet;
+- it reads `eventId` from the route params so a push notification can open the matching event directly.
 
 ## Premium and Purchases
 
@@ -142,6 +154,8 @@ Do not copy actual keys into docs. Use environment variable names only.
 - The mobile catalog now has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details` on live formats: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. Aid stations alone are not enough to expose the mobile Racebook entry point.
 - The mobile Racebook also parses additive geocoded organizer metadata for event/format, bib pickup, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
+- Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
+- Organizer update history in the event sheet is intentionally manual-announcement history only. Do not turn every organizer save into a runner-visible update.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.

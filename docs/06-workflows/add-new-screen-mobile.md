@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-06-26
+last_verified: 2026-06-29
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -49,6 +49,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Required onboarding screens must hide the bottom tab bar until completion; register them with `href: null` and `tabBarStyle: { display: 'none' }` in the tab layout.
 - Onboarding product-picking should mirror the Nutrition catalog affordances: collapsed brand rows keep count/verified/selected signals, and product rows keep verified badges plus explicit selection checks. Ensure onboarding product queries include `is_official` when rendering those badges.
 - Reuse `RaceEventSummaryCard` for catalog/onboarding race event rows so the onboarding race picker matches the Courses tab UX.
+- When extending the Courses tab, preserve its event-level route contract: favorites are tied to `race_events`, and deep links such as `/(app)/catalog?eventId=<uuid>` should reopen the matching event sheet rather than inventing a second detail flow.
 
 ## Steps
 

@@ -105,6 +105,7 @@ export function OrganizerSummaryHeader({
   status,
   onSaveAll,
   onPreview,
+  onNotifyFollowers,
   onTogglePublish,
   onToggleRacePublish,
 }: {
@@ -118,6 +119,7 @@ export function OrganizerSummaryHeader({
   status: "idle" | "loading" | "saving" | "uploading";
   onSaveAll: () => void;
   onPreview: () => void;
+  onNotifyFollowers: () => void;
   onTogglePublish: () => void;
   onToggleRacePublish: (raceId: string, nextIsLive: boolean) => void;
 }) {
@@ -196,6 +198,9 @@ export function OrganizerSummaryHeader({
       <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" onClick={onPreview} variant="outline">
           Prévisualiser côté coureur
+        </Button>
+        <Button type="button" onClick={onNotifyFollowers} variant="outline" disabled={!event}>
+          Notifier les coureurs
         </Button>
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}

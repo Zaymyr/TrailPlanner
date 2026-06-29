@@ -7,16 +7,19 @@ begin;
 
 create temp table _organizer_rls_fixture (
   event_id uuid not null,
+  event_is_live boolean not null,
   race_id uuid not null,
   station_id uuid not null,
   product_id uuid not null,
   other_product_id uuid not null,
   claim_id uuid,
-  rejected_claim_id uuid
+  rejected_claim_id uuid,
+  favorite_id uuid,
+  update_id uuid
 ) on commit drop;
 
 with source as (
-  select e.id as event_id, r.id as race_id
+  select e.id as event_id, e.is_live as event_is_live, r.id as race_id
   from public.race_events e
   join public.races r on r.event_id = e.id
   limit 1
@@ -81,8 +84,8 @@ product_b as (
   )
   returning id
 )
-insert into _organizer_rls_fixture (event_id, race_id, station_id, product_id, other_product_id)
-select source.event_id, source.race_id, station.id, product_a.id, product_b.id
+insert into _organizer_rls_fixture (event_id, event_is_live, race_id, station_id, product_id, other_product_id)
+select source.event_id, source.event_is_live, source.race_id, station.id, product_a.id, product_b.id
 from source
 join station on station.race_id = source.race_id
 cross join product_a
@@ -312,6 +315,40 @@ begin
   end if;
 end $$;
 
+with inserted_favorite as (
+  insert into public.user_favorite_race_events (user_id, event_id)
+  select '10000000-0000-0000-0000-000000000001', event_id
+  from _organizer_rls_fixture
+  returning id
+)
+update _organizer_rls_fixture
+set favorite_id = inserted_favorite.id
+from inserted_favorite;
+
+do $$
+begin
+  if (select count(*) from public.user_favorite_race_events where id = (select favorite_id from _organizer_rls_fixture)) <> 1 then
+    raise exception 'Expected user to read their own favorite race event.';
+  end if;
+end $$;
+
+with inserted_update as (
+  insert into public.race_event_updates (event_id, created_by, message)
+  select event_id, '10000000-0000-0000-0000-000000000001', 'Organizer RLS update check'
+  from _organizer_rls_fixture
+  returning id
+)
+update _organizer_rls_fixture
+set update_id = inserted_update.id
+from inserted_update;
+
+do $$
+begin
+  if not exists (select 1 from public.race_event_updates where id = (select update_id from _organizer_rls_fixture)) then
+    raise exception 'Expected organizer to create a race event update.';
+  end if;
+end $$;
+
 -- A non-organizer cannot attach products to the same event.
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000002', true);
 select set_config(
@@ -330,6 +367,23 @@ begin
 exception
   when insufficient_privilege or check_violation or with_check_option_violation then
     null;
+end $$;
+
+do $$
+begin
+  if exists (select 1 from public.user_favorite_race_events where id = (select favorite_id from _organizer_rls_fixture)) then
+    raise exception 'Expected other user not to read someone else''s favorite race event.';
+  end if;
+
+  if (select event_is_live from _organizer_rls_fixture) then
+    if not exists (select 1 from public.race_event_updates where id = (select update_id from _organizer_rls_fixture)) then
+      raise exception 'Expected authenticated users to read live race event updates.';
+    end if;
+  else
+    if exists (select 1 from public.race_event_updates where id = (select update_id from _organizer_rls_fixture)) then
+      raise exception 'Expected non-live race event updates to stay hidden.';
+    end if;
+  end if;
 end $$;
 
 rollback;
