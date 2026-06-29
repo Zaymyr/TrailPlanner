@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PATCH } from "./route";
+import { GET, PATCH } from "./route";
 
 const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) =>
   new Response(JSON.stringify(payload), {
@@ -172,6 +172,64 @@ describe("PATCH /api/admin/organizer-claims", () => {
       revoked_by: "99999999-9999-9999-9999-999999999999",
       revoke_reason: "Changed organizer",
     });
+  });
+});
+
+describe("GET /api/admin/organizer-claims", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("loads only pending claims and active memberships for the admin organizer tab", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "22222222-2222-2222-2222-222222222222",
+            created_at: "2026-05-28T09:00:00.000Z",
+            updated_at: "2026-05-28T09:00:00.000Z",
+            user_id: "33333333-3333-3333-3333-333333333333",
+            event_id: "11111111-1111-1111-1111-111111111111",
+            organization_name: "Trail Org",
+            role_title: "RD",
+            contact_email: "orga@example.com",
+            status: "pending",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "44444444-4444-4444-4444-444444444444",
+            created_at: "2026-05-28T10:00:00.000Z",
+            event_id: "11111111-1111-1111-1111-111111111111",
+            user_id: "33333333-3333-3333-3333-333333333333",
+            claim_id: "22222222-2222-2222-2222-222222222222",
+            role: "owner",
+            revoked_at: null,
+            revoke_reason: null,
+          },
+        ])
+      );
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/organizer-claims", {
+        headers: { authorization: "Bearer admin-token" },
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.claims).toHaveLength(1);
+    expect(payload.memberships).toHaveLength(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toContain("status=eq.pending");
+    expect(String(mockFetch.mock.calls[1]?.[0])).toContain("revoked_at=is.null");
   });
 });
 

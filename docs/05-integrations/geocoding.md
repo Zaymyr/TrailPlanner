@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-06-26
+last_verified: 2026-06-29
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -89,6 +89,7 @@ Each object stores:
 - Google Places is a valid future replacement for autocomplete quality, but it requires a Google Maps Platform key, billing, quota management, and a review of Google usage terms before swapping providers.
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
+- Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.
 
 ## Related Docs
 

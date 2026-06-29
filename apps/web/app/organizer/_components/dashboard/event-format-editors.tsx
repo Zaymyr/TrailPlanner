@@ -49,7 +49,7 @@ export function EventInfoEditor({
         }
         invalid={missingLocation}
       />
-      <TextField label="Date dÃ©but" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
+      <TextField label="Date début" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
       <TextField
         label="Date fin"
         type="date"
@@ -68,7 +68,7 @@ export function EventInfoEditor({
         invalid={missingEndDate}
       />
       <div className="space-y-2 lg:col-span-4">
-        <Label>Image Ã©vÃ©nement (PNG)</Label>
+        <Label>Image événement (PNG)</Label>
         {eventForm.thumbnailUrl ? (
           <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
             <img src={eventForm.thumbnailUrl} alt="" className="h-full w-full object-cover" />
@@ -145,10 +145,10 @@ export function FormatsEditor({
               Dupliquer ce format
             </Button>
             <Button type="button" variant="outline" onClick={onPreviewRace}>
-              PrÃ©visualiser ce format
+              Prévisualiser ce format
             </Button>
             <Button type="button" variant="ghost" onClick={onToggleRaceDetails}>
-              {showRaceDetails ? "Masquer les dÃ©tails" : "Afficher les dÃ©tails"}
+              {showRaceDetails ? "Masquer les détails" : "Afficher les détails"}
             </Button>
             <Button
               type="button"
@@ -162,7 +162,7 @@ export function FormatsEditor({
           </div>
           {showRaceDetails ? (
             <RaceForm
-              title="DÃ©tails du format"
+              title="Détails du format"
               values={raceForm}
               biasLocation={raceForm.organizerDetails.raceLocation}
               onChange={(values) => onRaceFormChange(values)}
@@ -177,7 +177,7 @@ export function FormatsEditor({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-semibold text-foreground">GPX</p>
-                <p className="text-sm text-muted-foreground">{activeRace.gpx_storage_path ? "GPX source prÃ©sent." : "Aucun GPX source pour ce format."}</p>
+                <p className="text-sm text-muted-foreground">{activeRace.gpx_storage_path ? "GPX source présent." : "Aucun GPX source pour ce format."}</p>
               </div>
               <Input type="file" accept=".gpx,application/gpx+xml" onChange={onUploadGpx} disabled={status === "uploading"} className="max-w-sm" />
             </div>
@@ -185,7 +185,7 @@ export function FormatsEditor({
           </div>
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">SÃ©lectionne ou ajoute un format.</p>
+        <p className="text-sm text-muted-foreground">Sélectionne ou ajoute un format.</p>
       )}
     </div>
   );
@@ -269,7 +269,7 @@ function RaceForm({
           />
           <p className="text-xs text-muted-foreground">
             JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
-            {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyÃ©e aprÃ¨s la crÃ©ation du format." : ""}
+            {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyée après la création du format." : ""}
           </p>
         </div>
         {!hideSubmit ? (
@@ -292,11 +292,11 @@ function MiniElevationProfile({ preview, activeRace }: { preview: GpxPreview | n
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!activeRace.gpx_storage_path) {
-    return <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaÃ®tra aprÃ¨s l&apos;ajout d&apos;un GPX.</div>;
+    return <div className="mt-4 rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaîtra après l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (!hasProfile) {
-    return <div className="mt-4 rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX prÃ©sent. Courbe de niveau indisponible pour ce fichier.</div>;
+    return <div className="mt-4 rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX présent. Courbe de niveau indisponible pour ce fichier.</div>;
   }
 
   const width = 720;
@@ -361,7 +361,7 @@ function MiniElevationProfile({ preview, activeRace }: { preview: GpxPreview | n
       </svg>
       {preview?.detectedAidStations.length ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito dÃ©tectÃ©{preview.detectedAidStations.length > 1 ? "s" : ""}.
+          {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito détecté{preview.detectedAidStations.length > 1 ? "s" : ""}.
         </p>
       ) : null}
     </div>
