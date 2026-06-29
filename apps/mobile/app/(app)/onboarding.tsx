@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   View,
@@ -25,7 +25,12 @@ import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard
 import { estimateHourlyTargets, isValidHeightCm, isValidWeightKg } from '../../components/profile/profileEstimator';
 import { useAppleAuth } from '../../hooks/useAppleAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
-import { parseComfortableFlatPace, parseOptionalNonNegativeInteger, WATER_BAG_OPTIONS } from '../../components/profile/profileHelpers';
+import {
+  parseComfortableFlatPace,
+  parseOptionalNonNegativeInteger,
+  splitPaceMinutesPerKm,
+  WATER_BAG_OPTIONS,
+} from '../../components/profile/profileHelpers';
 import type { CarbEstimatorLevel, HydrationEstimatorLevel, SodiumEstimatorLevel } from '../../components/profile/types';
 import { ensureAppSession, isAnonymousSession } from '../../lib/appSession';
 import { loadPlanProductsBootstrap } from '../../components/plan-form/usePlanProducts';
@@ -94,6 +99,18 @@ type OnboardingProfileSavePayload = {
   parsedDefaultWaterPerHour: number | null;
   parsedDefaultSodiumPerHour: number | null;
   selectedProductIds: string[];
+};
+
+type ExistingOnboardingProfileRow = {
+  full_name: string | null;
+  water_bag_liters: number | null;
+  utmb_index: number | null;
+  comfortable_flat_pace_min_per_km: number | null;
+  weight_kg: number | null;
+  height_cm: number | null;
+  default_carbs_g_per_hour: number | null;
+  default_water_ml_per_hour: number | null;
+  default_sodium_mg_per_hour: number | null;
 };
 
 const PRODUCT_PRIORITY: Record<FuelType, number> = {
@@ -375,6 +392,7 @@ export default function OnboardingScreen() {
   const [loadingProgress, setLoadingProgress] = useState(pendingTransition?.progress ?? 0.08);
   const [profileError, setProfileError] = useState<string | null>(null);
   const router = useRouter();
+  const hydratedExistingDataUserIdRef = useRef<string | null>(null);
   const completionPlanId: string | null = null;
   const completedRaceIdParam: string | null = null;
   const completedRaceNameParam: string | null = null;
@@ -534,6 +552,33 @@ export default function OnboardingScreen() {
     [filteredNutritionProducts, locale],
   );
   const hiddenNutritionProducts = useMemo(() => [] as Product[], []);
+  const isOnboardingStatePristine = useMemo(
+    () =>
+      fullName.trim().length === 0 &&
+      weightKg.length === 0 &&
+      heightCm.length === 0 &&
+      comfortableFlatPaceMinutes.length === 0 &&
+      comfortableFlatPaceSeconds.length === 0 &&
+      utmbIndex.length === 0 &&
+      defaultCarbsPerHour.length === 0 &&
+      defaultWaterPerHour.length === 0 &&
+      defaultSodiumPerHour.length === 0 &&
+      waterBagLiters === 1.5 &&
+      selectedProductIds.length === 0,
+    [
+      comfortableFlatPaceMinutes,
+      comfortableFlatPaceSeconds,
+      defaultCarbsPerHour,
+      defaultSodiumPerHour,
+      defaultWaterPerHour,
+      fullName,
+      heightCm,
+      selectedProductIds.length,
+      utmbIndex,
+      waterBagLiters,
+      weightKg,
+    ],
+  );
   const selectedRaceEventDate = selectedRaceEvent
     ? formatEventDate(selectedRaceEvent.race_date, locale)
     : null;
@@ -679,6 +724,109 @@ export default function OnboardingScreen() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const userId = session?.user?.id ?? null;
+
+    if (!userId || isAnonymousSession(session)) {
+      hydratedExistingDataUserIdRef.current = null;
+      return;
+    }
+
+    if (!isOnboardingStatePristine) {
+      return;
+    }
+
+    if (hydratedExistingDataUserIdRef.current === userId) {
+      return;
+    }
+
+    hydratedExistingDataUserIdRef.current = userId;
+    let cancelled = false;
+
+    void (async () => {
+      const [profileResult, favoritesResult] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select(
+            'full_name, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, weight_kg, height_cm, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour',
+          )
+          .eq('user_id', userId)
+          .maybeSingle(),
+        supabase
+          .from('user_favorite_products')
+          .select('product_id')
+          .eq('user_id', userId),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      if (profileResult.error) {
+        console.error('Unable to hydrate onboarding profile:', profileResult.error);
+      } else if (profileResult.data) {
+        const profile = profileResult.data as ExistingOnboardingProfileRow;
+        const flatPaceFields = splitPaceMinutesPerKm(profile.comfortable_flat_pace_min_per_km);
+
+        setFullName(profile.full_name ?? '');
+        setWaterBagLiters(profile.water_bag_liters ?? 1.5);
+        setUtmbIndex(
+          typeof profile.utmb_index === 'number' && Number.isFinite(profile.utmb_index)
+            ? String(Math.round(profile.utmb_index))
+            : '',
+        );
+        setComfortableFlatPaceMinutes(flatPaceFields.minutes);
+        setComfortableFlatPaceSeconds(flatPaceFields.seconds);
+        setWeightKg(
+          typeof profile.weight_kg === 'number' && Number.isFinite(profile.weight_kg)
+            ? String(Math.round(profile.weight_kg))
+            : '',
+        );
+        setHeightCm(
+          typeof profile.height_cm === 'number' && Number.isFinite(profile.height_cm)
+            ? String(Math.round(profile.height_cm))
+            : '',
+        );
+        setDefaultCarbsPerHour(
+          typeof profile.default_carbs_g_per_hour === 'number' &&
+            Number.isFinite(profile.default_carbs_g_per_hour)
+            ? String(Math.round(profile.default_carbs_g_per_hour))
+            : '',
+        );
+        setDefaultWaterPerHour(
+          typeof profile.default_water_ml_per_hour === 'number' &&
+            Number.isFinite(profile.default_water_ml_per_hour)
+            ? String(Math.round(profile.default_water_ml_per_hour))
+            : '',
+        );
+        setDefaultSodiumPerHour(
+          typeof profile.default_sodium_mg_per_hour === 'number' &&
+            Number.isFinite(profile.default_sodium_mg_per_hour)
+            ? String(Math.round(profile.default_sodium_mg_per_hour))
+            : '',
+        );
+      }
+
+      if (favoritesResult.error) {
+        console.error('Unable to hydrate onboarding favorites:', favoritesResult.error);
+      } else if (favoritesResult.data) {
+        setSelectedProductIds(
+          Array.from(
+            new Set(
+              (favoritesResult.data as Array<{ product_id: string | null }>)
+                .map((favorite) => favorite.product_id)
+                .filter((productId): productId is string => typeof productId === 'string' && productId.length > 0),
+            ),
+          ),
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOnboardingStatePristine, session]);
 
   async function loadRaceOptions() {
     setLoadingRaces(true);
@@ -978,18 +1126,21 @@ export default function OnboardingScreen() {
     parsedDefaultSodiumPerHour,
     selectedProductIds: nextSelectedProductIds,
   }: OnboardingProfileSavePayload) {
-    const profileUpsert = supabase.from('user_profiles').upsert({
-      user_id: userId,
-      full_name: nextFullName.trim() || null,
-      water_bag_liters: nextWaterBagLiters,
-      utmb_index: parsedUtmbIndex,
-      comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
-      weight_kg: parsedWeightKg,
-      height_cm: parsedHeightCm,
-      default_carbs_g_per_hour: parsedDefaultCarbsPerHour,
-      default_water_ml_per_hour: parsedDefaultWaterPerHour,
-      default_sodium_mg_per_hour: parsedDefaultSodiumPerHour,
-    });
+    const profileUpsert = supabase.from('user_profiles').upsert(
+      {
+        user_id: userId,
+        full_name: nextFullName.trim() || null,
+        water_bag_liters: nextWaterBagLiters,
+        utmb_index: parsedUtmbIndex,
+        comfortable_flat_pace_min_per_km: comfortableFlatPaceMinPerKm,
+        weight_kg: parsedWeightKg,
+        height_cm: parsedHeightCm,
+        default_carbs_g_per_hour: parsedDefaultCarbsPerHour,
+        default_water_ml_per_hour: parsedDefaultWaterPerHour,
+        default_sodium_mg_per_hour: parsedDefaultSodiumPerHour,
+      },
+      { onConflict: 'user_id' },
+    );
 
     if (nextSelectedProductIds.length === 0) {
       await profileUpsert;
