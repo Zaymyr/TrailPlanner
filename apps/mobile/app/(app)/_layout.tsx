@@ -69,6 +69,8 @@ export default function AppLayout() {
         return 116;
       case 'catalog':
         return 160;
+      case 'plan/[id]/edit':
+        return 120;
       default:
         return 72;
     }
