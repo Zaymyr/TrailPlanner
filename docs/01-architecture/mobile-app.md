@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-06-29
+last_verified: 2026-06-30
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -12,7 +12,10 @@ related_files:
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/race/GpxImportPreviewModal.tsx
+  - apps/mobile/components/race/GpxRoutePreviewCard.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
+  - apps/mobile/lib/gpx.ts
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/racebook.ts
@@ -133,9 +136,12 @@ When RevenueCat has an active entitlement and the server is not synced, mobile c
 
 - accepts GPX/XML/plain/octet-stream file types from `expo-document-picker`;
 - parses GPX with `parseGpxForRaceImport`;
+- keeps the parsed route points in memory for mobile-only previews and future organizer-facing route rendering;
 - builds localized import feedback;
 - calls the web `/api/races` route with the bearer token;
 - updates the created race to private/non-live via Supabase client.
+
+`apps/mobile/components/race/GpxImportPreviewModal.tsx` now reuses `apps/mobile/components/race/GpxRoutePreviewCard.tsx` to show a compact mobile-native route sketch before confirming the import. That preview is intentionally dependency-light: it uses the parsed GPX points plus `react-native-svg`, not a browser map runtime, so it is safe inside the Expo app and ready to be reused later anywhere mobile receives organizer route geometry.
 
 ## Plan Share Links
 
@@ -150,6 +156,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 ## Gotchas
 
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
+- The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - The mobile catalog now has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details` on live formats: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. Aid stations alone are not enough to expose the mobile Racebook entry point.
 - The mobile Racebook also parses additive geocoded organizer metadata for event/format, bib pickup, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually.

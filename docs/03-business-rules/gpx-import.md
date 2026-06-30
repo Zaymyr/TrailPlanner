@@ -5,6 +5,7 @@ last_verified: 2026-06-30
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
+  - apps/mobile/lib/gpx.ts
   - apps/web/lib/gpx/normalizeImportedWaypoints.ts
   - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/components/gpx/GpxRouteMap.tsx
@@ -20,6 +21,8 @@ related_files:
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/components/GpxAidStationImporter.tsx
+  - apps/mobile/components/race/GpxImportPreviewModal.tsx
+  - apps/mobile/components/race/GpxRoutePreviewCard.tsx
   - apps/mobile/lib/race-import.ts
 related_tables:
   - races
@@ -95,6 +98,8 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 
 `apps/mobile/lib/race-import.ts` calls this web route from mobile and then updates the race as private/non-live through Supabase.
 
+The mobile import preview also keeps the parsed route geometry client-side through `apps/mobile/lib/gpx.ts`. `apps/mobile/components/race/GpxImportPreviewModal.tsx` renders that geometry with `GpxRoutePreviewCard.tsx`, giving the runner a native route sketch before confirming the import without waiting for any server round-trip.
+
 ## Catalog Plan Import
 
 `apps/web/app/api/plans/from-catalog/route.ts`:
@@ -144,6 +149,7 @@ For a brand-new organizer format, the add-format dashboard also uses the shared 
 ## Gotchas
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
+- The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
 - Route points can be used when track points are absent.
 - Waypoint-only files produce a `waypoint` point source and limited route geometry.
 - Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.

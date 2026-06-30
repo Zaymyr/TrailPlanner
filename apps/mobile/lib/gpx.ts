@@ -15,12 +15,20 @@ export type MobileGpxStats = {
   lossM: number;
 };
 
+export type MobileGpxPreviewPoint = {
+  lat: number;
+  lng: number;
+  elevationM: number | null;
+  distanceKm: number;
+};
+
 export type MobileGpxParseResult = {
   pointCount: number;
   pointSource: MobileGpxPointSource;
   hasElevation: boolean;
   stats: MobileGpxStats;
   name?: string | null;
+  points: MobileGpxPreviewPoint[];
 };
 
 type ParsedPoint = {
@@ -210,6 +218,7 @@ export const parseGpxForRaceImport = (content: string): MobileGpxParseResult => 
   let previousEle: number | null = null;
   let hasElevation = false;
   const elevationThresholdM = 1;
+  const previewPoints: MobileGpxPreviewPoint[] = [];
 
   for (let index = 0; index < points.length; index += 1) {
     const point = points[index];
@@ -233,6 +242,13 @@ export const parseGpxForRaceImport = (content: string): MobileGpxParseResult => 
 
       previousEle = point.ele;
     }
+
+    previewPoints.push({
+      lat: point.lat,
+      lng: point.lng,
+      elevationM: point.ele,
+      distanceKm: Number((distanceM / 1000).toFixed(3)),
+    });
   }
 
   return {
@@ -240,6 +256,7 @@ export const parseGpxForRaceImport = (content: string): MobileGpxParseResult => 
     pointSource,
     hasElevation,
     name: trackName,
+    points: previewPoints,
     stats: {
       distanceKm: Number((distanceM / 1000).toFixed(2)),
       gainM: Number(gainM.toFixed(1)),

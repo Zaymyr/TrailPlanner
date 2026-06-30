@@ -11,6 +11,7 @@ import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import type { ImportedGpxDocument } from '../../lib/race-import';
+import { GpxRoutePreviewCard } from './GpxRoutePreviewCard';
 
 type GpxImportPreviewModalProps = {
   visible: boolean;
@@ -100,6 +101,12 @@ export function GpxImportPreviewModal({
               </View>
             ))}
           </View>
+
+          {parsed.points.length > 0 ? (
+            <View style={styles.section}>
+              <GpxRoutePreviewCard points={parsed.points} />
+            </View>
+          ) : null}
 
           <View
             style={[

@@ -114,6 +114,8 @@ The web app owns the browser planner, onboarding/account flows, admin catalog to
 - `npm run test --workspace apps/web`
 - `npm run typecheck --workspace apps/web`
 
+The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser map bindings added under `apps/web` must stay compatible with React 18 until the app is upgraded; for Leaflet route previews that means staying on the React 18-compatible `react-leaflet` line rather than the React 19-only v5 releases.
+
 `apps/web/next.config.mjs` enables:
 
 - optional MDX page support when MDX dependencies are available;
@@ -229,6 +231,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer-created products are non-live rows attached to source ravitos; do not expose them through public client env or the global catalog API.
 - Organizer ravito product refresh is a read-time overlay on `/api/plans`; if the service-role refresh fails, return the stored `organizerAidStationProducts` snapshot instead of blocking plan load.
 - Organizer GPX previews are recalculated from the private source GPX; do not add a `races.elevation_profile` column for this dashboard-only curve.
+- `react-leaflet` v5 expects React 19 and crashes this app's React 18 runtime during GPX map mount. Keep the organizer map on the React 18-compatible `react-leaflet` 4.x line until the web app itself upgrades React.
 - Organizer event image upload accepts PNG only in v1; the client must call the server route instead of writing to Storage directly.
 - Keep organizer dashboard French labels UTF-8 clean end-to-end, especially in `event-format-editors.tsx`; mojibake such as `Ã©` is a real regression on the event tab because those strings are rendered directly.
 - Do not auto-send runner notifications on organizer save or publish. The manual event-update route is the only intended push trigger for this v1.
