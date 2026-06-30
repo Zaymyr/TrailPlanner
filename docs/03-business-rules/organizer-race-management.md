@@ -49,6 +49,7 @@ related_files:
   - apps/web/app/api/race-events/[id]/updates/route.ts
   - apps/web/app/api/race-events/[id]/updates/route.test.ts
   - apps/web/app/api/organizer/races/route.ts
+  - apps/web/app/api/organizer/races/route.test.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/app/api/organizer/races/[id]/route.test.ts
   - apps/web/app/api/organizer/races/[id]/image/route.ts
@@ -116,7 +117,7 @@ Approved organizers can:
 
 - edit event-level name, location, date, PNG image, live state, and common `race_events.organizer_details`;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
-- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = false` by default, optional organizer details, and an optional GPX file selected directly in the creation form;
+- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = false` by default, a required format race date, optional organizer details, and an optional GPX file selected directly in the creation form;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
 - upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
@@ -128,7 +129,7 @@ Approved organizers can:
 
 The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/race/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. Address fields on those editors now share a route-local autocomplete component backed by `/api/location-search`; selecting a suggestion keeps the original text field filled for publication checks while also storing `lat/lng` plus a Google Maps URL in `organizer_details`. When a field or its surrounding event/format scope already has coordinates, the dashboard sends them as a proximity bias so nearby suggestions rank before distant but textually similar addresses. The synthesis uses inline event facts, a small live/brouillon indicator, and one publish row per scope: each event/race row shows the label first in a shared fixed-width column, then a progress bar that stretches across the available space, and finally the publish toggle. Those percentages are derived only from organizer completion fields and must not increase or decrease when an organizer flips event/race publication. The old ravito count and "a jour" status chip are no longer displayed in that top card. The first completion tab is the event scope and shows only fillable event tiles: information, equipment, bib pickup, access, and services. The following tabs are race formats and show only fillable race tiles: identity/GPX, equipment, access, and ravitos, without an extra progress bar under the tab strip because progress already lives in the top synthesis rows. The old schedule tile is gone: the ravito tile now owns the fixed `Départ` and `Arrivée` cards for `startTime` and `finishCutoffTime`, while `Horaires navettes` lives only in access. Official ravito products are managed inside that ravito module rather than through a separate products tile. Labels stay short because the active tab already provides the scope. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs or modules now attempts an autosave first and blocks the navigation when the save fails.
 
-When the organizer adds a brand-new format, the creation form can now queue both the format image and the GPX file before submission. The dashboard still creates the `races` row first, then uploads the pending GPX through `/api/organizer/races/[id]/gpx` so the format lands with parsed stats and any eligible waypoint ravitos.
+When the organizer adds a brand-new format, the creation form can now queue both the format image and the GPX file before submission. Selecting that GPX parses it immediately in the dashboard and pre-fills distance, D+, and D- from the file before submit. The format date is mandatory in that creation flow. The dashboard still creates the `races` row first, then uploads the pending GPX through `/api/organizer/races/[id]/gpx` so the format lands with persisted parsed stats and any eligible waypoint ravitos.
 
 Approved organizers can also publish a manual event update from the top dashboard card through `Notifier les coureurs`. That action opens a modal, lets the organizer type one short runner-facing message, creates one `race_event_updates` row, and then sends push notifications only to users who favorited the event. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
 

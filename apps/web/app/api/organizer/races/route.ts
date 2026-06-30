@@ -23,7 +23,7 @@ const createRaceSchema = z.object({
   elevationGainM: z.coerce.number().nonnegative().default(0),
   elevationLossM: z.coerce.number().nonnegative().nullable().optional(),
   locationText: optionalTextOrNull,
-  raceDate: optionalTextOrNull,
+  raceDate: z.string().trim().min(1),
   thumbnailUrl: optionalTextOrNull,
   isLive: z.boolean().optional().default(false),
   organizerDetails: organizerRaceDetailsSchema.optional(),

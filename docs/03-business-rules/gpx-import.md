@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-06-25
+last_verified: 2026-06-30
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -125,6 +125,8 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 `GET` on the same route requires the same organizer access, reads the existing private source GPX, reparses it, and returns the same preview payload without adding a `races.elevation_profile` column.
 
 Existing saved plans are not rewritten after organizer GPX replacement. They keep their copied `plan-gpx` object, `elevation_profile`, `planner_values`, and `plan_aid_stations`.
+
+For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists. After the format is created, the pending file is still uploaded through `/api/organizer/races/[id]/gpx` so the same stats are persisted on `races` and eligible waypoint ravitos can be created.
 
 ## Review Flow Conflict
 
