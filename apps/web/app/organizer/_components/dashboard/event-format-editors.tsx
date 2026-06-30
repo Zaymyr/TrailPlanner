@@ -253,69 +253,86 @@ function RaceForm({
   const previewRace = buildPreviewRace(values, hasGpx);
 
   return (
-    <form className="rounded-lg border border-border bg-background p-4" onSubmit={onSubmit}>
-      <div className="mb-3">
+    <form className="space-y-4" onSubmit={onSubmit}>
+      <div>
         <p className="font-semibold text-foreground">{title}</p>
       </div>
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
-        <div className="grid gap-3 lg:grid-cols-4">
-          <div className="lg:col-span-2">
-            <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+        <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+          <div className="grid gap-3 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
+            </div>
+            <div className="lg:col-span-3">
+              <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
+            </div>
+            <div className="lg:col-span-2">
+              <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
+            </div>
+            <div className="lg:col-span-2">
+              <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
+            </div>
+            <div className="lg:col-span-4">
+              <TextField
+                label={requireRaceDate ? "Date de course" : "Date du format"}
+                type="date"
+                value={values.raceDate}
+                onChange={(value) => onChange({ ...values, raceDate: value })}
+                required={requireRaceDate}
+                invalid={missingRaceDate}
+              />
+            </div>
+            <div className="lg:col-span-8">
+              <AddressAutocompleteField
+                label="Lieu du format"
+                value={values.locationText}
+                location={values.organizerDetails.raceLocation}
+                biasLocation={biasLocation ?? undefined}
+                onChange={(value) => onChange({ ...values, locationText: value })}
+                onLocationChange={(raceLocation) =>
+                  onChange({
+                    ...values,
+                    organizerDetails: {
+                      ...values.organizerDetails,
+                      raceLocation,
+                    },
+                  })
+                }
+              />
+            </div>
           </div>
-          <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
-          <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
-          <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
-          <TextField
-            label={requireRaceDate ? "Date de course" : "Date du format"}
-            type="date"
-            value={values.raceDate}
-            onChange={(value) => onChange({ ...values, raceDate: value })}
-            required={requireRaceDate}
-            invalid={missingRaceDate}
-          />
-          <div className="lg:col-span-3">
-            <AddressAutocompleteField
-              label="Lieu du format"
-              value={values.locationText}
-              location={values.organizerDetails.raceLocation}
-              biasLocation={biasLocation ?? undefined}
-              onChange={(value) => onChange({ ...values, locationText: value })}
-              onLocationChange={(raceLocation) =>
-                onChange({
-                  ...values,
-                  organizerDetails: {
-                    ...values.organizerDetails,
-                    raceLocation,
-                  },
-                })
-              }
-            />
-          </div>
-          <div className="space-y-2 lg:col-span-4">
-            <Label>Image format</Label>
-            {values.thumbnailUrl ? (
-              <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
-                <img src={values.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+          <div className="border-t border-border/60 pt-4">
+            <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
+              <div className="space-y-2">
+                <Label>Image format</Label>
+                {values.thumbnailUrl ? (
+                  <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-muted">
+                    <img src={values.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ) : (
+                  <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/60 px-3 text-sm text-muted-foreground">
+                    {pendingImageName ? pendingImageName : "Aucune image"}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="flex h-20 w-full items-center rounded-md border border-dashed border-border bg-muted px-3 text-sm text-muted-foreground sm:w-56">
-                {pendingImageName ? pendingImageName : "Aucune image"}
+              <div className="space-y-2">
+                <Label>Fichier image</Label>
+                <Input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/avif"
+                  onChange={onImageChange}
+                  disabled={disabled}
+                  className="max-w-md"
+                />
+                <p className="text-xs text-muted-foreground">
+                  JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
+                  {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}
+                </p>
               </div>
-            )}
-            <Input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/avif"
-              onChange={onImageChange}
-              disabled={disabled}
-              className="max-w-sm"
-            />
-            <p className="text-xs text-muted-foreground">
-              JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
-              {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}
-            </p>
+            </div>
           </div>
           {!hideSubmit ? (
-            <div className="flex items-end lg:col-span-4">
+            <div className="flex items-end pt-1">
               <Button type="submit" disabled={disabled}>
                 {submitLabel}
               </Button>
@@ -371,21 +388,25 @@ function OrganizerGpxPanel({
   hasGpx: boolean;
 }) {
   return (
-    <div className="space-y-4 rounded-lg border border-border bg-background p-4">
-      <div className="space-y-3">
-        <div>
-          <p className="font-semibold text-foreground">{title}</p>
-          <p className="text-sm text-muted-foreground">{statusText}</p>
+    <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4 xl:sticky xl:top-4">
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-semibold text-foreground">{title}</p>
+            {statusText ? <span className="text-xs font-medium text-muted-foreground">{statusText}</span> : null}
+          </div>
+          <p className="text-xs text-muted-foreground">Importe un `.gpx` pour visualiser le parcours et preremplir les metriques.</p>
         </div>
-        <div className="rounded-md border border-dashed border-border bg-muted/50 p-3">
+        <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
           <p className="text-sm font-medium text-foreground">{fileLabel}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Importe un `.gpx` pour voir le parcours, la carte et la courbe sur la droite.</p>
+          <Input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} />
         </div>
-        <Input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} className="max-w-sm" />
+        <div className="space-y-3 border-t border-border/60 pt-4">
+          <MiniGpxMap preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
+          <MiniElevationProfile preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
+        </div>
       </div>
-      <MiniGpxMap preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
-      <MiniElevationProfile preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
-    </div>
+    </aside>
   );
 }
 
@@ -405,11 +426,11 @@ function MiniElevationProfile({
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaitra apres l'ajout d'un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La courbe apparaitra apres l'ajout d'un GPX.</div>;
   }
 
   if (!hasProfile) {
-    return <div className="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX present. Courbe de niveau indisponible pour ce fichier.</div>;
+    return <div className="rounded-md border border-border/70 bg-background px-3 py-4 text-sm text-muted-foreground">GPX present. Courbe de niveau indisponible pour ce fichier.</div>;
   }
 
   const width = 720;
@@ -433,14 +454,14 @@ function MiniElevationProfile({
   const areaPath = `${path} L${xScale(lastProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} L${xScale(firstProfilePoint?.distanceKm ?? 0).toFixed(1)},${height - paddingBottom} Z`;
 
   return (
-    <div className="rounded-md border border-border bg-card p-3">
+    <section className="rounded-md border border-border/70 bg-background px-3 py-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-        <p className="font-semibold text-foreground">Courbe de niveau</p>
+        <p className="font-semibold text-foreground">Profil altitude</p>
         <p className="text-xs font-medium text-muted-foreground">
           {formatKm(distanceKm)} - D+ {Math.round(gainM)} m - D- {Math.round(lossM)} m
         </p>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img" aria-label="Courbe de niveau GPX">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full" role="img" aria-label="Courbe de niveau GPX">
         <defs>
           <linearGradient id="organizerElevationGradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#2f5d1e" stopOpacity="0.25" />
@@ -477,7 +498,7 @@ function MiniElevationProfile({
           {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito detecte{preview.detectedAidStations.length > 1 ? "s" : ""}.
         </p>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -496,27 +517,27 @@ function MiniGpxMap({
   );
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La carte apparaitra apres l'ajout d'un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La carte apparaitra apres l'ajout d'un GPX.</div>;
   }
 
   if (points.length < 2) {
-    return <div className="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX present. Carte du parcours indisponible pour ce fichier.</div>;
+    return <div className="rounded-md border border-border/70 bg-background px-3 py-4 text-sm text-muted-foreground">GPX present. Carte du parcours indisponible pour ce fichier.</div>;
   }
 
   return (
-    <div className="rounded-md border border-border bg-card p-3">
+    <section className="rounded-md border border-border/70 bg-background px-3 py-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Carte du parcours</p>
         <p className="text-xs font-medium text-muted-foreground">
           {formatKm(preview?.stats?.distanceKm ?? activeRace.distance_km)} - {points.length} points
         </p>
       </div>
-      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-52" />
-      <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-64" />
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>Vert: depart</span>
         <span>Rouge: arrivee</span>
-        {preview?.detectedAidStations.length ? <span>Points orange: ravitos detectes</span> : null}
+        {preview?.detectedAidStations.length ? <span>Orange: ravitos detectes</span> : null}
       </div>
-    </div>
+    </section>
   );
 }
