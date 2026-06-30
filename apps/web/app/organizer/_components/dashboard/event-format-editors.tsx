@@ -199,6 +199,9 @@ export function FormatsEditor({
               preview={gpxPreview}
               activeRace={activeRace}
               hasGpx={Boolean(activeRace.gpx_storage_path)}
+              pendingImageName={null}
+              thumbnailUrl={raceForm.thumbnailUrl}
+              onImageChange={onUploadRaceImage}
             />
           )}
         </div>
@@ -254,11 +257,16 @@ function RaceForm({
 
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
-      <div>
+      <div className="space-y-1">
         <p className="font-semibold text-foreground">{title}</p>
+        <p className="text-sm text-muted-foreground">1. Ajoute les fichiers. 2. Renseigne les infos du format. 3. Verifie le parcours et le profil.</p>
       </div>
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
         <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations du format</p>
+            <p className="text-sm text-muted-foreground">Nom, metriques, date et lieu du parcours.</p>
+          </div>
           <div className="grid gap-3 lg:grid-cols-12">
             <div className="lg:col-span-5">
               <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
@@ -301,36 +309,6 @@ function RaceForm({
               />
             </div>
           </div>
-          <div className="border-t border-border/60 pt-4">
-            <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start">
-              <div className="space-y-2">
-                <Label>Image format</Label>
-                {values.thumbnailUrl ? (
-                  <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-muted">
-                    <img src={values.thumbnailUrl} alt="" className="h-full w-full object-cover" />
-                  </div>
-                ) : (
-                  <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/60 px-3 text-sm text-muted-foreground">
-                    {pendingImageName ? pendingImageName : "Aucune image"}
-                  </div>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label>Fichier image</Label>
-                <Input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/avif"
-                  onChange={onImageChange}
-                  disabled={disabled}
-                  className="max-w-md"
-                />
-                <p className="text-xs text-muted-foreground">
-                  JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
-                  {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}
-                </p>
-              </div>
-            </div>
-          </div>
           {!hideSubmit ? (
             <div className="flex items-end pt-1">
               <Button type="submit" disabled={disabled}>
@@ -349,9 +327,31 @@ function RaceForm({
             preview={gpxPreview}
             activeRace={previewRace}
             hasGpx={hasGpx}
+            pendingImageName={pendingImageName}
+            thumbnailUrl={values.thumbnailUrl}
+            onImageChange={onImageChange}
           />
         ) : null}
       </div>
+      {onGpxChange ? (
+        <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parcours</p>
+              <p className="text-sm text-muted-foreground">La carte et le profil prennent plus de place pour controler le GPX avant validation.</p>
+            </div>
+            {hasGpx && gpxPreview?.stats ? (
+              <p className="text-xs font-medium text-muted-foreground">
+                {formatKm(gpxPreview.stats.distanceKm)} - D+ {Math.round(gpxPreview.stats.gainM)} m - D- {Math.round(gpxPreview.stats.lossM)} m
+              </p>
+            ) : null}
+          </div>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
+            <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
+            <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
+          </div>
+        </div>
+      ) : null}
     </form>
   );
 }
@@ -377,6 +377,9 @@ function OrganizerGpxPanel({
   preview,
   activeRace,
   hasGpx,
+  pendingImageName,
+  thumbnailUrl,
+  onImageChange,
 }: {
   title: string;
   statusText?: string;
@@ -386,6 +389,9 @@ function OrganizerGpxPanel({
   preview: GpxPreview | null;
   activeRace: RaceFormat;
   hasGpx: boolean;
+  pendingImageName?: string | null;
+  thumbnailUrl?: string | null;
+  onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
   return (
     <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4 xl:sticky xl:top-4">
@@ -395,15 +401,40 @@ function OrganizerGpxPanel({
             <p className="font-semibold text-foreground">{title}</p>
             {statusText ? <span className="text-xs font-medium text-muted-foreground">{statusText}</span> : null}
           </div>
-          <p className="text-xs text-muted-foreground">Importe un `.gpx` pour visualiser le parcours et preremplir les metriques.</p>
+          <p className="text-xs text-muted-foreground">Commence par les fichiers: GPX d'abord, image ensuite si besoin.</p>
         </div>
         <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 1</p>
           <p className="text-sm font-medium text-foreground">{fileLabel}</p>
           <Input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} />
         </div>
-        <div className="space-y-3 border-t border-border/60 pt-4">
-          <MiniGpxMap preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
-          <MiniElevationProfile preview={preview} activeRace={activeRace} hasGpx={hasGpx} />
+        <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
+              <span className="text-xs text-muted-foreground">Optionnel</span>
+            </div>
+            <Label>Image format</Label>
+            {thumbnailUrl ? (
+              <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-muted">
+                <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+              </div>
+            ) : (
+              <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/60 px-3 text-sm text-muted-foreground">
+                {pendingImageName ? pendingImageName : "Aucune image"}
+              </div>
+            )}
+            <Input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/avif"
+              onChange={onImageChange}
+              disabled={disabled}
+            />
+            <p className="text-xs text-muted-foreground">
+              JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
+              {pendingImageName && !thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}
+            </p>
+          </div>
         </div>
       </div>
     </aside>
@@ -461,7 +492,7 @@ function MiniElevationProfile({
           {formatKm(distanceKm)} - D+ {Math.round(gainM)} m - D- {Math.round(lossM)} m
         </p>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-36 w-full" role="img" aria-label="Courbe de niveau GPX">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img" aria-label="Courbe de niveau GPX">
         <defs>
           <linearGradient id="organizerElevationGradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#2f5d1e" stopOpacity="0.25" />
@@ -532,7 +563,7 @@ function MiniGpxMap({
           {formatKm(preview?.stats?.distanceKm ?? activeRace.distance_km)} - {points.length} points
         </p>
       </div>
-      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-64" />
+      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[26rem]" />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>Vert: depart</span>
         <span>Rouge: arrivee</span>
