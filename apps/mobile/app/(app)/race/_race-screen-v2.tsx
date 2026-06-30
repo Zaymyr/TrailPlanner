@@ -587,7 +587,7 @@ export default function RaceScreenV2() {
 
           <View style={styles.stickyFooter}>
             <TouchableOpacity style={styles.startButton} onPress={() => setShowConfig(true)}>
-              <Text style={styles.startButtonText}>Demarrer le suivi live</Text>
+              <Text style={styles.startButtonText}>Démarrer le suivi live</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -680,7 +680,7 @@ export default function RaceScreenV2() {
               <Text style={styles.waterToggleText}>
                 {includeWaterOnlyAlerts
                   ? `Toutes les ${waterOnlyReminderIntervalMinutes} min pour les prochains rappels.`
-                  : "Les prochains rappels d'eau seule sont coupes."}
+                  : "Les prochains rappels d'eau seule sont coupés."}
               </Text>
             </View>
             <View style={[styles.waterToggleSwitch, includeWaterOnlyAlerts && styles.waterToggleSwitchActive]}>
@@ -734,7 +734,7 @@ export default function RaceScreenV2() {
           <LiveFuelGauge key={metric.key} metric={metric} />
         ))}
 
-        <Text style={styles.sectionHeading}>A venir</Text>
+        <Text style={styles.sectionHeading}>À venir</Text>
         {(stats?.upcomingAlerts ?? []).length === 0 ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyText}>Aucun rappel en attente.</Text>
@@ -754,7 +754,7 @@ export default function RaceScreenV2() {
         <Text style={styles.sectionHeading}>Prises recentes</Text>
         {(stats?.recentIntakes ?? []).length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyText}>Aucune prise confirmee pour le moment.</Text>
+            <Text style={styles.emptyText}>Aucune prise confirmée pour le moment.</Text>
           </View>
         ) : (
           stats?.recentIntakes.map((intake) => (

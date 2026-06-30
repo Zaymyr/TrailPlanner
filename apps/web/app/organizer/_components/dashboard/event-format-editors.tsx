@@ -91,6 +91,7 @@ export function FormatsEditor({
   raceForm,
   newRaceForm,
   newRaceImageName,
+  newRaceGpxName,
   showRaceDetails,
   onToggleRaceDetails,
   onRaceFormChange,
@@ -98,6 +99,7 @@ export function FormatsEditor({
   onCreateRace,
   onUploadRaceImage,
   onSelectNewRaceImage,
+  onSelectNewRaceGpx,
   onUploadGpx,
   onDuplicateRace,
   onDeleteRace,
@@ -110,6 +112,7 @@ export function FormatsEditor({
   raceForm: RaceFormValues;
   newRaceForm: RaceFormValues;
   newRaceImageName: string | null;
+  newRaceGpxName: string | null;
   showRaceDetails: boolean;
   onToggleRaceDetails: () => void;
   onRaceFormChange: (next: Partial<RaceFormValues>) => void;
@@ -117,6 +120,7 @@ export function FormatsEditor({
   onCreateRace: (event: FormEvent<HTMLFormElement>) => void;
   onUploadRaceImage: (event: ChangeEvent<HTMLInputElement>) => void;
   onSelectNewRaceImage: (event: ChangeEvent<HTMLInputElement>) => void;
+  onSelectNewRaceGpx: (event: ChangeEvent<HTMLInputElement>) => void;
   onUploadGpx: (event: ChangeEvent<HTMLInputElement>) => void;
   onDuplicateRace: () => void;
   onDeleteRace: () => void;
@@ -132,9 +136,11 @@ export function FormatsEditor({
           values={newRaceForm}
           biasLocation={null}
           pendingImageName={newRaceImageName}
+          pendingGpxName={newRaceGpxName}
           onChange={(values) => onNewRaceFormChange(values)}
           onSubmit={onCreateRace}
           onImageChange={onSelectNewRaceImage}
+          onGpxChange={onSelectNewRaceGpx}
           submitLabel="Ajouter"
           disabled={status === "saving" || status === "uploading"}
         />
@@ -198,9 +204,11 @@ function RaceForm({
   onChange,
   onSubmit,
   onImageChange,
+  onGpxChange,
   submitLabel,
   disabled,
   pendingImageName,
+  pendingGpxName,
   hideSubmit = false,
 }: {
   title: string;
@@ -209,9 +217,11 @@ function RaceForm({
   onChange: (values: RaceFormValues) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onGpxChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   submitLabel: string;
   disabled?: boolean;
   pendingImageName?: string | null;
+  pendingGpxName?: string | null;
   hideSubmit?: boolean;
 }) {
   const missingName = !values.name.trim();
@@ -272,6 +282,19 @@ function RaceForm({
             {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyée après la création du format." : ""}
           </p>
         </div>
+        {onGpxChange ? (
+          <div className="space-y-2 lg:col-span-3">
+            <Label>GPX format</Label>
+            <div className="flex h-20 w-full items-center rounded-md border border-dashed border-border bg-muted px-3 text-sm text-muted-foreground">
+              {pendingGpxName ? pendingGpxName : "Aucun GPX"}
+            </div>
+            <Input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} className="max-w-sm" />
+            <p className="text-xs text-muted-foreground">
+              GPX uniquement.
+              {pendingGpxName ? " Le GPX sera importe juste apres la creation du format." : ""}
+            </p>
+          </div>
+        ) : null}
         {!hideSubmit ? (
           <div className="flex items-end">
             <Button type="submit" disabled={disabled}>
