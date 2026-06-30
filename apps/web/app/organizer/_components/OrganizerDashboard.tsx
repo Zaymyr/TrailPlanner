@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { GpxParseError, parseGpx } from "../../../lib/gpx/parseGpx";
 import { type FuelType } from "../../../lib/fuel-types";
+import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWaypoints";
 import {
   applyCommonEquipmentToRace,
   deriveCommonEquipmentFromRaces,
@@ -726,12 +727,29 @@ export function OrganizerDashboard() {
     }
     try {
       const parsed = parseGpx(await file.text());
+      const detectedAidStations =
+        parsed.pointSource !== "waypoint" && parsed.waypoints.length > 0
+          ? normalizeImportedWaypoints(parsed.points, parsed.waypoints).aidStations.map((station) => ({
+              name: station.name,
+              distanceKm: station.distanceKm,
+            }))
+          : [];
       setNewRaceForm((current) => ({
         ...current,
         distanceKm: parsed.stats.distanceKm,
         elevationGainM: Math.round(parsed.stats.gainM),
         elevationLossM: Math.round(parsed.stats.lossM).toString(),
       }));
+      setGpxPreview({
+        stats: parsed.stats,
+        elevationProfile: parsed.points.map((point) => ({
+          distanceKm: point.distKmCum,
+          elevationM: point.ele ?? 0,
+          lat: point.lat,
+          lon: point.lng,
+        })),
+        detectedAidStations,
+      });
       setNewRaceGpxFile(file);
       showToast("success", "GPX analysé. Distance et dénivelés préremplis.");
     } catch (error) {
