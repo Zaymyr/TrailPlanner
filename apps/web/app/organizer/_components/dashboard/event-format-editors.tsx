@@ -143,6 +143,7 @@ export function FormatsEditor({
           onGpxChange={onSelectNewRaceGpx}
           submitLabel="Ajouter"
           disabled={status === "saving" || status === "uploading"}
+          requireRaceDate
         />
       ) : activeRace ? (
         <div className="space-y-4">
@@ -210,6 +211,7 @@ function RaceForm({
   pendingImageName,
   pendingGpxName,
   hideSubmit = false,
+  requireRaceDate = false,
 }: {
   title: string;
   values: RaceFormValues;
@@ -223,10 +225,12 @@ function RaceForm({
   pendingImageName?: string | null;
   pendingGpxName?: string | null;
   hideSubmit?: boolean;
+  requireRaceDate?: boolean;
 }) {
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
   const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
+  const missingRaceDate = requireRaceDate && !values.raceDate.trim();
 
   return (
     <form className="rounded-lg border border-border bg-background p-4" onSubmit={onSubmit}>
@@ -240,7 +244,14 @@ function RaceForm({
         <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
         <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
         <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
-        <TextField label="Date optionnelle" type="date" value={values.raceDate} onChange={(value) => onChange({ ...values, raceDate: value })} />
+        <TextField
+          label={requireRaceDate ? "Date de course" : "Date du format"}
+          type="date"
+          value={values.raceDate}
+          onChange={(value) => onChange({ ...values, raceDate: value })}
+          required={requireRaceDate}
+          invalid={missingRaceDate}
+        />
         <div className="lg:col-span-2">
           <AddressAutocompleteField
             label="Lieu du format"

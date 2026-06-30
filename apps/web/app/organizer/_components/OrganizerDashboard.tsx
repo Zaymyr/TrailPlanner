@@ -5,6 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { GpxParseError, parseGpx } from "../../../lib/gpx/parseGpx";
 import { type FuelType } from "../../../lib/fuel-types";
 import {
   applyCommonEquipmentToRace,
@@ -503,6 +504,10 @@ export function OrganizerDashboard() {
   const createRace = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!accessToken || !selectedEventId) return;
+    if (!newRaceForm.raceDate.trim()) {
+      showToast("error", "Ajoute la date de course avant de créer le format.");
+      return;
+    }
     setStatus("saving");
     setError(null);
     try {
@@ -710,7 +715,7 @@ export function OrganizerDashboard() {
     event.target.value = "";
   };
 
-  const selectNewRaceGpx = (event: ChangeEvent<HTMLInputElement>) => {
+  const selectNewRaceGpx = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     if (!file) return;
     const isGpxFile = file.name.toLowerCase().endsWith(".gpx") || file.type === "application/gpx+xml";
@@ -719,8 +724,23 @@ export function OrganizerDashboard() {
       event.target.value = "";
       return;
     }
-    setNewRaceGpxFile(file);
-    event.target.value = "";
+    try {
+      const parsed = parseGpx(await file.text());
+      setNewRaceForm((current) => ({
+        ...current,
+        distanceKm: parsed.stats.distanceKm,
+        elevationGainM: Math.round(parsed.stats.gainM),
+        elevationLossM: Math.round(parsed.stats.lossM).toString(),
+      }));
+      setNewRaceGpxFile(file);
+      showToast("success", "GPX analysé. Distance et dénivelés préremplis.");
+    } catch (error) {
+      const message =
+        error instanceof GpxParseError ? error.message : error instanceof Error ? error.message : "Impossible de lire le GPX.";
+      showToast("error", message);
+    } finally {
+      event.target.value = "";
+    }
   };
 
   const deleteActiveRace = async () => {
