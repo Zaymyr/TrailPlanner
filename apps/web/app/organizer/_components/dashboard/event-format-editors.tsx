@@ -346,10 +346,8 @@ function RaceForm({
               </p>
             ) : null}
           </div>
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
-            <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
-          </div>
+          <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
+          <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
         </div>
       ) : null}
     </form>
@@ -492,7 +490,7 @@ function MiniElevationProfile({
           {formatKm(distanceKm)} - D+ {Math.round(gainM)} m - D- {Math.round(lossM)} m
         </p>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img" aria-label="Courbe de niveau GPX">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img" aria-label="Courbe de niveau GPX">
         <defs>
           <linearGradient id="organizerElevationGradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#2f5d1e" stopOpacity="0.25" />
@@ -563,7 +561,7 @@ function MiniGpxMap({
           {formatKm(preview?.stats?.distanceKm ?? activeRace.distance_km)} - {points.length} points
         </p>
       </div>
-      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[26rem]" />
+      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[34rem]" />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
         <span>Vert: depart</span>
         <span>Rouge: arrivee</span>
