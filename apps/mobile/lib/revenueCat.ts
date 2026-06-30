@@ -4,6 +4,7 @@ import type {
   CustomerInfo,
   CustomerInfoUpdateListener,
   PurchasesError,
+  PurchasesOfferings,
   PurchasesOffering,
   PurchasesPackage,
 } from 'react-native-purchases';
@@ -120,6 +121,18 @@ export function pickRevenueCatPrimaryPackage(offering: PurchasesOffering | null 
   );
 }
 
+function pickRevenueCatFallbackOffering(offerings: PurchasesOfferings | null | undefined) {
+  if (!offerings) return null;
+
+  if (offerings.current) {
+    return offerings.current;
+  }
+
+  return (
+    Object.values(offerings.all).find((offering) => offering.availablePackages.length > 0) ?? null
+  );
+}
+
 export async function getRevenueCatCustomerInfo(userId: string) {
   const Purchases = await ensureRevenueCatConfigured(userId);
   if (!Purchases) return null;
@@ -130,7 +143,7 @@ export async function getRevenueCatCurrentOffering(userId: string) {
   const Purchases = await ensureRevenueCatConfigured(userId);
   if (!Purchases) return null;
   const offerings = await Purchases.getOfferings();
-  return offerings.current;
+  return pickRevenueCatFallbackOffering(offerings);
 }
 
 export async function purchaseRevenueCatPackage(userId: string, selectedPackage: PurchasesPackage) {
