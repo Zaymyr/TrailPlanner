@@ -262,53 +262,56 @@ function RaceForm({
         <p className="text-sm text-muted-foreground">1. Ajoute les fichiers. 2. Renseigne les infos du format. 3. Verifie le parcours et le profil.</p>
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
-        <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations du format</p>
-            <p className="text-sm text-muted-foreground">Nom, metriques, date et lieu du parcours.</p>
+        <div className="space-y-4">
+          <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations du format</p>
+              <p className="text-sm text-muted-foreground">Nom, metriques, date et lieu du parcours.</p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-12">
+              <div className="lg:col-span-5">
+                <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
+              </div>
+              <div className="lg:col-span-3">
+                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
+              </div>
+              <div className="lg:col-span-2">
+                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
+              </div>
+              <div className="lg:col-span-2">
+                <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
+              </div>
+              <div className="lg:col-span-4">
+                <TextField
+                  label={requireRaceDate ? "Date de course" : "Date du format"}
+                  type="date"
+                  value={values.raceDate}
+                  onChange={(value) => onChange({ ...values, raceDate: value })}
+                  required={requireRaceDate}
+                  invalid={missingRaceDate}
+                />
+              </div>
+              <div className="lg:col-span-8">
+                <AddressAutocompleteField
+                  label="Lieu du format"
+                  value={values.locationText}
+                  location={values.organizerDetails.raceLocation}
+                  biasLocation={biasLocation ?? undefined}
+                  onChange={(value) => onChange({ ...values, locationText: value })}
+                  onLocationChange={(raceLocation) =>
+                    onChange({
+                      ...values,
+                      organizerDetails: {
+                        ...values.organizerDetails,
+                        raceLocation,
+                      },
+                    })
+                  }
+                />
+              </div>
+            </div>
           </div>
-          <div className="grid gap-3 lg:grid-cols-12">
-            <div className="lg:col-span-5">
-              <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
-            </div>
-            <div className="lg:col-span-3">
-              <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
-            </div>
-            <div className="lg:col-span-2">
-              <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
-            </div>
-            <div className="lg:col-span-2">
-              <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
-            </div>
-            <div className="lg:col-span-4">
-              <TextField
-                label={requireRaceDate ? "Date de course" : "Date du format"}
-                type="date"
-                value={values.raceDate}
-                onChange={(value) => onChange({ ...values, raceDate: value })}
-                required={requireRaceDate}
-                invalid={missingRaceDate}
-              />
-            </div>
-            <div className="lg:col-span-8">
-              <AddressAutocompleteField
-                label="Lieu du format"
-                value={values.locationText}
-                location={values.organizerDetails.raceLocation}
-                biasLocation={biasLocation ?? undefined}
-                onChange={(value) => onChange({ ...values, locationText: value })}
-                onLocationChange={(raceLocation) =>
-                  onChange({
-                    ...values,
-                    organizerDetails: {
-                      ...values.organizerDetails,
-                      raceLocation,
-                    },
-                  })
-                }
-              />
-            </div>
-          </div>
+          {onGpxChange ? <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} /> : null}
           {!hideSubmit ? (
             <div className="flex items-end pt-1">
               <Button type="submit" disabled={disabled}>
@@ -338,15 +341,9 @@ function RaceForm({
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parcours</p>
-              <p className="text-sm text-muted-foreground">La carte et le profil prennent plus de place pour controler le GPX avant validation.</p>
+              <p className="text-sm text-muted-foreground">La carte prend toute la largeur pour verifier le trace plus confortablement.</p>
             </div>
-            {hasGpx && gpxPreview?.stats ? (
-              <p className="text-xs font-medium text-muted-foreground">
-                {formatKm(gpxPreview.stats.distanceKm)} - D+ {Math.round(gpxPreview.stats.gainM)} m - D- {Math.round(gpxPreview.stats.lossM)} m
-              </p>
-            ) : null}
           </div>
-          <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
           <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
         </div>
       ) : null}
@@ -486,11 +483,9 @@ function MiniElevationProfile({
     <section className="rounded-md border border-border/70 bg-background px-3 py-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Profil altitude</p>
-        <p className="text-xs font-medium text-muted-foreground">
-          {formatKm(distanceKm)} - D+ {Math.round(gainM)} m - D- {Math.round(lossM)} m
-        </p>
+        <p className="text-xs font-medium text-muted-foreground">{formatKm(distanceKm)}</p>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-44 w-full" role="img" aria-label="Courbe de niveau GPX">
+      <svg viewBox={`0 0 ${width} ${height}`} className="h-48 w-full" role="img" aria-label="Courbe de niveau GPX">
         <defs>
           <linearGradient id="organizerElevationGradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#2f5d1e" stopOpacity="0.25" />
@@ -558,7 +553,7 @@ function MiniGpxMap({
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Carte du parcours</p>
         <p className="text-xs font-medium text-muted-foreground">
-          {formatKm(preview?.stats?.distanceKm ?? activeRace.distance_km)} - {points.length} points
+          {points.length} points
         </p>
       </div>
       <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[34rem]" />
