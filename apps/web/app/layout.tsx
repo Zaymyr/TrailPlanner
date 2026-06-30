@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
 import React from "react";
 import { I18nProvider } from "./i18n-provider";
 import { Analytics } from "./analytics";
