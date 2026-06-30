@@ -45,6 +45,25 @@ const DEFAULT_STATE: BillingState = {
 export function useRevenueCatBilling() {
   const [state, setState] = useState<BillingState>(DEFAULT_STATE);
 
+  async function loadBillingSnapshot(userId: string) {
+    const [customerInfo, offering] = await Promise.all([
+      getRevenueCatCustomerInfo(userId).catch((error) => {
+        console.warn('Unable to load RevenueCat customer info.', error);
+        return null;
+      }),
+      getRevenueCatCurrentOffering(userId).catch((error) => {
+        console.warn('Unable to load RevenueCat offering.', error);
+        return null;
+      }),
+    ]);
+
+    return {
+      customerInfo,
+      offering,
+      currentPackage: pickRevenueCatPrimaryPackage(offering),
+    };
+  }
+
   async function syncRevenueCatStateToServer(customerInfo: CustomerInfo | null | undefined) {
     if (!customerInfo) return;
 
@@ -100,20 +119,9 @@ export function useRevenueCatBilling() {
         return;
       }
 
-      const [customerInfo, offering] = await Promise.all([
-        getRevenueCatCustomerInfo(user.id).catch((error) => {
-          console.warn('Unable to load RevenueCat customer info.', error);
-          return null;
-        }),
-        getRevenueCatCurrentOffering(user.id).catch((error) => {
-          console.warn('Unable to load RevenueCat offering.', error);
-          return null;
-        }),
-      ]);
+      const { customerInfo, offering, currentPackage } = await loadBillingSnapshot(user.id);
 
       if (cancelled) return;
-
-      const nextPackage = pickRevenueCatPrimaryPackage(offering);
 
       await syncRevenueCatStateToServer(customerInfo);
 
@@ -123,7 +131,7 @@ export function useRevenueCatBilling() {
         isLoading: false,
         customerInfo,
         offering,
-        currentPackage: nextPackage,
+        currentPackage,
         managementUrl: customerInfo?.managementURL ?? null,
         isPremium: hasRevenueCatPremiumEntitlement(customerInfo),
       }));
@@ -177,16 +185,7 @@ export function useRevenueCatBilling() {
       return;
     }
 
-    const [customerInfo, offering] = await Promise.all([
-      getRevenueCatCustomerInfo(user.id).catch((error) => {
-        console.warn('Unable to refresh RevenueCat customer info.', error);
-        return null;
-      }),
-      getRevenueCatCurrentOffering(user.id).catch((error) => {
-        console.warn('Unable to refresh RevenueCat offering.', error);
-        return null;
-      }),
-    ]);
+    const { customerInfo, offering, currentPackage } = await loadBillingSnapshot(user.id);
 
     await syncRevenueCatStateToServer(customerInfo);
 
@@ -196,7 +195,7 @@ export function useRevenueCatBilling() {
       isLoading: false,
       customerInfo,
       offering,
-      currentPackage: pickRevenueCatPrimaryPackage(offering),
+      currentPackage,
       managementUrl: customerInfo?.managementURL ?? null,
       isPremium: hasRevenueCatPremiumEntitlement(customerInfo),
     }));
@@ -204,7 +203,6 @@ export function useRevenueCatBilling() {
 
   async function purchase(): Promise<PurchaseResult> {
     if (!canUseRevenueCat()) return 'unavailable';
-    if (!state.currentPackage) return 'unavailable';
 
     const {
       data: { user },
@@ -214,7 +212,34 @@ export function useRevenueCatBilling() {
     setState((current) => ({ ...current, isPurchasing: true }));
 
     try {
-      const result = await purchaseRevenueCatPackage(user.id, state.currentPackage);
+      let selectedPackage = state.currentPackage;
+      let currentCustomerInfo = state.customerInfo;
+
+      if (!selectedPackage) {
+        const refreshedSnapshot = await loadBillingSnapshot(user.id);
+        selectedPackage = refreshedSnapshot.currentPackage;
+        currentCustomerInfo = refreshedSnapshot.customerInfo;
+
+        setState((current) => ({
+          ...current,
+          customerInfo: refreshedSnapshot.customerInfo,
+          offering: refreshedSnapshot.offering,
+          currentPackage: refreshedSnapshot.currentPackage,
+          managementUrl: refreshedSnapshot.customerInfo?.managementURL ?? current.managementUrl,
+          isPremium: hasRevenueCatPremiumEntitlement(refreshedSnapshot.customerInfo),
+        }));
+      }
+
+      if (!selectedPackage) {
+        setState((current) => ({
+          ...current,
+          isPurchasing: false,
+          managementUrl: currentCustomerInfo?.managementURL ?? current.managementUrl,
+        }));
+        return 'unavailable';
+      }
+
+      const result = await purchaseRevenueCatPackage(user.id, selectedPackage);
       const customerInfo = result?.customerInfo ?? null;
 
       await syncRevenueCatStateToServer(customerInfo);
