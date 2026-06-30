@@ -90,6 +90,7 @@ where event_id = '<event-id>';
 - The FK targets `user_profiles(user_id)`, so profile bootstrap must exist before creating favorites.
 - Do not expose cross-user favorite lists to organizers directly; organizer UI should show only aggregate counts.
 - Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.
+- Favoriting affects ordering only; it must not change the compact organizer-update preview contract or trigger a separate history load by itself.
 
 ## Related Docs
 

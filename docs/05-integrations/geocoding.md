@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-06-29
+last_verified: 2026-06-30
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -41,6 +41,8 @@ The current organizer flow is:
 8. The mobile Racebook can reuse the same stored Google Maps URL for bib pickup plus start/finish rows.
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
+
+The add-format editor now also lets the organizer queue a GPX file before the format exists, but that upload remains a separate step from geocoding. The address autocomplete still owns only the canonical location string plus structured geocoded metadata, while the pending GPX is uploaded afterward through the organizer GPX route once the new race id exists.
 
 ## Provider Contract
 

@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-06-29
+last_verified: 2026-06-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -116,7 +116,7 @@ Approved organizers can:
 
 - edit event-level name, location, date, PNG image, live state, and common `race_events.organizer_details`;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
-- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = false` by default, and optional organizer details;
+- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = false` by default, optional organizer details, and an optional GPX file selected directly in the creation form;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links;
 - upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
@@ -127,6 +127,8 @@ Approved organizers can:
 - preview an internal runner-facing summary before a public runner page exists.
 
 The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/race/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. Address fields on those editors now share a route-local autocomplete component backed by `/api/location-search`; selecting a suggestion keeps the original text field filled for publication checks while also storing `lat/lng` plus a Google Maps URL in `organizer_details`. When a field or its surrounding event/format scope already has coordinates, the dashboard sends them as a proximity bias so nearby suggestions rank before distant but textually similar addresses. The synthesis uses inline event facts, a small live/brouillon indicator, and one publish row per scope: each event/race row shows the label first in a shared fixed-width column, then a progress bar that stretches across the available space, and finally the publish toggle. Those percentages are derived only from organizer completion fields and must not increase or decrease when an organizer flips event/race publication. The old ravito count and "a jour" status chip are no longer displayed in that top card. The first completion tab is the event scope and shows only fillable event tiles: information, equipment, bib pickup, access, and services. The following tabs are race formats and show only fillable race tiles: identity/GPX, equipment, access, and ravitos, without an extra progress bar under the tab strip because progress already lives in the top synthesis rows. The old schedule tile is gone: the ravito tile now owns the fixed `Départ` and `Arrivée` cards for `startTime` and `finishCutoffTime`, while `Horaires navettes` lives only in access. Official ravito products are managed inside that ravito module rather than through a separate products tile. Labels stay short because the active tab already provides the scope. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs or modules now attempts an autosave first and blocks the navigation when the save fails.
+
+When the organizer adds a brand-new format, the creation form can now queue both the format image and the GPX file before submission. The dashboard still creates the `races` row first, then uploads the pending GPX through `/api/organizer/races/[id]/gpx` so the format lands with parsed stats and any eligible waypoint ravitos.
 
 Approved organizers can also publish a manual event update from the top dashboard card through `Notifier les coureurs`. That action opens a modal, lets the organizer type one short runner-facing message, creates one `race_event_updates` row, and then sends push notifications only to users who favorited the event. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
 
@@ -159,7 +161,7 @@ Runner-facing preview resolves details as:
 
 The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations. The header uses the format race date plus distance, D+, D-, and start time. When the active event weather plan is `cold` or `heat`, the screen shows a dedicated compact weather alert above the last-minute message card: `Plan grand froid activé - vérifie le matériel` or `Plan grosse chaleur activé - vérifie le matériel`. Event-level `services.lastMinuteMessage`, when present, stays in its own compact alert card below that weather warning, and both alert cards render their title and message inline on the same text row; the rest of the service copy remains in the Profile tab. Start and bib sections render as table-like label/value rows. When a published organizer address includes geocoded metadata, the corresponding start, finish, or bib value is rendered like a tappable link so runners can launch navigation directly from the Racebook without a separate icon button. Equipment is shown as per-item rows sorted with active required items first, active recommended items second, and weather-muted inactive items last; status badges stay inline and right-aligned on the same row as the item label, rows do not show bullet dots, and weather-tagged items expose icon-only inline cold/heat markers while remaining grayed out whenever the active plan does not match.
 
-Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, the event sheet exposes the latest manual organizer announcements below the format list, and organizer update pushes deep-link directly into that event sheet with `/(app)/catalog?eventId=<uuid>`.
+Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, the event sheet exposes a preloaded preview of the latest manual organizer announcements below the format list with an explicit affordance to open the longer history, and organizer update pushes deep-link directly into that event sheet with `/(app)/catalog?eventId=<uuid>`.
 
 ## GPX Replacement
 
@@ -204,6 +206,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - New organizer formats should start in draft (`is_live = false`) until someone publishes them deliberately.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
 - Do not auto-create `race_event_updates` rows on every organizer save, publish toggle, image upload, or GPX replacement. Runner notifications must stay manual in v1.
+- Do not let the mobile Courses sheet grow unbounded by default. Keep the runner-facing organizer history compact on first open and reveal the longer archive only after an explicit runner action.
 - Do not add separate grants or RLS policies for organizer JSONB columns on existing source tables; route membership checks and table row policies remain the access boundary.
 - Do not auto-sync existing saved plans after organizer source edits. Official ravito product links are read-time response overlays only; service flags, GPX, station distances, pacing, and runner supplies remain stored plan data.
 - Do not use `user_metadata` for admin claim approval or revocation checks.
@@ -214,6 +217,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not bulk-duplicate common event details into every existing format except for equipment, which is intentionally mirrored into each race list so one race can later remove an item and automatically shrink the event-level shared subset.
 - Do not move the active weather plan to race scope without revisiting preview, mobile Racebook, sync, and documentation rules; the current contract is one event-level plan shared by every format.
 - Do not reintroduce a separate schedule tile or format-level bib workflow without also changing completion, autosave routing, and runner-preview resolution.
+- Do not bypass the organizer GPX route when a GPX is selected during format creation; the client still has to create the race first, then import the file server-side.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.
 - Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.

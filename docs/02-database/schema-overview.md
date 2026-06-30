@@ -53,6 +53,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Race aid station: catalog/private race aid station source, including water, solid, assistance service flags, and optional organizer detail JSON.
 - Organizer membership: event-scoped access through `race_event_organizers`.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
+- Organizer update preview: mobile preloads a short per-event preview from `race_event_updates` in the Courses catalog, then expands to the longer history only on demand.
 - Entitlement source: subscription, trial, or premium grant.
 
 ## Tables

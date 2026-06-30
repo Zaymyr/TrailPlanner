@@ -89,7 +89,8 @@ values ('<event-id>', auth.uid(), 'Retrait des dossards dès 17h.');
 ## Gotchas
 
 - Keep this table append-only in practice; editing old runner-facing announcements would make push logs misleading.
-- The mobile event sheet reads the latest updates separately from the main catalog query; do not broaden the catalog event select unnecessarily.
+- The mobile event sheet now preloads only a short recent preview from the main catalog query so the sheet can render updates immediately; keep that embedded payload intentionally small.
+- The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.
 

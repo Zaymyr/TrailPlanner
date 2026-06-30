@@ -86,6 +86,7 @@ export function OrganizerDashboard() {
   const [raceForm, setRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
   const [newRaceForm, setNewRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
   const [newRaceImageFile, setNewRaceImageFile] = useState<File | null>(null);
+  const [newRaceGpxFile, setNewRaceGpxFile] = useState<File | null>(null);
   const [showRaceDetails, setShowRaceDetails] = useState(true);
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
   const [expandedStationKey, setExpandedStationKey] = useState<string | null>(null);
@@ -289,6 +290,7 @@ export function OrganizerDashboard() {
       setEventForm(nextEventForm);
       setNewRaceForm(createRaceFormFromEventDefaults(nextEventForm));
       setNewRaceImageFile(null);
+      setNewRaceGpxFile(null);
       const preferredTabExists =
         preferredTab === EVENT_TAB_ID ||
         preferredTab === ADD_FORMAT_TAB_ID ||
@@ -525,9 +527,11 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible d'ajouter le format.");
         return;
       }
+      const gpxUpload = newRaceGpxFile ? await uploadRaceGpxFile(data.race.id, newRaceGpxFile) : { ok: true };
       const imageUploaded = newRaceImageFile ? await uploadRaceImageFile(data.race.id, newRaceImageFile) : true;
       setNewRaceForm(createEmptyRaceForm());
       setNewRaceImageFile(null);
+      setNewRaceGpxFile(null);
       setActiveTab(data.race.id);
       setActiveModule("formats");
       showToast("success", imageUploaded ? "Format ajouté." : "Format ajouté. Réessaie l'image si besoin.");
@@ -572,16 +576,36 @@ export function OrganizerDashboard() {
     }
   };
 
-  const uploadGpx = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] ?? null;
-    if (!file || !accessToken || !activeRace || !selectedEventId) return;
+  const uploadRaceGpxFile = async (raceId: string, file: File) => {
+    if (!accessToken) return { ok: false };
     setStatus("uploading");
     setError(null);
     try {
       const formData = new FormData();
       formData.append("gpx", file);
-      const response = await fetch(`/api/organizer/races/${activeRace.id}/gpx`, { method: "PUT", headers: authHeaders, body: formData });
+      const response = await fetch(`/api/organizer/races/${raceId}/gpx`, { method: "PUT", headers: authHeaders, body: formData });
       const data = (await response.json().catch(() => null)) as (GpxPreview & { message?: string; appliedAidStationCount?: number }) | null;
+      if (!response.ok) {
+        showToast("error", data?.message ?? "GPX invalide ou impossible Ã  importer.");
+        return { ok: false };
+      }
+      if (activeRace?.id === raceId) {
+        setGpxPreview(normalizeGpxPreview(data));
+      }
+      return { ok: true, data };
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const uploadGpx = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file || !activeRace || !selectedEventId) return;
+    try {
+      const result = await uploadRaceGpxFile(activeRace.id, file);
+      if (!result.ok) return;
+      const response = { ok: true } as const;
+      const data = result.data ?? null;
       if (!response.ok) {
         showToast("error", data?.message ?? "GPX invalide ou impossible à importer.");
         return;
@@ -683,6 +707,19 @@ export function OrganizerDashboard() {
       return;
     }
     setNewRaceImageFile(file);
+    event.target.value = "";
+  };
+
+  const selectNewRaceGpx = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+    const isGpxFile = file.name.toLowerCase().endsWith(".gpx") || file.type === "application/gpx+xml";
+    if (!isGpxFile) {
+      showToast("error", "Ajoute un fichier GPX valide.");
+      event.target.value = "";
+      return;
+    }
+    setNewRaceGpxFile(file);
     event.target.value = "";
   };
 
@@ -1044,6 +1081,7 @@ export function OrganizerDashboard() {
               raceForm={raceForm}
               newRaceForm={newRaceForm}
               newRaceImageName={newRaceImageFile?.name ?? null}
+              newRaceGpxName={newRaceGpxFile?.name ?? null}
               showRaceDetails={showRaceDetails}
               onToggleRaceDetails={() => setShowRaceDetails((current) => !current)}
               onRaceFormChange={(next) => updateRaceForm(next, "formats")}
@@ -1053,6 +1091,7 @@ export function OrganizerDashboard() {
                 void uploadRaceImage(event);
               }}
               onSelectNewRaceImage={selectNewRaceImage}
+              onSelectNewRaceGpx={selectNewRaceGpx}
               onUploadGpx={uploadGpx}
               onDuplicateRace={() => void duplicateActiveRace()}
               onDeleteRace={() => {
