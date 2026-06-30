@@ -49,6 +49,7 @@ type EventGroup = {
   is_live: boolean | null;
   organizer_details?: unknown;
   races: Race[];
+  updatesPreview: RaceEventUpdate[];
 };
 
 type RaceEventUpdate = {
@@ -57,6 +58,8 @@ type RaceEventUpdate = {
   message: string;
   created_at: string;
 };
+
+const ORGANIZER_UPDATES_PREVIEW_LIMIT = 3;
 
 function formatEventDate(isoDate: string | null, locale: 'fr' | 'en'): string | null {
   if (!isoDate) return null;
@@ -207,6 +210,19 @@ function sortEvents(events: EventGroup[], favoriteEventIds: string[] = []) {
     const timestampDiff = getTimestamp(left.race_date) - getTimestamp(right.race_date);
     if (timestampDiff !== 0) return timestampDiff;
     return left.name.localeCompare(right.name);
+  });
+}
+
+function sortRaceEventUpdates(updates: RaceEventUpdate[] | null | undefined) {
+  return [...(updates ?? [])].sort((left, right) => {
+    const leftTimestamp = new Date(left.created_at).getTime();
+    const rightTimestamp = new Date(right.created_at).getTime();
+
+    if (Number.isNaN(leftTimestamp) || Number.isNaN(rightTimestamp)) {
+      return right.created_at.localeCompare(left.created_at);
+    }
+
+    return rightTimestamp - leftTimestamp;
   });
 }
 
@@ -380,7 +396,9 @@ export default function CatalogScreen() {
   const [canFavoriteEvents, setCanFavoriteEvents] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<EventGroup | null>(null);
   const [selectedEventUpdates, setSelectedEventUpdates] = useState<RaceEventUpdate[]>([]);
-  const [updatesLoading, setUpdatesLoading] = useState(false);
+  const [updatesExpanded, setUpdatesExpanded] = useState(false);
+  const [updatesLoadingMore, setUpdatesLoadingMore] = useState(false);
+  const [updatesLoadedEventId, setUpdatesLoadedEventId] = useState<string | null>(null);
   const [nameFilter, setNameFilter] = useState('');
   const [distanceMinFilter, setDistanceMinFilter] = useState('');
   const [distanceMaxFilter, setDistanceMaxFilter] = useState('');
@@ -420,6 +438,12 @@ export default function CatalogScreen() {
               thumbnail_url,
               is_live,
               organizer_details,
+              race_event_updates (
+                id,
+                event_id,
+                message,
+                created_at
+              ),
               races (
                 id,
                 name,
@@ -434,6 +458,8 @@ export default function CatalogScreen() {
               )
             `)
             .eq('is_live', true)
+            .order('created_at', { referencedTable: 'race_event_updates', ascending: false })
+            .limit(ORGANIZER_UPDATES_PREVIEW_LIMIT, { referencedTable: 'race_event_updates' })
             .order('name'),
           supabase
             .from('races')
@@ -457,9 +483,21 @@ export default function CatalogScreen() {
 
         const favoriteIds = favoriteIdsResult ?? [];
         const groups = sortEvents(
-          ((eventsResult.data ?? []) as Array<Omit<EventGroup, 'races'> & { races?: Race[] | null }>).map((event) => ({
-            ...event,
+          ((eventsResult.data ?? []) as Array<
+            Omit<EventGroup, 'races' | 'updatesPreview'> & {
+              races?: Race[] | null;
+              race_event_updates?: RaceEventUpdate[] | null;
+            }
+          >).map((event) => ({
+            id: event.id,
+            name: event.name,
+            location: event.location,
+            race_date: event.race_date,
+            thumbnail_url: event.thumbnail_url,
+            is_live: event.is_live,
+            organizer_details: event.organizer_details,
             races: sortRaces((event.races ?? []) as Race[]),
+            updatesPreview: sortRaceEventUpdates(event.race_event_updates),
           })),
           favoriteIds
         );
@@ -475,6 +513,7 @@ export default function CatalogScreen() {
             is_live: true,
             organizer_details: null,
             races: orphans,
+            updatesPreview: [],
           });
         }
 
@@ -654,33 +693,18 @@ export default function CatalogScreen() {
   useEffect(() => {
     if (!selectedEvent) {
       setSelectedEventUpdates([]);
-      setUpdatesLoading(false);
+      setUpdatesExpanded(false);
+      setUpdatesLoadingMore(false);
+      setUpdatesLoadedEventId(null);
       return;
     }
 
-    let cancelled = false;
-    setUpdatesLoading(true);
-
-    void fetchRaceEventUpdates(selectedEvent.id)
-      .then((updates) => {
-        if (!cancelled) {
-          setSelectedEventUpdates(updates);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSelectedEventUpdates([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setUpdatesLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    setSelectedEventUpdates(selectedEvent.updatesPreview);
+    setUpdatesExpanded(false);
+    setUpdatesLoadingMore(false);
+    setUpdatesLoadedEventId(
+      selectedEvent.updatesPreview.length < ORGANIZER_UPDATES_PREVIEW_LIMIT ? selectedEvent.id : null
+    );
   }, [selectedEvent]);
 
   useEffect(() => {
@@ -705,6 +729,42 @@ export default function CatalogScreen() {
       setSelectedEvent(refreshedEvent);
     }
   }, [eventGroups, selectedEvent]);
+
+  const visibleSelectedEventUpdates = useMemo(
+    () =>
+      updatesExpanded
+        ? selectedEventUpdates
+        : selectedEventUpdates.slice(0, ORGANIZER_UPDATES_PREVIEW_LIMIT),
+    [selectedEventUpdates, updatesExpanded]
+  );
+  const canLoadMoreUpdates =
+    Boolean(selectedEvent) &&
+    selectedEventUpdates.length >= ORGANIZER_UPDATES_PREVIEW_LIMIT &&
+    (!updatesExpanded || updatesLoadedEventId !== selectedEvent?.id);
+
+  async function handleViewAllUpdates() {
+    if (!selectedEvent) return;
+    if (updatesLoadedEventId === selectedEvent.id) {
+      setUpdatesExpanded(true);
+      return;
+    }
+
+    setUpdatesLoadingMore(true);
+
+    try {
+      const updates = await fetchRaceEventUpdates(selectedEvent.id);
+      setSelectedEventUpdates(sortRaceEventUpdates(updates));
+      setUpdatesExpanded(true);
+      setUpdatesLoadedEventId(selectedEvent.id);
+    } catch (caught) {
+      Alert.alert(
+        locale === 'fr' ? 'Impossible de charger l’historique' : 'Unable to load update history',
+        caught instanceof Error ? caught.message : t.common.error,
+      );
+    } finally {
+      setUpdatesLoadingMore(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -979,16 +1039,25 @@ export default function CatalogScreen() {
                 />
               ))}
 
-              {updatesLoading ? (
-                <Text style={styles.eventUpdatesLoading}>
-                  {locale === 'fr' ? 'Chargement des infos organisateur...' : 'Loading organizer updates...'}
-                </Text>
-              ) : selectedEventUpdates.length > 0 ? (
+              {selectedEventUpdates.length > 0 ? (
                 <View style={styles.eventUpdatesSection}>
-                  <Text style={styles.eventUpdatesTitle}>
-                    {locale === 'fr' ? 'Dernières infos organisateur' : 'Latest organizer updates'}
-                  </Text>
-                  {selectedEventUpdates.map((update) => (
+                  <View style={styles.eventUpdatesHeader}>
+                    <Text style={styles.eventUpdatesTitle}>{t.catalog.organizerUpdatesTitle}</Text>
+                    {canLoadMoreUpdates ? (
+                      <TouchableOpacity
+                        style={styles.eventUpdatesButton}
+                        onPress={() => {
+                          void handleViewAllUpdates();
+                        }}
+                        disabled={updatesLoadingMore}
+                      >
+                        <Text style={styles.eventUpdatesButtonText}>
+                          {updatesLoadingMore ? t.catalog.organizerUpdatesLoading : t.catalog.organizerUpdatesViewAll}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  {visibleSelectedEventUpdates.map((update) => (
                     <View key={update.id} style={styles.eventUpdateCard}>
                       <Text style={styles.eventUpdateMessage}>{update.message}</Text>
                       {formatUpdateDate(update.created_at, locale) ? (
@@ -1509,16 +1578,29 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 8,
   },
+  eventUpdatesHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
   eventUpdatesTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
   },
-  eventUpdatesLoading: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 8,
+  eventUpdatesButton: {
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandBorder,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  eventUpdatesButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   eventUpdateCard: {
     gap: 6,

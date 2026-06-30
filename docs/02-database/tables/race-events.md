@@ -101,6 +101,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
 - Organizer runner notifications are manual. One send creates one `race_event_updates` row and may trigger push notifications for followers, but normal organizer saves and publish toggles must not auto-create announcements.
+- Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass; the longer history still comes from the dedicated updates route when a runner taps to see more.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location in addition to the existing plain `location` text column.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
@@ -153,6 +154,7 @@ from public.races;
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Manual organizer draft events are not public catalog rows until their `is_live` state is explicitly changed.
 - Keep favorites and organizer updates on `race_events`. The push deep link and mobile catalog sheet both target the event id, not a specific format id.
+- Keep the event-level catalog query narrow even with update previews: mobile should embed only the short recent history needed for instant sheet rendering, not the full announcement archive for every event.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
 - Publishing from the organizer route requires event name, location, start date, end date, and at least one live publishable format; event-level fields alone are not enough.
 - Do not store per-format equipment, dossard, or access differences on the event row.

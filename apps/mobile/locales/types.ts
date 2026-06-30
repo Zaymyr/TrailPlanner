@@ -556,6 +556,9 @@ export type MobileTranslations = {
     racebookUnavailableBody: string;
     createPlan: string;
     viewFormats: string;
+    organizerUpdatesTitle: string;
+    organizerUpdatesLoading: string;
+    organizerUpdatesViewAll: string;
     singleFormatLabel: string;
     multipleFormatsLabel: string;
     chooseFormatHint: string;

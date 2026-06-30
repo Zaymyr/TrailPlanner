@@ -112,7 +112,7 @@ Organizer update pushes can deep-link back into the catalog with `/(app)/catalog
 - it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
 - it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
-- it loads the latest manual organizer updates for the selected event and renders them below the format list in the sheet;
+- it preloads up to three recent manual organizer updates per live event with the main catalog query, renders that short history below the format list in the sheet, and lets runners expand to the fuller history on demand;
 - it reads `eventId` from the route params so a push notification can open the matching event directly.
 
 ## Premium and Purchases
@@ -156,6 +156,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
 - Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
 - Organizer update history in the event sheet is intentionally manual-announcement history only. Do not turn every organizer save into a runner-visible update.
+- Keep the event-sheet default compact: preload only the short organizer-update preview with the catalog query, and fetch the longer history only when the runner explicitly asks to see more.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
