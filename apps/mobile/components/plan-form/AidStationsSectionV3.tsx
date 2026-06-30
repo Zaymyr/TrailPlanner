@@ -1523,7 +1523,7 @@ export function AidStationsSectionV3({
       <View style={[styles.sectionHeader, { marginTop: 24 }]}>
         <View style={planDetailStyles.sectionHeaderTitle}>
           <TrailIcon color={colors.brand.forest} size={22} strokeWidth={2.2} />
-          <Heading variant="h2" style={planDetailStyles.sectionTitle}>
+          <Heading variant="h2" style={planDetailStyles.sectionTitle} numberOfLines={1}>
             Ravitaillements
           </Heading>
         </View>
@@ -1669,12 +1669,14 @@ export function AidStationsSectionV3({
 const planDetailStyles = StyleSheet.create({
   sectionHeaderTitle: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
     marginBottom: spacing[3],
   },
   sectionTitle: {
+    flexShrink: 1,
     color: colors.brand.forest,
   },
   stationBadge: {

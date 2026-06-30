@@ -9,6 +9,7 @@ related_files:
   - apps/mobile/eas.json
   - apps/mobile/app/_layout.tsx
   - apps/mobile/app/(app)/_layout.tsx
+  - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
@@ -107,6 +108,7 @@ Required onboarding is registered as a non-tab screen in the app layout and hide
 Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx` so the onboarding race choice uses the same event-card UX as the Courses tab.
 The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior.
 Organizer update pushes can deep-link back into the catalog with `/(app)/catalog?eventId=<uuid>`; the catalog screen reopens the matching event sheet when that query param is present.
+Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTitle.tsx` with explicit title-container insets from `apps/mobile/app/(app)/_layout.tsx`. When a screen adds extra header actions, keep enough right inset for those icons so long French titles truncate cleanly instead of overlapping the header buttons on narrow iPhones.
 
 ## Catalog and Event Sheets
 
@@ -158,6 +160,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
+- Hidden mobile detail headers should prefer one-line truncation over wrapping when the screen also shows custom left/right header actions; otherwise long French titles can overlap icons on compact iPhone widths.
 - The mobile catalog now has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details` on live formats: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. Aid stations alone are not enough to expose the mobile Racebook entry point.
 - The mobile Racebook also parses additive geocoded organizer metadata for event/format, bib pickup, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.

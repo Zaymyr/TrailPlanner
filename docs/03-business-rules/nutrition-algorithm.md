@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-06-18
+last_verified: 2026-06-30
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -272,6 +272,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Mobile plan recap/share should derive from the same saved supplies and live-section timing used by the planner/live screen. Public crew links may persist that derived recap as a bounded `plan_share_links.snapshot`, but the snapshot must not feed back into nutrition allocation. No-assistance checkpoints should stay visually muted in recaps and should not display a product handoff block.
 - Mobile favorite toggles are presentation only. Inactive product rows show an unfilled star without a filled brand circle; only active favorites use the filled brand circle.
 - Collapsed mobile brand headers depend on the same catalog row builder as virtualization; keep verified-header metadata in that single builder when resolving merges.
+- The mobile ravito section header is presentation only, but on narrow iPhones it should keep the title on one truncated line rather than wrapping into the action buttons. Do not reintroduce multi-line `Ravitaillements` headers that collide with the auto-fill or add buttons.
 - Admin-only favorite usage shown in the mobile product detail modal is operational metadata. It must not influence allocation order, product eligibility, or per-unit nutrition values.
 - Harmonized official product display names must not change the underlying nutrition math. Allocation still depends on `fuel_type`, carbs, sodium, and quantity, not on the display label shown to runners.
 - Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; duplicate aliases can break `next build` before planner or catalog pages compile.
