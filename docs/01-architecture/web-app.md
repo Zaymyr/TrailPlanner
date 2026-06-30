@@ -5,6 +5,7 @@ last_verified: 2026-06-30
 ai_priority: high
 related_files:
   - apps/web/package.json
+  - apps/web/app/layout.tsx
   - apps/web/next.config.mjs
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/hooks/useVerifiedSession.tsx
@@ -36,6 +37,8 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
   - apps/web/app/organizer/_components/dashboard/shell.tsx
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
+  - apps/web/components/gpx/GpxRouteMap.tsx
+  - apps/web/components/gpx/GpxRouteMapClient.tsx
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
@@ -176,7 +179,7 @@ Organizer edits are live source edits for `race_events`, `races`, `race_aid_stat
 
 The same approved-only dashboard now exposes a manual `Notifier les coureurs` modal. Sending from that modal creates one `race_event_updates` row, then uses `apps/web/lib/push.ts` to notify only the users who favorited that event. The push payload deep-links runners back to `/(app)/catalog?eventId=<eventId>`, and delivery is logged in `push_notification_events` as `notification_kind = 'organizer-race-update'`.
 
-For a brand-new organizer format, the add-format form may also hold a pending image and GPX file before submit. `OrganizerDashboard.tsx` parses the selected GPX in-browser to prefill distance, D+, and D- immediately, and it requires a format race date before calling the create route. The format editor now keeps race information on the left and a dedicated GPX panel on the right with upload state, a mini route map, and the elevation profile preview. After the create route returns the new `races.id`, the dashboard reuses the existing organizer image and GPX server routes to upload those files rather than writing to Storage directly from the browser.
+For a brand-new organizer format, the add-format form may also hold a pending image and GPX file before submit. `OrganizerDashboard.tsx` parses the selected GPX in-browser to prefill distance, D+, and D- immediately, and it requires a format race date before calling the create route. The format editor now keeps race information on the left and a dedicated GPX panel on the right with upload state, an interactive OpenStreetMap/Leaflet route map, and the elevation profile preview. After the create route returns the new `races.id`, the dashboard reuses the existing organizer image and GPX server routes to upload those files rather than writing to Storage directly from the browser.
 
 The completion shell intentionally omits a local "Avancement global" heading/helper line above the tabs. The active tab should stay larger and more contrasty than the inactive tabs, and desktop event tiles should fit on one row before wrapping.
 

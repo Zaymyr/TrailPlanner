@@ -7,6 +7,8 @@ related_files:
   - apps/web/lib/gpx/parseGpx.ts
   - apps/web/lib/gpx/normalizeImportedWaypoints.ts
   - apps/web/lib/organizer-aid-station-products.ts
+  - apps/web/components/gpx/GpxRouteMap.tsx
+  - apps/web/components/gpx/GpxRouteMapClient.tsx
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/api/admin/race-catalog/utmb/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
@@ -126,7 +128,7 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 
 Existing saved plans are not rewritten after organizer GPX replacement. They keep their copied `plan-gpx` object, `elevation_profile`, `planner_values`, and `plan_aid_stations`.
 
-For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists. After the format is created, the pending file is still uploaded through `/api/organizer/races/[id]/gpx` so the same stats are persisted on `races` and eligible waypoint ravitos can be created.
+For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, and hydrates the organizer GPX panel with the same parsed points used by the interactive route map and elevation preview. After the format is created, the pending file is still uploaded through `/api/organizer/races/[id]/gpx` so the same stats are persisted on `races` and eligible waypoint ravitos can be created.
 
 ## Review Flow Conflict
 

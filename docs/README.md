@@ -82,6 +82,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Resend](05-integrations/resend.md)
 - [Resend Broadcasts](05-integrations/resend-broadcasts.md)
 - [Mulebar Product Scraping](05-integrations/mulebar-scraping.md)
+- [OpenStreetMap and Leaflet](05-integrations/openstreetmap-leaflet.md)
 - [Geocoding](05-integrations/geocoding.md)
 - [Supabase Edge Functions](05-integrations/supabase-edge-functions.md)
 - [Analytics](05-integrations/analytics.md)

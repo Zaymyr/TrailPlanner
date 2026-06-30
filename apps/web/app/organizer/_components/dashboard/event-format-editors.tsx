@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent } from "react";
 
+import { GpxRouteMap } from "../../../../components/gpx/GpxRouteMap";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
@@ -49,7 +50,7 @@ export function EventInfoEditor({
         }
         invalid={missingLocation}
       />
-      <TextField label="Date début" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
+      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
       <TextField
         label="Date fin"
         type="date"
@@ -68,7 +69,7 @@ export function EventInfoEditor({
         invalid={missingEndDate}
       />
       <div className="space-y-2 lg:col-span-4">
-        <Label>Image événement (PNG)</Label>
+        <Label>Image evenement (PNG)</Label>
         {eventForm.thumbnailUrl ? (
           <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
             <img src={eventForm.thumbnailUrl} alt="" className="h-full w-full object-cover" />
@@ -137,7 +138,7 @@ export function FormatsEditor({
           biasLocation={null}
           pendingImageName={newRaceImageName}
           pendingGpxName={newRaceGpxName}
-          onChange={(values) => onNewRaceFormChange(values)}
+          onChange={onNewRaceFormChange}
           onSubmit={onCreateRace}
           onImageChange={onSelectNewRaceImage}
           onGpxChange={onSelectNewRaceGpx}
@@ -146,7 +147,7 @@ export function FormatsEditor({
           requireRaceDate
           gpxPreview={gpxPreview}
           gpxTitle="GPX du format"
-          gpxStatus={newRaceGpxName ? "GPX prêt à être importé après création." : "Ajoute un GPX pour préremplir les stats et voir le parcours."}
+          gpxStatus={newRaceGpxName ? "GPX pret a etre importe apres creation." : "Ajoute un GPX pour preremplir les stats et voir le parcours."}
           hasGpx={Boolean(newRaceGpxName)}
         />
       ) : activeRace ? (
@@ -156,10 +157,10 @@ export function FormatsEditor({
               Dupliquer ce format
             </Button>
             <Button type="button" variant="outline" onClick={onPreviewRace}>
-              Prévisualiser ce format
+              Previsualiser ce format
             </Button>
             <Button type="button" variant="ghost" onClick={onToggleRaceDetails}>
-              {showRaceDetails ? "Masquer les détails" : "Afficher les détails"}
+              {showRaceDetails ? "Masquer les details" : "Afficher les details"}
             </Button>
             <Button
               type="button"
@@ -173,7 +174,7 @@ export function FormatsEditor({
           </div>
           {showRaceDetails ? (
             <RaceForm
-              title="Détails du format"
+              title="Details du format"
               values={raceForm}
               biasLocation={raceForm.organizerDetails.raceLocation}
               onChange={(values) => onRaceFormChange(values)}
@@ -185,13 +186,13 @@ export function FormatsEditor({
               hideSubmit
               gpxPreview={gpxPreview}
               gpxTitle="GPX source"
-              gpxStatus={activeRace.gpx_storage_path ? "GPX source présent." : "Aucun GPX source pour ce format."}
+              gpxStatus={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
               hasGpx={Boolean(activeRace.gpx_storage_path)}
             />
           ) : (
             <OrganizerGpxPanel
               title="GPX source"
-              statusText={activeRace.gpx_storage_path ? "GPX source présent." : "Aucun GPX source pour ce format."}
+              statusText={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
               fileLabel={activeRace.gpx_storage_path ? "Remplacer le GPX source" : "Ajouter un GPX"}
               onGpxChange={onUploadGpx}
               disabled={status === "uploading"}
@@ -202,7 +203,7 @@ export function FormatsEditor({
           )}
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">Sélectionne ou ajoute un format.</p>
+        <p className="text-sm text-muted-foreground">Selectionne ou ajoute un format.</p>
       )}
     </div>
   );
@@ -310,7 +311,7 @@ function RaceForm({
             />
             <p className="text-xs text-muted-foreground">
               JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
-              {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyée après la création du format." : ""}
+              {pendingImageName && !values.thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}
             </p>
           </div>
           {!hideSubmit ? (
@@ -404,11 +405,11 @@ function MiniElevationProfile({
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaîtra après l&apos;ajout d&apos;un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La courbe apparaitra apres l'ajout d'un GPX.</div>;
   }
 
   if (!hasProfile) {
-    return <div className="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX présent. Courbe de niveau indisponible pour ce fichier.</div>;
+    return <div className="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX present. Courbe de niveau indisponible pour ce fichier.</div>;
   }
 
   const width = 720;
@@ -473,7 +474,7 @@ function MiniElevationProfile({
       </svg>
       {preview?.detectedAidStations.length ? (
         <p className="mt-2 text-xs text-muted-foreground">
-          {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito détecté{preview.detectedAidStations.length > 1 ? "s" : ""}.
+          {preview.detectedAidStations.length} waypoint{preview.detectedAidStations.length > 1 ? "s" : ""} ravito detecte{preview.detectedAidStations.length > 1 ? "s" : ""}.
         </p>
       ) : null}
     </div>
@@ -495,79 +496,26 @@ function MiniGpxMap({
   );
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La mini-carte apparaîtra après l&apos;ajout d&apos;un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-card p-3 text-sm text-muted-foreground">La carte apparaitra apres l'ajout d'un GPX.</div>;
   }
 
   if (points.length < 2) {
-    return <div className="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX présent. Carte du parcours indisponible pour ce fichier.</div>;
+    return <div className="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">GPX present. Carte du parcours indisponible pour ce fichier.</div>;
   }
-
-  const width = 720;
-  const height = 220;
-  const padding = 18;
-  const lats = points.map((point) => point.lat);
-  const lons = points.map((point) => point.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const lonRange = Math.max(maxLon - minLon, 0.0001);
-  const latRange = Math.max(maxLat - minLat, 0.0001);
-  const drawableWidth = width - padding * 2;
-  const drawableHeight = height - padding * 2;
-  const scale = Math.min(drawableWidth / lonRange, drawableHeight / latRange);
-  const offsetX = (width - lonRange * scale) / 2;
-  const offsetY = (height - latRange * scale) / 2;
-  const xScale = (lon: number) => offsetX + (lon - minLon) * scale;
-  const yScale = (lat: number) => height - (offsetY + (lat - minLat) * scale);
-  const path = points.map((point, index) => `${index === 0 ? "M" : "L"}${xScale(point.lon).toFixed(1)},${yScale(point.lat).toFixed(1)}`).join(" ");
-  const startPoint = points[0];
-  const endPoint = points.at(-1);
 
   return (
     <div className="rounded-md border border-border bg-card p-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Carte du parcours</p>
         <p className="text-xs font-medium text-muted-foreground">
-          {formatKm(preview?.stats?.distanceKm ?? activeRace.distance_km)} · {points.length} points
+          {formatKm(preview?.stats?.distanceKm ?? activeRace.distance_km)} - {points.length} points
         </p>
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-52 w-full" role="img" aria-label="Carte simplifiée du parcours GPX">
-        <defs>
-          <pattern id="organizerMiniMapGrid" width="36" height="36" patternUnits="userSpaceOnUse">
-            <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#d8d3c6" strokeOpacity="0.55" strokeWidth="1" />
-          </pattern>
-          <linearGradient id="organizerMiniMapStroke" x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0%" stopColor="#1f7a3f" />
-            <stop offset="100%" stopColor="#d89b22" />
-          </linearGradient>
-        </defs>
-        <rect x="0" y="0" width={width} height={height} rx="16" fill="#f7f3ea" />
-        <rect x="0" y="0" width={width} height={height} rx="16" fill="url(#organizerMiniMapGrid)" />
-        <path d={path} fill="none" stroke="url(#organizerMiniMapStroke)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        {preview?.detectedAidStations.map((station) => {
-          const closestPoint =
-            points.reduce<{ lat: number; lon: number; delta: number } | null>((best, point) => {
-              const delta = Math.abs(point.distanceKm - station.distanceKm);
-              if (!best || delta < best.delta) return { lat: point.lat, lon: point.lon, delta };
-              return best;
-            }, null) ?? null;
-
-          if (!closestPoint) return null;
-
-          return (
-            <g key={`${station.name}-${station.distanceKm}`}>
-              <circle cx={xScale(closestPoint.lon)} cy={yScale(closestPoint.lat)} r="4.5" fill="#fffaf0" stroke="#d89b22" strokeWidth="2" />
-            </g>
-          );
-        })}
-        {startPoint ? <circle cx={xScale(startPoint.lon)} cy={yScale(startPoint.lat)} r="5" fill="#1f7a3f" /> : null}
-        {endPoint ? <circle cx={xScale(endPoint.lon)} cy={yScale(endPoint.lat)} r="5" fill="#7a2f2f" /> : null}
-      </svg>
+      <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-52" />
       <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-        <span>Vert: départ</span>
-        <span>Rouge: arrivée</span>
-        {preview?.detectedAidStations.length ? <span>Points orange: ravitos détectés</span> : null}
+        <span>Vert: depart</span>
+        <span>Rouge: arrivee</span>
+        {preview?.detectedAidStations.length ? <span>Points orange: ravitos detectes</span> : null}
       </div>
     </div>
   );

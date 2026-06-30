@@ -148,6 +148,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 ## If You Are Working On Integrations, Read:
 
 - Stripe: `docs/05-integrations/stripe.md`
+- OpenStreetMap / Leaflet route maps: `docs/05-integrations/openstreetmap-leaflet.md`
 - Resend Broadcasts: `docs/05-integrations/resend-broadcasts.md`
 - Mulebar catalog scraping: `docs/05-integrations/mulebar-scraping.md`
 - Geocoding/address autocomplete: `docs/05-integrations/geocoding.md`
