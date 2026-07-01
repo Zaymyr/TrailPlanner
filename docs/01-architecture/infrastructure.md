@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-06-24
+last_verified: 2026-07-01
 ai_priority: high
 related_files:
   - vercel.json
@@ -65,6 +65,8 @@ The root build command maps to `package.json` script `build`, which runs Turbo.
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.
 
+The same app config intentionally keeps `@react-native-google-signin/google-signin` out of the iOS plugin list because the mobile app only supports native Google Sign-In on Android; iOS stays on the browser OAuth path.
+
 ## Supabase
 
 The repository uses Supabase for:
@@ -127,6 +129,7 @@ Document variable names, not secret values. Important names visible in code incl
 - `RESEND_API_KEY`
 - `REVENUECAT_*`
 - `EXPO_PUBLIC_REVENUECAT_*`
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
 
 ## Gotchas
 
@@ -136,6 +139,7 @@ Document variable names, not secret values. Important names visible in code incl
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
+- Do not reintroduce the Google Sign-In Expo config plugin on iOS unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 
 ## Related Docs
 

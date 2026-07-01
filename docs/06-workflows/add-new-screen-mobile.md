@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-06-30
+last_verified: 2026-07-01
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -88,6 +88,7 @@ For native behavior, build/run with the development client profile from `apps/mo
 - Do not call service-role-only web routes from the mobile client.
 - Do not add one-off global session effects inside a screen; keep them in `_layout.tsx` or a dedicated helper with idempotency guards.
 - Do not render Google sign-in on iOS builds. Use the shared auth hooks so provider availability stays platform-specific.
+- Do not add `@react-native-google-signin/google-signin` back into `apps/mobile/app.config.ts` for iOS-only URL-scheme convenience; in this app, iOS must stay on the browser OAuth path unless the full native iOS integration is intentionally restored.
 - Do not use React Native's raw `Text` for normal app UI; it bypasses the shared Bricolage Grotesque and JetBrains Mono typography.
 - Do not reintroduce duplicate header titles on root tab screens unless the tab bar no longer identifies the current section.
 - Do not put root-tab help, feedback, or create actions back into the native header; use the floating root action menu so the screen keeps the reclaimed vertical space.
