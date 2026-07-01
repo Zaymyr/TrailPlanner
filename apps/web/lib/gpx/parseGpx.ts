@@ -6,6 +6,12 @@ export type GpxPoint = {
   distKmCum: number;
 };
 
+export type GpxElevationTotalsPoint = {
+  distanceKm: number;
+  cumulativeGainM: number;
+  cumulativeLossM: number;
+};
+
 export type GpxWaypoint = {
   lat: number;
   lng: number;
@@ -159,6 +165,34 @@ export const haversineMeters = (lat1: number, lon1: number, lat2: number, lon2: 
     Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return earthRadiusM * c;
+};
+
+export const buildCumulativeElevationTotals = (points: GpxPoint[]): GpxElevationTotalsPoint[] => {
+  const elevationThreshold = 1;
+  let previousEle: number | null = null;
+  let cumulativeGainM = 0;
+  let cumulativeLossM = 0;
+
+  return points.map((point) => {
+    if (point.ele !== null) {
+      if (previousEle !== null) {
+        const diff = point.ele - previousEle;
+        if (diff > elevationThreshold) {
+          cumulativeGainM += diff;
+        } else if (diff < -elevationThreshold) {
+          cumulativeLossM += Math.abs(diff);
+        }
+      }
+
+      previousEle = point.ele;
+    }
+
+    return {
+      distanceKm: point.distKmCum,
+      cumulativeGainM: Number(cumulativeGainM.toFixed(1)),
+      cumulativeLossM: Number(cumulativeLossM.toFixed(1)),
+    };
+  });
 };
 
 export const parseGpx = (content: string): ParsedGpx => {

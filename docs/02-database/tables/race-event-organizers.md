@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-06-26
+last_verified: 2026-07-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -90,6 +90,7 @@ Summary:
 - A membership grants access to source ravito service flags (`water_available`, `solid_available`, `assistance_allowed`) for all formats under the event.
 - A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos. Event JSONB stores common defaults, the event end date, and additive geocoded location metadata; race JSONB stores active-format differences or additions, including the current access-section toggles and geocoded format/access location metadata used by the organizer dashboard.
 - A membership grants service-route access to upload the event PNG thumbnail, upload a format thumbnail, preview/replace format GPX files, and delete a format for every race under the event.
+- That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
 - New organizer-created formats should still default to draft (`is_live = false`) until the organizer publishes them deliberately.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.

@@ -5,7 +5,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
-import { GpxParseError, parseGpx } from "../../../lib/gpx/parseGpx";
+import { buildCumulativeElevationTotals, GpxParseError, parseGpx } from "../../../lib/gpx/parseGpx";
 import { type FuelType } from "../../../lib/fuel-types";
 import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWaypoints";
 import {
@@ -40,6 +40,8 @@ import {
   normalizeOrganizerEventDetail,
   raceToForm,
   sortAidStationsByDistance,
+  syncAidStationWithGpxPreview,
+  syncAidStationsWithGpxPreview,
   toNumberOrNull,
   type OrganizerAidStationRow,
 } from "./dashboard/helpers";
@@ -316,7 +318,7 @@ export function OrganizerDashboard() {
     void loadEventUpdates(selectedEventId);
   }, [selectedEventId, accessToken, authHeaders]);
 
-  const loadRaceSidecar = async (raceId: string) => {
+  const loadRaceSidecar = async (raceId: string, previewOverride: GpxPreview | null = null) => {
     if (!accessToken) return;
     const [aidResponse, productsResponse, catalogResponse] = await Promise.all([
       fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" }),
@@ -326,7 +328,7 @@ export function OrganizerDashboard() {
 
     if (aidResponse.ok) {
       const data = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
-      setAidStations(aidStationRowsToDrafts(data.aidStations ?? []));
+      setAidStations(syncAidStationsWithGpxPreview(aidStationRowsToDrafts(data.aidStations ?? []), previewOverride));
     }
     if (productsResponse.ok) {
       const data = (await productsResponse.json()) as { products?: StationProduct[] };
@@ -371,6 +373,10 @@ export function OrganizerDashboard() {
       setGpxPreview(null);
     }
   }, [activeRace?.id]);
+
+  useEffect(() => {
+    setAidStations((current) => syncAidStationsWithGpxPreview(current, gpxPreview));
+  }, [gpxPreview]);
 
   const saveEvent = async (override?: Partial<EventFormValues>) => {
     if (!accessToken || !selectedEventId) return false;
@@ -628,7 +634,7 @@ export function OrganizerDashboard() {
             : "GPX importé. Les plans existants restent des snapshots."
       );
       await loadEvent(selectedEventId, activeRace.id);
-      await loadRaceSidecar(activeRace.id);
+      await loadRaceSidecar(activeRace.id, normalizeGpxPreview(data));
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -727,6 +733,7 @@ export function OrganizerDashboard() {
     }
     try {
       const parsed = parseGpx(await file.text());
+      const cumulativeTotals = buildCumulativeElevationTotals(parsed.points);
       const detectedAidStations =
         parsed.pointSource !== "waypoint" && parsed.waypoints.length > 0
           ? normalizeImportedWaypoints(parsed.points, parsed.waypoints).aidStations.map((station) => ({
@@ -742,12 +749,17 @@ export function OrganizerDashboard() {
       }));
       setGpxPreview({
         stats: parsed.stats,
-        elevationProfile: parsed.points.map((point) => ({
-          distanceKm: point.distKmCum,
-          elevationM: point.ele ?? 0,
-          lat: point.lat,
-          lon: point.lng,
-        })),
+        elevationProfile: parsed.points.map((point, index) => {
+          const totals = cumulativeTotals[index];
+          return {
+            distanceKm: point.distKmCum,
+            elevationM: point.ele ?? 0,
+            lat: point.lat,
+            lon: point.lng,
+            cumulativeGainM: totals?.cumulativeGainM ?? 0,
+            cumulativeLossM: totals?.cumulativeLossM ?? 0,
+          };
+        }),
         detectedAidStations,
       });
       setNewRaceGpxFile(file);
@@ -921,7 +933,9 @@ export function OrganizerDashboard() {
   };
 
   const updateAidStation = (index: number, station: AidStationDraft) => {
-    setAidStations((current) => sortAidStationsByDistance(current.map((item, stationIndex) => (stationIndex === index ? station : item))));
+    setAidStations((current) =>
+      sortAidStationsByDistance(current.map((item, stationIndex) => (stationIndex === index ? syncAidStationWithGpxPreview(station, gpxPreview) : item)))
+    );
     markDirty("aidStations");
   };
 
@@ -1163,7 +1177,18 @@ export function OrganizerDashboard() {
                       solidRefill: true,
                       assistanceAllowed: true,
                       notes: "",
-                      organizerDetails: cloneJson(defaultOrganizerAidStationDetails),
+                      organizerDetails: syncAidStationWithGpxPreview(
+                        {
+                          name: "Nouveau ravito",
+                          distanceKm: 0,
+                          waterRefill: true,
+                          solidRefill: true,
+                          assistanceAllowed: true,
+                          notes: "",
+                          organizerDetails: cloneJson(defaultOrganizerAidStationDetails),
+                        },
+                        gpxPreview
+                      ).organizerDetails,
                     },
                   ])
                 );

@@ -242,6 +242,90 @@ export const normalizeGpxPreview = (data: GpxPreview | null): GpxPreview | null 
       }
     : null;
 
+const roundInterpolatedMeters = (value: number) => Math.max(0, Math.round(value));
+
+export const getGpxElevationTotalsAtDistance = (preview: GpxPreview | null, distanceKm: number) => {
+  const profile = preview?.elevationProfile ?? [];
+  if (profile.length === 0) return null;
+
+  const safeDistanceKm = Math.max(0, distanceKm);
+  const firstPoint = profile[0];
+  const lastPoint = profile.at(-1) ?? firstPoint;
+  if (!firstPoint || !lastPoint) return null;
+
+  if (safeDistanceKm <= firstPoint.distanceKm) {
+    return {
+      cumulativeElevationGainM: roundInterpolatedMeters(firstPoint.cumulativeGainM ?? 0),
+      cumulativeElevationLossM: roundInterpolatedMeters(firstPoint.cumulativeLossM ?? 0),
+    };
+  }
+
+  if (safeDistanceKm >= lastPoint.distanceKm) {
+    return {
+      cumulativeElevationGainM: roundInterpolatedMeters(lastPoint.cumulativeGainM ?? 0),
+      cumulativeElevationLossM: roundInterpolatedMeters(lastPoint.cumulativeLossM ?? 0),
+    };
+  }
+
+  for (let index = 1; index < profile.length; index += 1) {
+    const previousPoint = profile[index - 1];
+    const nextPoint = profile[index];
+    if (safeDistanceKm > nextPoint.distanceKm) continue;
+
+    const spanKm = nextPoint.distanceKm - previousPoint.distanceKm;
+    const ratio = spanKm > 0 ? (safeDistanceKm - previousPoint.distanceKm) / spanKm : 0;
+    const gainStart = previousPoint.cumulativeGainM ?? 0;
+    const gainEnd = nextPoint.cumulativeGainM ?? gainStart;
+    const lossStart = previousPoint.cumulativeLossM ?? 0;
+    const lossEnd = nextPoint.cumulativeLossM ?? lossStart;
+
+    return {
+      cumulativeElevationGainM: roundInterpolatedMeters(gainStart + (gainEnd - gainStart) * ratio),
+      cumulativeElevationLossM: roundInterpolatedMeters(lossStart + (lossEnd - lossStart) * ratio),
+    };
+  }
+
+  return {
+    cumulativeElevationGainM: roundInterpolatedMeters(lastPoint.cumulativeGainM ?? 0),
+    cumulativeElevationLossM: roundInterpolatedMeters(lastPoint.cumulativeLossM ?? 0),
+  };
+};
+
+export const syncAidStationWithGpxPreview = (station: AidStationDraft, preview: GpxPreview | null): AidStationDraft => {
+  const totals = getGpxElevationTotalsAtDistance(preview, station.distanceKm);
+  if (!totals) return station;
+
+  const currentDetails = station.organizerDetails;
+  if (
+    currentDetails.cumulativeElevationGainM === totals.cumulativeElevationGainM &&
+    currentDetails.cumulativeElevationLossM === totals.cumulativeElevationLossM
+  ) {
+    return station;
+  }
+
+  return {
+    ...station,
+    organizerDetails: {
+      ...currentDetails,
+      cumulativeElevationGainM: totals.cumulativeElevationGainM,
+      cumulativeElevationLossM: totals.cumulativeElevationLossM,
+    },
+  };
+};
+
+export const syncAidStationsWithGpxPreview = (stations: AidStationDraft[], preview: GpxPreview | null): AidStationDraft[] => {
+  if (!preview?.elevationProfile?.length) return stations;
+
+  let changed = false;
+  const nextStations = stations.map((station) => {
+    const nextStation = syncAidStationWithGpxPreview(station, preview);
+    if (nextStation !== station) changed = true;
+    return nextStation;
+  });
+
+  return changed ? nextStations : stations;
+};
+
 export function getModuleTitle(moduleId: OrganizerModuleId) {
   const titles: Record<OrganizerModuleId, string> = {
     event: "Informations",

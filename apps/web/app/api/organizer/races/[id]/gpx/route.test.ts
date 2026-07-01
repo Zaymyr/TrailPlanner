@@ -72,6 +72,14 @@ describe("/api/organizer/races/[id]/gpx", () => {
     expect(payload.stats.distanceKm).toBeGreaterThan(0);
     expect(payload.stats.gainM).toBeGreaterThan(0);
     expect(payload.elevationProfile.length).toBeGreaterThanOrEqual(2);
+    expect(payload.elevationProfile[0]).toMatchObject({
+      cumulativeGainM: 0,
+      cumulativeLossM: 0,
+    });
+    expect(payload.elevationProfile.at(-1)).toMatchObject({
+      cumulativeGainM: payload.stats.gainM,
+      cumulativeLossM: payload.stats.lossM,
+    });
     expect(payload.detectedAidStations[0]).toMatchObject({ name: "Ravito 1" });
   });
 

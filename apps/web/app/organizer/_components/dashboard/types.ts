@@ -54,6 +54,8 @@ export type ElevationPoint = {
   elevationM: number;
   lat?: number;
   lon?: number;
+  cumulativeGainM?: number;
+  cumulativeLossM?: number;
 };
 
 export type GpxDetectedAidStation = {

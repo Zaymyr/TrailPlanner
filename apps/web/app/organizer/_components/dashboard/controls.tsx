@@ -124,12 +124,14 @@ export function NumberField({
   onChange,
   step = "0.1",
   invalid,
+  readOnly,
 }: {
   label: string;
   value: number;
   onChange: (value: number) => void;
   step?: string;
   invalid?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -139,7 +141,11 @@ export function NumberField({
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
+        readOnly={readOnly}
+        className={cn(
+          invalid && "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500",
+          readOnly && "bg-muted/40 text-muted-foreground"
+        )}
       />
       {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>

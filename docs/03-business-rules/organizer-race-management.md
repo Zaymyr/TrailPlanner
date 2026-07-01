@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-06-30
+last_verified: 2026-07-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -23,6 +23,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/types.ts
   - apps/web/app/organizer/_components/dashboard/constants.ts
   - apps/web/app/organizer/_components/dashboard/helpers.ts
+  - apps/web/app/organizer/_components/dashboard/helpers.test.ts
   - apps/web/app/organizer/_components/dashboard/controls.tsx
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
   - apps/web/app/organizer/_components/dashboard/shell.tsx
@@ -176,7 +177,7 @@ When GPX waypoints are present and the format has no aid stations, the organizer
 
 Organizer aid station edits should preserve existing station ids when possible so `race_aid_station_products` links survive. New or legacy stations default all service flags to enabled unless an organizer disables water, solid food, or assistance explicitly.
 
-Aid station `organizer_details` stores cumulative D+/D-, cutoff time, drop-bag availability, and organizer note on the station row; legacy `stationType` and `altitudeM` values may still exist in persisted JSONB, but the current organizer dashboard no longer exposes editors for them. These fields must still be saved through the organizer aid-station route so existing station ids are kept. In the current organizer UI, ravitos use the same expandable card pattern as the runner planner: the compact card keeps distance, cumulative D+/D-, cutoff, water/solid/assistance/drop-bag toggles, and product actions visible first, while the expanded panel goes directly from the main info grid to the organizer note block. The same ravito tile also owns the fixed `Départ` and `Arrivée` timing cards for the format. The mobile read-only Racebook now dedicates a right-hand metrics column on each ravito card to km, D+, D-, and cutoff time. Those D+/D- values are computed from cumulative station values, falling back to the first station's cumulative values when there is no previous published ravito.
+Aid station `organizer_details` stores cumulative D+/D-, cutoff time, drop-bag availability, and organizer note on the station row; legacy `stationType` and `altitudeM` values may still exist in persisted JSONB, but the current organizer dashboard no longer exposes editors for them. These fields must still be saved through the organizer aid-station route so existing station ids are kept. In the current organizer UI, ravitos use the same expandable card pattern as the runner planner: the compact card keeps distance, cumulative D+/D-, cutoff, water/solid/assistance/drop-bag toggles, and product actions visible first, while the expanded panel goes directly from the main info grid to the organizer note block. When an active-format GPX preview is available, editing a ravito km now recomputes cumulative D+ / D- automatically from the GPX trace and the corresponding form fields remain read-only. The same ravito tile also owns the fixed `Départ` and `Arrivée` timing cards for the format. The mobile read-only Racebook now dedicates a right-hand metrics column on each ravito card to km, D+, D-, and cutoff time. Those D+/D- values are computed from cumulative station values, falling back to the first station's cumulative values when there is no previous published ravito.
 
 Ravitos in the organizer editor are always ordered by ascending distance from the start, including after creating a station or changing its km manually. The organizer aid-station route persists `order_index` from that distance-based order so reloads keep the same sequence.
 
@@ -225,6 +226,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not bypass the organizer GPX route when a GPX is selected during format creation; the client still has to create the race first, then import the file server-side.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.
+- Do not re-open manual editing for cumulative D+ / D- in the organizer ravito form while GPX-driven interpolation is the source of truth; km edits must keep recomputing those values from the active GPX preview.
 - Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.

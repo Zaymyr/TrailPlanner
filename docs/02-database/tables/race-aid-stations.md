@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-06-26
+last_verified: 2026-07-01
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -88,6 +88,7 @@ Summary:
 - Organizer station-product links are source metadata and should be updated alongside station edits when preserving station identity matters.
 - The organizer product picker requires a saved source station id; new ravitos must be saved before products can be attached.
 - Organizer station details are saved together with station edits through `/api/organizer/races/[id]/aid-stations`; preserving row ids also preserves those details.
+- When an organizer format has GPX preview data, cumulative D+ / D- on source ravitos are recomputed from that trace whenever the station km changes, then persisted back through the same aid-station route.
 - The organizer ravito tile now also surfaces the fixed `Départ` and `Arrivée` timing cards, but those values are not part of `race_aid_stations` and must not be persisted as synthetic rows.
 - Organizer GPX upload creates stations from waypoints only when a format has no existing source stations; existing station ids are preserved and must be edited through the ravito route.
 
@@ -127,6 +128,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Do not use organizer GPX upload to replace existing stations; safe-mode waypoint import avoids breaking station-product links.
 - Missing service flags from legacy reads should be treated as enabled to preserve old catalog behavior.
 - Missing `organizer_details` from legacy reads should be parsed as empty/default dashboard details, not treated as invalid station data.
+- The current organizer editor treats cumulative D+ / D- as GPX-derived metrics, not manual overrides; keep the preview interpolation contract aligned with saved station JSON.
 
 ## Related Docs
 

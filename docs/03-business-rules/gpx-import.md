@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-06-30
+last_verified: 2026-07-01
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -127,13 +127,14 @@ The mobile import preview also keeps the parsed route geometry client-side throu
 4. Uploads/replaces the source object in `race-gpx`.
 5. Updates the source `races` row with GPX path/hash and parsed course stats.
 6. Returns parsed stats, detected waypoint ravitos, and a dashboard-only elevation profile.
+7. The organizer elevation profile payload now also carries cumulative D+ and D- totals at each sampled profile point so the ravito editor can auto-fill per-station cumulative values from the GPX trace without manual re-entry.
 7. Creates source `race_aid_stations` from normalized waypoints only when the format has no existing stations; service flags default to enabled.
 
 `GET` on the same route requires the same organizer access, reads the existing private source GPX, reparses it, and returns the same preview payload without adding a `races.elevation_profile` column.
 
 Existing saved plans are not rewritten after organizer GPX replacement. They keep their copied `plan-gpx` object, `elevation_profile`, `planner_values`, and `plan_aid_stations`.
 
-For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, and hydrates the organizer GPX panel with the same parsed points used by the interactive route map and elevation preview. After the format is created, the pending file is still uploaded through `/api/organizer/races/[id]/gpx` so the same stats are persisted on `races` and eligible waypoint ravitos can be created.
+For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, hydrates the organizer GPX panel with the same parsed points used by the interactive route map and elevation preview, and computes cumulative D+ / D- samples that the ravito editor can interpolate by km. After the format is created, the pending file is still uploaded through `/api/organizer/races/[id]/gpx` so the same stats are persisted on `races` and eligible waypoint ravitos can be created.
 
 ## Review Flow Conflict
 
@@ -150,6 +151,7 @@ For a brand-new organizer format, the add-format dashboard also uses the shared 
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
 - The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
+- Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
 - Route points can be used when track points are absent.
 - Waypoint-only files produce a `waypoint` point source and limited route geometry.
 - Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.
