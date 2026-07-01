@@ -16,6 +16,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/utf8-copy.test.ts
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
   - apps/web/app/organizer/_components/dashboard/runner-preview-dialog.tsx
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
@@ -123,6 +124,7 @@ order by created_at asc;
 - Rejected manual claims should keep their claim audit trail; deleting the draft event would cascade-delete the claim.
 - Pending claims should show request status only, not the organizer dashboard modules.
 - Keep organizer request-state copy aligned across `/organizers` and `/organizer`: pending/rejected cards are status-only French UI and must not imply edit access before membership approval.
+- Keep organizer-dashboard French copy under UTF-8 regression coverage when editing route-local labels; approval-gated screens should not ship mojibake after a component rewrite.
 
 ## Related Docs
 
