@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-06-30
+last_verified: 2026-07-01
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -76,7 +76,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
 - update URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`.
 
-`apps/mobile/package.json` excludes `@react-native-google-signin/google-signin` from Expo iOS autolinking. Native Google Sign-In is Android-only in `apps/mobile/hooks/useGoogleAuth.ts`, while iOS uses the browser OAuth path; excluding the package on iOS keeps `GoogleSignIn` 9.x from pulling the Swift `AppCheckCore` CocoaPods dependency that fails static-library integration on current EAS iOS builders.
+`apps/mobile/package.json` excludes `@react-native-google-signin/google-signin` from Expo iOS autolinking, and `apps/mobile/app.config.ts` does not register the package's Expo config plugin. Native Google Sign-In is Android-only in `apps/mobile/hooks/useGoogleAuth.ts`, while iOS uses the browser OAuth path; keeping the package out of the iOS native build avoids both the Swift `AppCheckCore` CocoaPods conflict on EAS and Fabric startup crashes from partially registered Google Sign-In native components.
 
 ## EAS Profiles
 
@@ -172,7 +172,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
-- Keep `@react-native-google-signin/google-signin` excluded from iOS autolinking unless native Google Sign-In is intentionally enabled on iOS; otherwise `GoogleSignIn` pulls `AppCheckCore` and can reintroduce the static-library pod install failure on EAS iOS builds.
+- Keep `@react-native-google-signin/google-signin` excluded from iOS autolinking and out of `apps/mobile/app.config.ts` plugins unless native Google Sign-In is intentionally enabled on iOS; otherwise `GoogleSignIn` can both pull `AppCheckCore` back into the iOS pod graph and trigger a Fabric launch crash from a partially registered `RNGoogleSignInButton` component.
 - Keep the mobile Racebook read-only. It consumes published organizer details plus live ravito source data, but it should open only when non-ravito organizer content is actually published; it must not import organizer dashboard mutation logic or admin routes. The runner-facing screen now uses the format race date in the header, surfaces format `elevation_loss_m` alongside distance and D+, extracts the event equipment weather plan into a dedicated compact weather alert card above the last-minute message when the plan is `cold` or `heat`, keeps `services.lastMinuteMessage` in its own compact alert card below that warning, renders alert title and message inline on the same text row, renders start and bib fields as two-column table-like rows, orders gear rows as active required items first, then active recommended items, then weather-muted inactive items, keeps each gear status badge inline and right-aligned on the same row as its item label, removes bullet dots from gear rows, adds icon-only inline cold/heat markers for weather-tagged gear, grays out weather-tagged gear whenever the active event plan does not match, and splits each ravito card into a content column plus a right metrics column for km, D+, D-, and cutoff time.
 
 ## Related Docs
