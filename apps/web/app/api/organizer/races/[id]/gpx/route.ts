@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
-import { parseGpx } from "../../../../../../lib/gpx/parseGpx";
+import { buildCumulativeElevationTotals, parseGpx } from "../../../../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../../../../lib/gpx/normalizeImportedWaypoints";
 import {
   jsonError,
@@ -25,24 +25,34 @@ const stationIdSchema = z.object({ id: z.string().uuid() });
 const toElevationProfile = (parsedGpx: ParsedOrganizerGpx, maxPoints = 600) => {
   if (parsedGpx.points.length === 0) return [];
 
+  const cumulativeTotals = buildCumulativeElevationTotals(parsedGpx.points);
   const step = Math.max(1, Math.ceil(parsedGpx.points.length / maxPoints));
   const profile = parsedGpx.points
-    .filter((point, index) => index === 0 || index === parsedGpx.points.length - 1 || index % step === 0)
-    .map((point) => ({
-      distanceKm: point.distKmCum,
-      elevationM: point.ele ?? 0,
-      lat: point.lat,
-      lon: point.lng,
-    }));
+    .map((point, index) => ({ point, index }))
+    .filter(({ index }) => index === 0 || index === parsedGpx.points.length - 1 || index % step === 0)
+    .map(({ point, index }) => {
+      const totals = cumulativeTotals[index];
+      return {
+        distanceKm: point.distKmCum,
+        elevationM: point.ele ?? 0,
+        lat: point.lat,
+        lon: point.lng,
+        cumulativeGainM: totals?.cumulativeGainM ?? 0,
+        cumulativeLossM: totals?.cumulativeLossM ?? 0,
+      };
+    });
 
   const lastPoint = parsedGpx.points[parsedGpx.points.length - 1];
   const lastProfilePoint = profile[profile.length - 1];
   if (lastPoint && lastProfilePoint?.distanceKm !== lastPoint.distKmCum) {
+    const lastTotals = cumulativeTotals[cumulativeTotals.length - 1];
     profile.push({
       distanceKm: lastPoint.distKmCum,
       elevationM: lastPoint.ele ?? 0,
       lat: lastPoint.lat,
       lon: lastPoint.lng,
+      cumulativeGainM: lastTotals?.cumulativeGainM ?? 0,
+      cumulativeLossM: lastTotals?.cumulativeLossM ?? 0,
     });
   }
 

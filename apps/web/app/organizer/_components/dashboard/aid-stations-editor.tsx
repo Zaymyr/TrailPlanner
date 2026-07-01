@@ -55,14 +55,14 @@ export function AidStationsEditor({
   onCreateProduct: (event: FormEvent<HTMLFormElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
+  if (!activeRace) return <p className="text-sm text-muted-foreground">SÃ©lectionne un format pour gÃ©rer ses ravitos.</p>;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-between gap-2">
         <div>
           <p className="font-semibold text-foreground">{activeRace.name}</p>
-          <p className="text-sm text-muted-foreground">Vue ravitos compacte, avec départ, arrivée, produits et détails dans la même tuile.</p>
+          <p className="text-sm text-muted-foreground">Vue ravitos compacte, avec dÃ©part, arrivÃ©e, produits et dÃ©tails dans la mÃªme tuile.</p>
         </div>
         <Button type="button" variant="outline" onClick={onAddStation}>
           Ajouter un ravito
@@ -70,10 +70,10 @@ export function AidStationsEditor({
       </div>
 
       <FixedCourseCard
-        title="Départ"
-        subtitle="Heure de départ commune à ce format."
+        title="DÃ©part"
+        subtitle="Heure de dÃ©part commune Ã  ce format."
         value={startTime}
-        label="Heure de départ"
+        label="Heure de dÃ©part"
         onChange={onStartTimeChange}
       />
 
@@ -104,17 +104,17 @@ export function AidStationsEditor({
                           <p className="truncate text-lg font-semibold text-foreground">{station.name || `Ravito ${index + 1}`}</p>
                           <p className="mt-1 text-sm text-muted-foreground">
                             {formatKm(station.distanceKm)}
-                            {details.cutoffTime ? ` - Barrière ${details.cutoffTime}` : " - Barrière à définir"}
+                            {details.cutoffTime ? ` - BarriÃ¨re ${details.cutoffTime}` : " - BarriÃ¨re Ã  dÃ©finir"}
                           </p>
                         </div>
-                        {!station.id ? <span className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">À sauvegarder</span> : null}
+                        {!station.id ? <span className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">Ã€ sauvegarder</span> : null}
                       </div>
 
                       <div className="flex flex-wrap gap-2">
                         <StationMetaChip>{formatKm(station.distanceKm)}</StationMetaChip>
                         <StationMetaChip>D+ {formatOptionalMeters(details.cumulativeElevationGainM)}</StationMetaChip>
                         <StationMetaChip>D- {formatOptionalMeters(details.cumulativeElevationLossM)}</StationMetaChip>
-                        <StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}</StationMetaChip>
+                        <StationMetaChip>BarriÃ¨re {details.cutoffTime?.trim() || "-"}</StationMetaChip>
                         <StationMetaChip>
                           {productCount} produit{productCount > 1 ? "s" : ""}
                         </StationMetaChip>
@@ -126,7 +126,7 @@ export function AidStationsEditor({
                         <StationServiceChip checked={station.assistanceAllowed} label="Assistance" disabled={status === "saving"} onChange={(checked) => onUpdateStation(index, { ...station, assistanceAllowed: checked })} />
                         <StationServiceChip
                           checked={details.dropBagAvailable}
-                          label="Sac de délestage"
+                          label="Sac de dÃ©lestage"
                           disabled={status === "saving"}
                           onChange={(checked) => onUpdateStation(index, { ...station, organizerDetails: { ...details, dropBagAvailable: checked } })}
                         />
@@ -143,8 +143,8 @@ export function AidStationsEditor({
                       variant="ghost"
                       className="h-10 w-10 rounded-full border border-border bg-background p-0"
                       onClick={() => onExpandedStationKeyChange(isExpanded ? null : key)}
-                      aria-label={isExpanded ? "Replier le ravito" : "Déplier le ravito"}
-                      title={isExpanded ? "Replier le ravito" : "Déplier le ravito"}
+                      aria-label={isExpanded ? "Replier le ravito" : "DÃ©plier le ravito"}
+                      title={isExpanded ? "Replier le ravito" : "DÃ©plier le ravito"}
                     >
                       {isExpanded ? <ChevronUpIcon className="h-4 w-4" aria-hidden /> : <ChevronDownIcon className="h-4 w-4" aria-hidden />}
                     </Button>
@@ -186,10 +186,10 @@ export function AidStationsEditor({
       )}
 
       <FixedCourseCard
-        title="Arrivée"
-        subtitle="Barrière horaire d'arrivée de ce format."
+        title="ArrivÃ©e"
+        subtitle="BarriÃ¨re horaire d'arrivÃ©e de ce format."
         value={finishCutoffTime}
-        label="Barrière horaire d'arrivée"
+        label="BarriÃ¨re horaire d'arrivÃ©e"
         onChange={onFinishCutoffTimeChange}
       />
     </div>
@@ -233,12 +233,14 @@ function StationDetailsPanel({ station, onChange, productsSlot }: { station: Aid
           <TextField label="Nom du ravito" value={station.name} onChange={(value) => onChange({ ...station, name: value })} required />
         </div>
         <NumberField label="Distance km" value={station.distanceKm} step="0.1" onChange={(value) => onChange({ ...station, distanceKm: value })} />
-        <NumberField label="D+ cumulé" value={details.cumulativeElevationGainM ?? 0} step="1" onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cumulativeElevationGainM: value } })} />
-        <NumberField label="D- cumulé" value={details.cumulativeElevationLossM ?? 0} step="1" onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cumulativeElevationLossM: value } })} />
+        <NumberField label="D+ cumulÃ©" value={details.cumulativeElevationGainM ?? 0} step="1" readOnly onChange={() => undefined} />
+        <NumberField label="D- cumulÃ©" value={details.cumulativeElevationLossM ?? 0} step="1" readOnly onChange={() => undefined} />
         <div className="xl:col-span-2">
-          <TextField label="Barrière horaire" value={details.cutoffTime ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })} />
+          <TextField label="BarriÃ¨re horaire" value={details.cutoffTime ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })} />
         </div>
       </div>
+
+      <p className="mt-2 text-xs text-muted-foreground">Les cumuls D+ / D- sont calculÃ©s automatiquement Ã  partir du tracÃ© GPX de ce format.</p>
 
       <div className="mt-4 rounded-[1.25rem] border border-border bg-background p-4">
         <TextAreaField label="Note organisateur" value={details.organizerNote ?? station.notes ?? ""} onChange={(value) => onChange({ ...station, notes: value, organizerDetails: { ...details, organizerNote: value || null } })} />
