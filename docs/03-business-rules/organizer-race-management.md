@@ -24,6 +24,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/constants.ts
   - apps/web/app/organizer/_components/dashboard/helpers.ts
   - apps/web/app/organizer/_components/dashboard/helpers.test.ts
+  - apps/web/app/organizer/_components/dashboard/utf8-copy.test.ts
   - apps/web/app/organizer/_components/dashboard/controls.tsx
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
   - apps/web/app/organizer/_components/dashboard/shell.tsx
@@ -227,6 +228,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.
 - Do not re-open manual editing for cumulative D+ / D- in the organizer ravito form while GPX-driven interpolation is the source of truth; km edits must keep recomputing those values from the active GPX preview.
+- Keep a UTF-8 regression test around route-local organizer copy when touching French labels on ravito cards or related dashboard text; mojibake should fail tests before it reaches the screen.
 - Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
