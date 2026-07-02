@@ -86,6 +86,12 @@ export async function GET(request: NextRequest) {
   const traceProvider = race?.trace_provider ?? null;
   const traceId = typeof race?.trace_id === "number" && Number.isFinite(race.trace_id) ? race.trace_id : null;
   let elevationProfile: Array<{ distanceKm: number; elevationM: number }> = [];
+  let routePreviewPoints: Array<{
+    lat: number;
+    lng: number;
+    elevationM: number | null;
+    distanceKm: number;
+  }> = [];
 
   if (gpxPath) {
     const gpxRes = await fetch(
@@ -103,6 +109,15 @@ export async function GET(request: NextRequest) {
       try {
         const gpxContent = await gpxRes.text();
         const parsedGpx = parseGpx(gpxContent);
+        routePreviewPoints = samplePoints(
+          parsedGpx.points.map((point) => ({
+            lat: point.lat,
+            lng: point.lng,
+            elevationM: point.ele,
+            distanceKm: point.distKmCum,
+          })),
+          800
+        );
         const raw = parsedGpx.points
           .filter((point) => point.ele !== null)
           .map((point) => ({ distanceKm: point.distKmCum, elevationM: point.ele as number }));
@@ -174,7 +189,7 @@ export async function GET(request: NextRequest) {
 
   return withSecurityHeaders(
     NextResponse.json(
-      { elevationProfile },
+      { elevationProfile, routePreviewPoints },
       {
         headers: {
           "Cache-Control":
