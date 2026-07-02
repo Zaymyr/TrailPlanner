@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-06-29
+last_verified: 2026-07-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -105,7 +105,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location in addition to the existing plain `location` text column.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
-- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual non-ravito organizer content. The current mobile presentation uses `races.race_date` as the primary header date, keeps event service defaults merged into the runner-facing profile sections, lifts `services.lastMinuteMessage` into a dedicated compact alert card when present, renders alert title and message inline on the same text row, and keeps equipment rows ordered with active required items first, active recommended items second, and weather-muted inactive items last, with inline right-aligned status badges and icon-only cold/heat markers for weather-tagged items.
+- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual non-ravito organizer content. The current mobile presentation uses `races.race_date` as the primary header date, keeps event service defaults merged into the runner-facing profile sections, lifts `services.lastMinuteMessage` into a dedicated compact alert card when present, renders alert title and message inline on the same text row, starts `Profil` with a GPX-derived route sketch when available, starts `Ravito` with the course elevation profile when available, and keeps equipment rows ordered with active required items first, active recommended items second, and weather-muted inactive items last, with inline right-aligned status badges and icon-only cold/heat markers for weather-tagged items.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.

@@ -8,6 +8,9 @@ import { Text } from '../themed/Text';
 type GpxRoutePreviewCardProps = {
   points: MobileGpxPreviewPoint[];
   height?: number;
+  startLabel?: string;
+  finishLabel?: string;
+  pointsLabel?: string;
 };
 
 type ProjectedPoint = {
@@ -42,7 +45,13 @@ function projectPoints(points: MobileGpxPreviewPoint[]): ProjectedPoint[] {
   }));
 }
 
-export function GpxRoutePreviewCard({ points, height = 184 }: GpxRoutePreviewCardProps) {
+export function GpxRoutePreviewCard({
+  points,
+  height = 184,
+  startLabel = 'Depart',
+  finishLabel = 'Arrivee',
+  pointsLabel = 'points',
+}: GpxRoutePreviewCardProps) {
   const projectedPoints = projectPoints(points);
   const polylinePoints = projectedPoints.map((point) => `${point.x},${point.y}`).join(' ');
   const startPoint = projectedPoints[0] ?? null;
@@ -78,13 +87,13 @@ export function GpxRoutePreviewCard({ points, height = 184 }: GpxRoutePreviewCar
       <View style={styles.legendRow}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.brandLight }]} />
-          <Text style={styles.legendText}>Depart</Text>
+          <Text style={styles.legendText}>{startLabel}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: Colors.warning }]} />
-          <Text style={styles.legendText}>Arrivee</Text>
+          <Text style={styles.legendText}>{finishLabel}</Text>
         </View>
-        <Text style={styles.legendHint}>{points.length} points</Text>
+        <Text style={styles.legendHint}>{`${points.length} ${pointsLabel}`}</Text>
       </View>
     </View>
   );
