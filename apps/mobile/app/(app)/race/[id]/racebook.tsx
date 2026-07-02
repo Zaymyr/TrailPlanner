@@ -10,12 +10,17 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
+import { GpxRoutePreviewCard } from '../../../../components/race/GpxRoutePreviewCard';
 import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
 import { Colors } from '../../../../constants/colors';
+import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
+import { fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../../../lib/raceProfile';
 import { fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
+import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 
 type RacebookTabKey = 'profile' | 'gear' | 'access' | 'aid';
 
@@ -91,6 +96,63 @@ function SectionCard({
 
 function EmptyState({ message }: { message: string }) {
   return <Text style={styles.emptyText}>{message}</Text>;
+}
+
+function CourseProfileCard({
+  title,
+  points,
+  emptyMessage,
+}: {
+  title: string;
+  points: ElevationPoint[];
+  emptyMessage: string;
+}) {
+  return (
+    <SectionCard title={title}>
+      {points.length >= 2 ? (
+        <View style={styles.courseProfileWrap}>
+          <ProfileMiniChart points={points} />
+          <View style={styles.courseProfileMetaRow}>
+            <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[0]?.distanceKm ?? 0)} km`}</DataText>
+            <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[points.length - 1]?.distanceKm ?? 0)} km`}</DataText>
+          </View>
+        </View>
+      ) : (
+        <EmptyState message={emptyMessage} />
+      )}
+    </SectionCard>
+  );
+}
+
+function CourseMapCard({
+  title,
+  points,
+  emptyMessage,
+  startLabel,
+  finishLabel,
+  pointsLabel,
+}: {
+  title: string;
+  points: MobileGpxPreviewPoint[];
+  emptyMessage: string;
+  startLabel: string;
+  finishLabel: string;
+  pointsLabel: string;
+}) {
+  return (
+    <SectionCard title={title}>
+      {points.length >= 2 ? (
+        <GpxRoutePreviewCard
+          points={points}
+          startLabel={startLabel}
+          finishLabel={finishLabel}
+          pointsLabel={pointsLabel}
+        />
+      ) : (
+        <EmptyState message={emptyMessage} />
+      )}
+    </SectionCard>
+  );
 }
 
 function InlineAlertCard({
@@ -353,6 +415,8 @@ export default function RaceRacebookScreen() {
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('profile');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<RacebookScreenData | null>(null);
+  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
+  const [routePreviewPoints, setRoutePreviewPoints] = useState<MobileGpxPreviewPoint[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -365,15 +429,23 @@ export default function RaceRacebookScreen() {
 
     setLoading(true);
 
-    fetchRaceRacebookData(id)
-      .then((result: RacebookScreenData | null) => {
+    Promise.all([
+      fetchRaceRacebookData(id),
+      fetchRaceElevationProfile(id),
+      fetchRaceRoutePreviewPoints(id),
+    ])
+      .then(([result, profilePoints, routePoints]: [RacebookScreenData | null, ElevationPoint[], MobileGpxPreviewPoint[]]) => {
         if (!cancelled) {
           setData(result);
+          setElevationProfile(profilePoints);
+          setRoutePreviewPoints(routePoints);
         }
       })
       .catch(() => {
         if (!cancelled) {
           setData(null);
+          setElevationProfile([]);
+          setRoutePreviewPoints([]);
         }
       })
       .finally(() => {
@@ -637,18 +709,29 @@ export default function RaceRacebookScreen() {
 
           <View style={styles.contentWrap}>
             {activeTab === 'profile' ? (
-              profileSections.length > 0 ? (
-                profileSections.map((section) => (
-                  <SectionCard key={section.title} title={section.title}>
-                    {section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
-                    {section.lines.length > 0 ? <InfoList values={section.lines} /> : null}
+              <>
+                <CourseMapCard
+                  title={t.catalog.racebookSectionCourseMap}
+                  points={routePreviewPoints}
+                  emptyMessage={t.catalog.racebookEmptyCourseMap}
+                  startLabel={t.catalog.racebookMapStart}
+                  finishLabel={t.catalog.racebookMapFinish}
+                  pointsLabel={t.catalog.racebookMapPoints}
+                />
+
+                {profileSections.length > 0 ? (
+                  profileSections.map((section) => (
+                    <SectionCard key={section.title} title={section.title}>
+                      {section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
+                      {section.lines.length > 0 ? <InfoList values={section.lines} /> : null}
+                    </SectionCard>
+                  ))
+                ) : (
+                  <SectionCard title={t.catalog.racebookTabProfile}>
+                    <EmptyState message={t.catalog.racebookEmptyProfile} />
                   </SectionCard>
-                ))
-              ) : (
-                <SectionCard title={t.catalog.racebookTabProfile}>
-                  <EmptyState message={t.catalog.racebookEmptyProfile} />
-                </SectionCard>
-              )
+                )}
+              </>
             ) : null}
 
             {activeTab === 'gear' ? (
@@ -694,34 +777,42 @@ export default function RaceRacebookScreen() {
             ) : null}
 
             {activeTab === 'aid' ? (
-              data.aidStations.length > 0 ? (
-                <SectionCard title={t.catalog.racebookTabAid}>
-                  <View style={styles.aidStationsWrap}>
-                    {data.aidStations.map((station: RacebookAidStation, index: number) => (
-                      <AidStationCard
-                        key={station.id}
-                        station={station}
-                        previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
-                        copy={{
-                          aidProducts: t.catalog.racebookAidProducts,
-                          aidWater: t.catalog.racebookAidWater,
-                          aidFood: t.catalog.racebookAidFood,
-                          aidAssistance: t.catalog.racebookAidAssistance,
-                          aidDropBag: t.catalog.racebookAidDropBag,
-                          aidDistance: t.catalog.racebookAidDistance,
-                          aidElevationGain: t.catalog.racebookAidElevationGain,
-                          aidElevationLoss: t.catalog.racebookAidElevationLoss,
-                          aidCutoffTime: t.catalog.racebookAidCutoffTime,
-                        }}
-                      />
-                    ))}
-                  </View>
-                </SectionCard>
-              ) : (
-                <SectionCard title={t.catalog.racebookTabAid}>
-                  <EmptyState message={t.catalog.racebookEmptyAid} />
-                </SectionCard>
-              )
+              <>
+                <CourseProfileCard
+                  title={t.catalog.racebookSectionCourseProfile}
+                  points={elevationProfile}
+                  emptyMessage={t.catalog.racebookEmptyCourseProfile}
+                />
+
+                {data.aidStations.length > 0 ? (
+                  <SectionCard title={t.catalog.racebookTabAid}>
+                    <View style={styles.aidStationsWrap}>
+                      {data.aidStations.map((station: RacebookAidStation, index: number) => (
+                        <AidStationCard
+                          key={station.id}
+                          station={station}
+                          previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
+                          copy={{
+                            aidProducts: t.catalog.racebookAidProducts,
+                            aidWater: t.catalog.racebookAidWater,
+                            aidFood: t.catalog.racebookAidFood,
+                            aidAssistance: t.catalog.racebookAidAssistance,
+                            aidDropBag: t.catalog.racebookAidDropBag,
+                            aidDistance: t.catalog.racebookAidDistance,
+                            aidElevationGain: t.catalog.racebookAidElevationGain,
+                            aidElevationLoss: t.catalog.racebookAidElevationLoss,
+                            aidCutoffTime: t.catalog.racebookAidCutoffTime,
+                          }}
+                        />
+                      ))}
+                    </View>
+                  </SectionCard>
+                ) : (
+                  <SectionCard title={t.catalog.racebookTabAid}>
+                    <EmptyState message={t.catalog.racebookEmptyAid} />
+                  </SectionCard>
+                )}
+              </>
             ) : null}
           </View>
         </>
@@ -999,6 +1090,19 @@ const styles = StyleSheet.create({
   },
   chipText: {
     color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  courseProfileWrap: {
+    gap: 10,
+  },
+  courseProfileMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  courseProfileMetaText: {
+    color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },

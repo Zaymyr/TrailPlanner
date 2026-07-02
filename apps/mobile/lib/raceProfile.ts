@@ -1,4 +1,5 @@
 import type { ElevationPoint } from '../components/PlanForm';
+import { parseGpxForRaceImport, type MobileGpxPreviewPoint } from './gpx';
 import { WEB_API_BASE_URL } from './webApi';
 
 export type CatalogAidStation = {
@@ -215,6 +216,17 @@ async function fetchStoredRaceElevationProfile(raceId: string): Promise<Elevatio
 }
 
 async function fetchRaceElevationProfileFromStorage(raceId: string): Promise<ElevationPoint[]> {
+  const gpxContent = await fetchRaceGpxContent(raceId);
+  if (!gpxContent) return [];
+
+  try {
+    return parseGpxElevationProfile(gpxContent);
+  } catch {
+    return [];
+  }
+}
+
+async function fetchRaceGpxContent(raceId: string): Promise<string | null> {
   const { supabase } = await import('./supabase');
 
   try {
@@ -225,19 +237,18 @@ async function fetchRaceElevationProfileFromStorage(raceId: string): Promise<Ele
       .maybeSingle();
 
     if (error || typeof race?.gpx_storage_path !== 'string' || race.gpx_storage_path.trim().length === 0) {
-      return [];
+      return null;
     }
 
     const { data: gpxFile, error: downloadError } = await supabase.storage
       .from('race-gpx')
       .download(race.gpx_storage_path);
 
-    if (downloadError || !gpxFile) return [];
+    if (downloadError || !gpxFile) return null;
 
-    const gpxContent = await gpxFile.text();
-    return parseGpxElevationProfile(gpxContent);
+    return await gpxFile.text();
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -276,6 +287,19 @@ export async function fetchRaceElevationProfile(raceId: string | null | undefine
   ]);
 
   return pickBestElevationProfile([apiProfile, storageProfile, storedProfile]);
+}
+
+export async function fetchRaceRoutePreviewPoints(raceId: string | null | undefined): Promise<MobileGpxPreviewPoint[]> {
+  if (!raceId) return [];
+
+  const gpxContent = await fetchRaceGpxContent(raceId);
+  if (!gpxContent) return [];
+
+  try {
+    return parseGpxForRaceImport(gpxContent).points;
+  } catch {
+    return [];
+  }
 }
 
 export async function fetchRaceAidStations(raceId: string | null | undefined): Promise<CatalogAidStation[]> {

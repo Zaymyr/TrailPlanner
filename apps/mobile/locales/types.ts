@@ -571,6 +571,8 @@ export type MobileTranslations = {
     racebookSectionBib: string;
     racebookSectionRunnerInfo: string;
     racebookSectionServices: string;
+    racebookSectionCourseMap: string;
+    racebookSectionCourseProfile: string;
     racebookLastMinuteTitle: string;
     racebookFieldStartTime: string;
     racebookFieldStartLocation: string;
@@ -604,6 +606,11 @@ export type MobileTranslations = {
     racebookEmptyGear: string;
     racebookEmptyAccess: string;
     racebookEmptyAid: string;
+    racebookEmptyCourseMap: string;
+    racebookEmptyCourseProfile: string;
+    racebookMapStart: string;
+    racebookMapFinish: string;
+    racebookMapPoints: string;
     selectRace: string;
     createRace: string;
     noRaceAvailable: string;
