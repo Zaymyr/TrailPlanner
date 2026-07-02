@@ -11,7 +11,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
-import { GpxRoutePreviewCard } from '../../../../components/race/GpxRoutePreviewCard';
+import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
 import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
@@ -128,26 +128,15 @@ function CourseMapCard({
   title,
   points,
   emptyMessage,
-  startLabel,
-  finishLabel,
-  pointsLabel,
 }: {
   title: string;
   points: MobileGpxPreviewPoint[];
   emptyMessage: string;
-  startLabel: string;
-  finishLabel: string;
-  pointsLabel: string;
 }) {
   return (
     <SectionCard title={title}>
       {points.length >= 2 ? (
-        <GpxRoutePreviewCard
-          points={points}
-          startLabel={startLabel}
-          finishLabel={finishLabel}
-          pointsLabel={pointsLabel}
-        />
+        <RacebookLeafletMap points={points} />
       ) : (
         <EmptyState message={emptyMessage} />
       )}
@@ -714,9 +703,6 @@ export default function RaceRacebookScreen() {
                   title={t.catalog.racebookSectionCourseMap}
                   points={routePreviewPoints}
                   emptyMessage={t.catalog.racebookEmptyCourseMap}
-                  startLabel={t.catalog.racebookMapStart}
-                  finishLabel={t.catalog.racebookMapFinish}
-                  pointsLabel={t.catalog.racebookMapPoints}
                 />
 
                 {profileSections.length > 0 ? (
