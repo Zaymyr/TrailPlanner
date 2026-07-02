@@ -37,6 +37,32 @@ function sanitizeElevationProfile(points: unknown): ElevationPoint[] {
     .sort((left, right) => left.distanceKm - right.distanceKm);
 }
 
+function sanitizeRoutePreviewPoints(points: unknown): MobileGpxPreviewPoint[] {
+  if (!Array.isArray(points)) return [];
+
+  return points
+    .filter(
+      (point): point is MobileGpxPreviewPoint =>
+        typeof point === 'object' &&
+        point !== null &&
+        typeof (point as MobileGpxPreviewPoint).lat === 'number' &&
+        Number.isFinite((point as MobileGpxPreviewPoint).lat) &&
+        typeof (point as MobileGpxPreviewPoint).lng === 'number' &&
+        Number.isFinite((point as MobileGpxPreviewPoint).lng) &&
+        (typeof (point as MobileGpxPreviewPoint).elevationM === 'number' ||
+          (point as MobileGpxPreviewPoint).elevationM === null) &&
+        typeof (point as MobileGpxPreviewPoint).distanceKm === 'number' &&
+        Number.isFinite((point as MobileGpxPreviewPoint).distanceKm),
+    )
+    .map((point) => ({
+      lat: point.lat,
+      lng: point.lng,
+      elevationM: point.elevationM,
+      distanceKm: point.distanceKm,
+    }))
+    .sort((left, right) => left.distanceKm - right.distanceKm);
+}
+
 function toNumber(value: string | null | undefined): number | null {
   if (!value) return null;
   const parsed = Number(value.trim().replace(',', '.'));
@@ -252,18 +278,13 @@ async function fetchRaceGpxContent(raceId: string): Promise<string | null> {
   }
 }
 
-export async function fetchRaceElevationProfile(raceId: string | null | undefined): Promise<ElevationPoint[]> {
-  if (!raceId) return [];
-
+async function fetchRaceProfilePayload(
+  raceId: string,
+): Promise<{ elevationProfile: ElevationPoint[]; routePreviewPoints: MobileGpxPreviewPoint[] }> {
   const apiBase = WEB_API_BASE_URL;
   if (!apiBase) {
-    return pickBestElevationProfile([
-      await fetchRaceElevationProfileFromStorage(raceId),
-      await fetchStoredRaceElevationProfile(raceId),
-    ]);
+    return { elevationProfile: [], routePreviewPoints: [] };
   }
-
-  let apiProfile: ElevationPoint[] = [];
 
   try {
     const { supabase } = await import('./supabase');
@@ -273,13 +294,36 @@ export async function fetchRaceElevationProfile(raceId: string | null | undefine
     const response = await fetch(`${apiBase}/api/onboarding/race-profile?raceId=${encodeURIComponent(raceId)}`, {
       headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
     });
-    if (response.ok) {
-      const data = (await response.json().catch(() => null)) as { elevationProfile?: ElevationPoint[] } | null;
-      apiProfile = sanitizeElevationProfile(data?.elevationProfile);
+
+    if (!response.ok) {
+      return { elevationProfile: [], routePreviewPoints: [] };
     }
+
+    const data = (await response.json().catch(() => null)) as {
+      elevationProfile?: ElevationPoint[];
+      routePreviewPoints?: MobileGpxPreviewPoint[];
+    } | null;
+
+    return {
+      elevationProfile: sanitizeElevationProfile(data?.elevationProfile),
+      routePreviewPoints: sanitizeRoutePreviewPoints(data?.routePreviewPoints),
+    };
   } catch {
-    apiProfile = [];
+    return { elevationProfile: [], routePreviewPoints: [] };
   }
+}
+
+export async function fetchRaceElevationProfile(raceId: string | null | undefined): Promise<ElevationPoint[]> {
+  if (!raceId) return [];
+
+  if (!WEB_API_BASE_URL) {
+    return pickBestElevationProfile([
+      await fetchRaceElevationProfileFromStorage(raceId),
+      await fetchStoredRaceElevationProfile(raceId),
+    ]);
+  }
+
+  const { elevationProfile: apiProfile } = await fetchRaceProfilePayload(raceId);
 
   const [storageProfile, storedProfile] = await Promise.all([
     fetchRaceElevationProfileFromStorage(raceId),
@@ -291,6 +335,11 @@ export async function fetchRaceElevationProfile(raceId: string | null | undefine
 
 export async function fetchRaceRoutePreviewPoints(raceId: string | null | undefined): Promise<MobileGpxPreviewPoint[]> {
   if (!raceId) return [];
+
+  if (WEB_API_BASE_URL) {
+    const { routePreviewPoints } = await fetchRaceProfilePayload(raceId);
+    if (routePreviewPoints.length > 0) return routePreviewPoints;
+  }
 
   const gpxContent = await fetchRaceGpxContent(raceId);
   if (!gpxContent) return [];
