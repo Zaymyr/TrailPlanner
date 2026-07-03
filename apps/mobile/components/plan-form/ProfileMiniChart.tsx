@@ -56,12 +56,14 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
     const sampled = samplePoints(points);
     const chartWidth = Math.max(1, width - AXIS_WIDTH - RIGHT_PADDING);
     const innerHeight = CHART_HEIGHT - TOP_PADDING - BOTTOM_PADDING;
+    const minDistance = sampled[0]?.distanceKm ?? 0;
+    const maxDistance = sampled[sampled.length - 1]?.distanceKm ?? minDistance;
+    const distanceSpan = Math.max(0.001, maxDistance - minDistance);
     const minElevation = Math.min(...sampled.map((point) => point.elevationM));
     const maxElevation = Math.max(...sampled.map((point) => point.elevationM));
     const elevationSpread = Math.max(1, maxElevation - minElevation);
-    const maxDistance = Math.max(sampled[sampled.length - 1]?.distanceKm ?? 1, 0.001);
 
-    const xFor = (distanceKm: number) => AXIS_WIDTH + (distanceKm / maxDistance) * chartWidth;
+    const xFor = (distanceKm: number) => AXIS_WIDTH + ((distanceKm - minDistance) / distanceSpan) * chartWidth;
     const yFor = (elevationM: number) =>
       TOP_PADDING + innerHeight - ((elevationM - minElevation) / elevationSpread) * innerHeight;
 
@@ -76,8 +78,8 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
       const deltaDistanceKm = Math.max(point.distanceKm - previousPoint.distanceKm, 0.001);
       const gradePercent = ((point.elevationM - previousPoint.elevationM) / (deltaDistanceKm * 1000)) * 100;
       const color = slopeToGreen(gradePercent);
-      const startOffset = `${Math.max(0, Math.min(100, (previousPoint.distanceKm / maxDistance) * 100))}%`;
-      const endOffset = `${Math.max(0, Math.min(100, (point.distanceKm / maxDistance) * 100))}%`;
+      const startOffset = `${Math.max(0, Math.min(100, ((previousPoint.distanceKm - minDistance) / distanceSpan) * 100))}%`;
+      const endOffset = `${Math.max(0, Math.min(100, ((point.distanceKm - minDistance) / distanceSpan) * 100))}%`;
 
       return [
         <Stop key={`start-${index}`} offset={startOffset} stopColor={color} />,
@@ -89,6 +91,7 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
       areaPath,
       gradientStops,
       maxDistance,
+      minDistance,
       path,
       ticks: buildTicks(minElevation, maxElevation),
       yFor,
@@ -137,7 +140,7 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
           <Path d={chart.path} fill="none" stroke="url(#profile-line-gradient)" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
 
           <SvgText x={AXIS_WIDTH} y={CHART_HEIGHT - 4} fill={Colors.textMuted} fontSize="10" textAnchor="start">
-            0 km
+            {chart.minDistance >= 100 ? chart.minDistance.toFixed(0) : chart.minDistance.toFixed(1)} km
           </SvgText>
           <SvgText x={width - RIGHT_PADDING} y={CHART_HEIGHT - 4} fill={Colors.textMuted} fontSize="10" textAnchor="end">
             {chart.maxDistance >= 100 ? chart.maxDistance.toFixed(0) : chart.maxDistance.toFixed(1)} km
