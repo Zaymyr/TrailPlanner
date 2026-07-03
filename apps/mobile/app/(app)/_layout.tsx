@@ -78,7 +78,7 @@ export default function AppLayout() {
 
   return (
     <Tabs
-      backBehavior="initialRoute"
+      backBehavior="history"
       initialRouteName="plans"
       screenOptions={({ route }) => {
         const isRootTab = ROOT_TAB_ROUTES.has(route.name);
