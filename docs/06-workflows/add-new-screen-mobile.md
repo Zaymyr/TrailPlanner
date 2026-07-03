@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-07-02
+last_verified: 2026-07-03
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -44,7 +44,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Hidden detail headers with custom left/right actions should reserve title space through `headerTitleContainerStyle` in the parent layout or screen options. On narrow iPhones, prefer shared one-line truncation in `AppHeaderTitle` over wrapped titles that can collide with header icons.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
 - Non-root plan actions can reuse `FloatingActionMenu` directly. The component keeps its default add icon for root menus but also accepts optional closed/open icons when a screen needs an actions affordance instead of a create affordance.
-- Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item. Use `href: null` alone when the screen should keep the bottom navigation visible; add `tabBarStyle: { display: 'none' }` only for flows that should hide the bar.
+- Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item. Use `href: null` alone when the screen should keep the bottom navigation visible; add `tabBarStyle: { display: 'none' }` only for flows that should hide the bar. Preserve the tab navigator's history-based back behavior so Android hardware back returns to the actual previous screen after these hidden routes are pushed.
 - Compact detail routes under an existing stack, such as `race/[id]/racebook`, can keep a route-local tab bar/state machine instead of introducing a shared navigation primitive when the screen is read-only and scoped to one flow. Keep the entry point hidden until the format is live and has real organizer content; aid-station rows alone should not unlock it. For Racebook specifically, keep the header aligned with the format date and race metrics, lift any organizer last-minute message into its own compact alert card above the tabs, render the alert title and message inline on the same text row, keep remaining service copy in Profile, start `Profil` with an interactive Leaflet map when GPX points are available, render start and bib data in table-like label/value rows, sort gear rows as active required first, active recommended second, and inactive weather-muted items last, keep gear status badges inline and right-aligned on the same row as the item label, remove bullet dots from gear rows, add icon-only inline cold/heat markers for weather-tagged gear, start `Ravito` with the course elevation profile when available, and present ravitos as a two-column layout with the right column reserved for km, D+, D-, and cutoff time.
 - Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code. Preserve per-checkpoint assistance availability in the generated snapshot so recap screens can highlight crew handoff points, mute no-assistance points, and avoid showing a product handoff block where the crew cannot be present.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
@@ -96,6 +96,7 @@ For native behavior, build/run with the development client profile from `apps/mo
 - Do not remove the opened menu backdrop or high-contrast action styling unless replacing it with an equally readable treatment across busy root screens.
 - Do not expose temporary flows like free training as new bottom tabs unless they become primary navigation destinations.
 - Do not rely on a hidden parent route to hide every nested Expo Router screen. Register important dynamic children explicitly when adding plan/race utility screens, and choose separately whether the tab bar itself remains visible.
+- Do not switch the tab shell back to `backBehavior: 'initialRoute'` for hidden child flows unless you explicitly want Android hardware back to jump to the default tab instead of the previous screen.
 
 ## Related Docs
 
