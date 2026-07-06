@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-07-03
+last_verified: 2026-07-06
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -12,14 +12,19 @@ related_files:
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/app/(app)/profile.tsx
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/premium/PremiumUpsellModal.tsx
+  - apps/mobile/components/profile/ProfileLanguageSection.tsx
+  - apps/mobile/components/profile/ProfilePremiumSection.tsx
   - apps/mobile/components/race/GpxImportPreviewModal.tsx
   - apps/mobile/components/race/GpxRoutePreviewCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/lib/gpx.ts
   - apps/mobile/hooks/usePremium.ts
+  - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/resendContactSync.ts
@@ -135,6 +140,12 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 
 When RevenueCat has an active entitlement and the server is not synced, mobile calls the web sync endpoint to persist the purchase into `subscriptions`.
 
+The runner-facing subscription surfaces now keep App Store review compliance details close to the upgrade CTA:
+
+- `ProfilePremiumSection.tsx` shows the subscription title, annual duration, current price string, and direct buttons for the privacy policy plus Apple standard Terms of Use (EULA);
+- `PremiumUpsellModal.tsx` mirrors those same legal links and summary details for feature-gated upgrade prompts reached from plans, nutrition, and onboarding-adjacent flows;
+- `useProfileScreen.ts` opens privacy on the web legal route and opens Apple’s standard EULA directly so iPhone and iPad review paths expose both required links without relying on App Store Connect metadata alone.
+
 ## Race Import
 
 `apps/mobile/lib/race-import.ts` handles mobile GPX document picking and private race creation. It:
@@ -174,6 +185,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep the event-sheet default compact: preload only the short organizer-update preview with the catalog query, and fetch the longer history only when the runner explicitly asks to see more.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
+- Keep both required legal links visible from reviewer-reachable purchase surfaces: privacy should open the web legal page, and Terms of Use should open Apple’s standard EULA unless the billing/legal strategy is intentionally changed.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.

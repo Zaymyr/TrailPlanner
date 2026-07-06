@@ -332,6 +332,9 @@ export const fr: MobileTranslations = {
     upgradeCtaWithPrice: 'Passer en Premium ({price})',
     premiumAnnualCta: 'Passer en Premium - {price}/an',
     premiumAnnualFallbackCta: 'Passer en Premium - 9 EUR/an',
+    subscriptionOfferTitle: 'Pace Yourself Premium',
+    subscriptionDurationAnnual: 'Abonnement auto-renouvelable d’un an',
+    subscriptionPriceAnnual: 'Prix : {price}/an',
     webManagedSubscription: 'Ton abonnement Premium est géré sur le web.',
     manageSubscription: 'Gérer mon abonnement',
     restorePurchases: 'Restaurer mes achats',
@@ -387,6 +390,8 @@ export const fr: MobileTranslations = {
     guestExistingAccountCta: "J'ai déjà un compte",
     privacyPolicyButton: 'Politique de confidentialité',
     privacyPolicyFallback: "Impossible d'ouvrir la politique de confidentialité pour le moment.",
+    termsOfUseButton: "Conditions d'utilisation (EULA)",
+    termsOfUseFallback: "Impossible d'ouvrir les conditions d'utilisation pour le moment.",
     deleteAccountButton: 'Supprimer mon compte',
     deleteAccountTitle: 'Supprimer le compte ?',
     deleteAccountMessage:

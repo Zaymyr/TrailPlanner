@@ -29,9 +29,15 @@ type ProfilePremiumSectionProps = {
   isPurchasing?: boolean;
   isRestoring?: boolean;
   manageSubscriptionLabel: string;
+  offerDuration?: string | null;
+  offerPrice?: string | null;
+  offerTitle?: string | null;
+  onOpenPrivacyPolicy?: () => void;
+  onOpenTermsOfUse?: () => void;
   onManageSubscription: () => void;
   onRestorePurchases: () => void;
   onUpgrade: () => void;
+  privacyPolicyLabel?: string;
   premiumBenefits: string[];
   premiumBenefitsTitle: string;
   restorePurchasesLabel: string;
@@ -40,6 +46,7 @@ type ProfilePremiumSectionProps = {
   showUpgradeAction?: boolean;
   subscriptionHint?: string | null;
   subscriptionLabel: string;
+  termsOfUseLabel?: string;
   upgradeLabel: string;
 };
 
@@ -51,9 +58,15 @@ function ProfilePremiumSectionComponent({
   isPurchasing = false,
   isRestoring = false,
   manageSubscriptionLabel,
+  offerDuration,
+  offerPrice,
+  offerTitle,
+  onOpenPrivacyPolicy,
+  onOpenTermsOfUse,
   onManageSubscription,
   onRestorePurchases,
   onUpgrade,
+  privacyPolicyLabel,
   premiumBenefits,
   premiumBenefitsTitle,
   restorePurchasesLabel,
@@ -62,8 +75,13 @@ function ProfilePremiumSectionComponent({
   showUpgradeAction = false,
   subscriptionHint,
   subscriptionLabel,
+  termsOfUseLabel,
   upgradeLabel,
 }: ProfilePremiumSectionProps) {
+  const showOfferDetails = showUpgradeAction && Boolean(offerTitle || offerDuration || offerPrice);
+  const showLegalButtons =
+    Boolean(privacyPolicyLabel && onOpenPrivacyPolicy) || Boolean(termsOfUseLabel && onOpenTermsOfUse);
+
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
@@ -106,6 +124,14 @@ function ProfilePremiumSectionComponent({
         </View>
       ))}
 
+      {showOfferDetails ? (
+        <View style={styles.offerCard}>
+          {offerTitle ? <Text style={styles.offerTitle}>{offerTitle}</Text> : null}
+          {offerDuration ? <Text style={styles.offerText}>{offerDuration}</Text> : null}
+          {offerPrice ? <Text style={styles.offerText}>{offerPrice}</Text> : null}
+        </View>
+      ) : null}
+
       {showPremiumBenefits ? (
         <View style={styles.benefitsCard}>
           <Text style={styles.benefitsTitle}>{premiumBenefitsTitle}</Text>
@@ -130,6 +156,30 @@ function ProfilePremiumSectionComponent({
             <Text style={styles.upgradeButtonText}>{upgradeLabel}</Text>
           )}
         </TouchableOpacity>
+      ) : null}
+
+      {showLegalButtons ? (
+        <View style={styles.legalButtonsRow}>
+          {privacyPolicyLabel && onOpenPrivacyPolicy ? (
+            <TouchableOpacity
+              style={[styles.legalButton, billingActionBusy && styles.actionDisabled]}
+              onPress={onOpenPrivacyPolicy}
+              disabled={billingActionBusy}
+            >
+              <Text style={styles.legalButtonText}>{privacyPolicyLabel}</Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {termsOfUseLabel && onOpenTermsOfUse ? (
+            <TouchableOpacity
+              style={[styles.legalButton, billingActionBusy && styles.actionDisabled]}
+              onPress={onOpenTermsOfUse}
+              disabled={billingActionBusy}
+            >
+              <Text style={styles.legalButtonText}>{termsOfUseLabel}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       ) : null}
 
       {subscriptionHint ? <Text style={styles.subscriptionHint}>{subscriptionHint}</Text> : null}
@@ -249,6 +299,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  offerCard: {
+    gap: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    padding: 14,
+  },
+  offerTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  offerText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   benefitsCard: {
     gap: 10,
     borderRadius: 14,
@@ -292,6 +360,27 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 12,
     lineHeight: 17,
+  },
+  legalButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  legalButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    paddingHorizontal: 12,
+  },
+  legalButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   secondaryButton: {
     minHeight: 46,
