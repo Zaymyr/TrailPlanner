@@ -330,6 +330,9 @@ export type MobileTranslations = {
     upgradeCtaWithPrice: string;
     premiumAnnualCta: string;
     premiumAnnualFallbackCta: string;
+    subscriptionOfferTitle: string;
+    subscriptionDurationAnnual: string;
+    subscriptionPriceAnnual: string;
     webManagedSubscription: string;
     manageSubscription: string;
     restorePurchases: string;
@@ -384,6 +387,8 @@ export type MobileTranslations = {
     guestExistingAccountCta: string;
     privacyPolicyButton: string;
     privacyPolicyFallback: string;
+    termsOfUseButton: string;
+    termsOfUseFallback: string;
     deleteAccountButton: string;
     deleteAccountTitle: string;
     deleteAccountMessage: string;

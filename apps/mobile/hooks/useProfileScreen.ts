@@ -46,6 +46,7 @@ import { useRevenueCatBilling } from './useRevenueCatBilling';
 const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
 const PLAY_SUBSCRIPTIONS_URL = `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE_NAME}`;
 const IOS_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
+const APPLE_STANDARD_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
@@ -610,6 +611,13 @@ export function useProfileScreen() {
   const upgradeLabel = billing.currentPackage
     ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
     : t.profile.premiumAnnualFallbackCta;
+  const subscriptionOfferTitle =
+    billing.currentPackage?.product.title?.trim() || t.profile.subscriptionOfferTitle;
+  const subscriptionOfferDuration = t.profile.subscriptionDurationAnnual;
+  const subscriptionOfferPrice = t.profile.subscriptionPriceAnnual.replace(
+    '{price}',
+    billing.currentPackage?.product.priceString ?? 'EUR 9',
+  );
   const isWebManagedPremium = hasPaidPremium && paidPremiumSource === 'web';
 
   const handleUpgrade = useCallback(async () => {
@@ -765,6 +773,18 @@ export function useProfileScreen() {
     openExternalUrl,
     t.profile.accountSectionTitle,
     t.profile.privacyPolicyFallback,
+  ]);
+
+  const handleOpenTermsOfUse = useCallback(async () => {
+    await openExternalUrl(
+      APPLE_STANDARD_EULA_URL,
+      t.profile.termsOfUseFallback,
+      t.profile.accountSectionTitle,
+    );
+  }, [
+    openExternalUrl,
+    t.profile.accountSectionTitle,
+    t.profile.termsOfUseFallback,
   ]);
 
   const performDeleteAccount = useCallback(async () => {
@@ -1216,6 +1236,9 @@ export function useProfileScreen() {
     premiumBenefits,
     showUpgradeAction,
     upgradeLabel,
+    subscriptionOfferTitle,
+    subscriptionOfferDuration,
+    subscriptionOfferPrice,
     billingActionBusy,
     isPurchasing: billing.isPurchasing,
     subscriptionHint: isWebManagedPremium ? t.profile.webManagedSubscription : null,
@@ -1249,6 +1272,7 @@ export function useProfileScreen() {
     handleManageSubscription,
     handleRestorePurchases,
     handleOpenPrivacyPolicy,
+    handleOpenTermsOfUse,
     handleDeleteAccount,
     handleCheckForUpdates,
     handleOpenChangelog,

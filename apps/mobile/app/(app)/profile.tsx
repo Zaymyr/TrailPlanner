@@ -78,6 +78,9 @@ export default function ProfileScreen() {
     premiumBenefits,
     showUpgradeAction,
     upgradeLabel,
+    subscriptionOfferTitle,
+    subscriptionOfferDuration,
+    subscriptionOfferPrice,
     billingActionBusy,
     isPurchasing,
     subscriptionHint,
@@ -111,6 +114,7 @@ export default function ProfileScreen() {
     handleManageSubscription,
     handleRestorePurchases,
     handleOpenPrivacyPolicy,
+    handleOpenTermsOfUse,
     handleDeleteAccount,
     handleCheckForUpdates,
     handleOpenChangelog,
@@ -305,9 +309,16 @@ export default function ProfileScreen() {
                 showPremiumBenefits={showUpgradeAction}
                 showUpgradeAction={showUpgradeAction}
                 upgradeLabel={upgradeLabel}
+                offerTitle={subscriptionOfferTitle}
+                offerDuration={subscriptionOfferDuration}
+                offerPrice={subscriptionOfferPrice}
                 billingActionBusy={billingActionBusy}
                 isPurchasing={isPurchasing}
                 onUpgrade={() => void handleUpgrade()}
+                privacyPolicyLabel={t.profile.privacyPolicyButton}
+                onOpenPrivacyPolicy={() => void handleOpenPrivacyPolicy()}
+                termsOfUseLabel={t.profile.termsOfUseButton}
+                onOpenTermsOfUse={() => void handleOpenTermsOfUse()}
                 subscriptionHint={subscriptionHint}
                 canManageSubscription={canManagePaidSubscription}
                 manageSubscriptionLabel={t.profile.manageSubscription}
@@ -328,6 +339,8 @@ export default function ProfileScreen() {
                 onSelectLocale={setLocale}
                 privacyPolicyLabel={t.profile.privacyPolicyButton}
                 onOpenPrivacyPolicy={() => void handleOpenPrivacyPolicy()}
+                termsOfUseLabel={t.profile.termsOfUseButton}
+                onOpenTermsOfUse={() => void handleOpenTermsOfUse()}
               />
             </TutorialTarget>
 

@@ -21,6 +21,7 @@ import { WEB_API_BASE_URL } from '../../lib/webApi';
 const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
 const PLAY_SUBSCRIPTIONS_URL = `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE_NAME}`;
 const IOS_SUBSCRIPTIONS_URL = 'https://apps.apple.com/account/subscriptions';
+const APPLE_STANDARD_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
 type Props = {
   visible: boolean;
@@ -63,6 +64,11 @@ function PremiumUpsellModalContent({
   const upgradeLabel = billing.currentPackage
     ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
     : t.profile.premiumAnnualFallbackCta;
+  const offerTitle = billing.currentPackage?.product.title?.trim() || t.profile.subscriptionOfferTitle;
+  const offerPrice = t.profile.subscriptionPriceAnnual.replace(
+    '{price}',
+    billing.currentPackage?.product.priceString ?? 'EUR 9',
+  );
 
   const benefitItems = useMemo(
     () =>
@@ -145,6 +151,12 @@ function PremiumUpsellModalContent({
           <Text style={styles.modalMessage}>{message}</Text>
 
           <View style={styles.benefitsCard}>
+            <View style={styles.offerSummary}>
+              <Text style={styles.offerTitle}>{offerTitle}</Text>
+              <Text style={styles.offerBody}>{t.profile.subscriptionDurationAnnual}</Text>
+              <Text style={styles.offerBody}>{offerPrice}</Text>
+            </View>
+
             {benefitItems.map((item) => (
               <View key={item} style={styles.benefitRow}>
                 <Ionicons name="checkmark-circle" size={16} color={Colors.brandPrimary} />
@@ -164,6 +176,24 @@ function PremiumUpsellModalContent({
               <Text style={styles.primaryButtonText}>{upgradeLabel}</Text>
             )}
           </TouchableOpacity>
+
+          <View style={styles.legalButtonsRow}>
+            <TouchableOpacity
+              disabled={actionBusy}
+              onPress={() => void openExternalUrl(`${WEB_API_BASE_URL}/legal/privacy`, t.profile.privacyPolicyFallback)}
+              style={[styles.legalButton, actionBusy && styles.primaryButtonDisabled]}
+            >
+              <Text style={styles.legalButtonText}>{t.profile.privacyPolicyButton}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              disabled={actionBusy}
+              onPress={() => void openExternalUrl(APPLE_STANDARD_EULA_URL, t.profile.termsOfUseFallback)}
+              style={[styles.legalButton, actionBusy && styles.primaryButtonDisabled]}
+            >
+              <Text style={styles.legalButtonText}>{t.profile.termsOfUseButton}</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity disabled={actionBusy} onPress={onClose} style={styles.secondaryButton}>
             <Text style={styles.secondaryButtonText}>{t.common.cancel}</Text>
@@ -226,6 +256,24 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 18,
   },
+  offerSummary: {
+    gap: 4,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    padding: 12,
+  },
+  offerTitle: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  offerBody: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   benefitRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -251,6 +299,28 @@ const styles = StyleSheet.create({
     color: Colors.textOnBrand,
     fontSize: 15,
     fontWeight: '800',
+  },
+  legalButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  legalButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  legalButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   secondaryButton: {
     alignItems: 'center',
