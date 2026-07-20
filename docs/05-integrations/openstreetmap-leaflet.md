@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-06-30
+last_verified: 2026-07-20
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -35,7 +35,7 @@ It:
 - receives parsed GPX points and optional detected aid stations;
 - fits the viewport to the route bounds;
 - shows the route polyline plus start, finish, and ravito markers;
-- is currently used by the organizer format editor GPX panel.
+- is currently used by the organizer format editor GPX panel for the currently selected yearly edition inside one organizer format-series tab.
 
 ## Gotchas
 

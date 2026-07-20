@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-06-29
+last_verified: 2026-07-20
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -115,6 +115,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Owners can manage private races through `created_by`.
 - Approved organizers manage public claimed races through service routes and `race_event_organizers`, not through `races.created_by`.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
+- `races.edition_group_id` and `races.series_name` inherit the same `races` row policies; the organizer edition-grouping migration adds no new grants or RLS branches.
 
 Some policy branches include legacy admin metadata checks. Do not copy them into new migrations.
 

@@ -16,6 +16,7 @@ import {
 } from "../../../../../lib/organizer-dashboard-details";
 
 const updateRaceSchema = z.object({
+  seriesName: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1).optional(),
   distanceKm: z.coerce.number().positive().optional(),
   elevationGainM: z.coerce.number().nonnegative().optional(),
@@ -29,6 +30,8 @@ const updateRaceSchema = z.object({
 
 const raceRowSchema = z.object({
   id: z.string().uuid(),
+  edition_group_id: z.string().uuid(),
+  series_name: z.string(),
   name: z.string(),
   slug: z.string().nullable().optional(),
   event_id: z.string().uuid().nullable().optional(),
@@ -81,6 +84,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (!parsedBody.success) return jsonError("Invalid race fields.", 400);
 
   const updatePayload: Record<string, unknown> = {};
+  if (parsedBody.data.seriesName !== undefined) updatePayload.series_name = parsedBody.data.seriesName;
   if (parsedBody.data.name !== undefined) updatePayload.name = parsedBody.data.name;
   if (parsedBody.data.distanceKm !== undefined) updatePayload.distance_km = Number(parsedBody.data.distanceKm.toFixed(2));
   if (parsedBody.data.elevationGainM !== undefined) updatePayload.elevation_gain_m = Math.round(parsedBody.data.elevationGainM);

@@ -50,6 +50,8 @@ describe("/api/organizer/events/[id]", () => {
           races: [
             {
               id: "22222222-2222-2222-2222-222222222222",
+              edition_group_id: "33333333-3333-3333-3333-333333333333",
+              series_name: "42K",
               name: "42K",
               slug: "42k",
               location_text: null,
@@ -77,6 +79,8 @@ describe("/api/organizer/events/[id]", () => {
       cold: true,
       heat: false,
     });
+    expect(payload.event.races[0].edition_group_id).toBe("33333333-3333-3333-3333-333333333333");
+    expect(payload.event.races[0].series_name).toBe("42K");
     expect(payload.event.races[0].organizerDetails.schedule.startTime).toBe("07:00");
   });
 

@@ -20,6 +20,8 @@ const baseEvent: CompletionEvent = {
   races: [
     {
       id: "race-1",
+      edition_group_id: "series-42k",
+      series_name: "42K",
       name: "42K",
       distance_km: 42,
       elevation_gain_m: 2400,
@@ -140,6 +142,8 @@ describe("organizer completion", () => {
           {
             ...baseEvent.races[0]!,
             id: "race-2",
+            edition_group_id: "series-25k",
+            series_name: "25K",
             name: "25K",
             gpx_storage_path: null,
           },
@@ -151,8 +155,8 @@ describe("organizer completion", () => {
     );
 
     expect(completion.raceProgress).toEqual([
-      { id: "race-1", name: "42K", score: 25 },
-      { id: "race-2", name: "25K", score: 25 },
+      { id: "race-1", editionGroupId: "series-42k", seriesName: "42K", name: "42K", score: 25 },
+      { id: "race-2", editionGroupId: "series-25k", seriesName: "25K", name: "25K", score: 25 },
     ]);
     expect(completion.raceProgressScore).toBe(25);
   });

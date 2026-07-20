@@ -40,6 +40,8 @@ const eventDetailSchema = z.object({
     .array(
       z.object({
         id: z.string().uuid(),
+        edition_group_id: z.string().uuid(),
+        series_name: z.string(),
         name: z.string(),
         slug: z.string().nullable().optional(),
         location_text: z.string().nullable().optional(),
@@ -157,7 +159,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if (organizer !== true) return organizer.error;
 
   const response = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,races(id,name,slug,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,organizer_details)&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,races(id,edition_group_id,series_name,name,slug,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,organizer_details)&limit=1`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",

@@ -1,7 +1,7 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-06-29
+last_verified: 2026-07-20
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -16,7 +16,7 @@ related_tables: []
 
 Use this workflow when adding or changing row-level security policies.
 
-For column-only migrations on existing RLS-protected tables, first verify that the existing row policies cover the new data sensitivity. Add or change policies only when the new column changes who should be able to read or mutate the row.
+For column-only migrations on existing RLS-protected tables, first verify that the existing row policies cover the new data sensitivity. Add or change policies only when the new column changes who should be able to read or mutate the row. The organizer edition-grouping migration on `races.edition_group_id` / `series_name` is the current example of a column-only change that required verification but no new policy.
 
 ## Key Concepts
 

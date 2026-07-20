@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-06-18
+last_verified: 2026-07-20
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -16,7 +16,7 @@ related_tables: []
 
 Use this workflow when adding a Supabase table to Pace Yourself.
 
-For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced.
+For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent organizer edition grouping on `races.edition_group_id` / `series_name` is the reference example of a column-only migration that still required schema and business-doc updates.
 
 ## Key Concepts
 

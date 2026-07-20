@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-06-30
+last_verified: 2026-07-20
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -42,7 +42,7 @@ The current organizer flow is:
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
-The add-format editor now also lets the organizer queue a GPX file before the format exists, but that upload remains a separate step from geocoding. The address autocomplete still owns only the canonical location string plus structured geocoded metadata, while the pending GPX is uploaded afterward through the organizer GPX route once the new race id exists.
+The add-format editor now also lets the organizer queue a GPX file before the format exists, but that upload remains a separate step from geocoding. The address autocomplete still owns only the canonical location string plus structured geocoded metadata, while the pending GPX is uploaded afterward through the organizer GPX route once the new race id exists. For existing organizer format-series tabs, the same location fields now follow the currently selected yearly edition from the year selector; switching year changes which `races` row is being edited, not the geocoding contract itself.
 
 ## Provider Contract
 

@@ -36,6 +36,8 @@ export type ClaimRow = {
 
 export type RaceFormat = {
   id: string;
+  edition_group_id: string;
+  series_name: string;
   name: string;
   slug?: string | null;
   location_text?: string | null;
@@ -107,6 +109,7 @@ export type StationProduct = {
 };
 
 export type RaceFormValues = {
+  seriesName: string;
   name: string;
   distanceKm: number;
   elevationGainM: number;
