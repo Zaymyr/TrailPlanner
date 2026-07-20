@@ -33,8 +33,9 @@ import {
   createRaceFormFromEventDefaults,
   createRaceFormFromFormatDefaults,
   eventToForm,
-  getDefaultEditionRaceId,
+  getAvailableEditionYears,
   getRaceEditionYearLabel,
+  getRaceEditionYearValue,
   groupRacesBySeries,
   getModuleDescription,
   getModuleForTab,
@@ -89,7 +90,7 @@ export function OrganizerDashboard() {
   const [eventDetail, setEventDetail] = useState<OrganizerEventDetail | null>(null);
   const [eventForm, setEventForm] = useState<EventFormValues>(() => createEmptyEventForm());
   const [activeTab, setActiveTab] = useState(EVENT_TAB_ID);
-  const [selectedEditionRaceId, setSelectedEditionRaceId] = useState<string | null>(null);
+  const [selectedEditionYear, setSelectedEditionYear] = useState("");
   const [activeModule, setActiveModule] = useState<OrganizerModuleId>("event");
   const [raceForm, setRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
   const [newRaceForm, setNewRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
@@ -126,7 +127,7 @@ export function OrganizerDashboard() {
       ? null
       : raceSeriesGroups.find((group) => group.id === activeTab) ?? null;
   const activeRace =
-    activeSeries?.races.find((race) => race.id === selectedEditionRaceId) ??
+    activeSeries?.races.find((race) => getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
     activeSeries?.races[0] ??
     null;
   const activeRaceForCompletion = activeRace ? { ...activeRace, organizerDetails: raceForm.organizerDetails } : null;
@@ -293,7 +294,7 @@ export function OrganizerDashboard() {
   const loadEvent = async (
     eventId: string,
     preferredTabId = activeTab,
-    preferredEditionId = selectedEditionRaceId
+    preferredEditionYear = selectedEditionYear
   ) => {
     if (!accessToken) return;
     setStatus("loading");
@@ -313,22 +314,15 @@ export function OrganizerDashboard() {
       setNewRaceImageFile(null);
       setNewRaceGpxFile(null);
       const groupedRaces = groupRacesBySeries(nextEvent.races);
+      const nextEditionYears = getAvailableEditionYears(nextEvent.races);
+      const resolvedEditionYear =
+        (preferredEditionYear && nextEditionYears.includes(preferredEditionYear) ? preferredEditionYear : null) ?? nextEditionYears[0] ?? "";
+      setSelectedEditionYear(resolvedEditionYear);
       if (preferredTabId === EVENT_TAB_ID || preferredTabId === ADD_FORMAT_TAB_ID) {
         setActiveTab(preferredTabId);
-        setSelectedEditionRaceId(null);
       } else {
-        const preferredRace =
-          nextEvent.races.find((race) => race.id === preferredEditionId) ??
-          nextEvent.races.find((race) => race.id === preferredTabId) ??
-          null;
-        const preferredGroupId =
-          preferredRace?.edition_group_id ??
-          groupedRaces.find((group) => group.id === preferredTabId)?.id ??
-          groupedRaces[0]?.id ??
-          null;
-        const nextEditionId = preferredRace?.id ?? (preferredGroupId ? getDefaultEditionRaceId(nextEvent.races, preferredGroupId) : null);
+        const preferredGroupId = groupedRaces.find((group) => group.id === preferredTabId)?.id ?? groupedRaces[0]?.id ?? null;
         setActiveTab(preferredGroupId ?? EVENT_TAB_ID);
-        setSelectedEditionRaceId(nextEditionId);
       }
       setDirtyModules(new Set());
     } catch (caught) {
@@ -592,11 +586,11 @@ export function OrganizerDashboard() {
       setNewRaceForm(createEmptyRaceForm());
       setNewRaceImageFile(null);
       setNewRaceGpxFile(null);
-      setSelectedEditionRaceId(data.race.id);
+      setSelectedEditionYear(getRaceEditionYearValue(data.race.race_date));
       setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
       showToast("success", imageUploaded ? "Format ajouté." : "Format ajouté. Réessaie l'image si besoin.");
-      await loadEvent(selectedEventId, data.race.edition_group_id, data.race.id);
+      await loadEvent(selectedEventId, data.race.edition_group_id, getRaceEditionYearValue(data.race.race_date));
     } finally {
       setStatus("idle");
     }
@@ -629,11 +623,11 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible de dupliquer le format.");
         return;
       }
-      setSelectedEditionRaceId(data.race.id);
+      setSelectedEditionYear(getRaceEditionYearValue(data.race.race_date));
       setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
       showToast("success", "Format dupliqué en brouillon, sans GPX ni ravitos.");
-      await loadEvent(selectedEventId, data.race.edition_group_id, data.race.id);
+      await loadEvent(selectedEventId, data.race.edition_group_id, getRaceEditionYearValue(data.race.race_date));
     } finally {
       setStatus("idle");
     }
@@ -664,11 +658,11 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible de créer la nouvelle édition.");
         return;
       }
-      setSelectedEditionRaceId(data.race.id);
+      setSelectedEditionYear(getRaceEditionYearValue(data.race.race_date));
       setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
       showToast("success", `Édition ${getRaceEditionYearLabel(data.race.race_date)} créée en brouillon.`);
-      await loadEvent(selectedEventId, data.race.edition_group_id, data.race.id);
+      await loadEvent(selectedEventId, data.race.edition_group_id, getRaceEditionYearValue(data.race.race_date));
     } finally {
       setStatus("idle");
     }
@@ -753,7 +747,7 @@ export function OrganizerDashboard() {
       }
       setEventForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
       showToast("success", "Image événement mise à jour.");
-      await loadEvent(selectedEventId, activeTab, selectedEditionRaceId);
+      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -1030,11 +1024,6 @@ export function OrganizerDashboard() {
     if (!(await saveBeforeNavigation())) return;
     if (nextTab === ADD_FORMAT_TAB_ID) {
       setNewRaceForm(activeRace ? createRaceFormFromFormatDefaults(activeRace, raceForm) : createRaceFormFromEventDefaults(eventForm));
-      setSelectedEditionRaceId(null);
-    } else if (nextTab === EVENT_TAB_ID) {
-      setSelectedEditionRaceId(null);
-    } else if (eventDetail) {
-      setSelectedEditionRaceId(getDefaultEditionRaceId(eventDetail.races, nextTab));
     }
     setActiveTab(nextTab);
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
@@ -1078,7 +1067,7 @@ export function OrganizerDashboard() {
       }
 
       showToast("success", "Format mis à jour.");
-      await loadEvent(selectedEventId, activeTab, selectedEditionRaceId);
+      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
     } finally {
       setStatus("idle");
     }
@@ -1153,15 +1142,20 @@ export function OrganizerDashboard() {
         event={eventDraft}
         memberships={memberships}
         selectedEventId={selectedEventId}
-        selectedSeriesId={activeSeries?.id ?? null}
-        selectedEditionRaceId={activeRace?.id ?? null}
+        selectedEditionYear={selectedEditionYear}
         onSelectedEventChange={(eventId) => {
           void (async () => {
             if (!(await saveBeforeNavigation())) return;
             setSelectedEventId(eventId);
-            setSelectedEditionRaceId(null);
             setActiveTab(EVENT_TAB_ID);
             setActiveModule("event");
+          })();
+        }}
+        onSelectedEditionYearChange={(year) => {
+          void (async () => {
+            if (year === selectedEditionYear) return;
+            if (!(await saveBeforeNavigation())) return;
+            setSelectedEditionYear(year);
           })();
         }}
         completion={completion}
@@ -1225,7 +1219,6 @@ export function OrganizerDashboard() {
             <FormatsEditor
               activeTab={activeTab}
               activeRace={activeRace}
-              availableEditions={activeSeries?.races ?? []}
               raceForm={raceForm}
               newRaceForm={newRaceForm}
               newRaceImageName={newRaceImageFile?.name ?? null}
@@ -1233,12 +1226,6 @@ export function OrganizerDashboard() {
               newEditionDate={newEditionDate}
               showRaceDetails={showRaceDetails}
               onEditionDateChange={setNewEditionDate}
-              onEditionChange={(raceId) => {
-                void (async () => {
-                  if (!(await saveBeforeNavigation())) return;
-                  setSelectedEditionRaceId(raceId);
-                })();
-              }}
               onCreateEdition={() => {
                 void createEditionFromActiveRace();
               }}

@@ -89,7 +89,6 @@ export function EventInfoEditor({
 export function FormatsEditor({
   activeTab,
   activeRace,
-  availableEditions,
   raceForm,
   newRaceForm,
   newRaceImageName,
@@ -97,7 +96,6 @@ export function FormatsEditor({
   newEditionDate,
   showRaceDetails,
   onEditionDateChange,
-  onEditionChange,
   onCreateEdition,
   onToggleRaceDetails,
   onRaceFormChange,
@@ -115,7 +113,6 @@ export function FormatsEditor({
 }: {
   activeTab: string;
   activeRace: RaceFormat | null;
-  availableEditions: RaceFormat[];
   raceForm: RaceFormValues;
   newRaceForm: RaceFormValues;
   newRaceImageName: string | null;
@@ -123,7 +120,6 @@ export function FormatsEditor({
   newEditionDate: string;
   showRaceDetails: boolean;
   onEditionDateChange: (value: string) => void;
-  onEditionChange: (raceId: string) => void;
   onCreateEdition: () => void;
   onToggleRaceDetails: () => void;
   onRaceFormChange: (next: Partial<RaceFormValues>) => void;
@@ -164,26 +160,17 @@ export function FormatsEditor({
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 bg-background px-3 py-2">
-              <div className="min-w-[10rem]">
-                <Label htmlFor="organizer-edition-select">Édition</Label>
-                <select
-                  id="organizer-edition-select"
-                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
-                  value={activeRace.id}
-                  onChange={(event) => onEditionChange(event.target.value)}
-                >
-                  {availableEditions.map((edition) => (
-                    <option key={edition.id} value={edition.id}>
-                      {getRaceEditionYearLabel(edition.race_date)}
-                    </option>
-                  ))}
-                </select>
+              <div className="min-w-[8rem]">
+                <Label>Edition active</Label>
+                <p className="mt-2 flex h-10 items-center rounded-md border border-input bg-card px-3 text-sm text-foreground">
+                  {getRaceEditionYearLabel(activeRace.race_date)}
+                </p>
               </div>
               <div className="min-w-[10rem]">
-                <TextField label="Nouvelle édition" type="date" value={newEditionDate} onChange={onEditionDateChange} />
+                <TextField label="Nouvelle edition" type="date" value={newEditionDate} onChange={onEditionDateChange} />
               </div>
               <Button type="button" variant="outline" onClick={onCreateEdition} disabled={status === "saving" || status === "uploading"}>
-                Nouvelle édition
+                Nouvelle edition
               </Button>
             </div>
             <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving"}>
@@ -304,7 +291,7 @@ function RaceForm({
             <div className="grid gap-3 lg:grid-cols-12">
               <div className="lg:col-span-4">
                 <TextField
-                  label="Libellé format"
+                  label="Libelle format"
                   value={values.seriesName}
                   onChange={(value) => onChange({ ...values, seriesName: value })}
                   required
@@ -463,12 +450,7 @@ function OrganizerGpxPanel({
                 {pendingImageName ? pendingImageName : "Aucune image"}
               </div>
             )}
-            <Input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/avif"
-              onChange={onImageChange}
-              disabled={disabled}
-            />
+            <Input type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={onImageChange} disabled={disabled} />
             <p className="text-xs text-muted-foreground">
               JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
               {pendingImageName && !thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}
@@ -596,9 +578,7 @@ function MiniGpxMap({
     <section className="rounded-md border border-border/70 bg-background px-3 py-3">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
         <p className="font-semibold text-foreground">Carte du parcours</p>
-        <p className="text-xs font-medium text-muted-foreground">
-          {points.length} points
-        </p>
+        <p className="text-xs font-medium text-muted-foreground">{points.length} points</p>
       </div>
       <GpxRouteMap points={points} aidStations={preview?.detectedAidStations ?? []} heightClassName="h-[34rem]" />
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
