@@ -1,12 +1,13 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-06-29
+last_verified: 2026-07-20
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260720120000_add_race_edition_groups.sql
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
   - race_plans
@@ -168,6 +169,8 @@ It adds comments on the new columns and deliberately adds no grants, foreign key
 
 The manual RLS SQL check file was expanded accordingly so organizer relationship checks now also cover event favorites and update visibility behavior.
 
+`supabase/migrations/20260720120000_add_race_edition_groups.sql` adds `races.edition_group_id` and `races.series_name`, backfills them from existing rows, and indexes `(event_id, edition_group_id, race_date desc)` so the organizer dashboard can group yearly editions of one format without a separate editions table.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -210,6 +213,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.
 - Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
+- The organizer edition-grouping migration is column-only on `races`; it adds no grants or RLS policies, so existing `races` and organizer membership access rules remain the boundary.
 - Organizer dashboard JSONB columns are nullable progressive metadata. Keep public/mobile queries explicit when they should not expose organizer draft details.
 - Event-favorite and organizer-update migrations are intentionally event-scoped on `race_events`; do not move them to `races` without revisiting mobile catalog pinning and notification contracts.
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.

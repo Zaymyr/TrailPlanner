@@ -7,7 +7,7 @@ import { Label } from "../../../../components/ui/label";
 import type { OrganizerModuleId } from "../completion";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { ADD_FORMAT_TAB_ID } from "./constants";
-import { formatKm } from "./helpers";
+import { formatKm, getRaceEditionYearLabel } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues } from "./types";
 import { NumberField, TextField } from "./controls";
 
@@ -89,11 +89,16 @@ export function EventInfoEditor({
 export function FormatsEditor({
   activeTab,
   activeRace,
+  availableEditions,
   raceForm,
   newRaceForm,
   newRaceImageName,
   newRaceGpxName,
+  newEditionDate,
   showRaceDetails,
+  onEditionDateChange,
+  onEditionChange,
+  onCreateEdition,
   onToggleRaceDetails,
   onRaceFormChange,
   onNewRaceFormChange,
@@ -110,11 +115,16 @@ export function FormatsEditor({
 }: {
   activeTab: string;
   activeRace: RaceFormat | null;
+  availableEditions: RaceFormat[];
   raceForm: RaceFormValues;
   newRaceForm: RaceFormValues;
   newRaceImageName: string | null;
   newRaceGpxName: string | null;
+  newEditionDate: string;
   showRaceDetails: boolean;
+  onEditionDateChange: (value: string) => void;
+  onEditionChange: (raceId: string) => void;
+  onCreateEdition: () => void;
   onToggleRaceDetails: () => void;
   onRaceFormChange: (next: Partial<RaceFormValues>) => void;
   onNewRaceFormChange: (next: RaceFormValues) => void;
@@ -153,6 +163,29 @@ export function FormatsEditor({
       ) : activeRace ? (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 bg-background px-3 py-2">
+              <div className="min-w-[10rem]">
+                <Label htmlFor="organizer-edition-select">Édition</Label>
+                <select
+                  id="organizer-edition-select"
+                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                  value={activeRace.id}
+                  onChange={(event) => onEditionChange(event.target.value)}
+                >
+                  {availableEditions.map((edition) => (
+                    <option key={edition.id} value={edition.id}>
+                      {getRaceEditionYearLabel(edition.race_date)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-[10rem]">
+                <TextField label="Nouvelle édition" type="date" value={newEditionDate} onChange={onEditionDateChange} />
+              </div>
+              <Button type="button" variant="outline" onClick={onCreateEdition} disabled={status === "saving" || status === "uploading"}>
+                Nouvelle édition
+              </Button>
+            </div>
             <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving"}>
               Dupliquer ce format
             </Button>
@@ -269,16 +302,25 @@ function RaceForm({
               <p className="text-sm text-muted-foreground">Nom, metriques, date et lieu du parcours.</p>
             </div>
             <div className="grid gap-3 lg:grid-cols-12">
-              <div className="lg:col-span-5">
+              <div className="lg:col-span-4">
+                <TextField
+                  label="Libellé format"
+                  value={values.seriesName}
+                  onChange={(value) => onChange({ ...values, seriesName: value })}
+                  required
+                  invalid={!values.seriesName.trim()}
+                />
+              </div>
+              <div className="lg:col-span-4">
                 <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
               </div>
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-2">
                 <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
               </div>
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-1">
                 <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
               </div>
-              <div className="lg:col-span-2">
+              <div className="lg:col-span-1">
                 <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
               </div>
               <div className="lg:col-span-4">
@@ -354,6 +396,8 @@ function RaceForm({
 function buildPreviewRace(values: RaceFormValues, hasGpx: boolean): RaceFormat {
   return {
     id: "draft",
+    edition_group_id: "draft",
+    series_name: values.seriesName,
     name: values.name,
     distance_km: values.distanceKm,
     elevation_gain_m: values.elevationGainM,

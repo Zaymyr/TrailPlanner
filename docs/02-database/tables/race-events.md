@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-07-02
+last_verified: 2026-07-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -99,6 +99,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
+- Organizer yearly editions still live on `races`, not on `race_events`. They are grouped per format through `races.edition_group_id` and `races.series_name` while staying children of the same event.
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
 - Organizer runner notifications are manual. One send creates one `race_event_updates` row and may trigger push notifications for followers, but normal organizer saves and publish toggles must not auto-create announcements.
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass; the longer history still comes from the dedicated updates route when a runner taps to see more.

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
-import { formatEventDateRange } from "./helpers";
+import { formatEventDateRange, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
 import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
@@ -99,6 +99,8 @@ export function OrganizerSummaryHeader({
   event,
   memberships,
   selectedEventId,
+  selectedSeriesId,
+  selectedEditionRaceId,
   onSelectedEventChange,
   completion,
   hasDirtyChanges,
@@ -113,6 +115,8 @@ export function OrganizerSummaryHeader({
   event: OrganizerEventDetail | null;
   memberships: MembershipRow[];
   selectedEventId: string | null;
+  selectedSeriesId: string | null;
+  selectedEditionRaceId: string | null;
   onSelectedEventChange: (eventId: string) => void;
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
@@ -125,10 +129,19 @@ export function OrganizerSummaryHeader({
 }) {
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
-  const raceRows = (event?.races ?? []).map((race) => ({
-    ...race,
-    score: raceProgress.find((entry) => entry.id === race.id)?.score ?? 0,
-  }));
+  const raceRows = groupRacesBySeries(event?.races ?? []).map((group) => {
+    const activeEdition =
+      (group.id === selectedSeriesId ? group.races.find((race) => race.id === selectedEditionRaceId) : null) ??
+      group.races[0] ??
+      null;
+    const activeProgress = activeEdition ? raceProgress.find((entry) => entry.id === activeEdition.id)?.score ?? 0 : 0;
+    return {
+      id: group.id,
+      label: group.seriesName,
+      score: activeProgress,
+      activeEdition,
+    };
+  });
   const isLive = event?.is_live !== false;
   const dateLabel = formatEventDateRange(event);
 
@@ -181,12 +194,15 @@ export function OrganizerSummaryHeader({
               key={race.id}
               className="grid gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
             >
-              <span className="min-w-0 font-medium text-foreground">{race.name || "Course sans nom"}</span>
+              <span className="min-w-0 font-medium text-foreground">
+                {race.label || "Format sans nom"}
+                {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
+              </span>
               <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
               <LiveToggle
-                checked={race.is_live}
+                checked={race.activeEdition?.is_live ?? false}
                 disabled={status === "saving"}
-                onChange={() => onToggleRacePublish(race.id, !race.is_live)}
+                onChange={() => race.activeEdition && onToggleRacePublish(race.activeEdition.id, !race.activeEdition.is_live)}
               />
             </div>
           ))

@@ -21,6 +21,8 @@ export type OrganizerModuleStatus = "empty" | "incomplete" | "complete";
 
 export type CompletionRace = {
   id: string;
+  edition_group_id: string;
+  series_name: string;
   name: string;
   distance_km: number;
   elevation_gain_m: number;
@@ -68,6 +70,8 @@ export type OrganizerModuleSummary = {
 
 export type OrganizerRaceProgress = {
   id: string;
+  editionGroupId: string;
+  seriesName: string;
   name: string;
   score: number;
 };
@@ -219,6 +223,8 @@ export function buildOrganizerCompletion(
     const isActiveRace = activeRace?.id === race.id;
     return {
       id: race.id,
+      editionGroupId: race.edition_group_id,
+      seriesName: race.series_name,
       name: race.name,
       score: scoreModules(buildFormatProgressModules(eventDetails, race, isActiveRace ? aidStations : [], isActiveRace ? stationProducts : [])),
     };

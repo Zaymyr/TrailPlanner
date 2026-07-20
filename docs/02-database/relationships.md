@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-06-29
+last_verified: 2026-07-20
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -88,6 +88,7 @@ The design is:
 3. Plan share links store public crew recap snapshots for a saved plan.
 4. Deleting a race detaches plans by setting `race_plans.race_id = null`, rather than deleting user plans.
 5. Deleting a saved plan deletes attached plan aid stations, push reminder rows, and share links.
+6. Organizer yearly editions remain separate `races` rows and self-group through `edition_group_id`; there is no separate editions table or FK layer.
 
 ## Product Relationships
 
@@ -133,6 +134,7 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_organizers.event_id -> race_events(id) on delete cascade`
 - `race_event_organizers.user_id -> auth.users(id) on delete cascade`
 - `race_event_organizers.claim_id -> race_event_claims(id) on delete set null`
+- `races.edition_group_id` is organizer grouping metadata, not a foreign key
 - `user_favorite_race_events.user_id -> user_profiles(user_id) on delete cascade`
 - `user_favorite_race_events.event_id -> race_events(id) on delete cascade`
 - `race_event_updates.event_id -> race_events(id) on delete cascade`

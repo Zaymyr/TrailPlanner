@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-06-29
+last_verified: 2026-07-20
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -97,6 +97,7 @@ Use:
 - Event-scoped organizer policies need both claim/member RLS and route-level service-role authorization checks. Service-role route success alone does not prove direct RLS behavior.
 - New service flags on `race_aid_stations` reuse the existing station row policies; do not add separate grants for them.
 - New organizer JSONB columns on existing source tables reuse their table row policies; do not add separate grants or bypass active `race_event_organizers` checks for them.
+- New organizer grouping columns such as `races.edition_group_id` and `races.series_name` are the same kind of column-only change: verify sensitivity, then reuse the existing `races` policies unless the access model itself changes.
 - Secret-link tables such as `plan_share_links` still need owner RLS. Public viewers should resolve unguessable tokens through server/service-role code, not direct `anon` table grants.
 - Re-sharing a plan can update an existing `plan_share_links` snapshot, so the service route must verify both bearer-token identity and parent-plan ownership before update as well as insert.
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.

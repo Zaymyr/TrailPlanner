@@ -20,6 +20,12 @@ import type {
   StationProduct,
 } from "./types";
 
+export type RaceSeriesGroup = {
+  id: string;
+  seriesName: string;
+  races: RaceFormat[];
+};
+
 export const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
 export const getModuleForTab = (tabId: string, currentModule: OrganizerModuleId): OrganizerModuleId => {
@@ -39,6 +45,7 @@ export const createEmptyEventForm = (): EventFormValues => ({
 });
 
 export const createEmptyRaceForm = (): RaceFormValues => ({
+  seriesName: "",
   name: "",
   distanceKm: 0,
   elevationGainM: 0,
@@ -52,6 +59,7 @@ export const createEmptyRaceForm = (): RaceFormValues => ({
 
 export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): RaceFormValues => ({
   ...createEmptyRaceForm(),
+  seriesName: "",
   locationText: eventForm.location,
   raceDate: eventForm.raceDate,
   thumbnailUrl: eventForm.thumbnailUrl,
@@ -65,6 +73,7 @@ export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): Rac
 
 export const createRaceFormFromFormatDefaults = (race: RaceFormat, raceForm: RaceFormValues): RaceFormValues => ({
   ...createEmptyRaceForm(),
+  seriesName: raceForm.seriesName || race.series_name || "",
   locationText: raceForm.locationText || race.location_text || "",
   raceDate: raceForm.raceDate || formatDate(race.race_date),
   thumbnailUrl: raceForm.thumbnailUrl || race.thumbnail_url || "",
@@ -72,6 +81,50 @@ export const createRaceFormFromFormatDefaults = (race: RaceFormat, raceForm: Rac
 });
 
 export const formatDate = (value?: string | null) => (value ? value.slice(0, 10) : "");
+
+export const getRaceEditionYearLabel = (value?: string | null) => {
+  const date = formatDate(value);
+  return date ? date.slice(0, 4) : "Sans date";
+};
+
+const compareRaceEditions = (left: RaceFormat, right: RaceFormat) => {
+  const leftDate = formatDate(left.race_date);
+  const rightDate = formatDate(right.race_date);
+  if (leftDate && rightDate && leftDate !== rightDate) return rightDate.localeCompare(leftDate);
+  if (leftDate && !rightDate) return -1;
+  if (!leftDate && rightDate) return 1;
+  return left.id.localeCompare(right.id);
+};
+
+export const groupRacesBySeries = (races: RaceFormat[]): RaceSeriesGroup[] => {
+  const groups = new Map<string, RaceSeriesGroup>();
+
+  races.forEach((race) => {
+    const groupId = race.edition_group_id;
+    const existing = groups.get(groupId);
+    if (existing) {
+      existing.races.push(race);
+      if (!existing.seriesName && race.series_name) existing.seriesName = race.series_name;
+      return;
+    }
+
+    groups.set(groupId, {
+      id: groupId,
+      seriesName: race.series_name || race.name,
+      races: [race],
+    });
+  });
+
+  return Array.from(groups.values())
+    .map((group) => ({
+      ...group,
+      races: [...group.races].sort(compareRaceEditions),
+    }))
+    .sort((left, right) => left.seriesName.localeCompare(right.seriesName, "fr", { sensitivity: "base" }));
+};
+
+export const getDefaultEditionRaceId = (races: RaceFormat[], editionGroupId: string) =>
+  groupRacesBySeries(races).find((group) => group.id === editionGroupId)?.races[0]?.id ?? null;
 
 export const formatEventDateRange = (event?: Pick<OrganizerEventDetail, "race_date" | "organizerDetails"> | null) => {
   const startDate = formatDate(event?.race_date);
@@ -143,6 +196,7 @@ export const buildEventDraft = (
           race.id === activeRace?.id
             ? {
                 ...race,
+                series_name: raceForm.seriesName,
                 name: raceForm.name,
                 distance_km: raceForm.distanceKm,
                 elevation_gain_m: raceForm.elevationGainM,
@@ -159,7 +213,7 @@ export const buildEventDraft = (
     : null;
 
 export const normalizeOrganizerEventDetail = (event: OrganizerEventDetail): OrganizerEventDetail => {
-  const sortedRaces = [...event.races].sort((left, right) => left.distance_km - right.distance_km);
+  const sortedRaces = groupRacesBySeries(event.races).flatMap((group) => group.races);
   const organizerDetails = parseOrganizerEventDetails(event.organizerDetails);
   return {
     ...event,
@@ -187,6 +241,7 @@ export const eventToForm = (event: OrganizerEventDetail): EventFormValues => ({
 });
 
 export const raceToForm = (race: RaceFormat): RaceFormValues => ({
+  seriesName: race.series_name ?? "",
   name: race.name,
   distanceKm: race.distance_km,
   elevationGainM: race.elevation_gain_m,

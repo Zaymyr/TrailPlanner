@@ -33,6 +33,9 @@ import {
   createRaceFormFromEventDefaults,
   createRaceFormFromFormatDefaults,
   eventToForm,
+  getDefaultEditionRaceId,
+  getRaceEditionYearLabel,
+  groupRacesBySeries,
   getModuleDescription,
   getModuleForTab,
   getModuleTitle,
@@ -86,11 +89,13 @@ export function OrganizerDashboard() {
   const [eventDetail, setEventDetail] = useState<OrganizerEventDetail | null>(null);
   const [eventForm, setEventForm] = useState<EventFormValues>(() => createEmptyEventForm());
   const [activeTab, setActiveTab] = useState(EVENT_TAB_ID);
+  const [selectedEditionRaceId, setSelectedEditionRaceId] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<OrganizerModuleId>("event");
   const [raceForm, setRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
   const [newRaceForm, setNewRaceForm] = useState<RaceFormValues>(() => createEmptyRaceForm());
   const [newRaceImageFile, setNewRaceImageFile] = useState<File | null>(null);
   const [newRaceGpxFile, setNewRaceGpxFile] = useState<File | null>(null);
+  const [newEditionDate, setNewEditionDate] = useState("");
   const [showRaceDetails, setShowRaceDetails] = useState(true);
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
   const [expandedStationKey, setExpandedStationKey] = useState<string | null>(null);
@@ -115,7 +120,15 @@ export function OrganizerDashboard() {
 
   const accessToken = session?.accessToken ?? null;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
-  const activeRace = eventDetail?.races.find((race) => race.id === activeTab) ?? null;
+  const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
+  const activeSeries =
+    activeTab === EVENT_TAB_ID || activeTab === ADD_FORMAT_TAB_ID
+      ? null
+      : raceSeriesGroups.find((group) => group.id === activeTab) ?? null;
+  const activeRace =
+    activeSeries?.races.find((race) => race.id === selectedEditionRaceId) ??
+    activeSeries?.races[0] ??
+    null;
   const activeRaceForCompletion = activeRace ? { ...activeRace, organizerDetails: raceForm.organizerDetails } : null;
   const productPickerStation = productPickerStationId ? aidStations.find((station) => station.id === productPickerStationId) ?? null : null;
   const hasDirtyChanges = dirtyModules.size > 0;
@@ -277,7 +290,11 @@ export function OrganizerDashboard() {
     }
   };
 
-  const loadEvent = async (eventId: string, preferredTab = activeTab) => {
+  const loadEvent = async (
+    eventId: string,
+    preferredTabId = activeTab,
+    preferredEditionId = selectedEditionRaceId
+  ) => {
     if (!accessToken) return;
     setStatus("loading");
     setError(null);
@@ -295,11 +312,24 @@ export function OrganizerDashboard() {
       setNewRaceForm(createRaceFormFromEventDefaults(nextEventForm));
       setNewRaceImageFile(null);
       setNewRaceGpxFile(null);
-      const preferredTabExists =
-        preferredTab === EVENT_TAB_ID ||
-        preferredTab === ADD_FORMAT_TAB_ID ||
-        nextEvent.races.some((race) => race.id === preferredTab);
-      setActiveTab(preferredTabExists ? preferredTab : EVENT_TAB_ID);
+      const groupedRaces = groupRacesBySeries(nextEvent.races);
+      if (preferredTabId === EVENT_TAB_ID || preferredTabId === ADD_FORMAT_TAB_ID) {
+        setActiveTab(preferredTabId);
+        setSelectedEditionRaceId(null);
+      } else {
+        const preferredRace =
+          nextEvent.races.find((race) => race.id === preferredEditionId) ??
+          nextEvent.races.find((race) => race.id === preferredTabId) ??
+          null;
+        const preferredGroupId =
+          preferredRace?.edition_group_id ??
+          groupedRaces.find((group) => group.id === preferredTabId)?.id ??
+          groupedRaces[0]?.id ??
+          null;
+        const nextEditionId = preferredRace?.id ?? (preferredGroupId ? getDefaultEditionRaceId(nextEvent.races, preferredGroupId) : null);
+        setActiveTab(preferredGroupId ?? EVENT_TAB_ID);
+        setSelectedEditionRaceId(nextEditionId);
+      }
       setDirtyModules(new Set());
     } catch (caught) {
       console.error("Unable to load organizer event", caught);
@@ -362,9 +392,21 @@ export function OrganizerDashboard() {
       setAidStations([]);
       setStationProducts([]);
       setGpxPreview(null);
+      setNewEditionDate("");
       return;
     }
     setRaceForm(raceToForm(activeRace));
+    if (activeRace.race_date) {
+      const nextDate = new Date(activeRace.race_date);
+      if (!Number.isNaN(nextDate.getTime())) {
+        nextDate.setFullYear(nextDate.getFullYear() + 1);
+        setNewEditionDate(nextDate.toISOString().slice(0, 10));
+      } else {
+        setNewEditionDate("");
+      }
+    } else {
+      setNewEditionDate("");
+    }
     setExpandedStationKey(null);
     void loadRaceSidecar(activeRace.id);
     if (activeRace.gpx_storage_path) {
@@ -456,7 +498,11 @@ export function OrganizerDashboard() {
       ...override,
       organizerDetails: sanitizeRaceDetailsForSave(override?.organizerDetails ?? raceForm.organizerDetails),
     };
-    const nextRaces = (eventDetail?.races ?? []).map((race) => (race.id === activeRace.id ? { ...race, organizerDetails: nextForm.organizerDetails } : race));
+    const nextRaces = (eventDetail?.races ?? []).map((race) =>
+      race.id === activeRace.id
+        ? { ...race, series_name: nextForm.seriesName, organizerDetails: nextForm.organizerDetails }
+        : race
+    );
     const syncedEventDetails = syncEventCommonEquipment(eventForm.organizerDetails, nextRaces);
     const shouldSyncEventCommon =
       serializeEquipment(eventForm.organizerDetails.mandatoryEquipment) !== serializeEquipment(syncedEventDetails.mandatoryEquipment);
@@ -468,6 +514,7 @@ export function OrganizerDashboard() {
         method: "PATCH",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
+          seriesName: nextForm.seriesName,
           name: nextForm.name,
           distanceKm: nextForm.distanceKm,
           elevationGainM: nextForm.elevationGainM,
@@ -501,7 +548,7 @@ export function OrganizerDashboard() {
 
       showToast("success", "Format mis à jour.");
       clearDirty(["formats", "equipment", "access"]);
-      await loadEvent(selectedEventId, activeRace.id);
+      await loadEvent(selectedEventId, activeRace.edition_group_id, activeRace.id);
       return true;
     } finally {
       setStatus("idle");
@@ -523,6 +570,7 @@ export function OrganizerDashboard() {
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: selectedEventId,
+          seriesName: newRaceForm.seriesName.trim() || newRaceForm.name,
           name: newRaceForm.name,
           distanceKm: newRaceForm.distanceKm,
           elevationGainM: newRaceForm.elevationGainM,
@@ -544,10 +592,11 @@ export function OrganizerDashboard() {
       setNewRaceForm(createEmptyRaceForm());
       setNewRaceImageFile(null);
       setNewRaceGpxFile(null);
-      setActiveTab(data.race.id);
+      setSelectedEditionRaceId(data.race.id);
+      setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
       showToast("success", imageUploaded ? "Format ajouté." : "Format ajouté. Réessaie l'image si besoin.");
-      await loadEvent(selectedEventId, data.race.id);
+      await loadEvent(selectedEventId, data.race.edition_group_id, data.race.id);
     } finally {
       setStatus("idle");
     }
@@ -563,6 +612,7 @@ export function OrganizerDashboard() {
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: selectedEventId,
+          seriesName: `${activeRace.series_name} copie`,
           name: `${activeRace.name} copie`,
           distanceKm: activeRace.distance_km,
           elevationGainM: activeRace.elevation_gain_m,
@@ -579,10 +629,46 @@ export function OrganizerDashboard() {
         showToast("error", data?.message ?? "Impossible de dupliquer le format.");
         return;
       }
-      setActiveTab(data.race.id);
+      setSelectedEditionRaceId(data.race.id);
+      setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
       showToast("success", "Format dupliqué en brouillon, sans GPX ni ravitos.");
-      await loadEvent(selectedEventId, data.race.id);
+      await loadEvent(selectedEventId, data.race.edition_group_id, data.race.id);
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const createEditionFromActiveRace = async () => {
+    if (!accessToken || !selectedEventId || !activeRace) return;
+    if (!newEditionDate.trim()) {
+      showToast("error", "Ajoute la date de la nouvelle édition.");
+      return;
+    }
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch("/api/organizer/races", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: selectedEventId,
+          cloneFromRaceId: activeRace.id,
+          seriesName: activeRace.series_name,
+          name: activeRace.name,
+          raceDate: newEditionDate,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
+      if (!response.ok || !data?.race) {
+        showToast("error", data?.message ?? "Impossible de créer la nouvelle édition.");
+        return;
+      }
+      setSelectedEditionRaceId(data.race.id);
+      setActiveTab(data.race.edition_group_id);
+      setActiveModule("formats");
+      showToast("success", `Édition ${getRaceEditionYearLabel(data.race.race_date)} créée en brouillon.`);
+      await loadEvent(selectedEventId, data.race.edition_group_id, data.race.id);
     } finally {
       setStatus("idle");
     }
@@ -633,7 +719,7 @@ export function OrganizerDashboard() {
             ? "GPX importé. Waypoints détectés, ravitos existants préservés."
             : "GPX importé. Les plans existants restent des snapshots."
       );
-      await loadEvent(selectedEventId, activeRace.id);
+      await loadEvent(selectedEventId, activeRace.edition_group_id, activeRace.id);
       await loadRaceSidecar(activeRace.id, normalizeGpxPreview(data));
     } finally {
       setStatus("idle");
@@ -667,7 +753,7 @@ export function OrganizerDashboard() {
       }
       setEventForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
       showToast("success", "Image événement mise à jour.");
-      await loadEvent(selectedEventId, activeTab);
+      await loadEvent(selectedEventId, activeTab, selectedEditionRaceId);
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -705,7 +791,7 @@ export function OrganizerDashboard() {
       const uploaded = await uploadRaceImageFile(activeRace.id, file);
       if (!uploaded) return;
       showToast("success", "Image du format mise Ã  jour.");
-      await loadEvent(selectedEventId, activeRace.id);
+      await loadEvent(selectedEventId, activeRace.edition_group_id, activeRace.id);
     } finally {
       event.target.value = "";
     }
@@ -944,6 +1030,11 @@ export function OrganizerDashboard() {
     if (!(await saveBeforeNavigation())) return;
     if (nextTab === ADD_FORMAT_TAB_ID) {
       setNewRaceForm(activeRace ? createRaceFormFromFormatDefaults(activeRace, raceForm) : createRaceFormFromEventDefaults(eventForm));
+      setSelectedEditionRaceId(null);
+    } else if (nextTab === EVENT_TAB_ID) {
+      setSelectedEditionRaceId(null);
+    } else if (eventDetail) {
+      setSelectedEditionRaceId(getDefaultEditionRaceId(eventDetail.races, nextTab));
     }
     setActiveTab(nextTab);
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
@@ -968,6 +1059,7 @@ export function OrganizerDashboard() {
         method: "PATCH",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
+          seriesName: targetRace.series_name,
           name: targetRace.name,
           distanceKm: targetRace.distance_km,
           elevationGainM: targetRace.elevation_gain_m,
@@ -986,7 +1078,7 @@ export function OrganizerDashboard() {
       }
 
       showToast("success", "Format mis à jour.");
-      await loadEvent(selectedEventId, activeTab);
+      await loadEvent(selectedEventId, activeTab, selectedEditionRaceId);
     } finally {
       setStatus("idle");
     }
@@ -1048,7 +1140,7 @@ export function OrganizerDashboard() {
 
   const tabs = [
     { id: EVENT_TAB_ID, label: "Événement" },
-    ...(eventDetail?.races ?? []).map((race) => ({ id: race.id, label: race.name })),
+    ...raceSeriesGroups.map((group) => ({ id: group.id, label: group.seriesName })),
     { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
   const isEventTab = activeTab === EVENT_TAB_ID;
@@ -1061,10 +1153,13 @@ export function OrganizerDashboard() {
         event={eventDraft}
         memberships={memberships}
         selectedEventId={selectedEventId}
+        selectedSeriesId={activeSeries?.id ?? null}
+        selectedEditionRaceId={activeRace?.id ?? null}
         onSelectedEventChange={(eventId) => {
           void (async () => {
             if (!(await saveBeforeNavigation())) return;
             setSelectedEventId(eventId);
+            setSelectedEditionRaceId(null);
             setActiveTab(EVENT_TAB_ID);
             setActiveModule("event");
           })();
@@ -1130,11 +1225,23 @@ export function OrganizerDashboard() {
             <FormatsEditor
               activeTab={activeTab}
               activeRace={activeRace}
+              availableEditions={activeSeries?.races ?? []}
               raceForm={raceForm}
               newRaceForm={newRaceForm}
               newRaceImageName={newRaceImageFile?.name ?? null}
               newRaceGpxName={newRaceGpxFile?.name ?? null}
+              newEditionDate={newEditionDate}
               showRaceDetails={showRaceDetails}
+              onEditionDateChange={setNewEditionDate}
+              onEditionChange={(raceId) => {
+                void (async () => {
+                  if (!(await saveBeforeNavigation())) return;
+                  setSelectedEditionRaceId(raceId);
+                })();
+              }}
+              onCreateEdition={() => {
+                void createEditionFromActiveRace();
+              }}
               onToggleRaceDetails={() => setShowRaceDetails((current) => !current)}
               onRaceFormChange={(next) => updateRaceForm(next, "formats")}
               onNewRaceFormChange={setNewRaceForm}
