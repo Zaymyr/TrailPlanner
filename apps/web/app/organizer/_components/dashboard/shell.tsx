@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
-import { formatEventDateRange, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
+import { formatEventDateRange, getAvailableEditionYears, getRaceEditionYearLabel, getRaceEditionYearValue, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
 import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
@@ -99,9 +99,9 @@ export function OrganizerSummaryHeader({
   event,
   memberships,
   selectedEventId,
-  selectedSeriesId,
-  selectedEditionRaceId,
+  selectedEditionYear,
   onSelectedEventChange,
+  onSelectedEditionYearChange,
   completion,
   hasDirtyChanges,
   status,
@@ -115,9 +115,9 @@ export function OrganizerSummaryHeader({
   event: OrganizerEventDetail | null;
   memberships: MembershipRow[];
   selectedEventId: string | null;
-  selectedSeriesId: string | null;
-  selectedEditionRaceId: string | null;
+  selectedEditionYear: string;
   onSelectedEventChange: (eventId: string) => void;
+  onSelectedEditionYearChange: (year: string) => void;
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
@@ -129,9 +129,10 @@ export function OrganizerSummaryHeader({
 }) {
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
+  const availableEditionYears = getAvailableEditionYears(event?.races ?? []);
   const raceRows = groupRacesBySeries(event?.races ?? []).map((group) => {
     const activeEdition =
-      (group.id === selectedSeriesId ? group.races.find((race) => race.id === selectedEditionRaceId) : null) ??
+      group.races.find((race) => getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
       group.races[0] ??
       null;
     const activeProgress = activeEdition ? raceProgress.find((entry) => entry.id === activeEdition.id)?.score ?? 0 : 0;
@@ -181,6 +182,27 @@ export function OrganizerSummaryHeader({
       </div>
 
       <div className="mt-3 space-y-2">
+        {availableEditionYears.length > 0 ? (
+          <div className="rounded-md border border-border/60 bg-background/50 p-3">
+            <div className="min-w-[10rem] max-w-xs">
+              <label htmlFor="organizer-event-edition-select" className="text-sm font-medium text-foreground">
+                Edition
+              </label>
+              <select
+                id="organizer-event-edition-select"
+                className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                value={selectedEditionYear}
+                onChange={(event) => onSelectedEditionYearChange(event.target.value)}
+              >
+                {availableEditionYears.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : null}
         <div className="grid gap-3 rounded-md border border-border/70 bg-background/80 p-3 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
           <span className="min-w-0 text-lg font-semibold text-foreground">
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}

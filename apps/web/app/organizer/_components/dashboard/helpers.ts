@@ -87,6 +87,11 @@ export const getRaceEditionYearLabel = (value?: string | null) => {
   return date ? date.slice(0, 4) : "Sans date";
 };
 
+export const getRaceEditionYearValue = (value?: string | null) => {
+  const date = formatDate(value);
+  return date ? date.slice(0, 4) : "";
+};
+
 const compareRaceEditions = (left: RaceFormat, right: RaceFormat) => {
   const leftDate = formatDate(left.race_date);
   const rightDate = formatDate(right.race_date);
@@ -125,6 +130,9 @@ export const groupRacesBySeries = (races: RaceFormat[]): RaceSeriesGroup[] => {
 
 export const getDefaultEditionRaceId = (races: RaceFormat[], editionGroupId: string) =>
   groupRacesBySeries(races).find((group) => group.id === editionGroupId)?.races[0]?.id ?? null;
+
+export const getAvailableEditionYears = (races: RaceFormat[]) =>
+  Array.from(new Set(races.map((race) => getRaceEditionYearValue(race.race_date)).filter(Boolean))).sort((left, right) => right.localeCompare(left));
 
 export const formatEventDateRange = (event?: Pick<OrganizerEventDetail, "race_date" | "organizerDetails"> | null) => {
   const startDate = formatDate(event?.race_date);
