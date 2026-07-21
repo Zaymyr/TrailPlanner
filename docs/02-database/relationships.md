@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-07-20
+last_verified: 2026-07-21
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -24,6 +24,7 @@ related_tables:
   - race_aid_station_products
   - race_events
   - race_event_claims
+  - race_event_edition_requests
   - race_event_organizers
   - race_event_updates
   - products
@@ -64,6 +65,7 @@ User-owned tables include:
 - `user_favorite_products.user_id`
 - `user_favorite_race_events.user_id`
 - `race_event_claims.user_id`
+- `race_event_edition_requests.user_id`
 - `race_event_organizers.user_id`
 - `plan_share_links.user_id`
 - `race_event_updates.created_by`
@@ -121,6 +123,7 @@ Current code treats `race_events` as a parent/grouping table for `races`:
 - mobile catalog groups races by `race_events`.
 - mobile favorites and organizer update notifications are event-scoped on `race_events`.
 - organizer claims reference `race_events(id)`.
+- organizer edition requests reference `race_events(id)`.
 - organizer memberships reference `race_events(id)` and grant access to all `races` under the event.
 
 <!-- TODO: verify with maintainer: visible migrations only show supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql altering race_events.thumbnail_url; no create-table migration for race_events was found in this repo. -->
@@ -131,6 +134,8 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 
 - `race_event_claims.event_id -> race_events(id) on delete cascade`
 - `race_event_claims.user_id -> auth.users(id) on delete cascade`
+- `race_event_edition_requests.event_id -> race_events(id) on delete cascade`
+- `race_event_edition_requests.user_id -> auth.users(id) on delete cascade`
 - `race_event_organizers.event_id -> race_events(id) on delete cascade`
 - `race_event_organizers.user_id -> auth.users(id) on delete cascade`
 - `race_event_organizers.claim_id -> race_event_claims(id) on delete set null`

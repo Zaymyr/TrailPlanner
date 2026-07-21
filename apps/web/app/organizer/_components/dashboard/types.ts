@@ -34,6 +34,21 @@ export type ClaimRow = {
   } | null;
 };
 
+export type EditionRequestRow = {
+  id: string;
+  event_id: string;
+  source_year: number;
+  requested_start_date: string;
+  status: "pending" | "approved" | "rejected";
+  reviewer_notes?: string | null;
+  race_events?: {
+    id: string;
+    name: string;
+    location?: string | null;
+    race_date?: string | null;
+  } | null;
+};
+
 export type RaceFormat = {
   id: string;
   edition_group_id: string;

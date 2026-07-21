@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-07-20
+last_verified: 2026-07-21
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -20,6 +20,7 @@ related_tables:
   - race_aid_stations
   - race_aid_station_products
   - race_event_claims
+  - race_event_edition_requests
   - race_event_organizers
   - race_event_updates
   - race_events
@@ -138,6 +139,12 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 - Authenticated users can insert pending claims for their own `user_id`.
 - Users can select their own claims.
 - Admins can select and update claims through trusted `app_metadata`.
+
+`race_event_edition_requests`:
+
+- Authenticated users can insert pending requests for their own `user_id`.
+- Users can select only their own requests.
+- Admins can select and update edition requests through trusted `app_metadata`.
 
 `race_event_organizers`:
 

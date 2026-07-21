@@ -114,6 +114,10 @@ export async function POST(request: NextRequest) {
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsed.data.eventId);
   if (organizer !== true) return organizer.error;
 
+  if (parsed.data.cloneFromRaceId) {
+    return jsonError("Creating a new edition now requires an approved edition request.", 403);
+  }
+
   if (!parsed.data.cloneFromRaceId && (!parsed.data.distanceKm || parsed.data.elevationGainM === undefined)) {
     return jsonError("Invalid race fields.", 400);
   }
