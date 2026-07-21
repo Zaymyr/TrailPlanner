@@ -173,6 +173,44 @@ describe("PATCH /api/admin/organizer-claims", () => {
       revoke_reason: "Changed organizer",
     });
   });
+
+  it("approves an edition request without creating race rows directly", async () => {
+    const mockFetch = vi.mocked(fetch);
+    const editionRequestId = "55555555-5555-5555-5555-555555555555";
+
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionRequestId, status: "pending" }]))
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: editionRequestId,
+            created_at: "2026-07-21T09:00:00.000Z",
+            updated_at: "2026-07-21T10:00:00.000Z",
+            user_id: "33333333-3333-3333-3333-333333333333",
+            event_id: "11111111-1111-1111-1111-111111111111",
+            source_year: 2026,
+            requested_start_date: "2027-06-20",
+            status: "approved",
+          },
+        ])
+      );
+
+    const response = await PATCH(
+      adminRequest({ action: "approveEditionRequest", editionRequestId, reviewerNotes: "Billing approved" })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.editionRequest.status).toBe("approved");
+    const patchCall = mockFetch.mock.calls.find(
+      ([url, init]) => String(url).includes("/rest/v1/race_event_edition_requests") && init?.method === "PATCH"
+    );
+    expect(patchCall).toBeDefined();
+    expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
+      status: "approved",
+      reviewer_notes: "Billing approved",
+    });
+  });
 });
 
 describe("GET /api/admin/organizer-claims", () => {
@@ -216,6 +254,20 @@ describe("GET /api/admin/organizer-claims", () => {
             revoke_reason: null,
           },
         ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "55555555-5555-5555-5555-555555555555",
+            created_at: "2026-07-21T09:00:00.000Z",
+            updated_at: "2026-07-21T09:00:00.000Z",
+            user_id: "33333333-3333-3333-3333-333333333333",
+            event_id: "11111111-1111-1111-1111-111111111111",
+            source_year: 2026,
+            requested_start_date: "2027-06-20",
+            status: "pending",
+          },
+        ])
       );
 
     const response = await GET(
@@ -228,6 +280,7 @@ describe("GET /api/admin/organizer-claims", () => {
     expect(response.status).toBe(200);
     expect(payload.claims).toHaveLength(1);
     expect(payload.memberships).toHaveLength(1);
+    expect(payload.editionRequests).toHaveLength(1);
     expect(String(mockFetch.mock.calls[0]?.[0])).toContain("status=eq.pending");
     expect(String(mockFetch.mock.calls[1]?.[0])).toContain("revoked_at=is.null");
   });

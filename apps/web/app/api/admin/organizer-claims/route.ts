@@ -50,6 +50,29 @@ const membershipRowSchema = z.object({
     .optional(),
 });
 
+const editionRequestRowSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  user_id: z.string().uuid(),
+  event_id: z.string().uuid(),
+  source_year: z.number().int(),
+  requested_start_date: z.string(),
+  status: z.enum(["pending", "approved", "rejected"]),
+  reviewed_by: z.string().uuid().nullable().optional(),
+  reviewed_at: z.string().nullable().optional(),
+  reviewer_notes: z.string().nullable().optional(),
+  race_events: z
+    .object({
+      id: z.string().uuid(),
+      name: z.string(),
+      location: z.string().nullable().optional(),
+      race_date: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
 const actionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("approve"),
@@ -66,13 +89,23 @@ const actionSchema = z.discriminatedUnion("action", [
     membershipId: z.string().uuid(),
     revokeReason: z.string().trim().optional().transform((value) => (value ? value : null)),
   }),
+  z.object({
+    action: z.literal("approveEditionRequest"),
+    editionRequestId: z.string().uuid(),
+    reviewerNotes: z.string().trim().optional().transform((value) => (value ? value : null)),
+  }),
+  z.object({
+    action: z.literal("rejectEditionRequest"),
+    editionRequestId: z.string().uuid(),
+    reviewerNotes: z.string().trim().optional().transform((value) => (value ? value : null)),
+  }),
 ]);
 
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [claimsResponse, membershipsResponse] = await Promise.all([
+  const [claimsResponse, membershipsResponse, editionRequestsResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?status=eq.pending&select=id,created_at,updated_at,user_id,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewed_by,reviewed_at,reviewer_notes,race_events(id,name,location,race_date)&order=created_at.asc&limit=200`,
       {
@@ -87,19 +120,28 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }
     ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?status=eq.pending&select=id,created_at,updated_at,user_id,event_id,source_year,requested_start_date,status,reviewed_by,reviewed_at,reviewer_notes,race_events(id,name,location,race_date)&order=created_at.asc&limit=200`,
+      {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }
+    ),
   ]);
 
-  if (!claimsResponse.ok || !membershipsResponse.ok) {
+  if (!claimsResponse.ok || !membershipsResponse.ok || !editionRequestsResponse.ok) {
     console.error("Unable to load admin organizer claims", {
       claims: claimsResponse.ok ? null : await claimsResponse.text(),
       memberships: membershipsResponse.ok ? null : await membershipsResponse.text(),
+      editionRequests: editionRequestsResponse.ok ? null : await editionRequestsResponse.text(),
     });
     return jsonError("Unable to load organizer claims.", 502);
   }
 
   const claims = z.array(claimRowSchema).parse(await claimsResponse.json());
   const memberships = z.array(membershipRowSchema).parse(await membershipsResponse.json());
-  return withSecurityHeaders(NextResponse.json({ claims, memberships }));
+  const editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
+  return withSecurityHeaders(NextResponse.json({ claims, memberships, editionRequests }));
 }
 
 export async function PATCH(request: NextRequest) {
@@ -108,6 +150,54 @@ export async function PATCH(request: NextRequest) {
 
   const parsedBody = actionSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid organizer claim action.", 400);
+
+  if (parsedBody.data.action === "approveEditionRequest" || parsedBody.data.action === "rejectEditionRequest") {
+    const nextStatus = parsedBody.data.action === "approveEditionRequest" ? "approved" : "rejected";
+    const editionRequestResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?id=eq.${parsedBody.data.editionRequestId}&select=id,status&limit=1`,
+      {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }
+    );
+
+    if (!editionRequestResponse.ok) {
+      console.error("Unable to load edition request for action", await editionRequestResponse.text());
+      return jsonError("Unable to load edition request.", 502);
+    }
+
+    const editionRequest = z
+      .array(z.object({ id: z.string().uuid(), status: z.enum(["pending", "approved", "rejected"]) }))
+      .parse(await editionRequestResponse.json())[0] ?? null;
+
+    if (!editionRequest) return jsonError("Edition request not found.", 404);
+
+    const response = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?id=eq.${editionRequest.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          ...serviceHeaders(auth.serviceConfig),
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          status: nextStatus,
+          reviewed_by: auth.user.id,
+          reviewed_at: new Date().toISOString(),
+          reviewer_notes: parsedBody.data.reviewerNotes,
+        }),
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      console.error("Unable to update edition request", await response.text());
+      return jsonError("Unable to update edition request.", 502);
+    }
+
+    const updated = z.array(editionRequestRowSchema.omit({ race_events: true }).passthrough()).parse(await response.json())[0] ?? null;
+    return withSecurityHeaders(NextResponse.json({ editionRequest: updated }));
+  }
 
   if (parsedBody.data.action === "revoke") {
     const response = await fetch(

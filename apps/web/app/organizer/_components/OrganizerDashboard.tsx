@@ -60,6 +60,7 @@ import {
 import type {
   AidStationDraft,
   ClaimRow,
+  EditionRequestRow,
   EventFormValues,
   GpxPreview,
   MembershipRow,
@@ -86,6 +87,7 @@ export function OrganizerDashboard() {
   const { session, isLoading } = useVerifiedSession();
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [claims, setClaims] = useState<ClaimRow[]>([]);
+  const [editionRequests, setEditionRequests] = useState<EditionRequestRow[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDetail, setEventDetail] = useState<OrganizerEventDetail | null>(null);
   const [eventForm, setEventForm] = useState<EventFormValues>(() => createEmptyEventForm());
@@ -133,6 +135,10 @@ export function OrganizerDashboard() {
   const activeRaceForCompletion = activeRace ? { ...activeRace, organizerDetails: raceForm.organizerDetails } : null;
   const productPickerStation = productPickerStationId ? aidStations.find((station) => station.id === productPickerStationId) ?? null : null;
   const hasDirtyChanges = dirtyModules.size > 0;
+  const currentEditionRequest =
+    editionRequests.find(
+      (request) => request.event_id === selectedEventId && request.requested_start_date === newEditionDate && request.status !== "rejected"
+    ) ?? null;
 
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ id: Date.now(), type, message });
@@ -241,13 +247,19 @@ export function OrganizerDashboard() {
     setError(null);
     try {
       const response = await fetch("/api/organizer/claims", { headers: authHeaders, cache: "no-store" });
-      const data = (await response.json().catch(() => null)) as { claims?: ClaimRow[]; memberships?: MembershipRow[]; message?: string } | null;
+      const data = (await response.json().catch(() => null)) as {
+        claims?: ClaimRow[];
+        memberships?: MembershipRow[];
+        editionRequests?: EditionRequestRow[];
+        message?: string;
+      } | null;
       if (!response.ok) {
         setError(data?.message ?? "Impossible de charger le compte organisateur.");
         return;
       }
       const nextMemberships = data?.memberships ?? [];
       setClaims(data?.claims ?? []);
+      setEditionRequests(data?.editionRequests ?? []);
       setMemberships(nextMemberships);
       setSelectedEventId((current) => current ?? nextMemberships[0]?.event_id ?? null);
     } catch (caught) {
@@ -633,36 +645,35 @@ export function OrganizerDashboard() {
     }
   };
 
-  const createEditionFromActiveRace = async () => {
-    if (!accessToken || !selectedEventId || !activeRace) return;
+  const requestNewEdition = async () => {
+    if (!accessToken || !selectedEventId || !selectedEditionYear) return;
     if (!newEditionDate.trim()) {
-      showToast("error", "Ajoute la date de la nouvelle édition.");
+      showToast("error", "Ajoute la date de la nouvelle edition.");
+      return;
+    }
+    if (currentEditionRequest) {
+      showToast("error", "Une demande existe deja pour cette date.");
       return;
     }
     setStatus("saving");
     setError(null);
     try {
-      const response = await fetch("/api/organizer/races", {
+      const response = await fetch("/api/organizer/edition-requests", {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: selectedEventId,
-          cloneFromRaceId: activeRace.id,
-          seriesName: activeRace.series_name,
-          name: activeRace.name,
-          raceDate: newEditionDate,
+          sourceYear: Number(selectedEditionYear),
+          requestedStartDate: newEditionDate,
         }),
       });
-      const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
-      if (!response.ok || !data?.race) {
-        showToast("error", data?.message ?? "Impossible de créer la nouvelle édition.");
+      const data = (await response.json().catch(() => null)) as { editionRequest?: EditionRequestRow; message?: string } | null;
+      if (!response.ok || !data?.editionRequest) {
+        showToast("error", data?.message ?? "Impossible de demander la nouvelle edition.");
         return;
       }
-      setSelectedEditionYear(getRaceEditionYearValue(data.race.race_date));
-      setActiveTab(data.race.edition_group_id);
-      setActiveModule("formats");
-      showToast("success", `Édition ${getRaceEditionYearLabel(data.race.race_date)} créée en brouillon.`);
-      await loadEvent(selectedEventId, data.race.edition_group_id, getRaceEditionYearValue(data.race.race_date));
+      setEditionRequests((current) => [data.editionRequest!, ...current]);
+      showToast("success", "Demande de nouvelle edition envoyee pour validation.");
     } finally {
       setStatus("idle");
     }
@@ -1143,6 +1154,8 @@ export function OrganizerDashboard() {
         memberships={memberships}
         selectedEventId={selectedEventId}
         selectedEditionYear={selectedEditionYear}
+        newEditionDate={newEditionDate}
+        editionRequestState={currentEditionRequest}
         onSelectedEventChange={(eventId) => {
           void (async () => {
             if (!(await saveBeforeNavigation())) return;
@@ -1157,6 +1170,10 @@ export function OrganizerDashboard() {
             if (!(await saveBeforeNavigation())) return;
             setSelectedEditionYear(year);
           })();
+        }}
+        onEditionDateChange={setNewEditionDate}
+        onRequestEdition={() => {
+          void requestNewEdition();
         }}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
@@ -1223,12 +1240,7 @@ export function OrganizerDashboard() {
               newRaceForm={newRaceForm}
               newRaceImageName={newRaceImageFile?.name ?? null}
               newRaceGpxName={newRaceGpxFile?.name ?? null}
-              newEditionDate={newEditionDate}
               showRaceDetails={showRaceDetails}
-              onEditionDateChange={setNewEditionDate}
-              onCreateEdition={() => {
-                void createEditionFromActiveRace();
-              }}
               onToggleRaceDetails={() => setShowRaceDetails((current) => !current)}
               onRaceFormChange={(next) => updateRaceForm(next, "formats")}
               onNewRaceFormChange={setNewRaceForm}
@@ -1476,3 +1488,4 @@ export function OrganizerDashboard() {
     </div>
   );
 }
+

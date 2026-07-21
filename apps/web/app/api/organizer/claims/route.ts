@@ -82,6 +82,27 @@ const membershipRowSchema = z.object({
     .optional(),
 });
 
+const editionRequestRowSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string(),
+  event_id: z.string().uuid(),
+  source_year: z.number().int(),
+  requested_start_date: z.string(),
+  status: z.enum(["pending", "approved", "rejected"]),
+  reviewer_notes: z.string().nullable().optional(),
+  race_events: z
+    .object({
+      id: z.string().uuid(),
+      name: z.string(),
+      location: z.string().nullable().optional(),
+      race_date: z.string().nullable().optional(),
+      thumbnail_url: z.string().nullable().optional(),
+      is_live: z.boolean().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+});
+
 const createdEventRowSchema = z.object({ id: z.string().uuid() });
 
 async function deleteDraftEvent(auth: Awaited<ReturnType<typeof requireOrganizerAuth>>, eventId: string | null) {
@@ -103,7 +124,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [claimsResponse, membershipsResponse] = await Promise.all([
+  const [claimsResponse, membershipsResponse, editionRequestsResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?user_id=eq.${auth.user.id}&select=id,created_at,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewer_notes,reviewed_at,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`,
       {
@@ -118,20 +139,29 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }
     ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?user_id=eq.${auth.user.id}&select=id,created_at,event_id,source_year,requested_start_date,status,reviewer_notes,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`,
+      {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }
+    ),
   ]);
 
-  if (!claimsResponse.ok || !membershipsResponse.ok) {
+  if (!claimsResponse.ok || !membershipsResponse.ok || !editionRequestsResponse.ok) {
     console.error("Unable to load organizer claims", {
       claims: claimsResponse.ok ? null : await claimsResponse.text(),
       memberships: membershipsResponse.ok ? null : await membershipsResponse.text(),
+      editionRequests: editionRequestsResponse.ok ? null : await editionRequestsResponse.text(),
     });
     return jsonError("Unable to load organizer data.", 502);
   }
 
   const claims = z.array(claimRowSchema).parse(await claimsResponse.json());
   const memberships = z.array(membershipRowSchema).parse(await membershipsResponse.json());
+  const editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
 
-  return withSecurityHeaders(NextResponse.json({ claims, memberships }));
+  return withSecurityHeaders(NextResponse.json({ claims, memberships, editionRequests }));
 }
 
 export async function POST(request: NextRequest) {

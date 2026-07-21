@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-07-20
+last_verified: 2026-07-21
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260720120000_add_race_edition_groups.sql
+  - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
@@ -41,7 +42,9 @@ related_files:
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/organizer/claims/route.ts
+  - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
+  - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.test.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
@@ -74,6 +77,7 @@ related_files:
   - apps/web/lib/location-utils.ts
 related_tables:
   - race_event_claims
+  - race_event_edition_requests
   - race_event_organizers
   - race_aid_stations
   - race_aid_station_products
@@ -125,7 +129,7 @@ Approved organizers can:
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
 - add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = false` by default, a required format race date, optional organizer details, and an optional GPX file selected directly in the creation form;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links, creating a new `edition_group_id`;
-- create a new yearly edition from an existing format edition; that clone stays in the same `edition_group_id`, forces `is_live = false`, requires a new `race_date`, and copies organizer details, source GPX, source aid stations, and station-product links;
+- request a new yearly event edition from the event header; the request stores the selected source year plus the requested new start date in `race_event_edition_requests`, and no new `races` row is created before admin validation;
 - upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
 - delete a format from the identity module after a confirmation step; source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
@@ -134,7 +138,7 @@ Approved organizers can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/format-series/edition-year/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. Address fields on those editors now share a route-local autocomplete component backed by `/api/location-search`; selecting a suggestion keeps the original text field filled for publication checks while also storing `lat/lng` plus a Google Maps URL in `organizer_details`. When a field or its surrounding event/format scope already has coordinates, the dashboard sends them as a proximity bias so nearby suggestions rank before distant but textually similar addresses. The synthesis uses inline event facts, a small live/brouillon indicator, an event-level year selector above the progress rows, and one publish row per scope: the event row still represents the event, while each format row now represents one `series_name` group rather than one individual yearly race row. The active year is chosen once at event level, and each format row uses the matching `race` edition for that year when available. Those percentages are derived only from organizer completion fields and must not increase or decrease when an organizer flips event/race publication. The old ravito count and "a jour" status chip are no longer displayed in that top card. The first completion tab is the event scope and shows only fillable event tiles: information, equipment, bib pickup, access, and services. The following tabs are organizer format-series tabs keyed by `series_name`; they no longer own a local year selector, and instead they render the `race` edition resolved from the event-level year picker before showing the fillable race tiles: identity/GPX, equipment, access, and ravitos, without an extra progress bar under the tab strip because progress already lives in the top synthesis rows. The old schedule tile is gone: the ravito tile now owns the fixed `Départ` and `Arrivée` cards for `startTime` and `finishCutoffTime`, while `Horaires navettes` lives only in access. Official ravito products are managed inside that ravito module rather than through a separate products tile. Labels stay short because the active tab already provides the scope. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs, years, or modules now attempts an autosave first and blocks the navigation when the save fails.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/format-series/edition-year/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. Address fields on those editors now share a route-local autocomplete component backed by `/api/location-search`; selecting a suggestion keeps the original text field filled for publication checks while also storing `lat/lng` plus a Google Maps URL in `organizer_details`. When a field or its surrounding event/format scope already has coordinates, the dashboard sends them as a proximity bias so nearby suggestions rank before distant but textually similar addresses. The synthesis uses inline event facts, a small live/brouillon indicator, an event-level year selector above the progress rows, and a sibling request action for `Nouvelle édition`: the organizer chooses a requested start date there, sends a validation request, and waits for admin review before any new yearly edition can exist. The event row still represents the event, while each format row now represents one `series_name` group rather than one individual yearly race row. The active year is chosen once at event level, and each format row uses the matching `race` edition for that year when available. Those percentages are derived only from organizer completion fields and must not increase or decrease when an organizer flips event/race publication. The old ravito count and "a jour" status chip are no longer displayed in that top card. The first completion tab is the event scope and shows only fillable event tiles: information, equipment, bib pickup, access, and services. The following tabs are organizer format-series tabs keyed by `series_name`; they no longer own a local year selector, and instead they render the `race` edition resolved from the event-level year picker before showing the fillable race tiles: identity/GPX, equipment, access, and ravitos, without an extra progress bar under the tab strip because progress already lives in the top synthesis rows. The old schedule tile is gone: the ravito tile now owns the fixed `Départ` and `Arrivée` cards for `startTime` and `finishCutoffTime`, while `Horaires navettes` lives only in access. Official ravito products are managed inside that ravito module rather than through a separate products tile. Labels stay short because the active tab already provides the scope. Completed tiles get a green outline only when not selected, active tiles use the brand border/fill so the selection remains visible, incomplete tiles list the compact labels of missing fields, tiles stay compact with status, level, title, and count/action only, and changing tabs, years, or modules now attempts an autosave first and blocks the navigation when the save fails.
 
 The format identity editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. The interactive route map then sits below as the main full-width visual focus, and repeated course metrics should not be duplicated across every preview header when the same values are already visible in the form.
 
@@ -247,3 +251,4 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - [race_aid_station_products](../02-database/tables/race-aid-station-products.md)
 - [Nutrition Algorithm](nutrition-algorithm.md)
 - [GPX Import](gpx-import.md)
+

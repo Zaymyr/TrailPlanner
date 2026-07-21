@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-07-20
+last_verified: 2026-07-21
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -170,7 +170,7 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 The v1 organizer portal is web-only:
 
 - `/organizers` lets authenticated users search live events or create a missing non-live draft event before creating an event claim.
-- `/organizer` lets approved organizers manage their claimed events through a modular dashboard with compact event synthesis, an event-level year selector above the progress rows, one tabbed completion surface whose first tab is the event and whose following tabs are organizer format-series tabs keyed by `races.series_name`, planner-style ravito cards, common-vs-format JSONB detail modules, and an internal runner preview. The selected year resolves the active `races` edition per format through `races.edition_group_id`. `OrganizerDashboard.tsx` stays the client-state orchestrator while route-local dashboard components under `_components/dashboard/` own the reusable shell, controls, editors, ravito/product blocks, and runner preview.
+- `/organizer` lets approved organizers manage their claimed events through a modular dashboard with compact event synthesis, an event-level year selector above the progress rows, a sibling `Nouvelle édition` validation request action in that same header area, one tabbed completion surface whose first tab is the event and whose following tabs are organizer format-series tabs keyed by `races.series_name`, planner-style ravito cards, common-vs-format JSONB detail modules, and an internal runner preview. The selected year resolves the active `races` edition per format through `races.edition_group_id`, while new yearly editions must first go through `race_event_edition_requests` review instead of direct organizer-side cloning. `OrganizerDashboard.tsx` stays the client-state orchestrator while route-local dashboard components under `_components/dashboard/` own the reusable shell, controls, editors, ravito/product blocks, and runner preview.
 - The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. It calls `/api/location-search`, keeps the existing text columns as the publishable source strings, and stores structured geocoded metadata alongside them in `organizer_details` so the runner preview can expose GPS coordinates and Google Maps links.
 - The organizer claim screen and approved dashboard keep a shared French copy layer: claim/request status cards, module titles, toasts, and runner-preview labels are intentionally concise and accented consistently across `/organizers` and `/organizer`.
 - The main header shows `/organizer` as "Mes courses" / "My races" only after `/api/organizer/claims` reports at least one active membership.

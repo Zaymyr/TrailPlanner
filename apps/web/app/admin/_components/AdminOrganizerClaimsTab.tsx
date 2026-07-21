@@ -41,14 +41,32 @@ type OrganizerMembership = {
   } | null;
 };
 
+type OrganizerEditionRequest = {
+  id: string;
+  created_at: string;
+  user_id: string;
+  event_id: string;
+  source_year: number;
+  requested_start_date: string;
+  status: "pending" | "approved" | "rejected";
+  reviewer_notes?: string | null;
+  race_events?: {
+    name: string;
+    location?: string | null;
+    race_date?: string | null;
+  } | null;
+};
+
 type Props = {
   accessToken: string | null;
 };
 
 export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [claims, setClaims] = useState<OrganizerClaim[]>([]);
+  const [editionRequests, setEditionRequests] = useState<OrganizerEditionRequest[]>([]);
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
   const [notesByClaim, setNotesByClaim] = useState<Record<string, string>>({});
+  const [notesByEditionRequest, setNotesByEditionRequest] = useState<Record<string, string>>({});
   const [revokeReasonByMembership, setRevokeReasonByMembership] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +88,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       });
       const data = (await response.json().catch(() => null)) as {
         claims?: OrganizerClaim[];
+        editionRequests?: OrganizerEditionRequest[];
         memberships?: OrganizerMembership[];
         message?: string;
       } | null;
@@ -78,6 +97,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         return;
       }
       setClaims(data?.claims ?? []);
+      setEditionRequests(data?.editionRequests ?? []);
       setMemberships(data?.memberships ?? []);
     } catch (caught) {
       console.error("Unable to load organizer claims", caught);
@@ -168,6 +188,68 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     variant="outline"
                     disabled={status === "saving" || claim.status === "rejected"}
                     onClick={() => runAction({ action: "reject", claimId: claim.id, reviewerNotes: notesByClaim[claim.id] ?? "" })}
+                  >
+                    Refuser
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-lg">
+        <CardHeader>
+          <CardTitle>Nouvelles editions</CardTitle>
+          <CardDescription>Valider les demandes d'ouverture d'une nouvelle edition avant toute creation facturable.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {editionRequests.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune demande d'edition en attente.</p>
+          ) : (
+            editionRequests.map((editionRequest) => (
+              <div key={editionRequest.id} className="rounded-md border border-border bg-background p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-foreground">{editionRequest.race_events?.name ?? editionRequest.event_id}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Utilisateur {editionRequest.user_id} · edition source {editionRequest.source_year} · depart demande {editionRequest.requested_start_date}
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-border px-2 py-1 text-xs uppercase text-muted-foreground">
+                    {claimStatusLabel[editionRequest.status]}
+                  </span>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                  <Input
+                    value={notesByEditionRequest[editionRequest.id] ?? ""}
+                    onChange={(event) => setNotesByEditionRequest((current) => ({ ...current, [editionRequest.id]: event.target.value }))}
+                    placeholder="Note de revue"
+                  />
+                  <Button
+                    type="button"
+                    disabled={status === "saving" || editionRequest.status === "approved"}
+                    onClick={() =>
+                      runAction({
+                        action: "approveEditionRequest",
+                        editionRequestId: editionRequest.id,
+                        reviewerNotes: notesByEditionRequest[editionRequest.id] ?? "",
+                      })
+                    }
+                  >
+                    Approuver
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={status === "saving" || editionRequest.status === "rejected"}
+                    onClick={() =>
+                      runAction({
+                        action: "rejectEditionRequest",
+                        editionRequestId: editionRequest.id,
+                        reviewerNotes: notesByEditionRequest[editionRequest.id] ?? "",
+                      })
+                    }
                   >
                     Refuser
                   </Button>

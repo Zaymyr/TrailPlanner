@@ -93,10 +93,7 @@ export function FormatsEditor({
   newRaceForm,
   newRaceImageName,
   newRaceGpxName,
-  newEditionDate,
   showRaceDetails,
-  onEditionDateChange,
-  onCreateEdition,
   onToggleRaceDetails,
   onRaceFormChange,
   onNewRaceFormChange,
@@ -117,10 +114,7 @@ export function FormatsEditor({
   newRaceForm: RaceFormValues;
   newRaceImageName: string | null;
   newRaceGpxName: string | null;
-  newEditionDate: string;
   showRaceDetails: boolean;
-  onEditionDateChange: (value: string) => void;
-  onCreateEdition: () => void;
   onToggleRaceDetails: () => void;
   onRaceFormChange: (next: Partial<RaceFormValues>) => void;
   onNewRaceFormChange: (next: RaceFormValues) => void;
@@ -166,12 +160,6 @@ export function FormatsEditor({
                   {getRaceEditionYearLabel(activeRace.race_date)}
                 </p>
               </div>
-              <div className="min-w-[10rem]">
-                <TextField label="Nouvelle edition" type="date" value={newEditionDate} onChange={onEditionDateChange} />
-              </div>
-              <Button type="button" variant="outline" onClick={onCreateEdition} disabled={status === "saving" || status === "uploading"}>
-                Nouvelle edition
-              </Button>
             </div>
             <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving"}>
               Dupliquer ce format

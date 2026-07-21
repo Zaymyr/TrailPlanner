@@ -6,7 +6,7 @@ import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
 import { formatEventDateRange, getAvailableEditionYears, getRaceEditionYearLabel, getRaceEditionYearValue, groupRacesBySeries } from "./helpers";
-import type { ClaimRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
+import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
 import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
 const getProgressTone = (score: number) => {
@@ -100,8 +100,12 @@ export function OrganizerSummaryHeader({
   memberships,
   selectedEventId,
   selectedEditionYear,
+  newEditionDate,
+  editionRequestState,
   onSelectedEventChange,
   onSelectedEditionYearChange,
+  onEditionDateChange,
+  onRequestEdition,
   completion,
   hasDirtyChanges,
   status,
@@ -116,8 +120,12 @@ export function OrganizerSummaryHeader({
   memberships: MembershipRow[];
   selectedEventId: string | null;
   selectedEditionYear: string;
+  newEditionDate: string;
+  editionRequestState: EditionRequestRow | null;
   onSelectedEventChange: (eventId: string) => void;
   onSelectedEditionYearChange: (year: string) => void;
+  onEditionDateChange: (value: string) => void;
+  onRequestEdition: () => void;
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
@@ -184,22 +192,44 @@ export function OrganizerSummaryHeader({
       <div className="mt-3 space-y-2">
         {availableEditionYears.length > 0 ? (
           <div className="rounded-md border border-border/60 bg-background/50 p-3">
-            <div className="min-w-[10rem] max-w-xs">
-              <label htmlFor="organizer-event-edition-select" className="text-sm font-medium text-foreground">
-                Edition
-              </label>
-              <select
-                id="organizer-event-edition-select"
-                className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
-                value={selectedEditionYear}
-                onChange={(event) => onSelectedEditionYearChange(event.target.value)}
-              >
-                {availableEditionYears.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="min-w-[10rem] max-w-xs">
+                <label htmlFor="organizer-event-edition-select" className="text-sm font-medium text-foreground">
+                  Edition
+                </label>
+                <select
+                  id="organizer-event-edition-select"
+                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                  value={selectedEditionYear}
+                  onChange={(event) => onSelectedEditionYearChange(event.target.value)}
+                >
+                  {availableEditionYears.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="min-w-[10rem] max-w-xs">
+                <label htmlFor="organizer-new-edition-date" className="text-sm font-medium text-foreground">
+                  Nouvelle edition
+                </label>
+                <input
+                  id="organizer-new-edition-date"
+                  type="date"
+                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                  value={newEditionDate}
+                  onChange={(event) => onEditionDateChange(event.target.value)}
+                />
+              </div>
+              <Button type="button" variant="outline" onClick={onRequestEdition} disabled={status !== "idle"}>
+                Demander la validation
+              </Button>
+            </div>
+            <div className="mt-2 text-xs text-muted-foreground">
+              {editionRequestState
+                ? `Demande ${editionRequestState.status} pour le ${editionRequestState.requested_start_date}.`
+                : "Toute nouvelle edition passe d'abord par une validation admin."}
             </div>
           </div>
         ) : null}
