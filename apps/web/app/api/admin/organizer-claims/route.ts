@@ -73,6 +73,20 @@ const editionRequestRowSchema = z.object({
     .optional(),
 });
 
+const userProfileRowSchema = z.object({
+  user_id: z.string().uuid(),
+  full_name: z.string().nullable().optional(),
+});
+
+const adminUserRowSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email().nullable().optional(),
+});
+
+const adminUsersResponseSchema = z.object({
+  users: z.array(adminUserRowSchema),
+});
+
 const actionSchema = z.discriminatedUnion("action", [
   z.object({
     action: z.literal("approve"),
@@ -141,7 +155,72 @@ export async function GET(request: NextRequest) {
   const claims = z.array(claimRowSchema).parse(await claimsResponse.json());
   const memberships = z.array(membershipRowSchema).parse(await membershipsResponse.json());
   const editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
-  return withSecurityHeaders(NextResponse.json({ claims, memberships, editionRequests }));
+  const userIds = Array.from(new Set([...claims, ...memberships, ...editionRequests].map((row) => row.user_id)));
+
+  let userProfilesById = new Map<string, string>();
+  let userEmailsById = new Map<string, string>();
+
+  if (userIds.length > 0) {
+    const [profilesResponse, adminUsersResponse] = await Promise.all([
+      fetch(
+        `${auth.serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=in.(${userIds.join(",")})&select=user_id,full_name`,
+        {
+          headers: serviceHeaders(auth.serviceConfig, ""),
+          cache: "no-store",
+        }
+      ),
+      fetch(`${auth.serviceConfig.supabaseUrl}/auth/v1/admin/users?per_page=200`, {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }),
+    ]);
+
+    if (!profilesResponse.ok || !adminUsersResponse.ok) {
+      console.error("Unable to enrich admin organizer claims with user identity", {
+        profiles: profilesResponse.ok ? null : await profilesResponse.text(),
+        adminUsers: adminUsersResponse.ok ? null : await adminUsersResponse.text(),
+      });
+      return jsonError("Unable to load organizer user details.", 502);
+    }
+
+    userProfilesById = new Map(
+      z
+        .array(userProfileRowSchema)
+        .parse(await profilesResponse.json())
+        .filter((profile) => typeof profile.full_name === "string" && profile.full_name.trim().length > 0)
+        .map((profile) => [profile.user_id, profile.full_name!.trim()])
+    );
+
+    userEmailsById = new Map(
+      adminUsersResponseSchema
+        .parse(await adminUsersResponse.json())
+        .users.filter((user) => user.email && userIds.includes(user.id))
+        .map((user) => [user.id, user.email!.trim()])
+    );
+  }
+
+  const withUserIdentity = <T extends { user_id: string; contact_email?: string }>(row: T) => {
+    const fullName = userProfilesById.get(row.user_id) ?? null;
+    const email = userEmailsById.get(row.user_id) ?? row.contact_email ?? null;
+    const label = fullName ?? email ?? row.user_id;
+    return {
+      ...row,
+      user: {
+        id: row.user_id,
+        full_name: fullName,
+        email,
+        label,
+      },
+    };
+  };
+
+  return withSecurityHeaders(
+    NextResponse.json({
+      claims: claims.map(withUserIdentity),
+      memberships: memberships.map(withUserIdentity),
+      editionRequests: editionRequests.map(withUserIdentity),
+    })
+  );
 }
 
 export async function PATCH(request: NextRequest) {

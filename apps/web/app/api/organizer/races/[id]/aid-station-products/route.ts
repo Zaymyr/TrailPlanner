@@ -5,6 +5,7 @@ import { z } from "zod";
 import { defaultFuelType, fuelTypeSchema } from "../../../../../../lib/fuel-types";
 import { withSecurityHeaders } from "../../../../../../lib/http";
 import {
+  assertRaceEditionEditable,
   buildSlug,
   jsonError,
   loadRaceForOrganizer,
@@ -171,6 +172,9 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
 
+  const editableEdition = assertRaceEditionEditable((race as { race_date?: string | null }).race_date ?? null);
+  if (editableEdition !== true) return editableEdition.error;
+
   const parsedBody = updateProductsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid aid station products.", 400);
 
@@ -240,6 +244,9 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
+
+  const editableEdition = assertRaceEditionEditable((race as { race_date?: string | null }).race_date ?? null);
+  if (editableEdition !== true) return editableEdition.error;
 
   const parsedBody = createScopedProductSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid product payload.", 400);

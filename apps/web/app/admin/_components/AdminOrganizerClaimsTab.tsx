@@ -7,10 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 
+type OrganizerUserSummary = {
+  id: string;
+  full_name?: string | null;
+  email?: string | null;
+  label: string;
+};
+
 type OrganizerClaim = {
   id: string;
   created_at: string;
   user_id: string;
+  user?: OrganizerUserSummary;
   event_id: string;
   organization_name: string;
   role_title: string;
@@ -30,6 +38,7 @@ type OrganizerMembership = {
   id: string;
   created_at: string;
   user_id: string;
+  user?: OrganizerUserSummary;
   event_id: string;
   role: string;
   revoked_at?: string | null;
@@ -45,6 +54,7 @@ type OrganizerEditionRequest = {
   id: string;
   created_at: string;
   user_id: string;
+  user?: OrganizerUserSummary;
   event_id: string;
   source_year: number;
   requested_start_date: string;
@@ -73,9 +83,11 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
 
   const claimStatusLabel: Record<OrganizerClaim["status"], string> = {
     pending: "En attente",
-    approved: "Approuvé",
-    rejected: "Refusé",
+    approved: "Approuve",
+    rejected: "Refuse",
   };
+
+  const pendingRequestCount = claims.length + editionRequests.length;
 
   const load = async () => {
     if (!accessToken) return;
@@ -141,133 +153,146 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   return (
     <div className="space-y-5">
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+
       <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>Demandes en cours</CardTitle>
-          <CardDescription>Approuver ou refuser les demandes de claim en attente.</CardDescription>
+          <CardTitle>Revue en attente</CardTitle>
+          <CardDescription>{pendingRequestCount} demande(s) a traiter entre les claims d'acces et les nouvelles editions.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-5">
           {status === "loading" ? <p className="text-sm text-muted-foreground">Chargement...</p> : null}
-          {claims.length === 0 ? (
+          {pendingRequestCount === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune demande en attente.</p>
           ) : (
-            claims.map((claim) => (
-              <div key={claim.id} className="rounded-md border border-border bg-background p-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-foreground">{claim.race_events?.name ?? claim.event_id}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {claim.organization_name} · {claim.role_title} · {claim.contact_email}
-                    </p>
-                    {claim.official_site_url ? (
-                      <a className="text-sm text-brand underline-offset-4 hover:underline" href={claim.official_site_url} target="_blank" rel="noreferrer">
-                        {claim.official_site_url}
-                      </a>
-                    ) : null}
-                    {claim.message ? <p className="mt-2 text-sm text-foreground">{claim.message}</p> : null}
-                  </div>
-                  <span className="rounded-full border border-border px-2 py-1 text-xs uppercase text-muted-foreground">
-                    {claimStatusLabel[claim.status]}
-                  </span>
+            <>
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-foreground">Claims d'acces</h3>
+                  <span className="text-xs text-muted-foreground">{claims.length} en attente</span>
                 </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                  <Input
-                    value={notesByClaim[claim.id] ?? ""}
-                    onChange={(event) => setNotesByClaim((current) => ({ ...current, [claim.id]: event.target.value }))}
-                    placeholder="Note de revue"
-                  />
-                  <Button
-                    type="button"
-                    disabled={status === "saving" || claim.status === "approved"}
-                    onClick={() => runAction({ action: "approve", claimId: claim.id, reviewerNotes: notesByClaim[claim.id] ?? "" })}
-                  >
-                    Approuver
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={status === "saving" || claim.status === "rejected"}
-                    onClick={() => runAction({ action: "reject", claimId: claim.id, reviewerNotes: notesByClaim[claim.id] ?? "" })}
-                  >
-                    Refuser
-                  </Button>
+                {claims.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucun claim en attente.</p>
+                ) : (
+                  claims.map((claim) => (
+                    <div key={claim.id} className="rounded-md border border-border bg-background p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-foreground">{claim.race_events?.name ?? claim.event_id}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {claim.user?.label ?? claim.user_id} · {claim.organization_name} · {claim.role_title}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{claim.contact_email}</p>
+                          {claim.official_site_url ? (
+                            <a className="text-sm text-brand underline-offset-4 hover:underline" href={claim.official_site_url} target="_blank" rel="noreferrer">
+                              {claim.official_site_url}
+                            </a>
+                          ) : null}
+                          {claim.message ? <p className="mt-2 text-sm text-foreground">{claim.message}</p> : null}
+                        </div>
+                        <span className="rounded-full border border-border px-2 py-1 text-xs uppercase text-muted-foreground">
+                          {claimStatusLabel[claim.status]}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                        <Input
+                          value={notesByClaim[claim.id] ?? ""}
+                          onChange={(event) => setNotesByClaim((current) => ({ ...current, [claim.id]: event.target.value }))}
+                          placeholder="Note de revue"
+                        />
+                        <Button
+                          type="button"
+                          disabled={status === "saving" || claim.status === "approved"}
+                          onClick={() => runAction({ action: "approve", claimId: claim.id, reviewerNotes: notesByClaim[claim.id] ?? "" })}
+                        >
+                          Approuver
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={status === "saving" || claim.status === "rejected"}
+                          onClick={() => runAction({ action: "reject", claimId: claim.id, reviewerNotes: notesByClaim[claim.id] ?? "" })}
+                        >
+                          Refuser
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </section>
+
+              <section className="space-y-3 border-t border-border/60 pt-4">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-foreground">Nouvelles editions</h3>
+                  <span className="text-xs text-muted-foreground">{editionRequests.length} en attente</span>
                 </div>
-              </div>
-            ))
+                {editionRequests.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucune demande d'edition en attente.</p>
+                ) : (
+                  editionRequests.map((editionRequest) => (
+                    <div key={editionRequest.id} className="rounded-md border border-border bg-background p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-foreground">{editionRequest.race_events?.name ?? editionRequest.event_id}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {editionRequest.user?.label ?? editionRequest.user_id} · edition source {editionRequest.source_year}
+                          </p>
+                          <p className="text-sm text-muted-foreground">Depart demande: {editionRequest.requested_start_date}</p>
+                        </div>
+                        <span className="rounded-full border border-border px-2 py-1 text-xs uppercase text-muted-foreground">
+                          {claimStatusLabel[editionRequest.status]}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                        <Input
+                          value={notesByEditionRequest[editionRequest.id] ?? ""}
+                          onChange={(event) => setNotesByEditionRequest((current) => ({ ...current, [editionRequest.id]: event.target.value }))}
+                          placeholder="Note de revue"
+                        />
+                        <Button
+                          type="button"
+                          disabled={status === "saving" || editionRequest.status === "approved"}
+                          onClick={() =>
+                            runAction({
+                              action: "approveEditionRequest",
+                              editionRequestId: editionRequest.id,
+                              reviewerNotes: notesByEditionRequest[editionRequest.id] ?? "",
+                            })
+                          }
+                        >
+                          Approuver
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={status === "saving" || editionRequest.status === "rejected"}
+                          onClick={() =>
+                            runAction({
+                              action: "rejectEditionRequest",
+                              editionRequestId: editionRequest.id,
+                              reviewerNotes: notesByEditionRequest[editionRequest.id] ?? "",
+                            })
+                          }
+                        >
+                          Refuser
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </section>
+            </>
           )}
         </CardContent>
       </Card>
 
       <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>Nouvelles editions</CardTitle>
-          <CardDescription>Valider les demandes d'ouverture d'une nouvelle edition avant toute creation facturable.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {editionRequests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune demande d'edition en attente.</p>
-          ) : (
-            editionRequests.map((editionRequest) => (
-              <div key={editionRequest.id} className="rounded-md border border-border bg-background p-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-semibold text-foreground">{editionRequest.race_events?.name ?? editionRequest.event_id}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Utilisateur {editionRequest.user_id} · edition source {editionRequest.source_year} · depart demande {editionRequest.requested_start_date}
-                    </p>
-                  </div>
-                  <span className="rounded-full border border-border px-2 py-1 text-xs uppercase text-muted-foreground">
-                    {claimStatusLabel[editionRequest.status]}
-                  </span>
-                </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                  <Input
-                    value={notesByEditionRequest[editionRequest.id] ?? ""}
-                    onChange={(event) => setNotesByEditionRequest((current) => ({ ...current, [editionRequest.id]: event.target.value }))}
-                    placeholder="Note de revue"
-                  />
-                  <Button
-                    type="button"
-                    disabled={status === "saving" || editionRequest.status === "approved"}
-                    onClick={() =>
-                      runAction({
-                        action: "approveEditionRequest",
-                        editionRequestId: editionRequest.id,
-                        reviewerNotes: notesByEditionRequest[editionRequest.id] ?? "",
-                      })
-                    }
-                  >
-                    Approuver
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={status === "saving" || editionRequest.status === "rejected"}
-                    onClick={() =>
-                      runAction({
-                        action: "rejectEditionRequest",
-                        editionRequestId: editionRequest.id,
-                        reviewerNotes: notesByEditionRequest[editionRequest.id] ?? "",
-                      })
-                    }
-                  >
-                    Refuser
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle>Accès actifs</CardTitle>
-          <CardDescription>Révoquer un accès organisateur sans supprimer la course publique.</CardDescription>
+          <CardTitle>Acces actifs</CardTitle>
+          <CardDescription>Revoquer un acces organisateur sans supprimer la course publique.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {memberships.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucun accès actif.</p>
+            <p className="text-sm text-muted-foreground">Aucun acces actif.</p>
           ) : (
             memberships.map((membership) => (
               <div key={membership.id} className="rounded-md border border-border bg-background p-4">
@@ -275,12 +300,10 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                   <div>
                     <p className="font-semibold text-foreground">{membership.race_events?.name ?? membership.event_id}</p>
                     <p className="text-sm text-muted-foreground">
-                      Utilisateur {membership.user_id} · rôle {membership.role}
+                      {membership.user?.label ?? membership.user_id} · role {membership.role}
                     </p>
                   </div>
-                  <span className="rounded-full border border-emerald-300 px-2 py-1 text-xs text-emerald-700">
-                    actif
-                  </span>
+                  <span className="rounded-full border border-emerald-300 px-2 py-1 text-xs text-emerald-700">actif</span>
                 </div>
                 <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
                   <div className="space-y-1">
@@ -309,7 +332,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                         })
                       }
                     >
-                      Révoquer
+                      Revoquer
                     </Button>
                   </div>
                 </div>

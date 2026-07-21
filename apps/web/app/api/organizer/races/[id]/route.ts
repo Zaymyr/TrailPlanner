@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  assertRaceEditionEditable,
   jsonError,
   loadRaceForOrganizer,
   optionalTextOrNull,
@@ -79,6 +80,8 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
+  const editableEdition = assertRaceEditionEditable(race.race_date ?? null);
+  if (editableEdition !== true) return editableEdition.error;
 
   const parsedBody = updateRaceSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid race fields.", 400);
@@ -139,6 +142,9 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
+
+  const editableEdition = assertRaceEditionEditable((race as { race_date?: string | null }).race_date ?? null);
+  if (editableEdition !== true) return editableEdition.error;
 
   const raceReadResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}&select=id,gpx_storage_path,thumbnail_url&limit=1`,

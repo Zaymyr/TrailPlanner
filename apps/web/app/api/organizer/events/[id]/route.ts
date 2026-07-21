@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  assertEventEditionEditable,
   jsonError,
   optionalTextOrNull,
   optionalUrlOrNull,
@@ -20,6 +21,7 @@ import {
 } from "../../../../../lib/organizer-dashboard-details";
 
 const updateEventSchema = z.object({
+  selectedEditionYear: z.string().trim().optional(),
   name: z.string().trim().min(1).optional(),
   location: optionalTextOrNull,
   raceDate: optionalTextOrNull,
@@ -189,6 +191,13 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
 
   const parsedBody = updateEventSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid event fields.", 400);
+
+  const editableEdition = await assertEventEditionEditable(
+    auth.serviceConfig,
+    parsedParams.data.id,
+    parsedBody.data.selectedEditionYear ?? null
+  );
+  if (editableEdition !== true) return editableEdition.error;
 
   if (parsedBody.data.isLive === true) {
     const readiness = await validateOrganizerEventPublication(auth.serviceConfig, parsedParams.data.id, {
