@@ -201,6 +201,7 @@ vi.mock("../../../../../lib/organizer", async () => {
   const { z } = await import("zod");
 
   return {
+    assertEventEditionEditable: () => Promise.resolve(true),
     jsonError: (message: string, status: number) => Response.json({ message }, { status }),
     optionalTextOrNull: z.string().nullable().optional(),
     optionalUrlOrNull: z.string().nullable().optional(),

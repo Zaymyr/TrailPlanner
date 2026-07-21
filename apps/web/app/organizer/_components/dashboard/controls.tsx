@@ -93,6 +93,7 @@ export function TextField({
   required,
   placeholder,
   invalid,
+  disabled,
 }: {
   label: string;
   value: string;
@@ -101,6 +102,7 @@ export function TextField({
   required?: boolean;
   placeholder?: string;
   invalid?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -111,6 +113,7 @@ export function TextField({
         onChange={(event) => onChange(event.target.value)}
         required={required}
         placeholder={placeholder}
+        disabled={disabled}
         className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
       />
       {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
@@ -125,6 +128,7 @@ export function NumberField({
   step = "0.1",
   invalid,
   readOnly,
+  disabled,
 }: {
   label: string;
   value: number;
@@ -132,6 +136,7 @@ export function NumberField({
   step?: string;
   invalid?: boolean;
   readOnly?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -142,6 +147,7 @@ export function NumberField({
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         readOnly={readOnly}
+        disabled={disabled}
         className={cn(
           invalid && "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500",
           readOnly && "bg-muted/40 text-muted-foreground"
@@ -157,11 +163,13 @@ export function TextAreaField({
   value,
   onChange,
   invalid,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   invalid?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -173,16 +181,33 @@ export function TextAreaField({
         )}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
       />
       {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>
   );
 }
 
-export function ToggleChip({ checked, label, onChange }: { checked: boolean; label: string; onChange: (checked: boolean) => void }) {
+export function ToggleChip({
+  checked,
+  label,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
     <label className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4" />
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4"
+        disabled={disabled}
+      />
       <span>{label}</span>
     </label>
   );

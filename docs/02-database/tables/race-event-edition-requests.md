@@ -72,6 +72,7 @@ Summary:
 - A request is not a created edition.
 - One event cannot keep multiple pending/approved requests for the same requested start date.
 - The organizer dashboard may expose the request action only to approved event organizers.
+- A locked past edition does not reopen direct editing rights; organizers still request the next edition through this table instead of mutating the expired edition.
 - Admin approval is a business validation step and may precede later operational cloning/billing flows.
 
 ## Gotchas
@@ -79,6 +80,7 @@ Summary:
 - Do not bypass this table by creating yearly editions directly from the organizer dashboard.
 - Do not treat `approved` as proof that race rows already exist for that year.
 - Keep organizer/admin copy aligned: the organizer sends a request, the admin validates it, and only then can the business process continue.
+- Keep the admin review surface explicit: edition requests stay visually distinct from access claims, while still showing the organizer identity when it is available.
 
 ## Related Docs
 

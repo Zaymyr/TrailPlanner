@@ -268,6 +268,14 @@ describe("GET /api/admin/organizer-claims", () => {
             status: "pending",
           },
         ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([{ user_id: "33333333-3333-3333-3333-333333333333", full_name: "Camille Martin" }])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse({
+          users: [{ id: "33333333-3333-3333-3333-333333333333", email: "camille@example.com" }],
+        })
       );
 
     const response = await GET(
@@ -281,6 +289,8 @@ describe("GET /api/admin/organizer-claims", () => {
     expect(payload.claims).toHaveLength(1);
     expect(payload.memberships).toHaveLength(1);
     expect(payload.editionRequests).toHaveLength(1);
+    expect(payload.claims[0].user.label).toBe("Camille Martin");
+    expect(payload.memberships[0].user.email).toBe("camille@example.com");
     expect(String(mockFetch.mock.calls[0]?.[0])).toContain("status=eq.pending");
     expect(String(mockFetch.mock.calls[1]?.[0])).toContain("revoked_at=is.null");
   });

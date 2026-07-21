@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  assertRaceEditionEditable,
   buildSlug,
   jsonError,
   optionalTextOrNull,
@@ -117,6 +118,9 @@ export async function POST(request: NextRequest) {
   if (parsed.data.cloneFromRaceId) {
     return jsonError("Creating a new edition now requires an approved edition request.", 403);
   }
+
+  const editableEdition = assertRaceEditionEditable(parsed.data.raceDate);
+  if (editableEdition !== true) return editableEdition.error;
 
   if (!parsed.data.cloneFromRaceId && (!parsed.data.distanceKm || parsed.data.elevationGainM === undefined)) {
     return jsonError("Invalid race fields.", 400);

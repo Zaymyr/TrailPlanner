@@ -36,7 +36,7 @@ const patchRequest = (body: Record<string, unknown>) =>
 describe("/api/organizer/races/[id] PATCH", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
-    organizerMocks.loadRaceForOrganizer.mockResolvedValue({ id: raceId, event_id: eventId });
+    organizerMocks.loadRaceForOrganizer.mockResolvedValue({ id: raceId, event_id: eventId, race_date: "2027-09-12" });
   });
 
   afterEach(() => {
@@ -88,7 +88,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
 describe("/api/organizer/races/[id] DELETE", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
-    organizerMocks.loadRaceForOrganizer.mockResolvedValue({ id: raceId, event_id: eventId });
+    organizerMocks.loadRaceForOrganizer.mockResolvedValue({ id: raceId, event_id: eventId, race_date: "2027-09-12" });
   });
 
   afterEach(() => {
@@ -137,6 +137,7 @@ vi.mock("../../../../../lib/http", () => ({
 }));
 
 vi.mock("../../../../../lib/organizer", () => ({
+  assertRaceEditionEditable: () => true,
   jsonError: (message: string, status: number) => Response.json({ message }, { status }),
   loadRaceForOrganizer: organizerMocks.loadRaceForOrganizer,
   optionalTextOrNull: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),

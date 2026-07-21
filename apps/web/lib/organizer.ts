@@ -31,6 +31,9 @@ export type OrganizerAuth = {
   serviceConfig: SupabaseServiceConfig;
 };
 
+const EDITION_EDIT_GRACE_PERIOD_DAYS = 14;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
 export const serviceHeaders = (serviceConfig: SupabaseServiceConfig, contentType = "application/json") => ({
   apikey: serviceConfig.supabaseServiceRoleKey,
   Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
@@ -74,10 +77,24 @@ export async function requireAdminAuth(request: NextRequest): Promise<OrganizerA
 
 const membershipRowSchema = z.object({ id: z.string().uuid() });
 
+const eventEditionLockRowSchema = z.object({
+  id: z.string().uuid(),
+  race_date: z.string().nullable().optional(),
+  races: z
+    .array(
+      z.object({
+        race_date: z.string().nullable().optional(),
+      })
+    )
+    .nullable()
+    .optional(),
+});
+
 const raceAccessRowSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid().nullable(),
   name: z.string().optional(),
+  race_date: z.string().nullable().optional(),
 });
 
 export async function isOrganizerForEvent(
@@ -123,7 +140,7 @@ export async function loadRaceForOrganizer(
   raceId: string
 ): Promise<z.infer<typeof raceAccessRowSchema> | { error: NextResponse }> {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,name&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,name,race_date&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
@@ -148,6 +165,80 @@ export async function loadRaceForOrganizer(
   if (organizer !== true) return organizer;
 
   return race;
+}
+
+const parseEditionDate = (value: string | null | undefined) => {
+  if (!value?.trim()) return null;
+  const normalized = value.includes("T") ? value : `${value}T00:00:00Z`;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatLockDate = (value: Date) => value.toISOString().slice(0, 10);
+
+export const getEditionEditLock = (raceDate: string | null | undefined, now = new Date()) => {
+  const parsedRaceDate = parseEditionDate(raceDate);
+  if (!parsedRaceDate) return { locked: false as const, raceDate: null, lockDate: null };
+
+  const lockDate = new Date(parsedRaceDate.getTime() + EDITION_EDIT_GRACE_PERIOD_DAYS * DAY_IN_MS);
+  return {
+    locked: now.getTime() >= lockDate.getTime(),
+    raceDate: parsedRaceDate,
+    lockDate,
+  };
+};
+
+export const buildEditionLockedMessage = (raceDate: string | null | undefined) => {
+  const lock = getEditionEditLock(raceDate);
+  if (!lock.locked || !lock.lockDate) {
+    return "This edition can no longer be edited.";
+  }
+  return `This edition can no longer be edited after ${formatLockDate(lock.lockDate)}.`;
+};
+
+export const assertRaceEditionEditable = (raceDate: string | null | undefined) => {
+  const lock = getEditionEditLock(raceDate);
+  if (!lock.locked) return true;
+  return { error: jsonError(buildEditionLockedMessage(raceDate), 409) };
+};
+
+export async function assertEventEditionEditable(
+  serviceConfig: SupabaseServiceConfig,
+  eventId: string,
+  selectedEditionYear: string | null | undefined
+): Promise<true | { error: NextResponse }> {
+  const response = await fetch(
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,race_date,races(race_date)&limit=1`,
+    {
+      headers: serviceHeaders(serviceConfig, ""),
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    console.error("Unable to load organizer event edition before mutation", await response.text());
+    return { error: jsonError("Unable to load event edition.", 502) };
+  }
+
+  const event = z.array(eventEditionLockRowSchema).parse(await response.json())[0] ?? null;
+  if (!event) return { error: jsonError("Event not found.", 404) };
+
+  const candidateDates =
+    selectedEditionYear && selectedEditionYear.trim().length > 0
+      ? (event.races ?? [])
+          .map((race) => race.race_date ?? null)
+          .filter((raceDate): raceDate is string => Boolean(raceDate?.startsWith(selectedEditionYear)))
+      : [];
+
+  const referenceDate =
+    candidateDates.sort()[0] ??
+    (event.race_date?.startsWith(selectedEditionYear ?? "") ? event.race_date : null) ??
+    event.race_date ??
+    null;
+
+  const lock = assertRaceEditionEditable(referenceDate);
+  if (lock === true) return true;
+  return lock;
 }
 
 export const buildSlug = (name: string, prefix = "race") => {

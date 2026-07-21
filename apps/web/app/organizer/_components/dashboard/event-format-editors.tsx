@@ -16,11 +16,15 @@ export function EventInfoEditor({
   onChange,
   onUploadImage,
   status,
+  editLocked = false,
+  editLockMessage = null,
 }: {
   eventForm: EventFormValues;
   onChange: (next: Partial<EventFormValues>, moduleId?: OrganizerModuleId) => void;
   onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
+  editLocked?: boolean;
+  editLockMessage?: string | null;
 }) {
   const dateRange = eventForm.organizerDetails.dateRange;
   const missingName = !eventForm.name.trim();
@@ -30,7 +34,7 @@ export function EventInfoEditor({
 
   return (
     <div className="grid gap-3 lg:grid-cols-[1fr_1fr_170px_170px]">
-      <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
+      <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} disabled={editLocked} />
       <AddressAutocompleteField
         label="Lieu"
         value={eventForm.location}
@@ -50,7 +54,7 @@ export function EventInfoEditor({
         }
         invalid={missingLocation}
       />
-      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
+      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} disabled={editLocked} />
       <TextField
         label="Date fin"
         type="date"
@@ -67,6 +71,7 @@ export function EventInfoEditor({
           )
         }
         invalid={missingEndDate}
+        disabled={editLocked}
       />
       <div className="space-y-2 lg:col-span-4">
         <Label>Image evenement (PNG)</Label>
@@ -79,8 +84,9 @@ export function EventInfoEditor({
             Aucune image
           </div>
         )}
-        <Input type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
+        <Input type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading" || editLocked} className="max-w-sm" />
         <p className="text-xs text-muted-foreground">PNG uniquement, 5 Mo maximum.</p>
+        {editLocked && editLockMessage ? <p className="text-xs font-medium text-amber-700">{editLockMessage}</p> : null}
       </div>
     </div>
   );
@@ -107,6 +113,8 @@ export function FormatsEditor({
   onPreviewRace,
   gpxPreview,
   status,
+  editLocked = false,
+  editLockMessage = null,
 }: {
   activeTab: string;
   activeRace: RaceFormat | null;
@@ -128,6 +136,8 @@ export function FormatsEditor({
   onPreviewRace: () => void;
   gpxPreview: GpxPreview | null;
   status: "idle" | "loading" | "saving" | "uploading";
+  editLocked?: boolean;
+  editLockMessage?: string | null;
 }) {
   return (
     <div className="space-y-5">
@@ -143,15 +153,19 @@ export function FormatsEditor({
           onImageChange={onSelectNewRaceImage}
           onGpxChange={onSelectNewRaceGpx}
           submitLabel="Ajouter"
-          disabled={status === "saving" || status === "uploading"}
+          disabled={status === "saving" || status === "uploading" || editLocked}
           requireRaceDate
           gpxPreview={gpxPreview}
           gpxTitle="GPX du format"
           gpxStatus={newRaceGpxName ? "GPX pret a etre importe apres creation." : "Ajoute un GPX pour preremplir les stats et voir le parcours."}
           hasGpx={Boolean(newRaceGpxName)}
+          editLockMessage={editLockMessage}
         />
       ) : activeRace ? (
         <div className="space-y-4">
+          {editLocked && editLockMessage ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">{editLockMessage}</div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 bg-background px-3 py-2">
               <div className="min-w-[8rem]">
@@ -161,7 +175,7 @@ export function FormatsEditor({
                 </p>
               </div>
             </div>
-            <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving"}>
+            <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving" || editLocked}>
               Dupliquer ce format
             </Button>
             <Button type="button" variant="outline" onClick={onPreviewRace}>
@@ -174,7 +188,7 @@ export function FormatsEditor({
               type="button"
               variant="outline"
               onClick={onDeleteRace}
-              disabled={status === "saving" || status === "uploading"}
+              disabled={status === "saving" || status === "uploading" || editLocked}
               className="border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
             >
               Supprimer ce format
@@ -190,12 +204,13 @@ export function FormatsEditor({
               onImageChange={onUploadRaceImage}
               onGpxChange={onUploadGpx}
               submitLabel=""
-              disabled={status === "saving" || status === "uploading"}
+              disabled={status === "saving" || status === "uploading" || editLocked}
               hideSubmit
               gpxPreview={gpxPreview}
               gpxTitle="GPX source"
               gpxStatus={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
               hasGpx={Boolean(activeRace.gpx_storage_path)}
+              editLockMessage={editLockMessage}
             />
           ) : (
             <OrganizerGpxPanel
@@ -203,7 +218,7 @@ export function FormatsEditor({
               statusText={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
               fileLabel={activeRace.gpx_storage_path ? "Remplacer le GPX source" : "Ajouter un GPX"}
               onGpxChange={onUploadGpx}
-              disabled={status === "uploading"}
+              disabled={status === "uploading" || editLocked}
               preview={gpxPreview}
               activeRace={activeRace}
               hasGpx={Boolean(activeRace.gpx_storage_path)}
@@ -238,6 +253,7 @@ function RaceForm({
   gpxTitle = "GPX du format",
   gpxStatus,
   hasGpx = false,
+  editLockMessage = null,
 }: {
   title: string;
   values: RaceFormValues;
@@ -256,6 +272,7 @@ function RaceForm({
   gpxTitle?: string;
   gpxStatus?: string;
   hasGpx?: boolean;
+  editLockMessage?: string | null;
 }) {
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
@@ -284,19 +301,20 @@ function RaceForm({
                   onChange={(value) => onChange({ ...values, seriesName: value })}
                   required
                   invalid={!values.seriesName.trim()}
+                  disabled={disabled}
                 />
               </div>
               <div className="lg:col-span-4">
-                <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} />
+                <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} disabled={disabled} />
               </div>
               <div className="lg:col-span-2">
-                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} />
+                <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} disabled={disabled} />
               </div>
               <div className="lg:col-span-1">
-                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} />
+                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} disabled={disabled} />
               </div>
               <div className="lg:col-span-1">
-                <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} />
+                <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
               <div className="lg:col-span-4">
                 <TextField
@@ -306,6 +324,7 @@ function RaceForm({
                   onChange={(value) => onChange({ ...values, raceDate: value })}
                   required={requireRaceDate}
                   invalid={missingRaceDate}
+                  disabled={disabled}
                 />
               </div>
               <div className="lg:col-span-8">
@@ -331,11 +350,11 @@ function RaceForm({
           {onGpxChange ? <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} /> : null}
           {!hideSubmit ? (
             <div className="flex items-end pt-1">
-              <Button type="submit" disabled={disabled}>
-                {submitLabel}
-              </Button>
-            </div>
-          ) : null}
+            <Button type="submit" disabled={disabled}>
+              {submitLabel}
+            </Button>
+          </div>
+        ) : null}
         </div>
         {onGpxChange ? (
           <OrganizerGpxPanel
@@ -364,6 +383,7 @@ function RaceForm({
           <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
         </div>
       ) : null}
+      {disabled && editLockMessage ? <p className="text-xs font-medium text-amber-700">{editLockMessage}</p> : null}
     </form>
   );
 }
