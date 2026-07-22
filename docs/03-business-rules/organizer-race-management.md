@@ -119,7 +119,7 @@ Admin review happens in the web admin "Organisateurs" tab:
 
 The admin review card is an actionable queue: it lists only pending claims, while approved requests leave that queue and appear only through the active-access membership list. Rejecting a claim stores review metadata and does not grant membership. Revoking access sets `revoked_at` on the membership and blocks future organizer writes. The admin "Organisateurs" copy should stay in concise, correctly accented French for both claim and membership states.
 
-That queue now keeps access claims and yearly edition requests as two explicit review sections inside the same admin tab. When `user_profiles.full_name` or the Supabase auth email is available, the admin UI should display that organizer identity instead of only a raw `user_id`. Those secondary reads are best-effort: if yearly edition requests or organizer identity enrichment fail temporarily, the admin tab should still load claims and active memberships with fallback labels instead of failing entirely.
+That queue now keeps access claims and yearly edition requests as two explicit review sections inside the same admin tab. When `user_profiles.full_name` or the Supabase auth email is available, the admin UI should display that organizer identity instead of only a raw `user_id`. Those secondary reads are best-effort: if yearly edition requests or organizer identity enrichment fail temporarily, or if Supabase Auth returns a blank/malformed email for one user, the admin tab should still load claims and active memberships with fallback labels instead of failing entirely.
 
 ## Organizer Dashboard Rules
 

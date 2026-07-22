@@ -346,6 +346,47 @@ describe("GET /api/admin/organizer-claims", () => {
     expect(payload.claims[0].user.label).toBe("orga@example.com");
     expect(payload.memberships[0].user.label).toBe("33333333-3333-3333-3333-333333333333");
   });
+
+  it("ignores invalid auth emails instead of failing the whole response", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "22222222-2222-2222-2222-222222222222",
+            created_at: "2026-05-28T09:00:00.000Z",
+            updated_at: "2026-05-28T09:00:00.000Z",
+            user_id: "33333333-3333-3333-3333-333333333333",
+            event_id: "11111111-1111-1111-1111-111111111111",
+            organization_name: "Trail Org",
+            role_title: "RD",
+            contact_email: "orga@example.com",
+            status: "pending",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(
+        buildJsonResponse({
+          users: [{ id: "33333333-3333-3333-3333-333333333333", email: "" }],
+        })
+      );
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/organizer-claims", {
+        headers: { authorization: "Bearer admin-token" },
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.claims).toHaveLength(1);
+    expect(payload.claims[0].user.email).toBe("orga@example.com");
+    expect(payload.claims[0].user.label).toBe("orga@example.com");
+  });
 });
 
 vi.mock("../../../../lib/http", async (importOriginal) => {
