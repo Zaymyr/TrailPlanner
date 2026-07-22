@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-07-21
+last_verified: 2026-07-22
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -133,6 +133,7 @@ order by created_at asc;
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - That same source-mutation family must keep the edition lock consistent across event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes, otherwise a past edition could still be edited through a side route.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
+- Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.
 
 ## Related Docs
 

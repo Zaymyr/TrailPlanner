@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-07-21
+last_verified: 2026-07-22
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -128,6 +128,7 @@ order by created_at asc;
 - Keep the pending-review surface grouped by request type: access claims and yearly edition requests share the admin tab but must not collapse into one undifferentiated list.
 - Keep organizer request-state copy aligned across `/organizers` and `/organizer`: pending/rejected cards are status-only French UI and must not imply edit access before membership approval.
 - Keep organizer-dashboard French copy under UTF-8 regression coverage when editing route-local labels; approval-gated screens should not ship mojibake after a component rewrite.
+- Do not block the admin claim queue on auxiliary enrichment reads. If edition-request loading or organizer-identity enrichment fails, keep serving the base claim rows with contact-email or UUID fallbacks.
 
 ## Related Docs
 

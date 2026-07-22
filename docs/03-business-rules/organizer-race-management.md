@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-07-21
+last_verified: 2026-07-22
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -119,7 +119,7 @@ Admin review happens in the web admin "Organisateurs" tab:
 
 The admin review card is an actionable queue: it lists only pending claims, while approved requests leave that queue and appear only through the active-access membership list. Rejecting a claim stores review metadata and does not grant membership. Revoking access sets `revoked_at` on the membership and blocks future organizer writes. The admin "Organisateurs" copy should stay in concise, correctly accented French for both claim and membership states.
 
-That queue now keeps access claims and yearly edition requests as two explicit review sections inside the same admin tab. When `user_profiles.full_name` or the Supabase auth email is available, the admin UI should display that organizer identity instead of only a raw `user_id`.
+That queue now keeps access claims and yearly edition requests as two explicit review sections inside the same admin tab. When `user_profiles.full_name` or the Supabase auth email is available, the admin UI should display that organizer identity instead of only a raw `user_id`. Those secondary reads are best-effort: if yearly edition requests or organizer identity enrichment fail temporarily, the admin tab should still load claims and active memberships with fallback labels instead of failing entirely.
 
 ## Organizer Dashboard Rules
 
@@ -248,6 +248,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 - Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
 - Keep organizer dashboard copy properly UTF-8 encoded. The event/format editor renders accented French labels directly from source strings, so mojibake like `Ã©` on tabs, dates, or image labels is a user-facing bug, not a cosmetic doc issue.
+- Keep `/api/admin/organizer-claims` resilient to secondary-read failures. Missing yearly-edition rows or unavailable organizer-identity enrichment should degrade the admin tab gracefully instead of hiding the whole review queue.
 
 ## Related Docs
 
