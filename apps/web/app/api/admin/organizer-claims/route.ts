@@ -80,7 +80,7 @@ const userProfileRowSchema = z.object({
 
 const adminUserRowSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email().nullable().optional(),
+  email: z.string().nullable().optional(),
 });
 
 const adminUsersResponseSchema = z.object({
@@ -200,7 +200,11 @@ export async function GET(request: NextRequest) {
       userEmailsById = new Map(
         adminUsersResponseSchema
           .parse(await adminUsersResponse.json())
-          .users.filter((user) => user.email && userIds.includes(user.id))
+          .users.filter((user) => {
+            if (!userIds.includes(user.id)) return false;
+            const email = user.email?.trim() ?? "";
+            return email.includes("@");
+          })
           .map((user) => [user.id, user.email!.trim()])
       );
     }
