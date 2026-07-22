@@ -12,6 +12,7 @@ import type { OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_MODULE_IDS, EVENT_TAB_ID, FORMAT_MODULE_IDS } from "./constants";
 import type {
   AidStationDraft,
+  EditionRequestRow,
   EventFormValues,
   GpxPreview,
   OrganizerEventDetail,
@@ -24,6 +25,12 @@ export type RaceSeriesGroup = {
   id: string;
   seriesName: string;
   races: RaceFormat[];
+};
+
+export type EditionYearOption = {
+  value: string;
+  label: string;
+  disabled: boolean;
 };
 
 export const cloneJson = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
@@ -133,6 +140,29 @@ export const getDefaultEditionRaceId = (races: RaceFormat[], editionGroupId: str
 
 export const getAvailableEditionYears = (races: RaceFormat[]) =>
   Array.from(new Set(races.map((race) => getRaceEditionYearValue(race.race_date)).filter(Boolean))).sort((left, right) => right.localeCompare(left));
+
+export const buildEditionYearOptions = (
+  races: RaceFormat[],
+  editionRequests: EditionRequestRow[],
+  eventId: string | null
+): EditionYearOption[] => {
+  const raceYears = getAvailableEditionYears(races);
+  const pendingYears = Array.from(
+    new Set(
+      editionRequests
+        .filter((request) => request.event_id === eventId && request.status === "pending")
+        .map((request) => request.requested_start_date.slice(0, 4))
+        .filter(Boolean)
+    )
+  );
+
+  const years = Array.from(new Set([...raceYears, ...pendingYears])).sort((left, right) => right.localeCompare(left));
+  return years.map((year) => ({
+    value: year,
+    label: pendingYears.includes(year) && !raceYears.includes(year) ? `${year} (en attente de validation)` : year,
+    disabled: pendingYears.includes(year) && !raceYears.includes(year),
+  }));
+};
 
 export const formatEventDateRange = (event?: Pick<OrganizerEventDetail, "race_date" | "organizerDetails"> | null) => {
   const startDate = formatDate(event?.race_date);

@@ -1218,6 +1218,7 @@ export function OrganizerDashboard() {
         event={eventDraft}
         memberships={memberships}
         selectedEventId={selectedEventId}
+        editionRequests={editionRequests}
         selectedEditionYear={selectedEditionYear}
         newEditionDate={newEditionDate}
         editionRequestState={currentEditionRequest}

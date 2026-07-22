@@ -1,8 +1,9 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
-import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
+import { buildSlug, jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
 
 const claimRowSchema = z.object({
   id: z.string().uuid(),
@@ -73,6 +74,60 @@ const editionRequestRowSchema = z.object({
     .optional(),
 });
 
+const editionRequestActionRowSchema = z.object({
+  id: z.string().uuid(),
+  event_id: z.string().uuid(),
+  source_year: z.number().int(),
+  requested_start_date: z.string(),
+  status: z.enum(["pending", "approved", "rejected"]),
+});
+
+const sourceRaceSchema = z.object({
+  id: z.string().uuid(),
+  event_id: z.string().uuid().nullable().optional(),
+  edition_group_id: z.string().uuid().nullable().optional(),
+  series_name: z.string().nullable().optional(),
+  name: z.string(),
+  distance_km: z.number(),
+  elevation_gain_m: z.number(),
+  elevation_loss_m: z.number().nullable().optional(),
+  location_text: z.string().nullable().optional(),
+  race_date: z.string().nullable().optional(),
+  thumbnail_url: z.string().nullable().optional(),
+  gpx_path: z.string().nullable().optional(),
+  gpx_hash: z.string().nullable().optional(),
+  gpx_storage_path: z.string().nullable().optional(),
+  gpx_sha256: z.string().nullable().optional(),
+  min_alt_m: z.number().nullable().optional(),
+  max_alt_m: z.number().nullable().optional(),
+  start_lat: z.number().nullable().optional(),
+  start_lng: z.number().nullable().optional(),
+  bounds_min_lat: z.number().nullable().optional(),
+  bounds_min_lng: z.number().nullable().optional(),
+  bounds_max_lat: z.number().nullable().optional(),
+  bounds_max_lng: z.number().nullable().optional(),
+  organizer_details: z.unknown().nullable().optional(),
+});
+
+const cloneAidStationSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  km: z.number(),
+  water_available: z.boolean(),
+  solid_available: z.boolean().nullable().optional(),
+  assistance_allowed: z.boolean().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  order_index: z.number(),
+  organizer_details: z.unknown().nullable().optional(),
+});
+
+const cloneAidStationProductSchema = z.object({
+  product_id: z.string().uuid(),
+  race_aid_station_id: z.string().uuid(),
+  notes: z.string().nullable().optional(),
+  order_index: z.number(),
+});
+
 const userProfileRowSchema = z.object({
   user_id: z.string().uuid(),
   full_name: z.string().nullable().optional(),
@@ -86,6 +141,294 @@ const adminUserRowSchema = z.object({
 const adminUsersResponseSchema = z.object({
   users: z.array(adminUserRowSchema),
 });
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+const parseIsoDate = (value: string | null | undefined) => {
+  if (!value?.trim()) return null;
+  const parsed = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatIsoDate = (value: Date) => value.toISOString().slice(0, 10);
+
+const addUtcDays = (value: string, days: number) => {
+  const parsed = parseIsoDate(value);
+  if (!parsed) return value;
+  return formatIsoDate(new Date(parsed.getTime() + days * DAY_IN_MS));
+};
+
+const deleteClonedRaces = async (supabaseUrl: string, serviceRoleKey: string, raceIds: string[]) => {
+  await Promise.all(
+    raceIds.map((raceId) =>
+      fetch(`${supabaseUrl}/rest/v1/races?id=eq.${raceId}`, {
+        method: "DELETE",
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+        },
+        cache: "no-store",
+      }).catch(() => null)
+    )
+  );
+};
+
+async function cloneEditionFromRequest(
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  requestRow: z.infer<typeof editionRequestActionRowSchema>
+) {
+  const sourceYearStart = `${requestRow.source_year}-01-01`;
+  const sourceYearEnd = `${requestRow.source_year + 1}-01-01`;
+  const requestedYear = requestRow.requested_start_date.slice(0, 4);
+  const requestedYearEnd = `${Number(requestedYear) + 1}-01-01`;
+
+  const [sourceRacesResponse, existingTargetYearResponse] = await Promise.all([
+    fetch(
+      `${serviceConfig.supabaseUrl}/rest/v1/races?event_id=eq.${requestRow.event_id}&race_date=gte.${sourceYearStart}&race_date=lt.${sourceYearEnd}&select=id,event_id,edition_group_id,series_name,name,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_path,gpx_hash,gpx_storage_path,gpx_sha256,min_alt_m,max_alt_m,start_lat,start_lng,bounds_min_lat,bounds_min_lng,bounds_max_lat,bounds_max_lng,organizer_details&order=race_date.asc`,
+      {
+        headers: serviceHeaders(serviceConfig, ""),
+        cache: "no-store",
+      }
+    ),
+    fetch(
+      `${serviceConfig.supabaseUrl}/rest/v1/races?event_id=eq.${requestRow.event_id}&race_date=gte.${requestedYear}-01-01&race_date=lt.${requestedYearEnd}&select=id&limit=1`,
+      {
+        headers: serviceHeaders(serviceConfig, ""),
+        cache: "no-store",
+      }
+    ),
+  ]);
+
+  if (!sourceRacesResponse.ok) {
+    throw new Error(`Unable to load source edition races: ${await sourceRacesResponse.text()}`);
+  }
+  if (!existingTargetYearResponse.ok) {
+    throw new Error(`Unable to inspect requested edition year: ${await existingTargetYearResponse.text()}`);
+  }
+
+  const existingTargetYearRace = z.array(z.object({ id: z.string().uuid() })).parse(await existingTargetYearResponse.json())[0] ?? null;
+  if (existingTargetYearRace) {
+    throw new Error("The requested edition year already has at least one format.");
+  }
+
+  const sourceRaces = z.array(sourceRaceSchema).parse(await sourceRacesResponse.json());
+  if (sourceRaces.length === 0) {
+    throw new Error("No source formats were found for the requested source year.");
+  }
+
+  const earliestSourceDate =
+    sourceRaces
+      .map((race) => parseIsoDate(race.race_date))
+      .filter((date): date is Date => Boolean(date))
+      .sort((left, right) => left.getTime() - right.getTime())[0] ?? null;
+
+  const requestedStartDate = parseIsoDate(requestRow.requested_start_date);
+  const dayShift =
+    earliestSourceDate && requestedStartDate
+      ? Math.round((requestedStartDate.getTime() - earliestSourceDate.getTime()) / DAY_IN_MS)
+      : 0;
+
+  const createdRaceIds: string[] = [];
+  const clonedStoragePaths: string[] = [];
+
+  try {
+    for (const sourceRace of sourceRaces) {
+      const nextRaceId = randomUUID();
+      const nextRaceDate = sourceRace.race_date ? addUtcDays(sourceRace.race_date, dayShift) : requestRow.requested_start_date;
+
+      const insertResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/races`, {
+        method: "POST",
+        headers: {
+          ...serviceHeaders(serviceConfig),
+          Prefer: "return=representation",
+        },
+        body: JSON.stringify({
+          id: nextRaceId,
+          event_id: requestRow.event_id,
+          edition_group_id: sourceRace.edition_group_id ?? sourceRace.id,
+          series_name: sourceRace.series_name?.trim() || sourceRace.name,
+          slug: buildSlug(sourceRace.name),
+          name: sourceRace.name,
+          distance_km: sourceRace.distance_km,
+          elevation_gain_m: sourceRace.elevation_gain_m,
+          elevation_loss_m: sourceRace.elevation_loss_m ?? 0,
+          location_text: sourceRace.location_text ?? null,
+          race_date: nextRaceDate,
+          thumbnail_url: sourceRace.thumbnail_url ?? null,
+          organizer_details: sourceRace.organizer_details ?? null,
+          gpx_path: `organizer/${requestRow.event_id}/${nextRaceId}.gpx`,
+          gpx_hash: `manual:${nextRaceId}`,
+          gpx_storage_path: null,
+          gpx_sha256: null,
+          is_live: false,
+          is_public: true,
+          created_by: null,
+          min_alt_m: sourceRace.min_alt_m ?? null,
+          max_alt_m: sourceRace.max_alt_m ?? null,
+          start_lat: sourceRace.start_lat ?? null,
+          start_lng: sourceRace.start_lng ?? null,
+          bounds_min_lat: sourceRace.bounds_min_lat ?? null,
+          bounds_min_lng: sourceRace.bounds_min_lng ?? null,
+          bounds_max_lat: sourceRace.bounds_max_lat ?? null,
+          bounds_max_lng: sourceRace.bounds_max_lng ?? null,
+        }),
+        cache: "no-store",
+      });
+
+      if (!insertResponse.ok) {
+        throw new Error(`Unable to create cloned race: ${await insertResponse.text()}`);
+      }
+
+      createdRaceIds.push(nextRaceId);
+
+      if (sourceRace.gpx_storage_path) {
+        const sourceGpxResponse = await fetch(
+          `${serviceConfig.supabaseUrl}/storage/v1/object/race-gpx/${sourceRace.gpx_storage_path}`,
+          {
+            headers: serviceHeaders(serviceConfig, ""),
+            cache: "no-store",
+          }
+        );
+
+        if (!sourceGpxResponse.ok) {
+          throw new Error(`Unable to read source GPX: ${await sourceGpxResponse.text()}`);
+        }
+
+        const sourceGpxBuffer = await sourceGpxResponse.arrayBuffer();
+        const nextStoragePath = `organizer/${requestRow.event_id}/${nextRaceId}/${Date.now()}.gpx`;
+        const uploadResponse = await fetch(
+          `${serviceConfig.supabaseUrl}/storage/v1/object/race-gpx/${nextStoragePath}`,
+          {
+            method: "POST",
+            headers: {
+              ...serviceHeaders(serviceConfig, sourceGpxResponse.headers.get("content-type") || "application/gpx+xml"),
+              "x-upsert": "true",
+            },
+            body: sourceGpxBuffer,
+          }
+        );
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Unable to clone source GPX: ${await uploadResponse.text()}`);
+        }
+
+        clonedStoragePaths.push(nextStoragePath);
+
+        const gpxPatchResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${nextRaceId}`, {
+          method: "PATCH",
+          headers: serviceHeaders(serviceConfig),
+          body: JSON.stringify({
+            gpx_path: nextStoragePath,
+            gpx_hash: sourceRace.gpx_sha256 ?? sourceRace.gpx_hash ?? `clone:${nextRaceId}`,
+            gpx_storage_path: nextStoragePath,
+            gpx_sha256: sourceRace.gpx_sha256 ?? null,
+          }),
+          cache: "no-store",
+        });
+
+        if (!gpxPatchResponse.ok) {
+          throw new Error(`Unable to persist cloned GPX: ${await gpxPatchResponse.text()}`);
+        }
+      }
+
+      const sourceStationsResponse = await fetch(
+        `${serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${sourceRace.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details&order=order_index.asc`,
+        {
+          headers: serviceHeaders(serviceConfig, ""),
+          cache: "no-store",
+        }
+      );
+
+      if (!sourceStationsResponse.ok) {
+        throw new Error(`Unable to load source aid stations: ${await sourceStationsResponse.text()}`);
+      }
+
+      const sourceStations = z.array(cloneAidStationSchema).parse(await sourceStationsResponse.json());
+      const stationIdMap = new Map<string, string>();
+
+      if (sourceStations.length > 0) {
+        const stationInsertPayload = sourceStations.map((station) => {
+          const nextStationId = randomUUID();
+          stationIdMap.set(station.id, nextStationId);
+          return {
+            id: nextStationId,
+            race_id: nextRaceId,
+            name: station.name,
+            km: station.km,
+            water_available: station.water_available,
+            solid_available: station.solid_available ?? true,
+            assistance_allowed: station.assistance_allowed ?? true,
+            notes: station.notes ?? null,
+            order_index: station.order_index,
+            organizer_details: station.organizer_details ?? null,
+          };
+        });
+
+        const stationInsertResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/race_aid_stations`, {
+          method: "POST",
+          headers: serviceHeaders(serviceConfig),
+          body: JSON.stringify(stationInsertPayload),
+          cache: "no-store",
+        });
+
+        if (!stationInsertResponse.ok) {
+          throw new Error(`Unable to clone aid stations: ${await stationInsertResponse.text()}`);
+        }
+
+        const sourceProductsResponse = await fetch(
+          `${serviceConfig.supabaseUrl}/rest/v1/race_aid_station_products?select=product_id,race_aid_station_id,notes,order_index,race_aid_stations!inner(race_id)&race_aid_stations.race_id=eq.${sourceRace.id}&order=order_index.asc`,
+          {
+            headers: serviceHeaders(serviceConfig, ""),
+            cache: "no-store",
+          }
+        );
+
+        if (!sourceProductsResponse.ok) {
+          throw new Error(`Unable to load source station products: ${await sourceProductsResponse.text()}`);
+        }
+
+        const sourceProducts = z.array(cloneAidStationProductSchema.passthrough()).parse(await sourceProductsResponse.json());
+        const productInsertPayload = sourceProducts
+          .map((product) => {
+            const nextStationId = stationIdMap.get(product.race_aid_station_id);
+            if (!nextStationId) return null;
+            return {
+              race_aid_station_id: nextStationId,
+              product_id: product.product_id,
+              notes: product.notes ?? null,
+              order_index: product.order_index,
+            };
+          })
+          .filter((product): product is NonNullable<typeof product> => product !== null);
+
+        if (productInsertPayload.length > 0) {
+          const productInsertResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/race_aid_station_products`, {
+            method: "POST",
+            headers: serviceHeaders(serviceConfig),
+            body: JSON.stringify(productInsertPayload),
+            cache: "no-store",
+          });
+
+          if (!productInsertResponse.ok) {
+            throw new Error(`Unable to clone station products: ${await productInsertResponse.text()}`);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    await Promise.all(
+      clonedStoragePaths.map((storagePath) =>
+        fetch(`${serviceConfig.supabaseUrl}/storage/v1/object/race-gpx/${storagePath}`, {
+          method: "DELETE",
+          headers: serviceHeaders(serviceConfig, ""),
+          cache: "no-store",
+        }).catch(() => null)
+      )
+    );
+    await deleteClonedRaces(serviceConfig.supabaseUrl, serviceConfig.supabaseServiceRoleKey, createdRaceIds);
+    throw error;
+  }
+}
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({
@@ -244,7 +587,7 @@ export async function PATCH(request: NextRequest) {
   if (parsedBody.data.action === "approveEditionRequest" || parsedBody.data.action === "rejectEditionRequest") {
     const nextStatus = parsedBody.data.action === "approveEditionRequest" ? "approved" : "rejected";
     const editionRequestResponse = await fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?id=eq.${parsedBody.data.editionRequestId}&select=id,status&limit=1`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?id=eq.${parsedBody.data.editionRequestId}&select=id,event_id,source_year,requested_start_date,status&limit=1`,
       {
         headers: serviceHeaders(auth.serviceConfig, ""),
         cache: "no-store",
@@ -257,10 +600,22 @@ export async function PATCH(request: NextRequest) {
     }
 
     const editionRequest = z
-      .array(z.object({ id: z.string().uuid(), status: z.enum(["pending", "approved", "rejected"]) }))
+      .array(editionRequestActionRowSchema)
       .parse(await editionRequestResponse.json())[0] ?? null;
 
     if (!editionRequest) return jsonError("Edition request not found.", 404);
+    if (editionRequest.status !== "pending") {
+      return jsonError("Edition request is no longer pending.", 409);
+    }
+
+    if (parsedBody.data.action === "approveEditionRequest") {
+      try {
+        await cloneEditionFromRequest(auth.serviceConfig, editionRequest);
+      } catch (error) {
+        console.error("Unable to clone approved edition request", error);
+        return jsonError("Unable to create the approved edition.", 502);
+      }
+    }
 
     const response = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?id=eq.${editionRequest.id}`,

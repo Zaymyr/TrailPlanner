@@ -22,7 +22,7 @@ related_tables:
 
 ## Purpose
 
-`race_event_edition_requests` stores organizer requests to open a new yearly event edition. The request is review-gated for billing/ops reasons: it does not create new `races` rows by itself.
+`race_event_edition_requests` stores organizer requests to open a new yearly event edition. The request is review-gated for billing/ops reasons: organizers cannot create the new year directly from the dashboard, and the `races` cloning happens only when an admin approves the request.
 
 ## Key Concepts
 
@@ -69,16 +69,16 @@ Summary:
 
 ## Business Invariants
 
-- A request is not a created edition.
+- A `pending` request is not a created edition yet.
 - One event cannot keep multiple pending/approved requests for the same requested start date.
 - The organizer dashboard may expose the request action only to approved event organizers.
 - A locked past edition does not reopen direct editing rights; organizers still request the next edition through this table instead of mutating the expired edition.
-- Admin approval is a business validation step and may precede later operational cloning/billing flows.
+- Admin approval is the business validation step that also clones the source-year `races`, ravitos, station-product links, and GPX files into the requested year.
 
 ## Gotchas
 
 - Do not bypass this table by creating yearly editions directly from the organizer dashboard.
-- Do not treat `approved` as proof that race rows already exist for that year.
+- Do not treat `pending` as proof that race rows already exist for that year; only an approved request should materialize the cloned edition rows.
 - Keep organizer/admin copy aligned: the organizer sends a request, the admin validates it, and only then can the business process continue.
 - Keep the admin review surface explicit: edition requests stay visually distinct from access claims, while still showing the organizer identity when it is available.
 - If this table or its event join is unavailable in one environment, the admin organizer tab should degrade to an empty edition-request section rather than failing the whole review screen.
