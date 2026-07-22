@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultOrganizerAidStationDetails } from "../../../../lib/organizer-dashboard-details";
-import { getGpxElevationTotalsAtDistance, syncAidStationsWithGpxPreview } from "./helpers";
-import type { AidStationDraft, GpxPreview } from "./types";
+import { buildEditionYearOptions, getGpxElevationTotalsAtDistance, syncAidStationsWithGpxPreview } from "./helpers";
+import type { AidStationDraft, EditionRequestRow, GpxPreview } from "./types";
 
 const preview: GpxPreview = {
   stats: {
@@ -32,6 +32,27 @@ const buildStation = (distanceKm: number): AidStationDraft => ({
 });
 
 describe("organizer dashboard GPX helpers", () => {
+  it("keeps pending future edition years visible but disabled in the selector", () => {
+    const options = buildEditionYearOptions(
+      [{ id: "r1", edition_group_id: "g1", series_name: "42K", name: "42K", distance_km: 42, elevation_gain_m: 1000, is_live: false, race_date: "2026-06-20" }],
+      [
+        {
+          id: "req1",
+          event_id: "event-1",
+          source_year: 2026,
+          requested_start_date: "2027-06-19",
+          status: "pending",
+        } as EditionRequestRow,
+      ],
+      "event-1"
+    );
+
+    expect(options).toEqual([
+      { value: "2027", label: "2027 (en attente de validation)", disabled: true },
+      { value: "2026", label: "2026", disabled: false },
+    ]);
+  });
+
   it("interpolates cumulative elevation totals from the GPX profile", () => {
     expect(getGpxElevationTotalsAtDistance(preview, 15)).toEqual({
       cumulativeElevationGainM: 550,

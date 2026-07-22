@@ -174,12 +174,68 @@ describe("PATCH /api/admin/organizer-claims", () => {
     });
   });
 
-  it("approves an edition request without creating race rows directly", async () => {
+  it("approves an edition request by cloning source-year formats into the requested year", async () => {
     const mockFetch = vi.mocked(fetch);
     const editionRequestId = "55555555-5555-5555-5555-555555555555";
+    const eventId = "11111111-1111-1111-1111-111111111111";
 
     mockFetch
-      .mockResolvedValueOnce(buildJsonResponse([{ id: editionRequestId, status: "pending" }]))
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: editionRequestId,
+            event_id: eventId,
+            source_year: 2026,
+            requested_start_date: "2027-06-20",
+            status: "pending",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "66666666-6666-6666-6666-666666666666",
+            event_id: eventId,
+            edition_group_id: "77777777-7777-7777-7777-777777777777",
+            series_name: "42K",
+            name: "42K",
+            distance_km: 42,
+            elevation_gain_m: 2100,
+            elevation_loss_m: 2100,
+            location_text: "Annecy",
+            race_date: "2026-06-20",
+            thumbnail_url: null,
+            gpx_path: null,
+            gpx_hash: null,
+            gpx_storage_path: null,
+            gpx_sha256: null,
+            organizer_details: null,
+          },
+          {
+            id: "88888888-8888-8888-8888-888888888888",
+            event_id: eventId,
+            edition_group_id: "99999999-9999-9999-9999-999999999999",
+            series_name: "80K",
+            name: "80K",
+            distance_km: 80,
+            elevation_gain_m: 4200,
+            elevation_loss_m: 4200,
+            location_text: "Annecy",
+            race_date: "2026-06-21",
+            thumbnail_url: null,
+            gpx_path: null,
+            gpx_hash: null,
+            gpx_storage_path: null,
+            gpx_sha256: null,
+            organizer_details: null,
+          },
+        ])
+      )
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "new-race-1" }]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "new-race-2" }]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(
         buildJsonResponse([
           {
@@ -187,7 +243,7 @@ describe("PATCH /api/admin/organizer-claims", () => {
             created_at: "2026-07-21T09:00:00.000Z",
             updated_at: "2026-07-21T10:00:00.000Z",
             user_id: "33333333-3333-3333-3333-333333333333",
-            event_id: "11111111-1111-1111-1111-111111111111",
+            event_id: eventId,
             source_year: 2026,
             requested_start_date: "2027-06-20",
             status: "approved",
@@ -202,6 +258,11 @@ describe("PATCH /api/admin/organizer-claims", () => {
 
     expect(response.status).toBe(200);
     expect(payload.editionRequest.status).toBe("approved");
+    expect(
+      mockFetch.mock.calls.filter(
+        ([url, init]) => String(url).includes("/rest/v1/races") && init?.method === "POST"
+      )
+    ).toHaveLength(2);
     const patchCall = mockFetch.mock.calls.find(
       ([url, init]) => String(url).includes("/rest/v1/race_event_edition_requests") && init?.method === "PATCH"
     );

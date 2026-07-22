@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
-import { formatEventDateRange, getAvailableEditionYears, getRaceEditionYearLabel, getRaceEditionYearValue, groupRacesBySeries } from "./helpers";
+import { buildEditionYearOptions, formatEventDateRange, getRaceEditionYearLabel, getRaceEditionYearValue, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
 import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
@@ -107,6 +107,7 @@ export function OrganizerSummaryHeader({
   event,
   memberships,
   selectedEventId,
+  editionRequests,
   selectedEditionYear,
   newEditionDate,
   editionRequestState,
@@ -129,6 +130,7 @@ export function OrganizerSummaryHeader({
   event: OrganizerEventDetail | null;
   memberships: MembershipRow[];
   selectedEventId: string | null;
+  editionRequests: EditionRequestRow[];
   selectedEditionYear: string;
   newEditionDate: string;
   editionRequestState: EditionRequestRow | null;
@@ -149,7 +151,7 @@ export function OrganizerSummaryHeader({
 }) {
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
-  const availableEditionYears = getAvailableEditionYears(event?.races ?? []);
+  const editionYearOptions = buildEditionYearOptions(event?.races ?? [], editionRequests, selectedEventId);
   const raceRows = groupRacesBySeries(event?.races ?? []).map((group) => {
     const activeEdition =
       group.races.find((race) => getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
@@ -202,7 +204,7 @@ export function OrganizerSummaryHeader({
       </div>
 
       <div className="mt-3 space-y-2">
-        {availableEditionYears.length > 0 ? (
+        {editionYearOptions.length > 0 ? (
           <div className="rounded-md border border-border/60 bg-background/50 p-3">
             <div className="flex flex-wrap items-end gap-3">
               <div className="min-w-[10rem] max-w-xs">
@@ -215,9 +217,9 @@ export function OrganizerSummaryHeader({
                   value={selectedEditionYear}
                   onChange={(event) => onSelectedEditionYearChange(event.target.value)}
                 >
-                  {availableEditionYears.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
+                  {editionYearOptions.map((option) => (
+                    <option key={option.value} value={option.value} disabled={option.disabled}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
