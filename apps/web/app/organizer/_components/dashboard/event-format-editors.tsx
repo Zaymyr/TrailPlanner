@@ -7,7 +7,7 @@ import { Label } from "../../../../components/ui/label";
 import type { OrganizerModuleId } from "../completion";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { ADD_FORMAT_TAB_ID } from "./constants";
-import { formatKm, getRaceEditionYearLabel } from "./helpers";
+import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues } from "./types";
 import { NumberField, TextField } from "./controls";
 
@@ -167,14 +167,6 @@ export function FormatsEditor({
             <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">{editLockMessage}</div>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            <div className="flex flex-wrap items-end gap-2 rounded-md border border-border/70 bg-background px-3 py-2">
-              <div className="min-w-[8rem]">
-                <Label>Edition active</Label>
-                <p className="mt-2 flex h-10 items-center rounded-md border border-input bg-card px-3 text-sm text-foreground">
-                  {getRaceEditionYearLabel(activeRace.race_date)}
-                </p>
-              </div>
-            </div>
             <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving" || editLocked}>
               Dupliquer ce format
             </Button>
