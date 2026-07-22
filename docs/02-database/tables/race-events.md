@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-07-21
+last_verified: 2026-07-22
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -163,6 +163,7 @@ from public.races;
 - Do not store per-format equipment, dossard, or access differences on the event row.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Keep image upload validation in the server route; the database stores only the resulting URL.
+- Keep admin organizer review tolerant of missing yearly-edition joins: a failed `race_event_edition_requests -> race_events` read should not prevent the base event-claim review data from loading.
 
 ## Related Docs
 

@@ -294,6 +294,58 @@ describe("GET /api/admin/organizer-claims", () => {
     expect(String(mockFetch.mock.calls[0]?.[0])).toContain("status=eq.pending");
     expect(String(mockFetch.mock.calls[1]?.[0])).toContain("revoked_at=is.null");
   });
+
+  it("keeps the admin organizer tab usable when edition requests or identity enrichment fail", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "22222222-2222-2222-2222-222222222222",
+            created_at: "2026-05-28T09:00:00.000Z",
+            updated_at: "2026-05-28T09:00:00.000Z",
+            user_id: "33333333-3333-3333-3333-333333333333",
+            event_id: "11111111-1111-1111-1111-111111111111",
+            organization_name: "Trail Org",
+            role_title: "RD",
+            contact_email: "orga@example.com",
+            status: "pending",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "44444444-4444-4444-4444-444444444444",
+            created_at: "2026-05-28T10:00:00.000Z",
+            event_id: "11111111-1111-1111-1111-111111111111",
+            user_id: "33333333-3333-3333-3333-333333333333",
+            claim_id: "22222222-2222-2222-2222-222222222222",
+            role: "owner",
+            revoked_at: null,
+            revoke_reason: null,
+          },
+        ])
+      )
+      .mockResolvedValueOnce(new Response('{"code":"42P01","message":"relation missing"}', { status: 404 }))
+      .mockResolvedValueOnce(new Response('{"message":"profiles unavailable"}', { status: 500 }))
+      .mockResolvedValueOnce(new Response('{"message":"auth admin unavailable"}', { status: 500 }));
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/organizer-claims", {
+        headers: { authorization: "Bearer admin-token" },
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.claims).toHaveLength(1);
+    expect(payload.memberships).toHaveLength(1);
+    expect(payload.editionRequests).toEqual([]);
+    expect(payload.claims[0].user.label).toBe("orga@example.com");
+    expect(payload.memberships[0].user.label).toBe("33333333-3333-3333-3333-333333333333");
+  });
 });
 
 vi.mock("../../../../lib/http", async (importOriginal) => {

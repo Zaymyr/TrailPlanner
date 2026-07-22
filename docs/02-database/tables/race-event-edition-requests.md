@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-07-21
+last_verified: 2026-07-22
 ai_priority: high
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -81,6 +81,7 @@ Summary:
 - Do not treat `approved` as proof that race rows already exist for that year.
 - Keep organizer/admin copy aligned: the organizer sends a request, the admin validates it, and only then can the business process continue.
 - Keep the admin review surface explicit: edition requests stay visually distinct from access claims, while still showing the organizer identity when it is available.
+- If this table or its event join is unavailable in one environment, the admin organizer tab should degrade to an empty edition-request section rather than failing the whole review screen.
 
 ## Related Docs
 

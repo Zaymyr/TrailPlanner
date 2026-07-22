@@ -143,7 +143,7 @@ export async function GET(request: NextRequest) {
     ),
   ]);
 
-  if (!claimsResponse.ok || !membershipsResponse.ok || !editionRequestsResponse.ok) {
+  if (!claimsResponse.ok || !membershipsResponse.ok) {
     console.error("Unable to load admin organizer claims", {
       claims: claimsResponse.ok ? null : await claimsResponse.text(),
       memberships: membershipsResponse.ok ? null : await membershipsResponse.text(),
@@ -154,7 +154,14 @@ export async function GET(request: NextRequest) {
 
   const claims = z.array(claimRowSchema).parse(await claimsResponse.json());
   const memberships = z.array(membershipRowSchema).parse(await membershipsResponse.json());
-  const editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
+  let editionRequests: Array<z.infer<typeof editionRequestRowSchema>> = [];
+
+  if (editionRequestsResponse.ok) {
+    editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
+  } else {
+    console.warn("Unable to load admin edition requests. Continuing without them.", await editionRequestsResponse.text());
+  }
+
   const userIds = Array.from(new Set([...claims, ...memberships, ...editionRequests].map((row) => row.user_id)));
 
   let userProfilesById = new Map<string, string>();
@@ -175,28 +182,28 @@ export async function GET(request: NextRequest) {
       }),
     ]);
 
-    if (!profilesResponse.ok || !adminUsersResponse.ok) {
-      console.error("Unable to enrich admin organizer claims with user identity", {
-        profiles: profilesResponse.ok ? null : await profilesResponse.text(),
-        adminUsers: adminUsersResponse.ok ? null : await adminUsersResponse.text(),
-      });
-      return jsonError("Unable to load organizer user details.", 502);
+    if (!profilesResponse.ok) {
+      console.warn("Unable to enrich admin organizer claims with profile names", await profilesResponse.text());
+    } else {
+      userProfilesById = new Map(
+        z
+          .array(userProfileRowSchema)
+          .parse(await profilesResponse.json())
+          .filter((profile) => typeof profile.full_name === "string" && profile.full_name.trim().length > 0)
+          .map((profile) => [profile.user_id, profile.full_name!.trim()])
+      );
     }
 
-    userProfilesById = new Map(
-      z
-        .array(userProfileRowSchema)
-        .parse(await profilesResponse.json())
-        .filter((profile) => typeof profile.full_name === "string" && profile.full_name.trim().length > 0)
-        .map((profile) => [profile.user_id, profile.full_name!.trim()])
-    );
-
-    userEmailsById = new Map(
-      adminUsersResponseSchema
-        .parse(await adminUsersResponse.json())
-        .users.filter((user) => user.email && userIds.includes(user.id))
-        .map((user) => [user.id, user.email!.trim()])
-    );
+    if (!adminUsersResponse.ok) {
+      console.warn("Unable to enrich admin organizer claims with auth emails", await adminUsersResponse.text());
+    } else {
+      userEmailsById = new Map(
+        adminUsersResponseSchema
+          .parse(await adminUsersResponse.json())
+          .users.filter((user) => user.email && userIds.includes(user.id))
+          .map((user) => [user.id, user.email!.trim()])
+      );
+    }
   }
 
   const withUserIdentity = <T extends { user_id: string; contact_email?: string }>(row: T) => {
