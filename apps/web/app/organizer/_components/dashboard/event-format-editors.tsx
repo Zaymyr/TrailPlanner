@@ -350,11 +350,11 @@ function RaceForm({
           {onGpxChange ? <MiniElevationProfile preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} /> : null}
           {!hideSubmit ? (
             <div className="flex items-end pt-1">
-            <Button type="submit" disabled={disabled}>
-              {submitLabel}
-            </Button>
-          </div>
-        ) : null}
+              <Button type="submit" disabled={disabled}>
+                {submitLabel}
+              </Button>
+            </div>
+          ) : null}
         </div>
         {onGpxChange ? (
           <OrganizerGpxPanel
