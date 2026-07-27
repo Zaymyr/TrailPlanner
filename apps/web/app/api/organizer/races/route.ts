@@ -25,6 +25,7 @@ const createRaceSchema = z.object({
   distanceKm: z.coerce.number().positive().optional(),
   elevationGainM: z.coerce.number().nonnegative().optional(),
   elevationLossM: z.coerce.number().nonnegative().nullable().optional(),
+  externalSiteUrl: optionalTextOrNull,
   locationText: optionalTextOrNull,
   raceDate: z.string().trim().min(1),
   thumbnailUrl: optionalTextOrNull,
@@ -39,6 +40,7 @@ const raceRowSchema = z.object({
   name: z.string(),
   slug: z.string(),
   event_id: z.string().uuid().nullable().optional(),
+  external_site_url: z.string().nullable().optional(),
   distance_km: z.number(),
   elevation_gain_m: z.number(),
   elevation_loss_m: z.number().nullable().optional(),
@@ -57,6 +59,7 @@ const cloneSourceRaceSchema = z.object({
   series_name: z.string().nullable().optional(),
   name: z.string(),
   slug: z.string().nullable().optional(),
+  external_site_url: z.string().nullable().optional(),
   distance_km: z.number(),
   elevation_gain_m: z.number(),
   elevation_loss_m: z.number().nullable().optional(),
@@ -185,6 +188,7 @@ export async function POST(request: NextRequest) {
     distance_km: Number((parsed.data.distanceKm ?? 0).toFixed(2)),
     elevation_gain_m: Math.round(parsed.data.elevationGainM ?? 0),
     elevation_loss_m: Math.round(parsed.data.elevationLossM ?? 0),
+    external_site_url: parsed.data.externalSiteUrl,
     location_text: parsed.data.locationText,
     race_date: parsed.data.raceDate,
     thumbnail_url: parsed.data.thumbnailUrl,
@@ -202,6 +206,7 @@ export async function POST(request: NextRequest) {
     insertPayload.distance_km = sourceRace.distance_km;
     insertPayload.elevation_gain_m = sourceRace.elevation_gain_m;
     insertPayload.elevation_loss_m = sourceRace.elevation_loss_m ?? 0;
+    insertPayload.external_site_url = sourceRace.external_site_url ?? null;
     insertPayload.location_text = sourceRace.location_text;
     insertPayload.thumbnail_url = sourceRace.thumbnail_url;
     insertPayload.organizer_details = sourceRace.organizer_details ?? null;
@@ -384,7 +389,7 @@ export async function POST(request: NextRequest) {
 
   const createdRace = z.array(raceRowSchema).parse(await response.json())[0];
   const reloadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_group_id,series_name,name,slug,event_id,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,organizer_details&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_group_id,series_name,name,slug,event_id,external_site_url,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,organizer_details&limit=1`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",

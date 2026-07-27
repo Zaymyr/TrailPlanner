@@ -22,6 +22,7 @@ const updateRaceSchema = z.object({
   distanceKm: z.coerce.number().positive().optional(),
   elevationGainM: z.coerce.number().nonnegative().optional(),
   elevationLossM: z.coerce.number().nonnegative().nullable().optional(),
+  externalSiteUrl: optionalTextOrNull,
   locationText: optionalTextOrNull,
   raceDate: optionalTextOrNull,
   thumbnailUrl: optionalTextOrNull,
@@ -36,6 +37,7 @@ const raceRowSchema = z.object({
   name: z.string(),
   slug: z.string().nullable().optional(),
   event_id: z.string().uuid().nullable().optional(),
+  external_site_url: z.string().nullable().optional(),
   distance_km: z.number(),
   elevation_gain_m: z.number(),
   elevation_loss_m: z.number().nullable().optional(),
@@ -94,6 +96,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.elevationLossM !== undefined) {
     updatePayload.elevation_loss_m = parsedBody.data.elevationLossM === null ? null : Math.round(parsedBody.data.elevationLossM);
   }
+  if (parsedBody.data.externalSiteUrl !== undefined) updatePayload.external_site_url = parsedBody.data.externalSiteUrl;
   if (parsedBody.data.locationText !== undefined) updatePayload.location_text = parsedBody.data.locationText;
   if (parsedBody.data.raceDate !== undefined) updatePayload.race_date = parsedBody.data.raceDate;
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;

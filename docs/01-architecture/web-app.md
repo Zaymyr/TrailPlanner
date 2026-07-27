@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-07-22
+last_verified: 2026-07-27
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -54,6 +54,8 @@ related_files:
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/[id]/website-import/route.ts
+  - apps/web/app/api/organizer/events/[id]/website-import/route.test.ts
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
   - apps/web/app/api/organizer/events/[id]/updates/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
@@ -71,6 +73,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/app/api/location-search/route.ts
+  - apps/web/lib/organizer-website-import.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/api/stripe/checkout/route.ts
   - apps/web/lib/location-utils.ts
@@ -166,6 +169,8 @@ Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It req
 User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false` and `created_by` set to the authenticated user.
 
 ### Organizer Portal
+
+The organizer header now also exposes `Importer depuis un site web`. That flow posts to `/api/organizer/events/[id]/website-import`, reuses the existing UTMB / Trace de Trail import adapters when possible, falls back to a generic HTML + JSON-LD extraction otherwise, and stays review-first: no write happens until the organizer validates the recap. The selected claimed event remains the only import target; confirmation may enrich `race_events`, update existing `races`, or create new draft `races` under that same `event_id`, but it must never create another event row or publish anything automatically.
 
 The v1 organizer portal is web-only:
 

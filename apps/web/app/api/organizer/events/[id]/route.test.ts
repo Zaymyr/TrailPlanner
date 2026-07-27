@@ -41,6 +41,7 @@ describe("/api/organizer/events/[id]", () => {
           thumbnail_url: null,
           is_live: false,
           organizer_details: {
+            officialWebsiteUrl: "https://grand-trail.example",
             mandatoryEquipment: {
               weatherPlan: "cold",
               items: [{ id: "item-1", label: "Couverture de survie", required: true, cold: true, heat: false, note: null }],
@@ -54,6 +55,7 @@ describe("/api/organizer/events/[id]", () => {
               series_name: "42K",
               name: "42K",
               slug: "42k",
+              external_site_url: "https://grand-trail.example/42k",
               location_text: null,
               race_date: "2026-09-12",
               distance_km: 42,
@@ -79,7 +81,9 @@ describe("/api/organizer/events/[id]", () => {
       cold: true,
       heat: false,
     });
+    expect(payload.event.organizerDetails.officialWebsiteUrl).toBe("https://grand-trail.example");
     expect(payload.event.races[0].edition_group_id).toBe("33333333-3333-3333-3333-333333333333");
+    expect(payload.event.races[0].external_site_url).toBe("https://grand-trail.example/42k");
     expect(payload.event.races[0].series_name).toBe("42K");
     expect(payload.event.races[0].organizerDetails.schedule.startTime).toBe("07:00");
   });
@@ -108,6 +112,7 @@ describe("/api/organizer/events/[id]", () => {
     const response = await PATCH(
       organizerRequest({
         organizerDetails: {
+          officialWebsiteUrl: "https://grand-trail.example",
           mandatoryEquipment: {
             weatherPlan: "heat",
             items: [{ id: "item-1", label: "Casquette", required: false, cold: false, heat: true, note: null }],
@@ -122,6 +127,7 @@ describe("/api/organizer/events/[id]", () => {
     const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
       organizer_details: {
+        officialWebsiteUrl: "https://grand-trail.example",
         mandatoryEquipment: {
           weatherPlan: "heat",
           items: [{ label: "Casquette", required: false, cold: false, heat: true }],

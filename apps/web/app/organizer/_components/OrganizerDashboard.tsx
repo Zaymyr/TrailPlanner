@@ -69,6 +69,8 @@ import type {
   RaceFormat,
   RaceFormValues,
   StationProduct,
+  WebsiteImportPreview,
+  WebsiteImportRaceSelection,
 } from "./dashboard/types";
 
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -132,6 +134,13 @@ export function OrganizerDashboard() {
   const [eventUpdateSending, setEventUpdateSending] = useState(false);
   const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
+  const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
+  const [websiteImportUrl, setWebsiteImportUrl] = useState("");
+  const [websiteImportPreview, setWebsiteImportPreview] = useState<WebsiteImportPreview | null>(null);
+  const [websiteImportSelections, setWebsiteImportSelections] = useState<Record<string, WebsiteImportRaceSelection>>({});
+  const [websiteImportError, setWebsiteImportError] = useState<string | null>(null);
+  const [websiteImportLoading, setWebsiteImportLoading] = useState(false);
+  const [websiteImportApplying, setWebsiteImportApplying] = useState(false);
 
   const accessToken = session?.accessToken ?? null;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
@@ -271,6 +280,15 @@ export function OrganizerDashboard() {
     }
     setEventUpdateError(null);
   }, [eventUpdatesDialogOpen]);
+
+  useEffect(() => {
+    if (websiteImportOpen) return;
+    setWebsiteImportPreview(null);
+    setWebsiteImportSelections({});
+    setWebsiteImportError(null);
+    setWebsiteImportLoading(false);
+    setWebsiteImportApplying(false);
+  }, [websiteImportOpen]);
 
   const loadOrganizerData = async () => {
     if (!accessToken) return;
@@ -1196,6 +1214,133 @@ export function OrganizerDashboard() {
     }
   };
 
+  const openWebsiteImportDialog = () => {
+    setWebsiteImportError(null);
+    setWebsiteImportPreview(null);
+    setWebsiteImportSelections({});
+    setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
+    setWebsiteImportOpen(true);
+  };
+
+  const previewWebsiteImport = async () => {
+    if (!selectedEventId || !accessToken) return;
+    const url = websiteImportUrl.trim();
+    if (!url) {
+      setWebsiteImportError("Ajoute l'URL du site officiel avant de lancer l'analyse.");
+      return;
+    }
+
+    setWebsiteImportLoading(true);
+    setWebsiteImportError(null);
+    try {
+      const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preview", url }),
+      });
+      const data = (await response.json().catch(() => null)) as { preview?: WebsiteImportPreview; message?: string } | null;
+      if (!response.ok || !data?.preview) {
+        setWebsiteImportPreview(null);
+        setWebsiteImportSelections({});
+        setWebsiteImportError(data?.message ?? "Impossible d'analyser ce site.");
+        return;
+      }
+
+      setWebsiteImportPreview(data.preview);
+      setWebsiteImportSelections(
+        Object.fromEntries(
+          data.preview.races.map((race) => [
+            race.key,
+            {
+              mode: race.suggestedTargetRaceId ? "update" : race.canCreate ? "create" : "ignore",
+              targetRaceId: race.suggestedTargetRaceId,
+            } satisfies WebsiteImportRaceSelection,
+          ])
+        )
+      );
+    } catch (caught) {
+      console.error("Unable to preview organizer website import", caught);
+      setWebsiteImportPreview(null);
+      setWebsiteImportSelections({});
+      setWebsiteImportError("Impossible d'analyser ce site.");
+    } finally {
+      setWebsiteImportLoading(false);
+    }
+  };
+
+  const hasApplicableWebsiteImportSelection =
+    websiteImportPreview &&
+    (Boolean(websiteImportPreview.event.name) ||
+      Boolean(websiteImportPreview.event.location) ||
+      Boolean(websiteImportPreview.event.raceDate) ||
+      Boolean(websiteImportPreview.event.officialWebsiteUrl) ||
+      websiteImportPreview.races.some((race) => {
+        const selection = websiteImportSelections[race.key];
+        if (!selection || selection.mode === "ignore") return false;
+        if (selection.mode === "create") return race.canCreate;
+        return selection.mode === "update" && Boolean(selection.targetRaceId);
+      }));
+
+  const applyWebsiteImport = async () => {
+    if (!selectedEventId || !accessToken || !websiteImportPreview) return;
+    if (!(await saveBeforeNavigation())) return;
+
+    const raceSelections = websiteImportPreview.races.map((race) => ({
+      previewRaceKey: race.key,
+      mode: websiteImportSelections[race.key]?.mode ?? "ignore",
+      targetRaceId: websiteImportSelections[race.key]?.targetRaceId ?? null,
+    }));
+
+    setWebsiteImportApplying(true);
+    setWebsiteImportError(null);
+    try {
+      const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "apply",
+          url: websiteImportPreview.source.url,
+          previewHash: websiteImportPreview.previewHash,
+          selectedEditionYear,
+          raceSelections,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | {
+            applied?: {
+              eventUpdated: boolean;
+              createdRaces: number;
+              updatedRaces: number;
+              gpxUploads: number;
+              hydratedAidStations: number;
+            };
+            message?: string;
+          }
+        | null;
+
+      if (!response.ok || !data?.applied) {
+        setWebsiteImportError(data?.message ?? "Impossible d'integrer les donnees detectees.");
+        return;
+      }
+
+      const created = data.applied.createdRaces ?? 0;
+      const updated = data.applied.updatedRaces ?? 0;
+      const gpxUploads = data.applied.gpxUploads ?? 0;
+      const aidStationsCount = data.applied.hydratedAidStations ?? 0;
+      showToast(
+        "success",
+        `Import integre: ${created} format(s) cree(s), ${updated} mis a jour, ${gpxUploads} GPX ajoute(s), ${aidStationsCount} ravito(s) hydrates.`
+      );
+      setWebsiteImportOpen(false);
+      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
+    } catch (caught) {
+      console.error("Unable to apply organizer website import", caught);
+      setWebsiteImportError("Impossible d'integrer les donnees detectees.");
+    } finally {
+      setWebsiteImportApplying(false);
+    }
+  };
+
   if (isLoading) return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Vérification de session...</div>;
   if (!session) return <OrganizerSignedOutCard />;
 
@@ -1243,6 +1388,7 @@ export function OrganizerDashboard() {
         onRequestEdition={() => {
           void requestNewEdition();
         }}
+        onImportWebsite={openWebsiteImportDialog}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
         status={status}
@@ -1565,6 +1711,161 @@ export function OrganizerDashboard() {
             <Button type="button" onClick={() => void submitEventUpdate()} disabled={eventUpdateSending || !selectedEventId}>
               {eventUpdateSending ? "Envoi..." : "Envoyer la notification"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={websiteImportOpen} onOpenChange={setWebsiteImportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Importer depuis le site officiel</DialogTitle>
+            <DialogDescription>
+              Colle l'URL du site de la course pour recuperer un recap des informations detectees avant integration.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">
+                URL du site
+              </label>
+              <input
+                id="organizer-website-import-url"
+                type="url"
+                className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={websiteImportUrl}
+                placeholder="https://..."
+                onChange={(event) => setWebsiteImportUrl(event.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">UTMB et Trace de Trail sont optimises. Les autres sites passent par une extraction heuristique.</p>
+            </div>
+
+            {websiteImportError ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{websiteImportError}</p> : null}
+
+            {websiteImportPreview ? (
+              <div className="space-y-4 rounded-md border border-border/70 bg-background/70 p-4">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">Evenement detecte</p>
+                    <span className="text-xs text-muted-foreground">{websiteImportPreview.source.label}</span>
+                  </div>
+                  <div className="grid gap-2 text-sm text-foreground sm:grid-cols-2">
+                    <div className="rounded-md border border-border/60 bg-card p-3">
+                      <p className="font-medium">{websiteImportPreview.event.name ?? "Nom manquant"}</p>
+                      <p className="text-muted-foreground">{websiteImportPreview.event.location ?? "Lieu manquant"}</p>
+                      <p className="text-muted-foreground">{websiteImportPreview.event.raceDate ?? "Date manquante"}</p>
+                    </div>
+                    <div className="rounded-md border border-border/60 bg-card p-3 text-muted-foreground">
+                      <p>{websiteImportPreview.event.officialWebsiteUrl ?? "Site officiel manquant"}</p>
+                      <p>{websiteImportPreview.races.length} format(s) detecte(s)</p>
+                    </div>
+                  </div>
+                  {websiteImportPreview.warnings.length > 0 ? (
+                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
+                      {websiteImportPreview.warnings.join(" ")}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-foreground">Formats detectes</p>
+                  {websiteImportPreview.races.map((race) => {
+                    const selection = websiteImportSelections[race.key] ?? { mode: "ignore", targetRaceId: null };
+                    return (
+                      <div key={race.key} className="space-y-3 rounded-md border border-border/60 bg-card p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-foreground">{race.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {[race.raceDate, race.locationText, race.distanceKm ? `${race.distanceKm} km` : null, race.elevationGainM !== null ? `D+ ${race.elevationGainM} m` : null]
+                                .filter(Boolean)
+                                .join(" · ") || "Informations partielles"}
+                            </p>
+                          </div>
+                          <div className="text-right text-xs text-muted-foreground">
+                            {race.hasReliableGpx ? <p>GPX fiable detecte</p> : null}
+                            {race.detectedAidStationCount > 0 ? <p>{race.detectedAidStationCount} ravito(s)</p> : null}
+                          </div>
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
+                          <select
+                            className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground"
+                            value={selection.mode}
+                            onChange={(event) =>
+                              setWebsiteImportSelections((current) => ({
+                                ...current,
+                                [race.key]: {
+                                  mode: event.target.value as WebsiteImportRaceSelection["mode"],
+                                  targetRaceId:
+                                    event.target.value === "update"
+                                      ? current[race.key]?.targetRaceId ?? race.suggestedTargetRaceId
+                                      : null,
+                                },
+                              }))
+                            }
+                          >
+                            <option value="ignore">Ignorer</option>
+                            <option value="create" disabled={!race.canCreate}>
+                              Creer un format
+                            </option>
+                            <option value="update">Mettre a jour un format</option>
+                          </select>
+                          {selection.mode === "update" ? (
+                            <select
+                              className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground"
+                              value={selection.targetRaceId ?? ""}
+                              onChange={(event) =>
+                                setWebsiteImportSelections((current) => ({
+                                  ...current,
+                                  [race.key]: {
+                                    mode: "update",
+                                    targetRaceId: event.target.value || null,
+                                  },
+                                }))
+                              }
+                            >
+                              <option value="">Choisir le format cible</option>
+                              {(eventDetail?.races ?? []).map((eventRace) => (
+                                <option key={eventRace.id} value={eventRace.id}>
+                                  {eventRace.series_name} · {eventRace.race_date?.slice(0, 10) ?? "Sans date"}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <div className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                              {selection.mode === "create"
+                                ? "Le format sera cree en brouillon sous cet evenement."
+                                : race.suggestedTargetRaceId
+                                  ? "Suggestion detectee pour une mise a jour, a activer si besoin."
+                                  : "Aucune cible selectionnee pour le moment."}
+                            </div>
+                          )}
+                        </div>
+                        {race.missingFields.length > 0 ? (
+                          <p className="text-xs font-medium text-amber-700">Champs manquants: {race.missingFields.join(", ")}</p>
+                        ) : null}
+                        {race.warnings.length > 0 ? <p className="text-xs text-amber-800">{race.warnings.join(" ")}</p> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setWebsiteImportOpen(false)} disabled={websiteImportLoading || websiteImportApplying}>
+              Annuler
+            </Button>
+            {websiteImportPreview ? (
+              <Button type="button" onClick={() => void applyWebsiteImport()} disabled={websiteImportApplying || !hasApplicableWebsiteImportSelection}>
+                {websiteImportApplying ? "Integration..." : "Valider l'integration"}
+              </Button>
+            ) : (
+              <Button type="button" onClick={() => void previewWebsiteImport()} disabled={websiteImportLoading}>
+                {websiteImportLoading ? "Analyse..." : "Lancer l'analyse"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
