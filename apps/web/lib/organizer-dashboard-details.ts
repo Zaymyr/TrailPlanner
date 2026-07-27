@@ -170,6 +170,7 @@ export const organizerEventDateRangeDetailsSchema = z
   });
 
 export const organizerEventDetailsSchema = z.object({
+  officialWebsiteUrl: nullableUrl,
   eventLocation: organizerLocationSchema,
   dateRange: organizerEventDateRangeDetailsSchema,
   mandatoryEquipment: organizerEquipmentDetailsSchema,

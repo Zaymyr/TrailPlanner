@@ -55,6 +55,7 @@ export type RaceFormat = {
   series_name: string;
   name: string;
   slug?: string | null;
+  external_site_url?: string | null;
   location_text?: string | null;
   race_date?: string | null;
   distance_km: number;
@@ -129,6 +130,7 @@ export type RaceFormValues = {
   distanceKm: number;
   elevationGainM: number;
   elevationLossM: string;
+  externalSiteUrl?: string;
   locationText: string;
   raceDate: string;
   thumbnailUrl: string;
@@ -143,6 +145,52 @@ export type EventFormValues = {
   thumbnailUrl: string;
   isLive: boolean;
   organizerDetails: OrganizerEventDetails;
+};
+
+export type WebsiteImportRaceMode = "create" | "update" | "ignore";
+
+export type WebsiteImportRaceSelection = {
+  mode: WebsiteImportRaceMode;
+  targetRaceId: string | null;
+};
+
+export type WebsiteImportPreviewRace = {
+  key: string;
+  name: string;
+  seriesName: string;
+  raceDate: string | null;
+  locationText: string | null;
+  distanceKm: number | null;
+  elevationGainM: number | null;
+  elevationLossM: number | null;
+  externalSiteUrl: string | null;
+  thumbnailUrl: string | null;
+  missingFields: string[];
+  warnings: string[];
+  suggestedTargetRaceId: string | null;
+  canCreate: boolean;
+  hasReliableGpx: boolean;
+  detectedAidStationCount: number;
+};
+
+export type WebsiteImportPreview = {
+  source: {
+    provider: "utmb" | "tracedetrail" | "generic";
+    url: string;
+    label: string;
+  };
+  previewHash: string;
+  event: {
+    name: string | null;
+    location: string | null;
+    raceDate: string | null;
+    officialWebsiteUrl: string | null;
+    thumbnailUrl: string | null;
+  };
+  races: WebsiteImportPreviewRace[];
+  missingFields: string[];
+  warnings: string[];
+  canApply: boolean;
 };
 
 export type ProductFormValues = {

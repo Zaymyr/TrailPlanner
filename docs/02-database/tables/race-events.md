@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-07-22
+last_verified: 2026-07-27
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -13,12 +13,15 @@ related_files:
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/[id]/website-import/route.ts
+  - apps/web/app/api/organizer/events/[id]/website-import/route.test.ts
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
   - apps/web/app/api/race-favorites/route.ts
   - apps/web/app/api/race-events/[id]/updates/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
+  - apps/web/lib/organizer-website-import.ts
   - apps/web/lib/push.ts
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
@@ -47,11 +50,12 @@ related_tables:
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created when an organizer claims a missing race.
-- Organizer dashboard details: nullable JSONB for event end date, common equipment, common bib pickup, access, services, partners, and runner notes.
+- Organizer dashboard details: nullable JSONB for event end date, official website, common equipment, common bib pickup, access, services, partners, and runner notes.
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can be published for the event and pushed to followers.
 - Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
+- Website-import target: the organizer website import route enriches the already claimed `race_events` row and must never create a different event during that review flow.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
@@ -103,7 +107,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
 - Organizer runner notifications are manual. One send creates one `race_event_updates` row and may trigger push notifications for followers, but normal organizer saves and publish toggles must not auto-create announcements.
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass; the longer history still comes from the dedicated updates route when a runner taps to see more.
-- Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location in addition to the existing plain `location` text column.
+- Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column.
 - Organizer event writes are now edition-aware from the dashboard: the selected edition year is passed through the event mutation flow so the server can block edits when that edition is more than 14 days in the past, even though the shared `race_events` row still lives above yearly `races` rows.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.

@@ -71,6 +71,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
       patchRequest({
         seriesName: "Trail 42",
         name: "Trail 42 2027",
+        externalSiteUrl: "https://grand-trail.example/42k",
       }),
       { params: { id: raceId } }
     );
@@ -81,6 +82,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
     expect(JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string)).toMatchObject({
       series_name: "Trail 42",
       name: "Trail 42 2027",
+      external_site_url: "https://grand-trail.example/42k",
     });
   });
 });

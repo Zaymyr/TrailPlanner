@@ -1,0 +1,228 @@
+import { NextRequest } from "next/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { POST } from "./route";
+
+const eventId = "11111111-1111-1111-1111-111111111111";
+
+const organizerMocks = vi.hoisted(() => ({
+  buildPreview: vi.fn(),
+}));
+
+const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) =>
+  new Response(JSON.stringify(payload), {
+    status: options.status ?? 200,
+    headers: { "content-type": "application/json" },
+  });
+
+const importRequest = (body: Record<string, unknown>) =>
+  new NextRequest(`http://localhost/api/organizer/events/${eventId}/website-import`, {
+    method: "POST",
+    headers: {
+      authorization: "Bearer user-token",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+vi.mock("server-only", () => ({}));
+
+describe("/api/organizer/events/[id]/website-import preview", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+    organizerMocks.buildPreview.mockResolvedValue({
+      source: { provider: "utmb", url: "https://utmb.world/races/example", label: "UTMB" },
+      event: {
+        name: "Grand Trail",
+        location: "Chamonix",
+        raceDate: "2026-08-20",
+        officialWebsiteUrl: "https://utmb.world/races/example",
+        thumbnailUrl: null,
+      },
+      races: [
+        {
+          key: "race:42k",
+          name: "42K",
+          seriesName: "42K",
+          raceDate: "2026-08-20",
+          locationText: "Chamonix",
+          distanceKm: 42,
+          elevationGainM: 2400,
+          elevationLossM: 2200,
+          externalSiteUrl: "https://utmb.world/races/example",
+          thumbnailUrl: null,
+          aidStations: [],
+          gpxContent: null,
+          gpxStorageLabel: "utmb",
+          hasReliableGpx: true,
+          missingFields: [],
+        },
+      ],
+      missingFields: [],
+      warnings: [],
+      canApply: true,
+    });
+
+    vi.mocked(fetch).mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          id: eventId,
+          name: "Grand Trail",
+          location: "Chamonix",
+          race_date: "2026-08-20",
+          organizer_details: { officialWebsiteUrl: null },
+          races: [
+            {
+              id: "22222222-2222-2222-2222-222222222222",
+              edition_group_id: "33333333-3333-3333-3333-333333333333",
+              series_name: "42K",
+              name: "42K",
+              race_date: "2026-08-20",
+              distance_km: 42,
+              elevation_gain_m: 2400,
+              elevation_loss_m: 2200,
+              external_site_url: null,
+              location_text: "Chamonix",
+              thumbnail_url: null,
+              gpx_storage_path: null,
+              is_live: false,
+            },
+          ],
+        },
+      ])
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns a normalized preview with suggested target race ids", async () => {
+    const response = await POST(importRequest({ action: "preview", url: "https://utmb.world/races/example" }), {
+      params: { id: eventId },
+    });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.preview.source.provider).toBe("utmb");
+    expect(payload.preview.races[0].suggestedTargetRaceId).toBe("22222222-2222-2222-2222-222222222222");
+    expect(payload.preview.previewHash).toHaveLength(64);
+  });
+});
+
+describe("/api/organizer/events/[id]/website-import apply", () => {
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+    organizerMocks.buildPreview.mockResolvedValue({
+      source: { provider: "generic", url: "https://example.com/race", label: "Site detecte" },
+      event: {
+        name: "Grand Trail",
+        location: "Annecy",
+        raceDate: "2026-09-12",
+        officialWebsiteUrl: "https://example.com/race",
+        thumbnailUrl: null,
+      },
+      races: [
+        {
+          key: "race:0:grand-trail-42k",
+          name: "Grand Trail 42K",
+          seriesName: "42K",
+          raceDate: "2026-09-12",
+          locationText: "Annecy",
+          distanceKm: 42,
+          elevationGainM: 2500,
+          elevationLossM: 2400,
+          externalSiteUrl: "https://example.com/race/42k",
+          thumbnailUrl: null,
+          aidStations: [],
+          gpxContent: null,
+          gpxStorageLabel: null,
+          hasReliableGpx: false,
+          missingFields: [],
+        },
+      ],
+      missingFields: [],
+      warnings: [],
+      canApply: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("rejects stale preview hashes", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          id: eventId,
+          name: "Grand Trail",
+          location: "Annecy",
+          race_date: "2026-09-12",
+          organizer_details: { officialWebsiteUrl: null },
+          races: [],
+        },
+      ])
+    );
+
+    const response = await POST(
+      importRequest({
+        action: "apply",
+        url: "https://example.com/race",
+        previewHash: "stale-preview-hash-0001",
+        selectedEditionYear: "2026",
+        raceSelections: [],
+      }),
+      { params: { id: eventId } }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(payload.message).toContain("preview");
+  });
+});
+
+vi.mock("../../../../../../lib/http", () => ({
+  checkRateLimitAsync: () => Promise.resolve({ allowed: true, remaining: 5 }),
+  withSecurityHeaders: (response: Response) => response,
+}));
+
+vi.mock("../../../../../../lib/organizer-website-import", async () => {
+  const original = await vi.importActual<typeof import("../../../../../../lib/organizer-website-import")>(
+    "../../../../../../lib/organizer-website-import"
+  );
+  return {
+    ...original,
+    buildOrganizerWebsiteImportPreview: organizerMocks.buildPreview,
+  };
+});
+
+vi.mock("../../../../../../lib/organizer", async () => {
+  const { z } = await import("zod");
+  return {
+    assertEventEditionEditable: () => Promise.resolve(true),
+    assertRaceEditionEditable: () => true,
+    buildSlug: (value: string) => `slug-${value}`,
+    jsonError: (message: string, status: number) => Response.json({ message }, { status }),
+    optionalTextOrNull: z.string().nullable().optional(),
+    optionalUrlOrNull: z.string().nullable().optional(),
+    requireEventOrganizer: () => Promise.resolve(true),
+    requireOrganizerAuth: () =>
+      Promise.resolve({
+        user: { id: "00000000-0000-0000-0000-000000000001" },
+        serviceConfig: {
+          supabaseUrl: "https://supabase.example",
+          supabaseServiceRoleKey: "service-key",
+        },
+      }),
+    serviceHeaders: (_serviceConfig: unknown, contentType = "application/json") => ({
+      apikey: "service-key",
+      Authorization: "Bearer service-key",
+      ...(contentType ? { "Content-Type": contentType } : {}),
+    }),
+    uuidParamSchema: {
+      safeParse: (params: { id?: string }) =>
+        typeof params.id === "string" ? { success: true, data: { id: params.id } } : { success: false },
+    },
+  };
+});

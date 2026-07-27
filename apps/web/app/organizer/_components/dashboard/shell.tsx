@@ -115,6 +115,7 @@ export function OrganizerSummaryHeader({
   onSelectedEditionYearChange,
   onEditionDateChange,
   onRequestEdition,
+  onImportWebsite,
   completion,
   editionLocked,
   editionLockMessage,
@@ -138,6 +139,7 @@ export function OrganizerSummaryHeader({
   onSelectedEditionYearChange: (year: string) => void;
   onEditionDateChange: (value: string) => void;
   onRequestEdition: () => void;
+  onImportWebsite: () => void;
   completion: OrganizerCompletionSummary | null;
   editionLocked: boolean;
   editionLockMessage: string | null;
@@ -192,6 +194,9 @@ export function OrganizerSummaryHeader({
           <Link href="/organizers">
             <Button variant="outline">Nouveau claim</Button>
           </Link>
+          <Button type="button" variant="outline" onClick={onImportWebsite}>
+            Importer depuis un site web
+          </Button>
         </div>
       </div>
 

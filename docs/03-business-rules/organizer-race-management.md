@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-07-22
+last_verified: 2026-07-27
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -49,6 +49,8 @@ related_files:
   - apps/web/app/api/admin/organizer-claims/route.test.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/[id]/website-import/route.ts
+  - apps/web/app/api/organizer/events/[id]/website-import/route.test.ts
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
   - apps/web/app/api/organizer/events/[id]/updates/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
@@ -75,6 +77,7 @@ related_files:
   - apps/web/app/(planner)/race-planner/RacePlannerPageContent.tsx
   - apps/web/components/race-planner/ActionPlan.tsx
   - apps/web/lib/location-utils.ts
+  - apps/web/lib/organizer-website-import.ts
 related_tables:
   - race_event_claims
   - race_event_edition_requests
@@ -101,7 +104,7 @@ This document records the organizer portal rules: users can request control of a
 - Event membership: approved organizer access stored in `race_event_organizers`.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
-- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults, including `dateRange.endDate`; event-level `mandatoryEquipment` also stores the active weather plan as `weatherPlan = normal | cold | heat`, while each equipment item can opt into `cold` and/or `heat`. Event and race details now also store structured geocoded location objects beside the existing text fields for event location, format location, bib pickup, and start/finish access. Race details keep each course's full equipment list plus format-specific overrides or additions for the other modules.
+- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults, including `dateRange.endDate` and `officialWebsiteUrl`; event-level `mandatoryEquipment` also stores the active weather plan as `weatherPlan = normal | cold | heat`, while each equipment item can opt into `cold` and/or `heat`. Event and race details now also store structured geocoded location objects beside the existing text fields for event location, format location, bib pickup, and start/finish access. Race details keep each course's full equipment list plus format-specific overrides or additions for the other modules, while format websites continue to live on `races.external_site_url`.
 - Event follower: authenticated runner who favorites one `race_events` row.
 - Organizer update: manual runner-facing announcement stored in `race_event_updates` and optionally pushed to event followers.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
@@ -151,6 +154,16 @@ The selected edition year now also controls editability. Once that edition's ref
 When the organizer adds a brand-new format, the creation form can now queue both the format image and the GPX file before submission. Selecting that GPX parses it immediately in the dashboard and pre-fills distance, D+, and D- from the file before submit. The same right-hand GPX panel also renders an interactive OpenStreetMap/Leaflet route map and the elevation curve from the loaded preview data. The format date is mandatory in that creation flow. The dashboard still creates the `races` row first, then uploads the pending GPX through `/api/organizer/races/[id]/gpx` so the format lands with persisted parsed stats and any eligible waypoint ravitos.
 
 Approved organizers can also publish a manual event update from the top dashboard card through `Notifier les coureurs`. That action opens a modal, lets the organizer type one short runner-facing message, creates one `race_event_updates` row, and then sends push notifications only to users who favorited the event. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
+
+That same dashboard header now also exposes `Importer depuis un site web`. The organizer pastes one course website URL, the server detects `UTMB`, `Trace de Trail`, or falls back to a generic HTML/JSON-LD extraction, and the UI shows a review-first recap with:
+
+- event-level facts and the detected official website;
+- detected formats;
+- missing fields;
+- mismatch warnings against the currently claimed event;
+- explicit per-format actions: create, update, or ignore.
+
+This flow never creates a new `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough. Generic sites may therefore yield partial previews that still need manual completion after import.
 
 The completion shell does not repeat a local heading or helper sentence above the tabs. The active tab should be visually larger and more contrasty than inactive tabs so the current scope remains obvious, and desktop event-scope tiles should stay on a single row by shrinking before wrapping.
 
@@ -239,6 +252,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not move the active weather plan to race scope without revisiting preview, mobile Racebook, sync, and documentation rules; the current contract is one event-level plan shared by every format.
 - Do not reintroduce a separate schedule tile or format-level bib workflow without also changing completion, autosave routing, and runner-preview resolution.
 - Do not bypass the organizer GPX route when a GPX is selected during format creation; the client still has to create the race first, then import the file server-side.
+- Do not let website import create or reassign another `race_events` row. The flow enriches only the currently claimed event and formats that remain attached to it.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.
 - Do not infer yearly organizer grouping from `races.name`; use explicit `races.edition_group_id` and `races.series_name`.
@@ -248,6 +262,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
+- Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
 - Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
 - Keep organizer dashboard copy properly UTF-8 encoded. The event/format editor renders accented French labels directly from source strings, so mojibake like `Ã©` on tabs, dates, or image labels is a user-facing bug, not a cosmetic doc issue.
 - Keep `/api/admin/organizer-claims` resilient to secondary-read failures. Missing yearly-edition rows or unavailable organizer-identity enrichment should degrade the admin tab gracefully instead of hiding the whole review queue.

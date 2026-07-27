@@ -31,9 +31,10 @@ export function EventInfoEditor({
   const missingLocation = !eventForm.location.trim();
   const missingStartDate = !eventForm.raceDate.trim();
   const missingEndDate = !dateRange.endDate?.trim();
+  const officialWebsiteUrl = eventForm.organizerDetails.officialWebsiteUrl ?? "";
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[1fr_1fr_170px_170px]">
+    <div className="grid gap-3 lg:grid-cols-[1fr_1fr_220px_170px_170px]">
       <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} disabled={editLocked} />
       <AddressAutocompleteField
         label="Lieu"
@@ -53,6 +54,23 @@ export function EventInfoEditor({
           )
         }
         invalid={missingLocation}
+      />
+      <TextField
+        label="Site officiel"
+        type="url"
+        value={officialWebsiteUrl}
+        onChange={(value) =>
+          onChange(
+            {
+              organizerDetails: {
+                ...eventForm.organizerDetails,
+                officialWebsiteUrl: value || null,
+              },
+            },
+            "event"
+          )
+        }
+        disabled={editLocked}
       />
       <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} disabled={editLocked} />
       <TextField
