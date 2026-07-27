@@ -1719,18 +1719,18 @@ export function OrganizerDashboard() {
         <DialogContent
           className={
             websiteImportPreview
-              ? "flex max-h-[90vh] w-[min(96vw,72rem)] max-w-[72rem] flex-col overflow-hidden"
-              : "flex max-h-[85vh] w-[min(92vw,40rem)] max-w-[40rem] flex-col overflow-hidden"
+              ? "flex max-h-[90vh] min-h-0 w-[min(96vw,72rem)] max-w-[72rem] flex-col overflow-hidden"
+              : "flex max-h-[85vh] min-h-0 w-[min(92vw,40rem)] max-w-[40rem] flex-col overflow-hidden"
           }
         >
-          <DialogHeader>
+          <DialogHeader className="shrink-0">
             <DialogTitle>Importer depuis le site officiel</DialogTitle>
             <DialogDescription>
               Colle l'URL du site de la course pour recuperer un recap des informations detectees avant integration.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="space-y-4 pb-2">
             <div className="space-y-1">
               <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">
@@ -1861,7 +1861,7 @@ export function OrganizerDashboard() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button type="button" variant="outline" onClick={() => setWebsiteImportOpen(false)} disabled={websiteImportLoading || websiteImportApplying}>
               Annuler
             </Button>

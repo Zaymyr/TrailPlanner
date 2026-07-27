@@ -30,7 +30,7 @@ const DialogContent = ({ className, children, ...props }: DialogContentProps) =>
   if (!context?.open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 overflow-y-auto p-4">
       <button
         type="button"
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
@@ -39,7 +39,7 @@ const DialogContent = ({ className, children, ...props }: DialogContentProps) =>
       />
       <div
         className={cn(
-          "relative z-10 grid w-full max-w-lg gap-4 rounded-lg border border-border bg-card p-6 text-foreground shadow-lg",
+          "relative z-10 mx-auto my-8 grid w-full max-w-lg gap-4 rounded-lg border border-border bg-card p-6 text-foreground shadow-lg",
           className
         )}
         {...props}

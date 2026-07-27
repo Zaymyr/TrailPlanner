@@ -4,6 +4,7 @@ scope: business-rule
 last_verified: 2026-07-27
 ai_priority: high
 related_files:
+  - apps/web/components/ui/dialog.tsx
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
@@ -168,7 +169,7 @@ This flow never creates a new `race_events` row, never publishes anything automa
 
 The generic fallback now reads the landing page plus a few likely secondary pages such as `Parcours`, `Courses`, or `Reglement` when they are linked from the same site. It merges repeated format detections, prefers the edition year explicitly described by the site when multiple years are present, and surfaces warnings when another page appears to describe a different edition. This keeps examples such as a current-year regulation page and an older parcours page reviewable without silently mixing their formats together.
 
-When that review recap is present, the import dialog should expand beyond the initial compact URL-entry width and keep its own internal vertical scroll area. Long event warnings, detected-format cards, and per-format action controls must remain reachable without relying on page-level scrolling behind the modal.
+When that review recap is present, the import dialog should expand beyond the initial compact URL-entry width and keep its own internal vertical scroll area. Long event warnings, detected-format cards, and per-format action controls must remain reachable without relying on page-level scrolling behind the modal. The shared dialog shell also needs enough viewport overflow handling for centered modals to stay accessible on smaller screens or taller review states.
 
 The completion shell does not repeat a local heading or helper sentence above the tabs. The active tab should be visually larger and more contrasty than inactive tabs so the current scope remains obvious, and desktop event-scope tiles should stay on a single row by shrinking before wrapping.
 
