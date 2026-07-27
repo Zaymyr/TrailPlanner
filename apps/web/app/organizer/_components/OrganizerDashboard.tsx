@@ -1716,7 +1716,13 @@ export function OrganizerDashboard() {
       </Dialog>
 
       <Dialog open={websiteImportOpen} onOpenChange={setWebsiteImportOpen}>
-        <DialogContent>
+        <DialogContent
+          className={
+            websiteImportPreview
+              ? "flex max-h-[90vh] w-[min(96vw,72rem)] max-w-[72rem] flex-col overflow-hidden"
+              : "flex max-h-[85vh] w-[min(92vw,40rem)] max-w-[40rem] flex-col overflow-hidden"
+          }
+        >
           <DialogHeader>
             <DialogTitle>Importer depuis le site officiel</DialogTitle>
             <DialogDescription>
@@ -1724,7 +1730,8 @@ export function OrganizerDashboard() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto pr-1">
+            <div className="space-y-4 pb-2">
             <div className="space-y-1">
               <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">
                 URL du site
@@ -1851,6 +1858,7 @@ export function OrganizerDashboard() {
                 </div>
               </div>
             ) : null}
+            </div>
           </div>
 
           <DialogFooter>

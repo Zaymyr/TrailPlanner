@@ -62,9 +62,43 @@ export class OrganizerWebsiteImportError extends Error {
 }
 
 type JsonLdRecord = Record<string, unknown>;
+type GenericPageCandidate = {
+  url: string;
+  html: string;
+  text: string;
+  title: string | null;
+  ogTitle: string | null;
+  ogImage: string | null;
+  ogSiteName: string | null;
+  jsonLdRecords: JsonLdRecord[];
+  jsonLdEvents: JsonLdRecord[];
+  dates: string[];
+};
+
+type GenericRaceCandidate = OrganizerWebsiteImportRace & {
+  sourceUrl: string;
+  sourceLabel: string;
+  detectedYear: string | null;
+  score: number;
+};
 
 const UTMB_HOST_PATTERN = /(^|\.)utmb\.world$/i;
 const TRACE_DE_TRAIL_HOST_PATTERN = /(^|\.)tracedetrail\.fr$/i;
+const FRENCH_MONTHS: Record<string, number> = {
+  janvier: 0,
+  fevrier: 1,
+  mars: 2,
+  avril: 3,
+  mai: 4,
+  juin: 5,
+  juillet: 6,
+  aout: 7,
+  septembre: 8,
+  octobre: 9,
+  novembre: 10,
+  decembre: 11,
+};
+const GENERIC_PAGE_HINT_PATTERN = /(parcours|course|courses|formats|epreuves|programme|reglement|r[eè]glement|trace|infos? pratiques)/i;
 
 const toNonEmptyString = (value: unknown) => {
   if (typeof value !== "string") return null;
@@ -96,6 +130,16 @@ const normalizeDate = (value: unknown) => {
   const isoMatch = stringValue.match(/^(\d{4}-\d{2}-\d{2})/);
   if (isoMatch) return isoMatch[1];
 
+  const normalized = normalizeComparableName(stringValue).replace(/\b1er\b/g, "1");
+  const frenchMatch = normalized.match(/\b(\d{1,2})\s+([a-z]+)\s+(\d{4})\b/);
+  if (frenchMatch) {
+    const monthIndex = FRENCH_MONTHS[frenchMatch[2]];
+    if (monthIndex !== undefined) {
+      const parsed = new Date(Date.UTC(Number(frenchMatch[3]), monthIndex, Number(frenchMatch[1])));
+      if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+    }
+  }
+
   const cleaned = stringValue.replace(/(\d+)(st|nd|rd|th)/gi, "$1");
   const parsed = new Date(cleaned);
   if (Number.isNaN(parsed.getTime())) return null;
@@ -122,6 +166,17 @@ const stripHtml = (value: string | null | undefined) => {
   if (!value) return "";
   return decodeHtmlEntities(value.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ")).trim();
 };
+
+const toPlainText = (html: string) =>
+  decodeHtmlEntities(
+    html
+      .replace(/<(br|\/p|\/div|\/li|\/section|\/article|\/h\d)[^>]*>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\r/g, "")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{2,}/g, "\n")
+      .replace(/[ \t]{2,}/g, " ")
+  ).trim();
 
 const extractMetaContent = (html: string, attribute: "property" | "name", key: string) =>
   toNonEmptyString(
@@ -150,6 +205,23 @@ const extractJsonLdRecords = (html: string): JsonLdRecord[] => {
   }
 
   return records;
+};
+
+const extractPageDates = (value: string) => {
+  const dates = new Set<string>();
+  const normalized = decodeHtmlEntities(value).replace(/\s+/g, " ");
+
+  for (const match of normalized.matchAll(/\b(\d{4}-\d{2}-\d{2})\b/g)) {
+    const parsed = normalizeDate(match[1]);
+    if (parsed) dates.add(parsed);
+  }
+
+  for (const match of normalized.matchAll(/\b(\d{1,2})\s+([A-Za-zÀ-ÿ]+)\s+(\d{4})\b/g)) {
+    const parsed = normalizeDate(match[0]);
+    if (parsed) dates.add(parsed);
+  }
+
+  return Array.from(dates).sort();
 };
 
 const collectJsonLdEvents = (value: unknown, events: JsonLdRecord[] = []): JsonLdRecord[] => {
@@ -185,12 +257,39 @@ const parseElevationMeters = (...values: Array<unknown>) => {
   for (const value of values) {
     const stringValue = toNonEmptyString(value);
     if (!stringValue) continue;
-    const match = stringValue.match(/d\+\s*[:\-]?\s*(\d{2,5})/i) ?? stringValue.match(/elevation[^0-9]*(\d{2,5})/i);
+    const match =
+      stringValue.match(/d\+\s*[:\-]?\s*(\d{2,5})/i) ??
+      stringValue.match(/(\d{2,5})\s*(?:m\s*)?d\+/i) ??
+      stringValue.match(/elevation[^0-9]*(\d{2,5})/i);
     if (!match) continue;
     const parsed = toFiniteNumber(match[1]);
     if (parsed !== null && parsed >= 0) return Math.round(parsed);
   }
   return null;
+};
+
+const parseAidStationsFromText = (value: string) => {
+  const line = normalizeComparableName(value);
+  if (!/(ravit|ravito)/.test(line)) return [];
+  const relevantSlice = line.slice(Math.max(0, line.search(/ravit|ravito/)));
+
+  const distances = new Set<number>();
+  for (const match of relevantSlice.matchAll(/km\s*(\d{1,3}(?:[.,]\d+)?)/gi)) {
+    const parsed = toFiniteNumber(match[1]);
+    if (parsed !== null && parsed > 0) distances.add(Number(parsed.toFixed(1)));
+  }
+  for (const match of relevantSlice.matchAll(/(\d{1,3}(?:[.,]\d+)?)\s*km/gi)) {
+    const parsed = toFiniteNumber(match[1]);
+    if (parsed !== null && parsed > 0) distances.add(Number(parsed.toFixed(1)));
+  }
+
+  return Array.from(distances)
+    .sort((left, right) => left - right)
+    .map((distanceKm, index) => ({
+      name: `Ravitaillement ${index + 1}`,
+      distanceKm,
+      waterRefill: true,
+    }));
 };
 
 const buildMissingFields = (race: Pick<OrganizerWebsiteImportRace, "name" | "raceDate" | "distanceKm" | "elevationGainM">) => {
@@ -355,6 +454,70 @@ const buildGenericRaceFromEvent = (event: JsonLdRecord, index: number, eventSite
   return race;
 };
 
+const sanitizeRaceName = (value: string | null) => {
+  const normalized = toNonEmptyString(stripHtml(value));
+  if (!normalized) return null;
+  const cleaned = normalized.replace(/\s+/g, " ").trim();
+  if (!/[A-Za-zÀ-ÿ]/.test(cleaned)) return null;
+  if (/^(les parcours|les courses|parcours|courses?|reglement|r[eè]glement|infos? pratiques?)$/i.test(cleaned)) return null;
+  return cleaned;
+};
+
+const scoreGenericRaceCandidate = (race: OrganizerWebsiteImportRace, sourceLabel: string) =>
+  (race.distanceKm ? 3 : 0) +
+  (race.elevationGainM !== null ? 2 : 0) +
+  (race.raceDate ? 2 : 0) +
+  (race.aidStations.length > 0 ? 2 : 0) +
+  (race.gpxContent ? 3 : 0) +
+  (race.hasReliableGpx ? 2 : 0) +
+  (/h\d/i.test(sourceLabel) ? 1 : 0);
+
+const buildGenericRaceCandidate = (input: {
+  key: string;
+  name: string;
+  seriesName?: string | null;
+  raceDate?: string | null;
+  locationText?: string | null;
+  distanceKm?: number | null;
+  elevationGainM?: number | null;
+  elevationLossM?: number | null;
+  externalSiteUrl?: string | null;
+  thumbnailUrl?: string | null;
+  aidStations?: OrganizerWebsiteImportAidStation[];
+  gpxContent?: string | null;
+  gpxStorageLabel?: string | null;
+  hasReliableGpx?: boolean;
+  detectedYear?: string | null;
+  sourceUrl: string;
+  sourceLabel: string;
+}): GenericRaceCandidate => {
+  const race: OrganizerWebsiteImportRace = {
+    key: input.key,
+    name: input.name,
+    seriesName: input.seriesName ?? input.name,
+    raceDate: input.raceDate ?? null,
+    locationText: input.locationText ?? null,
+    distanceKm: input.distanceKm ?? null,
+    elevationGainM: input.elevationGainM ?? null,
+    elevationLossM: input.elevationLossM ?? null,
+    externalSiteUrl: input.externalSiteUrl ?? null,
+    thumbnailUrl: input.thumbnailUrl ?? null,
+    aidStations: input.aidStations ?? [],
+    gpxContent: input.gpxContent ?? null,
+    gpxStorageLabel: input.gpxStorageLabel ?? null,
+    hasReliableGpx: input.hasReliableGpx ?? false,
+    missingFields: [],
+  };
+  race.missingFields = buildMissingFields(race);
+  return {
+    ...race,
+    sourceUrl: input.sourceUrl,
+    sourceLabel: input.sourceLabel,
+    detectedYear: input.detectedYear ?? race.raceDate?.slice(0, 4) ?? null,
+    score: scoreGenericRaceCandidate(race, input.sourceLabel),
+  };
+};
+
 const fetchGenericGpx = async (gpxUrl: string) => {
   const response = await fetch(gpxUrl, {
     cache: "no-store",
@@ -381,15 +544,8 @@ const fetchGenericGpx = async (gpxUrl: string) => {
   };
 };
 
-const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportPreview> => {
-  let parsedUrl: URL;
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    throw new OrganizerWebsiteImportError("INVALID_URL", "URL invalide.");
-  }
-
-  const response = await fetch(parsedUrl.toString(), {
+const fetchGenericHtmlPage = async (url: string): Promise<GenericPageCandidate> => {
+  const response = await fetch(url, {
     cache: "no-store",
     headers: {
       "user-agent": "Pace Yourself Organizer Importer",
@@ -402,18 +558,267 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
   }
 
   const html = await response.text();
-  const title = extractTitle(html);
-  const ogTitle = extractMetaContent(html, "property", "og:title");
-  const ogImage = extractMetaContent(html, "property", "og:image");
-  const ogSiteName = extractMetaContent(html, "property", "og:site_name");
   const jsonLdRecords = extractJsonLdRecords(html);
-  const jsonLdEvents = jsonLdRecords.flatMap((record) => collectJsonLdEvents(record));
+
+  return {
+    url,
+    html,
+    text: toPlainText(html),
+    title: extractTitle(html),
+    ogTitle: extractMetaContent(html, "property", "og:title"),
+    ogImage: extractMetaContent(html, "property", "og:image"),
+    ogSiteName: extractMetaContent(html, "property", "og:site_name"),
+    jsonLdRecords,
+    jsonLdEvents: jsonLdRecords.flatMap((record) => collectJsonLdEvents(record)),
+    dates: extractPageDates(html),
+  };
+};
+
+const extractCandidatePageUrls = (html: string, baseUrl: string) => {
+  const urls = new Set<string>([baseUrl]);
+
+  for (const match of html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const label = stripHtml(match[2]);
+    const href = absoluteUrl(baseUrl, match[1]);
+    if (!href || urls.has(href)) continue;
+    if (!GENERIC_PAGE_HINT_PATTERN.test(label) && !GENERIC_PAGE_HINT_PATTERN.test(href)) continue;
+    urls.add(href);
+    if (urls.size >= 4) break;
+  }
+
+  return Array.from(urls);
+};
+
+const pickBestEventDate = (pages: GenericPageCandidate[]) => {
+  const candidates = pages.flatMap((page) => page.dates);
+  const unique = Array.from(new Set(candidates)).sort();
+  if (unique.length === 0) return null;
+
+  const futureOrCurrent = unique.filter((date) => date >= "2026-01-01");
+  return futureOrCurrent[0] ?? unique[unique.length - 1];
+};
+
+const parseRaceDistanceMentions = (value: string) => {
+  const distances = new Set<number>();
+  for (const match of value.matchAll(/(\d{1,3}(?:[.,]\d+)?)\s*km/gi)) {
+    const parsed = toFiniteNumber(match[1]);
+    if (parsed !== null && parsed > 0) distances.add(Number(parsed.toFixed(2)));
+  }
+  return Array.from(distances).sort((left, right) => left - right);
+};
+
+const parseCourseCandidatesFromLines = (
+  page: GenericPageCandidate,
+  eventDate: string | null,
+  eventLocation: string | null,
+  eventImage: string | null
+) => {
+  const lines = page.text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const races: GenericRaceCandidate[] = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const previousLine = index > 0 ? lines[index - 1] : "";
+    const distances = parseRaceDistanceMentions(line);
+    if (distances.length === 0) continue;
+
+    const context = lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 4)).join(" ");
+    if (!/(d\+|ravit|depart|départ|trace|gpx|barriere|barrière)/i.test(context)) continue;
+
+    const yearMatch = context.match(/\b(20\d{2})\b/);
+    const explicitDate = normalizeDate(context);
+    const explicitYear = explicitDate?.slice(0, 4) ?? yearMatch?.[1] ?? null;
+    const raceDate = explicitDate ?? eventDate;
+
+    for (const distanceKm of distances) {
+      let namePrefix = sanitizeRaceName(line.replace(/\s*(\d{1,3}(?:[.,]\d+)?)\s*km.*$/i, "").trim());
+      if (
+        !namePrefix &&
+        /^\d{1,3}(?:[.,]\d+)?\s*km/i.test(line) &&
+        !/(edition|ravit|depart|départ|barriere|barrière|trace|gpx|\b20\d{2}\b)/i.test(previousLine)
+      ) {
+        namePrefix = sanitizeRaceName(previousLine);
+      }
+      const name = namePrefix ?? `${distanceKm} km`;
+      const key = namePrefix ? `race:${normalizeComparableName(name)}` : `race:distance:${distanceKm}`;
+      races.push(
+        buildGenericRaceCandidate({
+          key,
+          name,
+          seriesName: name,
+          raceDate,
+          locationText: eventLocation,
+          distanceKm,
+          elevationGainM: parseElevationMeters(context),
+          externalSiteUrl: page.url,
+          thumbnailUrl: eventImage,
+          aidStations: parseAidStationsFromText(context),
+          detectedYear: explicitYear,
+          sourceUrl: page.url,
+          sourceLabel: `line:${index + 1}`,
+        })
+      );
+    }
+  }
+
+  return races;
+};
+
+const parseCourseCandidatesFromHeadings = (
+  page: GenericPageCandidate,
+  eventDate: string | null,
+  eventLocation: string | null,
+  eventImage: string | null
+) => {
+  const matches = Array.from(page.html.matchAll(/<(h[1-4])[^>]*>([\s\S]*?)<\/\1>/gi));
+  const races: GenericRaceCandidate[] = [];
+
+  for (let index = 0; index < matches.length; index += 1) {
+    const match = matches[index];
+    const name = sanitizeRaceName(match[2]);
+    if (!name) continue;
+
+    const sectionStart = match.index ?? 0;
+    const nextStart = matches[index + 1]?.index ?? page.html.length;
+    const sectionHtml = page.html.slice(sectionStart, nextStart);
+    const sectionText = toPlainText(sectionHtml);
+    const distanceKm = parseDistanceKm(sectionText, name);
+    if (distanceKm === null) continue;
+
+    const gpxUrl =
+      Array.from(sectionHtml.matchAll(/href=["']([^"']+)["']/gi))
+        .map((hrefMatch) => absoluteUrl(page.url, hrefMatch[1]))
+        .find((href) => href?.toLowerCase().includes(".gpx")) ?? null;
+
+    races.push(
+      buildGenericRaceCandidate({
+        key: `race:${normalizeComparableName(name)}`,
+        name,
+        seriesName: name,
+        raceDate: pickFirst(normalizeDate(sectionText), eventDate),
+        locationText: eventLocation,
+        distanceKm,
+        elevationGainM: parseElevationMeters(sectionText),
+        externalSiteUrl: page.url,
+        thumbnailUrl: eventImage,
+        aidStations: parseAidStationsFromText(sectionText),
+        detectedYear: sectionText.match(/\b(20\d{2})\b/)?.[1] ?? eventDate?.slice(0, 4) ?? null,
+        sourceUrl: page.url,
+        sourceLabel: match[1],
+        gpxStorageLabel: gpxUrl ? "generic" : null,
+        hasReliableGpx: false,
+      })
+    );
+  }
+
+  return races;
+};
+
+const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: string | null) => {
+  const keptByKey = new Map<string, GenericRaceCandidate>();
+  const warnings: string[] = [];
+  const droppedYears = new Set<string>();
+
+  const filteredCandidates =
+    preferredYear && candidates.some((candidate) => candidate.detectedYear === preferredYear)
+      ? candidates.filter((candidate) => {
+          if (candidate.detectedYear && candidate.detectedYear !== preferredYear) {
+            droppedYears.add(candidate.detectedYear);
+            return false;
+          }
+          return true;
+        })
+      : candidates;
+
+  for (const candidate of filteredCandidates) {
+    const existing = keptByKey.get(candidate.key);
+    if (!existing) {
+      keptByKey.set(candidate.key, candidate);
+      continue;
+    }
+
+    const hasConflict =
+      (existing.distanceKm !== null && candidate.distanceKm !== null && existing.distanceKm !== candidate.distanceKm) ||
+      (existing.elevationGainM !== null &&
+        candidate.elevationGainM !== null &&
+        existing.elevationGainM !== candidate.elevationGainM);
+    if (hasConflict) {
+      warnings.push(`Des informations contradictoires ont ete detectees pour ${candidate.name}.`);
+    }
+
+    if (candidate.score > existing.score) {
+      keptByKey.set(candidate.key, {
+        ...candidate,
+        aidStations: candidate.aidStations.length > 0 ? candidate.aidStations : existing.aidStations,
+        gpxContent: candidate.gpxContent ?? existing.gpxContent,
+        gpxStorageLabel: candidate.gpxStorageLabel ?? existing.gpxStorageLabel,
+        hasReliableGpx: candidate.hasReliableGpx || existing.hasReliableGpx,
+      });
+      continue;
+    }
+
+    keptByKey.set(candidate.key, {
+      ...existing,
+      aidStations: existing.aidStations.length > 0 ? existing.aidStations : candidate.aidStations,
+      gpxContent: existing.gpxContent ?? candidate.gpxContent,
+      gpxStorageLabel: existing.gpxStorageLabel ?? candidate.gpxStorageLabel,
+      hasReliableGpx: existing.hasReliableGpx || candidate.hasReliableGpx,
+    });
+  }
+
+  if (preferredYear && droppedYears.size > 0) {
+    warnings.push(
+      `Certaines pages mentionnent d'autres editions (${Array.from(droppedYears).sort().join(", ")}). L'import a privilegie ${preferredYear}.`
+    );
+  }
+
+  return {
+    races: Array.from(keptByKey.values())
+      .map(({ sourceLabel: _sourceLabel, sourceUrl: _sourceUrl, detectedYear: _detectedYear, score: _score, ...race }) => race)
+      .sort((left, right) => {
+        const leftDistance = left.distanceKm ?? Number.POSITIVE_INFINITY;
+        const rightDistance = right.distanceKm ?? Number.POSITIVE_INFINITY;
+        if (leftDistance !== rightDistance) return leftDistance - rightDistance;
+        return left.name.localeCompare(right.name);
+      }),
+    warnings,
+  };
+};
+
+const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportPreview> => {
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    throw new OrganizerWebsiteImportError("INVALID_URL", "URL invalide.");
+  }
+
   const normalizedUrl = parsedUrl.toString();
+  const rootPage = await fetchGenericHtmlPage(normalizedUrl);
+  const candidateUrls = extractCandidatePageUrls(rootPage.html, normalizedUrl);
+  const pages = [rootPage];
+
+  for (const candidateUrl of candidateUrls.slice(1)) {
+    try {
+      pages.push(await fetchGenericHtmlPage(candidateUrl));
+    } catch {
+      // Keep the preview usable even if one secondary page fails.
+    }
+  }
+
+  const allJsonLdEvents = pages.flatMap((page) => page.jsonLdEvents);
+  const title = rootPage.title;
+  const ogTitle = rootPage.ogTitle;
+  const ogImage = pages.map((page) => page.ogImage).find(Boolean) ?? null;
+  const ogSiteName = rootPage.ogSiteName;
 
   const eventName =
     pickFirst(
-      toNonEmptyString(jsonLdEvents[0]?.superEvent && isRecord(jsonLdEvents[0].superEvent) ? jsonLdEvents[0].superEvent.name : null),
-      toNonEmptyString(jsonLdEvents[0]?.name),
+      toNonEmptyString(allJsonLdEvents[0]?.superEvent && isRecord(allJsonLdEvents[0].superEvent) ? allJsonLdEvents[0].superEvent.name : null),
+      toNonEmptyString(allJsonLdEvents[0]?.name),
       ogSiteName,
       ogTitle,
       title
@@ -421,18 +826,45 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
 
   const eventLocation =
     pickFirst(
-      extractLocationFromEvent(jsonLdEvents[0] ?? {}),
-      toNonEmptyString(stripHtml(html.match(/(lieu|location|ville)[^<:]{0,20}[:\-]\s*([^<\n]+)/i)?.[2] ?? null))
+      extractLocationFromEvent(allJsonLdEvents[0] ?? {}),
+      ...pages.map((page) => toNonEmptyString(stripHtml(page.html.match(/(lieu|location|ville)[^<:]{0,20}[:\-]\s*([^<\n]+)/i)?.[2] ?? null)))
     ) ?? null;
 
-  const eventDate = pickFirst(normalizeDate(jsonLdEvents[0]?.startDate), normalizeDate(html.match(/(\d{4}-\d{2}-\d{2})/)?.[1])) ?? null;
-  const eventSiteUrl = pickFirst(absoluteUrl(normalizedUrl, toNonEmptyString(jsonLdEvents[0]?.url)), normalizedUrl);
-  const races = (jsonLdEvents.length > 0 ? jsonLdEvents : [{ name: ogTitle ?? title ?? eventName, startDate: eventDate }]).map((event, index) =>
-    buildGenericRaceFromEvent(event, index, eventSiteUrl, ogImage)
+  const eventDate =
+    pickFirst(normalizeDate(allJsonLdEvents[0]?.startDate), pickBestEventDate(pages), normalizeDate(rootPage.html.match(/(\d{4}-\d{2}-\d{2})/)?.[1])) ??
+    null;
+  const preferredYear = eventDate?.slice(0, 4) ?? null;
+  const eventSiteUrl = pickFirst(absoluteUrl(normalizedUrl, toNonEmptyString(allJsonLdEvents[0]?.url)), normalizedUrl);
+
+  const jsonLdRaces = allJsonLdEvents.map((event, index) => buildGenericRaceFromEvent(event, index, eventSiteUrl, ogImage));
+  const genericCandidates = pages.flatMap((page) => [
+    ...parseCourseCandidatesFromHeadings(page, eventDate, eventLocation, ogImage),
+    ...parseCourseCandidatesFromLines(page, eventDate, eventLocation, ogImage),
+  ]);
+
+  const merged = mergeRaceCandidates(
+    [
+      ...jsonLdRaces.map((race) =>
+        buildGenericRaceCandidate({
+          ...race,
+          sourceUrl: eventSiteUrl ?? normalizedUrl,
+          sourceLabel: "jsonld",
+        })
+      ),
+      ...genericCandidates,
+    ],
+    preferredYear
   );
 
+  const races =
+    merged.races.length > 0
+      ? merged.races
+      : (allJsonLdEvents.length > 0 ? allJsonLdEvents : [{ name: ogTitle ?? title ?? eventName, startDate: eventDate }]).map((event, index) =>
+          buildGenericRaceFromEvent(event, index, eventSiteUrl, ogImage)
+        );
+
   if (races.length === 1) {
-    const gpxUrl = findSingleGpxUrl(html, normalizedUrl);
+    const gpxUrl = pages.map((page) => findSingleGpxUrl(page.html, page.url)).find(Boolean) ?? null;
     if (gpxUrl) {
       try {
         const gpx = await fetchGenericGpx(gpxUrl);
@@ -470,11 +902,11 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
       ...(eventLocation ? [] : ["Lieu evenement"]),
       ...(eventDate ? [] : ["Date evenement"]),
     ],
-    warnings: [],
+    warnings: [...merged.warnings],
     canApply: races.length > 0,
   };
 
-  if (jsonLdEvents.length === 0) {
+  if (allJsonLdEvents.length === 0) {
     preview.warnings.push("Aucun schema Event detecte. Les donnees proviennent d'heuristiques HTML.");
   }
   if (races.some((race) => race.missingFields.length > 0)) {
