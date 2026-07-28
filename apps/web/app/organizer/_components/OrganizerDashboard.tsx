@@ -70,6 +70,7 @@ import type {
   RaceFormValues,
   StationProduct,
   WebsiteImportPreview,
+  WebsiteImportConfidence,
   WebsiteImportRaceSelection,
 } from "./dashboard/types";
 
@@ -77,6 +78,25 @@ const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
 const EDITION_LOCK_GRACE_DAYS = 14;
+
+const websiteImportScoreTone = (score: number) =>
+  score >= 80
+    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+    : score >= 55
+      ? "border-amber-300 bg-amber-50 text-amber-800"
+      : "border-red-300 bg-red-50 text-red-800";
+
+const websiteImportConfidenceLabel: Record<WebsiteImportConfidence, string> = {
+  high: "Fiable",
+  medium: "À confirmer",
+  low: "Faible",
+};
+
+const websiteImportConfidenceTone: Record<WebsiteImportConfidence, string> = {
+  high: "bg-emerald-100 text-emerald-800",
+  medium: "bg-amber-100 text-amber-800",
+  low: "bg-red-100 text-red-800",
+};
 
 type OrganizerRaceEventUpdate = {
   id: string;
@@ -1789,11 +1809,80 @@ export function OrganizerDashboard() {
                                 .join(" · ") || "Informations partielles"}
                             </p>
                           </div>
-                          <div className="text-right text-xs text-muted-foreground">
-                            {race.hasReliableGpx ? <p>GPX fiable detecte</p> : null}
-                            {race.detectedAidStationCount > 0 ? <p>{race.detectedAidStationCount} ravito(s)</p> : null}
+                          <div className="flex items-start gap-2 text-right text-xs text-muted-foreground">
+                            {race.assessment ? (
+                              <div className={`rounded-md border px-2.5 py-1.5 ${websiteImportScoreTone(race.assessment.score)}`}>
+                                <p className="text-base font-semibold leading-none">{race.assessment.score}/100</p>
+                                <p className="mt-1">score global</p>
+                              </div>
+                            ) : null}
+                            <div>
+                              {race.hasReliableGpx ? <p>GPX fiable détecté</p> : null}
+                              {race.detectedAidStationCount > 0 ? <p>{race.detectedAidStationCount} ravito(s)</p> : null}
+                            </div>
                           </div>
                         </div>
+                        {race.assessment ? (
+                          <details className="group rounded-md border border-border/60 bg-background/60">
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-foreground marker:content-none">
+                              <span>Voir les informations trouvées</span>
+                              <span className="text-xs font-normal text-muted-foreground">
+                                {race.assessment.foundCount}/{race.assessment.totalCount} champs
+                              </span>
+                            </summary>
+                            <div className="space-y-3 border-t border-border/60 p-3">
+                              <div className="grid gap-2 sm:grid-cols-3">
+                                <div className="rounded-md bg-muted/50 p-2.5">
+                                  <p className="text-xs text-muted-foreground">Score global</p>
+                                  <p className="font-semibold text-foreground">{race.assessment.score}/100</p>
+                                </div>
+                                <div className="rounded-md bg-muted/50 p-2.5">
+                                  <p className="text-xs text-muted-foreground">Informations trouvées</p>
+                                  <p className="font-semibold text-foreground">{race.assessment.coverageScore}%</p>
+                                </div>
+                                <div className="rounded-md bg-muted/50 p-2.5">
+                                  <p className="text-xs text-muted-foreground">Fiabilité des sources</p>
+                                  <p className="font-semibold text-foreground">{race.assessment.reliabilityScore}%</p>
+                                </div>
+                              </div>
+                              <div className="grid gap-2 md:grid-cols-2">
+                                {race.assessment.findings.map((finding) => (
+                                  <div key={finding.key} className="rounded-md border border-border/60 bg-card p-3">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                        {finding.label}
+                                        {finding.required ? " · requis" : ""}
+                                      </p>
+                                      {finding.confidence ? (
+                                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${websiteImportConfidenceTone[finding.confidence]}`}>
+                                          {websiteImportConfidenceLabel[finding.confidence]}
+                                        </span>
+                                      ) : (
+                                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Manquant</span>
+                                      )}
+                                    </div>
+                                    <p className={`mt-2 break-words text-sm ${finding.value ? "text-foreground" : "italic text-muted-foreground"}`}>
+                                      {finding.value ?? "Aucune information trouvée"}
+                                    </p>
+                                    {finding.sourceUrl && finding.sourceLabel ? (
+                                      <a
+                                        className="mt-2 inline-block text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                        href={finding.sourceUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        Source : {finding.sourceLabel}
+                                      </a>
+                                    ) : null}
+                                  </div>
+                                ))}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                Le score combine la couverture des champs (65 %) et la fiabilité estimée des sources (35 %). Une vérification humaine reste recommandée.
+                              </p>
+                            </div>
+                          </details>
+                        ) : null}
                         <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
                           <select
                             className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground"

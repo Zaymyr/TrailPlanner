@@ -15,6 +15,28 @@ export type OrganizerWebsiteImportAidStation = {
   waterRefill: boolean;
 };
 
+export type OrganizerWebsiteImportConfidence = "high" | "medium" | "low";
+
+export type OrganizerWebsiteImportFinding = {
+  key: string;
+  label: string;
+  value: string | null;
+  required: boolean;
+  confidence: OrganizerWebsiteImportConfidence | null;
+  sourceUrl: string | null;
+  sourceLabel: string | null;
+};
+
+export type OrganizerWebsiteImportAssessment = {
+  score: number;
+  coverageScore: number;
+  reliabilityScore: number;
+  foundCount: number;
+  totalCount: number;
+  reliableCount: number;
+  findings: OrganizerWebsiteImportFinding[];
+};
+
 export type OrganizerWebsiteImportRace = {
   key: string;
   name: string;
@@ -31,6 +53,7 @@ export type OrganizerWebsiteImportRace = {
   gpxStorageLabel: string | null;
   missingFields: string[];
   hasReliableGpx: boolean;
+  assessment?: OrganizerWebsiteImportAssessment;
 };
 
 export type OrganizerWebsiteImportPreview = {
@@ -345,6 +368,100 @@ const buildMissingFields = (race: Pick<OrganizerWebsiteImportRace, "name" | "rac
   return missing;
 };
 
+const confidenceValue: Record<OrganizerWebsiteImportConfidence, number> = {
+  high: 100,
+  medium: 65,
+  low: 35,
+};
+
+const buildRaceAssessment = (
+  race: OrganizerWebsiteImportRace,
+  source: {
+    url: string | null;
+    label: string;
+    confidence: OrganizerWebsiteImportConfidence;
+    gpxUrl?: string | null;
+  }
+): OrganizerWebsiteImportAssessment => {
+  const definitions = [
+    { key: "name", label: "Nom du format", value: race.name || null, required: true, weight: 2 },
+    { key: "raceDate", label: "Date", value: race.raceDate, required: true, weight: 2 },
+    {
+      key: "distanceKm",
+      label: "Distance",
+      value: race.distanceKm === null ? null : `${race.distanceKm} km`,
+      required: true,
+      weight: 2,
+    },
+    {
+      key: "elevationGainM",
+      label: "Dénivelé positif",
+      value: race.elevationGainM === null ? null : `${race.elevationGainM} m`,
+      required: true,
+      weight: 2,
+    },
+    {
+      key: "elevationLossM",
+      label: "Dénivelé négatif",
+      value: race.elevationLossM === null ? null : `${race.elevationLossM} m`,
+      required: false,
+      weight: 1,
+    },
+    { key: "locationText", label: "Lieu", value: race.locationText, required: false, weight: 1 },
+    { key: "externalSiteUrl", label: "Page du format", value: race.externalSiteUrl, required: false, weight: 1 },
+    { key: "gpx", label: "Trace GPX", value: race.gpxContent ? "GPX exploitable" : null, required: false, weight: 1 },
+    {
+      key: "aidStations",
+      label: "Ravitaillements",
+      value:
+        race.aidStations.length > 0
+          ? `${race.aidStations.length} détecté(s) : ${race.aidStations
+              .map((station) => `${station.name} (${station.distanceKm} km)`)
+              .join(", ")}`
+          : null,
+      required: false,
+      weight: 1,
+    },
+    { key: "thumbnailUrl", label: "Image", value: race.thumbnailUrl, required: false, weight: 1 },
+  ];
+
+  const findings = definitions.map((definition): OrganizerWebsiteImportFinding & { weight: number } => {
+    const found = Boolean(definition.value);
+    const gpxBacked = race.hasReliableGpx && ["distanceKm", "elevationGainM", "elevationLossM", "gpx"].includes(definition.key);
+    const confidence = found ? (gpxBacked ? "high" : source.confidence) : null;
+    return {
+      key: definition.key,
+      label: definition.label,
+      value: definition.value,
+      required: definition.required,
+      confidence,
+      sourceUrl: found ? (gpxBacked ? source.gpxUrl ?? source.url : source.url) : null,
+      sourceLabel: found ? (gpxBacked ? "Trace GPX" : source.label) : null,
+      weight: definition.weight,
+    };
+  });
+
+  const totalWeight = findings.reduce((sum, finding) => sum + finding.weight, 0);
+  const found = findings.filter((finding) => finding.value !== null);
+  const foundWeight = found.reduce((sum, finding) => sum + finding.weight, 0);
+  const reliabilityWeight = found.reduce(
+    (sum, finding) => sum + (finding.confidence ? confidenceValue[finding.confidence] * finding.weight : 0),
+    0
+  );
+  const coverageScore = Math.round((foundWeight / totalWeight) * 100);
+  const reliabilityScore = foundWeight > 0 ? Math.round(reliabilityWeight / foundWeight) : 0;
+
+  return {
+    score: Math.round(coverageScore * 0.65 + reliabilityScore * 0.35),
+    coverageScore,
+    reliabilityScore,
+    foundCount: found.length,
+    totalCount: findings.length,
+    reliableCount: found.filter((finding) => finding.confidence === "high").length,
+    findings: findings.map(({ weight: _weight, ...finding }) => finding),
+  };
+};
+
 const buildPreviewHash = (preview: OrganizerWebsiteImportPreview) =>
   createHash("sha256")
     .update(
@@ -365,6 +482,7 @@ const buildPreviewHash = (preview: OrganizerWebsiteImportPreview) =>
           aidStations: race.aidStations,
           hasReliableGpx: race.hasReliableGpx,
           missingFields: race.missingFields,
+          assessment: race.assessment,
         })),
       })
     )
@@ -391,6 +509,12 @@ const mapUtmbPreview = (url: string, utmbRace: UtmbRaceData): OrganizerWebsiteIm
     missingFields: [],
   };
   race.missingFields = buildMissingFields(race);
+  race.assessment = buildRaceAssessment(race, {
+    url: utmbRace.normalizedUrl,
+    label: "UTMB",
+    confidence: "high",
+    gpxUrl: utmbRace.normalizedUrl,
+  });
 
   return {
     source: { provider: "utmb", url, label: "UTMB" },
@@ -427,6 +551,12 @@ const mapTraceDeTrailPreview = (url: string, traceRace: TraceDeTrailRaceData): O
     missingFields: [],
   };
   race.missingFields = buildMissingFields(race);
+  race.assessment = buildRaceAssessment(race, {
+    url: traceRace.officialSiteUrl ?? traceRace.normalizedUrl,
+    label: "Trace de Trail",
+    confidence: "high",
+    gpxUrl: traceRace.normalizedUrl,
+  });
 
   return {
     source: { provider: "tracedetrail", url, label: "Trace de Trail" },
@@ -981,9 +1111,32 @@ const hydrateGenericRaceGpx = async (candidates: GenericRaceCandidate[]) => {
     })
   );
 
-  return hydrated.map(
-    ({ sourceLabel: _sourceLabel, sourceUrl: _sourceUrl, detectedYear: _detectedYear, gpxUrl: _gpxUrl, score: _score, ...race }) => race
-  );
+  return hydrated.map(({ sourceLabel, sourceUrl, detectedYear: _detectedYear, gpxUrl, score: _score, ...race }) => {
+    const confidence: OrganizerWebsiteImportConfidence =
+      sourceLabel === "jsonld" || sourceLabel === "named-prose" || /^h[1-6]$/i.test(sourceLabel)
+        ? "high"
+        : sourceLabel.startsWith("line:")
+          ? "low"
+          : "medium";
+    const sourceLabelText =
+      sourceLabel === "jsonld"
+        ? "Données structurées"
+        : sourceLabel === "named-prose"
+          ? "Règlement ou page pratique"
+          : /^h[1-6]$/i.test(sourceLabel)
+            ? "Page dédiée au format"
+            : sourceLabel.startsWith("line:")
+              ? "Mention dans la page"
+              : "Page du site";
+
+    race.assessment = buildRaceAssessment(race, {
+      url: sourceUrl,
+      label: sourceLabelText,
+      confidence,
+      gpxUrl,
+    });
+    return race;
+  });
 };
 
 const extractGenericEventName = (pages: GenericPageCandidate[], fallback: string) => {
@@ -1109,6 +1262,18 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
       }
     }
   }
+
+  races = races.map((race) => {
+    if (race.assessment) return race;
+    return {
+      ...race,
+      assessment: buildRaceAssessment(race, {
+        url: race.externalSiteUrl ?? normalizedUrl,
+        label: "Page du site",
+        confidence: "medium",
+      }),
+    };
+  });
 
   const preview: OrganizerWebsiteImportPreview = {
     source: { provider: "generic", url: normalizedUrl, label: "Site detecte" },

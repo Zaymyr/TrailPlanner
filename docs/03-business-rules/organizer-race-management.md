@@ -164,8 +164,11 @@ That same dashboard header now also exposes `Importer depuis un site web`. The o
 - missing fields;
 - mismatch warnings against the currently claimed event;
 - explicit per-format actions: create, update, or ignore.
+- a global quality score plus an expandable field-by-field inventory showing found and missing values, estimated reliability, and the source page.
 
 This flow never creates a new `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough. Generic sites may therefore yield partial previews that still need manual completion after import.
+
+The format score is a review aid, not an automatic acceptance rule. It combines weighted information coverage (65%) with estimated source reliability (35%); name, date, distance, and D+ have double weight because they are required to create a usable format. Provider adapters and parsed GPX values are high-confidence, structured data and dedicated format/regulation sections outrank generic text, and isolated line detections remain low-confidence. Every assessed field keeps its displayed source URL. Missing values stay visible in the expanded card and continue to block creation when they are required, regardless of the aggregate score.
 
 The generic fallback now reads the landing page plus up to six prioritized same-origin pages such as `Reglement`, `Courses`, `Parcours`, programme, ravitaillement, or practical-information pages. Secondary reads run concurrently, each fetch is capped at eight seconds, and oversized HTML is truncated before parsing. The extractor scores dates from their surrounding copy so a race date outranks registration deadlines, recognizes format sections under headings from `h1` through `h6`, and understands named regulation prose such as `« Fleurinoise » d'une longueur de 18 km`. It rejects distance mentions that belong only to ravitos, barriers, age groups, prices, results, or analysis blocks; named formats also supersede anonymous `15 km` duplicates at the same distance.
 
@@ -271,6 +274,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
+- Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.
 - Keep generic website-import heuristics multi-page but bounded. The importer may inspect a few likely subpages to improve coverage, yet conflicting years or duplicate format blocks must stay visible as warnings instead of being merged silently.
 - Keep generic crawling same-origin, prioritized, size-limited, and time-bounded. Do not follow registration, social, Strava, or other external links as extra HTML pages merely because their labels mention a course.
 - Do not treat every kilometer mention as a format. Ravito distances, barriers, age categories, result archives, prices, and training-analysis blocks need a course-level signal or a named format context.

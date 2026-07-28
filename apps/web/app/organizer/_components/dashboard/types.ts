@@ -154,6 +154,28 @@ export type WebsiteImportRaceSelection = {
   targetRaceId: string | null;
 };
 
+export type WebsiteImportConfidence = "high" | "medium" | "low";
+
+export type WebsiteImportFinding = {
+  key: string;
+  label: string;
+  value: string | null;
+  required: boolean;
+  confidence: WebsiteImportConfidence | null;
+  sourceUrl: string | null;
+  sourceLabel: string | null;
+};
+
+export type WebsiteImportAssessment = {
+  score: number;
+  coverageScore: number;
+  reliabilityScore: number;
+  foundCount: number;
+  totalCount: number;
+  reliableCount: number;
+  findings: WebsiteImportFinding[];
+};
+
 export type WebsiteImportPreviewRace = {
   key: string;
   name: string;
@@ -171,6 +193,7 @@ export type WebsiteImportPreviewRace = {
   canCreate: boolean;
   hasReliableGpx: boolean;
   detectedAidStationCount: number;
+  assessment: WebsiteImportAssessment | null;
 };
 
 export type WebsiteImportPreview = {
