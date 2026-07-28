@@ -5,8 +5,6 @@ import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../../../lib/http";
 import {
-  assertEventEditionEditable,
-  assertRaceEditionEditable,
   buildSlug,
   jsonError,
   optionalTextOrNull,
@@ -443,13 +441,6 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       return jsonError("The preview is outdated. Run the analysis again before applying.", 409);
     }
 
-    const editableEdition = await assertEventEditionEditable(
-      auth.serviceConfig,
-      parsedParams.data.id,
-      parsedBody.data.selectedEditionYear ?? null
-    );
-    if (editableEdition !== true) return editableEdition.error;
-
     const previewRaceMap = new Map(preview.races.map((race) => [race.key, race]));
     const eventRaceMap = new Map((event.races ?? []).map((race) => [race.id, race]));
     const actionableSelections = parsedBody.data.raceSelections.filter((selection) => selection.mode !== "ignore");
@@ -478,8 +469,6 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       if (!previewRace) return jsonError("Incoherent preview selection.", 409);
 
       if (selection.mode === "create") {
-        const editableRace = assertRaceEditionEditable(previewRace.raceDate);
-        if (editableRace !== true) return editableRace.error;
         const result = await createRaceFromPreview(auth.serviceConfig, parsedParams.data.id, previewRace);
         createdRaces += 1;
         gpxUploads += result.gpxUploaded ? 1 : 0;
@@ -489,8 +478,6 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
       const targetRace = selection.targetRaceId ? eventRaceMap.get(selection.targetRaceId) ?? null : null;
       if (!targetRace) return jsonError("Missing target format for update.", 400);
-      const editableRace = assertRaceEditionEditable(targetRace.race_date);
-      if (editableRace !== true) return editableRace.error;
       const result = await updateRaceFromPreview(auth.serviceConfig, targetRace, previewRace);
       updatedRaces += 1;
       gpxUploads += result.gpxUploaded ? 1 : 0;

@@ -45,6 +45,8 @@ related_files:
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
+  - apps/web/app/api/organizer/events/route.ts
+  - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.test.ts
@@ -97,13 +99,13 @@ related_tables:
 
 ## Purpose
 
-This document records the organizer portal rules: users can request control of an existing event or submit a missing event as a draft, admins validate the claim, approved organizers manage formats and runner-facing details on the web, and mobile consumes only the published read-only subset through the per-format Racebook screen.
+This document records the organizer portal rules: authenticated users create their own non-live event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile consumes only the published read-only subset through the per-format Racebook screen.
 
 ## Key Concepts
 
 - Organizer account: a normal Supabase user account.
-- Claim: a user request to manage a `race_events` row, including draft non-live rows created from manual organizer submissions.
-- Event membership: approved organizer access stored in `race_event_organizers`.
+- Legacy claim: a historical user request to manage a pre-existing `race_events` row. New event creation no longer creates claims.
+- Event membership: organizer access stored in `race_event_organizers`; direct creators receive an active `owner` membership immediately.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults, including `dateRange.endDate` and `officialWebsiteUrl`; event-level `mandatoryEquipment` also stores the active weather plan as `weatherPlan = normal | cold | heat`, while each equipment item can opt into `cold` and/or `heat`. Event and race details now also store structured geocoded location objects beside the existing text fields for event location, format location, bib pickup, and start/finish access. Race details keep each course's full equipment list plus format-specific overrides or additions for the other modules, while format websites continue to live on `races.external_site_url`.
@@ -111,26 +113,19 @@ This document records the organizer portal rules: users can request control of a
 - Organizer update: manual runner-facing announcement stored in `race_event_updates` and optionally pushed to event followers.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
-## Claim and Approval Flow
+## Direct Event Creation
 
-`/organizers` lets an authenticated user search live events and create a claim with organization name, role, contact email, official site, and message. If the event is missing from the catalog, the same route can create a draft `race_events` row with `is_live = false`, then create a normal pending claim against that event id.
+`/organizers` lets an authenticated user create a new `race_events` row from a name, optional location/date, and optional official website URL. `POST /api/organizer/events` always inserts the event with `is_live = false`, then creates an active `race_event_organizers` owner membership for the same user with `claim_id = null`. If membership creation fails, the route deletes the newly created event rather than leaving an inaccessible draft.
 
-Admin review happens in the web admin "Organisateurs" tab:
+The direct-creation flow deliberately does not let a user take control of an existing catalog event. Existing claims and the admin claim queue remain available only as a legacy audit/access-management path; new `/organizers` submissions do not add claim rows and do not wait for admin approval.
 
-1. Admin approves a pending claim.
-2. The claim becomes `approved`.
-3. A `race_event_organizers` row is created or reactivated for the claim user and event.
-4. The organizer dashboard can load that event.
-
-The admin review card is an actionable queue: it lists only pending claims, while approved requests leave that queue and appear only through the active-access membership list. Rejecting a claim stores review metadata and does not grant membership. Revoking access sets `revoked_at` on the membership and blocks future organizer writes. The admin "Organisateurs" copy should stay in concise, correctly accented French for both claim and membership states.
-
-That queue now keeps access claims and yearly edition requests as two explicit review sections inside the same admin tab. When `user_profiles.full_name` or the Supabase auth email is available, the admin UI should display that organizer identity instead of only a raw `user_id`. Those secondary reads are best-effort: if yearly edition requests or organizer identity enrichment fail temporarily, or if Supabase Auth returns a blank/malformed email for one user, the admin tab should still load claims and active memberships with fallback labels instead of failing entirely.
+Revoking access still sets `revoked_at` on the membership and blocks future organizer writes. Yearly edition requests keep their existing review flow. Payment-based publication gating is intentionally deferred: direct creation and website import keep data in draft by default, but the current publication controls are not yet connected to an annual payment entitlement.
 
 ## Organizer Dashboard Rules
 
 `/organizer` is web-only in v1. It shows states for no request, pending request, rejected request, and an approved modular dashboard.
 
-Approved organizers can:
+Organizers with an active event membership can:
 
 - edit event-level name, location, date, PNG image, live state, and common `race_events.organizer_details`;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
@@ -163,11 +158,11 @@ That same dashboard header now also exposes `Importer depuis un site web`. The o
 - an editable event date, initialized from the detected date or the currently saved event date when detection is missing;
 - detected formats;
 - missing fields;
-- mismatch warnings against the currently claimed event;
+- mismatch warnings against the currently selected organizer event;
 - explicit per-format actions: create, update, or ignore.
 - a global quality score plus an expandable field-by-field inventory showing found and missing values, estimated reliability, and the source page.
 
-This flow never creates a new `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. The organizer may correct the event date in the review, but that override must be a real `YYYY-MM-DD` date, is transmitted outside the hashed scraper payload, and is applied only after the server has recomputed and validated the original preview hash plus the selected-edition edit lock. It changes only `race_events.race_date`; detected format dates remain unchanged. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough. Generic sites may therefore yield partial previews that still need manual completion after import.
+The review import route never creates another `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. When `/organizers` supplies an official URL, it first creates the draft and membership, then opens this same review against that new event. The organizer may correct the event date in the review; the override must be a real `YYYY-MM-DD` date, is transmitted outside the hashed scraper payload, and is applied only after the server has recomputed and validated the original preview hash. Website import is allowed to populate historical drafts and is therefore not blocked by the edition-age lock. It changes only `race_events.race_date`; detected format dates remain unchanged. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough.
 
 The format score is a review aid, not an automatic acceptance rule. It combines weighted information coverage (65%) with estimated source reliability (35%); name, date, distance, and D+ have double weight because they are required to create a usable format. Provider adapters and parsed GPX values are high-confidence, structured data and dedicated format/regulation sections outrank generic text, and isolated line detections remain low-confidence. Every assessed field keeps its displayed source URL. Missing values stay visible in the expanded card and continue to block creation when they are required, regardless of the aggregate score.
 
@@ -181,7 +176,7 @@ The completion shell does not repeat a local heading or helper sentence above th
 
 Equipment, bib pickup, and access are split by tab in the UI, but equipment now has a special sync rule: the event tab edits the shared subset and saving it mirrors those items into every race list; saving a race recomputes the event-level shared subset as the intersection still present across all formats. The event equipment editor also owns the active weather plan radio group (`normal`, `grand froid`, `grosse chaleur`), while each item keeps its own `cold` / `heat` toggles and required/recommended radios. Those per-item controls stay inline on the same flexible row as the label: weather toggles sit immediately to the right of the material name, the required/recommended radios stay input-height beside them whenever width allows, and removal uses a compact red close icon instead of a text button. Format equipment stays list-only: it shows the event weather plan read-only and can add/remove or retag items, but it must not redefine the active plan per format. Bib pickup is now event-only in the UI and runner preview; format-level bib JSON may still exist for compatibility reads, but the dashboard no longer edits or scores it. Access keeps the event-default / format-override model and both event access and format access now include explicit `enabledSections` toggles for parkings, navettes, route restrictions, and map link; the format tab adds the runner-specific info toggle on top. Disabled access sections are treated as intentionally complete in the dashboard score and hidden from the runner preview. The editor must not stack event and race forms in the same tab. The add-format tab can prefill a new format draft from event defaults or the previously active format, but those values become format data only when the organizer creates the new race. Event publishing and format liveness use compact live/brouillon toggles in the synthesis rows instead of duplicate checkboxes or identity-form toggles. The dashboard keeps unsaved-change state per module, gives short floating save/error feedback, and warns on `beforeunload` when a module is dirty.
 
-Organizer access is event-scoped. A claim for one event grants access to every format under that event and no other event.
+Organizer access is event-scoped. An active membership grants access to every format under that event and no other event.
 
 ## Publication and Completion Rules
 
@@ -258,13 +253,13 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not use `user_metadata` for admin claim approval or revocation checks.
 - Do not leave approved claims in the admin pending-review queue; once membership exists, the request belongs only in the active-access list.
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
-- Manual organizer claims create non-live draft events; do not treat those rows as public catalog entries until an admin or organizer publishes the event through the normal event edit flow.
+- Direct organizer creation creates non-live draft events and an immediate owner membership; do not treat those rows as public catalog entries until they are explicitly published.
 - Do not publish an event with no live, publishable format; the organizer event route rejects that state even when the event-level fields are valid.
 - Do not bulk-duplicate common event details into every existing format except for equipment, which is intentionally mirrored into each race list so one race can later remove an item and automatically shrink the event-level shared subset.
 - Do not move the active weather plan to race scope without revisiting preview, mobile Racebook, sync, and documentation rules; the current contract is one event-level plan shared by every format.
 - Do not reintroduce a separate schedule tile or format-level bib workflow without also changing completion, autosave routing, and runner-preview resolution.
 - Do not bypass the organizer GPX route when a GPX is selected during format creation; the client still has to create the race first, then import the file server-side.
-- Do not let website import create or reassign another `race_events` row. The flow enriches only the currently claimed event and formats that remain attached to it.
+- Do not let the review-stage website import create or reassign another `race_events` row. The flow enriches only the currently selected organizer event and formats that remain attached to it.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.
 - Do not infer yearly organizer grouping from `races.name`; use explicit `races.edition_group_id` and `races.series_name`.
@@ -276,7 +271,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
 - Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.
-- Do not place organizer event-date corrections inside the preview hash or trust an arbitrary client date string. Validate the explicit override server-side and apply it only after hash, membership, and edition-lock checks.
+- Do not place organizer event-date corrections inside the preview hash or trust an arbitrary client date string. Validate the explicit override server-side and apply it only after hash and membership checks.
 - Keep generic website-import heuristics multi-page but bounded. The importer may inspect a few likely subpages to improve coverage, yet conflicting years or duplicate format blocks must stay visible as warnings instead of being merged silently.
 - Keep generic crawling same-origin, prioritized, size-limited, and time-bounded. Do not follow registration, social, Strava, or other external links as extra HTML pages merely because their labels mention a course.
 - Do not treat every kilometer mention as a format. Ravito distances, barriers, age categories, result archives, prices, and training-analysis blocks need a course-level signal or a named format context.

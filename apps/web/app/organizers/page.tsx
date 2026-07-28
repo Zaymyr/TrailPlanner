@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
@@ -9,360 +9,103 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 
-type OrganizerEventSearchResult = {
-  id: string;
-  name: string;
-  location?: string | null;
-  race_date?: string | null;
-  thumbnail_url?: string | null;
-  races?: Array<{ id: string; name: string; distance_km: number }>;
-};
-
-type ClaimRow = {
-  id: string;
-  event_id: string;
-  organization_name: string;
-  status: "pending" | "approved" | "rejected";
-  reviewer_notes?: string | null;
-  race_events?: {
-    name: string;
-    location?: string | null;
-    race_date?: string | null;
-  } | null;
-};
-
-const initialClaimForm = {
-  organizationName: "",
-  roleTitle: "",
-  contactEmail: "",
-  officialSiteUrl: "",
-  message: "",
-};
-
-const initialManualEventForm = {
+const initialEventForm = {
   name: "",
   location: "",
   raceDate: "",
+  officialSiteUrl: "",
 };
 
 export default function OrganizersPage() {
   const { session, isLoading } = useVerifiedSession();
-  const [search, setSearch] = useState("");
-  const [events, setEvents] = useState<OrganizerEventSearchResult[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const [claimMode, setClaimMode] = useState<"existing" | "manual">("existing");
-  const [manualEventForm, setManualEventForm] = useState(initialManualEventForm);
-  const [claimForm, setClaimForm] = useState(initialClaimForm);
-  const [claims, setClaims] = useState<ClaimRow[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "submitting">("idle");
-  const [message, setMessage] = useState<string | null>(null);
+  const [eventForm, setEventForm] = useState(initialEventForm);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const accessToken = session?.accessToken ?? null;
-  const selectedEvent = events.find((event) => event.id === selectedEventId) ?? null;
-  const manualEventName = manualEventForm.name.trim();
-  const claimTargetName =
-    claimMode === "manual" ? manualEventName || "Ajoute le nom de la course." : selectedEvent?.name;
-
-  useEffect(() => {
-    if (session?.email && !claimForm.contactEmail) {
-      setClaimForm((current) => ({ ...current, contactEmail: session.email ?? "" }));
-    }
-  }, [claimForm.contactEmail, session?.email]);
-
-  const loadClaims = async () => {
-    if (!accessToken) return;
-    const response = await fetch("/api/organizer/claims", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: "no-store",
-    });
-    if (!response.ok) return;
-    const data = (await response.json()) as { claims?: ClaimRow[] };
-    setClaims(data.claims ?? []);
-  };
-
-  useEffect(() => {
-    void loadClaims();
-  }, [accessToken]);
-
-  const searchEvents = async () => {
-    setStatus("loading");
-    setError(null);
-    setMessage(null);
-    try {
-      const response = await fetch(`/api/organizer/events?search=${encodeURIComponent(search)}`, {
-        cache: "no-store",
-      });
-      const data = (await response.json().catch(() => null)) as {
-        events?: OrganizerEventSearchResult[];
-        message?: string;
-      } | null;
-      if (!response.ok) {
-        setError(data?.message ?? "Impossible de charger les courses.");
-        return;
-      }
-      const nextEvents = data?.events ?? [];
-      setEvents(nextEvents);
-      setSelectedEventId((current) => current ?? nextEvents[0]?.id ?? null);
-    } catch (caught) {
-      console.error("Unable to search organizer events", caught);
-      setError("Impossible de charger les courses.");
-    } finally {
-      setStatus("idle");
-    }
-  };
-
-  useEffect(() => {
-    void searchEvents();
-  }, []);
-
-  const submitClaim = async (event: FormEvent<HTMLFormElement>) => {
+  const submitEvent = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!accessToken) return;
-    if (claimMode === "existing" && !selectedEventId) return;
-    if (claimMode === "manual" && !manualEventName) {
-      setError("Ajoute le nom de la course.");
-      return;
-    }
+    if (!session?.accessToken || !eventForm.name.trim()) return;
 
-    setStatus("submitting");
+    setSubmitting(true);
     setError(null);
-    setMessage(null);
-
     try {
-      const response = await fetch("/api/organizer/claims", {
+      const response = await fetch("/api/organizer/events", {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${session.accessToken}`,
           "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          ...(claimMode === "existing"
-            ? { eventId: selectedEventId }
-            : {
-                manualEvent: {
-                  name: manualEventName,
-                  location: manualEventForm.location,
-                  raceDate: manualEventForm.raceDate,
-                },
-              }),
-          organizationName: claimForm.organizationName,
-          roleTitle: claimForm.roleTitle,
-          contactEmail: claimForm.contactEmail,
-          officialSiteUrl: claimForm.officialSiteUrl,
-          message: claimForm.message,
+          name: eventForm.name,
+          location: eventForm.location,
+          raceDate: eventForm.raceDate,
+          officialSiteUrl: eventForm.officialSiteUrl,
         }),
       });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) {
-        setError(data?.message ?? "Impossible d'envoyer la demande.");
+      const data = (await response.json().catch(() => null)) as
+        | { event?: { id: string }; message?: string }
+        | null;
+
+      if (!response.ok || !data?.event?.id) {
+        setError(data?.message ?? "Impossible de créer l'événement.");
         return;
       }
-      setClaimForm((current) => ({
-        ...initialClaimForm,
-        contactEmail: current.contactEmail,
-      }));
-      setManualEventForm(initialManualEventForm);
-      setMessage("Demande envoyée. Tu la retrouveras dans le dashboard organisateur.");
-      await loadClaims();
+
+      const destination = new URL("/organizer", window.location.origin);
+      destination.searchParams.set("eventId", data.event.id);
+      if (eventForm.officialSiteUrl.trim()) {
+        destination.searchParams.set("importUrl", eventForm.officialSiteUrl.trim());
+      }
+      window.location.assign(destination.toString());
     } catch (caught) {
-      console.error("Unable to submit organizer claim", caught);
-      setError("Impossible d'envoyer la demande.");
+      console.error("Unable to create organizer event", caught);
+      setError("Impossible de créer l'événement.");
     } finally {
-      setStatus("idle");
+      setSubmitting(false);
     }
   };
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
-      <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4">
+      <section className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+        <div className="space-y-5 lg:sticky lg:top-8">
           <p className="text-sm font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">
             Espace organisateurs
           </p>
-          <h1 className="max-w-3xl text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50 sm:text-4xl">
-            Claim une course et gère ses formats, GPX, ravitos et produits.
+          <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50 sm:text-4xl">
+            Crée ton événement, puis reconstruis ses formats depuis le site officiel.
           </h1>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground dark:text-slate-300">
-            Un compte Supabase classique suffit. Une fois la demande validée par l'admin, les modifications sont
-            publiées directement sur l'événement public.
+          <p className="max-w-xl text-sm leading-6 text-muted-foreground dark:text-slate-300">
+            La fiche est créée immédiatement en brouillon et rattachée à ton compte. Aucun claim ni validation admin
+            n&apos;est nécessaire pour commencer à la compléter.
           </p>
-          <div className="flex flex-wrap gap-3">
-            {session ? (
-              <Link href="/organizer">
-                <Button>Ouvrir le dashboard</Button>
-              </Link>
-            ) : (
-              <>
-                <Link href="/sign-in">
-                  <Button>Se connecter</Button>
-                </Link>
-                <Link href="/sign-up">
-                  <Button variant="outline">Créer un compte</Button>
-                </Link>
-              </>
-            )}
+          <div className="rounded-lg border border-brand-border bg-brand-surface p-4 text-sm leading-6 text-foreground">
+            <p className="font-semibold">Import depuis une URL</p>
+            <p className="mt-1 text-muted-foreground">
+              Après la création, l&apos;analyse du site s&apos;ouvre dans le dashboard. Tu pourras vérifier la date, les formats,
+              les données trouvées et leur fiabilité avant de les intégrer.
+            </p>
           </div>
+          {session ? (
+            <Link href="/organizer">
+              <Button variant="outline">Ouvrir mon dashboard</Button>
+            </Link>
+          ) : null}
         </div>
+
         <Card className="rounded-lg">
           <CardHeader>
-            <CardTitle>Statut de mes demandes</CardTitle>
+            <CardTitle>Ajouter une course</CardTitle>
             <CardDescription>
-              Les claims en attente restent visibles ici et dans le dashboard.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {isLoading ? (
-              <p className="text-sm text-muted-foreground">Vérification de session...</p>
-            ) : !session ? (
-              <p className="text-sm text-muted-foreground">Connecte-toi pour envoyer ou suivre une demande.</p>
-            ) : claims.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Aucune demande pour le moment.</p>
-            ) : (
-              claims.slice(0, 4).map((claim) => (
-                <div key={claim.id} className="rounded-md border border-border bg-background p-3 text-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-semibold text-foreground">
-                      {claim.race_events?.name ?? claim.organization_name}
-                    </span>
-                    <span className="rounded-full border border-border px-2 py-0.5 text-xs uppercase text-muted-foreground">
-                      {claim.status}
-                    </span>
-                  </div>
-                  {claim.reviewer_notes ? (
-                    <p className="mt-1 text-xs text-muted-foreground">{claim.reviewer_notes}</p>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
-        <Card className="rounded-lg">
-          <CardHeader>
-            <CardTitle>1. Choisir la course</CardTitle>
-            <CardDescription>Le claim porte sur l'événement, pas sur un format isolé.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
-                  claimMode === "existing"
-                    ? "border-brand bg-brand-surface text-brand"
-                    : "border-border bg-background text-muted-foreground hover:border-brand-border"
-                }`}
-                onClick={() => setClaimMode("existing")}
-              >
-                Course existante
-              </button>
-              <button
-                type="button"
-                className={`rounded-md border px-3 py-2 text-sm font-semibold transition ${
-                  claimMode === "manual"
-                    ? "border-brand bg-brand-surface text-brand"
-                    : "border-border bg-background text-muted-foreground hover:border-brand-border"
-                }`}
-                onClick={() => setClaimMode("manual")}
-              >
-                Ajout manuel
-              </button>
-            </div>
-
-            {claimMode === "existing" ? (
-              <>
-                <div className="flex gap-2">
-                  <Input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="UTMB, Saintelyon, EcoTrail..."
-                  />
-                  <Button type="button" variant="outline" onClick={searchEvents} disabled={status === "loading"}>
-                    Rechercher
-                  </Button>
-                </div>
-                <div className="max-h-[460px] space-y-2 overflow-y-auto pr-1">
-                  {events.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Aucune course trouvée.</p>
-                  ) : (
-                    events.map((event) => (
-                      <button
-                        key={event.id}
-                        type="button"
-                        className={`w-full rounded-md border p-3 text-left transition ${
-                          selectedEventId === event.id
-                            ? "border-brand bg-brand-surface text-foreground"
-                            : "border-border bg-background hover:border-brand-border"
-                        }`}
-                        onClick={() => setSelectedEventId(event.id)}
-                      >
-                        <span className="block font-semibold">{event.name}</span>
-                        <span className="block text-xs text-muted-foreground">
-                          {[event.location, event.race_date].filter(Boolean).join(" · ") || "Détails à compléter"}
-                        </span>
-                        {event.races?.length ? (
-                          <span className="mt-2 block text-xs text-muted-foreground">
-                            {event.races.length} format{event.races.length > 1 ? "s" : ""}
-                          </span>
-                        ) : null}
-                      </button>
-                    ))
-                  )}
-                </div>
-              </>
-            ) : (
-              <div className="grid gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="manualEventName">Nom de la course</Label>
-                  <Input
-                    id="manualEventName"
-                    value={manualEventForm.name}
-                    onChange={(event) => setManualEventForm((current) => ({ ...current, name: event.target.value }))}
-                    placeholder="Grand Trail des Cretes"
-                    required
-                  />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="manualEventLocation">Lieu</Label>
-                    <Input
-                      id="manualEventLocation"
-                      value={manualEventForm.location}
-                      onChange={(event) => setManualEventForm((current) => ({ ...current, location: event.target.value }))}
-                      placeholder="Annecy, Chamonix..."
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="manualEventDate">Date</Label>
-                    <Input
-                      id="manualEventDate"
-                      type="date"
-                      value={manualEventForm.raceDate}
-                      onChange={(event) => setManualEventForm((current) => ({ ...current, raceDate: event.target.value }))}
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  La course sera créée comme brouillon non public, puis rattachée à ta demande.
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-lg">
-          <CardHeader>
-            <CardTitle>2. Demander le claim</CardTitle>
-            <CardDescription>
-              {claimTargetName ?? "Sélectionne une course pour activer le formulaire."}
+              Le nom est nécessaire comme point de départ. Le lieu et la date pourront être corrigés lors de l&apos;import.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!session ? (
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>La demande est liée à ton compte. Connecte-toi ou crée un compte avant de l'envoyer.</p>
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Vérification de la session...</p>
+            ) : !session ? (
+              <div className="space-y-4 text-sm text-muted-foreground">
+                <p>Connecte-toi pour créer une course et obtenir immédiatement son accès organisateur.</p>
                 <div className="flex flex-wrap gap-2">
                   <Link href="/sign-in">
                     <Button>Se connecter</Button>
@@ -373,71 +116,69 @@ export default function OrganizersPage() {
                 </div>
               </div>
             ) : (
-              <form className="space-y-4" onSubmit={submitClaim}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="organizationName">Organisation</Label>
-                    <Input
-                      id="organizationName"
-                      value={claimForm.organizationName}
-                      onChange={(event) => setClaimForm((current) => ({ ...current, organizationName: event.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="roleTitle">Rôle</Label>
-                    <Input
-                      id="roleTitle"
-                      value={claimForm.roleTitle}
-                      onChange={(event) => setClaimForm((current) => ({ ...current, roleTitle: event.target.value }))}
-                      placeholder="Directeur de course, communication..."
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="contactEmail">Email de contact</Label>
-                    <Input
-                      id="contactEmail"
-                      type="email"
-                      value={claimForm.contactEmail}
-                      onChange={(event) => setClaimForm((current) => ({ ...current, contactEmail: event.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="officialSiteUrl">Site officiel</Label>
-                    <Input
-                      id="officialSiteUrl"
-                      type="url"
-                      value={claimForm.officialSiteUrl}
-                      onChange={(event) => setClaimForm((current) => ({ ...current, officialSiteUrl: event.target.value }))}
-                      placeholder="https://..."
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="claimMessage">Message</Label>
-                  <textarea
-                    id="claimMessage"
-                    className="min-h-[120px] w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
-                    value={claimForm.message}
-                    onChange={(event) => setClaimForm((current) => ({ ...current, message: event.target.value }))}
-                    placeholder="Lien vers une page officielle, contexte, preuve utile..."
+              <form className="space-y-5" onSubmit={submitEvent}>
+                <div className="space-y-1.5">
+                  <Label htmlFor="organizer-new-event-name">Nom de l&apos;événement</Label>
+                  <Input
+                    id="organizer-new-event-name"
+                    value={eventForm.name}
+                    onChange={(changeEvent) =>
+                      setEventForm((current) => ({ ...current, name: changeEvent.target.value }))
+                    }
+                    placeholder="Trail du fort de Tamié"
+                    required
                   />
                 </div>
-                {error ? <p className="text-sm text-red-500">{error}</p> : null}
-                {message ? <p className="text-sm text-emerald-600 dark:text-emerald-300">{message}</p> : null}
-                <Button
-                  type="submit"
-                  disabled={
-                    status === "submitting" ||
-                    (claimMode === "existing" && !selectedEventId) ||
-                    (claimMode === "manual" && !manualEventName)
-                  }
-                >
-                  {status === "submitting" ? "Envoi..." : "Envoyer la demande"}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="organizer-new-event-url">URL du site officiel</Label>
+                  <Input
+                    id="organizer-new-event-url"
+                    type="url"
+                    value={eventForm.officialSiteUrl}
+                    onChange={(changeEvent) =>
+                      setEventForm((current) => ({ ...current, officialSiteUrl: changeEvent.target.value }))
+                    }
+                    placeholder="https://www.exemple-course.fr/"
+                  />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Facultatif. Si elle est renseignée, le scraper sera proposé juste après la création.
+                  </p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="organizer-new-event-location">Lieu</Label>
+                    <Input
+                      id="organizer-new-event-location"
+                      value={eventForm.location}
+                      onChange={(changeEvent) =>
+                        setEventForm((current) => ({ ...current, location: changeEvent.target.value }))
+                      }
+                      placeholder="Annecy, Savoie..."
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="organizer-new-event-date">Date de l&apos;événement</Label>
+                    <Input
+                      id="organizer-new-event-date"
+                      type="date"
+                      value={eventForm.raceDate}
+                      onChange={(changeEvent) =>
+                        setEventForm((current) => ({ ...current, raceDate: changeEvent.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-md border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
+                  L&apos;événement et les formats importés resteront en brouillon. La règle de paiement avant publication
+                  sera ajoutée dans un second temps.
+                </div>
+
+                {error ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}
+                <Button type="submit" disabled={submitting || !eventForm.name.trim()}>
+                  {submitting ? "Création..." : "Créer et continuer"}
                 </Button>
               </form>
             )}

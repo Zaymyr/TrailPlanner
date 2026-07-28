@@ -9,6 +9,8 @@ related_files:
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
+  - apps/web/app/api/organizer/events/route.ts
+  - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
@@ -34,14 +36,14 @@ related_tables:
 
 ## Purpose
 
-`race_event_organizers` grants organizer access to a whole `race_events` row and all of its `races` formats. This is the authorization source for approved organizers.
+`race_event_organizers` grants organizer access to a whole `race_events` row and all of its `races` formats. This is the authorization source for organizer access, whether it came from a legacy approved claim or direct draft creation.
 
 ## Key Concepts
 
 - Event membership: organizer access is event-scoped, not race-row ownership.
 - Source edit access: active memberships authorize event, format, GPX, aid station service-flag, organizer JSONB detail, and station-product edits through server routes.
 - Revocation: `revoked_at` disables membership without deleting audit history.
-- Claim provenance: `claim_id` links membership back to the approved claim when available.
+- Membership provenance: `claim_id` links membership back to an approved legacy claim when available; direct creators use `claim_id = null`.
 - Public catalog preservation: claimed public races are not tied to `races.created_by`.
 
 ## Columns
@@ -52,7 +54,7 @@ related_tables:
 | `created_at` | `timestamptz` | not null, default UTC `now()` | Creation time. |
 | `event_id` | `uuid` | not null, references `race_events(id)` on delete cascade | Managed event. |
 | `user_id` | `uuid` | not null, references `auth.users(id)` on delete cascade | Organizer user. |
-| `claim_id` | `uuid` | nullable, references `race_event_claims(id)` on delete set null | Approved claim that created the membership. |
+| `claim_id` | `uuid` | nullable, references `race_event_claims(id)` on delete set null | Legacy approved claim that created the membership, or null for direct creation. |
 | `role` | `text` | not null, default `owner` | Event role label. |
 | `created_by` | `uuid` | nullable, references `auth.users(id)` on delete set null | Admin that granted access. |
 | `revoked_at` | `timestamptz` | nullable | Revocation timestamp. |
@@ -127,6 +129,7 @@ order by created_at asc;
 - JWT admin checks must use `app_metadata`, not `user_metadata`.
 - New organizer-facing fields on child source tables should continue to check active membership for the parent event.
 - Organizer dashboard JSONB fields do not change the membership model; keep using active `race_event_organizers` checks instead of field-level shortcuts.
+- `POST /api/organizer/events` creates an owner membership immediately after inserting a non-live event. If membership insertion fails, the route deletes that newly created event.
 - Common-vs-format detail splitting is an application convention, not a new authorization boundary.
 - The current organizer UI treats bib pickup as event-only, and treats format access-section toggles plus ravito start/finish timing cards as ordinary race-detail edits; all of them still rely on the same active event-membership check.
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
