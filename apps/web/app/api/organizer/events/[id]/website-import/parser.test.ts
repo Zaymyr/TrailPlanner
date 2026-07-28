@@ -65,6 +65,10 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
               <p>Ravitaillement : km11</p>
               <a href="/web/content/belle-etoile?download=true">Telecharger la trace GPX</a>
 
+              <h6>15 km &amp; 1100 D+ La Belle Etoile</h6>
+              <p>15 km - parcours panoramique</p>
+              <p>Ravitaillement : km9</p>
+
               <h6>Les 2 Savoies</h6>
               <p>25 km - 1850 D+</p>
               <p>Ravitaillement : km7, km15</p>
@@ -102,9 +106,40 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       sourceLabel: "Trace GPX",
     });
     expect(preview.event.location).toContain("73200 Mercury");
+    expect(preview.races.find((race) => race.name === "La Belle Etoile")?.aidStations.map((station) => station.distanceKm)).toEqual([
+      9, 11,
+    ]);
     expect(preview.races.find((race) => race.name === "Les 2 Savoies")?.aidStations.map((station) => station.distanceKm)).toEqual([
       7, 15,
     ]);
+  });
+
+  it("sorts consolidated formats from the highest final score", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://scores.example/") {
+        return htmlResponse(`
+          <html>
+            <head><title>Trail des Scores</title></head>
+            <body>
+              <p>Dimanche 17 mai 2026</p>
+              <h2>Format partiel</h2>
+              <p>10 km - trace à confirmer</p>
+              <h2>Format complet</h2>
+              <p>20 km - 1000 D+</p>
+              <a href="/complet.gpx">GPX</a>
+            </body>
+          </html>
+        `);
+      }
+      if (url === "https://scores.example/complet.gpx") return gpxResponse();
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://scores.example/");
+
+    expect(preview.races.map((race) => race.name)).toEqual(["Format complet", "Format partiel"]);
+    expect(preview.races[0].assessment?.score).toBeGreaterThan(preview.races[1].assessment?.score ?? 0);
   });
 
   it("prefers the current edition page when other pages describe an older year", async () => {
