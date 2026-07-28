@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-07-22
+last_verified: 2026-07-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -71,7 +71,7 @@ Summary:
 
 - A `pending` request is not a created edition yet.
 - One event cannot keep multiple pending/approved requests for the same requested start date.
-- The organizer dashboard may expose the request action only to approved event organizers.
+- The organizer dashboard may expose the request action only to approved event organizers; unrelated dashboard dialogs, including the scrollable website-import recap, do not change that edition-request gate.
 - A locked past edition does not reopen direct editing rights; organizers still request the next edition through this table instead of mutating the expired edition.
 - Admin approval is the business validation step that also clones the source-year `races`, ravitos, station-product links, and GPX files into the requested year.
 

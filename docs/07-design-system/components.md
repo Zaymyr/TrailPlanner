@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-06-25
+last_verified: 2026-07-28
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -84,7 +84,7 @@ Card subcomponents:
 `Dialog` uses a React context and `createPortal`. `DialogContent` renders only when open and includes:
 
 - full-screen overlay button;
-- centered content;
+- a viewport-scrollable portal shell with horizontally centered content;
 - backdrop blur;
 - close-on-overlay-click behavior.
 
@@ -105,6 +105,7 @@ Card subcomponents:
 - Keep primitive variants small and consistent with existing Tailwind/CSS variable names.
 - Avoid duplicating primitives or route-local components without first checking whether an existing component can be reused or extended.
 - Do not introduce a new class merge library without a real collision problem; current `cn` only joins classes.
+- Since `cn` does not merge conflicting Tailwind utilities, route-specific dialogs that replace the primitive's default `grid` layout must use an explicit priority modifier such as `!flex`; otherwise constrained inner scroll regions can be clipped.
 
 ## Related Docs
 
