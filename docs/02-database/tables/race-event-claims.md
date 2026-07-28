@@ -30,12 +30,12 @@ related_tables:
 
 ## Purpose
 
-`race_event_claims` stores organizer requests to manage a `race_events` row. The event can already exist in the live catalog, or it can be a non-live draft row created by the organizer claim route for a missing event. A claim does not grant access by itself; access starts only after an admin approves it and creates a `race_event_organizers` membership.
+`race_event_claims` stores legacy organizer requests to manage a `race_events` row. A claim does not grant access by itself; access starts only after an admin approves it and creates a `race_event_organizers` membership. New `/organizers` event creation no longer inserts this table: it creates a new non-live event and an owner membership directly.
 
 ## Key Concepts
 
 - Claim: user-submitted request for one event.
-- Manual event claim: a claim route submission that creates `race_events.is_live = false` first, then inserts the claim with that new `event_id`.
+- Legacy manual event claim: the previous claim route could create `race_events.is_live = false` first, then insert the claim with that new `event_id`.
 - Reviewer: admin user that approves or rejects the request.
 - Status: `pending`, `approved`, or `rejected`.
 - Membership handoff: approved claims are linked to `race_event_organizers`.
@@ -85,6 +85,7 @@ Summary:
 ## Business Invariants
 
 - A pending claim is not authorization.
+- Claims are retained for historical audit and existing admin workflows, but the current organizer onboarding UI does not create new claims or allow taking control of an existing catalog event.
 - One user cannot keep multiple pending/approved claims for the same event.
 - Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
 - Admin approval should create or reactivate a matching `race_event_organizers` row.

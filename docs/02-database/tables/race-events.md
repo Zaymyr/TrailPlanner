@@ -13,6 +13,8 @@ related_files:
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/route.ts
+  - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.test.ts
   - apps/web/app/api/organizer/events/[id]/website-import/parser.test.ts
@@ -50,15 +52,15 @@ related_tables:
 - Event grouping: multiple `races` can belong to one event.
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
 - Event liveness: mobile and onboarding filter on event/race live state.
-- Draft organizer event: a non-live event row created when an organizer claims a missing race.
+- Draft organizer event: a non-live event row created directly by an authenticated organizer.
 - Organizer dashboard details: nullable JSONB for event end date, official website, common equipment, common bib pickup, access, services, partners, and runner notes.
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can be published for the event and pushed to followers.
 - Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
-- Website-import target: the organizer website import route enriches the already claimed `race_events` row and must never create a different event during that review flow, even when the generic importer inspects a bounded set of prioritized same-origin pages, scores candidate dates, and merges format data before building its preview.
+- Website-import target: the organizer website import route enriches the selected organizer-owned `race_events` row and must never create a different event during that review flow, even when the generic importer inspects a bounded set of prioritized same-origin pages, scores candidate dates, and merges format data before building its preview.
 - Missing provenance: table creation must be verified outside the visible migrations.
-- Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
+- Organizer creation target: direct creators receive an active owner membership and can manage all formats under their new event immediately.
 
 ## Columns Observed From Code
 
@@ -100,7 +102,7 @@ Organizer portal writes also go through web service routes after checking `race_
 ## Business Invariants
 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
-- Event rows can also be created by the organizer claim route for missing events; those rows are inserted with `is_live = false`.
+- Event rows can also be created by `POST /api/organizer/events`; those rows are inserted with `is_live = false`, then linked to their creator through an active owner membership.
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
@@ -111,7 +113,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
 - Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page and may consolidate duplicate format candidates by normalized business name before sorting them by final quality score, but these preview choices do not create or move an event row. Missing required format values such as D+ remain explicit instead of being inferred.
 - Website-import field provenance and confidence scores are transient preview data computed by the server. They are not persisted in `race_events.organizer_details`; only organizer-confirmed event values, including `officialWebsiteUrl`, enter the row.
-- During website-import review, an organizer may explicitly replace the detected event date with another valid ISO calendar date. The server keeps that override outside the scraper hash, validates it after membership/hash/edition-lock checks, and writes it only to `race_events.race_date`; it does not rewrite child `races.race_date` values.
+- During website-import review, an organizer may explicitly replace the detected event date with another valid ISO calendar date. The server keeps that override outside the scraper hash, validates it after membership/hash checks, and writes it only to `race_events.race_date`; it does not rewrite child `races.race_date` values. Importing historical draft data is not subject to the normal edition-age edit lock.
 - Organizer event writes are now edition-aware from the dashboard: the selected edition year is passed through the event mutation flow so the server can block edits when that edition is more than 14 days in the past, even though the shared `race_events` row still lives above yearly `races` rows.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.

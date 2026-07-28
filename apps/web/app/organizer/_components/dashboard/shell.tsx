@@ -52,7 +52,7 @@ export function OrganizerSignedOutCard() {
             <Button>Se connecter</Button>
           </Link>
           <Link href="/organizers">
-            <Button variant="outline">Demander un claim</Button>
+            <Button variant="outline">Ajouter une course</Button>
           </Link>
         </CardContent>
       </Card>
@@ -66,7 +66,7 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Dashboard organisateur</CardTitle>
-          <CardDescription>Aucune course approuvée pour ce compte.</CardDescription>
+          <CardDescription>Aucune course n&apos;est encore rattachée à ce compte.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {pendingClaims.length > 0 ? (
@@ -91,10 +91,10 @@ export function OrganizerNoMembershipCard({ pendingClaims, rejectedClaims }: { p
             </div>
           ) : null}
           {pendingClaims.length === 0 && rejectedClaims.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Tu n&apos;as pas encore de demande.</p>
+            <p className="text-sm text-muted-foreground">Tu n&apos;as pas encore créé de course.</p>
           ) : null}
           <Link href="/organizers">
-            <Button>Demander un claim</Button>
+            <Button>Ajouter une course</Button>
           </Link>
         </CardContent>
       </Card>
@@ -192,7 +192,7 @@ export function OrganizerSummaryHeader({
             ))}
           </select>
           <Link href="/organizers">
-            <Button variant="outline">Nouveau claim</Button>
+            <Button variant="outline">Ajouter une course</Button>
           </Link>
           <Button type="button" variant="outline" onClick={onImportWebsite}>
             Importer depuis un site web

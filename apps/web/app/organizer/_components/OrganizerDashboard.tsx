@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -117,7 +117,13 @@ const getEditionLockState = (raceDate: string | null | undefined, now = new Date
   };
 };
 
-export function OrganizerDashboard() {
+export function OrganizerDashboard({
+  requestedEventId = null,
+  requestedImportUrl = null,
+}: {
+  requestedEventId?: string | null;
+  requestedImportUrl?: string | null;
+}) {
   const { session, isLoading } = useVerifiedSession();
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [claims, setClaims] = useState<ClaimRow[]>([]);
@@ -162,6 +168,7 @@ export function OrganizerDashboard() {
   const [websiteImportError, setWebsiteImportError] = useState<string | null>(null);
   const [websiteImportLoading, setWebsiteImportLoading] = useState(false);
   const [websiteImportApplying, setWebsiteImportApplying] = useState(false);
+  const handledWebsiteImport = useRef<string | null>(null);
 
   const accessToken = session?.accessToken ?? null;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
@@ -332,7 +339,12 @@ export function OrganizerDashboard() {
       setClaims(data?.claims ?? []);
       setEditionRequests(data?.editionRequests ?? []);
       setMemberships(nextMemberships);
-      setSelectedEventId((current) => current ?? nextMemberships[0]?.event_id ?? null);
+      setSelectedEventId((current) => {
+        if (requestedEventId && nextMemberships.some((membership) => membership.event_id === requestedEventId)) {
+          return requestedEventId;
+        }
+        return current ?? nextMemberships[0]?.event_id ?? null;
+      });
     } catch (caught) {
       console.error("Unable to load organizer data", caught);
       setError("Impossible de charger le compte organisateur.");
@@ -1245,9 +1257,9 @@ export function OrganizerDashboard() {
     setWebsiteImportOpen(true);
   };
 
-  const previewWebsiteImport = async () => {
+  const previewWebsiteImport = useCallback(async (urlOverride?: string) => {
     if (!selectedEventId || !accessToken) return;
-    const url = websiteImportUrl.trim();
+    const url = (urlOverride ?? websiteImportUrl).trim();
     if (!url) {
       setWebsiteImportError("Ajoute l'URL du site officiel avant de lancer l'analyse.");
       return;
@@ -1255,6 +1267,7 @@ export function OrganizerDashboard() {
 
     setWebsiteImportLoading(true);
     setWebsiteImportError(null);
+    setWebsiteImportUrl(url);
     try {
       const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
         method: "POST",
@@ -1290,7 +1303,18 @@ export function OrganizerDashboard() {
     } finally {
       setWebsiteImportLoading(false);
     }
-  };
+  }, [accessToken, authHeaders, eventForm.raceDate, selectedEventId, websiteImportUrl]);
+
+  useEffect(() => {
+    if (!requestedImportUrl || !requestedEventId || eventDetail?.id !== requestedEventId || !accessToken) return;
+    const bootstrapKey = `${requestedEventId}:${requestedImportUrl}`;
+    if (handledWebsiteImport.current === bootstrapKey) return;
+    handledWebsiteImport.current = bootstrapKey;
+    setWebsiteImportOpen(true);
+    setWebsiteImportEventDate(eventForm.raceDate);
+    void previewWebsiteImport(requestedImportUrl);
+    window.history.replaceState({}, "", "/organizer");
+  }, [accessToken, eventDetail?.id, eventForm.raceDate, previewWebsiteImport, requestedEventId, requestedImportUrl]);
 
   const hasApplicableWebsiteImportSelection =
     websiteImportPreview &&
@@ -1751,7 +1775,7 @@ export function OrganizerDashboard() {
           <DialogHeader className="shrink-0">
             <DialogTitle>Importer depuis le site officiel</DialogTitle>
             <DialogDescription>
-              Colle l'URL du site de la course pour recuperer un recap des informations detectees avant integration.
+              Colle l&apos;URL du site de la course pour recuperer un recap des informations detectees avant integration.
             </DialogDescription>
           </DialogHeader>
 
@@ -1787,7 +1811,7 @@ export function OrganizerDashboard() {
                       <p className="text-muted-foreground">{websiteImportPreview.event.location ?? "Lieu manquant"}</p>
                       <div className="mt-3 space-y-1">
                         <label htmlFor="organizer-website-import-event-date" className="text-xs font-medium text-foreground">
-                          Date de l'événement
+                          Date de l&apos;événement
                         </label>
                         <input
                           id="organizer-website-import-event-date"
