@@ -90,6 +90,17 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     expect(preview.races.map((race) => race.distanceKm)).toEqual([11, 15, 25]);
     expect(preview.races.map((race) => race.elevationGainM)).toEqual([500, 1100, 1850]);
     expect(preview.races.every((race) => race.hasReliableGpx)).toBe(true);
+    expect(preview.races.every((race) => (race.assessment?.score ?? 0) >= 80)).toBe(true);
+    expect(preview.races[0].assessment).toMatchObject({
+      reliabilityScore: 100,
+      foundCount: 9,
+      totalCount: 10,
+    });
+    expect(preview.races[0].assessment?.findings.find((finding) => finding.key === "gpx")).toMatchObject({
+      value: "GPX exploitable",
+      confidence: "high",
+      sourceLabel: "Trace GPX",
+    });
     expect(preview.event.location).toContain("73200 Mercury");
     expect(preview.races.find((race) => race.name === "Les 2 Savoies")?.aidStations.map((station) => station.distanceKm)).toEqual([
       7, 15,
@@ -154,6 +165,12 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     expect(preview.races.map((race) => race.name)).toEqual(["P'tite Fleurinoise", "Fleurinoise"]);
     expect(preview.races.find((race) => race.name === "P'tite Fleurinoise")?.aidStations.map((station) => station.distanceKm)).toEqual([8]);
     expect(preview.races.find((race) => race.name === "Fleurinoise")?.aidStations.map((station) => station.distanceKm)).toEqual([10, 15]);
+    expect(preview.races.every((race) => (race.assessment?.coverageScore ?? 100) < 80)).toBe(true);
+    expect(preview.races[0].assessment?.findings.find((finding) => finding.key === "elevationGainM")).toMatchObject({
+      value: null,
+      confidence: null,
+    });
+    expect(preview.races[0].assessment?.findings.find((finding) => finding.key === "aidStations")?.value).toContain("8 km");
     expect(preview.warnings.some((warning) => warning.includes("2025"))).toBe(true);
   });
 });

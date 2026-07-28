@@ -166,6 +166,7 @@ const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: Ev
       canCreate: race.missingFields.length === 0,
       hasReliableGpx: race.hasReliableGpx,
       detectedAidStationCount: race.aidStations.length,
+      assessment: race.assessment ?? null,
     };
   }),
 });

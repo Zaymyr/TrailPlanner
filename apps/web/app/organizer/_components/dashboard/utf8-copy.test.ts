@@ -26,4 +26,20 @@ describe("organizer dashboard UTF-8 copy", () => {
       expect(source).not.toContain(sequence);
     });
   });
+
+  it("keeps the website import review copy free from mojibake sequences", () => {
+    const absolutePath = resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx");
+    const source = readFileSync(absolutePath, "utf8");
+    const start = source.indexOf("<Dialog open={websiteImportOpen}");
+    const end = source.indexOf("<RunnerPreviewDialog", start);
+    const websiteImportSection = source.slice(start, end);
+
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    expect(websiteImportSection).toContain("Voir les informations trouvées");
+    expect(websiteImportSection).toContain("Fiabilité des sources");
+    forbiddenSequences.forEach((sequence) => {
+      expect(websiteImportSection).not.toContain(sequence);
+    });
+  });
 });
