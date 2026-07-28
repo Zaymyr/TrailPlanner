@@ -157,6 +157,7 @@ export function OrganizerDashboard() {
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
   const [websiteImportPreview, setWebsiteImportPreview] = useState<WebsiteImportPreview | null>(null);
+  const [websiteImportEventDate, setWebsiteImportEventDate] = useState("");
   const [websiteImportSelections, setWebsiteImportSelections] = useState<Record<string, WebsiteImportRaceSelection>>({});
   const [websiteImportError, setWebsiteImportError] = useState<string | null>(null);
   const [websiteImportLoading, setWebsiteImportLoading] = useState(false);
@@ -304,6 +305,7 @@ export function OrganizerDashboard() {
   useEffect(() => {
     if (websiteImportOpen) return;
     setWebsiteImportPreview(null);
+    setWebsiteImportEventDate("");
     setWebsiteImportSelections({});
     setWebsiteImportError(null);
     setWebsiteImportLoading(false);
@@ -1237,6 +1239,7 @@ export function OrganizerDashboard() {
   const openWebsiteImportDialog = () => {
     setWebsiteImportError(null);
     setWebsiteImportPreview(null);
+    setWebsiteImportEventDate(eventForm.raceDate);
     setWebsiteImportSelections({});
     setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
     setWebsiteImportOpen(true);
@@ -1267,6 +1270,7 @@ export function OrganizerDashboard() {
       }
 
       setWebsiteImportPreview(data.preview);
+      setWebsiteImportEventDate(data.preview.event.raceDate ?? eventForm.raceDate);
       setWebsiteImportSelections(
         Object.fromEntries(
           data.preview.races.map((race) => [
@@ -1290,9 +1294,9 @@ export function OrganizerDashboard() {
 
   const hasApplicableWebsiteImportSelection =
     websiteImportPreview &&
+    Boolean(websiteImportEventDate) &&
     (Boolean(websiteImportPreview.event.name) ||
       Boolean(websiteImportPreview.event.location) ||
-      Boolean(websiteImportPreview.event.raceDate) ||
       Boolean(websiteImportPreview.event.officialWebsiteUrl) ||
       websiteImportPreview.races.some((race) => {
         const selection = websiteImportSelections[race.key];
@@ -1321,6 +1325,7 @@ export function OrganizerDashboard() {
           action: "apply",
           url: websiteImportPreview.source.url,
           previewHash: websiteImportPreview.previewHash,
+          eventRaceDate: websiteImportEventDate || undefined,
           selectedEditionYear,
           raceSelections,
         }),
@@ -1780,7 +1785,22 @@ export function OrganizerDashboard() {
                     <div className="rounded-md border border-border/60 bg-card p-3">
                       <p className="font-medium">{websiteImportPreview.event.name ?? "Nom manquant"}</p>
                       <p className="text-muted-foreground">{websiteImportPreview.event.location ?? "Lieu manquant"}</p>
-                      <p className="text-muted-foreground">{websiteImportPreview.event.raceDate ?? "Date manquante"}</p>
+                      <div className="mt-3 space-y-1">
+                        <label htmlFor="organizer-website-import-event-date" className="text-xs font-medium text-foreground">
+                          Date de l'événement
+                        </label>
+                        <input
+                          id="organizer-website-import-event-date"
+                          type="date"
+                          required
+                          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          value={websiteImportEventDate}
+                          onChange={(event) => setWebsiteImportEventDate(event.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Date détectée : {websiteImportPreview.event.raceDate ?? "aucune"}. Modifiable avant intégration.
+                        </p>
+                      </div>
                     </div>
                     <div className="rounded-md border border-border/60 bg-card p-3 text-muted-foreground">
                       <p>{websiteImportPreview.event.officialWebsiteUrl ?? "Site officiel manquant"}</p>

@@ -38,10 +38,19 @@ const previewRequestSchema = z.object({
   url: z.string().trim().url(),
 });
 
+const isoDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const parsed = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  });
+
 const applyRequestSchema = z.object({
   action: z.literal("apply"),
   url: z.string().trim().url(),
   previewHash: z.string().trim().min(16),
+  eventRaceDate: isoDateSchema.optional(),
   selectedEditionYear: z.string().trim().optional(),
   raceSelections: z.array(raceSelectionSchema).default([]),
 });
@@ -444,17 +453,20 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     const previewRaceMap = new Map(preview.races.map((race) => [race.key, race]));
     const eventRaceMap = new Map((event.races ?? []).map((race) => [race.id, race]));
     const actionableSelections = parsedBody.data.raceSelections.filter((selection) => selection.mode !== "ignore");
+    const eventPreview = parsedBody.data.eventRaceDate
+      ? { ...preview, event: { ...preview.event, raceDate: parsedBody.data.eventRaceDate } }
+      : preview;
     const hasEventUpdate =
-      Boolean(preview.event.name?.trim()) ||
-      Boolean(preview.event.location?.trim()) ||
-      Boolean(preview.event.raceDate?.trim()) ||
-      Boolean(preview.event.officialWebsiteUrl?.trim());
+      Boolean(eventPreview.event.name?.trim()) ||
+      Boolean(eventPreview.event.location?.trim()) ||
+      Boolean(eventPreview.event.raceDate?.trim()) ||
+      Boolean(eventPreview.event.officialWebsiteUrl?.trim());
 
     if (!hasEventUpdate && actionableSelections.length === 0) {
       return jsonError("No applicable changes selected.", 400);
     }
 
-    await updateEventFromPreview(auth.serviceConfig, event, preview);
+    await updateEventFromPreview(auth.serviceConfig, event, eventPreview);
 
     let createdRaces = 0;
     let updatedRaces = 0;

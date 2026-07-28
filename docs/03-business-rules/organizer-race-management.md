@@ -160,13 +160,14 @@ Approved organizers can also publish a manual event update from the top dashboar
 That same dashboard header now also exposes `Importer depuis un site web`. The organizer pastes one course website URL, the server detects `UTMB`, `Trace de Trail`, or falls back to a generic HTML/JSON-LD extraction, and the UI shows a review-first recap with:
 
 - event-level facts and the detected official website;
+- an editable event date, initialized from the detected date or the currently saved event date when detection is missing;
 - detected formats;
 - missing fields;
 - mismatch warnings against the currently claimed event;
 - explicit per-format actions: create, update, or ignore.
 - a global quality score plus an expandable field-by-field inventory showing found and missing values, estimated reliability, and the source page.
 
-This flow never creates a new `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough. Generic sites may therefore yield partial previews that still need manual completion after import.
+This flow never creates a new `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. The organizer may correct the event date in the review, but that override must be a real `YYYY-MM-DD` date, is transmitted outside the hashed scraper payload, and is applied only after the server has recomputed and validated the original preview hash plus the selected-edition edit lock. It changes only `race_events.race_date`; detected format dates remain unchanged. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough. Generic sites may therefore yield partial previews that still need manual completion after import.
 
 The format score is a review aid, not an automatic acceptance rule. It combines weighted information coverage (65%) with estimated source reliability (35%); name, date, distance, and D+ have double weight because they are required to create a usable format. Provider adapters and parsed GPX values are high-confidence, structured data and dedicated format/regulation sections outrank generic text, and isolated line detections remain low-confidence. Every assessed field keeps its displayed source URL. Missing values stay visible in the expanded card and continue to block creation when they are required, regardless of the aggregate score.
 
@@ -275,6 +276,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
 - Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.
+- Do not place organizer event-date corrections inside the preview hash or trust an arbitrary client date string. Validate the explicit override server-side and apply it only after hash, membership, and edition-lock checks.
 - Keep generic website-import heuristics multi-page but bounded. The importer may inspect a few likely subpages to improve coverage, yet conflicting years or duplicate format blocks must stay visible as warnings instead of being merged silently.
 - Keep generic crawling same-origin, prioritized, size-limited, and time-bounded. Do not follow registration, social, Strava, or other external links as extra HTML pages merely because their labels mention a course.
 - Do not treat every kilometer mention as a format. Ravito distances, barriers, age categories, result archives, prices, and training-analysis blocks need a course-level signal or a named format context.
