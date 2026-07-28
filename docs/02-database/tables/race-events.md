@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-07-27
+last_verified: 2026-07-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -56,7 +56,7 @@ related_tables:
 - Organizer announcement source: manual `race_event_updates` rows can be published for the event and pushed to followers.
 - Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
-- Website-import target: the organizer website import route enriches the already claimed `race_events` row and must never create a different event during that review flow, even when the generic importer has to inspect multiple linked pages from the same official site before building its preview.
+- Website-import target: the organizer website import route enriches the already claimed `race_events` row and must never create a different event during that review flow, even when the generic importer inspects a bounded set of prioritized same-origin pages, scores candidate dates, and merges format data before building its preview.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer claim target: organizers claim an event, then manage all formats under it after admin approval.
 
@@ -109,6 +109,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer runner notifications are manual. One send creates one `race_event_updates` row and may trigger push notifications for followers, but normal organizer saves and publish toggles must not auto-create announcements.
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass; the longer history still comes from the dedicated updates route when a runner taps to see more.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
+- Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page, but this edition choice affects only the preview. It does not create or move an event row, and missing required format values such as D+ remain explicit instead of being inferred.
 - Organizer event writes are now edition-aware from the dashboard: the selected edition year is passed through the event mutation flow so the server can block edits when that edition is more than 14 days in the past, even though the shared `race_events` row still lives above yearly `races` rows.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
@@ -169,6 +170,7 @@ from public.races;
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Keep image upload validation in the server route; the database stores only the resulting URL.
 - Keep admin organizer review tolerant of missing yearly-edition joins: a failed `race_event_edition_requests -> race_events` read should not prevent the base event-claim review data from loading.
+- Keep generic website crawling bounded to prioritized same-origin pages. External registration, social, and activity-platform links are source references, not additional event pages to crawl into the `race_events` preview.
 
 ## Related Docs
 

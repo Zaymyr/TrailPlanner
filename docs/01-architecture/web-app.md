@@ -175,7 +175,9 @@ The organizer header now also exposes `Importer depuis un site web`. That flow p
 
 The post-analysis recap uses a viewport-bounded flex dialog: its header and validation actions stay fixed while the center review panel owns vertical scrolling. The flex display is explicitly prioritized because the shared `cn` helper concatenates utility classes and does not resolve a route-level `flex` against the dialog primitive's default `grid` class.
 
-For non-provider sites, the generic importer now aggregates a small set of likely sibling pages from the same domain, such as `Parcours` or `Reglement`, before normalizing the review payload. It deduplicates repeated format detections, keeps the recap sorted in a stable way for the dialog, and warns when another linked page seems to describe a different edition year so the organizer can arbitrate before applying.
+For non-provider sites, the generic importer explores the landing page plus at most six prioritized same-origin siblings (`Reglement`, courses/parcours, programme/horaires/ravitos, then practical information). Those secondary reads are parallel, limited to eight seconds each, and capped in HTML size. Date selection scores semantic context so the event date wins over registration deadlines. Format extraction combines JSON-LD, `h1`-`h6` sections, and named regulation prose, filters kilometer mentions from ravitos/barriers/ages/results, then merges complementary fields across pages while warning about older editions. Named formats replace anonymous same-distance duplicates.
+
+GPX detection accepts both explicit `.gpx` URLs and anchors whose visible label identifies a GPX download, allowing opaque provider paths such as Odoo `/web/content/...`. A distinct GPX can be fetched and parsed for every detected format; it may fill missing distance, D+/D-, and waypoint ravitos. The importer never guesses absent elevation data, so incomplete formats remain reviewable but cannot be created until required fields are supplied.
 
 The v1 organizer portal is web-only:
 
