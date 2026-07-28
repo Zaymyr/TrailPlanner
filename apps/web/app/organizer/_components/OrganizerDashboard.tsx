@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
@@ -118,8 +117,13 @@ const getEditionLockState = (raceDate: string | null | undefined, now = new Date
   };
 };
 
-export function OrganizerDashboard() {
-  const searchParams = useSearchParams();
+export function OrganizerDashboard({
+  requestedEventId = null,
+  requestedImportUrl = null,
+}: {
+  requestedEventId?: string | null;
+  requestedImportUrl?: string | null;
+}) {
   const { session, isLoading } = useVerifiedSession();
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [claims, setClaims] = useState<ClaimRow[]>([]);
@@ -167,8 +171,6 @@ export function OrganizerDashboard() {
   const handledWebsiteImport = useRef<string | null>(null);
 
   const accessToken = session?.accessToken ?? null;
-  const requestedEventId = searchParams.get("eventId");
-  const requestedImportUrl = searchParams.get("importUrl");
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeSeries =

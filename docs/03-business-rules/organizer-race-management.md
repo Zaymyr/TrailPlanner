@@ -115,7 +115,7 @@ This document records the organizer portal rules: authenticated users create the
 
 ## Direct Event Creation
 
-`/organizers` lets an authenticated user create a new `race_events` row from a name, optional location/date, and optional official website URL. `POST /api/organizer/events` always inserts the event with `is_live = false`, then creates an active `race_event_organizers` owner membership for the same user with `claim_id = null`. If membership creation fails, the route deletes the newly created event rather than leaving an inaccessible draft.
+`/organizers` lets an authenticated user create a new `race_events` row from a name, optional location/date, and optional official website URL. `POST /api/organizer/events` always inserts the event with `is_live = false`, then creates an active `race_event_organizers` owner membership for the same user with `claim_id = null`. If membership creation fails, the route deletes the newly created event rather than leaving an inaccessible draft. The redirect bootstrap values (`eventId` and `importUrl`) are read by the `/organizer` server page and passed as plain props to the client dashboard so production prerendering does not depend on a client `useSearchParams` bailout.
 
 The direct-creation flow deliberately does not let a user take control of an existing catalog event. Existing claims and the admin claim queue remain available only as a legacy audit/access-management path; new `/organizers` submissions do not add claim rows and do not wait for admin approval.
 
@@ -254,6 +254,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not leave approved claims in the admin pending-review queue; once membership exists, the request belongs only in the active-access list.
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Direct organizer creation creates non-live draft events and an immediate owner membership; do not treat those rows as public catalog entries until they are explicitly published.
+- Keep organizer import bootstrap query parsing in the `/organizer` server page unless the client dashboard is explicitly wrapped in Suspense; direct `useSearchParams` usage otherwise breaks the production static build.
 - Do not publish an event with no live, publishable format; the organizer event route rejects that state even when the event-level fields are valid.
 - Do not bulk-duplicate common event details into every existing format except for equipment, which is intentionally mirrored into each race list so one race can later remove an item and automatically shrink the event-level shared subset.
 - Do not move the active weather plan to race scope without revisiting preview, mobile Racebook, sync, and documentation rules; the current contract is one event-level plan shared by every format.
