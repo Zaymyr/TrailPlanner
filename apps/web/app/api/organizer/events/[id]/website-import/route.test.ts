@@ -151,6 +151,23 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
     vi.restoreAllMocks();
   });
 
+  it("rejects an invalid organizer-selected event date", async () => {
+    const response = await POST(
+      importRequest({
+        action: "apply",
+        url: "https://example.com/race",
+        previewHash: "valid-looking-preview-hash",
+        eventRaceDate: "2026-02-31",
+        selectedEditionYear: "2026",
+        raceSelections: [],
+      }),
+      { params: { id: eventId } }
+    );
+
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects stale preview hashes", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       buildJsonResponse([
@@ -179,6 +196,47 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
 
     expect(response.status).toBe(409);
     expect(payload.message).toContain("preview");
+  });
+
+  it("applies an organizer-selected event date without changing the preview hash", async () => {
+    const eventContext = [
+      {
+        id: eventId,
+        name: "Grand Trail",
+        location: "Annecy",
+        race_date: "2026-09-12",
+        organizer_details: { officialWebsiteUrl: null },
+        races: [],
+      },
+    ];
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse(eventContext));
+    const previewResponse = await POST(importRequest({ action: "preview", url: "https://example.com/race" }), {
+      params: { id: eventId },
+    });
+    const previewPayload = await previewResponse.json();
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse(eventContext))
+      .mockResolvedValueOnce(buildJsonResponse(null));
+
+    const response = await POST(
+      importRequest({
+        action: "apply",
+        url: "https://example.com/race",
+        previewHash: previewPayload.preview.previewHash,
+        eventRaceDate: "2026-09-20",
+        selectedEditionYear: "2026",
+        raceSelections: [],
+      }),
+      { params: { id: eventId } }
+    );
+
+    expect(response.status).toBe(200);
+    const eventPatch = vi
+      .mocked(fetch)
+      .mock.calls.find(([url, init]) => String(url).includes("/rest/v1/race_events?") && init?.method === "PATCH");
+    expect(eventPatch).toBeDefined();
+    expect(JSON.parse(String(eventPatch?.[1]?.body))).toMatchObject({ race_date: "2026-09-20" });
   });
 });
 
