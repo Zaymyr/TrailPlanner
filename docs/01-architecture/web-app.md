@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-07-27
+last_verified: 2026-07-28
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -172,6 +172,8 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 ### Organizer Portal
 
 The organizer header now also exposes `Importer depuis un site web`. That flow posts to `/api/organizer/events/[id]/website-import`, reuses the existing UTMB / Trace de Trail import adapters when possible, falls back to a generic HTML + JSON-LD extraction otherwise, and stays review-first: no write happens until the organizer validates the recap. The selected claimed event remains the only import target; confirmation may enrich `race_events`, update existing `races`, or create new draft `races` under that same `event_id`, but it must never create another event row or publish anything automatically.
+
+The post-analysis recap uses a viewport-bounded flex dialog: its header and validation actions stay fixed while the center review panel owns vertical scrolling. The flex display is explicitly prioritized because the shared `cn` helper concatenates utility classes and does not resolve a route-level `flex` against the dialog primitive's default `grid` class.
 
 For non-provider sites, the generic importer now aggregates a small set of likely sibling pages from the same domain, such as `Parcours` or `Reglement`, before normalizing the review payload. It deduplicates repeated format detections, keeps the recap sorted in a stable way for the dialog, and warns when another linked page seems to describe a different edition year so the organizer can arbitrate before applying.
 

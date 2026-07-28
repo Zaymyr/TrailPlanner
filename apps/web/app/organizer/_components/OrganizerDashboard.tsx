@@ -1719,8 +1719,8 @@ export function OrganizerDashboard() {
         <DialogContent
           className={
             websiteImportPreview
-              ? "flex max-h-[90vh] min-h-0 w-[min(96vw,72rem)] max-w-[72rem] flex-col overflow-hidden"
-              : "flex max-h-[85vh] min-h-0 w-[min(92vw,40rem)] max-w-[40rem] flex-col overflow-hidden"
+              ? "!my-0 !flex h-[calc(100dvh-2rem)] min-h-0 w-[min(96vw,72rem)] !max-w-[72rem] flex-col overflow-hidden sm:h-[90dvh]"
+              : "!flex max-h-[85dvh] min-h-0 w-[min(92vw,40rem)] !max-w-[40rem] flex-col overflow-hidden"
           }
         >
           <DialogHeader className="shrink-0">
@@ -1730,7 +1730,7 @@ export function OrganizerDashboard() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 touch-pan-y overflow-y-scroll overscroll-contain pr-2" tabIndex={0}>
             <div className="space-y-4 pb-2">
             <div className="space-y-1">
               <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">

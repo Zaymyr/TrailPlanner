@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-07-22
+last_verified: 2026-07-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -93,6 +93,7 @@ Summary:
 - Once that membership handoff exists, yearly edition renewals still remain review-gated through `race_event_edition_requests`; approved organizer access must not re-enable direct organizer-side edition creation.
 - The organizer dashboard, including modular JSONB detail editors, event PNG upload, format GPX preview/replacement, autosave-before-navigation, planner-style ravito cards with integrated product picker/create-product actions, yearly edition grouping through `series_name` / `edition_group_id`, and address autocomplete fields that enrich organizer location strings with optional GPS/Google metadata, is available only after the approved-claim membership handoff. Those ravito cards now also own the fixed `Départ` and `Arrivée` timing cards for the active format, keep the primary service toggles on the compact surface, place the organizer note directly below the main info grid in the expanded panel, and recompute cumulative D+ / D- automatically from the active format GPX when a ravito km changes. The top event card now summarizes progress from the event's race formats with one progress row per scope: each row places the event/race label before a flexible progress bar and the publish toggle after it, while publication itself does not change the displayed completion percentage. Approved organizers also edit equipment on one compact flexible row per item so the material name, weather toggles, status radios, and remove action stay in the same flow. Its route-local dashboard components render the shell, editors, ravito/product blocks, and preview, but the authorization gate remains the approved membership state; pending claims should not unlock event, format, station, image, GPX, product, or geocoded location edits. Inside that preview, draft formats stay hidden entirely: only live formats can appear in the organizer-facing "Formats disponibles" list or become the active runner-preview fallback.
 - The same approved-only dashboard also owns the manual `Notifier les coureurs` action. Pending or rejected claims must not unlock organizer update history, follower counts, or runner-notification sends.
+- The website-import review remains inside that approved-only dashboard boundary. Its viewport-contained scrolling changes only recap accessibility and does not weaken the membership checks on preview or apply.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes.

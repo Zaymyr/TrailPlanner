@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-07-27
+last_verified: 2026-07-28
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -169,7 +169,7 @@ This flow never creates a new `race_events` row, never publishes anything automa
 
 The generic fallback now reads the landing page plus a few likely secondary pages such as `Parcours`, `Courses`, or `Reglement` when they are linked from the same site. It merges repeated format detections, prefers the edition year explicitly described by the site when multiple years are present, and surfaces warnings when another page appears to describe a different edition. This keeps examples such as a current-year regulation page and an older parcours page reviewable without silently mixing their formats together.
 
-When that review recap is present, the import dialog should expand beyond the initial compact URL-entry width and keep its own internal vertical scroll area. Long event warnings, detected-format cards, and per-format action controls must remain reachable without relying on page-level scrolling behind the modal. The shared dialog shell also needs enough viewport overflow handling for centered modals to stay accessible on smaller screens or taller review states.
+When that review recap is present, the import dialog should expand beyond the initial compact URL-entry width and keep its own internal vertical scroll area. Its review layout has an explicit viewport-relative height, a fixed header/footer, and a `min-height: 0` flexible center panel so long event warnings, detected-format cards, and per-format action controls remain reachable with mouse, trackpad, keyboard, or touch without relying on page-level scrolling behind the modal. Because the local `cn` helper only concatenates classes, the route must explicitly prioritize its flex layout over the shared dialog's default grid layout. The shared dialog shell also keeps viewport overflow handling for smaller screens or taller modal states.
 
 The completion shell does not repeat a local heading or helper sentence above the tabs. The active tab should be visually larger and more contrasty than inactive tabs so the current scope remains obvious, and desktop event-scope tiles should stay on a single row by shrinking before wrapping.
 
@@ -270,6 +270,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
 - Keep generic website-import heuristics multi-page but bounded. The importer may inspect a few likely subpages to improve coverage, yet conflicting years or duplicate format blocks must stay visible as warnings instead of being merged silently.
+- Keep the website-import review panel on a definite viewport-relative height and explicitly prioritize its flex layout. A `max-height` plus conflicting `grid` / `flex` classes can clip the recap instead of making its center panel scroll.
 - Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
 - Keep organizer dashboard copy properly UTF-8 encoded. The event/format editor renders accented French labels directly from source strings, so mojibake like `Ã©` on tabs, dates, or image labels is a user-facing bug, not a cosmetic doc issue.
 - Keep `/api/admin/organizer-claims` resilient to secondary-read failures. Missing yearly-edition rows or unavailable organizer-identity enrichment should degrade the admin tab gracefully instead of hiding the whole review queue.
