@@ -999,6 +999,68 @@ const parseCourseCandidatesFromHeadings = (
   return races;
 };
 
+const normalizeRaceIdentityName = (value: string) =>
+  normalizeComparableName(value)
+    .replace(/\b\d{1,3}(?:[.,]\d+)?\s*km\b/g, " ")
+    .replace(/\b\d{2,5}\s*(?:m\s*)?d\+\b/g, " ")
+    .replace(/\bd\+\s*[:\-]?\s*\d{2,5}\s*m?\b/g, " ")
+    .replace(/[&+|·:()\-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandidate) => {
+  if (left.key === right.key) return true;
+  const leftIdentity = normalizeRaceIdentityName(left.name);
+  const rightIdentity = normalizeRaceIdentityName(right.name);
+  if (!leftIdentity || !rightIdentity) return false;
+  if (leftIdentity === rightIdentity) return true;
+
+  const distancesMatch =
+    left.distanceKm !== null && right.distanceKm !== null && Math.abs(left.distanceKm - right.distanceKm) <= 1;
+  if (!distancesMatch || Math.min(leftIdentity.length, rightIdentity.length) < 5) return false;
+  return leftIdentity.includes(rightIdentity) || rightIdentity.includes(leftIdentity);
+};
+
+const chooseMergedRaceName = (left: string, right: string) => {
+  const noisePattern = /\b\d{1,3}(?:[.,]\d+)?\s*km\b|\b\d{2,5}\s*(?:m\s*)?d\+\b|\bd\+\s*[:\-]?\s*\d{2,5}/i;
+  const leftHasNoise = noisePattern.test(left);
+  const rightHasNoise = noisePattern.test(right);
+  if (leftHasNoise !== rightHasNoise) return leftHasNoise ? right : left;
+  return left.length <= right.length ? left : right;
+};
+
+const mergeAidStations = (
+  left: OrganizerWebsiteImportAidStation[],
+  right: OrganizerWebsiteImportAidStation[]
+) => {
+  const byDistance = new Map<number, OrganizerWebsiteImportAidStation>();
+  for (const station of [...left, ...right]) {
+    const key = Math.round(station.distanceKm * 10);
+    const existing = byDistance.get(key);
+    if (!existing || (/^Ravitaillement \d+$/i.test(existing.name) && !/^Ravitaillement \d+$/i.test(station.name))) {
+      byDistance.set(key, station);
+    }
+  }
+  return Array.from(byDistance.values()).sort((a, b) => a.distanceKm - b.distanceKm);
+};
+
+const genericSourceRank = (sourceLabel: string) => {
+  if (sourceLabel === "jsonld" || sourceLabel === "named-prose" || /^h[1-6]$/i.test(sourceLabel)) return 3;
+  if (sourceLabel.startsWith("line:")) return 1;
+  return 2;
+};
+
+const mergeCandidateAidStations = (preferred: GenericRaceCandidate, fallback: GenericRaceCandidate) => {
+  if (preferred.aidStations.length === 0) return fallback.aidStations;
+  if (fallback.aidStations.length === 0) return preferred.aidStations;
+  const preferredRank = genericSourceRank(preferred.sourceLabel);
+  const fallbackRank = genericSourceRank(fallback.sourceLabel);
+  if (preferredRank !== fallbackRank) {
+    return preferredRank > fallbackRank ? preferred.aidStations : fallback.aidStations;
+  }
+  return mergeAidStations(preferred.aidStations, fallback.aidStations);
+};
+
 const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: string | null) => {
   const keptByKey = new Map<string, GenericRaceCandidate>();
   const warnings: string[] = [];
@@ -1026,11 +1088,12 @@ const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: 
         );
 
   for (const candidate of filteredCandidates) {
-    const existing = keptByKey.get(candidate.key);
-    if (!existing) {
+    const existingEntry = Array.from(keptByKey.entries()).find(([, existing]) => raceCandidatesMatch(existing, candidate));
+    if (!existingEntry) {
       keptByKey.set(candidate.key, candidate);
       continue;
     }
+    const [existingKey, existing] = existingEntry;
 
     const hasConflict =
       (existing.distanceKm !== null && candidate.distanceKm !== null && existing.distanceKm !== candidate.distanceKm) ||
@@ -1043,8 +1106,11 @@ const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: 
 
     const preferred = candidate.score > existing.score ? candidate : existing;
     const fallback = preferred === candidate ? existing : candidate;
+    const mergedName = chooseMergedRaceName(preferred.name, fallback.name);
     const mergedRace: GenericRaceCandidate = {
       ...preferred,
+      name: mergedName,
+      seriesName: mergedName,
       raceDate: preferred.raceDate ?? fallback.raceDate,
       locationText: preferred.locationText ?? fallback.locationText,
       distanceKm: preferred.distanceKm ?? fallback.distanceKm,
@@ -1052,16 +1118,17 @@ const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: 
       elevationLossM: preferred.elevationLossM ?? fallback.elevationLossM,
       externalSiteUrl: preferred.externalSiteUrl ?? fallback.externalSiteUrl,
       thumbnailUrl: preferred.thumbnailUrl ?? fallback.thumbnailUrl,
-      aidStations: preferred.aidStations.length > 0 ? preferred.aidStations : fallback.aidStations,
+      aidStations: mergeCandidateAidStations(preferred, fallback),
       gpxContent: preferred.gpxContent ?? fallback.gpxContent,
       gpxStorageLabel: preferred.gpxStorageLabel ?? fallback.gpxStorageLabel,
       gpxUrl: preferred.gpxUrl ?? fallback.gpxUrl,
       hasReliableGpx: preferred.hasReliableGpx || fallback.hasReliableGpx,
-      score: Math.max(preferred.score, fallback.score),
+      score: 0,
       missingFields: [],
     };
     mergedRace.missingFields = buildMissingFields(mergedRace);
-    keptByKey.set(candidate.key, mergedRace);
+    mergedRace.score = scoreGenericRaceCandidate(mergedRace, mergedRace.sourceLabel);
+    keptByKey.set(existingKey, mergedRace);
   }
 
   if (preferredYear && droppedYears.size > 0) {
@@ -1263,17 +1330,25 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
     }
   }
 
-  races = races.map((race) => {
-    if (race.assessment) return race;
-    return {
-      ...race,
-      assessment: buildRaceAssessment(race, {
-        url: race.externalSiteUrl ?? normalizedUrl,
-        label: "Page du site",
-        confidence: "medium",
-      }),
-    };
-  });
+  races = races
+    .map((race) => {
+      if (race.assessment) return race;
+      return {
+        ...race,
+        assessment: buildRaceAssessment(race, {
+          url: race.externalSiteUrl ?? normalizedUrl,
+          label: "Page du site",
+          confidence: "medium",
+        }),
+      };
+    })
+    .sort((left, right) => {
+      const scoreDifference = (right.assessment?.score ?? 0) - (left.assessment?.score ?? 0);
+      if (scoreDifference !== 0) return scoreDifference;
+      const coverageDifference = (right.assessment?.coverageScore ?? 0) - (left.assessment?.coverageScore ?? 0);
+      if (coverageDifference !== 0) return coverageDifference;
+      return 0;
+    });
 
   const preview: OrganizerWebsiteImportPreview = {
     source: { provider: "generic", url: normalizedUrl, label: "Site detecte" },
