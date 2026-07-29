@@ -307,7 +307,9 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
       race_date: "2027-09-12",
       series_name: "42K",
       is_live: false,
+      gpx_storage_path: null,
     });
+    expect(JSON.parse(String(raceInsert?.[1]?.body)).gpx_path).toMatch(/^organizer\/11111111-1111-1111-1111-111111111111\/.+\.gpx$/);
   });
 });
 
