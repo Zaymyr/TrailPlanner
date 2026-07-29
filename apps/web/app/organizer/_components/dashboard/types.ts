@@ -49,6 +49,14 @@ export type EditionRequestRow = {
   } | null;
 };
 
+export type PublicationRequestRow = {
+  id: string;
+  event_id: string;
+  status: "pending" | "approved" | "rejected";
+  reviewer_notes?: string | null;
+  created_at: string;
+};
+
 export type RaceFormat = {
   id: string;
   edition_group_id: string;

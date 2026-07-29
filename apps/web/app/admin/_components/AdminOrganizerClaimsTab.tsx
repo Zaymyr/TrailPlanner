@@ -67,6 +67,20 @@ type OrganizerEditionRequest = {
   } | null;
 };
 
+type OrganizerPublicationRequest = {
+  id: string;
+  created_at: string;
+  user_id: string;
+  event_id: string;
+  status: "pending" | "approved" | "rejected";
+  reviewer_notes?: string | null;
+  race_events?: {
+    name: string;
+    location?: string | null;
+    race_date?: string | null;
+  } | null;
+};
+
 type Props = {
   accessToken: string | null;
 };
@@ -74,9 +88,11 @@ type Props = {
 export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [claims, setClaims] = useState<OrganizerClaim[]>([]);
   const [editionRequests, setEditionRequests] = useState<OrganizerEditionRequest[]>([]);
+  const [publicationRequests, setPublicationRequests] = useState<OrganizerPublicationRequest[]>([]);
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
   const [notesByClaim, setNotesByClaim] = useState<Record<string, string>>({});
   const [notesByEditionRequest, setNotesByEditionRequest] = useState<Record<string, string>>({});
+  const [notesByPublicationRequest, setNotesByPublicationRequest] = useState<Record<string, string>>({});
   const [revokeReasonByMembership, setRevokeReasonByMembership] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "saving">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -87,30 +103,41 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     rejected: "Refuse",
   };
 
-  const pendingRequestCount = claims.length + editionRequests.length;
+  const pendingRequestCount = claims.length + publicationRequests.length;
 
   const load = async () => {
     if (!accessToken) return;
     setStatus("loading");
     setError(null);
     try {
-      const response = await fetch("/api/admin/organizer-claims", {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        cache: "no-store",
-      });
+      const [response, publicationResponse] = await Promise.all([
+        fetch("/api/admin/organizer-claims", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }),
+        fetch("/api/admin/event-publication-requests", {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+        }),
+      ]);
       const data = (await response.json().catch(() => null)) as {
         claims?: OrganizerClaim[];
         editionRequests?: OrganizerEditionRequest[];
         memberships?: OrganizerMembership[];
         message?: string;
       } | null;
-      if (!response.ok) {
-        setError(data?.message ?? "Unable to load organizer claims.");
+      const publicationData = (await publicationResponse.json().catch(() => null)) as {
+        publicationRequests?: OrganizerPublicationRequest[];
+        message?: string;
+      } | null;
+      if (!response.ok || !publicationResponse.ok) {
+        setError(data?.message ?? publicationData?.message ?? "Unable to load organizer requests.");
         return;
       }
       setClaims(data?.claims ?? []);
       setEditionRequests(data?.editionRequests ?? []);
       setMemberships(data?.memberships ?? []);
+      setPublicationRequests(publicationData?.publicationRequests ?? []);
     } catch (caught) {
       console.error("Unable to load organizer claims", caught);
       setError("Unable to load organizer claims.");
@@ -150,6 +177,31 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
+  const reviewPublication = async (requestId: string, reviewStatus: "approved" | "rejected") => {
+    if (!accessToken) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/event-publication-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          requestId,
+          status: reviewStatus,
+          reviewerNotes: notesByPublicationRequest[requestId] ?? "",
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        setError(data?.message ?? "Unable to review publication request.");
+        return;
+      }
+      await load();
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   return (
     <div className="space-y-5">
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -157,7 +209,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Revue en attente</CardTitle>
-          <CardDescription>{pendingRequestCount} demande(s) a traiter entre les claims d'acces et les nouvelles editions.</CardDescription>
+          <CardDescription>{pendingRequestCount} demande(s) a traiter pour les acces historiques et les publications.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {status === "loading" ? <p className="text-sm text-muted-foreground">Chargement...</p> : null}
@@ -167,7 +219,55 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             <>
               <section className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="text-sm font-semibold text-foreground">Claims d'acces</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Demandes de publication</h3>
+                  <span className="text-xs text-muted-foreground">{publicationRequests.length} en attente</span>
+                </div>
+                {publicationRequests.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucune publication en attente.</p>
+                ) : (
+                  publicationRequests.map((publicationRequest) => (
+                    <div key={publicationRequest.id} className="rounded-md border border-amber-300 bg-amber-50/40 p-4">
+                      <p className="font-semibold text-foreground">
+                        {publicationRequest.race_events?.name ?? publicationRequest.event_id}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Demandeur {publicationRequest.user_id} · {publicationRequest.race_events?.location ?? "Lieu non renseigné"}
+                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+                        <Input
+                          value={notesByPublicationRequest[publicationRequest.id] ?? ""}
+                          onChange={(event) =>
+                            setNotesByPublicationRequest((current) => ({
+                              ...current,
+                              [publicationRequest.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Note de validation"
+                        />
+                        <Button
+                          type="button"
+                          disabled={status === "saving"}
+                          onClick={() => reviewPublication(publicationRequest.id, "approved")}
+                        >
+                          Mettre en ligne
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={status === "saving"}
+                          onClick={() => reviewPublication(publicationRequest.id, "rejected")}
+                        >
+                          Refuser
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </section>
+
+              <section className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-foreground">Claims d&apos;acces</h3>
                   <span className="text-xs text-muted-foreground">{claims.length} en attente</span>
                 </div>
                 {claims.length === 0 ? (
@@ -220,13 +320,13 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                 )}
               </section>
 
-              <section className="space-y-3 border-t border-border/60 pt-4">
+              {editionRequests.length > 0 ? <section className="space-y-3 border-t border-border/60 pt-4">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-foreground">Nouvelles editions</h3>
                   <span className="text-xs text-muted-foreground">{editionRequests.length} en attente</span>
                 </div>
                 {editionRequests.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Aucune demande d'edition en attente.</p>
+                  <p className="text-sm text-muted-foreground">Aucune demande d&apos;edition en attente.</p>
                 ) : (
                   editionRequests.map((editionRequest) => (
                     <div key={editionRequest.id} className="rounded-md border border-border bg-background p-4">
@@ -279,7 +379,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     </div>
                   ))
                 )}
-              </section>
+              </section> : null}
             </>
           )}
         </CardContent>

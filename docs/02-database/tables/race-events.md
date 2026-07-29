@@ -8,6 +8,7 @@ related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
@@ -21,6 +22,9 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
+  - apps/web/app/api/organizer/publication-requests/route.ts
+  - apps/web/app/api/admin/event-publication-requests/route.ts
+  - apps/web/lib/organizer-publication.ts
   - apps/web/app/api/race-favorites/route.ts
   - apps/web/app/api/race-events/[id]/updates/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -36,6 +40,7 @@ related_tables:
   - race_events
   - race_event_claims
   - race_event_organizers
+  - race_event_publication_requests
   - race_event_updates
   - races
   - user_favorite_race_events
@@ -108,7 +113,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Organizer yearly editions still live on `races`, not on `race_events`. They are grouped per format through `races.edition_group_id` and `races.series_name` while staying children of the same event.
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
-- Organizer runner notifications are manual. One send creates one `race_event_updates` row and may trigger push notifications for followers, but normal organizer saves and publish toggles must not auto-create announcements.
+- Organizer runner notifications are manual. Saves and publication review must not auto-create announcements.
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass; the longer history still comes from the dedicated updates route when a runner taps to see more.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
 - Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page and may consolidate duplicate format candidates by normalized business name before sorting them by final quality score, but these preview choices do not create or move an event row. Missing required format values such as D+ remain explicit instead of being inferred.
@@ -164,11 +169,11 @@ from public.races;
 - Code paths are real even though migration provenance is incomplete.
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
-- Manual organizer draft events are not public catalog rows until their `is_live` state is explicitly changed.
+- Manual organizer draft events are not public catalog rows until an admin approves a publication request.
 - Keep favorites and organizer updates on `race_events`. The push deep link and mobile catalog sheet both target the event id, not a specific format id.
 - Keep the event-level catalog query narrow even with update previews: mobile should embed only the short recent history needed for instant sheet rendering, not the full announcement archive for every event.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
-- Publishing from the organizer route requires event name, location, start date, end date, and at least one live publishable format; event-level fields alone are not enough.
+- Organizer event/race mutation routes cannot set live state. A publication request requires event name, location, start date, end date, and at least one complete format; admin approval rechecks those fields and atomically publishes the event plus complete formats.
 - Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
 - Do not store per-format equipment, dossard, or access differences on the event row.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.

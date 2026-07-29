@@ -6,8 +6,8 @@ import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
 import { buildEditionYearOptions, formatEventDateRange, getRaceEditionYearLabel, getRaceEditionYearValue, groupRacesBySeries } from "./helpers";
-import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
-import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
+import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RaceFormat } from "./types";
+import { LevelBadge, StatusBadge } from "./controls";
 
 const getProgressTone = (score: number) => {
   if (score < 20) {
@@ -103,6 +103,7 @@ export function OrganizerSummaryHeader({
   selectedEditionYear,
   newEditionDate,
   editionRequestState,
+  publicationRequestState,
   onSelectedEventChange,
   onSelectedEditionYearChange,
   onEditionDateChange,
@@ -114,8 +115,7 @@ export function OrganizerSummaryHeader({
   onSaveAll,
   onPreview,
   onNotifyFollowers,
-  onTogglePublish,
-  onToggleRacePublish,
+  onRequestPublication,
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
@@ -125,6 +125,7 @@ export function OrganizerSummaryHeader({
   selectedEditionYear: string;
   newEditionDate: string;
   editionRequestState: EditionRequestRow | null;
+  publicationRequestState: PublicationRequestRow | null;
   onSelectedEventChange: (eventId: string) => void;
   onSelectedEditionYearChange: (year: string) => void;
   onEditionDateChange: (value: string) => void;
@@ -136,8 +137,7 @@ export function OrganizerSummaryHeader({
   onSaveAll: () => void;
   onPreview: () => void;
   onNotifyFollowers: () => void;
-  onTogglePublish: () => void;
-  onToggleRacePublish: (raceId: string, nextIsLive: boolean) => void;
+  onRequestPublication: () => void;
 }) {
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
@@ -156,6 +156,9 @@ export function OrganizerSummaryHeader({
     };
   });
   const isLive = event?.is_live !== false;
+  const hasDraftFormats = raceRows.some((race) => race.activeEdition && !race.activeEdition.is_live);
+  const publicationPending = publicationRequestState?.status === "pending";
+  const canRequestPublication = !publicationPending && (!isLive || hasDraftFormats);
   const dateLabel = formatEventDateRange(event);
 
   return (
@@ -230,13 +233,13 @@ export function OrganizerSummaryHeader({
                 />
               </div>
               <Button type="button" variant="outline" onClick={onRequestEdition} disabled={status !== "idle"}>
-                Demander la validation
+                Créer l&apos;édition
               </Button>
             </div>
             <div className="mt-2 text-xs text-muted-foreground">
               {editionRequestState
                 ? `Demande ${editionRequestState.status} pour le ${editionRequestState.requested_start_date}.`
-                : "Toute nouvelle edition passe d'abord par une validation admin."}
+                : "La nouvelle edition sera creee directement en brouillon."}
             </div>
           </div>
         ) : null}
@@ -245,7 +248,9 @@ export function OrganizerSummaryHeader({
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </span>
           <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
-          <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
+          <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", isLive ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-border bg-muted text-muted-foreground")}>
+            {isLive ? "Publié" : "Brouillon"}
+          </span>
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => (
@@ -258,11 +263,9 @@ export function OrganizerSummaryHeader({
                 {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
               </span>
               <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
-              <LiveToggle
-                checked={race.activeEdition?.is_live ?? false}
-                disabled={status === "saving"}
-                onChange={() => race.activeEdition && onToggleRacePublish(race.activeEdition.id, !race.activeEdition.is_live)}
-              />
+              <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", race.activeEdition?.is_live ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-border bg-muted text-muted-foreground")}>
+                {race.activeEdition?.is_live ? "Publié" : "Brouillon"}
+              </span>
             </div>
           ))
         ) : (
@@ -271,6 +274,16 @@ export function OrganizerSummaryHeader({
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
+        {publicationPending ? (
+          <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+            Publication en attente de validation admin
+          </span>
+        ) : null}
+        {canRequestPublication ? (
+          <Button type="button" onClick={onRequestPublication} disabled={status !== "idle"}>
+            Demander la publication
+          </Button>
+        ) : null}
         <Button type="button" onClick={onPreview} variant="outline">
           Prévisualiser côté coureur
         </Button>

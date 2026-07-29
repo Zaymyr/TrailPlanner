@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-07-21
+last_verified: 2026-07-29
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -25,6 +25,7 @@ related_tables:
   - race_events
   - race_event_claims
   - race_event_edition_requests
+  - race_event_publication_requests
   - race_event_organizers
   - race_event_updates
   - products
@@ -123,7 +124,7 @@ Current code treats `race_events` as a parent/grouping table for `races`:
 - mobile catalog groups races by `race_events`.
 - mobile favorites and organizer update notifications are event-scoped on `race_events`.
 - organizer claims reference `race_events(id)`.
-- organizer edition requests reference `race_events(id)`.
+- legacy organizer edition requests and current publication requests reference `race_events(id)`.
 - organizer memberships reference `race_events(id)` and grant access to all `races` under the event.
 
 <!-- TODO: verify with maintainer: visible migrations only show supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql altering race_events.thumbnail_url; no create-table migration for race_events was found in this repo. -->

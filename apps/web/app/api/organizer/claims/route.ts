@@ -103,6 +103,14 @@ const editionRequestRowSchema = z.object({
     .optional(),
 });
 
+const publicationRequestRowSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string(),
+  event_id: z.string().uuid(),
+  status: z.enum(["pending", "approved", "rejected"]),
+  reviewer_notes: z.string().nullable().optional(),
+});
+
 const createdEventRowSchema = z.object({ id: z.string().uuid() });
 
 async function deleteDraftEvent(auth: Awaited<ReturnType<typeof requireOrganizerAuth>>, eventId: string | null) {
@@ -124,7 +132,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [claimsResponse, membershipsResponse, editionRequestsResponse] = await Promise.all([
+  const [claimsResponse, membershipsResponse, editionRequestsResponse, publicationRequestsResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?user_id=eq.${auth.user.id}&select=id,created_at,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewer_notes,reviewed_at,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`,
       {
@@ -146,13 +154,21 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }
     ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?user_id=eq.${auth.user.id}&select=id,created_at,event_id,status,reviewer_notes&order=created_at.desc`,
+      {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }
+    ),
   ]);
 
-  if (!claimsResponse.ok || !membershipsResponse.ok || !editionRequestsResponse.ok) {
+  if (!claimsResponse.ok || !membershipsResponse.ok || !editionRequestsResponse.ok || !publicationRequestsResponse.ok) {
     console.error("Unable to load organizer claims", {
       claims: claimsResponse.ok ? null : await claimsResponse.text(),
       memberships: membershipsResponse.ok ? null : await membershipsResponse.text(),
       editionRequests: editionRequestsResponse.ok ? null : await editionRequestsResponse.text(),
+      publicationRequests: publicationRequestsResponse.ok ? null : await publicationRequestsResponse.text(),
     });
     return jsonError("Unable to load organizer data.", 502);
   }
@@ -160,8 +176,9 @@ export async function GET(request: NextRequest) {
   const claims = z.array(claimRowSchema).parse(await claimsResponse.json());
   const memberships = z.array(membershipRowSchema).parse(await membershipsResponse.json());
   const editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
+  const publicationRequests = z.array(publicationRequestRowSchema).parse(await publicationRequestsResponse.json());
 
-  return withSecurityHeaders(NextResponse.json({ claims, memberships, editionRequests }));
+  return withSecurityHeaders(NextResponse.json({ claims, memberships, editionRequests, publicationRequests }));
 }
 
 export async function POST(request: NextRequest) {
