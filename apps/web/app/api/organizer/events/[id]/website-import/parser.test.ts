@@ -137,7 +137,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
               <p>Dimanche 17 mai 2026</p>
               <h2>Format partiel</h2>
               <p>10 km - trace à confirmer</p>
-              <h2>Format complet</h2>
+              <h2>Course : La Grande Traversée — 20 km · 1000 D+</h2>
               <p>20 km - 1000 D+</p>
               <a href="/complet.gpx">GPX</a>
             </body>
@@ -152,7 +152,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       formatUrls: ["https://scores.example/formats"],
     });
 
-    expect(preview.races.map((race) => race.name)).toEqual(["Format complet", "Format partiel"]);
+    expect(preview.races.map((race) => race.name)).toEqual(["La Grande Traversée", "10 km"]);
     expect(preview.races[0].assessment?.score).toBeGreaterThan(preview.races[1].assessment?.score ?? 0);
   });
 
