@@ -618,7 +618,9 @@ const extractLocationFromEvent = (event: JsonLdRecord) => {
 
 const buildGenericRaceFromEvent = (event: JsonLdRecord, index: number, eventSiteUrl: string | null, eventImage: string | null): OrganizerWebsiteImportRace => {
   const description = stripHtml(toNonEmptyString(event.description));
-  const name = toNonEmptyString(event.name) ?? `Format ${index + 1}`;
+  const rawName = toNonEmptyString(event.name) ?? `Format ${index + 1}`;
+  const distanceKm = parseDistanceKm(event.name, description);
+  const name = formatRaceDisplayName(rawName, distanceKm);
   const externalSiteUrl = pickFirst(absoluteUrl(eventSiteUrl ?? "", toNonEmptyString(event.url)), eventSiteUrl);
   const race: OrganizerWebsiteImportRace = {
     key: `race:${index}:${normalizeComparableName(name)}`,
@@ -626,7 +628,7 @@ const buildGenericRaceFromEvent = (event: JsonLdRecord, index: number, eventSite
     seriesName: name,
     raceDate: normalizeDate(event.startDate),
     locationText: extractLocationFromEvent(event),
-    distanceKm: parseDistanceKm(event.name, description),
+    distanceKm,
     elevationGainM: parseElevationMeters(event.name, description),
     elevationLossM: null,
     externalSiteUrl,
@@ -649,6 +651,23 @@ const sanitizeRaceName = (value: string | null) => {
   if (cleaned.length > 80) return null;
   if (/^(les parcours|les courses|parcours|courses?|reglement|r[eè]glement|infos? pratiques?|article\s+\d+.*)$/i.test(cleaned)) return null;
   return cleaned;
+};
+
+const formatRaceDisplayName = (value: string, distanceKm: number | null) => {
+  const withoutPrefix = value.replace(/^(?:format|course|parcours|[eé]preuve)\s*[:\-–—|]\s*/i, "").trim();
+  const withoutMetricSuffix = withoutPrefix
+    .replace(
+      /\s*(?:[-–—|·:]\s*)?(?:\d{1,3}(?:[.,]\d+)?\s*km|(?:\d{2,5}\s*m?\s*)?d\+|d\+\s*[:\-]?\s*\d{2,5}\s*m?)(?:\s*(?:[-–—|·:]\s*)?(?:\d{1,3}(?:[.,]\d+)?\s*km|(?:\d{2,5}\s*m?\s*)?d\+|d\+\s*[:\-]?\s*\d{2,5}\s*m?))*\s*$/i,
+      ""
+    )
+    .trim();
+  const genericName = /^(?:format|course|parcours|[eé]preuve|trail)(?:\s+(?:complet|partiel|long|court))?$/i.test(withoutMetricSuffix);
+
+  if ((!withoutMetricSuffix || genericName) && distanceKm !== null) {
+    return `${Number(distanceKm.toFixed(2))} km`;
+  }
+
+  return withoutMetricSuffix || value;
 };
 
 const scoreGenericRaceCandidate = (race: OrganizerWebsiteImportRace, sourceLabel: string) =>
@@ -859,9 +878,10 @@ const parseCourseCandidatesFromNamedProse = (
     /[«“"]\s*([^»”"]{2,80})\s*[»”"]\s*(?:d['’]une\s+longueur\s+de|d['’]une\s+distance\s+de|[:\-–])?[^.;\n]{0,45}?(\d{1,3}(?:[.,]\d+)?)\s*km/gi;
 
   for (const match of page.text.matchAll(namedDistancePattern)) {
-    const name = sanitizeRaceName(match[1]);
+    const rawName = sanitizeRaceName(match[1]);
     const distanceKm = toFiniteNumber(match[2]);
-    if (!name || distanceKm === null || distanceKm <= 0) continue;
+    if (!rawName || distanceKm === null || distanceKm <= 0) continue;
+    const name = formatRaceDisplayName(rawName, distanceKm);
     const start = Math.max(0, (match.index ?? 0) - 120);
     const end = Math.min(page.text.length, (match.index ?? 0) + match[0].length + 220);
     const context = page.text.slice(start, end);
@@ -934,7 +954,7 @@ const parseCourseCandidatesFromLines = (
       ) {
         namePrefix = sanitizeRaceName(previousLine);
       }
-      const name = namePrefix ?? `${distanceKm} km`;
+      const name = namePrefix ? formatRaceDisplayName(namePrefix, distanceKm) : `${distanceKm} km`;
       const key = namePrefix ? `race:${normalizeComparableName(name)}` : `race:distance:${distanceKm}`;
       races.push(
         buildGenericRaceCandidate({
@@ -970,15 +990,16 @@ const parseCourseCandidatesFromHeadings = (
 
   for (let index = 0; index < matches.length; index += 1) {
     const match = matches[index];
-    const name = sanitizeRaceName(match[2]);
-    if (!name) continue;
+    const rawName = sanitizeRaceName(match[2]);
+    if (!rawName) continue;
 
     const sectionStart = match.index ?? 0;
     const nextStart = matches[index + 1]?.index ?? page.html.length;
     const sectionHtml = page.html.slice(sectionStart, nextStart);
     const sectionText = toPlainText(sectionHtml);
-    const distanceKm = parseDistanceKm(sectionText, name);
+    const distanceKm = parseDistanceKm(sectionText, rawName);
     if (distanceKm === null) continue;
+    const name = formatRaceDisplayName(rawName, distanceKm);
 
     const gpxUrl = findGpxUrls(sectionHtml, page.url)[0] ?? null;
 
