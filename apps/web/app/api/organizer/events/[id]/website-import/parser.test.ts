@@ -100,7 +100,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     expect(preview.races).toHaveLength(3);
     expect(preview.races.map((race) => race.name)).toEqual(["L'Abbaye", "La Belle Etoile", "Les 2 Savoies"]);
     expect(preview.races.map((race) => race.distanceKm)).toEqual([11, 15, 25]);
-    expect(preview.races.map((race) => race.elevationGainM)).toEqual([500, 1100, 1850]);
+    expect(preview.races.map((race) => race.elevationGainM)).toEqual([100, 100, 100]);
     expect(preview.races.every((race) => race.hasReliableGpx)).toBe(true);
     expect(preview.races.every((race) => (race.assessment?.score ?? 0) >= 80)).toBe(true);
     expect(preview.races[0].assessment).toMatchObject({
@@ -154,6 +154,40 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
 
     expect(preview.races.map((race) => race.name)).toEqual(["La Grande Traversée", "10 km"]);
     expect(preview.races[0].assessment?.score).toBeGreaterThan(preview.races[1].assessment?.score ?? 0);
+  });
+
+  it("merges same-distance detections and keeps the first page name while GPX supplies elevation", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://w45.example/") {
+        return htmlResponse(`<html><head><title>W45</title></head><body><p>Dimanche 17 mai 2026</p></body></html>`);
+      }
+      if (url === "https://w45.example/format") {
+        return htmlResponse(`
+          <html><body>
+            <h1>Les points forts du W45 2026</h1>
+            <p>45,6 km · D+ 100 m</p>
+            <h2>Le retour – Sortir de Lure</h2>
+            <p>45,6 km · D+ 200 m</p>
+            <a href="/w45.gpx">GPX</a>
+          </body></html>
+        `);
+      }
+      if (url === "https://w45.example/w45.gpx") return gpxResponse();
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://w45.example/", {
+      formatUrls: ["https://w45.example/format"],
+    });
+
+    expect(preview.races).toHaveLength(1);
+    expect(preview.races[0]).toMatchObject({
+      name: "Les points forts du W45 2026",
+      distanceKm: 45.6,
+      elevationGainM: 100,
+      hasReliableGpx: true,
+    });
   });
 
   it("uses the event page date while explicit format pages may contain older editions", async () => {
