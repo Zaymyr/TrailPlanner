@@ -382,6 +382,8 @@ const createRaceFromPreview = async (
 
   const raceId = randomUUID();
   const gpxStoragePath = race.gpxContent ? await uploadRaceGpx(serviceConfig, eventId, raceId, race) : null;
+  // `gpx_path` is a legacy required column, while `gpx_storage_path` accurately signals whether a GPX was imported.
+  const legacyGpxPath = gpxStoragePath ?? `organizer/${eventId}/${raceId}.gpx`;
   const insertResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/races`, {
     method: "POST",
     headers: {
@@ -402,7 +404,7 @@ const createRaceFromPreview = async (
       location_text: race.locationText,
       external_site_url: race.externalSiteUrl,
       thumbnail_url: race.thumbnailUrl,
-      gpx_path: gpxStoragePath,
+      gpx_path: legacyGpxPath,
       gpx_hash: gpxStoragePath ? `website-import:${raceId}` : `manual:${raceId}`,
       gpx_storage_path: gpxStoragePath,
       gpx_sha256: gpxStoragePath ? null : null,

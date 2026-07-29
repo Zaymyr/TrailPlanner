@@ -280,6 +280,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
+- A website-imported format without a GPX is still a valid draft. Preserve `gpx_storage_path = null`, but populate the legacy required `gpx_path` with its deterministic organizer placeholder; do not upload an invented GPX file.
 - Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.
 - Keep candidates below `70/100` out of the actionable review and import selections. They may be retained only in transient parsing work, never surfaced as default format actions.
 - Do not place organizer event-date corrections inside the preview hash or trust an arbitrary client date string. Validate the explicit override server-side and apply it only after hash and membership checks.
