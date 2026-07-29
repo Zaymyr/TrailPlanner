@@ -68,6 +68,12 @@ export type OrganizerWebsiteImportPreview = {
     raceDate: string | null;
     officialWebsiteUrl: string | null;
     thumbnailUrl: string | null;
+    logistics: {
+      mandatoryEquipment: string[];
+      shuttles: string | null;
+      startAddress: string | null;
+      officialParkings: string | null;
+    };
   };
   races: OrganizerWebsiteImportRace[];
   missingFields: string[];
@@ -524,6 +530,7 @@ const mapUtmbPreview = (url: string, utmbRace: UtmbRaceData): OrganizerWebsiteIm
       raceDate: utmbRace.date,
       officialWebsiteUrl: utmbRace.normalizedUrl,
       thumbnailUrl: null,
+      logistics: { mandatoryEquipment: [], shuttles: null, startAddress: null, officialParkings: null },
     },
     races: [race],
     missingFields: [],
@@ -566,6 +573,7 @@ const mapTraceDeTrailPreview = (url: string, traceRace: TraceDeTrailRaceData): O
       raceDate: traceRace.date,
       officialWebsiteUrl: traceRace.officialSiteUrl ?? traceRace.normalizedUrl,
       thumbnailUrl: traceRace.thumbnailUrl,
+      logistics: { mandatoryEquipment: [], shuttles: null, startAddress: null, officialParkings: null },
     },
     races: [race],
     missingFields: [],
@@ -1239,7 +1247,44 @@ const extractGenericLocation = (pages: GenericPageCandidate[], jsonLdEvents: Jso
   return null;
 };
 
-const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportPreview> => {
+const compactRelevantLines = (page: GenericPageCandidate, pattern: RegExp) =>
+  Array.from(
+    new Set(
+      page.text
+        .split("\n")
+        .map((line) => line.trim().replace(/\s+/g, " "))
+        .filter((line) => line.length > 3 && line.length <= 320 && pattern.test(line))
+    )
+  ).slice(0, 4);
+
+const extractEventLogistics = (page: GenericPageCandidate) => {
+  const equipmentLines = compactRelevantLines(page, /mat[eé]riel|[eé]quipement.*(?:obligatoire|requis)|obligatoire.*(?:emporter|pr[eé]voir)/i);
+  const mandatoryEquipment = equipmentLines
+    .flatMap((line) => line.split(/[:;,]/))
+    .map((item) => item.replace(/^(?:mat[eé]riel|[eé]quipement)(?:\s+obligatoire)?\s*/i, "").trim())
+    .filter((item) => item.length >= 3 && item.length <= 100)
+    .slice(0, 12);
+  const startAddress = compactRelevantLines(page, /(?:^|\b)d[eé]part\b|zone de d[eé]part|lieu de d[eé]part/i)[0] ?? null;
+  const shuttles = compactRelevantLines(page, /navette|bus.*(?:course|d[eé]part)|transport.*(?:d[eé]part|coureur)/i).join("\n") || null;
+  const officialParkings = compactRelevantLines(page, /parking|stationnement/i).join("\n") || null;
+
+  return { mandatoryEquipment: Array.from(new Set(mandatoryEquipment)), shuttles, startAddress, officialParkings };
+};
+
+const normalizeFormatUrls = (formatUrls: string[]) =>
+  Array.from(
+    new Set(
+      formatUrls.flatMap((value) => {
+        try {
+          return [new URL(value.trim()).toString()];
+        } catch {
+          return [];
+        }
+      })
+    )
+  );
+
+const buildGenericPreview = async (url: string, formatUrls: string[] = []): Promise<OrganizerWebsiteImportPreview> => {
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(url);
@@ -1249,11 +1294,12 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
 
   const normalizedUrl = parsedUrl.toString();
   const rootPage = await fetchGenericHtmlPage(normalizedUrl);
-  const candidateUrls = extractCandidatePageUrls(rootPage.html, normalizedUrl);
-  const secondaryPages = await Promise.all(
-    candidateUrls.slice(1).map((candidateUrl) => fetchGenericHtmlPage(candidateUrl).catch(() => null))
+  const pages = [rootPage];
+  const normalizedFormatUrls = normalizeFormatUrls(formatUrls).filter((formatUrl) => formatUrl !== normalizedUrl);
+  const formatPages = await Promise.all(
+    normalizedFormatUrls.map((formatUrl) => fetchGenericHtmlPage(formatUrl).catch(() => null))
   );
-  const pages = [rootPage, ...secondaryPages.filter((page): page is GenericPageCandidate => page !== null)];
+  const resolvedFormatPages = formatPages.filter((page): page is GenericPageCandidate => page !== null);
 
   const allJsonLdEvents = pages.flatMap((page) => page.jsonLdEvents);
   const title = rootPage.title;
@@ -1278,8 +1324,9 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
   const preferredYear = eventDate?.slice(0, 4) ?? null;
   const eventSiteUrl = pickFirst(absoluteUrl(normalizedUrl, toNonEmptyString(allJsonLdEvents[0]?.url)), normalizedUrl);
 
-  const jsonLdRaces = allJsonLdEvents.map((event, index) => buildGenericRaceFromEvent(event, index, eventSiteUrl, ogImage));
-  const genericCandidates = pages.flatMap((page) => [
+  const formatJsonLdEvents = resolvedFormatPages.flatMap((page) => page.jsonLdEvents);
+  const jsonLdRaces = formatJsonLdEvents.map((event, index) => buildGenericRaceFromEvent(event, index, eventSiteUrl, ogImage));
+  const genericCandidates = resolvedFormatPages.flatMap((page) => [
     ...parseCourseCandidatesFromHeadings(page, eventDate, eventLocation, ogImage),
     ...parseCourseCandidatesFromNamedProse(page, eventDate, eventLocation, ogImage),
     ...parseCourseCandidatesFromLines(page, eventDate, eventLocation, ogImage),
@@ -1300,14 +1347,10 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
   );
 
   let races =
-    merged.candidates.length > 0
-      ? await hydrateGenericRaceGpx(merged.candidates)
-      : (allJsonLdEvents.length > 0 ? allJsonLdEvents : [{ name: ogTitle ?? title ?? eventName, startDate: eventDate }]).map((event, index) =>
-          buildGenericRaceFromEvent(event, index, eventSiteUrl, ogImage)
-        );
+    merged.candidates.length > 0 ? await hydrateGenericRaceGpx(merged.candidates) : [];
 
   if (races.length === 1) {
-    const gpxUrl = pages.map((page) => findSingleGpxUrl(page.html, page.url)).find(Boolean) ?? null;
+    const gpxUrl = [...resolvedFormatPages, ...pages].map((page) => findSingleGpxUrl(page.html, page.url)).find(Boolean) ?? null;
     if (gpxUrl) {
       try {
         const gpx = await fetchGenericGpx(gpxUrl);
@@ -1358,6 +1401,7 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
       raceDate: eventDate,
       officialWebsiteUrl: eventSiteUrl,
       thumbnailUrl: ogImage,
+      logistics: extractEventLogistics(rootPage),
     },
     races,
     missingFields: [
@@ -1365,7 +1409,15 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
       ...(eventLocation ? [] : ["Lieu evenement"]),
       ...(eventDate ? [] : ["Date evenement"]),
     ],
-    warnings: [...merged.warnings],
+    warnings: [
+      ...merged.warnings,
+      ...(normalizedFormatUrls.length > resolvedFormatPages.length
+        ? ["Certaines URLs de format n'ont pas pu etre analysees."]
+        : []),
+      ...(normalizedFormatUrls.length === 0
+        ? ["Ajoute une URL par format pour analyser les parcours. La page generale est reservee aux informations evenement."]
+        : []),
+    ],
     canApply: races.length > 0,
   };
 
@@ -1381,7 +1433,7 @@ const buildGenericPreview = async (url: string): Promise<OrganizerWebsiteImportP
 
 export async function buildOrganizerWebsiteImportPreview(
   url: string,
-  options?: { traceCredentials?: { login: string; password: string } | null }
+  options?: { traceCredentials?: { login: string; password: string } | null; formatUrls?: string[] }
 ): Promise<OrganizerWebsiteImportPreview> {
   let parsedUrl: URL;
   try {
@@ -1402,7 +1454,7 @@ export async function buildOrganizerWebsiteImportPreview(
       );
       return preview;
     }
-    return await buildGenericPreview(parsedUrl.toString());
+    return await buildGenericPreview(parsedUrl.toString(), options?.formatUrls ?? []);
   } catch (error) {
     if (error instanceof UtmbImportError || error instanceof TraceDeTrailImportError) {
       throw new OrganizerWebsiteImportError(error.code, error.message);

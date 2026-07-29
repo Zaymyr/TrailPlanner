@@ -217,6 +217,12 @@ export type WebsiteImportPreview = {
     raceDate: string | null;
     officialWebsiteUrl: string | null;
     thumbnailUrl: string | null;
+    logistics: {
+      mandatoryEquipment: string[];
+      shuttles: string | null;
+      startAddress: string | null;
+      officialParkings: string | null;
+    };
   };
   races: WebsiteImportPreviewRace[];
   missingFields: string[];

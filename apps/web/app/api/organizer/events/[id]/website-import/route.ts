@@ -30,10 +30,12 @@ const raceSelectionSchema = z.object({
   mode: z.enum(["create", "update", "ignore"]),
   targetRaceId: z.string().uuid().nullable().optional(),
 });
+const MIN_ACTIONABLE_WEBSITE_IMPORT_SCORE = 70;
 
 const previewRequestSchema = z.object({
   action: z.literal("preview"),
   url: z.string().trim().url(),
+  formatUrls: z.array(z.string().trim().url()).max(12).default([]),
 });
 
 const isoDateSchema = z
@@ -47,6 +49,7 @@ const isoDateSchema = z
 const applyRequestSchema = z.object({
   action: z.literal("apply"),
   url: z.string().trim().url(),
+  formatUrls: z.array(z.string().trim().url()).max(12).default([]),
   previewHash: z.string().trim().min(16),
   eventRaceDate: isoDateSchema.optional(),
   selectedEditionYear: z.string().trim().optional(),
@@ -213,7 +216,9 @@ const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: Ev
       missingFields: alignedRace.missingFields,
       warnings: buildRaceWarnings(race, suggested),
       suggestedTargetRaceId: suggested?.id ?? null,
-      canCreate: alignedRace.missingFields.length === 0,
+      canCreate:
+        alignedRace.missingFields.length === 0 &&
+        (!race.assessment || race.assessment.score >= MIN_ACTIONABLE_WEBSITE_IMPORT_SCORE),
       hasReliableGpx: race.hasReliableGpx,
       detectedAidStationCount: race.aidStations.length,
       assessment: race.assessment ?? null,
@@ -244,6 +249,7 @@ const updateEventFromPreview = async (
   preview: OrganizerWebsiteImportPreview
 ) => {
   const currentDetails = parseOrganizerEventDetails(event.organizer_details);
+  const logistics = preview.event.logistics ?? { mandatoryEquipment: [], shuttles: null, startAddress: null, officialParkings: null };
   const updatePayload: Record<string, unknown> = {
     name: preview.event.name ?? event.name,
     location: preview.event.location ?? event.location ?? null,
@@ -251,6 +257,26 @@ const updateEventFromPreview = async (
     organizer_details: {
       ...currentDetails,
       officialWebsiteUrl: preview.event.officialWebsiteUrl ?? currentDetails.officialWebsiteUrl ?? null,
+      mandatoryEquipment:
+        currentDetails.mandatoryEquipment.items.length > 0 || logistics.mandatoryEquipment.length === 0
+          ? currentDetails.mandatoryEquipment
+          : {
+              ...currentDetails.mandatoryEquipment,
+              items: logistics.mandatoryEquipment.map((label, index) => ({
+                id: `website-import-${index}`,
+                label,
+                required: true,
+                cold: false,
+                heat: false,
+                note: null,
+              })),
+            },
+      access: {
+        ...currentDetails.access,
+        startAddress: currentDetails.access.startAddress ?? logistics.startAddress,
+        shuttles: currentDetails.access.shuttles ?? logistics.shuttles,
+        officialParkings: currentDetails.access.officialParkings ?? logistics.officialParkings,
+      },
     },
   };
 
@@ -473,7 +499,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   if (!event) return jsonError("Unable to load event.", 502);
 
   try {
-    const preview = await buildOrganizerWebsiteImportPreview(parsedBody.data.url);
+    const preview = await buildOrganizerWebsiteImportPreview(parsedBody.data.url, { formatUrls: parsedBody.data.formatUrls });
     const previewHash = computeOrganizerWebsiteImportPreviewHash(preview);
     const augmentedPreview = buildAugmentedPreview(preview, event);
 
@@ -513,6 +539,9 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     for (const selection of actionableSelections) {
       const previewRace = previewRaceMap.get(selection.previewRaceKey);
       if (!previewRace) return jsonError("Incoherent preview selection.", 409);
+      if (previewRace.assessment && previewRace.assessment.score < MIN_ACTIONABLE_WEBSITE_IMPORT_SCORE) {
+        return jsonError("This format score is too low to import. Analyse a more specific format page.", 400);
+      }
 
       const alignedRace = alignRaceToEventDate(previewRace, targetEventDate);
       const existingEdition = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear);
