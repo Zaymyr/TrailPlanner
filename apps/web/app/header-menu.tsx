@@ -36,6 +36,7 @@ export function HeaderMenu() {
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const organizerLabel = locale === "fr" ? "Mes courses" : "My races";
+  const organizerHref: Route = hasManagedRaces ? "/organizer" : "/organizers";
 
   const menuItems: MenuItem[] = useMemo(
     () => [
@@ -46,8 +47,8 @@ export function HeaderMenu() {
       },
       {
         label: organizerLabel,
-        href: "/organizer",
-        active: isActivePath(pathname, "/organizer"),
+        href: organizerHref,
+        active: isActivePath(pathname, "/organizer") || isActivePath(pathname, "/organizers"),
       },
       {
         label: t.navigation.blog,
@@ -72,6 +73,7 @@ export function HeaderMenu() {
     ],
     [
       organizerLabel,
+      organizerHref,
       pathname,
       t.navigation.admin,
       t.navigation.blog,
@@ -84,9 +86,6 @@ export function HeaderMenu() {
   const visibleMenuItems = menuItems.filter((item) => {
     if (item.href === "/admin") {
       return isAdmin;
-    }
-    if (item.href === "/organizer") {
-      return hasManagedRaces;
     }
     return true;
   });
