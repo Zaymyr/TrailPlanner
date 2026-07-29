@@ -65,6 +65,7 @@ import type {
   GpxPreview,
   MembershipRow,
   OrganizerEventDetail,
+  PublicationRequestRow,
   ProductFormValues,
   RaceFormat,
   RaceFormValues,
@@ -116,6 +117,7 @@ export function OrganizerDashboard({
   const [memberships, setMemberships] = useState<MembershipRow[]>([]);
   const [claims, setClaims] = useState<ClaimRow[]>([]);
   const [editionRequests, setEditionRequests] = useState<EditionRequestRow[]>([]);
+  const [publicationRequests, setPublicationRequests] = useState<PublicationRequestRow[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [eventDetail, setEventDetail] = useState<OrganizerEventDetail | null>(null);
   const [eventForm, setEventForm] = useState<EventFormValues>(() => createEmptyEventForm());
@@ -176,6 +178,10 @@ export function OrganizerDashboard({
     editionRequests.find(
       (request) => request.event_id === selectedEventId && request.requested_start_date === newEditionDate && request.status !== "rejected"
     ) ?? null;
+  const currentPublicationRequest =
+    publicationRequests.find((request) => request.event_id === selectedEventId && request.status === "pending") ??
+    publicationRequests.find((request) => request.event_id === selectedEventId) ??
+    null;
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ id: Date.now(), type, message });
   };
@@ -296,6 +302,7 @@ export function OrganizerDashboard({
         claims?: ClaimRow[];
         memberships?: MembershipRow[];
         editionRequests?: EditionRequestRow[];
+        publicationRequests?: PublicationRequestRow[];
         message?: string;
       } | null;
       if (!response.ok) {
@@ -305,6 +312,7 @@ export function OrganizerDashboard({
       const nextMemberships = data?.memberships ?? [];
       setClaims(data?.claims ?? []);
       setEditionRequests(data?.editionRequests ?? []);
+      setPublicationRequests(data?.publicationRequests ?? []);
       setMemberships(nextMemberships);
       setSelectedEventId((current) => {
         if (requestedEventId && nextMemberships.some((membership) => membership.event_id === requestedEventId)) {
@@ -511,7 +519,6 @@ export function OrganizerDashboard({
           location: nextForm.location,
           raceDate: nextForm.raceDate,
           thumbnailUrl: nextForm.thumbnailUrl,
-          isLive: nextForm.isLive,
           organizerDetails: nextForm.organizerDetails,
         }),
       });
@@ -580,7 +587,6 @@ export function OrganizerDashboard({
           locationText: nextForm.locationText,
           raceDate: nextForm.raceDate,
           thumbnailUrl: nextForm.thumbnailUrl,
-          isLive: nextForm.isLive,
           organizerDetails: nextForm.organizerDetails,
         }),
       });
@@ -636,7 +642,6 @@ export function OrganizerDashboard({
           locationText: newRaceForm.locationText,
           raceDate: newRaceForm.raceDate,
           thumbnailUrl: newRaceForm.thumbnailUrl,
-          isLive: newRaceForm.isLive,
           organizerDetails: sanitizeRaceDetailsForSave(newRaceForm.organizerDetails),
         }),
       });
@@ -703,10 +708,6 @@ export function OrganizerDashboard({
       showToast("error", "Ajoute la date de la nouvelle edition.");
       return;
     }
-    if (currentEditionRequest) {
-      showToast("error", "Une demande existe deja pour cette date.");
-      return;
-    }
     setStatus("saving");
     setError(null);
     try {
@@ -719,13 +720,18 @@ export function OrganizerDashboard({
           requestedStartDate: newEditionDate,
         }),
       });
-      const data = (await response.json().catch(() => null)) as { editionRequest?: EditionRequestRow; message?: string } | null;
-      if (!response.ok || !data?.editionRequest) {
-        showToast("error", data?.message ?? "Impossible de demander la nouvelle edition.");
+      const data = (await response.json().catch(() => null)) as {
+        races?: Array<{ id: string; edition_group_id: string; race_date?: string | null }>;
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.races?.length) {
+        showToast("error", data?.message ?? "Impossible de creer la nouvelle edition.");
         return;
       }
-      setEditionRequests((current) => [data.editionRequest!, ...current]);
-      showToast("success", "Demande de nouvelle edition envoyee pour validation.");
+      const createdYear = getRaceEditionYearValue(data.races[0]?.race_date);
+      setSelectedEditionYear(createdYear);
+      showToast("success", "Nouvelle édition créée en brouillon.");
+      await loadEvent(selectedEventId, activeTab, createdYear);
     } finally {
       setStatus("idle");
     }
@@ -1093,45 +1099,29 @@ export function OrganizerDashboard({
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
   };
 
-  const handleRacePublishToggle = async (raceId: string, nextIsLive: boolean) => {
-    const targetRace = eventDetail?.races.find((race) => race.id === raceId) ?? null;
+  const requestPublication = async () => {
     if (!(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId || !eventDetail) return;
-
-    if (!targetRace) return;
-
-    if (activeRace?.id === raceId) {
-      await saveRace({ isLive: nextIsLive });
-      return;
-    }
 
     setStatus("saving");
     setError(null);
     try {
-      const response = await fetch(`/api/organizer/races/${raceId}`, {
-        method: "PATCH",
+      const response = await fetch("/api/organizer/publication-requests", {
+        method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          seriesName: targetRace.series_name,
-          name: targetRace.name,
-          distanceKm: targetRace.distance_km,
-          elevationGainM: targetRace.elevation_gain_m,
-          elevationLossM: targetRace.elevation_loss_m,
-          locationText: targetRace.location_text ?? "",
-          raceDate: targetRace.race_date ?? "",
-          thumbnailUrl: targetRace.thumbnail_url ?? "",
-          isLive: nextIsLive,
-          organizerDetails: targetRace.organizerDetails,
-        }),
+        body: JSON.stringify({ eventId: selectedEventId }),
       });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
-      if (!response.ok) {
-        showToast("error", data?.message ?? "Impossible d'enregistrer le format.");
+      const data = (await response.json().catch(() => null)) as {
+        publicationRequest?: PublicationRequestRow;
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.publicationRequest) {
+        showToast("error", data?.message ?? "Impossible d'envoyer la demande de publication.");
         return;
       }
 
-      showToast("success", "Format mis à jour.");
-      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
+      showToast("success", "Demande de publication envoyée à l'administrateur.");
+      setPublicationRequests((current) => [data.publicationRequest!, ...current]);
     } finally {
       setStatus("idle");
     }
@@ -1352,6 +1342,7 @@ export function OrganizerDashboard({
         selectedEditionYear={selectedEditionYear}
         newEditionDate={newEditionDate}
         editionRequestState={currentEditionRequest}
+        publicationRequestState={currentPublicationRequest}
         onSelectedEventChange={(eventId) => {
           void (async () => {
             if (!(await saveBeforeNavigation())) return;
@@ -1387,14 +1378,8 @@ export function OrganizerDashboard({
           setEventUpdateError(null);
           setEventUpdatesDialogOpen(true);
         }}
-        onTogglePublish={() => {
-          void (async () => {
-            if (!(await saveBeforeNavigation())) return;
-            await saveEvent({ isLive: !eventForm.isLive });
-          })();
-        }}
-        onToggleRacePublish={(raceId, nextIsLive) => {
-          void handleRacePublishToggle(raceId, nextIsLive);
+        onRequestPublication={() => {
+          void requestPublication();
         }}
       />
 

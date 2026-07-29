@@ -52,6 +52,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [race_events](02-database/tables/race-events.md)
 - [race_event_claims](02-database/tables/race-event-claims.md)
 - [race_event_edition_requests](02-database/tables/race-event-edition-requests.md)
+- [race_event_publication_requests](02-database/tables/race-event-publication-requests.md)
 - [race_event_organizers](02-database/tables/race-event-organizers.md)
 - [race_event_updates](02-database/tables/race-event-updates.md)
 - [products](02-database/tables/products.md)

@@ -15,6 +15,8 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
+  - apps/web/app/api/organizer/publication-requests/route.ts
+  - apps/web/app/api/admin/event-publication-requests/route.ts
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/app/api/organizer/races/[id]/route.test.ts
@@ -28,6 +30,7 @@ related_files:
 related_tables:
   - race_event_organizers
   - race_event_claims
+  - race_event_publication_requests
   - race_events
   - races
 ---
@@ -95,7 +98,7 @@ Summary:
 - That same membership also authorizes organizer edition-grouping flows on `races`: creating a brand-new format series, renaming `series_name`, duplicating a format into a new `edition_group_id`, or cloning a new yearly edition inside an existing `edition_group_id`.
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
 - That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
-- New organizer-created formats should still default to draft (`is_live = false`) until the organizer publishes them deliberately.
+- New organizer-created formats default to draft (`is_live = false`) until an admin approves an event publication request.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
@@ -135,6 +138,7 @@ order by created_at asc;
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.
+- Membership authorizes draft maintenance and publication requests, but never direct organizer writes to `race_events.is_live` or `races.is_live`.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.
 

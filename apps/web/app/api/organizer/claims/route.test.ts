@@ -202,6 +202,17 @@ describe("/api/organizer/claims", () => {
             race_events: { id: eventId, name: "Grand Trail", location: "Annecy", race_date: "2026-06-20" },
           },
         ])
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "55555555-5555-5555-5555-555555555555",
+            created_at: "2026-07-29T10:10:00.000Z",
+            event_id: eventId,
+            status: "pending",
+            reviewer_notes: null,
+          },
+        ])
       );
 
     const response = await GET(claimsGetRequest());
@@ -211,6 +222,7 @@ describe("/api/organizer/claims", () => {
     expect(payload.claims).toHaveLength(1);
     expect(payload.memberships).toHaveLength(1);
     expect(payload.editionRequests).toHaveLength(1);
+    expect(payload.publicationRequests).toHaveLength(1);
     expect(payload.memberships[0].event_id).toBe(eventId);
   });
 });

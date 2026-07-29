@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-07-21
+last_verified: 2026-07-29
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -29,6 +29,7 @@ related_tables:
   - race_events
   - race_event_claims
   - race_event_edition_requests
+  - race_event_publication_requests
   - race_event_organizers
   - race_event_updates
   - products
@@ -54,7 +55,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Race aid station: catalog/private race aid station source, including water, solid, assistance service flags, and optional organizer detail JSON.
 - Organizer membership: event-scoped access through `race_event_organizers`.
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group yearly organizer editions of one format.
-- Event edition request: organizer request to open a new yearly event edition before any new `races` rows are created.
+- Event edition request: retired audit row from the former yearly-edition review workflow.
+- Event publication request: organizer request for admin validation before an event and its complete formats become live.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates` in the Courses catalog, then expands to the longer history only on demand.
 - Entitlement source: subscription, trial, or premium grant.
@@ -78,7 +80,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
-| `race_event_edition_requests` | Organizer requests to open a new yearly event edition, review-gated before any operational creation. |
+| `race_event_edition_requests` | Retired audit rows from the former yearly-edition review gate. |
+| `race_event_publication_requests` | Pending/approved/rejected event publication reviews. |
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
@@ -171,7 +174,7 @@ erDiagram
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Yearly organizer editions remain separate `races` rows. Use `edition_group_id` / `series_name` to group them; do not introduce a parallel editions table unless the product model changes.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
-- Organizer yearly renewals are now request-gated at event level through `race_event_edition_requests`; do not recreate direct organizer-side cloning without revisiting billing and review flows.
+- Organizer yearly editions are cloned directly as drafts. Admin validation is reserved for publication through `race_event_publication_requests`.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.

@@ -3,94 +3,101 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders } from "../../../../lib/organizer";
+import { POST as createRace } from "../races/route";
+import { DELETE as deleteRace } from "../races/[id]/route";
 
-const createEditionRequestSchema = z.object({
+const createEditionSchema = z.object({
   eventId: z.string().uuid(),
   sourceYear: z.number().int().min(2000).max(2100),
-  requestedStartDate: z
-    .string()
-    .refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Invalid requested start date."),
+  requestedStartDate: z.string().refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Invalid requested start date."),
 });
 
-const editionRequestRowSchema = z.object({
+const sourceRaceSchema = z.object({
   id: z.string().uuid(),
-  event_id: z.string().uuid(),
-  source_year: z.number().int(),
-  requested_start_date: z.string(),
-  status: z.enum(["pending", "approved", "rejected"]),
-  reviewer_notes: z.string().nullable().optional(),
+  name: z.string(),
+  race_date: z.string().nullable().optional(),
 });
+
+const createdRaceSchema = z.object({
+  id: z.string().uuid(),
+  edition_group_id: z.string().uuid(),
+  race_date: z.string().nullable().optional(),
+});
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const parseDate = (value: string) => new Date(`${value}T00:00:00Z`);
+const formatDate = (value: Date) => value.toISOString().slice(0, 10);
 
 export async function POST(request: NextRequest) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
 
-  const parsed = createEditionRequestSchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid edition request.", 400);
+  const parsed = createEditionSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid edition.", 400);
 
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsed.data.eventId);
   if (organizer !== true) return organizer.error;
 
-  const requestedYear = parsed.data.requestedStartDate.slice(0, 4);
-  const nextYear = (Number(requestedYear) + 1).toString();
+  const targetYear = Number(parsed.data.requestedStartDate.slice(0, 4));
+  const [sourceResponse, targetResponse] = await Promise.all([
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/races?event_id=eq.${parsed.data.eventId}&race_date=gte.${parsed.data.sourceYear}-01-01&race_date=lt.${parsed.data.sourceYear + 1}-01-01&select=id,name,race_date&order=race_date.asc`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/races?event_id=eq.${parsed.data.eventId}&race_date=gte.${targetYear}-01-01&race_date=lt.${targetYear + 1}-01-01&select=id&limit=1`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    ),
+  ]);
 
-  const existingEventEditionResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?event_id=eq.${parsed.data.eventId}&race_date=gte.${requestedYear}-01-01&race_date=lt.${nextYear}-01-01&select=id&limit=1`,
-    {
-      headers: serviceHeaders(auth.serviceConfig, ""),
-      cache: "no-store",
+  if (!sourceResponse.ok || !targetResponse.ok) return jsonError("Unable to inspect event editions.", 502);
+  if (((await targetResponse.json()) as unknown[]).length > 0) return jsonError("An edition already exists for that year.", 409);
+
+  const sourceRaces = z.array(sourceRaceSchema).parse(await sourceResponse.json());
+  if (sourceRaces.length === 0) return jsonError("No format exists for the source year.", 409);
+
+  const earliestSourceDate = sourceRaces.map((race) => race.race_date).filter((date): date is string => Boolean(date)).sort()[0];
+  const dayShift = earliestSourceDate
+    ? Math.round((parseDate(parsed.data.requestedStartDate).getTime() - parseDate(earliestSourceDate).getTime()) / DAY_IN_MS)
+    : 0;
+  const authorization = request.headers.get("authorization") ?? "";
+  const createdRaces: z.infer<typeof createdRaceSchema>[] = [];
+
+  try {
+    for (const sourceRace of sourceRaces) {
+      const raceDate = sourceRace.race_date
+        ? formatDate(new Date(parseDate(sourceRace.race_date).getTime() + dayShift * DAY_IN_MS))
+        : parsed.data.requestedStartDate;
+      const createRequest = new NextRequest(new URL("/api/organizer/races", request.url), {
+        method: "POST",
+        headers: { Authorization: authorization, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: parsed.data.eventId,
+          cloneFromRaceId: sourceRace.id,
+          name: sourceRace.name,
+          raceDate,
+        }),
+      });
+      const response = await createRace(createRequest);
+      const payload = (await response.json().catch(() => null)) as { race?: unknown; message?: string } | null;
+      if (!response.ok || !payload?.race) throw new Error(payload?.message ?? "Unable to clone a format.");
+      createdRaces.push(createdRaceSchema.parse(payload.race));
     }
-  );
-
-  if (!existingEventEditionResponse.ok) {
-    console.error("Unable to inspect existing event editions", await existingEventEditionResponse.text());
-    return jsonError("Unable to inspect existing editions.", 502);
+  } catch (error) {
+    await Promise.all(
+      createdRaces.map((race) =>
+        deleteRace(
+          new NextRequest(new URL(`/api/organizer/races/${race.id}`, request.url), {
+            method: "DELETE",
+            headers: { Authorization: authorization },
+          }),
+          { params: { id: race.id } }
+        )
+      )
+    );
+    console.error("Unable to create organizer edition", error);
+    return jsonError(error instanceof Error ? error.message : "Unable to create edition.", 502);
   }
 
-  const existingEdition = z.array(z.object({ id: z.string().uuid() })).parse(await existingEventEditionResponse.json())[0] ?? null;
-  if (existingEdition) {
-    return jsonError("An edition already exists for that year.", 409);
-  }
-
-  const openRequestResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?event_id=eq.${parsed.data.eventId}&requested_start_date=eq.${parsed.data.requestedStartDate}&status=in.(pending,approved)&select=id&limit=1`,
-    {
-      headers: serviceHeaders(auth.serviceConfig, ""),
-      cache: "no-store",
-    }
-  );
-
-  if (!openRequestResponse.ok) {
-    console.error("Unable to inspect existing edition requests", await openRequestResponse.text());
-    return jsonError("Unable to create edition request.", 502);
-  }
-
-  const openRequest = z.array(z.object({ id: z.string().uuid() })).parse(await openRequestResponse.json())[0] ?? null;
-  if (openRequest) {
-    return jsonError("An open edition request already exists for that date.", 409);
-  }
-
-  const insertResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests`, {
-    method: "POST",
-    headers: {
-      ...serviceHeaders(auth.serviceConfig),
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify({
-      user_id: auth.user.id,
-      event_id: parsed.data.eventId,
-      source_year: parsed.data.sourceYear,
-      requested_start_date: parsed.data.requestedStartDate,
-      status: "pending",
-    }),
-    cache: "no-store",
-  });
-
-  if (!insertResponse.ok) {
-    console.error("Unable to create organizer edition request", await insertResponse.text());
-    return jsonError("Unable to create edition request.", 502);
-  }
-
-  const editionRequest = z.array(editionRequestRowSchema).parse(await insertResponse.json())[0] ?? null;
-  return withSecurityHeaders(NextResponse.json({ editionRequest }, { status: 201 }));
+  return withSecurityHeaders(NextResponse.json({ races: createdRaces }, { status: 201 }));
 }

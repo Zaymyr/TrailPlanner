@@ -28,7 +28,6 @@ const createRaceSchema = z.object({
   locationText: optionalTextOrNull,
   raceDate: z.string().trim().min(1),
   thumbnailUrl: optionalTextOrNull,
-  isLive: z.boolean().optional().default(false),
   organizerDetails: organizerRaceDetailsSchema.optional(),
 });
 
@@ -193,7 +192,7 @@ export async function POST(request: NextRequest) {
     gpx_hash: `manual:${raceId}`,
     gpx_storage_path: null,
     gpx_sha256: null,
-    is_live: parsed.data.isLive,
+    is_live: false,
     is_public: true,
     created_by: null,
   };

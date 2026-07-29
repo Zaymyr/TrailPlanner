@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-07-21
+last_verified: 2026-07-29
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -21,7 +21,9 @@ related_tables:
   - race_aid_station_products
   - race_event_claims
   - race_event_edition_requests
+  - race_event_publication_requests
   - race_event_organizers
+  - race_event_publication_requests
   - race_event_updates
   - race_events
   - products
@@ -142,9 +144,14 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 `race_event_edition_requests`:
 
-- Authenticated users can insert pending requests for their own `user_id`.
-- Users can select only their own requests.
-- Admins can select and update edition requests through trusted `app_metadata`.
+- Retained legacy rows remain selectable under the historical policies.
+- Authenticated insert/update grants and the organizer insert policy are removed by the publication-request migration.
+
+`race_event_publication_requests`:
+
+- Active event members can insert pending requests for themselves and read their own requests.
+- Trusted admins read the queue through the service API.
+- Atomic approval uses an invoker-security RPC executable only by `service_role`; organizers receive no direct live-state mutation permission.
 
 `race_event_organizers`:
 
