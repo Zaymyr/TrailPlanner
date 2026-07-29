@@ -71,32 +71,20 @@ import type {
   RaceFormValues,
   StationProduct,
   WebsiteImportPreview,
-  WebsiteImportConfidence,
   WebsiteImportRaceSelection,
 } from "./dashboard/types";
 
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
+const WEBSITE_IMPORT_MINIMUM_SCORE = 70;
 
 const websiteImportScoreTone = (score: number) =>
   score >= 80
     ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-    : score >= 55
+    : score >= WEBSITE_IMPORT_MINIMUM_SCORE
       ? "border-amber-300 bg-amber-50 text-amber-800"
       : "border-red-300 bg-red-50 text-red-800";
-
-const websiteImportConfidenceLabel: Record<WebsiteImportConfidence, string> = {
-  high: "Fiable",
-  medium: "À confirmer",
-  low: "Faible",
-};
-
-const websiteImportConfidenceTone: Record<WebsiteImportConfidence, string> = {
-  high: "bg-emerald-100 text-emerald-800",
-  medium: "bg-amber-100 text-amber-800",
-  low: "bg-red-100 text-red-800",
-};
 
 type OrganizerRaceEventUpdate = {
   id: string;
@@ -152,6 +140,7 @@ export function OrganizerDashboard({
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
+  const [websiteImportFormatUrls, setWebsiteImportFormatUrls] = useState<string[]>([""]);
   const [websiteImportPreview, setWebsiteImportPreview] = useState<WebsiteImportPreview | null>(null);
   const [websiteImportEventDate, setWebsiteImportEventDate] = useState("");
   const [websiteImportSelections, setWebsiteImportSelections] = useState<Record<string, WebsiteImportRaceSelection>>({});
@@ -1180,6 +1169,7 @@ export function OrganizerDashboard({
     setWebsiteImportEventDate(eventForm.raceDate);
     setWebsiteImportSelections({});
     setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
+    setWebsiteImportFormatUrls([""]);
     setWebsiteImportOpen(true);
   };
 
@@ -1198,7 +1188,7 @@ export function OrganizerDashboard({
       const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "preview", url }),
+        body: JSON.stringify({ action: "preview", url, formatUrls: websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean) }),
       });
       const data = (await response.json().catch(() => null)) as { preview?: WebsiteImportPreview; message?: string } | null;
       if (!response.ok || !data?.preview) {
@@ -1215,7 +1205,14 @@ export function OrganizerDashboard({
           data.preview.races.map((race) => [
             race.key,
             {
-              mode: race.suggestedTargetRaceId ? "update" : race.canCreate ? "create" : "ignore",
+              mode:
+                (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE
+                  ? race.suggestedTargetRaceId
+                    ? "update"
+                    : race.canCreate
+                      ? "create"
+                      : "ignore"
+                  : "ignore",
               targetRaceId: race.suggestedTargetRaceId,
             } satisfies WebsiteImportRaceSelection,
           ])
@@ -1229,7 +1226,7 @@ export function OrganizerDashboard({
     } finally {
       setWebsiteImportLoading(false);
     }
-  }, [accessToken, authHeaders, eventForm.raceDate, selectedEventId, websiteImportUrl]);
+  }, [accessToken, authHeaders, eventForm.raceDate, selectedEventId, websiteImportFormatUrls, websiteImportUrl]);
 
   useEffect(() => {
     if (!requestedImportUrl || !requestedEventId || eventDetail?.id !== requestedEventId || !accessToken) return;
@@ -1255,6 +1252,10 @@ export function OrganizerDashboard({
         return selection.mode === "update" && Boolean(selection.targetRaceId);
       }));
 
+  const websiteImportUsefulRaces =
+    websiteImportPreview?.races.filter((race) => (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE) ?? [];
+  const websiteImportDiscardedRaceCount = (websiteImportPreview?.races.length ?? 0) - websiteImportUsefulRaces.length;
+
   const applyWebsiteImport = async () => {
     if (!selectedEventId || !accessToken || !websiteImportPreview) return;
     if (!(await saveBeforeNavigation())) return;
@@ -1274,6 +1275,7 @@ export function OrganizerDashboard({
         body: JSON.stringify({
           action: "apply",
           url: websiteImportPreview.source.url,
+          formatUrls: websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean),
           previewHash: websiteImportPreview.previewHash,
           eventRaceDate: websiteImportEventDate || undefined,
           selectedEditionYear,
@@ -1690,7 +1692,7 @@ export function OrganizerDashboard({
             <div className="space-y-4 pb-2">
             <div className="space-y-1">
               <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">
-                URL du site
+                URL generale de l'evenement
               </label>
               <input
                 id="organizer-website-import-url"
@@ -1700,7 +1702,50 @@ export function OrganizerDashboard({
                 placeholder="https://..."
                 onChange={(event) => setWebsiteImportUrl(event.target.value)}
               />
-              <p className="text-xs text-muted-foreground">UTMB et Trace de Trail sont optimises. Les autres sites passent par une extraction heuristique.</p>
+              <p className="text-xs text-muted-foreground">Cette page sert uniquement aux informations communes : materiel, navettes, parkings et lieu de depart.</p>
+            </div>
+
+            <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-medium text-foreground">URLs des formats</p>
+                  <p className="text-xs text-muted-foreground">Ajoute une page par format pour en identifier les donnees de parcours.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 px-3 text-xs"
+                  onClick={() => setWebsiteImportFormatUrls((urls) => [...urls, ""])}
+                  disabled={websiteImportFormatUrls.length >= 12}
+                >
+                  Ajouter un format
+                </Button>
+              </div>
+              {websiteImportFormatUrls.map((formatUrl, index) => (
+                <div key={`website-import-format-url-${index}`} className="flex gap-2">
+                  <input
+                    aria-label={`URL du format ${index + 1}`}
+                    type="url"
+                    className="h-10 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    value={formatUrl}
+                    placeholder={`https://.../format-${index + 1}`}
+                    onChange={(event) =>
+                      setWebsiteImportFormatUrls((urls) => urls.map((currentUrl, currentIndex) => (currentIndex === index ? event.target.value : currentUrl)))
+                    }
+                  />
+                  {websiteImportFormatUrls.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 px-3 text-xs"
+                      onClick={() => setWebsiteImportFormatUrls((urls) => urls.filter((_, currentIndex) => currentIndex !== index))}
+                      aria-label={`Retirer le format ${index + 1}`}
+                    >
+                      Retirer
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
             </div>
 
             {websiteImportError ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{websiteImportError}</p> : null}
@@ -1735,9 +1780,40 @@ export function OrganizerDashboard({
                     </div>
                     <div className="rounded-md border border-border/60 bg-card p-3 text-muted-foreground">
                       <p>{websiteImportPreview.event.officialWebsiteUrl ?? "Site officiel manquant"}</p>
-                      <p>{websiteImportPreview.races.length} format(s) detecte(s)</p>
+                      <p>{websiteImportUsefulRaces.length} format(s) exploitable(s)</p>
                     </div>
                   </div>
+                  {websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ||
+                  websiteImportPreview.event.logistics.startAddress ||
+                  websiteImportPreview.event.logistics.shuttles ||
+                  websiteImportPreview.event.logistics.officialParkings ? (
+                    <div className="grid gap-2 text-xs text-foreground sm:grid-cols-2">
+                      {websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ? (
+                        <div className="rounded-md border border-border/60 bg-card p-3">
+                          <p className="font-medium">Materiel detecte</p>
+                          <p className="mt-1 text-muted-foreground">{websiteImportPreview.event.logistics.mandatoryEquipment.join(" · ")}</p>
+                        </div>
+                      ) : null}
+                      {websiteImportPreview.event.logistics.startAddress ? (
+                        <div className="rounded-md border border-border/60 bg-card p-3">
+                          <p className="font-medium">Lieu de depart</p>
+                          <p className="mt-1 text-muted-foreground">{websiteImportPreview.event.logistics.startAddress}</p>
+                        </div>
+                      ) : null}
+                      {websiteImportPreview.event.logistics.shuttles ? (
+                        <div className="rounded-md border border-border/60 bg-card p-3">
+                          <p className="font-medium">Navettes</p>
+                          <p className="mt-1 whitespace-pre-line text-muted-foreground">{websiteImportPreview.event.logistics.shuttles}</p>
+                        </div>
+                      ) : null}
+                      {websiteImportPreview.event.logistics.officialParkings ? (
+                        <div className="rounded-md border border-border/60 bg-card p-3">
+                          <p className="font-medium">Parkings</p>
+                          <p className="mt-1 whitespace-pre-line text-muted-foreground">{websiteImportPreview.event.logistics.officialParkings}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {websiteImportPreview.warnings.length > 0 ? (
                     <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
                       {websiteImportPreview.warnings.join(" ")}
@@ -1746,8 +1822,15 @@ export function OrganizerDashboard({
                 </div>
 
                 <div className="space-y-3">
-                  <p className="text-sm font-semibold text-foreground">Formats detectes</p>
-                  {websiteImportPreview.races.map((race) => {
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-sm font-semibold text-foreground">Formats a verifier</p>
+                    {websiteImportDiscardedRaceCount > 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        {websiteImportDiscardedRaceCount} resultat(s) sous {WEBSITE_IMPORT_MINIMUM_SCORE}/100 masque(s)
+                      </p>
+                    ) : null}
+                  </div>
+                  {websiteImportUsefulRaces.map((race) => {
                     const selection = websiteImportSelections[race.key] ?? { mode: "ignore", targetRaceId: null };
                     const importRaceDate = websiteImportEventDate
                       ? race.raceDate
@@ -1781,61 +1864,32 @@ export function OrganizerDashboard({
                         {race.assessment ? (
                           <details className="group rounded-md border border-border/60 bg-background/60">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-foreground marker:content-none">
-                              <span>Voir les informations trouvées</span>
+                              <span>Voir les informations fiables</span>
                               <span className="text-xs font-normal text-muted-foreground">
                                 {race.assessment.foundCount}/{race.assessment.totalCount} champs
                               </span>
                             </summary>
-                            <div className="space-y-3 border-t border-border/60 p-3">
-                              <div className="grid gap-2 sm:grid-cols-3">
-                                <div className="rounded-md bg-muted/50 p-2.5">
-                                  <p className="text-xs text-muted-foreground">Score global</p>
-                                  <p className="font-semibold text-foreground">{race.assessment.score}/100</p>
-                                </div>
-                                <div className="rounded-md bg-muted/50 p-2.5">
-                                  <p className="text-xs text-muted-foreground">Informations trouvées</p>
-                                  <p className="font-semibold text-foreground">{race.assessment.coverageScore}%</p>
-                                </div>
-                                <div className="rounded-md bg-muted/50 p-2.5">
-                                  <p className="text-xs text-muted-foreground">Fiabilité des sources</p>
-                                  <p className="font-semibold text-foreground">{race.assessment.reliabilityScore}%</p>
-                                </div>
-                              </div>
-                              <div className="grid gap-2 md:grid-cols-2">
-                                {race.assessment.findings.map((finding) => (
-                                  <div key={finding.key} className="rounded-md border border-border/60 bg-card p-3">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        {finding.label}
-                                        {finding.required ? " · requis" : ""}
-                                      </p>
-                                      {finding.confidence ? (
-                                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${websiteImportConfidenceTone[finding.confidence]}`}>
-                                          {websiteImportConfidenceLabel[finding.confidence]}
-                                        </span>
-                                      ) : (
-                                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">Manquant</span>
-                                      )}
+                            <div className="space-y-2 border-t border-border/60 p-3">
+                              {race.assessment.findings
+                                .filter((finding) => finding.value)
+                                .map((finding) => (
+                                  <div key={finding.key} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
+                                    <p className="font-medium text-foreground">{finding.label}</p>
+                                    <div className="min-w-0 text-right text-muted-foreground">
+                                      <span className="break-words">{finding.value}</span>
+                                      {finding.sourceUrl && finding.sourceLabel ? (
+                                        <a
+                                          className="ml-2 text-xs font-medium text-primary underline-offset-4 hover:underline"
+                                          href={finding.sourceUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                        >
+                                          Source
+                                        </a>
+                                      ) : null}
                                     </div>
-                                    <p className={`mt-2 break-words text-sm ${finding.value ? "text-foreground" : "italic text-muted-foreground"}`}>
-                                      {finding.value ?? "Aucune information trouvée"}
-                                    </p>
-                                    {finding.sourceUrl && finding.sourceLabel ? (
-                                      <a
-                                        className="mt-2 inline-block text-xs font-medium text-primary underline-offset-4 hover:underline"
-                                        href={finding.sourceUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                      >
-                                        Source : {finding.sourceLabel}
-                                      </a>
-                                    ) : null}
                                   </div>
                                 ))}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                Le score combine la couverture des champs (65 %) et la fiabilité estimée des sources (35 %). Une vérification humaine reste recommandée.
-                              </p>
                             </div>
                           </details>
                         ) : null}

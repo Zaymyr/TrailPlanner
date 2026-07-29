@@ -31,7 +31,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     vi.restoreAllMocks();
   });
 
-  it("follows parcours pages and extracts multiple detailed formats", async () => {
+  it("uses explicit format pages and keeps general-page logistics separate", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
 
@@ -44,7 +44,10 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
             </head>
             <body>
               <p>Dimanche 17 mai 2026</p>
-              <a href="/les-parcours">Les Parcours</a>
+              <p>Materiel obligatoire : couverture de survie, gobelet</p>
+              <p>Navette coureurs depuis le parking nord a 7h30</p>
+              <p>Depart : Fort de Tamie, Route du Collet de Tamie, 73200 Mercury</p>
+              <a href="/hidden-format">Ancienne page de format</a>
             </body>
           </html>
         `);
@@ -84,11 +87,16 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       throw new Error(`Unexpected URL ${url}`);
     });
 
-    const preview = await buildOrganizerWebsiteImportPreview("https://trailfort.example/");
+    const preview = await buildOrganizerWebsiteImportPreview("https://trailfort.example/", {
+      formatUrls: ["https://trailfort.example/les-parcours"],
+    });
 
     expect(preview.source.provider).toBe("generic");
     expect(preview.event.name).toBe("Trail du Fort de Tamie");
     expect(preview.event.raceDate).toBe("2026-05-17");
+    expect(preview.event.logistics.mandatoryEquipment).toContain("couverture de survie");
+    expect(preview.event.logistics.shuttles).toContain("Navette coureurs");
+    expect(preview.event.logistics.startAddress).toContain("Fort de Tamie");
     expect(preview.races).toHaveLength(3);
     expect(preview.races.map((race) => race.name)).toEqual(["L'Abbaye", "La Belle Etoile", "Les 2 Savoies"]);
     expect(preview.races.map((race) => race.distanceKm)).toEqual([11, 15, 25]);
@@ -105,7 +113,6 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       confidence: "high",
       sourceLabel: "Trace GPX",
     });
-    expect(preview.event.location).toContain("73200 Mercury");
     expect(preview.races.find((race) => race.name === "La Belle Etoile")?.aidStations.map((station) => station.distanceKm)).toEqual([
       9, 11,
     ]);
@@ -114,10 +121,15 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     ]);
   });
 
-  it("sorts consolidated formats from the highest final score", async () => {
+  it("sorts formats from the explicit format page by final score", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
       if (url === "https://scores.example/") {
+        return htmlResponse(`
+          <html><head><title>Trail des Scores</title></head><body><p>Dimanche 17 mai 2026</p></body></html>
+        `);
+      }
+      if (url === "https://scores.example/formats") {
         return htmlResponse(`
           <html>
             <head><title>Trail des Scores</title></head>
@@ -136,13 +148,15 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       throw new Error(`Unexpected URL ${url}`);
     });
 
-    const preview = await buildOrganizerWebsiteImportPreview("https://scores.example/");
+    const preview = await buildOrganizerWebsiteImportPreview("https://scores.example/", {
+      formatUrls: ["https://scores.example/formats"],
+    });
 
     expect(preview.races.map((race) => race.name)).toEqual(["Format complet", "Format partiel"]);
     expect(preview.races[0].assessment?.score).toBeGreaterThan(preview.races[1].assessment?.score ?? 0);
   });
 
-  it("prefers the current edition page when other pages describe an older year", async () => {
+  it("uses the event page date while explicit format pages may contain older editions", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
 
@@ -154,9 +168,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
               <meta property="og:site_name" content="Les Foulees Fleurinoises" />
             </head>
             <body>
-              <p>27 septembre</p>
-              <a href="/les-parcours">Les Parcours</a>
-              <a href="/reglement">Reglement</a>
+              <p>Dimanche 27 septembre 2026</p>
             </body>
           </html>
         `);
@@ -192,7 +204,9 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       throw new Error(`Unexpected URL ${url}`);
     });
 
-    const preview = await buildOrganizerWebsiteImportPreview("https://chouette.example/");
+    const preview = await buildOrganizerWebsiteImportPreview("https://chouette.example/", {
+      formatUrls: ["https://chouette.example/les-parcours", "https://chouette.example/reglement"],
+    });
 
     expect(preview.event.raceDate).toBe("2026-09-27");
     expect(preview.event.name).toBe("Les Foulees Fleurinoises");
