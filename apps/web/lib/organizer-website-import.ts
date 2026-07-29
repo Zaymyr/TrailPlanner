@@ -1039,6 +1039,13 @@ const normalizeRaceIdentityName = (value: string) =>
 
 const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandidate) => {
   if (left.key === right.key) return true;
+  if (
+    left.distanceKm !== null &&
+    right.distanceKm !== null &&
+    Math.abs(left.distanceKm - right.distanceKm) <= 0.2
+  ) {
+    return true;
+  }
   const leftIdentity = normalizeRaceIdentityName(left.name);
   const rightIdentity = normalizeRaceIdentityName(right.name);
   if (!leftIdentity || !rightIdentity) return false;
@@ -1056,6 +1063,15 @@ const chooseMergedRaceName = (left: string, right: string) => {
   const rightHasNoise = noisePattern.test(right);
   if (leftHasNoise !== rightHasNoise) return leftHasNoise ? right : left;
   return left.length <= right.length ? left : right;
+};
+
+const formatNameSourceRank = (sourceLabel: string) => {
+  if (/^h1$/i.test(sourceLabel)) return 5;
+  if (/^h2$/i.test(sourceLabel)) return 4;
+  if (/^h[3-6]$/i.test(sourceLabel)) return 3;
+  if (sourceLabel === "jsonld") return 2;
+  if (sourceLabel === "named-prose") return 1;
+  return 0;
 };
 
 const mergeAidStations = (
@@ -1135,7 +1151,13 @@ const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: 
 
     const preferred = candidate.score > existing.score ? candidate : existing;
     const fallback = preferred === candidate ? existing : candidate;
-    const mergedName = chooseMergedRaceName(preferred.name, fallback.name);
+    const namePreferred =
+      formatNameSourceRank(existing.sourceLabel) >= formatNameSourceRank(candidate.sourceLabel) ? existing : candidate;
+    const nameFallback = namePreferred === existing ? candidate : existing;
+    const mergedName =
+      formatNameSourceRank(namePreferred.sourceLabel) > formatNameSourceRank(nameFallback.sourceLabel)
+        ? namePreferred.name
+        : chooseMergedRaceName(namePreferred.name, nameFallback.name);
     const mergedRace: GenericRaceCandidate = {
       ...preferred,
       name: mergedName,
@@ -1194,8 +1216,8 @@ const hydrateGenericRaceGpx = async (candidates: GenericRaceCandidate[]) => {
       const race: GenericRaceCandidate = {
         ...candidate,
         distanceKm: candidate.distanceKm ?? Number(gpx.stats.distanceKm.toFixed(2)),
-        elevationGainM: candidate.elevationGainM ?? Math.round(gpx.stats.gainM),
-        elevationLossM: candidate.elevationLossM ?? Math.round(gpx.stats.lossM),
+        elevationGainM: Math.round(gpx.stats.gainM),
+        elevationLossM: Math.round(gpx.stats.lossM),
         aidStations: candidate.aidStations.length > 0 ? candidate.aidStations : gpx.aidStations,
         gpxContent: gpx.gpxContent,
         gpxStorageLabel: "generic",
