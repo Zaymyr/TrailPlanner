@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../../lib/http";
 import {
-  assertEventEditionEditable,
   jsonError,
   requireEventOrganizer,
   requireOrganizerAuth,
@@ -42,14 +41,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   const formData = (await request.formData().catch(() => null)) as globalThis.FormData | null;
   if (!formData) return jsonError("Invalid form data.", 400);
-
-  const selectedEditionYearValue = formData.get("selectedEditionYear");
-  const selectedEditionYear =
-    typeof selectedEditionYearValue === "string" && selectedEditionYearValue.trim().length > 0
-      ? selectedEditionYearValue.trim()
-      : null;
-  const editableEdition = await assertEventEditionEditable(auth.serviceConfig, parsedParams.data.id, selectedEditionYear);
-  if (editableEdition !== true) return editableEdition.error;
 
   const imageFile = formData.get("image");
   if (!(imageFile instanceof File)) return jsonError("PNG image file is required.", 400);

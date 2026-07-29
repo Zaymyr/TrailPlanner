@@ -3,7 +3,6 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../../lib/http";
 import {
-  assertRaceEditionEditable,
   jsonError,
   loadRaceForOrganizer,
   requireOrganizerAuth,
@@ -95,9 +94,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-
-  const editableEdition = assertRaceEditionEditable((race as { race_date?: string | null }).race_date ?? null);
-  if (editableEdition !== true) return editableEdition.error;
 
   const parsedBody = updateAidStationsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid aid stations.", 400);

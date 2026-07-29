@@ -107,6 +107,36 @@ const normalizeComparableName = (value: string) =>
 const datesShareYear = (left: string | null | undefined, right: string | null | undefined) =>
   Boolean(left?.slice(0, 4) && right?.slice(0, 4) && left.slice(0, 4) === right.slice(0, 4));
 
+const getEditionYear = (value: string | null | undefined) =>
+  value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.slice(0, 4) : null;
+
+const alignRaceDateToEventYear = (
+  raceDate: string | null,
+  eventRaceDate: string | null | undefined
+) => {
+  const eventYear = getEditionYear(eventRaceDate);
+  if (!eventYear) return raceDate;
+  if (!raceDate) return eventRaceDate ?? null;
+
+  const alignedDate = `${eventYear}${raceDate.slice(4)}`;
+  const parsed = new Date(`${alignedDate}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === alignedDate
+    ? alignedDate
+    : eventRaceDate ?? raceDate;
+};
+
+const alignRaceToEventDate = (
+  race: OrganizerWebsiteImportRace,
+  eventRaceDate: string | null | undefined
+): OrganizerWebsiteImportRace => {
+  const raceDate = alignRaceDateToEventYear(race.raceDate, eventRaceDate);
+  return {
+    ...race,
+    raceDate,
+    missingFields: raceDate ? race.missingFields.filter((field) => field !== "Date format") : race.missingFields,
+  };
+};
+
 const buildPreviewWarnings = (preview: OrganizerWebsiteImportPreview, event: EventContext) => {
   const warnings = [...preview.warnings];
   if (preview.event.name && normalizeComparableName(preview.event.name) !== normalizeComparableName(event.name)) {
@@ -130,7 +160,7 @@ const buildRaceWarnings = (previewRace: OrganizerWebsiteImportRace, eventRace: E
   return warnings;
 };
 
-const findSuggestedRace = (previewRace: OrganizerWebsiteImportRace, races: EventRace[]) => {
+const findMatchingSeriesRace = (previewRace: OrganizerWebsiteImportRace, races: EventRace[]) => {
   const targetName = normalizeComparableName(previewRace.seriesName || previewRace.name);
   const exactName = races.find(
     (race) =>
@@ -151,26 +181,39 @@ const findSuggestedRace = (previewRace: OrganizerWebsiteImportRace, races: Event
   return null;
 };
 
+const findSuggestedRace = (
+  previewRace: OrganizerWebsiteImportRace,
+  races: EventRace[],
+  targetEditionYear: string | null
+) =>
+  findMatchingSeriesRace(
+    previewRace,
+    targetEditionYear ? races.filter((race) => getEditionYear(race.race_date) === targetEditionYear) : races
+  );
+
 const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: EventContext) => ({
   ...preview,
   warnings: buildPreviewWarnings(preview, event),
   races: preview.races.map((race) => {
-    const suggested = findSuggestedRace(race, event.races ?? []);
+    const targetEventDate = preview.event.raceDate ?? event.race_date ?? null;
+    const targetEditionYear = getEditionYear(targetEventDate);
+    const alignedRace = alignRaceToEventDate(race, targetEventDate);
+    const suggested = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear);
     return {
       key: race.key,
       name: race.name,
       seriesName: race.seriesName,
-      raceDate: race.raceDate,
+      raceDate: alignedRace.raceDate,
       locationText: race.locationText,
       distanceKm: race.distanceKm,
       elevationGainM: race.elevationGainM,
       elevationLossM: race.elevationLossM,
       externalSiteUrl: race.externalSiteUrl,
       thumbnailUrl: race.thumbnailUrl,
-      missingFields: race.missingFields,
+      missingFields: alignedRace.missingFields,
       warnings: buildRaceWarnings(race, suggested),
       suggestedTargetRaceId: suggested?.id ?? null,
-      canCreate: race.missingFields.length === 0,
+      canCreate: alignedRace.missingFields.length === 0,
       hasReliableGpx: race.hasReliableGpx,
       detectedAidStationCount: race.aidStations.length,
       assessment: race.assessment ?? null,
@@ -304,7 +347,8 @@ const hydrateAidStationsIfEmpty = async (
 const createRaceFromPreview = async (
   serviceConfig: Parameters<typeof serviceHeaders>[0],
   eventId: string,
-  race: OrganizerWebsiteImportRace
+  race: OrganizerWebsiteImportRace,
+  editionGroupId: string | null
 ) => {
   if (race.missingFields.length > 0 || !race.raceDate || race.distanceKm === null || race.elevationGainM === null) {
     throw new Error("Incomplete race preview.");
@@ -321,7 +365,7 @@ const createRaceFromPreview = async (
     body: JSON.stringify({
       id: raceId,
       event_id: eventId,
-      edition_group_id: raceId,
+      edition_group_id: editionGroupId ?? raceId,
       slug: buildSlug(race.name, "organizer"),
       series_name: race.seriesName || race.name,
       name: race.name,
@@ -447,6 +491,8 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     const eventPreview = parsedBody.data.eventRaceDate
       ? { ...preview, event: { ...preview.event, raceDate: parsedBody.data.eventRaceDate } }
       : preview;
+    const targetEventDate = eventPreview.event.raceDate ?? event.race_date ?? null;
+    const targetEditionYear = getEditionYear(targetEventDate);
     const hasEventUpdate =
       Boolean(eventPreview.event.name?.trim()) ||
       Boolean(eventPreview.event.location?.trim()) ||
@@ -468,18 +514,41 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       const previewRace = previewRaceMap.get(selection.previewRaceKey);
       if (!previewRace) return jsonError("Incoherent preview selection.", 409);
 
+      const alignedRace = alignRaceToEventDate(previewRace, targetEventDate);
+      const existingEdition = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear);
+      const seriesReference = findMatchingSeriesRace(alignedRace, event.races ?? []);
+
       if (selection.mode === "create") {
-        const result = await createRaceFromPreview(auth.serviceConfig, parsedParams.data.id, previewRace);
-        createdRaces += 1;
+        const result = existingEdition
+          ? await updateRaceFromPreview(auth.serviceConfig, existingEdition, alignedRace)
+          : await createRaceFromPreview(
+              auth.serviceConfig,
+              parsedParams.data.id,
+              alignedRace,
+              seriesReference?.edition_group_id ?? null
+            );
+        if (existingEdition) updatedRaces += 1;
+        else createdRaces += 1;
         gpxUploads += result.gpxUploaded ? 1 : 0;
         hydratedAidStations += result.createdAidStations;
         continue;
       }
 
-      const targetRace = selection.targetRaceId ? eventRaceMap.get(selection.targetRaceId) ?? null : null;
-      if (!targetRace) return jsonError("Missing target format for update.", 400);
-      const result = await updateRaceFromPreview(auth.serviceConfig, targetRace, previewRace);
-      updatedRaces += 1;
+      const selectedTargetRace = selection.targetRaceId ? eventRaceMap.get(selection.targetRaceId) ?? null : null;
+      const targetRace =
+        selectedTargetRace && (!targetEditionYear || getEditionYear(selectedTargetRace.race_date) === targetEditionYear)
+          ? selectedTargetRace
+          : existingEdition;
+      const result = targetRace
+        ? await updateRaceFromPreview(auth.serviceConfig, targetRace, alignedRace)
+        : await createRaceFromPreview(
+            auth.serviceConfig,
+            parsedParams.data.id,
+            alignedRace,
+            seriesReference?.edition_group_id ?? null
+          );
+      if (targetRace) updatedRaces += 1;
+      else createdRaces += 1;
       gpxUploads += result.gpxUploaded ? 1 : 0;
       hydratedAidStations += result.createdAidStations;
     }

@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-07-28
+last_verified: 2026-07-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -39,6 +39,7 @@ related_tables:
 - Reviewer: admin user that approves or rejects the request.
 - Status: `pending`, `approved`, or `rejected`.
 - Membership handoff: approved claims are linked to `race_event_organizers`.
+- Edition age: once membership is active, past and future editions share the same organizer edit authorization; claims do not impose a date cutoff.
 
 ## Columns
 

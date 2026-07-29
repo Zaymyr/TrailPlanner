@@ -139,7 +139,6 @@ vi.mock("../../../../../lib/http", () => ({
 }));
 
 vi.mock("../../../../../lib/organizer", () => ({
-  assertRaceEditionEditable: () => true,
   jsonError: (message: string, status: number) => Response.json({ message }, { status }),
   loadRaceForOrganizer: organizerMocks.loadRaceForOrganizer,
   optionalTextOrNull: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),

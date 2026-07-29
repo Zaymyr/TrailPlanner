@@ -5,7 +5,6 @@ import { z } from "zod";
 import { buildCumulativeElevationTotals, parseGpx } from "../../../../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../../../../lib/gpx/normalizeImportedWaypoints";
 import {
-  assertRaceEditionEditable,
   jsonError,
   loadRaceForOrganizer,
   requireOrganizerAuth,
@@ -162,9 +161,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-
-  const editableEdition = assertRaceEditionEditable((race as { race_date?: string | null }).race_date ?? null);
-  if (editableEdition !== true) return editableEdition.error;
 
   const formData = (await request.formData().catch(() => null)) as globalThis.FormData | null;
   if (!formData) return jsonError("Invalid form data.", 400);

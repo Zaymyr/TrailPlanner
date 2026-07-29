@@ -9,14 +9,6 @@ import { buildEditionYearOptions, formatEventDateRange, getRaceEditionYearLabel,
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, RaceFormat } from "./types";
 import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
-const getLocalEditionLock = (raceDate: string | null | undefined) => {
-  if (!raceDate?.trim()) return false;
-  const parsed = new Date(`${raceDate}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return false;
-  const lockDate = new Date(parsed.getTime() + 14 * 24 * 60 * 60 * 1000);
-  return Date.now() >= lockDate.getTime();
-};
-
 const getProgressTone = (score: number) => {
   if (score < 20) {
     return {
@@ -117,8 +109,6 @@ export function OrganizerSummaryHeader({
   onRequestEdition,
   onImportWebsite,
   completion,
-  editionLocked,
-  editionLockMessage,
   hasDirtyChanges,
   status,
   onSaveAll,
@@ -141,8 +131,6 @@ export function OrganizerSummaryHeader({
   onRequestEdition: () => void;
   onImportWebsite: () => void;
   completion: OrganizerCompletionSummary | null;
-  editionLocked: boolean;
-  editionLockMessage: string | null;
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
   onSaveAll: () => void;
@@ -250,11 +238,6 @@ export function OrganizerSummaryHeader({
                 ? `Demande ${editionRequestState.status} pour le ${editionRequestState.requested_start_date}.`
                 : "Toute nouvelle edition passe d'abord par une validation admin."}
             </div>
-            {editionLocked && editionLockMessage ? (
-              <div className="mt-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                {editionLockMessage}
-              </div>
-            ) : null}
           </div>
         ) : null}
         <div className="grid gap-3 rounded-md border border-border/70 bg-background/80 p-3 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
@@ -262,7 +245,7 @@ export function OrganizerSummaryHeader({
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </span>
           <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
-          <LiveToggle checked={isLive} disabled={status === "saving" || editionLocked} onChange={() => onTogglePublish()} />
+          <LiveToggle checked={isLive} disabled={status === "saving"} onChange={() => onTogglePublish()} />
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => (
@@ -277,7 +260,7 @@ export function OrganizerSummaryHeader({
               <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
               <LiveToggle
                 checked={race.activeEdition?.is_live ?? false}
-                disabled={status === "saving" || getLocalEditionLock(race.activeEdition?.race_date)}
+                disabled={status === "saving"}
                 onChange={() => race.activeEdition && onToggleRacePublish(race.activeEdition.id, !race.activeEdition.is_live)}
               />
             </div>
@@ -294,7 +277,7 @@ export function OrganizerSummaryHeader({
         <Button type="button" onClick={onNotifyFollowers} variant="outline" disabled={!event}>
           Notifier les coureurs
         </Button>
-        <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving" || editionLocked}>
+        <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
         </Button>
       </div>

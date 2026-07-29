@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-07-28
+last_verified: 2026-07-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -113,8 +113,8 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
 - Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page and may consolidate duplicate format candidates by normalized business name before sorting them by final quality score, but these preview choices do not create or move an event row. Missing required format values such as D+ remain explicit instead of being inferred.
 - Website-import field provenance and confidence scores are transient preview data computed by the server. They are not persisted in `race_events.organizer_details`; only organizer-confirmed event values, including `officialWebsiteUrl`, enter the row.
-- During website-import review, an organizer may explicitly replace the detected event date with another valid ISO calendar date. The server keeps that override outside the scraper hash, validates it after membership/hash checks, and writes it only to `race_events.race_date`; it does not rewrite child `races.race_date` values. Importing historical draft data is not subject to the normal edition-age edit lock.
-- Organizer event writes are now edition-aware from the dashboard: the selected edition year is passed through the event mutation flow so the server can block edits when that edition is more than 14 days in the past, even though the shared `race_events` row still lives above yearly `races` rows.
+- During website-import review, an organizer may explicitly replace the detected event date with another valid ISO calendar date. The server keeps that override outside the scraper hash and validates it after membership/hash checks. It writes the chosen date to `race_events.race_date` and uses its year to select or create child `races` editions: matching rows in another year are not overwritten, while a missing yearly edition reuses the matching series `edition_group_id` when possible.
+- Organizer event writes remain edition-aware for selecting child rows, but no date-based cutoff blocks event or format maintenance.
 - Event end date is currently stored in `organizer_details.dateRange.endDate`; existing `race_date` remains the start date for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
 - Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual non-ravito organizer content. The current mobile presentation uses `races.race_date` as the primary header date, keeps event service defaults merged into the runner-facing profile sections, lifts `services.lastMinuteMessage` into a dedicated compact alert card when present, renders alert title and message inline on the same text row, starts `Profil` with a GPX-derived interactive Leaflet map when available, starts `Ravito` with the course elevation profile when available, and keeps equipment rows ordered with active required items first, active recommended items second, and weather-muted inactive items last, with inline right-aligned status badges and icon-only cold/heat markers for weather-tagged items.
@@ -169,7 +169,7 @@ from public.races;
 - Keep the event-level catalog query narrow even with update previews: mobile should embed only the short recent history needed for instant sheet rendering, not the full announcement archive for every event.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
 - Publishing from the organizer route requires event name, location, start date, end date, and at least one live publishable format; event-level fields alone are not enough.
-- Do not bypass the edition lock through `/api/organizer/events/[id]`; for organizer writes, the selected edition's `race_date + 14 days` remains the cutoff while future editions stay editable.
+- Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
 - Do not store per-format equipment, dossard, or access differences on the event row.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Keep image upload validation in the server route; the database stores only the resulting URL.

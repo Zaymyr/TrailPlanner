@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-07-28
+last_verified: 2026-07-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -71,13 +71,13 @@ Summary:
 
 - A `pending` request is not a created edition yet.
 - One event cannot keep multiple pending/approved requests for the same requested start date.
-- The organizer dashboard may expose the request action only to approved event organizers; unrelated dashboard dialogs, including the scrollable website-import recap, its editable event-date correction, and its per-format confidence scores, do not change that edition-request gate or create a new yearly edition.
-- A locked past edition does not reopen direct editing rights; organizers still request the next edition through this table instead of mutating the expired edition.
+- The organizer dashboard may expose the manual renewal request action only to approved event organizers. Website import is a separate reconstruction flow: after human review it may create a missing yearly `races` edition directly in the validated event year while reusing an existing format series group.
+- Existing past editions remain directly editable by active organizers; this request table governs the manual renewal/clone workflow, not a date-based write lock.
 - Admin approval is the business validation step that also clones the source-year `races`, ravitos, station-product links, and GPX files into the requested year.
 
 ## Gotchas
 
-- Do not bypass this table by creating yearly editions directly from the organizer dashboard.
+- Do not bypass this table for the manual renewal/clone action. The reviewed website-import flow is an explicit exception for reconstructing a missing edition from official source data.
 - Do not treat `pending` as proof that race rows already exist for that year; only an approved request should materialize the cloned edition rows.
 - Keep organizer/admin copy aligned: the organizer sends a request, the admin validates it, and only then can the business process continue.
 - Keep the admin review surface explicit: edition requests stay visually distinct from access claims, while still showing the organizer identity when it is available.
