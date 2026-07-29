@@ -238,6 +238,77 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
     expect(eventPatch).toBeDefined();
     expect(JSON.parse(String(eventPatch?.[1]?.body))).toMatchObject({ race_date: "2026-09-20" });
   });
+
+  it("creates a missing edition in the event year and reuses the existing format series", async () => {
+    const existingEditionGroupId = "33333333-3333-3333-3333-333333333333";
+    const eventContext = [
+      {
+        id: eventId,
+        name: "Grand Trail",
+        location: "Annecy",
+        race_date: "2025-09-20",
+        organizer_details: { officialWebsiteUrl: null },
+        races: [
+          {
+            id: "22222222-2222-2222-2222-222222222222",
+            edition_group_id: existingEditionGroupId,
+            series_name: "42K",
+            name: "Grand Trail 42K",
+            race_date: "2025-09-12",
+            distance_km: 42,
+            elevation_gain_m: 2500,
+            elevation_loss_m: 2400,
+            external_site_url: null,
+            location_text: "Annecy",
+            thumbnail_url: null,
+            gpx_storage_path: null,
+            is_live: false,
+          },
+        ],
+      },
+    ];
+
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse(eventContext));
+    const previewResponse = await POST(importRequest({ action: "preview", url: "https://example.com/race" }), {
+      params: { id: eventId },
+    });
+    const previewPayload = await previewResponse.json();
+    expect(previewPayload.preview.races[0].suggestedTargetRaceId).toBeNull();
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse(eventContext))
+      .mockResolvedValueOnce(buildJsonResponse(null))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "44444444-4444-4444-4444-444444444444" }], { status: 201 }));
+
+    const response = await POST(
+      importRequest({
+        action: "apply",
+        url: "https://example.com/race",
+        previewHash: previewPayload.preview.previewHash,
+        eventRaceDate: "2027-09-20",
+        raceSelections: [
+          {
+            previewRaceKey: "race:0:grand-trail-42k",
+            mode: "create",
+            targetRaceId: null,
+          },
+        ],
+      }),
+      { params: { id: eventId } }
+    );
+
+    expect(response.status).toBe(200);
+    const raceInsert = vi
+      .mocked(fetch)
+      .mock.calls.find(([url, init]) => String(url).endsWith("/rest/v1/races") && init?.method === "POST");
+    expect(raceInsert).toBeDefined();
+    expect(JSON.parse(String(raceInsert?.[1]?.body))).toMatchObject({
+      edition_group_id: existingEditionGroupId,
+      race_date: "2027-09-12",
+      series_name: "42K",
+      is_live: false,
+    });
+  });
 });
 
 vi.mock("../../../../../../lib/http", () => ({
@@ -258,8 +329,6 @@ vi.mock("../../../../../../lib/organizer-website-import", async () => {
 vi.mock("../../../../../../lib/organizer", async () => {
   const { z } = await import("zod");
   return {
-    assertEventEditionEditable: () => Promise.resolve(true),
-    assertRaceEditionEditable: () => true,
     buildSlug: (value: string) => `slug-${value}`,
     jsonError: (message: string, status: number) => Response.json({ message }, { status }),
     optionalTextOrNull: z.string().nullable().optional(),

@@ -16,15 +16,11 @@ export function EventInfoEditor({
   onChange,
   onUploadImage,
   status,
-  editLocked = false,
-  editLockMessage = null,
 }: {
   eventForm: EventFormValues;
   onChange: (next: Partial<EventFormValues>, moduleId?: OrganizerModuleId) => void;
   onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
-  editLocked?: boolean;
-  editLockMessage?: string | null;
 }) {
   const dateRange = eventForm.organizerDetails.dateRange;
   const missingName = !eventForm.name.trim();
@@ -35,7 +31,7 @@ export function EventInfoEditor({
 
   return (
     <div className="grid gap-3 lg:grid-cols-[1fr_1fr_220px_170px_170px]">
-      <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} disabled={editLocked} />
+      <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
       <AddressAutocompleteField
         label="Lieu"
         value={eventForm.location}
@@ -70,9 +66,8 @@ export function EventInfoEditor({
             "event"
           )
         }
-        disabled={editLocked}
       />
-      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} disabled={editLocked} />
+      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
       <TextField
         label="Date fin"
         type="date"
@@ -89,7 +84,6 @@ export function EventInfoEditor({
           )
         }
         invalid={missingEndDate}
-        disabled={editLocked}
       />
       <div className="space-y-2 lg:col-span-4">
         <Label>Image evenement (PNG)</Label>
@@ -102,9 +96,8 @@ export function EventInfoEditor({
             Aucune image
           </div>
         )}
-        <Input type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading" || editLocked} className="max-w-sm" />
+        <Input type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
         <p className="text-xs text-muted-foreground">PNG uniquement, 5 Mo maximum.</p>
-        {editLocked && editLockMessage ? <p className="text-xs font-medium text-amber-700">{editLockMessage}</p> : null}
       </div>
     </div>
   );
@@ -131,8 +124,6 @@ export function FormatsEditor({
   onPreviewRace,
   gpxPreview,
   status,
-  editLocked = false,
-  editLockMessage = null,
 }: {
   activeTab: string;
   activeRace: RaceFormat | null;
@@ -154,8 +145,6 @@ export function FormatsEditor({
   onPreviewRace: () => void;
   gpxPreview: GpxPreview | null;
   status: "idle" | "loading" | "saving" | "uploading";
-  editLocked?: boolean;
-  editLockMessage?: string | null;
 }) {
   return (
     <div className="space-y-5">
@@ -171,21 +160,17 @@ export function FormatsEditor({
           onImageChange={onSelectNewRaceImage}
           onGpxChange={onSelectNewRaceGpx}
           submitLabel="Ajouter"
-          disabled={status === "saving" || status === "uploading" || editLocked}
+          disabled={status === "saving" || status === "uploading"}
           requireRaceDate
           gpxPreview={gpxPreview}
           gpxTitle="GPX du format"
           gpxStatus={newRaceGpxName ? "GPX pret a etre importe apres creation." : "Ajoute un GPX pour preremplir les stats et voir le parcours."}
           hasGpx={Boolean(newRaceGpxName)}
-          editLockMessage={editLockMessage}
         />
       ) : activeRace ? (
         <div className="space-y-4">
-          {editLocked && editLockMessage ? (
-            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">{editLockMessage}</div>
-          ) : null}
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving" || editLocked}>
+            <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving"}>
               Dupliquer ce format
             </Button>
             <Button type="button" variant="outline" onClick={onPreviewRace}>
@@ -198,7 +183,7 @@ export function FormatsEditor({
               type="button"
               variant="outline"
               onClick={onDeleteRace}
-              disabled={status === "saving" || status === "uploading" || editLocked}
+              disabled={status === "saving" || status === "uploading"}
               className="border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
             >
               Supprimer ce format
@@ -214,13 +199,12 @@ export function FormatsEditor({
               onImageChange={onUploadRaceImage}
               onGpxChange={onUploadGpx}
               submitLabel=""
-              disabled={status === "saving" || status === "uploading" || editLocked}
+              disabled={status === "saving" || status === "uploading"}
               hideSubmit
               gpxPreview={gpxPreview}
               gpxTitle="GPX source"
               gpxStatus={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
               hasGpx={Boolean(activeRace.gpx_storage_path)}
-              editLockMessage={editLockMessage}
             />
           ) : (
             <OrganizerGpxPanel
@@ -228,7 +212,7 @@ export function FormatsEditor({
               statusText={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
               fileLabel={activeRace.gpx_storage_path ? "Remplacer le GPX source" : "Ajouter un GPX"}
               onGpxChange={onUploadGpx}
-              disabled={status === "uploading" || editLocked}
+              disabled={status === "uploading"}
               preview={gpxPreview}
               activeRace={activeRace}
               hasGpx={Boolean(activeRace.gpx_storage_path)}
@@ -263,7 +247,6 @@ function RaceForm({
   gpxTitle = "GPX du format",
   gpxStatus,
   hasGpx = false,
-  editLockMessage = null,
 }: {
   title: string;
   values: RaceFormValues;
@@ -282,7 +265,6 @@ function RaceForm({
   gpxTitle?: string;
   gpxStatus?: string;
   hasGpx?: boolean;
-  editLockMessage?: string | null;
 }) {
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
@@ -393,7 +375,6 @@ function RaceForm({
           <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
         </div>
       ) : null}
-      {disabled && editLockMessage ? <p className="text-xs font-medium text-amber-700">{editLockMessage}</p> : null}
     </form>
   );
 }
@@ -445,7 +426,7 @@ function OrganizerGpxPanel({
             <p className="font-semibold text-foreground">{title}</p>
             {statusText ? <span className="text-xs font-medium text-muted-foreground">{statusText}</span> : null}
           </div>
-          <p className="text-xs text-muted-foreground">Commence par les fichiers: GPX d'abord, image ensuite si besoin.</p>
+          <p className="text-xs text-muted-foreground">Commence par les fichiers: GPX d&apos;abord, image ensuite si besoin.</p>
         </div>
         <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 1</p>
@@ -496,7 +477,7 @@ function MiniElevationProfile({
   const lossM = preview?.stats?.lossM ?? activeRace.elevation_loss_m ?? 0;
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La courbe apparaitra apres l'ajout d'un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La courbe apparaitra apres l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (!hasProfile) {
@@ -585,7 +566,7 @@ function MiniGpxMap({
   );
 
   if (!hasGpx) {
-    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La carte apparaitra apres l'ajout d'un GPX.</div>;
+    return <div className="rounded-md border border-dashed border-border bg-background px-3 py-4 text-sm text-muted-foreground">La carte apparaitra apres l&apos;ajout d&apos;un GPX.</div>;
   }
 
   if (points.length < 2) {

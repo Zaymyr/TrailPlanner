@@ -149,7 +149,6 @@ vi.mock("../../../../lib/organizer-dashboard-details", () => ({
 }));
 
 vi.mock("../../../../lib/organizer", () => ({
-  assertRaceEditionEditable: () => true,
   buildSlug: (value: string) => value.toLowerCase().replace(/\s+/g, "-"),
   jsonError: (message: string, status: number) => Response.json({ message }, { status }),
   optionalTextOrNull: z.string().optional().transform((value) => (value && value.length > 0 ? value : null)),

@@ -77,7 +77,6 @@ import type {
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
-const EDITION_LOCK_GRACE_DAYS = 14;
 
 const websiteImportScoreTone = (score: number) =>
   score >= 80
@@ -104,17 +103,6 @@ type OrganizerRaceEventUpdate = {
   message: string;
   created_at: string;
   created_by?: string | null;
-};
-
-const getEditionLockState = (raceDate: string | null | undefined, now = new Date()) => {
-  if (!raceDate?.trim()) return { locked: false, lockDateLabel: null as string | null };
-  const parsed = new Date(`${raceDate}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return { locked: false, lockDateLabel: null as string | null };
-  const lockDate = new Date(parsed.getTime() + EDITION_LOCK_GRACE_DAYS * 24 * 60 * 60 * 1000);
-  return {
-    locked: now.getTime() >= lockDate.getTime(),
-    lockDateLabel: lockDate.toISOString().slice(0, 10),
-  };
 };
 
 export function OrganizerDashboard({
@@ -188,21 +176,6 @@ export function OrganizerDashboard({
     editionRequests.find(
       (request) => request.event_id === selectedEventId && request.requested_start_date === newEditionDate && request.status !== "rejected"
     ) ?? null;
-  const selectedEditionReferenceDate = useMemo(() => {
-    if (!selectedEditionYear || !eventDetail) return null;
-    const matchingDates = eventDetail.races
-      .map((race) => race.race_date ?? null)
-      .filter((raceDate): raceDate is string => Boolean(raceDate?.startsWith(selectedEditionYear)))
-      .sort();
-    return matchingDates[0] ?? (eventDetail.race_date?.startsWith(selectedEditionYear) ? eventDetail.race_date : null) ?? null;
-  }, [eventDetail, selectedEditionYear]);
-  const selectedEditionLock = useMemo(() => getEditionLockState(selectedEditionReferenceDate), [selectedEditionReferenceDate]);
-  const editLocked = selectedEditionLock.locked;
-  const editLockMessage =
-    editLocked && selectedEditionYear
-      ? `Edition ${selectedEditionYear} verrouillee depuis le ${selectedEditionLock.lockDateLabel}. Seules les editions futures restent modifiables.`
-      : null;
-
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ id: Date.now(), type, message });
   };
@@ -219,12 +192,6 @@ export function OrganizerDashboard({
   const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm);
   const productsById = useMemo(() => buildProductsById(catalogProducts, stationProducts), [catalogProducts, stationProducts]);
   const authHeaders = useMemo((): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), [accessToken]);
-  const rejectLockedEdition = () => {
-    if (!editLocked) return false;
-    showToast("error", editLockMessage ?? "Cette edition n'est plus modifiable.");
-    return true;
-  };
-
   const serializeEquipment = (equipment: OrganizerEventDetails["mandatoryEquipment"]) =>
     JSON.stringify({
       weatherPlan: equipment.weatherPlan,
@@ -511,13 +478,11 @@ export function OrganizerDashboard({
 
   const saveEvent = async (override?: Partial<EventFormValues>) => {
     if (!accessToken || !selectedEventId) return false;
-    if (rejectLockedEdition()) return false;
     const nextForm = { ...eventForm, ...override };
     const previousCommonEquipment = eventDetail?.organizerDetails?.mandatoryEquipment ?? eventForm.organizerDetails.mandatoryEquipment;
     const equipmentChanged = serializeEquipment(previousCommonEquipment) !== serializeEquipment(nextForm.organizerDetails.mandatoryEquipment);
     const raceEquipmentUpdates = equipmentChanged
       ? (eventDetail?.races ?? [])
-          .filter((race) => !getEditionLockState(race.race_date).locked)
           .map((race) => {
           const raceOrganizerDetails = race.organizerDetails ?? defaultOrganizerRaceDetails;
           return {
@@ -586,7 +551,6 @@ export function OrganizerDashboard({
 
   const saveRace = async (override?: Partial<RaceFormValues>) => {
     if (!accessToken || !activeRace || !selectedEventId) return false;
-    if (rejectLockedEdition()) return false;
     const nextForm = {
       ...raceForm,
       ...override,
@@ -652,7 +616,6 @@ export function OrganizerDashboard({
   const createRace = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!accessToken || !selectedEventId) return;
-    if (rejectLockedEdition()) return;
     if (!newRaceForm.raceDate.trim()) {
       showToast("error", "Ajoute la date de course avant de créer le format.");
       return;
@@ -699,7 +662,6 @@ export function OrganizerDashboard({
 
   const duplicateActiveRace = async () => {
     if (!accessToken || !selectedEventId || !activeRace) return;
-    if (rejectLockedEdition()) return;
     setStatus("saving");
     setError(null);
     try {
@@ -771,7 +733,6 @@ export function OrganizerDashboard({
 
   const uploadRaceGpxFile = async (raceId: string, file: File) => {
     if (!accessToken) return { ok: false };
-    if (rejectLockedEdition()) return { ok: false };
     setStatus("uploading");
     setError(null);
     try {
@@ -826,10 +787,6 @@ export function OrganizerDashboard({
   const uploadEventImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     if (!file || !accessToken || !selectedEventId) return;
-    if (rejectLockedEdition()) {
-      event.target.value = "";
-      return;
-    }
     if (file.type !== "image/png") {
       showToast("error", "Ajoute une image PNG.");
       event.target.value = "";
@@ -863,7 +820,6 @@ export function OrganizerDashboard({
 
   const uploadRaceImageFile = async (raceId: string, file: File) => {
     if (!accessToken) return false;
-    if (rejectLockedEdition()) return false;
     if (!validateRaceImage(file)) return false;
 
     setStatus("uploading");
@@ -900,10 +856,6 @@ export function OrganizerDashboard({
   };
 
   const selectNewRaceImage = (event: ChangeEvent<HTMLInputElement>) => {
-    if (rejectLockedEdition()) {
-      event.target.value = "";
-      return;
-    }
     const file = event.target.files?.[0] ?? null;
     if (!file) return;
     if (!validateRaceImage(file)) {
@@ -915,10 +867,6 @@ export function OrganizerDashboard({
   };
 
   const selectNewRaceGpx = async (event: ChangeEvent<HTMLInputElement>) => {
-    if (rejectLockedEdition()) {
-      event.target.value = "";
-      return;
-    }
     const file = event.target.files?.[0] ?? null;
     if (!file) return;
     const isGpxFile = file.name.toLowerCase().endsWith(".gpx") || file.type === "application/gpx+xml";
@@ -971,7 +919,6 @@ export function OrganizerDashboard({
 
   const deleteActiveRace = async () => {
     if (!accessToken || !activeRace || !selectedEventId) return;
-    if (rejectLockedEdition()) return;
     const confirmed = window.confirm(`Supprimer la course "${activeRace.name}" ? Cette action est définitive.`);
     if (!confirmed) return;
 
@@ -998,7 +945,6 @@ export function OrganizerDashboard({
 
   const saveAidStations = async () => {
     if (!accessToken || !activeRace) return false;
-    if (rejectLockedEdition()) return false;
     setStatus("saving");
     setError(null);
     try {
@@ -1023,7 +969,6 @@ export function OrganizerDashboard({
 
   const replaceStationProducts = async (aidStationId: string, products: Array<{ productId: string; notes?: string | null }>) => {
     if (!accessToken || !activeRace) return false;
-    if (rejectLockedEdition()) return false;
     const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-station-products`, {
       method: "PUT",
       headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -1064,7 +1009,6 @@ export function OrganizerDashboard({
   const createStationProduct = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!accessToken || !activeRace || !productStationId) return;
-    if (rejectLockedEdition()) return;
     setStatus("saving");
     setError(null);
     try {
@@ -1118,25 +1062,21 @@ export function OrganizerDashboard({
   };
 
   const updateEventForm = (next: Partial<EventFormValues>, moduleId: OrganizerModuleId = "event") => {
-    if (editLocked) return;
     setEventForm((current) => ({ ...current, ...next }));
     markDirty(moduleId);
   };
 
   const updateEventDetails = (nextDetails: OrganizerEventDetails, moduleId: OrganizerModuleId) => {
-    if (editLocked) return;
     setEventForm((current) => ({ ...current, organizerDetails: nextDetails }));
     markDirty(moduleId);
   };
 
   const updateRaceForm = (next: Partial<RaceFormValues>, moduleId: OrganizerModuleId = "formats") => {
-    if (editLocked) return;
     setRaceForm((current) => ({ ...current, ...next }));
     markDirty(moduleId);
   };
 
   const updateAidStation = (index: number, station: AidStationDraft) => {
-    if (editLocked) return;
     setAidStations((current) =>
       sortAidStationsByDistance(current.map((item, stationIndex) => (stationIndex === index ? syncAidStationWithGpxPreview(station, gpxPreview) : item)))
     );
@@ -1155,10 +1095,6 @@ export function OrganizerDashboard({
 
   const handleRacePublishToggle = async (raceId: string, nextIsLive: boolean) => {
     const targetRace = eventDetail?.races.find((race) => race.id === raceId) ?? null;
-    if (getEditionLockState(targetRace?.race_date ?? null).locked) {
-      showToast("error", `Edition ${getRaceEditionYearLabel(targetRace?.race_date)} verrouillee. Modifie une edition future.`);
-      return;
-    }
     if (!(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId || !eventDetail) return;
 
@@ -1416,8 +1352,6 @@ export function OrganizerDashboard({
         selectedEditionYear={selectedEditionYear}
         newEditionDate={newEditionDate}
         editionRequestState={currentEditionRequest}
-        editionLocked={editLocked}
-        editionLockMessage={editLockMessage}
         onSelectedEventChange={(eventId) => {
           void (async () => {
             if (!(await saveBeforeNavigation())) return;
@@ -1499,8 +1433,6 @@ export function OrganizerDashboard({
               onChange={updateEventForm}
               onUploadImage={uploadEventImage}
               status={status}
-              editLocked={editLocked}
-              editLockMessage={editLockMessage}
             />
           ) : activeModule === "formats" ? (
             <FormatsEditor
@@ -1532,8 +1464,6 @@ export function OrganizerDashboard({
               }}
               gpxPreview={gpxPreview}
               status={status}
-              editLocked={editLocked}
-              editLockMessage={editLockMessage}
             />
           ) : activeModule === "aidStations" ? (
             <AidStationsEditor
@@ -1544,7 +1474,6 @@ export function OrganizerDashboard({
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
               onAddStation={() => {
-                if (editLocked) return;
                 const nextKey = `new-${aidStations.length}`;
                 setAidStations((current) =>
                   sortAidStationsByDistance([
@@ -1598,7 +1527,6 @@ export function OrganizerDashboard({
               }
               onUpdateStation={updateAidStation}
               onRemoveStation={(index) => {
-                if (editLocked) return;
                 setAidStations((current) => current.filter((_, stationIndex) => stationIndex !== index));
                 markDirty("aidStations");
               }}
@@ -1607,17 +1535,14 @@ export function OrganizerDashboard({
               productForm={productForm}
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
-                if (editLocked) return;
                 setProductSearch("");
                 setProductPickerStationId(stationId);
               }}
               onRemoveProduct={(stationId, productId) => void removeStationProduct(stationId, productId)}
               onToggleProductForm={(stationId) => {
-                if (editLocked) return;
                 setProductStationId((current) => (current === stationId ? null : stationId));
               }}
               onProductFormChange={(next) => {
-                if (editLocked) return;
                 setProductForm(next);
               }}
               onCreateProduct={createStationProduct}
@@ -1651,17 +1576,14 @@ export function OrganizerDashboard({
               productForm={productForm}
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
-                if (editLocked) return;
                 setProductSearch("");
                 setProductPickerStationId(stationId);
               }}
               onRemoveProduct={(stationId, productId) => void removeStationProduct(stationId, productId)}
               onToggleProductForm={(stationId) => {
-                if (editLocked) return;
                 setProductStationId((current) => (current === stationId ? null : stationId));
               }}
               onProductFormChange={(next) => {
-                if (editLocked) return;
                 setProductForm(next);
               }}
               onCreateProduct={createStationProduct}
@@ -1842,13 +1764,18 @@ export function OrganizerDashboard({
                   <p className="text-sm font-semibold text-foreground">Formats detectes</p>
                   {websiteImportPreview.races.map((race) => {
                     const selection = websiteImportSelections[race.key] ?? { mode: "ignore", targetRaceId: null };
+                    const importRaceDate = websiteImportEventDate
+                      ? race.raceDate
+                        ? `${websiteImportEventDate.slice(0, 4)}${race.raceDate.slice(4)}`
+                        : websiteImportEventDate
+                      : race.raceDate;
                     return (
                       <div key={race.key} className="space-y-3 rounded-md border border-border/60 bg-card p-3">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
                             <p className="font-medium text-foreground">{race.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {[race.raceDate, race.locationText, race.distanceKm ? `${race.distanceKm} km` : null, race.elevationGainM !== null ? `D+ ${race.elevationGainM} m` : null]
+                              {[importRaceDate, race.locationText, race.distanceKm ? `${race.distanceKm} km` : null, race.elevationGainM !== null ? `D+ ${race.elevationGainM} m` : null]
                                 .filter(Boolean)
                                 .join(" · ") || "Informations partielles"}
                             </p>

@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-07-28
+last_verified: 2026-07-29
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -146,7 +146,7 @@ Pending requested years should still appear immediately in the event-level year 
 
 The format identity editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. The interactive route map then sits below as the main full-width visual focus, and repeated course metrics should not be duplicated across every preview header when the same values are already visible in the form.
 
-The selected edition year now also controls editability. Once that edition's reference date is more than 14 days in the past relative to Tuesday, July 21, 2026, the dashboard should show a warning with the computed lock date, disable the main mutation actions for that edition, and leave future editions editable after a year switch. The server routes remain authoritative: event PATCH/image and race PATCH/delete/image/GPX/ravito/product mutations must still reject writes for that locked edition.
+The selected edition year controls which format rows are displayed and edited, but it does not impose a time-based lock. Organizers with an active event membership may update past and future editions through the same event, image, race, GPX, ravito, and product routes.
 
 When the organizer adds a brand-new format, the creation form can now queue both the format image and the GPX file before submission. Selecting that GPX parses it immediately in the dashboard and pre-fills distance, D+, and D- from the file before submit. The same right-hand GPX panel also renders an interactive OpenStreetMap/Leaflet route map and the elevation curve from the loaded preview data. The format date is mandatory in that creation flow. The dashboard still creates the `races` row first, then uploads the pending GPX through `/api/organizer/races/[id]/gpx` so the format lands with persisted parsed stats and any eligible waypoint ravitos.
 
@@ -162,7 +162,7 @@ That same dashboard header now also exposes `Importer depuis un site web`. The o
 - explicit per-format actions: create, update, or ignore.
 - a global quality score plus an expandable field-by-field inventory showing found and missing values, estimated reliability, and the source page.
 
-The review import route never creates another `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. When `/organizers` supplies an official URL, it first creates the draft and membership, then opens this same review against that new event. The organizer may correct the event date in the review; the override must be a real `YYYY-MM-DD` date, is transmitted outside the hashed scraper payload, and is applied only after the server has recomputed and validated the original preview hash. Website import is allowed to populate historical drafts and is therefore not blocked by the edition-age lock. It changes only `race_events.race_date`; detected format dates remain unchanged. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough.
+The review import route never creates another `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. When `/organizers` supplies an official URL, it first creates the draft and membership, then opens this same review against that new event. The organizer may correct the event date in the review; the override must be a real `YYYY-MM-DD` date, is transmitted outside the hashed scraper payload, and is applied only after the server has recomputed and validated the original preview hash. The selected event date defines the target edition year: an existing format is updated only when its matching series exists in that year; otherwise the importer creates a draft `races` row in that year and reuses the existing series `edition_group_id` when available. The detected format month/day is preserved when valid, with the event date as fallback. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough.
 
 The format score is a review aid, not an automatic acceptance rule. It combines weighted information coverage (65%) with estimated source reliability (35%); name, date, distance, and D+ have double weight because they are required to create a usable format. Provider adapters and parsed GPX values are high-confidence, structured data and dedicated format/regulation sections outrank generic text, and isolated line detections remain low-confidence. Every assessed field keeps its displayed source URL. Missing values stay visible in the expanded card and continue to block creation when they are required, regardless of the aggregate score.
 
@@ -264,7 +264,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.
 - Do not infer yearly organizer grouping from `races.name`; use explicit `races.edition_group_id` and `races.series_name`.
-- Do not let a past edition stay editable after `race_date + 14 days`; keep the client warning and the server-side mutation checks aligned.
+- Do not reintroduce a date-based organizer edit lock without a new explicit business decision; active membership currently authorizes both past and future edition maintenance.
 - Do not re-open manual editing for cumulative D+ / D- in the organizer ravito form while GPX-driven interpolation is the source of truth; km edits must keep recomputing those values from the active GPX preview.
 - Keep a UTF-8 regression test around route-local organizer copy when touching French labels on ravito cards or related dashboard text; mojibake should fail tests before it reaches the screen.
 - Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
@@ -277,6 +277,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Keep generic crawling same-origin, prioritized, size-limited, and time-bounded. Do not follow registration, social, Strava, or other external links as extra HTML pages merely because their labels mention a course.
 - Do not treat every kilometer mention as a format. Ravito distances, barriers, age categories, result archives, prices, and training-analysis blocks need a course-level signal or a named format context.
 - Do not deduplicate formats solely by distance. Merge exact normalized names even when extracted metrics conflict, but require compatible distances before merging merely overlapping short/long labels; keep a conflict warning for organizer review.
+- During website import, scope format matching to the validated event year. A same-name format from another year is a series reference for `edition_group_id`, not the update target for the new edition.
 - Do not infer missing elevation. A downloadable GPX may supply D+/D-, but without one the recap must leave D+ missing rather than create a plausible-looking value.
 - Keep the website-import review panel on a definite viewport-relative height and explicitly prioritize its flex layout. A `max-height` plus conflicting `grid` / `flex` classes can clip the recap instead of making its center panel scroll.
 - Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
