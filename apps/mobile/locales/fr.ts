@@ -40,7 +40,7 @@ export const fr: MobileTranslations = {
   },
   reminders: {
     inactivityTitle: "Ton prochain plan t'attend",
-    inactivityBody: 'Cela fait quelques jours. Reviens voir ton plan et reprendre ta préparation.',
+    inactivityBody: 'Cela fait quelques jours. Reviens voir ton plan pour reprendre ta préparation.',
     unfinishedPlanTitle: "Ton plan n'est pas terminé",
     unfinishedPlanBody: 'Reviens finaliser {name} et ajouter tes ravitos.',
   },

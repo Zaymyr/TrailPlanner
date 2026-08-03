@@ -1,7 +1,7 @@
 ---
 title: Supabase Edge Functions
 scope: integration
-last_verified: 2026-05-17
+last_verified: 2026-07-30
 ai_priority: high
 related_files:
   - supabase/functions/push-register/index.ts
@@ -69,6 +69,7 @@ Shared implementation:
 - checks inactivity after roughly 72 hours;
 - checks unfinished plans after roughly 24 hours;
 - writes `push_notification_events` for send logging and dedupe.
+- uses the same French inactivity and unfinished-plan reminder wording as the mobile client.
 
 ## Cron Scheduling
 

@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-06-30
+last_verified: 2026-07-30
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -168,7 +168,7 @@ If no water, carb, or sodium supply is carried and the matching target is active
 
 Liquid products (`drink_mix` and `electrolyte`) occupy carried water capacity. Mobile uses `DEFAULT_FLUID_PRODUCT_VOLUME_ML` (`500 ml`) per liquid product serving. A runner cannot start free training if the selected liquid products require more volume than the carried liquid capacity. Liquid product nutrients are consumed with the water reminders; they do not add extra water beyond the carried capacity.
 
-The free training session uses the same in-memory live session store as race live mode, but passes prebuilt alert specs instead of section-derived plan alerts.
+The free training session uses the same in-memory live session store as race live mode, but passes prebuilt alert specs instead of section-derived plan alerts. Its runner-facing notification copy is French-accented (`Entraînement`) so titles, bodies, and section labels remain consistent.
 
 ## Legacy API Allocation Order
 

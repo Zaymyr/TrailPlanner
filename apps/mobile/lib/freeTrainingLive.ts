@@ -200,10 +200,10 @@ function buildProductEvents(
       id: `${idPrefix}-${unit.unitId}`,
       triggerMinutes,
       title: `Prendre ${unit.label}`,
-      body: `${detail || '1 prise'} | Entrainement libre`,
+      body: `${detail || '1 prise'} | Entraînement libre`,
       payload: {
         sectionIndex: 0,
-        fromName: 'Entrainement',
+        fromName: 'Entraînement',
         toName: 'Fin du suivi',
         carbsGrams: Math.round(unit.carbsGrams),
         sodiumMg: Math.round(unit.sodiumMg),
@@ -266,10 +266,10 @@ function buildWaterEvents(args: BuildAlertsArgs, summary: FreeTrainingSummary): 
       id: `free-training-water-${index}`,
       triggerMinutes: Math.max(1, roundToStep(triggerMinutes)),
       title: hasFluid ? `Boire ${label}` : 'Boire',
-      body: `${detail} | Entrainement libre`,
+      body: `${detail} | Entraînement libre`,
       payload: {
         sectionIndex: 0,
-        fromName: 'Entrainement',
+        fromName: 'Entraînement',
         toName: 'Fin du suivi',
         carbsGrams,
         sodiumMg,
@@ -307,10 +307,10 @@ function buildInitialBufferAlerts(summary: FreeTrainingSummary): LiveAlertSpec[]
       id: 'free-training-water-buffer',
       triggerMinutes: DEFAULT_INITIAL_BUFFER_MINUTES,
       title: 'Boire',
-      body: "Besoin d'eau | Entrainement libre",
+      body: "Besoin d'eau | Entraînement libre",
       payload: {
         sectionIndex: 0,
-        fromName: 'Entrainement',
+        fromName: 'Entraînement',
         toName: 'Fin du suivi',
         carbsGrams: 0,
         sodiumMg: 0,
@@ -326,10 +326,10 @@ function buildInitialBufferAlerts(summary: FreeTrainingSummary): LiveAlertSpec[]
       id: 'free-training-carb-buffer',
       triggerMinutes: DEFAULT_INITIAL_BUFFER_MINUTES,
       title: 'Manger',
-      body: 'Besoin de glucides | Entrainement libre',
+      body: 'Besoin de glucides | Entraînement libre',
       payload: {
         sectionIndex: 0,
-        fromName: 'Entrainement',
+        fromName: 'Entraînement',
         toName: 'Fin du suivi',
         carbsGrams: 0,
         sodiumMg: 0,
@@ -345,10 +345,10 @@ function buildInitialBufferAlerts(summary: FreeTrainingSummary): LiveAlertSpec[]
       id: 'free-training-sodium-buffer',
       triggerMinutes: DEFAULT_INITIAL_BUFFER_MINUTES,
       title: 'Prendre du sodium',
-      body: 'Besoin de sodium | Entrainement libre',
+      body: 'Besoin de sodium | Entraînement libre',
       payload: {
         sectionIndex: 0,
-        fromName: 'Entrainement',
+        fromName: 'Entraînement',
         toName: 'Fin du suivi',
         carbsGrams: 0,
         sodiumMg: 0,
@@ -406,7 +406,7 @@ function mergeCloseEvents(events: LiveAlertSpec[]): LiveAlertSpec[] {
           : hasWater
             ? [...new Set(['Boire', ...fallbackTitles.filter((title) => title !== 'Boire')])].join(' + ')
             : fallbackTitle || 'Manger',
-      body: `${detail} | Entrainement libre`,
+      body: `${detail} | Entraînement libre`,
       payload: {
         ...previous.payload,
         carbsGrams,
