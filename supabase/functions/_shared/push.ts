@@ -240,7 +240,7 @@ function buildInactiveReminderCopy(locale: PushLocale) {
   if (locale === "fr") {
     return {
       title: "Ton prochain plan t'attend",
-      body: "Cela fait quelques jours. Reviens voir ton plan et reprendre ta préparation.",
+      body: "Cela fait quelques jours. Reviens voir ton plan pour reprendre ta préparation.",
     };
   }
 

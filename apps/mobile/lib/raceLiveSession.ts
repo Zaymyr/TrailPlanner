@@ -218,7 +218,7 @@ export async function startRace(
     .filter((alert) => waterOnlyReminderIntervalMinutes !== null || !isWaterOnlyAlertSpec(alert));
 
   await startLiveSession(plan, alerts, confirmMode, waterOnlyReminderIntervalMinutes, {
-    title: 'Course demarree',
+    title: 'Course démarrée',
     body: `${plan.name} - suivi nutrition actif`,
   });
 }
@@ -229,7 +229,7 @@ export async function startFreeTraining(
   confirmMode: AlertConfirmMode = 'manual',
 ): Promise<void> {
   await startLiveSession(plan, alerts, confirmMode, null, {
-    title: 'Entrainement demarre',
+    title: 'Entraînement démarré',
     body: `${plan.name} - suivi nutrition actif`,
   });
 }

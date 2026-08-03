@@ -1,8 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildOrganizerWebsiteImportPreview } from "../../../../../../lib/organizer-website-import";
+import { getTraceDeTrailRaceData } from "../../../../../../lib/tracedetrail-race-import";
 
 vi.mock("server-only", () => ({}));
+vi.mock("../../../../../../lib/tracedetrail-race-import", () => ({
+  getTraceDeTrailRaceData: vi.fn(),
+  TraceDeTrailImportError: class TraceDeTrailImportError extends Error {},
+}));
 
 const htmlResponse = (html: string) =>
   new Response(html, {
@@ -24,6 +29,7 @@ const gpxResponse = () =>
 
 describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.stubGlobal("fetch", vi.fn());
   });
 
@@ -187,6 +193,74 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       distanceKm: 45.6,
       elevationGainM: 100,
       hasReliableGpx: true,
+    });
+  });
+
+  it("recovers a Trace de Trail GPX from lazy iframes on a format page", async () => {
+    vi.mocked(getTraceDeTrailRaceData).mockResolvedValue({
+      traceId: 316035,
+      normalizedUrl: "https://tracedetrail.fr/fr/trace/316035",
+      courseName: "W100",
+      eventName: "THP Winter 2026",
+      officialSiteUrl: "https://mythp.fr/thp-winter/w100/",
+      thumbnailUrl: null,
+      distanceKm: 102,
+      elevationGainM: 5310,
+      elevationLossM: 5290,
+      date: "2026-11-21",
+      location: "Saint-Etienne-les-Orgues",
+      aidStations: [{ name: "Lardiers", distanceKm: 42.5, waterRefill: true }],
+      elevationProfile: [],
+      gpxContent: "<gpx><trk><trkseg><trkpt lat=\"45\" lon=\"6\" /></trkseg></trk></gpx>",
+      gpxAccessMode: "embedded",
+    });
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://mythp.fr/thp-winter/") {
+        return htmlResponse(`
+          <html><head><title>THP Winter</title></head><body><p>21 novembre 2026</p></body></html>
+        `);
+      }
+      if (url === "https://mythp.fr/thp-winter/w100/") {
+        return htmlResponse(`
+          <html><body>
+            <h1>W100</h1>
+            <p>102 km - 5 300 D+</p>
+            <h2>Informations techniques</h2>
+            <iframe src="about:blank" data-litespeed-src="https://tracedetrail.fr/fr/iframe/9321"></iframe>
+            <iframe src="about:blank" data-litespeed-src="https://tracedetrail.fr/fr/iframe/9324"></iframe>
+          </body></html>
+        `);
+      }
+      if (url === "https://tracedetrail.fr/fr/iframe/9321") {
+        return htmlResponse(`<a id="logoPlatform" href="https://tracedetrail.fr/fr/trace/316035">Trace</a>`);
+      }
+      if (url === "https://tracedetrail.fr/fr/iframe/9324") {
+        return htmlResponse(`<script>const options = { traceID:316035 };</script>`);
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://mythp.fr/thp-winter/", {
+      formatUrls: ["https://mythp.fr/thp-winter/w100/"],
+    });
+
+    expect(getTraceDeTrailRaceData).toHaveBeenCalledTimes(1);
+    expect(getTraceDeTrailRaceData).toHaveBeenCalledWith("https://tracedetrail.fr/fr/trace/316035");
+    expect(preview.races).toHaveLength(1);
+    expect(preview.races[0]).toMatchObject({
+      name: "W100",
+      elevationGainM: 5310,
+      elevationLossM: 5290,
+      gpxStorageLabel: "tracedetrail",
+      hasReliableGpx: true,
+      aidStations: [{ name: "Lardiers", distanceKm: 42.5 }],
+    });
+    expect(preview.races[0].assessment?.findings.find((finding) => finding.key === "gpx")).toMatchObject({
+      value: "GPX exploitable",
+      confidence: "high",
+      sourceUrl: "https://tracedetrail.fr/fr/trace/316035",
     });
   });
 

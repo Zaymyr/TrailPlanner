@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-07-29
+last_verified: 2026-08-03
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -189,7 +189,7 @@ Each detected format carries a server-computed assessment. The review keeps only
 
 For non-provider sites, the general URL is read only for event-level facts and common logistics (mandatory equipment, departure, shuttles, and parking). The importer does not crawl linked sibling pages automatically. Each explicit format URL is fetched independently, with an eight-second timeout and capped HTML size; its extraction combines JSON-LD, `h1`-`h6` sections, and named regulation prose, filters kilometer mentions from ravitos/barriers/ages/results, then merges complementary findings from the supplied format pages while warning about older editions. Display names remove generic heading prefixes and trailing distance/D+ metadata (for example `Course : La Grande Traversée — 20 km — 1000 D+` becomes `La Grande Traversée`); when duplicate names appear at the same parsed distance, the first page-level name is retained because later labels often identify a ravito. When no distinctive name remains, the distance becomes the safe fallback name. Parsed GPX elevation always overrides HTML D+/D- values, and same-distance detections within 0.2 km are consolidated as one format. The consolidated format unions complementary ravitos only between equal-confidence sources, hydrates one reliable GPX, recalculates its final assessment, and is returned ahead of lower-scoring formats. Named formats replace anonymous same-distance duplicates.
 
-GPX detection accepts both explicit `.gpx` URLs and anchors whose visible label identifies a GPX download, allowing opaque provider paths such as Odoo `/web/content/...`. A distinct GPX can be fetched and parsed for every detected format; it may fill missing distance, D+/D-, and waypoint ravitos. The importer never guesses absent elevation data, so incomplete formats remain reviewable but cannot be created until required fields are supplied. A format without an imported GPX remains valid: its nullable `gpx_storage_path` stays empty, while the legacy required `gpx_path` receives a deterministic organizer path placeholder solely to satisfy the existing database constraint.
+GPX detection accepts explicit `.gpx` URLs, anchors whose visible label identifies a GPX download, and Trace de Trail `/trace/{id}` links or lazy-loaded `/iframe/{id}` embeds, allowing opaque provider paths such as Odoo `/web/content/...` and route visualizations such as the THP format pages. A Trace de Trail iframe id is only a widget id: the importer fetches the embed, extracts its canonical trace id, then delegates GPX recovery to the existing Trace de Trail adapter. Multiple map/profile/table embeds that resolve to the same canonical trace are deduplicated; multiple genuinely distinct traces are left ambiguous instead of assigning one arbitrarily. A distinct GPX can be fetched and parsed for every detected format; it may fill missing distance, D+/D-, and waypoint ravitos. The importer never guesses absent elevation data, so incomplete formats remain reviewable but cannot be created until required fields are supplied. A format without an imported GPX remains valid: its nullable `gpx_storage_path` stays empty, while the legacy required `gpx_path` receives a deterministic organizer path placeholder solely to satisfy the existing database constraint.
 
 The v1 organizer portal is web-only:
 
@@ -252,6 +252,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
 - Organizer event creation inserts a non-live `race_events` row and its owner `race_event_organizers` membership through a service route; keep that path server-side and do not expose service-role writes to client code.
 - Website import matches update targets inside the validated event year. When that yearly edition is absent, it creates a draft race dated in the event year and reuses a matching series `edition_group_id` from another year instead of updating the old row or creating a duplicate series.
+- Do not convert a Trace de Trail `/iframe/{id}` path directly into `/trace/{id}`: iframe ids identify widgets and must first be resolved from the embed HTML. When a single-format page exposes several widgets, import only if they converge on one canonical trace.
 - Keep `/organizer` compatible with production prerendering. Bootstrap query values should enter through the server page props; using `useSearchParams` directly in `OrganizerDashboard` requires a Suspense boundary and otherwise fails `next build`.
 - Keep public catalog creation conservative by default: imported/admin-created events and races should start as non-live until someone publishes them deliberately.
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.

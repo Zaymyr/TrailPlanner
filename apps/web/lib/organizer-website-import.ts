@@ -593,16 +593,29 @@ const absoluteUrl = (baseUrl: string, maybeRelative: string | null | undefined) 
 };
 
 const findGpxUrls = (html: string, baseUrl: string) => {
-  const matches = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi))
+  const anchorMatches = Array.from(html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi))
     .filter((match) => /\.gpx(?:\?|$)/i.test(match[1]) || /\bgpx\b/i.test(stripHtml(match[2])))
     .map((match) => absoluteUrl(baseUrl, match[1]))
     .filter((value): value is string => Boolean(value));
-  return Array.from(new Set(matches));
-};
 
-const findSingleGpxUrl = (html: string, baseUrl: string) => {
-  const unique = findGpxUrls(html, baseUrl);
-  return unique.length === 1 ? unique[0] : null;
+  const traceDeTrailMatches = Array.from(
+    html.matchAll(/<(?:a|iframe)\b[^>]*(?:href|src|data-src|data-litespeed-src)=["']([^"']+)["'][^>]*>/gi)
+  )
+    .map((match) => absoluteUrl(baseUrl, match[1]))
+    .filter((value): value is string => {
+      if (!value) return false;
+      try {
+        const parsed = new URL(value);
+        return (
+          TRACE_DE_TRAIL_HOST_PATTERN.test(parsed.hostname) &&
+          /\/(?:fr|en)\/(?:iframe\/\d+|trace\/(?:trace\/)?\d+)\/?$/i.test(parsed.pathname)
+        );
+      } catch {
+        return false;
+      }
+    });
+
+  return Array.from(new Set([...anchorMatches, ...traceDeTrailMatches]));
 };
 
 const extractLocationFromEvent = (event: JsonLdRecord) => {
@@ -727,7 +740,67 @@ const buildGenericRaceCandidate = (input: {
   };
 };
 
-const fetchGenericGpx = async (gpxUrl: string) => {
+const resolveTraceDeTrailGpxUrl = async (sourceUrl: string) => {
+  let parsed: URL;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    return null;
+  }
+
+  if (!TRACE_DE_TRAIL_HOST_PATTERN.test(parsed.hostname)) return null;
+
+  const traceMatch = parsed.pathname.match(/\/(?:fr|en)\/trace\/(?:trace\/)?(\d+)\/?$/i);
+  if (traceMatch?.[1]) return `https://tracedetrail.fr/fr/trace/${traceMatch[1]}`;
+
+  if (!/\/(?:fr|en)\/iframe\/\d+\/?$/i.test(parsed.pathname)) return null;
+  const response = await fetchGenericResource(parsed.toString(), {
+    cache: "no-store",
+    headers: {
+      "user-agent": "Pace Yourself Organizer Importer",
+      accept: "text/html,application/xhtml+xml",
+    },
+  }).catch(() => null);
+  if (!response?.ok) return null;
+
+  const html = (await response.text()).slice(0, GENERIC_HTML_LIMIT);
+  const linkedTraceId = html.match(/https?:\/\/tracedetrail\.fr\/(?:fr|en)\/trace\/(?:trace\/)?(\d+)/i)?.[1];
+  const embeddedTraceId = html.match(/\btraceID\s*:\s*["']?(\d+)/i)?.[1];
+  const traceId = linkedTraceId ?? embeddedTraceId;
+  return traceId ? `https://tracedetrail.fr/fr/trace/${traceId}` : null;
+};
+
+const resolveGenericGpxSourceUrl = async (sourceUrl: string) => {
+  let parsed: URL;
+  try {
+    parsed = new URL(sourceUrl);
+  } catch {
+    return null;
+  }
+
+  if (!TRACE_DE_TRAIL_HOST_PATTERN.test(parsed.hostname)) return parsed.toString();
+  return resolveTraceDeTrailGpxUrl(parsed.toString());
+};
+
+const fetchGenericGpx = async (sourceUrl: string) => {
+  const gpxUrl = await resolveGenericGpxSourceUrl(sourceUrl);
+  if (!gpxUrl) return null;
+
+  if (TRACE_DE_TRAIL_HOST_PATTERN.test(new URL(gpxUrl).hostname)) {
+    const traceRace = await getTraceDeTrailRaceData(gpxUrl);
+    return {
+      gpxContent: traceRace.gpxContent,
+      stats: {
+        distanceKm: traceRace.distanceKm,
+        gainM: traceRace.elevationGainM,
+        lossM: traceRace.elevationLossM,
+      },
+      aidStations: traceRace.aidStations,
+      sourceUrl: traceRace.normalizedUrl,
+      storageLabel: "tracedetrail" as const,
+    };
+  }
+
   const response = await fetchGenericResource(gpxUrl, {
     cache: "no-store",
     headers: {
@@ -750,7 +823,16 @@ const fetchGenericGpx = async (gpxUrl: string) => {
             waterRefill: true,
           }))
         : [],
+    sourceUrl: gpxUrl,
+    storageLabel: "generic" as const,
   };
+};
+
+const fetchSingleGenericGpxSource = async (sourceUrls: string[]) => {
+  const resolvedUrls = await Promise.all(sourceUrls.map((sourceUrl) => resolveGenericGpxSourceUrl(sourceUrl)));
+  const uniqueUrls = Array.from(new Set(resolvedUrls.filter((value): value is string => Boolean(value))));
+  if (uniqueUrls.length !== 1) return null;
+  return fetchGenericGpx(uniqueUrls[0]).catch(() => null);
 };
 
 const fetchGenericHtmlPage = async (url: string): Promise<GenericPageCandidate> => {
@@ -1220,7 +1302,8 @@ const hydrateGenericRaceGpx = async (candidates: GenericRaceCandidate[]) => {
         elevationLossM: Math.round(gpx.stats.lossM),
         aidStations: candidate.aidStations.length > 0 ? candidate.aidStations : gpx.aidStations,
         gpxContent: gpx.gpxContent,
-        gpxStorageLabel: "generic",
+        gpxStorageLabel: gpx.storageLabel,
+        gpxUrl: gpx.sourceUrl,
         hasReliableGpx: true,
         missingFields: [],
       };
@@ -1393,22 +1476,31 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
     merged.candidates.length > 0 ? await hydrateGenericRaceGpx(merged.candidates) : [];
 
   if (races.length === 1) {
-    const gpxUrl = [...resolvedFormatPages, ...pages].map((page) => findSingleGpxUrl(page.html, page.url)).find(Boolean) ?? null;
-    if (gpxUrl) {
+    const gpxUrls = Array.from(
+      new Set([...resolvedFormatPages, ...pages].flatMap((page) => findGpxUrls(page.html, page.url)))
+    );
+    if (gpxUrls.length > 0) {
       try {
-        const gpx = await fetchGenericGpx(gpxUrl);
+        const gpx = await fetchSingleGenericGpxSource(gpxUrls);
         if (gpx) {
-          races[0] = {
+          const hydratedRace: OrganizerWebsiteImportRace = {
             ...races[0],
             distanceKm: races[0].distanceKm ?? Number(gpx.stats.distanceKm.toFixed(2)),
-            elevationGainM: races[0].elevationGainM ?? Math.round(gpx.stats.gainM),
-            elevationLossM: races[0].elevationLossM ?? Math.round(gpx.stats.lossM),
+            elevationGainM: Math.round(gpx.stats.gainM),
+            elevationLossM: Math.round(gpx.stats.lossM),
             aidStations: gpx.aidStations,
             gpxContent: gpx.gpxContent,
-            gpxStorageLabel: "generic",
+            gpxStorageLabel: gpx.storageLabel,
             hasReliableGpx: true,
           };
-          races[0].missingFields = buildMissingFields(races[0]);
+          hydratedRace.missingFields = buildMissingFields(hydratedRace);
+          hydratedRace.assessment = buildRaceAssessment(hydratedRace, {
+            url: hydratedRace.externalSiteUrl ?? normalizedUrl,
+            label: "Page du site",
+            confidence: "medium",
+            gpxUrl: gpx.sourceUrl,
+          });
+          races[0] = hydratedRace;
         }
       } catch {
         // Keep the generic preview usable even if the GPX link is broken.
