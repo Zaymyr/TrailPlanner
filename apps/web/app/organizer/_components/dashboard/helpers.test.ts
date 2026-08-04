@@ -9,6 +9,7 @@ import {
   createEmptyRaceForm,
   getGpxElevationTotalsAtDistance,
   getOrganizerDirtyScopeKey,
+  getRaceEditionYear,
   isOrganizerScopeSavePending,
   syncAidStationsWithGpxPreview,
 } from "./helpers";
@@ -75,6 +76,7 @@ describe("organizer dashboard GPX helpers", () => {
   it("keeps pending future edition years visible but disabled in the selector", () => {
     const options = buildEditionYearOptions(
       [{ id: "r1", edition_group_id: "g1", series_name: "42K", name: "42K", distance_km: 42, elevation_gain_m: 1000, is_live: false, race_date: "2026-06-20" }],
+      [],
       [
         {
           id: "req1",
@@ -91,6 +93,15 @@ describe("organizer dashboard GPX helpers", () => {
       { value: "2027", label: "2027 (en attente de validation)", disabled: true },
       { value: "2026", label: "2026", disabled: false },
     ]);
+  });
+
+  it("uses canonical edition membership when a multi-day format crosses into the next year", () => {
+    expect(
+      getRaceEditionYear(
+        { id: "r1", edition_id: "edition-2026", edition_group_id: "g1", series_name: "Ultra", name: "Ultra", distance_km: 100, elevation_gain_m: 4000, is_live: false, race_date: "2027-01-01" },
+        [{ id: "edition-2026", event_id: "event-1", edition_year: 2026, start_date: "2026-12-31", end_date: "2027-01-01", is_current: true }]
+      )
+    ).toBe("2026");
   });
 
   it("interpolates cumulative elevation totals from the GPX profile", () => {

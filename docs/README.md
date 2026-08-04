@@ -50,6 +50,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [race_aid_stations](02-database/tables/race-aid-stations.md)
 - [race_aid_station_products](02-database/tables/race-aid-station-products.md)
 - [race_events](02-database/tables/race-events.md)
+- [race_event_editions](02-database/tables/race-event-editions.md)
 - [race_event_claims](02-database/tables/race-event-claims.md)
 - [race_event_edition_requests](02-database/tables/race-event-edition-requests.md)
 - [race_event_publication_requests](02-database/tables/race-event-publication-requests.md)

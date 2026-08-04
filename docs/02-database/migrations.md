@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260720120000_add_race_edition_groups.sql
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
+  - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
@@ -21,6 +22,7 @@ related_tables:
   - race_event_organizers
   - race_event_publication_requests
   - race_event_updates
+  - race_event_editions
   - race_aid_station_products
   - products
   - user_favorite_race_events
@@ -180,9 +182,11 @@ It adds comments on the new columns and deliberately adds no grants, foreign key
 
 The manual RLS SQL check file was expanded accordingly so organizer relationship checks now also cover event favorites and update visibility behavior.
 
-`supabase/migrations/20260720120000_add_race_edition_groups.sql` adds `races.edition_group_id` and `races.series_name`, backfills them from existing rows, and indexes `(event_id, edition_group_id, race_date desc)` so the organizer dashboard can group yearly editions of one format without a separate editions table.
+`supabase/migrations/20260720120000_add_race_edition_groups.sql` originally added `races.edition_group_id` and `races.series_name` to group yearly rows of one format. The later canonical edition table does not replace that cross-year series grouping.
 
 `supabase/migrations/20260721110000_add_race_event_edition_requests.sql` introduced the former yearly-edition review queue. `20260729110000_add_race_event_publication_requests.sql` retires new edition requests, closes pending legacy rows, and introduces the event publication-review table plus atomic service-role review function.
+
+`supabase/migrations/20260804152041_add_race_event_editions.sql` normalizes yearly event dates into `race_event_editions`, backfills rows from existing event/format dates, attaches formats through `races.edition_id`, restricts the table to service-role routes, and keeps legacy `race_events` date fields synchronized from the current edition. It also scopes publication approval to the current edition.
 
 ### Plan Recap Sharing
 
@@ -226,7 +230,8 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.
 - Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
-- The organizer edition-grouping migration is column-only on `races`; it adds no grants or RLS policies, so existing `races` and organizer membership access rules remain the boundary.
+- `races.edition_group_id` groups a format series across years; `races.edition_id` identifies the canonical event-year row. Do not substitute one for the other.
+- `race_event_editions` is service-role-only. Organizer writes must remain behind active membership checks in server routes.
 - Keep publication review in `race_event_publication_requests`; do not restore edition-review inserts or organizer live-state writes.
 - Organizer dashboard JSONB columns are nullable progressive metadata. Keep public/mobile queries explicit when they should not expose organizer draft details.
 - Event-favorite and organizer-update migrations are intentionally event-scoped on `race_events`; do not move them to `races` without revisiting mobile catalog pinning and notification contracts.

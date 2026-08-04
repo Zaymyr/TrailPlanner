@@ -29,6 +29,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
 related_tables:
   - race_event_organizers
+  - race_event_editions
   - race_event_claims
   - race_event_publication_requests
   - race_events
@@ -44,7 +45,7 @@ related_tables:
 ## Key Concepts
 
 - Event membership: organizer access is event-scoped, not race-row ownership.
-- Source edit access: active memberships authorize event, format, GPX, aid station service-flag, organizer JSONB detail, and station-product edits through server routes.
+- Source edit access: active memberships authorize event, edition date range, format, GPX, aid station, organizer detail, and station-product edits through server routes.
 - Revocation: `revoked_at` disables membership without deleting audit history.
 - Membership provenance: `claim_id` links membership back to an approved legacy claim when available; direct creators use `claim_id = null`.
 - Public catalog preservation: claimed public races are not tied to `races.created_by`.

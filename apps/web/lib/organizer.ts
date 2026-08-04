@@ -77,6 +77,7 @@ const membershipRowSchema = z.object({ id: z.string().uuid() });
 const raceAccessRowSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid().nullable(),
+  edition_id: z.string().uuid().nullable().optional(),
   name: z.string().optional(),
   race_date: z.string().nullable().optional(),
 });
@@ -124,7 +125,7 @@ export async function loadRaceForOrganizer(
   raceId: string
 ): Promise<z.infer<typeof raceAccessRowSchema> | { error: NextResponse }> {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,name,race_date&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,name,race_date&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",

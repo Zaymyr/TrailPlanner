@@ -36,6 +36,8 @@ import {
   createRaceFormFromFormatDefaults,
   eventToForm,
   getAvailableEditionYears,
+  getEventEdition,
+  getRaceEditionYear,
   getRaceEditionYearLabel,
   getRaceEditionYearValue,
   groupRacesBySeries,
@@ -128,6 +130,7 @@ export function OrganizerDashboard({
   const [newRaceImageFile, setNewRaceImageFile] = useState<File | null>(null);
   const [newRaceGpxFile, setNewRaceGpxFile] = useState<File | null>(null);
   const [newEditionDate, setNewEditionDate] = useState("");
+  const [newEditionEndDate, setNewEditionEndDate] = useState("");
   const [showRaceDetails, setShowRaceDetails] = useState(true);
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
   const [expandedStationKey, setExpandedStationKey] = useState<string | null>(null);
@@ -169,12 +172,13 @@ export function OrganizerDashboard({
   selectedEventIdRef.current = selectedEventId;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
+  const activeEdition = getEventEdition(eventDetail, selectedEditionYear);
   const activeSeries =
     activeTab === EVENT_TAB_ID || activeTab === ADD_FORMAT_TAB_ID
       ? null
       : raceSeriesGroups.find((group) => group.id === activeTab) ?? null;
   const activeRace =
-    activeSeries?.races.find((race) => getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
+    activeSeries?.races.find((race) => race.edition_id === activeEdition?.id || getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
     activeSeries?.races[0] ??
     null;
   activeRaceIdRef.current = activeRace?.id ?? null;
@@ -216,7 +220,7 @@ export function OrganizerDashboard({
     }).format(date);
   };
 
-  const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm);
+  const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm, selectedEditionYear);
   const productsById = useMemo(() => buildProductsById(catalogProducts, stationProducts), [catalogProducts, stationProducts]);
   const authHeaders = useMemo((): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), [accessToken]);
   const serializeEquipment = (equipment: OrganizerEventDetails["mandatoryEquipment"]) =>
@@ -414,15 +418,16 @@ export function OrganizerDashboard({
       }
       const nextEvent = normalizeOrganizerEventDetail(data.event);
       setEventDetail(nextEvent);
-      const nextEventForm = eventToForm(nextEvent);
+      const groupedRaces = groupRacesBySeries(nextEvent.races);
+      const nextEditionYears = getAvailableEditionYears(nextEvent.races, nextEvent.editions ?? []);
+      const resolvedEditionYear =
+        (preferredEditionYear && nextEditionYears.includes(preferredEditionYear) ? preferredEditionYear : null) ?? nextEditionYears[0] ?? "";
+      const resolvedEdition = getEventEdition(nextEvent, resolvedEditionYear);
+      const nextEventForm = eventToForm(nextEvent, resolvedEdition);
       setEventForm(nextEventForm);
       setNewRaceForm(createRaceFormFromEventDefaults(nextEventForm));
       setNewRaceImageFile(null);
       setNewRaceGpxFile(null);
-      const groupedRaces = groupRacesBySeries(nextEvent.races);
-      const nextEditionYears = getAvailableEditionYears(nextEvent.races);
-      const resolvedEditionYear =
-        (preferredEditionYear && nextEditionYears.includes(preferredEditionYear) ? preferredEditionYear : null) ?? nextEditionYears[0] ?? "";
       setSelectedEditionYear(resolvedEditionYear);
       if (preferredTabId === EVENT_TAB_ID || preferredTabId === ADD_FORMAT_TAB_ID) {
         setActiveTab(preferredTabId);
@@ -441,6 +446,18 @@ export function OrganizerDashboard({
   useEffect(() => {
     if (selectedEventId) void loadEvent(selectedEventId);
   }, [selectedEventId, accessToken]);
+
+  useEffect(() => {
+    if (!eventDetail || !selectedEditionYear) return;
+    const edition = getEventEdition(eventDetail, selectedEditionYear);
+    if (!edition) return;
+    setEventForm((current) => ({
+      ...current,
+      editionStartDate: edition.start_date,
+      editionEndDate: edition.end_date,
+    }));
+    setNewRaceForm((current) => ({ ...current, raceDate: edition.start_date }));
+  }, [eventDetail?.id, selectedEditionYear]);
 
   useEffect(() => {
     if (!selectedEventId || !accessToken) return;
@@ -494,24 +511,12 @@ export function OrganizerDashboard({
       setAidStations([]);
       setStationProducts([]);
       setGpxPreview(null);
-      setNewEditionDate("");
       return;
     }
     setAidStations([]);
     setStationProducts([]);
     setGpxPreview(null);
     setRaceForm(raceToForm(activeRace));
-    if (activeRace.race_date) {
-      const nextDate = new Date(activeRace.race_date);
-      if (!Number.isNaN(nextDate.getTime())) {
-        nextDate.setFullYear(nextDate.getFullYear() + 1);
-        setNewEditionDate(nextDate.toISOString().slice(0, 10));
-      } else {
-        setNewEditionDate("");
-      }
-    } else {
-      setNewEditionDate("");
-    }
     setExpandedStationKey(null);
     void loadRaceSidecar(activeRace.id);
     if (activeRace.gpx_storage_path) {
@@ -520,6 +525,18 @@ export function OrganizerDashboard({
       setGpxPreview(null);
     }
   }, [activeRace?.id]);
+
+  useEffect(() => {
+    const shiftOneYear = (value?: string | null) => {
+      if (!value) return "";
+      const date = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) return "";
+      date.setUTCFullYear(date.getUTCFullYear() + 1);
+      return date.toISOString().slice(0, 10);
+    };
+    setNewEditionDate(shiftOneYear(activeEdition?.start_date));
+    setNewEditionEndDate(shiftOneYear(activeEdition?.end_date));
+  }, [activeEdition?.id, activeEdition?.start_date, activeEdition?.end_date]);
 
   useEffect(() => {
     setAidStations((current) => syncAidStationsWithGpxPreview(current, gpxPreview));
@@ -560,7 +577,8 @@ export function OrganizerDashboard({
           selectedEditionYear,
           name: nextForm.name,
           location: nextForm.location,
-          raceDate: nextForm.raceDate,
+          editionStartDate: nextForm.editionStartDate,
+          editionEndDate: nextForm.editionEndDate,
           thumbnailUrl: nextForm.thumbnailUrl,
           organizerDetails: nextForm.organizerDetails,
         }),
@@ -597,9 +615,14 @@ export function OrganizerDashboard({
               ...current,
               name: nextForm.name,
               location: nextForm.location,
-              race_date: nextForm.raceDate,
+              race_date: activeEdition?.is_current ? nextForm.editionStartDate : current.race_date,
               thumbnail_url: nextForm.thumbnailUrl,
               organizerDetails: nextForm.organizerDetails,
+              editions: (current.editions ?? []).map((edition) =>
+                String(edition.edition_year) === selectedEditionYear
+                  ? { ...edition, start_date: nextForm.editionStartDate, end_date: nextForm.editionEndDate }
+                  : edition
+              ),
               races: current.races.map((race) => {
                 const organizerDetails = equipmentUpdatesByRaceId.get(race.id);
                 return organizerDetails ? { ...race, organizerDetails } : race;
@@ -701,7 +724,7 @@ export function OrganizerDashboard({
       if (!options.background) showToast("success", "Format mis à jour.");
       clearDirty(["formats", "equipment", "access"], options.scopeRevision);
       if (options.reloadEvent !== false) {
-        await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+        await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
       }
       return true;
     } finally {
@@ -712,6 +735,10 @@ export function OrganizerDashboard({
   const createRace = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!accessToken || !selectedEventId) return;
+    if (!activeEdition) {
+      showToast("error", "Sélectionne une édition avant de créer un format.");
+      return;
+    }
     if (!newRaceForm.raceDate.trim()) {
       showToast("error", "Ajoute la date de course avant de créer le format.");
       return;
@@ -724,6 +751,7 @@ export function OrganizerDashboard({
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: selectedEventId,
+          editionId: activeEdition?.id,
           seriesName: newRaceForm.seriesName.trim() || newRaceForm.name,
           name: newRaceForm.name,
           distanceKm: newRaceForm.distanceKm,
@@ -745,11 +773,12 @@ export function OrganizerDashboard({
       setNewRaceForm(createEmptyRaceForm());
       setNewRaceImageFile(null);
       setNewRaceGpxFile(null);
-      setSelectedEditionYear(getRaceEditionYearValue(data.race.race_date));
+      const createdEditionYear = getRaceEditionYear(data.race, eventDetail?.editions);
+      setSelectedEditionYear(createdEditionYear);
       setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
       showToast("success", imageUploaded ? "Format ajouté." : "Format ajouté. Réessaie l'image si besoin.");
-      await loadEvent(selectedEventId, data.race.edition_group_id, getRaceEditionYearValue(data.race.race_date));
+      await loadEvent(selectedEventId, data.race.edition_group_id, createdEditionYear);
     } finally {
       setStatus("idle");
     }
@@ -757,6 +786,10 @@ export function OrganizerDashboard({
 
   const duplicateActiveRace = async () => {
     if (!accessToken || !selectedEventId || !activeRace) return;
+    if (!activeEdition) {
+      showToast("error", "Sélectionne une édition avant de dupliquer ce format.");
+      return;
+    }
     setStatus("saving");
     setError(null);
     try {
@@ -765,6 +798,7 @@ export function OrganizerDashboard({
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
           eventId: selectedEventId,
+          editionId: activeEdition?.id,
           seriesName: `${activeRace.series_name} copie`,
           name: `${activeRace.name} copie`,
           distanceKm: activeRace.distance_km,
@@ -782,11 +816,12 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "Impossible de dupliquer le format.");
         return;
       }
-      setSelectedEditionYear(getRaceEditionYearValue(data.race.race_date));
+      const duplicatedEditionYear = getRaceEditionYear(data.race, eventDetail?.editions);
+      setSelectedEditionYear(duplicatedEditionYear);
       setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
       showToast("success", "Format dupliqué en brouillon, sans GPX ni ravitos.");
-      await loadEvent(selectedEventId, data.race.edition_group_id, getRaceEditionYearValue(data.race.race_date));
+      await loadEvent(selectedEventId, data.race.edition_group_id, duplicatedEditionYear);
     } finally {
       setStatus("idle");
     }
@@ -794,8 +829,8 @@ export function OrganizerDashboard({
 
   const requestNewEdition = async () => {
     if (!accessToken || !selectedEventId || !selectedEditionYear) return;
-    if (!newEditionDate.trim()) {
-      showToast("error", "Ajoute la date de la nouvelle edition.");
+    if (!newEditionDate.trim() || !newEditionEndDate.trim() || newEditionEndDate < newEditionDate) {
+      showToast("error", "Ajoute une plage de dates valide pour la nouvelle édition.");
       return;
     }
     setStatus("saving");
@@ -808,9 +843,11 @@ export function OrganizerDashboard({
           eventId: selectedEventId,
           sourceYear: Number(selectedEditionYear),
           requestedStartDate: newEditionDate,
+          requestedEndDate: newEditionEndDate,
         }),
       });
       const data = (await response.json().catch(() => null)) as {
+        edition?: { id: string; edition_year: number; start_date: string; end_date: string };
         races?: Array<{ id: string; edition_group_id: string; race_date?: string | null }>;
         message?: string;
       } | null;
@@ -818,7 +855,7 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "Impossible de creer la nouvelle edition.");
         return;
       }
-      const createdYear = getRaceEditionYearValue(data.races[0]?.race_date);
+      const createdYear = String(data.edition?.edition_year ?? getRaceEditionYearValue(data.races[0]?.race_date));
       setSelectedEditionYear(createdYear);
       showToast("success", "Nouvelle édition créée en brouillon.");
       await loadEvent(selectedEventId, activeTab, createdYear);
@@ -874,7 +911,7 @@ export function OrganizerDashboard({
             ? "GPX importé. Waypoints détectés, ravitos existants préservés."
             : "GPX importé. Les plans existants restent des snapshots."
       );
-      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
       setRaceForm((current) => applyGpxStatsToRaceForm(current, normalizedPreview?.stats));
       await loadRaceSidecar(activeRace.id, normalizedPreview);
     } finally {
@@ -910,7 +947,7 @@ export function OrganizerDashboard({
       }
       setEventForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
       showToast("success", "Image événement mise à jour.");
-      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
+      await loadEvent(selectedEventId, activeTab, websiteImportEventDate.slice(0, 4) || selectedEditionYear);
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -948,7 +985,7 @@ export function OrganizerDashboard({
       const uploaded = await uploadRaceImageFile(activeRace.id, file);
       if (!uploaded) return;
       showToast("success", "Image du format mise Ã  jour.");
-      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
     } finally {
       event.target.value = "";
     }
@@ -1167,7 +1204,7 @@ export function OrganizerDashboard({
       const ok = await saveAidStations(scopedOptions);
       if (!ok) return false;
       if (scopedOptions.reloadEvent !== false) {
-        await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+        await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
       }
       return true;
     }
@@ -1325,7 +1362,7 @@ export function OrganizerDashboard({
   const openWebsiteImportDialog = () => {
     setWebsiteImportError(null);
     setWebsiteImportPreview(null);
-    setWebsiteImportEventDate(eventForm.raceDate);
+    setWebsiteImportEventDate(eventForm.editionStartDate);
     setWebsiteImportSelections({});
     setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
     setWebsiteImportFormatUrls([""]);
@@ -1358,7 +1395,7 @@ export function OrganizerDashboard({
       }
 
       setWebsiteImportPreview(data.preview);
-      setWebsiteImportEventDate(data.preview.event.raceDate ?? eventForm.raceDate);
+      setWebsiteImportEventDate(data.preview.event.raceDate ?? eventForm.editionStartDate);
       setWebsiteImportSelections(
         Object.fromEntries(
           data.preview.races.map((race) => [
@@ -1385,7 +1422,7 @@ export function OrganizerDashboard({
     } finally {
       setWebsiteImportLoading(false);
     }
-  }, [accessToken, authHeaders, eventForm.raceDate, selectedEventId, websiteImportFormatUrls, websiteImportUrl]);
+  }, [accessToken, authHeaders, eventForm.editionStartDate, selectedEventId, websiteImportFormatUrls, websiteImportUrl]);
 
   useEffect(() => {
     if (!requestedImportUrl || !requestedEventId || eventDetail?.id !== requestedEventId || !accessToken) return;
@@ -1393,10 +1430,10 @@ export function OrganizerDashboard({
     if (handledWebsiteImport.current === bootstrapKey) return;
     handledWebsiteImport.current = bootstrapKey;
     setWebsiteImportOpen(true);
-    setWebsiteImportEventDate(eventForm.raceDate);
+    setWebsiteImportEventDate(eventForm.editionStartDate);
     void previewWebsiteImport(requestedImportUrl);
     window.history.replaceState({}, "", "/organizer");
-  }, [accessToken, eventDetail?.id, eventForm.raceDate, previewWebsiteImport, requestedEventId, requestedImportUrl]);
+  }, [accessToken, eventDetail?.id, eventForm.editionStartDate, previewWebsiteImport, requestedEventId, requestedImportUrl]);
 
   const hasApplicableWebsiteImportSelection =
     websiteImportPreview &&
@@ -1437,6 +1474,7 @@ export function OrganizerDashboard({
           formatUrls: websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean),
           previewHash: websiteImportPreview.previewHash,
           eventRaceDate: websiteImportEventDate || undefined,
+          eventEditionEndDate: eventForm.editionEndDate || websiteImportEventDate || undefined,
           selectedEditionYear,
           raceSelections,
         }),
@@ -1502,6 +1540,7 @@ export function OrganizerDashboard({
         editionRequests={editionRequests}
         selectedEditionYear={selectedEditionYear}
         newEditionDate={newEditionDate}
+        newEditionEndDate={newEditionEndDate}
         editionRequestState={currentEditionRequest}
         publicationRequestState={currentPublicationRequest}
         onSelectedEventChange={(eventId) => {
@@ -1516,6 +1555,7 @@ export function OrganizerDashboard({
           setSelectedEditionYear(year);
         }}
         onEditionDateChange={setNewEditionDate}
+        onEditionEndDateChange={setNewEditionEndDate}
         onRequestEdition={() => {
           void requestNewEdition();
         }}
@@ -1604,6 +1644,7 @@ export function OrganizerDashboard({
               }}
               gpxPreview={gpxPreview}
               status={status}
+              editionStartDate={eventForm.editionStartDate}
             />
           ) : activeModule === "aidStations" ? (
             <AidStationsEditor
@@ -1916,7 +1957,7 @@ export function OrganizerDashboard({
                       <p className="text-muted-foreground">{websiteImportPreview.event.location ?? "Lieu manquant"}</p>
                       <div className="mt-3 space-y-1">
                         <label htmlFor="organizer-website-import-event-date" className="text-xs font-medium text-foreground">
-                          Date de l&apos;événement
+                          Début de l&apos;édition importée
                         </label>
                         <input
                           id="organizer-website-import-event-date"

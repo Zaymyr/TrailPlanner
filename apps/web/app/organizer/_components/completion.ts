@@ -21,6 +21,7 @@ export type OrganizerModuleStatus = "empty" | "incomplete" | "complete";
 
 export type CompletionRace = {
   id: string;
+  edition_id?: string | null;
   edition_group_id: string;
   series_name: string;
   name: string;
@@ -40,6 +41,12 @@ export type CompletionEvent = {
   race_date?: string | null;
   is_live?: boolean | null;
   organizerDetails?: OrganizerEventDetails;
+  editions?: Array<{
+    id: string;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
+  }>;
   races: CompletionRace[];
 };
 
@@ -115,19 +122,27 @@ const isRaceIdentityComplete = (race: CompletionRace) =>
   Number.isFinite(race.elevation_gain_m) &&
   race.elevation_gain_m >= 0;
 
-export const isEventReadyToPublish = (event: CompletionEvent) =>
-  hasText(event.name) &&
-  hasText(event.location) &&
-  hasText(event.race_date) &&
-  hasText((event.organizerDetails ?? defaultOrganizerEventDetails).dateRange.endDate) &&
-  event.races.some(isPublishableRace);
+const getCompletionEdition = (event: CompletionEvent, race?: CompletionRace | null) =>
+  event.editions?.find((edition) => edition.id === race?.edition_id)
+  ?? event.editions?.find((edition) => edition.is_current)
+  ?? event.editions?.[0]
+  ?? null;
 
-const isEventCompleteForProgress = (event: CompletionEvent) =>
-  hasText(event.name) &&
-  hasText(event.location) &&
-  hasText(event.race_date) &&
-  hasText((event.organizerDetails ?? defaultOrganizerEventDetails).dateRange.endDate) &&
-  event.races.some(isRaceIdentityComplete);
+export const isEventReadyToPublish = (event: CompletionEvent) => {
+  const edition = getCompletionEdition(event);
+  const startDate = edition?.start_date ?? event.race_date;
+  const endDate = edition?.end_date ?? (event.organizerDetails ?? defaultOrganizerEventDetails).dateRange.endDate;
+  return hasText(event.name) && hasText(event.location) && hasText(startDate) && hasText(endDate) && event.races.some(isPublishableRace);
+};
+
+const isEventCompleteForProgress = (event: CompletionEvent) => {
+  const edition = getCompletionEdition(event);
+  return hasText(event.name) &&
+    hasText(event.location) &&
+    hasText(edition?.start_date ?? event.race_date) &&
+    hasText(edition?.end_date ?? (event.organizerDetails ?? defaultOrganizerEventDetails).dateRange.endDate) &&
+    event.races.some(isRaceIdentityComplete);
+};
 
 const statusFrom = (filled: number, total: number, requiredFilled = total): OrganizerModuleStatus => {
   if (filled <= 0) return "empty";
@@ -217,7 +232,10 @@ export function buildOrganizerCompletion(
   stationProducts: CompletionStationProduct[]
 ): OrganizerCompletionSummary {
   const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
-  const eventFilled = filledCount([event.name, event.location, event.race_date, eventDetails.dateRange.endDate]);
+  const activeEdition = getCompletionEdition(event, activeRace);
+  const editionStartDate = activeEdition?.start_date ?? event.race_date;
+  const editionEndDate = activeEdition?.end_date ?? eventDetails.dateRange.endDate;
+  const eventFilled = filledCount([event.name, event.location, editionStartDate, editionEndDate]);
   const formatCount = event.races.length;
   const gpxCount = event.races.filter((race) => hasText(race.gpx_storage_path)).length;
   const raceProgress = event.races.map((race) => {
@@ -242,8 +260,8 @@ export function buildOrganizerCompletion(
   const eventMissingLabels = compactMissingLabels([
     ["Nom", hasText(event.name)],
     ["Lieu", hasText(event.location)],
-    ["Date début", hasText(event.race_date)],
-    ["Date fin", hasText(eventDetails.dateRange.endDate)],
+    ["Début édition", hasText(editionStartDate)],
+    ["Fin édition", hasText(editionEndDate)],
   ]);
   const formatMissingLabels = activeRace
     ? compactMissingLabels([

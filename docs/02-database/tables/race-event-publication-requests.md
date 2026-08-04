@@ -17,6 +17,7 @@ related_files:
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
 related_tables:
   - race_event_publication_requests
+  - race_event_editions
   - race_event_organizers
   - race_events
   - races
@@ -49,12 +50,12 @@ This table is the sole content-review gate for the current organizer creation fl
 ## Business Invariants
 
 - Organizer event/race routes never accept direct `is_live` changes.
-- A request requires event name, location, start date, end date, and at least one format with name, positive distance, and non-negative elevation gain.
+- A request requires event name/location, a valid current `race_event_editions` range, and at least one complete format attached to that edition.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Normal scope navigation may save silently in the background, but requesting publication still waits for foreground persistence before the server readiness check.
 - Rejection leaves all source rows unchanged.
-- Approval publishes complete formats under the event. Incomplete formats remain drafts and can be submitted in a later request after completion.
+- Approval publishes complete formats attached to the current edition only. Other editions and incomplete formats remain unchanged.
 - Publication does not send runner notifications automatically.
 
 ## Gotchas
@@ -68,4 +69,5 @@ This table is the sole content-review gate for the current organizer creation fl
 
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [race_event_organizers](race-event-organizers.md)
+- [race_event_editions](race-event-editions.md)
 - [RLS Policies](../rls-policies.md)

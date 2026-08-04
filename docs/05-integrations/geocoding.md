@@ -42,7 +42,7 @@ The current organizer flow is:
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
-The add-format editor now also lets the organizer queue a GPX file before the format exists, but that upload remains a separate step from geocoding. The address autocomplete still owns only the canonical location string plus structured geocoded metadata, while the pending GPX is uploaded afterward through the organizer GPX route once the new race id exists. For existing organizer format-series tabs, the same location fields now follow the currently selected yearly edition from the year selector; GPX and image refreshes preserve that edition year, while switching year changes which `races` row is being edited, not the geocoding contract itself. The wider course-metric inputs do not change the adjacent address value or metadata ownership.
+The add-format editor can queue a GPX before the format exists, but that upload remains separate from geocoding. Address autocomplete still owns only the canonical location string plus structured metadata. Edition start/end dates come from `race_event_editions`; switching year changes the selected edition and attached `races` rows without changing location ownership or duplicating the event location into format addresses.
 
 ## Provider Contract
 

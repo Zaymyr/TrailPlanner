@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -15,6 +15,7 @@ related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260804152041_add_race_event_editions.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -23,6 +24,7 @@ related_tables:
   - race_aid_stations
   - race_aid_station_products
   - race_events
+  - race_event_editions
   - race_event_claims
   - race_event_edition_requests
   - race_event_publication_requests
@@ -91,7 +93,7 @@ The design is:
 3. Plan share links store public crew recap snapshots for a saved plan.
 4. Deleting a race detaches plans by setting `race_plans.race_id = null`, rather than deleting user plans.
 5. Deleting a saved plan deletes attached plan aid stations, push reminder rows, and share links.
-6. Organizer yearly editions remain separate `races` rows and self-group through `edition_group_id`; there is no separate editions table or FK layer.
+6. `race_event_editions` owns the yearly date range; `races.edition_id` attaches each format to that year, while `edition_group_id` still groups the same format series across years.
 
 ## Product Relationships
 
@@ -126,6 +128,7 @@ Current code treats `race_events` as a parent/grouping table for `races`:
 - organizer claims reference `race_events(id)`.
 - legacy organizer edition requests and current publication requests reference `race_events(id)`.
 - organizer memberships reference `race_events(id)` and grant access to all `races` under the event.
+- yearly date ranges reference `race_events(id)`, and formats reference their canonical yearly edition.
 
 <!-- TODO: verify with maintainer: visible migrations only show supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql altering race_events.thumbnail_url; no create-table migration for race_events was found in this repo. -->
 
@@ -137,6 +140,8 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_claims.user_id -> auth.users(id) on delete cascade`
 - `race_event_edition_requests.event_id -> race_events(id) on delete cascade`
 - `race_event_edition_requests.user_id -> auth.users(id) on delete cascade`
+- `race_event_editions.event_id -> race_events(id) on delete cascade`
+- `races.edition_id -> race_event_editions(id) on delete set null`
 - `race_event_organizers.event_id -> race_events(id) on delete cascade`
 - `race_event_organizers.user_id -> auth.users(id) on delete cascade`
 - `race_event_organizers.claim_id -> race_event_claims(id) on delete set null`

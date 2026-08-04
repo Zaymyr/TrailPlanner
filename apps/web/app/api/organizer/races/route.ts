@@ -18,6 +18,7 @@ import {
 
 const createRaceSchema = z.object({
   eventId: z.string().uuid(),
+  editionId: z.string().uuid(),
   cloneFromRaceId: z.string().uuid().optional(),
   seriesName: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1),
@@ -33,6 +34,7 @@ const createRaceSchema = z.object({
 
 const raceRowSchema = z.object({
   id: z.string().uuid(),
+  edition_id: z.string().uuid().nullable().optional(),
   edition_group_id: z.string().uuid(),
   series_name: z.string(),
   name: z.string(),
@@ -116,12 +118,21 @@ export async function POST(request: NextRequest) {
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsed.data.eventId);
   if (organizer !== true) return organizer.error;
 
-  if (parsed.data.cloneFromRaceId) {
-    return jsonError("Creating a new edition now requires an approved edition request.", 403);
-  }
-
   if (!parsed.data.cloneFromRaceId && (!parsed.data.distanceKm || parsed.data.elevationGainM === undefined)) {
     return jsonError("Invalid race fields.", 400);
+  }
+
+  const editionResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?id=eq.${parsed.data.editionId}&event_id=eq.${parsed.data.eventId}&select=id,start_date,end_date&limit=1`,
+    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+  );
+  if (!editionResponse.ok) return jsonError("Unable to inspect event edition.", 502);
+  const edition = z
+    .array(z.object({ id: z.string().uuid(), start_date: z.string(), end_date: z.string() }))
+    .parse(await editionResponse.json())[0] ?? null;
+  if (!edition) return jsonError("Event edition not found.", 409);
+  if (parsed.data.raceDate < edition.start_date || parsed.data.raceDate > edition.end_date) {
+    return jsonError("La date du format doit rester dans la plage de l'édition.", 409);
   }
 
   const raceId = randomUUID();
@@ -176,6 +187,7 @@ export async function POST(request: NextRequest) {
   const insertPayload: Record<string, unknown> = {
     id: raceId,
     event_id: parsed.data.eventId,
+    edition_id: parsed.data.editionId,
     edition_group_id: editionGroupId,
     series_name: seriesName,
     slug: buildSlug(parsed.data.name),
@@ -384,7 +396,7 @@ export async function POST(request: NextRequest) {
 
   const createdRace = z.array(raceRowSchema).parse(await response.json())[0];
   const reloadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_group_id,series_name,name,slug,event_id,external_site_url,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,organizer_details&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_id,edition_group_id,series_name,name,slug,event_id,external_site_url,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,organizer_details&limit=1`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",

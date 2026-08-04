@@ -35,7 +35,7 @@ It:
 - receives parsed GPX points and optional detected aid stations;
 - fits the viewport to the route bounds;
 - shows the route polyline plus start, finish, and ravito markers;
-- is currently used by the organizer format editor GPX panel for the currently selected yearly edition inside one organizer format-series tab; replacing the GPX preserves that year while synchronizing the adjacent distance and elevation fields from the same preview response.
+- is used by the organizer format editor GPX panel for the selected canonical edition; replacing the GPX preserves its `edition_id`/year and synchronizes adjacent course metrics without changing edition dates.
 
 ## Gotchas
 

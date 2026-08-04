@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260720120000_add_race_edition_groups.sql
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
+  - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
@@ -91,6 +92,7 @@ related_files:
 related_tables:
   - race_event_claims
   - race_event_edition_requests
+  - race_event_editions
   - race_event_publication_requests
   - race_event_organizers
   - race_aid_stations
@@ -115,14 +117,14 @@ This document records the organizer portal rules: authenticated users create the
 - Event membership: organizer access stored in `race_event_organizers`; direct creators receive an active `owner` membership immediately.
 - Format: one `races` row under an event.
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
-- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Event details are common defaults, including `dateRange.endDate` and `officialWebsiteUrl`; event-level `mandatoryEquipment` also stores the active weather plan as `weatherPlan = normal | cold | heat`, while each equipment item can opt into `cold` and/or `heat`. Event and race details now also store structured geocoded location objects beside the existing text fields for event location, format location, bib pickup, and start/finish access. Race details keep each course's full equipment list plus format-specific overrides or additions for the other modules, while format websites continue to live on `races.external_site_url`.
+- Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Edition start/end dates are normalized in `race_event_editions`; the current range is mirrored into legacy event fields for mobile/catalog compatibility. Event details keep fields such as `officialWebsiteUrl`, equipment and geocoded location metadata, while format websites remain on `races.external_site_url`.
 - Event follower: authenticated runner who favorites one `race_events` row.
 - Organizer update: manual runner-facing announcement stored in `race_event_updates` and optionally pushed to event followers.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
 ## Direct Event Creation
 
-`/organizers` lets an authenticated user create a new `race_events` row from a name, optional location/date, and optional official website URL. `POST /api/organizer/events` always inserts the event with `is_live = false`, then creates an active `race_event_organizers` owner membership for the same user with `claim_id = null`. If membership creation fails, the route deletes the newly created event rather than leaving an inaccessible draft. The redirect bootstrap values (`eventId` and `importUrl`) are read by the `/organizer` server page and passed as plain props to the client dashboard so production prerendering does not depend on a client `useSearchParams` bailout.
+`/organizers` lets an authenticated user create a draft event from a name, optional location and official website URL, plus a required initial edition start/end range. `POST /api/organizer/events` inserts the event, creates its initial current `race_event_editions` row, then creates the active owner membership. Failure cleanup removes the inaccessible draft. Redirect bootstrap values remain passed from the `/organizer` server page as plain props.
 
 The direct-creation flow deliberately does not let a user take control of an existing catalog event. Existing claims and the admin claim queue remain available only as a legacy audit/access-management path; new `/organizers` submissions do not add claim rows and do not wait for admin approval.
 
@@ -134,11 +136,11 @@ Revoking access still sets `revoked_at` on the membership and blocks future orga
 
 Organizers with an active event membership can:
 
-- edit event-level name, location, date, PNG image, and common `race_events.organizer_details`, but not live state;
+- edit event-level name, location, selected-edition dates, PNG image, and common organizer details, but not live state;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
-- add a new format as a new `races` row with `created_by = null`, `is_public = true`, `is_live = false` by default, a required format race date, optional organizer details, and an optional GPX file selected directly in the creation form;
+- add a draft format attached to the selected edition, inheriting its start date unless an explicit in-range format date is enabled;
 - duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links, creating a new `edition_group_id`;
-- create a new yearly event edition directly from a selected source year and start date; source formats, GPX, ravitos, and station products are cloned as draft rows while preserving format edition groups;
+- create a yearly edition from a source year plus a new start/end range; formats, GPX, ravitos, and station products are cloned as draft rows attached to it while preserving format edition groups;
 - upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
 - delete a format from the identity module after a confirmation step; source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
@@ -147,29 +149,29 @@ Organizers with an active event membership can:
 - create non-live organizer-scoped products and attach them to a station;
 - preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. `OrganizerDashboard.tsx` owns session, API calls, selected event/format-series/edition-year/module, dirty state, autosave-before-navigation, and composition; route-local files under `_components/dashboard/` own reusable controls, shell sections, editors, ravito/product blocks, and runner preview. Address fields share `/api/location-search` and preserve plain text plus optional geocoded metadata. The synthesis uses an event-level year selector and a direct `Nouvelle édition` action: the organizer chooses a source year and start date, and the server clones the formats into editable draft rows without review. Event and format rows show read-only publication badges, while a single `Demander la publication` action submits the event to admin review. Completion percentages remain independent from live state and tab selection: the event detail read returns a persisted ravito count for every format, so each header bar is scored from its own source data rather than from the active editor sidecars.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector chooses a canonical edition and `Nouvelle édition` asks for its start/end dates before cloning draft formats. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Event and format rows keep read-only publication badges, while `Demander la publication` submits the current edition to admin review. Completion remains independent from live state and tab selection.
 
 Newly created years appear immediately in the event-level year selector and are editable without admin validation. Inside a format tab, the year remains driven only by the event-level selector; the format action bar does not repeat a local "Edition active" block.
 
 The format identity editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. In the information grid, D+ and D- each receive the same two-column desktop width as distance so four-digit values remain readable, and both accept the parser's one-decimal precision. The interactive route map then sits below as the main full-width visual focus, and repeated course metrics should not be duplicated across every preview header when the same values are already visible in the form.
 
-The selected edition year controls which format rows are displayed and edited, but it does not impose a time-based lock. Organizers with an active event membership may update past and future editions through the same event, image, race, GPX, ravito, and product routes.
+The selected edition year controls its canonical range and attached format rows, but imposes no time-based lock. Event-range edits are rejected if an attached format date would fall outside the new range.
 
-When the organizer adds a brand-new format, the creation form can now queue both the format image and the GPX file before submission. Selecting that GPX parses it immediately in the dashboard and pre-fills distance, D+, and D- from the file before submit. The same right-hand GPX panel also renders an interactive OpenStreetMap/Leaflet route map and the elevation curve from the loaded preview data. The format date is mandatory in that creation flow. The dashboard still creates the `races` row first, then uploads the pending GPX through `/api/organizer/races/[id]/gpx` so the format lands with persisted parsed stats and any eligible waypoint ravitos.
+When the organizer adds a format, the creation form can queue its image and GPX before submission. GPX parsing still pre-fills course metrics and visuals. The format inherits the edition start date unless a different in-range date is enabled; after row creation, the existing image and GPX routes persist the pending files.
 
 Approved organizers can also publish a manual event update from the top dashboard card through `Notifier les coureurs`. That action opens a modal, lets the organizer type one short runner-facing message, creates one `race_event_updates` row, and then sends push notifications only to users who favorited the event. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
 
 That same dashboard header now also exposes `Importer depuis un site web`. The organizer pastes the general event website URL and can add one explicit URL per format. The server detects `UTMB`, `Trace de Trail`, or falls back to a generic HTML/JSON-LD extraction, and the UI shows a review-first recap with:
 
 - event-level facts, the detected official website, and common logistics found only on the general page (mandatory equipment, departure, shuttles, and parking);
-- an editable event date, initialized from the detected date or the currently saved event date when detection is missing;
+- an editable edition start date, initialized from the detected date or selected edition start;
 - detected formats;
 - missing fields;
 - mismatch warnings against the currently selected organizer event;
 - explicit per-format actions: create, update, or ignore.
 - an actionable quality score: only formats at or above `70/100` are shown and selectable; the expandable inventory is limited to found values and their source links.
 
-The review import route never creates another `race_events` row, never publishes anything automatically, and never writes source data before the organizer confirms the recap. When `/organizers` supplies an official URL, it first creates the draft and membership, then opens this same review against that new event. The organizer may correct the event date in the review; the override must be a real `YYYY-MM-DD` date, is transmitted outside the hashed scraper payload, and is applied only after the server has recomputed and validated the original preview hash. The selected event date defines the target edition year: an existing format is updated only when its matching series exists in that year; otherwise the importer creates a draft `races` row in that year and reuses the existing series `edition_group_id` when available. The detected format month/day is preserved when valid, with the event date as fallback. In v1, GPX, thumbnails, and ravito hydration are applied only when the detected source is reliable enough.
+The review import route never creates another `race_events` row, publishes automatically, or writes before confirmation. When `/organizers` supplies an official URL, it first creates the draft, initial edition, and membership. The organizer may correct the edition start date; the server validates the ISO override outside the scraper hash, upserts the matching `race_event_editions` row, and attaches imported formats through `edition_id`. Only matching series inside that edition are updated; a missing format reuses its cross-year `edition_group_id` when available. Detected format month/day is preserved only when valid inside the edition range, otherwise the edition start is used.
 
 The format score focuses the review rather than authorizing import by itself. It combines weighted information coverage (65%) with estimated source reliability (35%); name, date, distance, and D+ have double weight because they are required to create a usable format. Only formats scored at least `70/100` are presented for action; lower scores are automatically ignored because they commonly represent product or incidental text detections. Provider adapters and parsed GPX values are high-confidence, structured data and dedicated format/regulation sections outrank generic text. Every displayed found field keeps its source URL; required missing values still block creation for a selected format.
 
@@ -190,7 +192,7 @@ Organizer access is event-scoped. An active membership grants access to every fo
 Creating a request through `/api/organizer/publication-requests` requires:
 
 - event name;
-- event location, start date (`race_events.race_date`), and end date (`race_events.organizer_details.dateRange.endDate`);
+- event location plus the selected `race_event_editions.start_date` / `end_date` range;
 - at least one format with a non-empty name, `distance_km > 0`, and `elevation_gain_m >= 0`.
 
 The organizer event and race mutation routes ignore/reject direct live-state-only writes. Admin approval through `/api/admin/event-publication-requests` rechecks readiness and atomically marks the event plus complete formats live. Rejection leaves all source rows in their current state.
@@ -208,7 +210,7 @@ Runner-facing preview resolves details as:
 - services and partners = event details.
 - key locations = plain text address plus optional geocoded `organizer_details` metadata for event, format, bib pickup, and start/finish access, rendered as GPS coordinates and Google Maps links when available.
 
-The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations. The header uses the format race date plus distance, D+, D-, and start time. When the active event weather plan is `cold` or `heat`, the screen shows a dedicated compact weather alert above the last-minute message card: `Plan grand froid activé - vérifie le matériel` or `Plan grosse chaleur activé - vérifie le matériel`. Event-level `services.lastMinuteMessage`, when present, stays in its own compact alert card below that weather warning, and both alert cards render their title and message inline on the same text row; the rest of the service copy remains in the Profile tab. The `Profil` tab now starts with an interactive Leaflet map built from stored GPX points when available, and the `Ravito` tab now starts with the course elevation profile before the aid-station list. Start and bib sections render as table-like label/value rows. When a published organizer address includes geocoded metadata, the corresponding start, finish, or bib value is rendered like a tappable link so runners can launch navigation directly from the Racebook without a separate icon button. Equipment is shown as per-item rows sorted with active required items first, active recommended items second, and weather-muted inactive items last; status badges stay inline and right-aligned on the same row as the item label, rows do not show bullet dots, and weather-tagged items expose icon-only inline cold/heat markers while remaining grayed out whenever the active plan does not match.
+The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact: event/format synthesis on top, merged equipment, filtered access sections, and ravitos listed from source race aid stations. The header uses the format race date plus distance, D+, D-, and start time. When the active event weather plan is `cold` or `heat`, the screen shows a dedicated compact weather alert above the last-minute message card: `Plan grand froid activé - vérifie le matériel` or `Plan grosse chaleur activé - vérifie le matériel`. Event-level `services.lastMinuteMessage`, when present, stays in its own compact alert card below that weather warning, and both alert cards render their title and message inline on the same text row. The route-local tabs are `Général`, `Matériel`, `Dossard`, `Course`, and `Accès`: general event identity, dates, runner information, and services stay in `Général`; event-level bib pickup stays in `Dossard`; the stored GPX map, elevation profile, and source aid stations stay together in `Course`; start/finish locations and their logistics stay in `Accès`. Event, start, and bib sections render as table-like label/value rows. When a published organizer address includes geocoded metadata, the corresponding event, start, finish, or bib value is rendered like a tappable link so runners can launch navigation directly from the Racebook without a separate icon button. Equipment is shown as per-item rows sorted with active required items first, active recommended items second, and weather-muted inactive items last; status badges stay inline and right-aligned on the same row as the item label, rows do not show bullet dots, and weather-tagged items expose icon-only inline cold/heat markers while remaining grayed out whenever the active plan does not match.
 
 Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, the event sheet exposes a preloaded preview of the latest manual organizer announcements below the format list with an explicit affordance to open the longer history, and organizer update pushes deep-link directly into that event sheet with `/(app)/catalog?eventId=<uuid>`.
 
@@ -290,7 +292,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - A website-imported format without a GPX is still a valid draft. Preserve `gpx_storage_path = null`, but populate the legacy required `gpx_path` with its deterministic organizer placeholder; do not upload an invented GPX file.
 - Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.
 - Keep candidates below `70/100` out of the actionable review and import selections. They may be retained only in transient parsing work, never surfaced as default format actions.
-- Do not place organizer event-date corrections inside the preview hash or trust an arbitrary client date string. Validate the explicit override server-side and apply it only after hash and membership checks.
+- Do not place organizer edition-date corrections inside the preview hash or trust arbitrary client dates. Validate the override server-side, then update the canonical edition only after hash and membership checks.
 - Keep the generic event page and format pages separate: do not infer formats from the general page or crawl its links. Fetch only the organizer-supplied format URLs, keep each fetch size-limited and time-bounded, and leave missing formats visible for manual completion.
 - Do not treat every kilometer mention as a format. Ravito distances, barriers, age categories, result archives, prices, and training-analysis blocks need a course-level signal or a named format context.
 - Consolidate same-distance detections within 0.2 km as one format, retaining the earliest heading-level name and preserving a conflict warning when non-GPX metrics disagree. Do not merge meaningfully different distances merely because their labels overlap.

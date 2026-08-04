@@ -45,7 +45,8 @@ const isoDateSchema = optionalTextOrNull.refine(
 const createEventSchema = z.object({
   name: z.string().trim().min(2).max(180),
   location: optionalTextOrNull,
-  raceDate: isoDateSchema,
+  editionStartDate: isoDateSchema,
+  editionEndDate: isoDateSchema,
   officialSiteUrl: optionalUrlOrNull,
 });
 
@@ -61,6 +62,15 @@ const createdMembershipSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid(),
   role: z.string(),
+});
+
+const createdEditionSchema = z.object({
+  id: z.string().uuid(),
+  event_id: z.string().uuid(),
+  edition_year: z.number().int(),
+  start_date: z.string(),
+  end_date: z.string(),
+  is_current: z.boolean(),
 });
 
 async function deleteCreatedEvent(
@@ -121,6 +131,9 @@ export async function POST(request: NextRequest) {
 
   const parsed = createEventSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message ?? "Invalid event.", 400);
+  if (!parsed.data.editionStartDate || !parsed.data.editionEndDate || parsed.data.editionEndDate < parsed.data.editionStartDate) {
+    return jsonError("Invalid edition date range.", 400);
+  }
 
   const organizerDetails = parseOrganizerEventDetails({
     officialWebsiteUrl: parsed.data.officialSiteUrl,
@@ -131,7 +144,7 @@ export async function POST(request: NextRequest) {
     body: JSON.stringify({
       name: parsed.data.name,
       location: parsed.data.location,
-      race_date: parsed.data.raceDate,
+      race_date: parsed.data.editionStartDate,
       thumbnail_url: null,
       is_live: false,
       organizer_details: organizerDetails,
@@ -146,6 +159,29 @@ export async function POST(request: NextRequest) {
 
   const event = z.array(createdEventSchema).parse(await eventResponse.json())[0] ?? null;
   if (!event) return jsonError("Unable to create event.", 502);
+
+  const editionResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions`, {
+    method: "POST",
+    headers: { ...serviceHeaders(auth.serviceConfig), Prefer: "return=representation" },
+    body: JSON.stringify({
+      event_id: event.id,
+      edition_year: Number(parsed.data.editionStartDate.slice(0, 4)),
+      start_date: parsed.data.editionStartDate,
+      end_date: parsed.data.editionEndDate,
+      is_current: true,
+    }),
+    cache: "no-store",
+  });
+  if (!editionResponse.ok) {
+    console.error("Unable to create initial organizer event edition", await editionResponse.text());
+    await deleteCreatedEvent(auth.serviceConfig, event.id);
+    return jsonError("Unable to create event edition.", 502);
+  }
+  const edition = z.array(createdEditionSchema).parse(await editionResponse.json())[0] ?? null;
+  if (!edition) {
+    await deleteCreatedEvent(auth.serviceConfig, event.id);
+    return jsonError("Unable to create event edition.", 502);
+  }
 
   const membershipResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers`, {
     method: "POST",
@@ -172,5 +208,5 @@ export async function POST(request: NextRequest) {
     return jsonError("Unable to grant organizer access.", 502);
   }
 
-  return withSecurityHeaders(NextResponse.json({ event, membership }, { status: 201 }));
+  return withSecurityHeaders(NextResponse.json({ event, edition, membership }, { status: 201 }));
 }

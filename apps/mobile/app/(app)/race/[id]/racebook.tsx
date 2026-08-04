@@ -22,7 +22,7 @@ import { fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../..
 import { fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 
-type RacebookTabKey = 'profile' | 'gear' | 'access' | 'aid';
+type RacebookTabKey = 'general' | 'gear' | 'bib' | 'course' | 'access';
 
 type LabeledItem = {
   label: string;
@@ -405,7 +405,7 @@ export default function RaceRacebookScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { locale, t } = useI18n();
-  const [activeTab, setActiveTab] = useState<RacebookTabKey>('profile');
+  const [activeTab, setActiveTab] = useState<RacebookTabKey>('general');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<RacebookScreenData | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -454,12 +454,19 @@ export default function RaceRacebookScreen() {
 
   const tabs = useMemo(
     () => [
-      { key: 'profile' as const, label: t.catalog.racebookTabProfile },
+      { key: 'general' as const, label: t.catalog.racebookTabGeneral },
       { key: 'gear' as const, label: t.catalog.racebookTabGear },
+      { key: 'bib' as const, label: t.catalog.racebookTabBib },
+      { key: 'course' as const, label: t.catalog.racebookTabCourse },
       { key: 'access' as const, label: t.catalog.racebookTabAccess },
-      { key: 'aid' as const, label: t.catalog.racebookTabAid },
     ],
-    [t.catalog.racebookTabAccess, t.catalog.racebookTabAid, t.catalog.racebookTabGear, t.catalog.racebookTabProfile],
+    [
+      t.catalog.racebookTabAccess,
+      t.catalog.racebookTabBib,
+      t.catalog.racebookTabCourse,
+      t.catalog.racebookTabGear,
+      t.catalog.racebookTabGeneral,
+    ],
   );
 
   const headerDate = formatDate(data?.race.raceDate ?? data?.event.raceDate ?? null, locale);
@@ -475,44 +482,33 @@ export default function RaceRacebookScreen() {
   const weatherAlertIcon = weatherPlan === 'heat' ? 'thermometer-outline' : 'snow-outline';
   const lastMinuteMessage = data?.runnerDetails.services.lastMinuteMessage ?? null;
 
-  const profileSections = useMemo(() => {
+  const generalSections = useMemo(() => {
     if (!data) return [];
 
     const runnerDetails = data.runnerDetails;
-    const startInfoItems = [
-      runnerDetails.schedule.startTime
-        ? { label: t.catalog.racebookFieldStartTime, value: runnerDetails.schedule.startTime, actionUrl: null }
+    const eventLocation = data.event.organizerDetails.eventLocation;
+    const eventItems = [
+      data.event.name
+        ? { label: t.catalog.racebookFieldEventName, value: data.event.name, actionUrl: null }
         : null,
-      runnerDetails.access.startAddress
+      (data.event.location ?? eventLocation.label)
         ? {
-            label: t.catalog.racebookFieldStartLocation,
-            value: runnerDetails.access.startAddress,
-            actionUrl: runnerDetails.access.startLocation.googleMapsUrl,
+            label: t.catalog.racebookFieldEventLocation,
+            value: data.event.location ?? eventLocation.label!,
+            actionUrl: eventLocation.googleMapsUrl,
+          }
+        : null,
+      formatDate(data.event.raceDate, locale)
+        ? { label: t.catalog.racebookFieldEventStartDate, value: formatDate(data.event.raceDate, locale)!, actionUrl: null }
+        : null,
+      formatDate(data.event.organizerDetails.dateRange.endDate, locale)
+        ? {
+            label: t.catalog.racebookFieldEventEndDate,
+            value: formatDate(data.event.organizerDetails.dateRange.endDate, locale)!,
+            actionUrl: null,
           }
         : null,
     ].filter((value): value is LabeledItem => Boolean(value));
-
-    const bibItems = [
-      runnerDetails.bibPickup.location
-        ? {
-            label: t.catalog.racebookFieldBibLocation,
-            value: runnerDetails.bibPickup.location,
-            actionUrl: runnerDetails.bibPickup.locationDetails.googleMapsUrl,
-          }
-        : null,
-      runnerDetails.bibPickup.schedule
-        ? { label: t.catalog.racebookFieldBibWindow, value: runnerDetails.bibPickup.schedule, actionUrl: null }
-        : null,
-      runnerDetails.bibPickup.requiredDocuments
-        ? { label: t.catalog.racebookFieldBibDocuments, value: runnerDetails.bibPickup.requiredDocuments, actionUrl: null }
-        : null,
-    ].filter((value): value is LabeledItem => Boolean(value));
-
-    const bibLines = [
-      runnerDetails.bibPickup.thirdPartyPickupAllowed === true ? t.catalog.racebookBibThirdPartyPickupAllowed : null,
-      runnerDetails.bibPickup.equipmentCheck === true ? t.catalog.racebookBibEquipmentCheck : null,
-      runnerDetails.bibPickup.note,
-    ].filter((value): value is string => Boolean(value));
 
     const runnerInfoVisible = runnerDetails.access.enabledSections.runnerInfo !== false;
     const runnerInfoLines = runnerInfoVisible
@@ -534,25 +530,53 @@ export default function RaceRacebookScreen() {
     ].filter((value): value is string => Boolean(value));
 
     return [
-      { title: t.catalog.racebookSectionStartInfo, items: startInfoItems, lines: [] as string[] },
-      { title: t.catalog.racebookSectionBib, items: bibItems, lines: bibLines },
+      { title: t.catalog.racebookSectionEventInfo, items: eventItems, lines: [] as string[] },
       { title: t.catalog.racebookSectionRunnerInfo, items: [] as LabeledItem[], lines: runnerInfoLines },
       { title: t.catalog.racebookSectionServices, items: [] as LabeledItem[], lines: servicesLines },
     ].filter((section) => section.items.length > 0 || section.lines.length > 0);
   }, [
     data,
-    t.catalog.racebookBibEquipmentCheck,
-    t.catalog.racebookBibThirdPartyPickupAllowed,
-    t.catalog.racebookFieldBibDocuments,
-    t.catalog.racebookFieldBibLocation,
-    t.catalog.racebookFieldBibWindow,
-    t.catalog.racebookFieldStartLocation,
-    t.catalog.racebookFieldStartTime,
-    t.catalog.racebookSectionBib,
+    locale,
+    t.catalog.racebookFieldEventEndDate,
+    t.catalog.racebookFieldEventLocation,
+    t.catalog.racebookFieldEventName,
+    t.catalog.racebookFieldEventStartDate,
+    t.catalog.racebookSectionEventInfo,
     t.catalog.racebookSectionRunnerInfo,
     t.catalog.racebookSectionServices,
-    t.catalog.racebookSectionStartInfo,
   ]);
+
+  const bibItems = useMemo(() => {
+    if (!data) return [];
+
+    const bibPickup = data.runnerDetails.bibPickup;
+    return [
+      bibPickup.location
+        ? {
+            label: t.catalog.racebookFieldBibLocation,
+            value: bibPickup.location,
+            actionUrl: bibPickup.locationDetails.googleMapsUrl,
+          }
+        : null,
+      bibPickup.schedule
+        ? { label: t.catalog.racebookFieldBibWindow, value: bibPickup.schedule, actionUrl: null }
+        : null,
+      bibPickup.requiredDocuments
+        ? { label: t.catalog.racebookFieldBibDocuments, value: bibPickup.requiredDocuments, actionUrl: null }
+        : null,
+    ].filter((value): value is LabeledItem => Boolean(value));
+  }, [data, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibLocation, t.catalog.racebookFieldBibWindow]);
+
+  const bibLines = useMemo(() => {
+    if (!data) return [];
+
+    const bibPickup = data.runnerDetails.bibPickup;
+    return [
+      bibPickup.thirdPartyPickupAllowed === true ? t.catalog.racebookBibThirdPartyPickupAllowed : null,
+      bibPickup.equipmentCheck === true ? t.catalog.racebookBibEquipmentCheck : null,
+      bibPickup.note,
+    ].filter((value): value is string => Boolean(value));
+  }, [data, t.catalog.racebookBibEquipmentCheck, t.catalog.racebookBibThirdPartyPickupAllowed]);
 
   const accessSections = useMemo(() => {
     if (!data) return [];
@@ -563,6 +587,9 @@ export default function RaceRacebookScreen() {
       {
         title: t.catalog.racebookAccessGettingThere,
         items: [
+          data.runnerDetails.schedule.startTime
+            ? { label: t.catalog.racebookFieldStartTime, value: data.runnerDetails.schedule.startTime, actionUrl: null }
+            : null,
           access.startAddress
             ? {
                 label: t.catalog.racebookFieldStartLocation,
@@ -608,6 +635,7 @@ export default function RaceRacebookScreen() {
   }, [
     data,
     t.catalog.racebookFieldFinishLocation,
+    t.catalog.racebookFieldStartTime,
     t.catalog.racebookAccessGettingThere,
     t.catalog.racebookAccessMap,
     t.catalog.racebookAccessNote,
@@ -701,27 +729,19 @@ export default function RaceRacebookScreen() {
           </View>
 
           <View style={styles.contentWrap}>
-            {activeTab === 'profile' ? (
-              <>
-                <CourseMapCard
-                  title={t.catalog.racebookSectionCourseMap}
-                  points={routePreviewPoints}
-                  emptyMessage={t.catalog.racebookEmptyCourseMap}
-                />
-
-                {profileSections.length > 0 ? (
-                  profileSections.map((section) => (
-                    <SectionCard key={section.title} title={section.title}>
-                      {section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
-                      {section.lines.length > 0 ? <InfoList values={section.lines} /> : null}
-                    </SectionCard>
-                  ))
-                ) : (
-                  <SectionCard title={t.catalog.racebookTabProfile}>
-                    <EmptyState message={t.catalog.racebookEmptyProfile} />
+            {activeTab === 'general' ? (
+              generalSections.length > 0 ? (
+                generalSections.map((section) => (
+                  <SectionCard key={section.title} title={section.title}>
+                    {section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
+                    {section.lines.length > 0 ? <InfoList values={section.lines} /> : null}
                   </SectionCard>
-                )}
-              </>
+                ))
+              ) : (
+                <SectionCard title={t.catalog.racebookTabGeneral}>
+                  <EmptyState message={t.catalog.racebookEmptyGeneral} />
+                </SectionCard>
+              )
             ) : null}
 
             {activeTab === 'gear' ? (
@@ -745,29 +765,27 @@ export default function RaceRacebookScreen() {
               </SectionCard>
             ) : null}
 
-            {activeTab === 'access' ? (
-              accessSections.length > 0 ? (
-                accessSections.map((section) => (
-                  <SectionCard key={section.title} title={section.title}>
-                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
-                    {section.linkUrl && section.lines?.[0]?.startsWith('http') ? (
-                      <Pressable onPress={() => Linking.openURL(section.linkUrl!).catch(() => {})}>
-                        <Text style={styles.linkText}>{section.lines[0]}</Text>
-                      </Pressable>
-                    ) : section.lines && section.lines.length > 0 ? (
-                      <InfoList values={section.lines} />
-                    ) : null}
-                  </SectionCard>
-                ))
-              ) : (
-                <SectionCard title={t.catalog.racebookTabAccess}>
-                  <EmptyState message={t.catalog.racebookEmptyAccess} />
-                </SectionCard>
-              )
+            {activeTab === 'bib' ? (
+              <SectionCard title={t.catalog.racebookSectionBib}>
+                {bibItems.length === 0 && bibLines.length === 0 ? (
+                  <EmptyState message={t.catalog.racebookEmptyBib} />
+                ) : (
+                  <>
+                    {bibItems.length > 0 ? <LabeledInfoList items={bibItems} /> : null}
+                    {bibLines.length > 0 ? <InfoList values={bibLines} /> : null}
+                  </>
+                )}
+              </SectionCard>
             ) : null}
 
-            {activeTab === 'aid' ? (
+            {activeTab === 'course' ? (
               <>
+                <CourseMapCard
+                  title={t.catalog.racebookSectionCourseMap}
+                  points={routePreviewPoints}
+                  emptyMessage={t.catalog.racebookEmptyCourseMap}
+                />
+
                 <CourseProfileCard
                   title={t.catalog.racebookSectionCourseProfile}
                   points={elevationProfile}
@@ -775,7 +793,7 @@ export default function RaceRacebookScreen() {
                 />
 
                 {data.aidStations.length > 0 ? (
-                  <SectionCard title={t.catalog.racebookTabAid}>
+                  <SectionCard title={t.catalog.racebookSectionAidStations}>
                     <View style={styles.aidStationsWrap}>
                       {data.aidStations.map((station: RacebookAidStation, index: number) => (
                         <AidStationCard
@@ -798,11 +816,32 @@ export default function RaceRacebookScreen() {
                     </View>
                   </SectionCard>
                 ) : (
-                  <SectionCard title={t.catalog.racebookTabAid}>
+                  <SectionCard title={t.catalog.racebookSectionAidStations}>
                     <EmptyState message={t.catalog.racebookEmptyAid} />
                   </SectionCard>
                 )}
               </>
+            ) : null}
+
+            {activeTab === 'access' ? (
+              accessSections.length > 0 ? (
+                accessSections.map((section) => (
+                  <SectionCard key={section.title} title={section.title}>
+                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
+                    {section.linkUrl && section.lines?.[0]?.startsWith('http') ? (
+                      <Pressable onPress={() => Linking.openURL(section.linkUrl!).catch(() => {})}>
+                        <Text style={styles.linkText}>{section.lines[0]}</Text>
+                      </Pressable>
+                    ) : section.lines && section.lines.length > 0 ? (
+                      <InfoList values={section.lines} />
+                    ) : null}
+                  </SectionCard>
+                ))
+              ) : (
+                <SectionCard title={t.catalog.racebookTabAccess}>
+                  <EmptyState message={t.catalog.racebookEmptyAccess} />
+                </SectionCard>
+              )
             ) : null}
           </View>
         </>
