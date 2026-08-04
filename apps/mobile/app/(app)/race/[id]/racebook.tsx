@@ -191,6 +191,7 @@ function LabeledInfoList({ items }: { items: LabeledItem[] }) {
           <View style={styles.tableValueWrap}>
             {item.actionUrl ? (
               <Pressable
+                style={styles.tableValueAction}
                 onPress={() => Linking.openURL(item.actionUrl!).catch(() => {})}
                 accessibilityRole="link"
                 accessibilityLabel={`Ouvrir ${item.label}`}
@@ -379,8 +380,11 @@ function AidStationCard({
         <View style={styles.aidStationMetricsColumn}>
           {metricItems.map((item) => (
             <View key={`${station.id}-${item.label}`} style={styles.metricRow}>
-              <Text style={styles.metricLabel}>{item.label}</Text>
+              <Text style={styles.metricLabel} numberOfLines={1}>
+                {item.label}
+              </Text>
               <DataText
+                numberOfLines={1}
                 style={[
                   styles.metricValue,
                   item.tone === 'gain' ? styles.segmentGainText : null,
@@ -1040,21 +1044,27 @@ const styles = StyleSheet.create({
   },
   tableDivider: {
     flex: 1,
+    minWidth: 12,
     height: 1,
     backgroundColor: Colors.border,
   },
   tableValue: {
-    flex: 1,
+    flexShrink: 1,
     textAlign: 'right',
     color: Colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
   },
   tableValueWrap: {
-    flex: 1,
+    flexShrink: 1,
+    maxWidth: '62%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
+  },
+  tableValueAction: {
+    flexShrink: 1,
+    alignItems: 'flex-end',
   },
   tableValueLink: {
     color: Colors.brandPrimary,
@@ -1191,7 +1201,7 @@ const styles = StyleSheet.create({
   aidStationLayout: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 14,
+    gap: 12,
   },
   aidStationMainColumn: {
     flex: 1,
@@ -1210,15 +1220,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   aidStationMetricsColumn: {
-    width: 88,
-    paddingLeft: 12,
+    width: 104,
+    paddingLeft: 10,
     borderLeftWidth: 1,
     borderLeftColor: Colors.border,
     gap: 8,
   },
   metricRow: {
-    alignItems: 'flex-end',
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'flex-end',
+    gap: 5,
   },
   metricLabel: {
     color: Colors.textSecondary,

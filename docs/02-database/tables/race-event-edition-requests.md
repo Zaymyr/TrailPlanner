@@ -31,7 +31,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - `authenticated` insert/update grants and the organizer insert policy are removed.
 - `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now clones source-year formats directly; it does not insert this table.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
-- Ordinary format saves, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year in dashboard refreshes; they do not read or write this retired table. Ravitos saves PATCH race-level schedule details before PUTting station rows, then refresh the same edition.
+- Ordinary format saves, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
 
 ## Historical Columns
 

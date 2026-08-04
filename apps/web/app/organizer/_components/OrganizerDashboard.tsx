@@ -42,6 +42,8 @@ import {
   getModuleDescription,
   getModuleForTab,
   getModuleTitle,
+  getOrganizerDirtyScopeKey,
+  isOrganizerScopeSavePending,
   normalizeGpxPreview,
   normalizeOrganizerEventDetail,
   raceToForm,
@@ -80,6 +82,13 @@ const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
 const WEBSITE_IMPORT_MINIMUM_SCORE = 70;
+const EMPTY_DIRTY_MODULES = new Set<OrganizerModuleId>();
+
+type OrganizerSaveOptions = {
+  background?: boolean;
+  reloadEvent?: boolean;
+  scopeRevision?: number;
+};
 
 const websiteImportScoreTone = (score: number) =>
   score >= 80
@@ -129,7 +138,8 @@ export function OrganizerDashboard({
   const [productStationId, setProductStationId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductFormValues>(emptyProductForm);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [dirtyModules, setDirtyModules] = useState<Set<OrganizerModuleId>>(() => new Set());
+  const [dirtyModulesByScope, setDirtyModulesByScope] = useState<Record<string, Set<OrganizerModuleId>>>({});
+  const [pendingRevisionByScope, setPendingRevisionByScope] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "uploading">("idle");
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<{ id: number; type: "success" | "error"; message: string } | null>(null);
@@ -150,8 +160,13 @@ export function OrganizerDashboard({
   const [websiteImportLoading, setWebsiteImportLoading] = useState(false);
   const [websiteImportApplying, setWebsiteImportApplying] = useState(false);
   const handledWebsiteImport = useRef<string | null>(null);
+  const selectedEventIdRef = useRef<string | null>(null);
+  const activeRaceIdRef = useRef<string | null>(null);
+  const dirtyRevisionByScopeRef = useRef<Record<string, number>>({});
+  const backgroundSaveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
 
   const accessToken = session?.accessToken ?? null;
+  selectedEventIdRef.current = selectedEventId;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeSeries =
@@ -162,9 +177,24 @@ export function OrganizerDashboard({
     activeSeries?.races.find((race) => getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
     activeSeries?.races[0] ??
     null;
+  activeRaceIdRef.current = activeRace?.id ?? null;
+  const activeDirtyScopeKey = getOrganizerDirtyScopeKey(selectedEventId, activeTab, activeRace?.id ?? null);
+  const currentScopeDirtyModules = activeDirtyScopeKey
+    ? dirtyModulesByScope[activeDirtyScopeKey] ?? EMPTY_DIRTY_MODULES
+    : EMPTY_DIRTY_MODULES;
+  const currentScopeRevision = activeDirtyScopeKey ? dirtyRevisionByScopeRef.current[activeDirtyScopeKey] ?? 0 : 0;
+  const currentScopeIsSaving = activeDirtyScopeKey
+    ? isOrganizerScopeSavePending(
+        currentScopeDirtyModules.size,
+        currentScopeRevision,
+        pendingRevisionByScope[activeDirtyScopeKey]
+      )
+    : false;
+  const dirtyModules = currentScopeIsSaving ? EMPTY_DIRTY_MODULES : currentScopeDirtyModules;
   const activeRaceForCompletion = activeRace ? { ...activeRace, organizerDetails: raceForm.organizerDetails } : null;
   const productPickerStation = productPickerStationId ? aidStations.find((station) => station.id === productPickerStationId) ?? null : null;
   const hasDirtyChanges = dirtyModules.size > 0;
+  const hasAnyDirtyChanges = Object.values(dirtyModulesByScope).some((modules) => modules.size > 0);
   const currentEditionRequest =
     editionRequests.find(
       (request) => request.event_id === selectedEventId && request.requested_start_date === newEditionDate && request.status !== "rejected"
@@ -234,30 +264,45 @@ export function OrganizerDashboard({
   }, [activeRaceForCompletion, aidStations, eventDraft, stationProducts]);
 
   const markDirty = (moduleId: OrganizerModuleId) => {
-    setDirtyModules((current) => {
-      const next = new Set(current);
-      next.add(moduleId);
-      return next;
+    if (!activeDirtyScopeKey) return;
+    dirtyRevisionByScopeRef.current[activeDirtyScopeKey] = (dirtyRevisionByScopeRef.current[activeDirtyScopeKey] ?? 0) + 1;
+    setDirtyModulesByScope((current) => {
+      const nextModules = new Set(current[activeDirtyScopeKey] ?? EMPTY_DIRTY_MODULES);
+      nextModules.add(moduleId);
+      return { ...current, [activeDirtyScopeKey]: nextModules };
     });
   };
 
-  const clearDirty = (moduleIds: OrganizerModuleId[]) => {
-    setDirtyModules((current) => {
-      const next = new Set(current);
-      moduleIds.forEach((moduleId) => next.delete(moduleId));
-      return next;
+  const clearDirty = (moduleIds: OrganizerModuleId[], expectedRevision?: number) => {
+    if (!activeDirtyScopeKey) return;
+    setDirtyModulesByScope((current) => {
+      if (
+        expectedRevision !== undefined &&
+        (dirtyRevisionByScopeRef.current[activeDirtyScopeKey] ?? 0) !== expectedRevision
+      ) {
+        return current;
+      }
+      const nextModules = new Set(current[activeDirtyScopeKey] ?? EMPTY_DIRTY_MODULES);
+      moduleIds.forEach((moduleId) => nextModules.delete(moduleId));
+      if (nextModules.size === 0) {
+        const remaining = { ...current };
+        delete remaining[activeDirtyScopeKey];
+        delete dirtyRevisionByScopeRef.current[activeDirtyScopeKey];
+        return remaining;
+      }
+      return { ...current, [activeDirtyScopeKey]: nextModules };
     });
   };
 
   useEffect(() => {
-    if (!hasDirtyChanges) return;
+    if (!hasAnyDirtyChanges) return;
     const handler = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [hasDirtyChanges]);
+  }, [hasAnyDirtyChanges]);
 
   useEffect(() => {
     if (!toast) return;
@@ -385,7 +430,6 @@ export function OrganizerDashboard({
         const preferredGroupId = groupedRaces.find((group) => group.id === preferredTabId)?.id ?? groupedRaces[0]?.id ?? null;
         setActiveTab(preferredGroupId ?? EVENT_TAB_ID);
       }
-      setDirtyModules(new Set());
     } catch (caught) {
       console.error("Unable to load organizer event", caught);
       setError("Impossible de charger l'événement.");
@@ -413,11 +457,13 @@ export function OrganizerDashboard({
 
     if (aidResponse.ok) {
       const data = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
-      setAidStations(syncAidStationsWithGpxPreview(aidStationRowsToDrafts(data.aidStations ?? []), previewOverride));
+      if (activeRaceIdRef.current === raceId) {
+        setAidStations(syncAidStationsWithGpxPreview(aidStationRowsToDrafts(data.aidStations ?? []), previewOverride));
+      }
     }
     if (productsResponse.ok) {
       const data = (await productsResponse.json()) as { products?: StationProduct[] };
-      setStationProducts(data.products ?? []);
+      if (activeRaceIdRef.current === raceId) setStationProducts(data.products ?? []);
     }
     if (catalogResponse.ok) {
       const data = (await catalogResponse.json()) as { products?: FuelProduct[] };
@@ -429,6 +475,7 @@ export function OrganizerDashboard({
     if (!accessToken) return;
     try {
       const response = await fetch(`/api/organizer/races/${raceId}/gpx`, { headers: authHeaders, cache: "no-store" });
+      if (activeRaceIdRef.current !== raceId) return;
       if (!response.ok) {
         setGpxPreview(null);
         return;
@@ -437,7 +484,7 @@ export function OrganizerDashboard({
       setGpxPreview(normalizeGpxPreview(data));
     } catch (caught) {
       console.error("Unable to load organizer GPX preview", caught);
-      setGpxPreview(null);
+      if (activeRaceIdRef.current === raceId) setGpxPreview(null);
     }
   };
 
@@ -450,6 +497,9 @@ export function OrganizerDashboard({
       setNewEditionDate("");
       return;
     }
+    setAidStations([]);
+    setStationProducts([]);
+    setGpxPreview(null);
     setRaceForm(raceToForm(activeRace));
     if (activeRace.race_date) {
       const nextDate = new Date(activeRace.race_date);
@@ -475,7 +525,7 @@ export function OrganizerDashboard({
     setAidStations((current) => syncAidStationsWithGpxPreview(current, gpxPreview));
   }, [gpxPreview]);
 
-  const saveEvent = async (override?: Partial<EventFormValues>) => {
+  const saveEvent = async (override?: Partial<EventFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !selectedEventId) return false;
     const nextForm = { ...eventForm, ...override };
     const previousCommonEquipment = eventDetail?.organizerDetails?.mandatoryEquipment ?? eventForm.organizerDetails.mandatoryEquipment;
@@ -498,8 +548,10 @@ export function OrganizerDashboard({
         })
       : [];
 
-    setStatus("saving");
-    setError(null);
+    if (!options.background) {
+      setStatus("saving");
+      setError(null);
+    }
     try {
       const response = await fetch(`/api/organizer/events/${selectedEventId}`, {
         method: "PATCH",
@@ -538,16 +590,33 @@ export function OrganizerDashboard({
         }
       }
 
-      showToast("success", "Événement mis à jour.");
-      clearDirty(["event", "equipment", "bibPickup", "access", "services"]);
-      await loadEvent(selectedEventId, EVENT_TAB_ID);
+      const equipmentUpdatesByRaceId = new Map(raceEquipmentUpdates.map((update) => [update.raceId, update.organizerDetails]));
+      setEventDetail((current) =>
+        current?.id === selectedEventId
+          ? {
+              ...current,
+              name: nextForm.name,
+              location: nextForm.location,
+              race_date: nextForm.raceDate,
+              thumbnail_url: nextForm.thumbnailUrl,
+              organizerDetails: nextForm.organizerDetails,
+              races: current.races.map((race) => {
+                const organizerDetails = equipmentUpdatesByRaceId.get(race.id);
+                return organizerDetails ? { ...race, organizerDetails } : race;
+              }),
+            }
+          : current
+      );
+      if (!options.background) showToast("success", "Événement mis à jour.");
+      clearDirty(["event", "equipment", "bibPickup", "access", "services"], options.scopeRevision);
+      if (options.reloadEvent !== false) await loadEvent(selectedEventId, EVENT_TAB_ID);
       return true;
     } finally {
-      setStatus("idle");
+      if (!options.background) setStatus("idle");
     }
   };
 
-  const saveRace = async (override?: Partial<RaceFormValues>, options: { reloadEvent?: boolean } = {}) => {
+  const saveRace = async (override?: Partial<RaceFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !activeRace || !selectedEventId) return false;
     const nextForm = {
       ...raceForm,
@@ -563,8 +632,10 @@ export function OrganizerDashboard({
     const shouldSyncEventCommon =
       serializeEquipment(eventForm.organizerDetails.mandatoryEquipment) !== serializeEquipment(syncedEventDetails.mandatoryEquipment);
 
-    setStatus("saving");
-    setError(null);
+    if (!options.background) {
+      setStatus("saving");
+      setError(null);
+    }
     try {
       const response = await fetch(`/api/organizer/races/${activeRace.id}`, {
         method: "PATCH",
@@ -598,17 +669,43 @@ export function OrganizerDashboard({
           showToast("error", eventData?.message ?? "Impossible de mettre à jour le matériel partagé.");
           return false;
         }
-        setEventForm((current) => ({ ...current, organizerDetails: syncedEventDetails }));
+        if (selectedEventIdRef.current === selectedEventId) {
+          setEventForm((current) => ({ ...current, organizerDetails: syncedEventDetails }));
+        }
       }
 
-      showToast("success", "Format mis à jour.");
-      clearDirty(["formats", "equipment", "access"]);
+      setEventDetail((current) =>
+        current?.id === selectedEventId
+          ? {
+              ...current,
+              organizerDetails: shouldSyncEventCommon ? syncedEventDetails : current.organizerDetails,
+              races: current.races.map((race) =>
+                race.id === activeRace.id
+                  ? {
+                      ...race,
+                      series_name: nextForm.seriesName,
+                      name: nextForm.name,
+                      distance_km: nextForm.distanceKm,
+                      elevation_gain_m: nextForm.elevationGainM,
+                      elevation_loss_m: toNumberOrNull(nextForm.elevationLossM),
+                      location_text: nextForm.locationText,
+                      race_date: nextForm.raceDate,
+                      thumbnail_url: nextForm.thumbnailUrl,
+                      organizerDetails: nextForm.organizerDetails,
+                    }
+                  : race
+              ),
+            }
+          : current
+      );
+      if (!options.background) showToast("success", "Format mis à jour.");
+      clearDirty(["formats", "equipment", "access"], options.scopeRevision);
       if (options.reloadEvent !== false) {
         await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
       }
       return true;
     } finally {
-      setStatus("idle");
+      if (!options.background) setStatus("idle");
     }
   };
 
@@ -940,10 +1037,12 @@ export function OrganizerDashboard({
     }
   };
 
-  const saveAidStations = async () => {
+  const saveAidStations = async (options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !activeRace) return false;
-    setStatus("saving");
-    setError(null);
+    if (!options.background) {
+      setStatus("saving");
+      setError(null);
+    }
     try {
       const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-stations`, {
         method: "PUT",
@@ -955,12 +1054,22 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
         return false;
       }
-      showToast("success", "Ravitos mis à jour.");
-      clearDirty(["aidStations"]);
-      await loadRaceSidecar(activeRace.id);
+      setEventDetail((current) =>
+        current?.id === selectedEventId
+          ? {
+              ...current,
+              races: current.races.map((race) =>
+                race.id === activeRace.id ? { ...race, aidStationCount: aidStations.length } : race
+              ),
+            }
+          : current
+      );
+      if (!options.background) showToast("success", "Ravitos mis à jour.");
+      clearDirty(["aidStations"], options.scopeRevision);
+      if (!options.background) await loadRaceSidecar(activeRace.id);
       return true;
     } finally {
-      setStatus("idle");
+      if (!options.background) setStatus("idle");
     }
   };
 
@@ -1031,23 +1140,35 @@ export function OrganizerDashboard({
     }
   };
 
-  const saveAllDirty = async () => {
-    if (!hasDirtyChanges) return true;
+  const saveAllDirty = async (options: OrganizerSaveOptions = {}) => {
+    if (currentScopeDirtyModules.size === 0) return true;
+    const scopedOptions = {
+      ...options,
+      scopeRevision:
+        options.scopeRevision ?? (activeDirtyScopeKey ? dirtyRevisionByScopeRef.current[activeDirtyScopeKey] ?? 0 : undefined),
+    };
     if (activeTab === EVENT_TAB_ID || !activeRace) {
-      const eventDirty = ["event", "equipment", "bibPickup", "access", "services"].some((moduleId) => dirtyModules.has(moduleId as OrganizerModuleId));
+      const eventDirty = ["event", "equipment", "bibPickup", "access", "services"].some((moduleId) =>
+        currentScopeDirtyModules.has(moduleId as OrganizerModuleId)
+      );
       if (!eventDirty) return true;
-      return await saveEvent();
+      return await saveEvent(undefined, scopedOptions);
     }
     if (!selectedEventId) return false;
-    const savePlan = buildOrganizerFormatSavePlan(dirtyModules);
+    const savePlan = buildOrganizerFormatSavePlan(currentScopeDirtyModules);
     if (savePlan.saveRaceDetails) {
-      const ok = await saveRace(undefined, { reloadEvent: !savePlan.saveAidStations });
+      const ok = await saveRace(undefined, {
+        ...scopedOptions,
+        reloadEvent: scopedOptions.reloadEvent ?? !savePlan.saveAidStations,
+      });
       if (!ok) return false;
     }
     if (savePlan.saveAidStations) {
-      const ok = await saveAidStations();
+      const ok = await saveAidStations(scopedOptions);
       if (!ok) return false;
-      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      if (scopedOptions.reloadEvent !== false) {
+        await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      }
       return true;
     }
     return true;
@@ -1060,6 +1181,38 @@ export function OrganizerDashboard({
       return false;
     }
     return true;
+  };
+
+  const saveCurrentScopeInBackground = () => {
+    if (!activeDirtyScopeKey || currentScopeDirtyModules.size === 0) return;
+    const scopeKey = activeDirtyScopeKey;
+    const scopeRevision = dirtyRevisionByScopeRef.current[scopeKey] ?? 0;
+    const previousSave = backgroundSaveQueuesRef.current[scopeKey] ?? Promise.resolve(true);
+    const pendingSave = previousSave
+      .catch(() => false)
+      .then(() => saveAllDirty({ background: true, reloadEvent: false, scopeRevision }));
+    backgroundSaveQueuesRef.current[scopeKey] = pendingSave;
+    setPendingRevisionByScope((current) => ({ ...current, [scopeKey]: scopeRevision }));
+
+    void pendingSave
+      .then((saved) => {
+        if (!saved) showToast("error", "La sauvegarde en arrière-plan a échoué.");
+      })
+      .catch((caught) => {
+        console.error("Unable to autosave organizer scope in background", caught);
+        showToast("error", "La sauvegarde en arrière-plan a échoué.");
+      })
+      .finally(() => {
+        if (backgroundSaveQueuesRef.current[scopeKey] === pendingSave) {
+          delete backgroundSaveQueuesRef.current[scopeKey];
+          setPendingRevisionByScope((current) => {
+            if (current[scopeKey] !== scopeRevision) return current;
+            const remaining = { ...current };
+            delete remaining[scopeKey];
+            return remaining;
+          });
+        }
+      });
   };
 
   const updateEventForm = (next: Partial<EventFormValues>, moduleId: OrganizerModuleId = "event") => {
@@ -1084,9 +1237,9 @@ export function OrganizerDashboard({
     markDirty("aidStations");
   };
 
-  const handleTabChange = async (nextTab: string) => {
+  const handleTabChange = (nextTab: string) => {
     if (nextTab === activeTab) return;
-    if (!(await saveBeforeNavigation())) return;
+    saveCurrentScopeInBackground();
     if (nextTab === ADD_FORMAT_TAB_ID) {
       setNewRaceForm(activeRace ? createRaceFormFromFormatDefaults(activeRace, raceForm) : createRaceFormFromEventDefaults(eventForm));
     }
@@ -1352,19 +1505,15 @@ export function OrganizerDashboard({
         editionRequestState={currentEditionRequest}
         publicationRequestState={currentPublicationRequest}
         onSelectedEventChange={(eventId) => {
-          void (async () => {
-            if (!(await saveBeforeNavigation())) return;
-            setSelectedEventId(eventId);
-            setActiveTab(EVENT_TAB_ID);
-            setActiveModule("event");
-          })();
+          saveCurrentScopeInBackground();
+          setSelectedEventId(eventId);
+          setActiveTab(EVENT_TAB_ID);
+          setActiveModule("event");
         }}
         onSelectedEditionYearChange={(year) => {
-          void (async () => {
-            if (year === selectedEditionYear) return;
-            if (!(await saveBeforeNavigation())) return;
-            setSelectedEditionYear(year);
-          })();
+          if (year === selectedEditionYear) return;
+          saveCurrentScopeInBackground();
+          setSelectedEditionYear(year);
         }}
         onEditionDateChange={setNewEditionDate}
         onRequestEdition={() => {
@@ -1402,11 +1551,9 @@ export function OrganizerDashboard({
           dirtyModules={dirtyModules}
           onTabChange={handleTabChange}
           onSelectModule={(moduleId) => {
-            void (async () => {
-              if (moduleId === activeModule) return;
-              if (!(await saveBeforeNavigation())) return;
-              setActiveModule(moduleId);
-            })();
+            if (moduleId === activeModule) return;
+            saveCurrentScopeInBackground();
+            setActiveModule(moduleId);
           }}
           activeModule={activeModule}
         />

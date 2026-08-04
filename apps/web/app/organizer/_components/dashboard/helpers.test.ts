@@ -1,12 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultOrganizerAidStationDetails } from "../../../../lib/organizer-dashboard-details";
+import { EVENT_TAB_ID } from "./constants";
 import {
   applyGpxStatsToRaceForm,
   buildEditionYearOptions,
   buildOrganizerFormatSavePlan,
   createEmptyRaceForm,
   getGpxElevationTotalsAtDistance,
+  getOrganizerDirtyScopeKey,
+  isOrganizerScopeSavePending,
   syncAidStationsWithGpxPreview,
 } from "./helpers";
 import type { AidStationDraft, EditionRequestRow, GpxPreview } from "./types";
@@ -44,6 +47,13 @@ describe("organizer dashboard GPX helpers", () => {
       saveRaceDetails: true,
       saveAidStations: true,
     });
+  });
+
+  it("keeps dirty and pending autosave state scoped to the selected event or race", () => {
+    expect(getOrganizerDirtyScopeKey("event-1", EVENT_TAB_ID, null)).toBe("event:event-1");
+    expect(getOrganizerDirtyScopeKey("event-1", "series-42k", "race-1")).toBe("race:race-1");
+    expect(isOrganizerScopeSavePending(1, 3, 3)).toBe(true);
+    expect(isOrganizerScopeSavePending(1, 4, 3)).toBe(false);
   });
 
   it("copies the exact parsed GPX metrics into the race form", () => {
