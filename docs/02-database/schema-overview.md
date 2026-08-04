@@ -1,12 +1,13 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/lib/organizer-aid-station-products.ts
@@ -92,7 +93,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `subscriptions` | Web Stripe and mobile RevenueCat entitlement rows. |
 | `user_favorite_race_events` | User-owned favorites for `race_events`, used for catalog pinning and organizer-update audience selection. |
 | `user_favorite_products` | User favorites for products. |
-| `user_profiles` | App profile, trial fields, defaults, sign-in metrics, and body metrics. |
+| `user_profiles` | App profile, explicit mobile onboarding completion, trial fields, defaults, sign-in metrics, and body metrics. |
 
 Removed legacy tables:
 
@@ -182,6 +183,7 @@ erDiagram
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 - Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
 - The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
+- `user_profiles.onboarding_completed_at` is nullable for legacy compatibility. Mobile also recognizes existing durable onboarding data so older onboarded users are not forced through the flow again.
 
 ## Related Docs
 

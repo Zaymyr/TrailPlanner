@@ -1,12 +1,13 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
@@ -211,6 +212,7 @@ Declared in `20250624103000_add_user_profiles.sql`.
 - Users can update own profile.
 
 The auth trigger in `20260408100000_initialize_trial_profile_on_user_created.sql` uses SECURITY DEFINER to create/repair profile rows after auth user creation.
+`user_profiles.onboarding_completed_at` is a column-only addition. It inherits the same owner select/insert/update policies; mobile writes it using the active user's session and an explicit `user_id` filter/upsert ownership key.
 
 ### `subscriptions`
 
@@ -301,6 +303,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.
 - Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
+- Adding `onboarding_completed_at` does not broaden profile visibility or mutation rights; do not add a separate policy for this column while the row remains owner-scoped.
 
 ## Related Docs
 

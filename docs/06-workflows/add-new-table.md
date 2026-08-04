@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-07-20
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -16,7 +16,7 @@ related_tables: []
 
 Use this workflow when adding a Supabase table to Pace Yourself.
 
-For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent organizer edition grouping on `races.edition_group_id` / `series_name` is the reference example of a column-only migration that still required schema and business-doc updates.
+For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and mobile onboarding completion on `user_profiles.onboarding_completed_at`; both still require schema and business/auth-doc updates.
 
 ## Key Concepts
 
@@ -64,6 +64,7 @@ Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
 - Do not assume columns used in code exist without checking migrations or live schema.
 - Do not rely on a service-role route as the only validation for a newly exposed table.
 - Do not forget explicit grants for tables accessed through Supabase REST/client APIs; RLS policies alone do not grant table privileges.
+- Do not add new grants or policies for a column-only marker when the existing owner-scoped row access remains the intended boundary.
 
 ## Related Docs
 

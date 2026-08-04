@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260720120000_add_race_edition_groups.sql
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
+  - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
   - race_plans
@@ -135,6 +136,13 @@ Recent auth metrics migration:
   - adds `user_profiles.sign_in_count`, `first_sign_in_at`, `last_sign_in_at`
   - adds `public.increment_user_sign_in(uuid, timestamptz)` SECURITY DEFINER function (service-role execution)
 
+Mobile onboarding completion migration:
+
+- `supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql`
+  - adds nullable `user_profiles.onboarding_completed_at`;
+  - reuses existing owner select/insert/update policies and grants;
+  - leaves legacy rows null so the mobile gate can continue its durable-data fallback.
+
 ### Race Events and Catalog Enrichment
 
 `supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql` alters `race_events`, but no create-table migration for `race_events` was found.
@@ -227,6 +235,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Product image backfills for official catalog rows should update `products.image_url` without changing ownership or visibility semantics.
 - Public link migrations should not store raw share tokens. Hash tokens server-side and keep public reads behind a service-role route/page that validates expiry and revocation.
 - Public crew tracking state belongs beside the share snapshot, not in the private plan JSON. Keep it bounded and route-mediated.
+- Column-only onboarding markers on `user_profiles` must keep owner-scoped writes and must not use a fabricated profile preference as a completion signal.
 
 ## Related Docs
 

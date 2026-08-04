@@ -1,11 +1,12 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-07-20
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
@@ -101,6 +102,7 @@ Use:
 - Secret-link tables such as `plan_share_links` still need owner RLS. Public viewers should resolve unguessable tokens through server/service-role code, not direct `anon` table grants.
 - Re-sharing a plan can update an existing `plan_share_links` snapshot, so the service route must verify both bearer-token identity and parent-plan ownership before update as well as insert.
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.
+- `user_profiles.onboarding_completed_at` is a column-only owner datum. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
 
 ## Related Docs
 

@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 const onboardingBypassUntilByUserId = new Map<string, number>();
 
 type OnboardingGateProfileRow = {
+  onboarding_completed_at: string | null;
   full_name: string | null;
   water_bag_liters: number | null;
   utmb_index: number | null;
@@ -22,6 +23,7 @@ function hasSavedOnboardingProfileData(profile: OnboardingGateProfileRow | null)
   }
 
   return (
+    profile.onboarding_completed_at != null ||
     (profile.full_name?.trim().length ?? 0) > 0 ||
     profile.water_bag_liters != null ||
     profile.utmb_index != null ||
@@ -53,7 +55,7 @@ export async function shouldOpenOnboarding(session: Session | null | undefined) 
   const profileResult = await supabase
     .from('user_profiles')
     .select(
-      'full_name, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, weight_kg, height_cm, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour',
+      'onboarding_completed_at, full_name, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, weight_kg, height_cm, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour',
     )
     .eq('user_id', session.user.id)
     .maybeSingle();

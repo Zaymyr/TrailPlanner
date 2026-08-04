@@ -537,6 +537,10 @@ export type MobileTranslations = {
     completionContinueCta: string;
     completionNewPlanCta: string;
     skipCta: string;
+    skipOnboardingCta: string;
+    skipOnboardingConfirmTitle: string;
+    skipOnboardingConfirmBody: string;
+    skipOnboardingError: string;
   };
   catalog: {
     searchPlaceholder: string;
