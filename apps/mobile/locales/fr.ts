@@ -545,6 +545,10 @@ export const fr: MobileTranslations = {
     completionContinueCta: 'Continuer ce plan',
     completionNewPlanCta: 'Créer un nouveau plan',
     skipCta: 'Passer cette étape',
+    skipOnboardingCta: 'Passer',
+    skipOnboardingConfirmTitle: "Passer l’onboarding ?",
+    skipOnboardingConfirmBody: 'Tu pourras compléter ton profil et tes préférences plus tard.',
+    skipOnboardingError: "Impossible de passer l’onboarding pour le moment. Réessaie.",
   },
   catalog: {
     searchPlaceholder: 'Rechercher une course',

@@ -545,6 +545,10 @@ export const en: MobileTranslations = {
     completionContinueCta: 'Continue this plan',
     completionNewPlanCta: 'Create a new plan',
     skipCta: 'Skip this step',
+    skipOnboardingCta: 'Skip',
+    skipOnboardingConfirmTitle: 'Skip onboarding?',
+    skipOnboardingConfirmBody: 'You can complete your profile and preferences later.',
+    skipOnboardingError: 'Unable to skip onboarding right now. Please try again.',
   },
   catalog: {
     searchPlaceholder: 'Search a race',

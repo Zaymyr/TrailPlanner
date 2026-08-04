@@ -1,7 +1,7 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260414173000_add_body_metrics_to_user_profiles.sql
   - supabase/migrations/20260525094919_add_sign_in_metrics_to_user_profiles.sql
   - supabase/migrations/20260618145940_remove_coach_features.sql
+  - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - apps/web/lib/trial-server.ts
   - apps/web/lib/entitlements.ts
 related_tables:
@@ -21,13 +22,14 @@ related_tables:
 
 ## Purpose
 
-`user_profiles` stores app-level profile data for each Supabase auth user. It is also the durable source for trial dates, default nutrition targets, sign-in metrics, and athlete metrics.
+`user_profiles` stores app-level profile data for each Supabase auth user. It is also the durable source for onboarding completion, trial dates, default nutrition targets, sign-in metrics, and athlete metrics.
 
 ## Key Concepts
 
 - Profile row: app-owned companion to `auth.users`.
 - Trial fields: 15-day premium trial lifecycle state.
 - Defaults: user-level planner target defaults.
+- Onboarding completion: explicit timestamp set after completion or deliberate skip.
 
 ## Columns
 
@@ -36,6 +38,7 @@ related_tables:
 | `user_id` | `uuid` | primary key, default `auth.uid()` | Auth user/profile id. |
 | `created_at` | `timestamptz` | not null, default UTC `now()` | Creation time. |
 | `updated_at` | `timestamptz` | not null, trigger-maintained | Last update time. |
+| `onboarding_completed_at` | `timestamptz` | nullable | Time mobile onboarding was completed or explicitly skipped. |
 | `full_name` | `text` | nullable | User display name. |
 | `role` | `text` | nullable | Legacy/profile role used in some admin checks. |
 | `age` | `integer` | nullable, check `age >= 0` | Legacy age field. |
@@ -79,6 +82,7 @@ Summary:
 - `handle_new_user_profile` runs after auth user creation and uses SECURITY DEFINER to insert or repair trial fields.
 - `ensureTrialStatus` repairs missing profile/trial fields on session verification.
 - Sign-in metrics are updated by `public.increment_user_sign_in(...)`, called from server auth sign-in flow.
+- Mobile onboarding writes `onboarding_completed_at` only after a successful completion save or an explicit confirmed skip.
 
 <!-- CONFLICT: archived docs/app-rules-and-logic.md says trial duration is 14 days; current code and migration use 15 days. -->
 
@@ -105,6 +109,7 @@ where user_id = '<user-id>';
 - Do not read `auth.users` from client code to get profile fields.
 - Use `birth_date` for new age-related work unless maintaining legacy `age`.
 - Trial fields can be missing for older users; server code repairs them.
+- Legacy onboarded profiles can have a null `onboarding_completed_at`; the mobile gate keeps recognizing existing onboarding profile fields and favorite products for backward compatibility.
 - Profile `role` exists, but new auth decisions should prefer trusted `app_metadata` or server-side checks.
 - Sign-in metrics are best-effort and currently incremented on credential sign-in route; include this caveat in admin analytics interpretation.
 

@@ -13,6 +13,8 @@ related_files:
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/profile.tsx
+  - apps/mobile/app/(app)/onboarding.tsx
+  - apps/mobile/lib/onboardingGate.ts
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/premium/PremiumUpsellModal.tsx
@@ -112,7 +114,7 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 - Resend contact sync once an identified, non-anonymous session is active.
 
 The layout also tracks auth analytics for signed-in and signed-out events.
-Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion.
+Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion or an explicit confirmed skip. Setup steps expose a compact header skip action, while the final notification screen keeps its existing skip-step control; both normal completion and skipping persist `user_profiles.onboarding_completed_at` before the flow exits, while the gate retains legacy profile/favorite fallbacks.
 Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx` so the onboarding race choice uses the same event-card UX as the Courses tab.
 The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of always snapping to the default `plans` tab when a hidden detail route was pushed.
 Organizer update pushes can deep-link back into the catalog with `/(app)/catalog?eventId=<uuid>`; the catalog screen reopens the matching event sheet when that query param is present.
@@ -180,6 +182,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - The mobile Racebook also parses additive geocoded organizer metadata for event/format, bib pickup, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually.
 - The mobile Racebook now complements organizer copy with stored route data when available: the `Profil` tab starts with an interactive Leaflet map embedded through `react-native-webview`, sourced from GPX points and OpenStreetMap tiles, and the `Ravito` tab starts with the course elevation profile before the aid-station list.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
+- Keep onboarding skip durable: write `user_profiles.onboarding_completed_at` before routing away, and retain the legacy durable-data fallback for profiles onboarded before the marker existed.
 - Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
 - Organizer update history in the event sheet is intentionally manual-announcement history only. Do not turn every organizer save into a runner-visible update.
 - Keep the event-sheet default compact: preload only the short organizer-update preview with the catalog query, and fetch the longer history only when the runner explicitly asks to see more.

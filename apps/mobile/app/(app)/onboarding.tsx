@@ -300,11 +300,17 @@ function isMissingUserForeignKeyError(error: unknown) {
 
 function OnboardingShell({
   children,
+  onSkip,
+  skipDisabled = false,
+  skipLabel,
   step,
   totalSteps,
   stepLabel,
 }: {
   children: React.ReactNode;
+  onSkip?: () => void;
+  skipDisabled?: boolean;
+  skipLabel?: string;
   step: number;
   totalSteps: number;
   stepLabel: string;
@@ -319,7 +325,26 @@ function OnboardingShell({
       >
         <View style={styles.inner}>
           <View style={styles.hero}>
-            <Text style={styles.logo}>Pace Yourself</Text>
+            <View style={styles.heroTitleRow}>
+              <Text style={styles.logo}>Pace Yourself</Text>
+              {onSkip && skipLabel ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel={skipLabel}
+                  activeOpacity={0.7}
+                  disabled={skipDisabled}
+                  hitSlop={8}
+                  onPress={onSkip}
+                  style={[styles.skipOnboardingButton, skipDisabled && styles.buttonDisabled]}
+                >
+                  {skipDisabled ? (
+                    <ActivityIndicator color={Colors.textSecondary} size="small" />
+                  ) : (
+                    <Text style={styles.skipOnboardingButtonText}>{skipLabel}</Text>
+                  )}
+                </TouchableOpacity>
+              ) : null}
+            </View>
             <Text style={styles.stepIndicator}>
               {stepLabel.replace('{step}', String(step)).replace('{total}', String(totalSteps))}
             </Text>
@@ -346,6 +371,7 @@ export default function OnboardingScreen() {
   const { locale, t } = useI18n();
   const pendingTransition = getPendingOnboardingTransition();
   const [step, setStep] = useState(0);
+  const [skippingOnboarding, setSkippingOnboarding] = useState(false);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
   const [session, setSession] = useState<Session | null>(null);
@@ -1138,16 +1164,18 @@ export default function OnboardingScreen() {
         default_carbs_g_per_hour: parsedDefaultCarbsPerHour,
         default_water_ml_per_hour: parsedDefaultWaterPerHour,
         default_sodium_mg_per_hour: parsedDefaultSodiumPerHour,
+        onboarding_completed_at: new Date().toISOString(),
       },
       { onConflict: 'user_id' },
     );
 
     if (nextSelectedProductIds.length === 0) {
-      await profileUpsert;
+      const { error } = await profileUpsert;
+      if (error) throw error;
       return;
     }
 
-    await Promise.all([
+    const [profileResult, favoritesResult] = await Promise.all([
       profileUpsert,
       supabase.from('user_favorite_products').upsert(
         nextSelectedProductIds.map((productId) => ({
@@ -1160,6 +1188,9 @@ export default function OnboardingScreen() {
         },
       ),
     ]);
+
+    if (profileResult.error) throw profileResult.error;
+    if (favoritesResult.error) throw favoritesResult.error;
   }
 
   async function finishOnboarding() {
@@ -1328,6 +1359,57 @@ export default function OnboardingScreen() {
       setLoadingProgress(0.08);
       clearPendingOnboardingTransition();
     }
+  }
+
+  async function skipOnboarding() {
+    setSkippingOnboarding(true);
+
+    try {
+      const currentSession = await ensureAppSession();
+      const userId = currentSession?.user?.id ?? null;
+
+      if (!userId) {
+        throw new Error('Unable to resolve a session while skipping onboarding');
+      }
+
+      const { error } = await supabase.from('user_profiles').upsert(
+        {
+          user_id: userId,
+          onboarding_completed_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      markOnboardingJustCompleted(userId);
+      clearPendingOnboardingTransition();
+      captureAnalyticsEvent('onboarding skipped', { step: Math.max(step, 1) });
+      router.replace('/(app)/plans');
+    } catch (error) {
+      console.error('Unable to skip onboarding:', error);
+      Alert.alert(t.common.error, t.onboarding.skipOnboardingError);
+      setSkippingOnboarding(false);
+    }
+  }
+
+  function requestSkipOnboarding() {
+    Alert.alert(
+      t.onboarding.skipOnboardingConfirmTitle,
+      t.onboarding.skipOnboardingConfirmBody,
+      [
+        { text: t.common.cancel, style: 'cancel' },
+        {
+          text: t.onboarding.skipOnboardingCta,
+          style: 'default',
+          onPress: () => {
+            void skipOnboarding();
+          },
+        },
+      ],
+    );
   }
 
   function handlePersonalContinue() {
@@ -1615,7 +1697,14 @@ export default function OnboardingScreen() {
 
   if (step === 0) {
     return (
-      <OnboardingShell step={1} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+      <OnboardingShell
+        step={1}
+        totalSteps={totalSteps}
+        stepLabel={t.onboarding.stepLabel}
+        skipLabel={t.onboarding.skipOnboardingCta}
+        skipDisabled={skippingOnboarding}
+        onSkip={requestSkipOnboarding}
+      >
         <Text style={styles.kicker}>{t.onboarding.welcomeKicker}</Text>
         <Text style={styles.title}>{t.onboarding.welcomeTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.welcomeSubtitle}</Text>
@@ -1700,7 +1789,14 @@ export default function OnboardingScreen() {
 
   if (step === 1) {
     return (
-      <OnboardingShell step={2} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+      <OnboardingShell
+        step={2}
+        totalSteps={totalSteps}
+        stepLabel={t.onboarding.stepLabel}
+        skipLabel={t.onboarding.skipOnboardingCta}
+        skipDisabled={skippingOnboarding}
+        onSkip={requestSkipOnboarding}
+      >
         <Text style={styles.kicker}>{t.onboarding.workflowKicker}</Text>
         <Text style={styles.title}>{t.onboarding.workflowTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.workflowSubtitle}</Text>
@@ -1746,7 +1842,14 @@ export default function OnboardingScreen() {
   if (step === 2) {
     return (
       <>
-        <OnboardingShell step={2} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <OnboardingShell
+          step={2}
+          totalSteps={totalSteps}
+          stepLabel={t.onboarding.stepLabel}
+          skipLabel={t.onboarding.skipOnboardingCta}
+          skipDisabled={skippingOnboarding}
+          onSkip={requestSkipOnboarding}
+        >
           <Text style={styles.title}>{t.profile.personalSectionTitle}</Text>
           <Text style={styles.subtitle}>{t.profile.personalSectionSubtitle}</Text>
 
@@ -1822,7 +1925,14 @@ export default function OnboardingScreen() {
   if (step === 3) {
     return (
       <>
-        <OnboardingShell step={3} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <OnboardingShell
+          step={3}
+          totalSteps={totalSteps}
+          stepLabel={t.onboarding.stepLabel}
+          skipLabel={t.onboarding.skipOnboardingCta}
+          skipDisabled={skippingOnboarding}
+          onSkip={requestSkipOnboarding}
+        >
           <Text style={styles.title}>{t.profile.performanceSectionTitle}</Text>
           <Text style={styles.subtitle}>{t.onboarding.performanceStepSubtitle}</Text>
 
@@ -1906,7 +2016,14 @@ export default function OnboardingScreen() {
   if (step === 4) {
     return (
       <>
-        <OnboardingShell step={4} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <OnboardingShell
+          step={4}
+          totalSteps={totalSteps}
+          stepLabel={t.onboarding.stepLabel}
+          skipLabel={t.onboarding.skipOnboardingCta}
+          skipDisabled={skippingOnboarding}
+          onSkip={requestSkipOnboarding}
+        >
           <Text style={styles.title}>{t.onboarding.nutritionTargetsTitle}</Text>
           <Text style={styles.subtitle}>{t.onboarding.nutritionTargetsSubtitle}</Text>
 
@@ -1990,7 +2107,14 @@ export default function OnboardingScreen() {
   if (step === 5) {
     return (
       <>
-        <OnboardingShell step={5} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+        <OnboardingShell
+          step={5}
+          totalSteps={totalSteps}
+          stepLabel={t.onboarding.stepLabel}
+          skipLabel={t.onboarding.skipOnboardingCta}
+          skipDisabled={skippingOnboarding}
+          onSkip={requestSkipOnboarding}
+        >
         <Text style={styles.title}>{t.onboarding.raceTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.raceSubtitle}</Text>
         <Text style={styles.predictionHint}>{t.onboarding.raceHint}</Text>
@@ -2258,7 +2382,14 @@ export default function OnboardingScreen() {
     );
 
     return (
-      <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
+      <OnboardingShell
+        step={6}
+        totalSteps={totalSteps}
+        stepLabel={t.onboarding.stepLabel}
+        skipLabel={t.onboarding.skipOnboardingCta}
+        skipDisabled={skippingOnboarding}
+        onSkip={requestSkipOnboarding}
+      >
         <Text style={styles.title}>{t.onboarding.nutritionTitle}</Text>
         <Text style={styles.subtitle}>{t.onboarding.nutritionSubtitle}</Text>
 
@@ -2659,6 +2790,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 18,
   },
+  heroTitleRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   progressRow: {
     flexDirection: 'row',
     gap: 8,
@@ -2677,10 +2813,28 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceMuted,
   },
   logo: {
+    flex: 1,
     fontSize: 28,
     fontWeight: '800',
     color: Colors.brandPrimary,
     letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  skipOnboardingButton: {
+    width: 64,
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 8,
+  },
+  skipOnboardingButtonText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
   },
   stepIndicator: {
     marginTop: 8,
