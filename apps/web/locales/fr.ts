@@ -1171,6 +1171,8 @@ export const fr: Translations = {
         setDraft: "Mettre en brouillon",
         import: "Importer",
         confirmImport: "Confirmer l’import",
+        downloadGpx: "Télécharger le GPX",
+        downloadingGpx: "Téléchargement…",
         loadingImport: "Chargement…",
         importing: "Import…",
         save: "Enregistrer",
@@ -1223,7 +1225,7 @@ export const fr: Translations = {
         "Vos identifiants sont utilisés uniquement pour cet import afin d'acceder au GPX protege. Ils ne sont pas enregistres.",
       traceDeTrailCredentialsSaved: "Identifiants ajoutes pour cet import uniquement.",
       traceDeTrailProtectedNotice:
-        "Le GPX officiel est protege pour cette trace. Sans connexion, l'import utilise le profil embarque dans la page.",
+        "Le téléchargement officiel reste protégé pour cette trace. Le GPX proposé est reconstruit depuis le profil embarqué dans la page.",
       traceDeTrailAuthenticatedNotice: "GPX officiel accessible avec vos identifiants Trace de Trail.",
       noEventGroupTitle: "Courses sans evenement",
       groupRaceCount: "{count} courses",

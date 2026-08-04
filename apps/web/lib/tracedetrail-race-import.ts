@@ -679,20 +679,36 @@ export async function getTraceDeTrailRaceData(
   }
 
   let gpxContent = "";
-  let parsedGpx: ReturnType<typeof parseGpx>;
+  let parsedGpx: ReturnType<typeof parseGpx> | null = null;
   let aidStations: TraceDeTrailAidStation[] = [];
   let elevationProfile: Array<{ distanceKm: number; elevationM: number }> = [];
   let gpxAccessMode: TraceDeTrailRaceData["gpxAccessMode"] = "public";
+  let officialDownloadError: TraceDeTrailImportError | null = null;
 
-  try {
-    if (options?.credentials) {
+  if (options?.credentials) {
+    try {
       const cookieHeader = await loginTraceDeTrail(options.credentials);
       gpxContent = await downloadTraceDeTrailGpxWithCookie(traceId, cookieHeader);
       gpxAccessMode = "authenticated";
-    } else {
+    } catch (error) {
+      if (!(error instanceof TraceDeTrailImportError)) throw error;
+      if (error.code === "AUTH_FAILED") throw error;
+      officialDownloadError = error;
+    }
+  }
+
+  if (!gpxContent) {
+    try {
       gpxContent = await downloadTraceDeTrailGpx(traceId);
       gpxAccessMode = "public";
+      officialDownloadError = null;
+    } catch (error) {
+      if (!(error instanceof TraceDeTrailImportError)) throw error;
+      officialDownloadError = error;
     }
+  }
+
+  if (gpxContent) {
     parsedGpx = parseGpx(gpxContent);
     elevationProfile = parsedGpx.points
       .flatMap((point) =>
@@ -707,12 +723,10 @@ export async function getTraceDeTrailRaceData(
       )
       .filter((point, index, all) => index === 0 || point.distanceKm !== all[index - 1]?.distanceKm);
     aidStations = getTraceDeTrailAidStations(gpxContent, parsedGpx.points);
-  } catch (error) {
-    if (!(error instanceof TraceDeTrailImportError)) throw error;
-    if (options?.credentials || (error.code !== "AUTH_REQUIRED" && error.code !== "INVALID_DATA")) {
-      throw error;
-    }
-
+  } else if (
+    officialDownloadError?.code === "AUTH_REQUIRED" ||
+    officialDownloadError?.code === "INVALID_DATA"
+  ) {
     try {
       const fallback = buildTraceDeTrailFallbackData(html);
       gpxContent = fallback.gpxContent;
@@ -726,9 +740,11 @@ export async function getTraceDeTrailRaceData(
         "Impossible de récupérer les données Trace de Trail pour cette course."
       );
     }
+  } else if (officialDownloadError) {
+    throw officialDownloadError;
   }
 
-  if (!gpxContent || elevationProfile.length === 0) {
+  if (!gpxContent || !parsedGpx || elevationProfile.length === 0) {
     throw new TraceDeTrailImportError(
       "INVALID_DATA",
       "Impossible de récupérer les données Trace de Trail pour cette course."

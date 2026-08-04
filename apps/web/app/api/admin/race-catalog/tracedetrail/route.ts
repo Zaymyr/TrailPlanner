@@ -25,7 +25,7 @@ const credentialsSchema = z.object({
 
 const requestSchema = z.object({
   url: z.string().trim().url(),
-  action: z.enum(["preview", "import"]).default("preview"),
+  action: z.enum(["preview", "import", "download"]).default("preview"),
   isLive: z.boolean().optional().default(false),
   credentials: credentialsSchema.optional(),
 });
@@ -70,6 +70,18 @@ const buildSlug = (name: string) => {
 
   const suffix = Math.random().toString(36).slice(2, 6);
   return base ? `${base}-${suffix}` : `race-${suffix}`;
+};
+
+const buildGpxFilename = (name: string, traceId: number) => {
+  const base = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)+/g, "");
+
+  return `${base || `trace-${traceId}`}.gpx`;
 };
 
 const normalizeComparableName = (value: string) =>
@@ -256,6 +268,20 @@ export async function POST(request: NextRequest) {
       : null;
 
     const traceRace = await getTraceDeTrailRaceData(body.url, { credentials });
+
+    if (body.action === "download") {
+      return withSecurityHeaders(
+        new NextResponse(traceRace.gpxContent, {
+          status: 200,
+          headers: {
+            "Content-Type": "application/gpx+xml; charset=utf-8",
+            "Content-Disposition": `attachment; filename="${buildGpxFilename(traceRace.courseName, traceRace.traceId)}"`,
+            "Cache-Control": "no-store",
+          },
+        })
+      );
+    }
+
     const duplicateRace = await findExistingTraceDeTrailRace(
       admin.serviceConfig,
       traceRace.traceId,
@@ -351,6 +377,8 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         id: raceId,
+        edition_group_id: raceId,
+        series_name: traceRace.courseName,
         slug: buildSlug(traceRace.courseName),
         name: traceRace.courseName,
         event_id: raceEventId,

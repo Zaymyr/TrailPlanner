@@ -1159,6 +1159,8 @@ export const en: Translations = {
         setDraft: "Mark draft",
         import: "Import",
         confirmImport: "Confirm import",
+        downloadGpx: "Download GPX",
+        downloadingGpx: "Downloading…",
         loadingImport: "Loading…",
         importing: "Importing…",
         save: "Save",
@@ -1211,7 +1213,7 @@ export const en: Translations = {
         "Your credentials are used only for this import to access a protected GPX. They are not stored.",
       traceDeTrailCredentialsSaved: "Credentials added for this import only.",
       traceDeTrailProtectedNotice:
-        "The official GPX is protected for this course. Without sign-in, the import uses the profile embedded in the page.",
+        "The official download remains protected for this course. The proposed GPX is rebuilt from the profile embedded in the page.",
       traceDeTrailAuthenticatedNotice: "Official GPX access enabled with your Trace de Trail credentials.",
       noEventGroupTitle: "Standalone races",
       groupRaceCount: "{count} races",
