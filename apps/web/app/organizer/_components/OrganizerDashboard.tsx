@@ -25,6 +25,7 @@ import { AccessEditor, BibPickupEditor, EquipmentEditor, PreviewLauncher, Servic
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import {
   aidStationRowsToDrafts,
+  applyGpxStatsToRaceForm,
   buildEventDraft,
   buildProductsById,
   cloneJson,
@@ -601,7 +602,7 @@ export function OrganizerDashboard({
 
       showToast("success", "Format mis à jour.");
       clearDirty(["formats", "equipment", "access"]);
-      await loadEvent(selectedEventId, activeRace.edition_group_id, activeRace.id);
+      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
       return true;
     } finally {
       setStatus("idle");
@@ -760,7 +761,9 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "GPX invalide ou impossible à importer.");
         return;
       }
-      setGpxPreview(normalizeGpxPreview(data));
+      const normalizedPreview = normalizeGpxPreview(data);
+      setGpxPreview(normalizedPreview);
+      setRaceForm((current) => applyGpxStatsToRaceForm(current, normalizedPreview?.stats));
       const detectedCount = data?.detectedAidStations?.length ?? 0;
       const appliedCount = data?.appliedAidStationCount ?? 0;
       showToast(
@@ -771,8 +774,9 @@ export function OrganizerDashboard({
             ? "GPX importé. Waypoints détectés, ravitos existants préservés."
             : "GPX importé. Les plans existants restent des snapshots."
       );
-      await loadEvent(selectedEventId, activeRace.edition_group_id, activeRace.id);
-      await loadRaceSidecar(activeRace.id, normalizeGpxPreview(data));
+      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      setRaceForm((current) => applyGpxStatsToRaceForm(current, normalizedPreview?.stats));
+      await loadRaceSidecar(activeRace.id, normalizedPreview);
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -844,7 +848,7 @@ export function OrganizerDashboard({
       const uploaded = await uploadRaceImageFile(activeRace.id, file);
       if (!uploaded) return;
       showToast("success", "Image du format mise Ã  jour.");
-      await loadEvent(selectedEventId, activeRace.edition_group_id, activeRace.id);
+      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
     } finally {
       event.target.value = "";
     }
@@ -880,12 +884,7 @@ export function OrganizerDashboard({
               distanceKm: station.distanceKm,
             }))
           : [];
-      setNewRaceForm((current) => ({
-        ...current,
-        distanceKm: parsed.stats.distanceKm,
-        elevationGainM: Math.round(parsed.stats.gainM),
-        elevationLossM: Math.round(parsed.stats.lossM).toString(),
-      }));
+      setNewRaceForm((current) => applyGpxStatsToRaceForm(current, parsed.stats));
       setGpxPreview({
         stats: parsed.stats,
         elevationProfile: parsed.points.map((point, index) => {

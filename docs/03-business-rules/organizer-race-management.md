@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -151,7 +151,7 @@ The dashboard is organized as a compact top synthesis plus one tabbed completion
 
 Newly created years appear immediately in the event-level year selector and are editable without admin validation. Inside a format tab, the year remains driven only by the event-level selector; the format action bar does not repeat a local "Edition active" block.
 
-The format identity editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. The interactive route map then sits below as the main full-width visual focus, and repeated course metrics should not be duplicated across every preview header when the same values are already visible in the form.
+The format identity editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. In the information grid, D+ and D- each receive the same two-column desktop width as distance so four-digit values remain readable, and both accept the parser's one-decimal precision. The interactive route map then sits below as the main full-width visual focus, and repeated course metrics should not be duplicated across every preview header when the same values are already visible in the form.
 
 The selected edition year controls which format rows are displayed and edited, but it does not impose a time-based lock. Organizers with an active event membership may update past and future editions through the same event, image, race, GPX, ravito, and product routes.
 
@@ -214,7 +214,7 @@ Outside the Racebook, the mobile Courses tab is now the first runner surface for
 
 ## GPX Replacement
 
-Replacing a GPX updates the source `races` row and storage object for that format, then returns parsed stats, detected waypoint ravitos, and a transient elevation profile for the organizer dashboard preview. Existing saved plans remain snapshots: their `plan_gpx_path`, `elevation_profile`, `planner_values`, and `plan_aid_stations` are not automatically rewritten.
+Replacing a GPX updates the source `races` row and storage object for that format, then returns parsed stats, detected waypoint ravitos, and a transient elevation profile for the organizer dashboard preview. The dashboard immediately copies the exact returned distance, D+, and D- into the active format form and refreshes the same edition year, rather than waiting for a race-id change that may never occur. Existing saved plans remain snapshots: their `plan_gpx_path`, `elevation_profile`, `planner_values`, and `plan_aid_stations` are not automatically rewritten.
 
 When GPX waypoints are present and the format has no aid stations, the organizer GPX route can create source `race_aid_stations` from normalized waypoints. When station rows already exist, the GPX route preserves them and reports detected waypoints without replacing rows, so station-product links survive. Existing station rows are edited through the aid station route.
 
@@ -269,6 +269,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not move the active weather plan to race scope without revisiting preview, mobile Racebook, sync, and documentation rules; the current contract is one event-level plan shared by every format.
 - Do not reintroduce a separate schedule tile or format-level bib workflow without also changing completion, autosave routing, and runner-preview resolution.
 - Do not bypass the organizer GPX route when a GPX is selected during format creation; the client still has to create the race first, then import the file server-side.
+- Do not rely only on the event reload to refresh active-format GPX metrics: the active race id stays stable on replacement, so the form must consume the successful response and preserve the race's edition year explicitly.
 - Do not let the review-stage website import create or reassign another `race_events` row. The flow enriches only the currently selected organizer event and formats that remain attached to it.
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.

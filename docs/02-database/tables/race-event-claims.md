@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -98,7 +98,7 @@ Summary:
 - The website-import review remains inside that approved-only dashboard boundary. Its viewport-contained scrolling, editable event-date correction, and expandable field-confidence recap change only review accessibility and do not weaken the membership checks on preview or apply; neither the chosen date nor the quality score is proof of organizer access.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
-- Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes.
+- Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.
 - Rejection stores review metadata but does not create membership.
 
 ## Common Queries
@@ -123,6 +123,7 @@ order by created_at asc;
 
 ## Gotchas
 
+- Client-side GPX metric synchronization is presentation state only; organizer authorization must continue to come from active `race_event_organizers` membership on the server route.
 - Do not treat `status = 'approved'` as the only authorization check. Organizer write access should check an active `race_event_organizers` row.
 - Do not use `user_metadata` for reviewer/admin checks.
 - Deleting an auth user removes their claims, but public race/event data remains owned by catalog tables.

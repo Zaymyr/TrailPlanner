@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-07-20
+last_verified: 2026-08-04
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -42,7 +42,7 @@ The current organizer flow is:
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
-The add-format editor now also lets the organizer queue a GPX file before the format exists, but that upload remains a separate step from geocoding. The address autocomplete still owns only the canonical location string plus structured geocoded metadata, while the pending GPX is uploaded afterward through the organizer GPX route once the new race id exists. For existing organizer format-series tabs, the same location fields now follow the currently selected yearly edition from the year selector; switching year changes which `races` row is being edited, not the geocoding contract itself.
+The add-format editor now also lets the organizer queue a GPX file before the format exists, but that upload remains a separate step from geocoding. The address autocomplete still owns only the canonical location string plus structured geocoded metadata, while the pending GPX is uploaded afterward through the organizer GPX route once the new race id exists. For existing organizer format-series tabs, the same location fields now follow the currently selected yearly edition from the year selector; GPX and image refreshes preserve that edition year, while switching year changes which `races` row is being edited, not the geocoding contract itself. The wider course-metric inputs do not change the adjacent address value or metadata ownership.
 
 ## Provider Contract
 
@@ -84,6 +84,7 @@ Each object stores:
 
 ## Gotchas
 
+- Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
 - Do not assume every historical organizer row has geocoded metadata; old rows should parse to empty/default location objects.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.

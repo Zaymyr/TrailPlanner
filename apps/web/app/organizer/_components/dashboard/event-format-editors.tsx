@@ -286,7 +286,7 @@ function RaceForm({
               <p className="text-sm text-muted-foreground">Nom, metriques, date et lieu du parcours.</p>
             </div>
             <div className="grid gap-3 lg:grid-cols-12">
-              <div className="lg:col-span-4">
+              <div className="lg:col-span-3">
                 <TextField
                   label="Libelle format"
                   value={values.seriesName}
@@ -296,17 +296,17 @@ function RaceForm({
                   disabled={disabled}
                 />
               </div>
-              <div className="lg:col-span-4">
+              <div className="lg:col-span-3">
                 <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} disabled={disabled} />
               </div>
               <div className="lg:col-span-2">
                 <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} disabled={disabled} />
               </div>
-              <div className="lg:col-span-1">
-                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="1" invalid={missingElevationGain} disabled={disabled} />
+              <div className="lg:col-span-2">
+                <NumberField label="D+" value={values.elevationGainM} onChange={(value) => onChange({ ...values, elevationGainM: value })} step="0.1" invalid={missingElevationGain} disabled={disabled} />
               </div>
-              <div className="lg:col-span-1">
-                <TextField label="D-" type="number" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
+              <div className="lg:col-span-2">
+                <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
               <div className="lg:col-span-4">
                 <TextField

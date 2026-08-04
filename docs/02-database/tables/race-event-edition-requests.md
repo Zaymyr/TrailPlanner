@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -31,6 +31,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - `authenticated` insert/update grants and the organizer insert policy are removed.
 - `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now clones source-year formats directly; it does not insert this table.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
+- Ordinary format saves, image uploads, and GPX replacements preserve the active `races.race_date` year in dashboard refreshes; they do not read or write this retired table.
 
 ## Historical Columns
 
@@ -41,6 +42,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Do not restore organizer inserts or add new review UI for this table.
 - Do not interpret old `approved` rows as current publication approval; publication uses `race_event_publication_requests`.
 - Direct edition cloning must keep new `races` rows in draft and preserve their `edition_group_id` series relationship.
+- Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 
 ## Related Docs
 
