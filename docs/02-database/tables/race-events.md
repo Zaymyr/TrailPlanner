@@ -128,6 +128,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
+- Mobile Racebook presentation keeps start and bib value widths responsive for readable long linked locations, and shows ravito metric labels inline beside their values; these layout rules do not change the event query or organizer-details contract.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Common Queries

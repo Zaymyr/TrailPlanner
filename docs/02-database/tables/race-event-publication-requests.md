@@ -52,6 +52,7 @@ This table is the sole content-review gate for the current organizer creation fl
 - A request requires event name, location, start date, end date, and at least one format with name, positive distance, and non-negative elevation gain.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
+- Normal scope navigation may save silently in the background, but requesting publication still waits for foreground persistence before the server readiness check.
 - Rejection leaves all source rows unchanged.
 - Approval publishes complete formats under the event. Incomplete formats remain drafts and can be submitted in a later request after completion.
 - Publication does not send runner notifications automatically.

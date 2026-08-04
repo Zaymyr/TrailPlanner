@@ -50,6 +50,15 @@ export const buildOrganizerFormatSavePlan = (dirtyModules: ReadonlySet<Organizer
   return { saveRaceDetails, saveAidStations };
 };
 
+export const getOrganizerDirtyScopeKey = (eventId: string | null, activeTab: string, activeRaceId: string | null) => {
+  if (!eventId) return null;
+  if (activeTab === EVENT_TAB_ID) return `event:${eventId}`;
+  return activeRaceId ? `race:${activeRaceId}` : null;
+};
+
+export const isOrganizerScopeSavePending = (dirtyCount: number, currentRevision: number, pendingRevision?: number) =>
+  dirtyCount > 0 && pendingRevision === currentRevision;
+
 export const createEmptyEventForm = (): EventFormValues => ({
   name: "",
   location: "",
